@@ -1,6 +1,6 @@
 kind: uacp.run_state
 run_id: uacp-bootstrap-stage-3-state-binding
-status: blocked
+status: active
 current_stage: plan
 current_phase: plan
 authority:
@@ -13,7 +13,7 @@ artifacts:
   proposal: "proposals/uacp-bootstrap-stage-3-state-binding-proposal.yaml"
   plan: "plans/uacp-bootstrap-stage-3-state-binding-plan.yaml"
   execution: ""
-  verification: "verification/uacp-bootstrap-stage-3-state-binding-verification.yaml"
+  verification: "verification/uacp-bootstrap-stage-3-git-binding-verification.yaml"
   resolution: ""
   learning: ""
 selected_clusters:
@@ -54,10 +54,6 @@ deferred_items:
     reason: "PLAN/EXECUTE binding comes after UACP can record task IDs in state."
   - id: knowledge-bank-service
     reason: "Service remains deferred until local artifacts and retrieval needs are proven."
-  - id: git-repository-binding
-    reason: "UACP_ROOT versioning decision remains unresolved."
-  - id: council-findings-resolution
-    reason: "Agent Council checkpoint review is in progress and must be synthesized before milestone closure."
 state_history:
   - event: initialized
     source: "bootstrap direct edit"
@@ -77,3 +73,6 @@ state_history:
   - event: state_binding_verified
     source: "bootstrap direct edit"
     artifact: "verification/uacp-bootstrap-stage-3-state-binding-verification.yaml"
+  - event: git_binding_established
+    source: "git commit e7fcb8e"
+    artifact: "verification/uacp-bootstrap-stage-3-git-binding-verification.yaml"

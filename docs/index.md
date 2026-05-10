@@ -351,6 +351,23 @@ Canonical targets:
 - `docs/index.md`
 - `config/roots.yaml`
 
+### 2026-05-10 — Establish UACP_ROOT Git Binding
+
+Decision: `UACP_ROOT` is a standalone git repository for UACP governance, state, and durable audit artifacts.
+
+Rationale: UACP needs an explicit commit boundary for tombstones, durable audit records, and version-linked governance. A standalone repository keeps that boundary visible and avoids coupling UACP history to unrelated runtime repos.
+
+Status: accepted.
+
+Canonical targets:
+
+- `docs/index.md`
+- `config/state.yaml`
+- `state/current.yaml`
+- `state/runs/`
+
+Follow-up: active runtime-state commit cadence remains deferred until `uacp-state` exists.
+
 ## Tombstones
 
 ```yaml
@@ -364,11 +381,11 @@ Canonical targets:
     - config/gate-selection.yaml
     - config/phase-transitions.yaml
     - config/review-routing.yaml
-  git_commit: unavailable-no-git-worktree
+  git_commit: e7fcb8e
 ```
 
 ## Open Document Actions
 
-- Add git commit pointers to tombstones after the UACP artifact root is versioned.
-- Decide whether `UACP_ROOT` becomes its own git repository or a managed subtree.
+- Keep tombstone commit pointers aligned with the repository history that owns `UACP_ROOT`.
 - Replace bootstrap direct state edits with `uacp-state` once lifecycle skills are created.
+- Define commit cadence for active runtime state once `uacp-state` exists.

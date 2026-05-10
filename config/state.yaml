@@ -128,8 +128,10 @@ mutation_rules:
     - "current_stage and current_phase must match exactly until a single canonical field replaces them."
 
 version_control_binding:
-  status: design_seed
-  recommended_binding: "Version UACP_ROOT as its own focused repository or explicit managed subtree."
+  status: established
+  recommended_binding: "Version UACP_ROOT as its own focused repository."
+  repository_root: "UACP_ROOT"
+  repository_commit: "e7fcb8e"
   versioned_by_git:
     - "docs/"
     - "config/"
@@ -153,13 +155,12 @@ version_control_binding:
     updates the tombstone. Retrieve deleted content from that commit's parent
     at deleted_path.
   unresolved:
-    - "Decide whether UACP_ROOT is a standalone repository or a managed subtree."
     - "Define commit cadence for active runtime state once uacp-state exists."
 
 example_run_manifest:
   kind: uacp.run_state
   run_id: uacp-bootstrap-stage-3-state-binding
-  status: blocked
+  status: active
   current_stage: plan
   current_phase: plan
   authority:
@@ -172,7 +173,7 @@ example_run_manifest:
     proposal: "proposals/uacp-bootstrap-stage-3-state-binding-proposal.yaml"
     plan: "plans/uacp-bootstrap-stage-3-state-binding-plan.yaml"
     execution: ""
-    verification: "verification/uacp-bootstrap-stage-3-state-binding-verification.yaml"
+    verification: "verification/uacp-bootstrap-stage-3-git-binding-verification.yaml"
     resolution: ""
     learning: ""
   selected_clusters:
@@ -193,8 +194,6 @@ example_run_manifest:
   deferred_items:
     - id: lifecycle_skills
       reason: "Create after state mutation boundary is stable."
-    - id: git_repository_binding
-      reason: "UACP_ROOT repository decision remains unresolved."
   state_history:
     - event: initialized
       source: "bootstrap direct edit"
@@ -202,3 +201,6 @@ example_run_manifest:
     - event: checkpoint_blocked
       source: "agent council synthesis"
       artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
+    - event: git_binding_established
+      source: "git commit e7fcb8e"
+      artifact: "docs/index.md"

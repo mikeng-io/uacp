@@ -7,3 +7,4 @@ notes:
   - "Bootstrap state exists before uacp-state skill implementation."
   - "Direct edits are allowed only inside UACP_ROOT during this bootstrap stage."
   - "Future state mutation should move behind uacp-state."
+  - "UACP_ROOT is a standalone git repository at commit e7fcb8e."
