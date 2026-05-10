@@ -1,0 +1,155 @@
+schema_version: "0.1"
+kind: uacp.phase_transition_config
+status: seed
+purpose: >
+  Defines stable lifecycle phase envelopes and the adaptive transition artifact
+  shape. Transition decisions combine invariant checks, selected evidence
+  cluster outcomes, and blocker synthesis.
+
+stages:
+  triage:
+    enters_from: [none]
+    exits_to: [propose, terminal]
+    purpose: "Calibrate scope, score granularity, and route the request."
+    can_terminate_without_full_lifecycle: true
+    routing_outcomes:
+      direct: "terminal_direct"
+      lightweight: "propose"
+      standard_uacp: "propose"
+      full_governance: "propose"
+      block_or_clarify: "terminal_blocked"
+  propose:
+    enters_from: [triage]
+    exits_to: [plan]
+    purpose: "Establish authority, scope, context, risk, and proposal viability."
+  plan:
+    enters_from: [propose]
+    exits_to: [execute]
+    purpose: "Convert approved proposal into bounded execution and verification strategy."
+  execute:
+    enters_from: [plan]
+    exits_to: [verify]
+    purpose: "Perform bounded work through Hermes Kanban or delegated workers."
+  verify:
+    enters_from: [execute]
+    exits_to: [resolve]
+    purpose: "Validate completed work with context-selected evidence clusters."
+  resolve:
+    enters_from: [verify]
+    exits_to: [terminal]
+    purpose: "Finalize outputs, archive artifacts, and emit lessons."
+
+transition_rule:
+  required_inputs:
+    - current_stage_or_phase_artifact
+    - gate_selection_artifact
+    - required_cluster_artifacts
+    - council_synthesis_artifact
+    - declared_side_effects
+    - write_containment_record
+    - blocker_synthesis
+  pass_condition: >
+    All non-waivable invariants pass, all required clusters are pass or accepted
+    warn, no unresolved blocker remains, and the next phase explicitly accepts
+    any deferred cluster.
+  warn_condition: >
+    Transition may proceed only when warnings are documented with owners,
+    residual risk, and next-phase acceptance.
+  block_condition: >
+    Any invariant block, missing required evidence, unauthorized side effect,
+    uncontained write, untraceable state change, or unresolved material risk.
+
+artifact_schema:
+  kind: uacp.phase_transition
+  required_fields:
+    - transition_id
+    - run_id
+    - from_phase
+    - to_phase
+    - decision
+    - invariant_summary
+    - cluster_summary
+    - blockers
+    - warnings
+    - deferred_items
+    - authority
+    - artifact_paths
+  fields:
+    transition_id: string
+    run_id: string
+    from_phase:
+      type: enum
+      values: [triage, propose, plan, execute, verify, resolve]
+    terminal_kind:
+      type: enum
+      values: [none, direct_action, lightweight_action, blocked_or_clarify]
+    to_phase:
+      type: enum
+      values: [propose, plan, execute, verify, resolve, terminal]
+    decision:
+      type: enum
+      values: [pass, warn, block]
+    invariant_summary:
+      type: list
+      item_type: map
+      fields:
+        id: string
+        status: "pass|block"
+        evidence: string
+    cluster_summary:
+      type: list
+      item_type: map
+      fields:
+        cluster_id: string
+        state: "pass|warn|block|not_applicable|deferred"
+        artifact_path: string
+    blockers:
+      type: list
+      item_type: string
+    warnings:
+      type: list
+      item_type: string
+    deferred_items:
+      type: list
+      item_type: map
+    authority:
+      type: map
+      fields:
+        requested_by: string
+        authorization_source: string
+    artifact_paths:
+      type: list
+      item_type: string
+      description: "UACP_ROOT-relative paths unless a symbolic external root is declared."
+
+example_artifact:
+  kind: uacp.phase_transition
+  transition_id: uacp-bootstrap-001-plan-to-execute
+  run_id: uacp-bootstrap-001
+  from_phase: plan
+  to_phase: execute
+  decision: pass
+  terminal_kind: none
+  invariant_summary:
+    - id: authority.explicit
+      status: pass
+      evidence: "Operator requested Stage 1 and Stage 2 implementation."
+    - id: writes.contained
+      status: pass
+      evidence: "All planned writes are under UACP_ROOT."
+  cluster_summary:
+    - cluster_id: scope
+      state: pass
+      artifact_path: "docs/lifecycle-reference.md"
+    - cluster_id: verification_strategy
+      state: pass
+      artifact_path: "config/phase-transitions.yaml"
+  blockers: []
+  warnings: []
+  deferred_items: []
+  authority:
+    requested_by: "operator"
+    authorization_source: "current task prompt"
+  artifact_paths:
+    - "config/gate-selection.yaml"
+    - "config/evidence-clusters.yaml"

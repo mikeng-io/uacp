@@ -1,0 +1,37 @@
+kind: uacp.verification
+verification_id: uacp-bootstrap-stage-3-state-binding
+subject:
+  run_manifest: "state/runs/uacp-bootstrap-stage-3-state-binding.yaml"
+  transition_artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
+  council_artifact: "verification/uacp-bootstrap-stage-3-state-binding-council.yaml"
+decision: block
+checks:
+  manifest_coherence:
+    status: pass
+    observed:
+      - "proposal pointer exists"
+      - "plan pointer exists"
+      - "transition pointer exists"
+      - "council pointer exists"
+  registry_alignment:
+    status: pass
+    observed:
+      - "docs/index.md now enumerates state/"
+      - "docs/alignment-spec.md now includes state/"
+  schema_alignment:
+    status: pass
+    observed:
+      - "config/state.yaml includes transition_artifact and council_synthesis_artifact"
+      - "gate selection and phase transition schemas normalize invariant failures to block"
+  git_binding:
+    status: block
+    observed: "UACP_ROOT is not yet a git worktree."
+  checkpoint_state:
+    status: block
+    observed: "The checkpoint remains open because version-control binding is unresolved."
+known_blockers:
+  - "git/version-control binding"
+  - "future uacp-state implementation"
+  - "lifecycle skill creation"
+notes:
+  - "This verification artifact records a blocked checkpoint, not a closed milestone."

@@ -1,0 +1,79 @@
+kind: uacp.run_state
+run_id: uacp-bootstrap-stage-3-state-binding
+status: blocked
+current_stage: plan
+current_phase: plan
+authority:
+  status: pass
+  source: "operator requested a long-term UACP goal and continuation from Stage 1/2 foundation"
+transition_artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
+council_synthesis_artifact: "verification/uacp-bootstrap-stage-3-state-binding-council.yaml"
+artifacts:
+  triage: "proposals/uacp-bootstrap-stage-1-2-triage.yaml"
+  proposal: "proposals/uacp-bootstrap-stage-3-state-binding-proposal.yaml"
+  plan: "plans/uacp-bootstrap-stage-3-state-binding-plan.yaml"
+  execution: ""
+  verification: "verification/uacp-bootstrap-stage-3-state-binding-verification.yaml"
+  resolution: ""
+  learning: ""
+selected_clusters:
+  - document_authority
+  - state_traceability
+  - version_control_binding
+  - path_portability
+  - agent_council_checkpoint
+kanban:
+  enabled: false
+  board: ""
+  task_ids: []
+invariants:
+  - id: document_authority
+    status: pass
+    evidence: "docs/index.md"
+  - id: state_traceability
+    status: pass
+    evidence: "config/state.yaml"
+  - id: write_containment
+    status: pass
+    evidence: "UACP_ROOT only"
+  - id: kanban_boundary
+    status: pass
+    evidence: "docs/lifecycle-reference.md states Kanban is task substrate, not phase state"
+  - id: stage_phase_consistency
+    status: pass
+    evidence: "current_stage and current_phase both equal plan"
+  - id: checkpoint_blocked
+    status: pass
+    evidence: "Blocked checkpoint is now explicitly documented by transition and verification artifacts"
+deferred_items:
+  - id: uacp-state-skill
+    reason: "State mutation skill comes after bootstrap state schema is proven."
+  - id: lifecycle-skill-skeletons
+    reason: "Lifecycle skills come after state mutation boundary."
+  - id: kanban-binding
+    reason: "PLAN/EXECUTE binding comes after UACP can record task IDs in state."
+  - id: knowledge-bank-service
+    reason: "Service remains deferred until local artifacts and retrieval needs are proven."
+  - id: git-repository-binding
+    reason: "UACP_ROOT versioning decision remains unresolved."
+  - id: council-findings-resolution
+    reason: "Agent Council checkpoint review is in progress and must be synthesized before milestone closure."
+state_history:
+  - event: initialized
+    source: "bootstrap direct edit"
+    artifact: "config/state.yaml"
+  - event: current_pointer_created
+    source: "bootstrap direct edit"
+    artifact: "state/current.yaml"
+  - event: run_manifest_created
+    source: "bootstrap direct edit"
+    artifact: "state/runs/uacp-bootstrap-stage-3-state-binding.yaml"
+  - event: agent_council_dispatched
+    source: "bootstrap direct edit"
+    artifact: "verification/uacp-bootstrap-stage-3-state-binding-council.yaml"
+  - event: checkpoint_blocked
+    source: "agent council synthesis"
+    artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
+  - event: state_binding_verified
+    source: "bootstrap direct edit"
+    artifact: "verification/uacp-bootstrap-stage-3-state-binding-verification.yaml"

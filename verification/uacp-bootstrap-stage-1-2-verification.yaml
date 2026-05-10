@@ -1,0 +1,85 @@
+kind: uacp.verification
+verification_id: uacp-bootstrap-stage-1-2
+subject:
+  triage_artifact: "proposals/uacp-bootstrap-stage-1-2-triage.yaml"
+  scope: "Stage 1 and Stage 2 UACP artifact foundation"
+decision: pass
+checks:
+  directory_structure:
+    status: pass
+    observed:
+      - "proposals/"
+      - "plans/"
+      - "executions/"
+      - "verification/"
+      - "outputs/"
+      - "knowledge/"
+      - "knowledge/scenarios/"
+      - "knowledge/gate-templates/"
+      - "knowledge/lessons/"
+      - "knowledge/indexes/"
+      - "config/"
+      - "docs/"
+  active_docs:
+    status: pass
+    observed:
+      - "docs/index.md"
+      - "docs/constitution.md"
+      - "docs/first-principles.md"
+      - "docs/alignment-spec.md"
+      - "docs/lifecycle-reference.md"
+  config_files:
+    status: pass
+    observed:
+      - "config/evidence-clusters.yaml"
+      - "config/gate-selection.yaml"
+      - "config/phase-transitions.yaml"
+      - "config/review-routing.yaml"
+      - "config/memory-policy.yaml"
+      - "config/roots.yaml"
+  yaml_parse:
+    status: pass
+    method: "Python PyYAML parse with duplicate-key detection"
+    observed:
+      - "config/evidence-clusters.yaml"
+      - "config/gate-selection.yaml"
+      - "config/memory-policy.yaml"
+      - "config/phase-transitions.yaml"
+      - "config/review-routing.yaml"
+      - "config/roots.yaml"
+      - "proposals/uacp-bootstrap-stage-1-2-triage.yaml"
+  path_portability:
+    status: pass
+    method: "search active docs/config/proposals for hardcoded deployment paths"
+    observed: "No hardcoded physical paths found for local deployment or private boundary."
+  context_hygiene:
+    status: pass
+    observed: "Deleted TRIAGE working note is absent from active docs."
+  git_binding:
+    status: warn
+    observed: "UACP_ROOT is not currently a git worktree."
+    deferred_issue: "Define commit/version-control binding for UACP state and tombstones later."
+  scope_containment:
+    status: pass
+    observed: "No lifecycle skills, Kanban integration, or standalone Knowledge Bank service implemented in this pass."
+  stage_closure:
+    status: pass
+    observed: "docs/index.md records Stage 1/2 closure with deferred items."
+  state_version_design:
+    status: pass
+    observed: "docs/lifecycle-reference.md records design-only state/version-control layer; no state directory or lifecycle skills were created."
+known_deferred_items:
+  - id: version-control-binding
+    summary: "Decide implementation details for how UACP_ROOT, state artifacts, tombstones, and commit references are versioned."
+  - id: state-model-implementation
+    summary: "Implement state only after the state artifact schema and mutation boundary are approved."
+  - id: lifecycle-skill-skeletons
+    summary: "Create lifecycle skills only after Stage 1/2 closure."
+  - id: knowledge-bank-service
+    summary: "Standalone retrieval/ranking service remains out of scope."
+  - id: hermes-kanban-integration
+    summary: "Kanban task graph integration remains out of scope; verified local docs show Kanban is a task substrate, not UACP phase state."
+notes:
+  - "Stage 1 directory structure exists."
+  - "Stage 2 docs and config exist, including document governance and symbolic roots."
+  - "TRIAGE is represented before PROPOSE and uses multi-factor granularity scoring."

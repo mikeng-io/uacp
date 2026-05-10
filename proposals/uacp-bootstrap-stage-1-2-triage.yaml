@@ -1,0 +1,51 @@
+kind: uacp.triage
+triage_id: uacp-bootstrap-stage-1-2
+request_summary: >
+  Create the initial UACP artifact directory structure, seed configuration
+  files, canonical docs, document registry, and document-control rules for
+  Stage 1 and Stage 2 only.
+authority:
+  status: pass
+  source: "operator prompt authorized Stage 1 and Stage 2 writes inside UACP_ROOT"
+factor_scores:
+  impact: 6
+  reversibility: 3
+  domain_count: 3
+  runtime_count: 1
+  verification_difficulty: 4
+  notes:
+    - "Impact is moderate because these documents become UACP source-of-truth scaffolding."
+    - "Reversibility is low-risk because all writes are local under the UACP artifact root."
+    - "Domains include governance, document control, and Hermes/Norty workflow design."
+    - "Runtime count is low because no Hermes runtime, Kanban worker, or external agent integration is being changed."
+    - "Verification is mostly structural and semantic: file inventory, YAML parsing, and consistency against the registry."
+granularity_level: 5
+routing_outcome: standard_uacp
+rationale:
+  - "The task is more than a direct action because it creates durable governance scaffolding."
+  - "The task does not require full governance because it has no external side effects and no runtime changes."
+  - "Document control is mandatory before expanding UACP workflow or runtime implementation."
+artifact_policy: standard
+next_step: "Run consistency and verification for Stage 1 and Stage 2 artifacts, then stop before lifecycle skill or Knowledge Bank implementation."
+write_boundary:
+  allowed:
+    - "UACP_ROOT"
+  forbidden:
+    - "PRIVATE_ROOT"
+    - "HERMES_ROOT/skills/"
+    - "HERMES_ROOT/plans/"
+    - "runtime service or Kanban configuration"
+side_effects:
+  filesystem:
+    - "creates and updates files under UACP_ROOT"
+  runtime:
+    - "none"
+  external:
+    - "none"
+selected_checks:
+  - "active docs match docs/index.md inventory"
+  - "deleted working notes are absent from active docs"
+  - "YAML config files parse with duplicate-key detection"
+  - "Stage 1 directories exist"
+  - "Stage 2 docs and configs exist"
+  - "no files outside UACP_ROOT were written for this implementation step"

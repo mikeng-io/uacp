@@ -1,0 +1,204 @@
+schema_version: "0.1"
+kind: uacp.state_config
+status: seed
+purpose: >
+  Defines the initial file-based UACP state layer and version-control binding.
+  This is the bootstrap state contract before lifecycle skills or runtime
+  integration exist.
+
+state_layer:
+  storage: file_based_yaml
+  root: "state/"
+  current_pointer: "state/current.yaml"
+  run_manifests: "state/runs/"
+  implementation_status: bootstrap
+  mutation_boundary: "future uacp-state skill"
+
+state_principles:
+  - "State records current lifecycle position and pointers; artifacts carry detailed evidence."
+  - "State does not replace canonical governance docs or config."
+  - "State does not replace Hermes Kanban; Kanban task IDs are traceability references."
+  - "State must use UACP_ROOT-relative paths or symbolic roots."
+  - "Direct state edits are bootstrap-only until uacp-state exists."
+
+run_manifest_schema:
+  kind: uacp.run_state
+  required_fields:
+    - run_id
+    - status
+    - current_stage
+    - current_phase
+    - authority
+    - transition_artifact
+    - council_synthesis_artifact
+    - artifacts
+    - invariants
+    - state_history
+  fields:
+    run_id: string
+    status:
+      type: enum
+      values: [active, blocked, closed, archived]
+    current_stage:
+      type: enum
+      values: [triage, propose, plan, execute, verify, resolve]
+    current_phase:
+      type: enum
+      values: [triage, propose, plan, execute, verify, resolve]
+    authority:
+      type: map
+      fields:
+        source: string
+        status: "pass|warn|block"
+    transition_artifact:
+      type: string
+    council_synthesis_artifact:
+      type: string
+    artifacts:
+      type: map
+      fields:
+        triage: string
+        proposal: string
+        plan: string
+        execution: string
+        verification: string
+        resolution: string
+        learning: string
+    selected_clusters:
+      type: list
+      item_type: string
+    kanban:
+      type: map
+      fields:
+        enabled: boolean
+        board: string
+        task_ids: list
+    invariants:
+      type: list
+      item_type: map
+      fields:
+        id: string
+        status: "pass|block"
+        evidence: string
+    deferred_items:
+      type: list
+      item_type: map
+    state_history:
+      type: list
+      item_type: map
+      fields:
+        event: string
+        source: string
+        artifact: string
+
+current_pointer_schema:
+  kind: uacp.current_state
+  required_fields:
+    - active_run_id
+    - active_run_manifest
+    - mutation_policy
+    - current_transition_artifact
+  fields:
+    active_run_id: string
+    active_run_manifest: string
+    mutation_policy:
+      type: enum
+      values: [bootstrap_direct_edit, uacp_state_required]
+    current_transition_artifact: string
+    notes:
+      type: list
+      item_type: string
+
+mutation_rules:
+  bootstrap:
+    allowed: "Direct edits by the orchestrating agent inside UACP_ROOT."
+    exit_rule: "Bootstrap direct edits end once the run manifest has proposal, plan, transition, verification, and council artifacts or the work moves behind uacp-state."
+    required_evidence:
+      - "docs/index.md decision log"
+      - "matching run manifest update"
+      - "verification artifact when closing a milestone"
+  future:
+    required: "uacp-state owns state mutation."
+    direct_edit_policy: "block unless explicitly authorized for recovery."
+  invariants:
+    - "Every mutation points to an authority source or transition artifact."
+    - "State paths are UACP_ROOT-relative unless a symbolic external root is declared."
+    - "State never stores high-volume evidence inline when an artifact path can be referenced."
+    - "State does not use hardcoded physical deployment paths."
+    - "current_stage and current_phase must match exactly until a single canonical field replaces them."
+
+version_control_binding:
+  status: design_seed
+  recommended_binding: "Version UACP_ROOT as its own focused repository or explicit managed subtree."
+  versioned_by_git:
+    - "docs/"
+    - "config/"
+    - "proposals/"
+    - "plans/"
+    - "executions/"
+    - "verification/"
+    - "outputs/"
+    - "knowledge/"
+    - "state/"
+  commit_required_for:
+    - "canonical doc changes"
+    - "config/schema changes"
+    - "tombstone entries"
+    - "milestone closure verification artifacts"
+  commit_not_required_for:
+    - "every intermediate runtime state mutation"
+    - "scratch execution artifacts"
+  tombstone_commit_rule: >
+    git_commit points to the commit that deletes the legacy file and adds or
+    updates the tombstone. Retrieve deleted content from that commit's parent
+    at deleted_path.
+  unresolved:
+    - "Decide whether UACP_ROOT is a standalone repository or a managed subtree."
+    - "Define commit cadence for active runtime state once uacp-state exists."
+
+example_run_manifest:
+  kind: uacp.run_state
+  run_id: uacp-bootstrap-stage-3-state-binding
+  status: blocked
+  current_stage: plan
+  current_phase: plan
+  authority:
+    status: pass
+    source: "operator requested long-term UACP development goal"
+  transition_artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
+  council_synthesis_artifact: "verification/uacp-bootstrap-stage-3-state-binding-council.yaml"
+  artifacts:
+    triage: "proposals/uacp-bootstrap-stage-1-2-triage.yaml"
+    proposal: "proposals/uacp-bootstrap-stage-3-state-binding-proposal.yaml"
+    plan: "plans/uacp-bootstrap-stage-3-state-binding-plan.yaml"
+    execution: ""
+    verification: "verification/uacp-bootstrap-stage-3-state-binding-verification.yaml"
+    resolution: ""
+    learning: ""
+  selected_clusters:
+    - document_authority
+    - state_traceability
+    - version_control_binding
+  kanban:
+    enabled: false
+    board: ""
+    task_ids: []
+  invariants:
+    - id: document_authority
+      status: pass
+      evidence: "docs/index.md"
+    - id: stage_phase_consistency
+      status: pass
+      evidence: "current_stage and current_phase both set to plan during bootstrap"
+  deferred_items:
+    - id: lifecycle_skills
+      reason: "Create after state mutation boundary is stable."
+    - id: git_repository_binding
+      reason: "UACP_ROOT repository decision remains unresolved."
+  state_history:
+    - event: initialized
+      source: "bootstrap direct edit"
+      artifact: "config/state.yaml"
+    - event: checkpoint_blocked
+      source: "agent council synthesis"
+      artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"

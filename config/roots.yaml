@@ -1,0 +1,59 @@
+schema_version: "0.1"
+kind: uacp.roots_config
+status: seed
+purpose: >
+  Defines symbolic root names and path-resolution rules for UACP authority
+  documents, config, and artifacts. Physical deployment paths are environment
+  bindings, not canonical governance.
+
+roots:
+  UACP_ROOT:
+    role: "UACP artifact root"
+    contains:
+      - docs/
+      - config/
+      - proposals/
+      - plans/
+      - executions/
+      - verification/
+      - outputs/
+      - knowledge/
+      - state/
+    binding_policy: "Bound by the runtime or operator environment before execution."
+  HERMES_ROOT:
+    role: "Parent Hermes workspace root"
+    contains:
+      - skills/
+      - plans/
+    binding_policy: "Bound by the runtime or operator environment before execution."
+  PRIVATE_ROOT:
+    role: "Sensitive private data boundary"
+    contains: []
+    binding_policy: "Must not be read or written unless explicit authority is granted outside normal UACP Stage 1/2 work."
+
+resolution_rules:
+  default_base: UACP_ROOT
+  unqualified_relative_paths: "Resolve against UACP_ROOT."
+  symbolic_root_paths: "Resolve against the named root before evaluating the remainder."
+  current_working_directory: "Never used as an implicit base for UACP authority paths."
+  physical_paths: "Allowed only in runtime environment bindings or operator-local diagnostics, not canonical docs/config."
+
+forbidden_in_authority_documents:
+  - pattern: "../"
+    reason: "Path traversal makes authority ambiguous."
+  - pattern: "environment-specific absolute paths"
+    reason: "Canonical governance must be portable across deployments."
+  - pattern: "cwd-relative assumptions"
+    reason: "Agent working directories vary and can cause stale or wrong reads."
+
+examples:
+  valid:
+    - "docs/index.md"
+    - "config/gate-selection.yaml"
+    - "knowledge/scenarios/<scenario-id>.yaml"
+    - "HERMES_ROOT/skills/"
+    - "PRIVATE_ROOT"
+  invalid:
+    - "../plans/example.md"
+    - "/absolute/local/deployment/path/uacp/docs/index.md"
+    - "./docs/index.md when ./ means the shell current directory"

@@ -1,0 +1,9 @@
+kind: uacp.current_state
+active_run_id: uacp-bootstrap-stage-3-state-binding
+active_run_manifest: "state/runs/uacp-bootstrap-stage-3-state-binding.yaml"
+mutation_policy: bootstrap_direct_edit
+current_transition_artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
+notes:
+  - "Bootstrap state exists before uacp-state skill implementation."
+  - "Direct edits are allowed only inside UACP_ROOT during this bootstrap stage."
+  - "Future state mutation should move behind uacp-state."

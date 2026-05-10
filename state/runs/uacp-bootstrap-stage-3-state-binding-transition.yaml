@@ -1,0 +1,49 @@
+kind: uacp.phase_transition
+transition_id: uacp-bootstrap-stage-3-state-binding-plan-blocked
+run_id: uacp-bootstrap-stage-3-state-binding
+from_phase: plan
+to_phase: terminal
+terminal_kind: blocked_or_clarify
+decision: block
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: "Operator requested continued UACP development."
+  - id: writes.contained
+    status: pass
+    evidence: "All writes remain under UACP_ROOT."
+  - id: state.traceable
+    status: pass
+    evidence: "Run manifest and current pointer reference UACP-relative state artifacts."
+cluster_summary:
+  - cluster_id: document_authority
+    state: pass
+    artifact_path: "docs/index.md"
+  - cluster_id: state_traceability
+    state: pass
+    artifact_path: "config/state.yaml"
+  - cluster_id: version_control_binding
+    state: block
+    artifact_path: "config/state.yaml"
+  - cluster_id: council_synthesis
+    state: block
+    artifact_path: "verification/uacp-bootstrap-stage-3-state-binding-council.yaml"
+blockers:
+  - "Missing git/version-control binding for UACP_ROOT."
+  - "Checkpoint is blocked until the council findings are resolved or explicitly deferred."
+warnings:
+  - "Stage 3 state binding is coherent as a blocked checkpoint, not a closed milestone."
+deferred_items:
+  - id: git_repository_binding
+    reason: "Version-control boundary is still a design decision."
+  - id: lifecycle_skills
+    reason: "Do not create lifecycle skills before state mutation semantics are closed."
+authority:
+  requested_by: "operator"
+  authorization_source: "current UACP continuation request"
+artifact_paths:
+  - "proposals/uacp-bootstrap-stage-3-state-binding-proposal.yaml"
+  - "plans/uacp-bootstrap-stage-3-state-binding-plan.yaml"
+  - "verification/uacp-bootstrap-stage-3-state-binding-verification.yaml"
+  - "verification/uacp-bootstrap-stage-3-state-binding-council.yaml"
+  - "config/state.yaml"

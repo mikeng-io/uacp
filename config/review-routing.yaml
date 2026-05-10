@@ -1,0 +1,184 @@
+schema_version: "0.1"
+kind: uacp.review_routing_config
+status: seed
+purpose: >
+  Defines how UACP chooses review intensity and review surfaces. Review routing
+  is selected by context, risk, domain, artifacts, and side effects; it is not a
+  software-only checklist.
+
+routing_inputs:
+  - phase
+  - domains
+  - artifact_types
+  - risk_level
+  - granularity_level
+  - routing_outcome
+  - triage_factor_scores
+  - side_effects
+  - reversibility
+  - trust_boundary
+  - operator_constraints
+  - selected_clusters
+  - unresolved_warnings
+  - prior_scenario_lessons
+
+review_intensity:
+  none:
+    use_when:
+      - "low risk"
+      - "no external side effects"
+      - "operator only requested direct answer or local artifact read"
+      - "granularity level is 1"
+  lightweight:
+    use_when:
+      - "local docs or config changes"
+      - "limited blast radius"
+      - "clear authority and containment"
+      - "granularity level is 2-3"
+  local_council:
+    use_when:
+      - "multi-domain or architectural implications"
+      - "moderate ambiguity"
+      - "phase transition has warnings"
+      - "granularity level is 7-8"
+  deep_council:
+    use_when:
+      - "high or critical risk"
+      - "security, privacy, legal, financial, or safety exposure"
+      - "tool diversity materially improves confidence"
+      - "granularity level is 9-10"
+  human_operator:
+    use_when:
+      - "authority is unclear"
+      - "requested side effects exceed declared boundaries"
+      - "irreversible or externally visible action needs explicit approval"
+
+review_surfaces:
+  main_orchestrator:
+    role: "Synthesize evidence, decide routing, and report to operator."
+  hermes_kanban:
+    role: "Represent bounded execution and review tasks durably."
+  delegate_task:
+    role: "Run bounded research, analysis, or validation units."
+  external_coding_agent:
+    role: "Handle heavy coding or complex implementation when selected."
+  local_council:
+    role: "Run role-diverse adversarial review when ported and available."
+  deep_council:
+    role: "Run cross-runtime or cross-agent review when justified."
+  human_operator:
+    role: "Resolve authority, policy, and irreversible-decision questions."
+
+checkpoint_review_policy:
+  purpose: "Define phase or milestone checkpoints that require council review before closure."
+  required_local_council_checkpoints:
+    - id: state_version_control_binding
+      trigger: "Before closing the state/version-control milestone or creating lifecycle skills."
+      required_surface: local_council
+      intensity: full_dimension
+      required_artifact_fields:
+        - council_synthesis_artifact
+        - verification_artifact
+      required_dimensions:
+        - document_authority
+        - state_traceability
+        - version_control_binding
+        - hermes_kanban_boundary
+        - adaptive_gate_selection
+        - memory_knowledge_boundary
+        - path_and_write_containment
+        - non_software_domain_coverage
+        - operational_feasibility
+      completion_rule: "Council synthesis artifact exists and any HIGH or CRITICAL finding is resolved, accepted with explicit rationale, or blocks the milestone."
+    - id: pre_lifecycle_skill_creation
+      trigger: "Before creating uacp-state or lifecycle skill skeletons."
+      required_surface: local_council
+      intensity: full_dimension
+      required_artifact_fields:
+        - council_synthesis_artifact
+      required_dimensions:
+        - mutation_boundary
+        - skill_responsibility_split
+        - document_runtime_drift
+        - state_schema_adequacy
+        - verification_strategy
+      completion_rule: "Council synthesis artifact exists and no unresolved blocker remains."
+  exception_recording:
+    operator_accepted_exception_field: accepted_exceptions
+    council_synthesis_reference_field: council_synthesis_artifact
+    rule: "Any accepted exception must identify the artifact path, rationale, and explicit owner."
+  unavailable_surface_rule: >
+    If local council cannot be dispatched, record the unavailable surface in the
+    verification artifact. For medium or higher risk milestones, block closure
+    or require explicit operator acceptance.
+
+domain_routing_notes:
+  software:
+    possible_clusters:
+      - diff_review
+      - tests
+      - static_analysis
+      - security_review
+      - runtime_validation
+      - dependency_impact
+    note: "Select only checks relevant to artifact type and risk."
+  infra:
+    possible_clusters:
+      - rollout_safety
+      - rollback_plan
+      - blast_radius
+      - credential_exposure
+      - observability
+  research:
+    possible_clusters:
+      - source_grounding
+      - contradiction_check
+      - methodology_fit
+      - confidence_summary
+  writing:
+    possible_clusters:
+      - audience_fit
+      - claim_grounding
+      - tone_alignment
+      - publication_constraints
+  marketing:
+    possible_clusters:
+      - brand_fit
+      - claims_compliance
+      - channel_format
+      - audience_segment_fit
+  productivity:
+    possible_clusters:
+      - constraint_fit
+      - calendar_or_resource_conflict
+      - reversibility
+  lifestyle:
+    possible_clusters:
+      - safety
+      - cost
+      - availability
+      - personal_preference_fit
+  creative:
+    possible_clusters:
+      - brief_alignment
+      - asset_constraints
+      - rights_or_license_review
+
+escalation_rules:
+  - condition: "checkpoint requires full_dimension local_council"
+    route: local_council
+  - condition: "any triage factor score is 9 or 10"
+    route: deep_council
+  - condition: "any non-waivable invariant is block"
+    route: human_operator
+  - condition: "risk_level is critical"
+    route: deep_council
+  - condition: "granularity_level is 9 or 10"
+    route: deep_council
+  - condition: "write containment cannot be proven"
+    route: human_operator
+  - condition: "external publication or irreversible action is requested"
+    route: human_operator
+  - condition: "review tool or council is unavailable"
+    route: main_orchestrator
+    fallback: "record unavailable review surface and apply conservative failure if risk requires it"

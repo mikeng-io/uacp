@@ -1,0 +1,36 @@
+kind: uacp.proposal
+proposal_id: uacp-bootstrap-stage-3-state-binding
+run_id: uacp-bootstrap-stage-3-state-binding
+objective: >
+  Bind the initial UACP state layer to a governed checkpoint model with a
+  current pointer, run manifest, and version-control policy.
+scope:
+  in_scope:
+    - "config/state.yaml"
+    - "state/current.yaml"
+    - "state/runs/uacp-bootstrap-stage-3-state-binding.yaml"
+    - "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
+  out_of_scope:
+    - "lifecycle skill implementation"
+    - "Hermes Kanban binding implementation"
+    - "standalone Knowledge Bank service"
+    - "version-control repository initialization"
+authority:
+  status: pass
+  source: "operator asked to continue UACP development and checkpoint the state/version layer"
+status: proposed
+expected_outputs:
+  - "coherent state manifest pointers"
+  - "checkpoint verification artifact"
+  - "local council synthesis artifact"
+  - "schema updates that make the state layer machine-checkable"
+success_criteria:
+  - "proposal, plan, transition, verification, and council artifacts exist"
+  - "state manifest points to coherent evidence"
+  - "registry and alignment docs enumerate the live state layer"
+  - "git/version-control binding remains explicitly deferred until decisioned"
+deferred_items:
+  - "git repository binding"
+  - "uacp-state mutation skill"
+  - "lifecycle skill skeletons"
+  - "Kanban execution binding"

@@ -1,0 +1,169 @@
+schema_version: "0.1"
+kind: uacp.evidence_cluster_registry
+status: seed
+purpose: >
+  Defines reusable evidence cluster families and the artifact shape for
+  context-selected UACP gate work. These families are available to the
+  meta-gate; they are not a mandatory checklist.
+
+cluster_states:
+  pass: "No blocker found; transition can consider this cluster satisfied."
+  warn: "Proceed only with recorded risk, owner, and follow-up condition."
+  block: "Phase transition is forbidden until remediated or explicitly rescoped."
+  not_applicable: "Cluster was considered and rejected with a reason."
+  deferred: "Cluster is accepted by the next phase as explicit carried risk."
+
+artifact_schema:
+  kind: uacp.evidence_cluster
+  required_fields:
+    - cluster_id
+    - phase
+    - family
+    - purpose
+    - trigger_conditions
+    - required_inputs
+    - allowed_tools
+    - output_artifact_path
+    - decision_rules
+    - concurrency
+    - dependencies
+    - state
+    - findings
+  fields:
+    cluster_id:
+      type: string
+      description: Stable local identifier for this cluster instance or template.
+    phase:
+      type: enum
+      values: [triage, propose, plan, execute, verify, resolve]
+    family:
+      type: string
+      description: Reusable family such as scope, context, risk, or generated.
+    purpose:
+      type: string
+    trigger_conditions:
+      type: list
+      item_type: string
+    required_inputs:
+      type: list
+      item_type: string
+    allowed_tools:
+      type: list
+      item_type: string
+      description: Tool classes or skill roles, not hardcoded model names.
+    output_artifact_path:
+      type: string
+      description: UACP_ROOT-relative path unless a symbolic external root is declared.
+    decision_rules:
+      type: map
+      fields:
+        pass: string
+        warn: string
+        block: string
+        not_applicable: string
+        deferred: string
+    concurrency:
+      type: map
+      fields:
+        can_run_parallel: boolean
+        fanout_group: string
+        max_parallelism_hint: string
+    dependencies:
+      type: list
+      item_type: string
+    state:
+      type: enum
+      values: [pass, warn, block, not_applicable, deferred]
+    findings:
+      type: list
+      item_type: map
+
+universal_cluster_families:
+  - id: scope
+    purpose: "Clarify requested work, boundaries, non-goals, and ambiguity."
+    typical_phases: [triage, propose, plan]
+    default_concurrency: "early-routing"
+  - id: context
+    purpose: "Classify domains, artifacts, project conventions, and routing."
+    typical_phases: [triage, propose, plan, verify]
+    default_concurrency: "early-routing"
+  - id: authority
+    purpose: "Verify explicit authority for requested side effects."
+    typical_phases: [triage, propose, plan, execute, verify, resolve]
+    invariant: true
+  - id: side_effects
+    purpose: "Declare files, systems, people, services, or external surfaces affected."
+    typical_phases: [triage, propose, plan, execute, verify, resolve]
+    invariant: true
+  - id: write_containment
+    purpose: "Confirm write boundaries and workspace containment."
+    typical_phases: [plan, execute, verify]
+    invariant: true
+  - id: privacy_safety
+    purpose: "Check privacy, safety, and trust-boundary exposure."
+    typical_phases: [triage, propose, plan, execute, verify, resolve]
+    invariant: true
+  - id: traceable_state
+    purpose: "Ensure state changes are recorded with authority and provenance."
+    typical_phases: [plan, execute, verify, resolve]
+    invariant: true
+  - id: conservative_failure
+    purpose: "Block on missing authority, missing config, or unresolved critical uncertainty."
+    typical_phases: [triage, propose, plan, execute, verify, resolve]
+    invariant: true
+  - id: grounding
+    purpose: "Retrieve source-backed evidence when current or external facts matter."
+    typical_phases: [triage, propose, plan, verify]
+  - id: feasibility
+    purpose: "Assess practical feasibility in the selected domain, not only software."
+    typical_phases: [plan]
+  - id: risk
+    purpose: "Identify failure modes, blast radius, reversibility, and stop conditions."
+    typical_phases: [triage, propose, plan, verify]
+  - id: architecture_design
+    purpose: "Check fit with existing architecture, design, constraints, or strategy."
+    typical_phases: [plan, verify]
+  - id: execution_strategy
+    purpose: "Define bounded execution units, Kanban shape, delegation, and observability."
+    typical_phases: [plan, execute]
+  - id: verification_strategy
+    purpose: "Define context-appropriate checks and acceptance evidence."
+    typical_phases: [plan, verify]
+  - id: memory_lessons
+    purpose: "Decide what becomes artifact, lesson, memory, or skill update."
+    typical_phases: [resolve]
+
+example_artifact:
+  kind: uacp.evidence_cluster
+  cluster_id: verify.runtime_validation
+  phase: verify
+  family: verification_strategy
+  purpose: "Validate that a completed runtime-facing change behaves as intended."
+  trigger_conditions:
+    - "Artifact changes runtime behavior or operational configuration."
+    - "The selected domain template marks runtime validation as relevant."
+  required_inputs:
+    - "approved_plan_artifact"
+    - "execution_history_artifact"
+    - "changed_artifact_list"
+  allowed_tools:
+    - "local_test_runner"
+    - "browser_or_runtime_probe_when_available"
+    - "delegate_task_for_bounded_validation"
+  output_artifact_path: "verification/<run-id>/runtime-validation.yaml"
+  decision_rules:
+    pass: "Expected behavior is observed and no blocker remains."
+    warn: "Non-critical issue remains with explicit owner and accepted follow-up."
+    block: "Expected behavior cannot be validated or a material regression is found."
+    not_applicable: "No runtime-facing artifact or side effect exists."
+    deferred: "Only allowed when the next phase records the exact deferred validation."
+  concurrency:
+    can_run_parallel: true
+    fanout_group: verify
+    max_parallelism_hint: "bounded-by-tooling"
+  dependencies:
+    - "gate-selection artifact"
+  state: pass
+  findings:
+    - severity: info
+      summary: "Example only; replace with concrete validation evidence."
