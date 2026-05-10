@@ -3,6 +3,8 @@ active_run_id: uacp-governed-lifecycle-dry-run
 active_run_manifest: "state/runs/uacp-governed-lifecycle-dry-run.yaml"
 mutation_policy: uacp_state_required
 current_transition_artifact: "state/runs/uacp-governed-lifecycle-dry-run-verify-to-resolve-transition.yaml"
+kanban_binding_artifact: "state/kanban.yaml"
+kanban_board_slug: "uacp"
 bootstrap_closed: true
 governed_mutation_active: true
 notes:
@@ -13,3 +15,4 @@ notes:
   - "uacp-state skill now exists under HERMES_ROOT/skills/devops/uacp/uacp-state/SKILL.md."
   - "Bootstrap has been closed; governed mutation is now active."
   - "Active run has advanced to resolve."
+  - "Active Kanban binding is recorded in state/kanban.yaml."

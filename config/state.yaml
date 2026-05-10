@@ -154,6 +154,8 @@ current_pointer_schema:
     - active_run_manifest
     - mutation_policy
     - current_transition_artifact
+    - kanban_binding_artifact
+    - kanban_board_slug
     - bootstrap_closed
     - governed_mutation_active
   fields:
@@ -163,6 +165,8 @@ current_pointer_schema:
       type: enum
       values: [bootstrap_direct_edit, uacp_state_required]
     current_transition_artifact: string
+    kanban_binding_artifact: string
+    kanban_board_slug: string
     bootstrap_closed:
       type: boolean
     governed_mutation_active:

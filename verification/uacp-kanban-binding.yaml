@@ -1,0 +1,29 @@
+kind: uacp.verification
+verification_id: uacp-kanban-binding
+subject:
+  board_slug: uacp
+  binding_artifact: "state/kanban.yaml"
+  root_task_id: t_ac2981a9
+decision: pass
+checks:
+  board_exists:
+    status: pass
+    observed:
+      - "Hermes board 'uacp' exists"
+      - "Board is current and isolated from other streams"
+  task_exists:
+    status: pass
+    observed:
+      - "Task t_ac2981a9 exists on board uacp"
+      - "Task status is ready"
+  binding_artifact:
+    status: pass
+    observed:
+      - "state/kanban.yaml records the active binding"
+      - "UACP phase state remains in UACP state artifacts"
+  traceability:
+    status: pass
+    observed:
+      - "Kanban holds traceability anchors, not lifecycle state"
+notes:
+  - "This verification covers the active Hermes Kanban binding for future PLAN/EXECUTE workstreams."

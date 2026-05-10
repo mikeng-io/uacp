@@ -1,0 +1,18 @@
+kind: uacp.kanban_binding
+status: active
+board_slug: uacp
+board_name: UACP
+root_task_ids:
+  - t_ac2981a9
+task_graph_policy:
+  - "UACP phase state lives in UACP state artifacts."
+  - "Hermes Kanban holds task ids, dependency edges, assignees, and execution traceability."
+  - "PLAN and EXECUTE may fan out into Kanban tasks, but they do not move phase state."
+current_tasks:
+  - id: t_ac2981a9
+    title: "Bind UACP PLAN/EXECUTE to Hermes Kanban"
+    status: ready
+    role: root binding task
+binding_notes:
+  - "This binding is active for future PLAN/EXECUTE workstreams."
+  - "The board is board-scoped and isolated from unrelated streams of work."

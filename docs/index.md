@@ -131,6 +131,7 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `config/state.yaml` | schema_config | generated | File-based state layer and version-control binding | Keep aligned with lifecycle reference and future `uacp-state` |
 | `state/` | runtime_state | canonical | Mutable run state layer | Keep pointer-based; bootstrap-only until governed mutation exists |
 | `state/current.yaml` | runtime_state | canonical | Active state pointer | Update with the current run manifest and provenance |
+| `state/kanban.yaml` | runtime_state | canonical | Active Hermes Kanban binding | Update when the board slug or root task ids change |
 | `state/runs/` | runtime_state | canonical | Per-run manifests and checkpoint records | Append new run manifests; do not overwrite historical runs |
 
 ## Creation Rules
@@ -242,6 +243,21 @@ Status: accepted.
 Canonical targets:
 
 - `docs/index.md`
+
+### 2026-05-11 — Establish Active Hermes Kanban Binding
+
+Decision: UACP now records an active Hermes Kanban binding in `state/kanban.yaml` with board slug `uacp` and a root task id anchor for PLAN/EXECUTE traceability.
+
+Rationale: Kanban binding was previously deferred. A real board now exists, so UACP should keep Kanban task graph traceability in state rather than treating the binding as hypothetical.
+
+Status: accepted.
+
+Canonical targets:
+
+- `docs/lifecycle-reference.md`
+- `state/current.yaml`
+- `state/kanban.yaml`
+- `config/state.yaml`
 - `docs/lifecycle-reference.md`
 - `config/gate-selection.yaml`
 - `config/phase-transitions.yaml`

@@ -103,7 +103,7 @@ Do not conflate:
 - UACP `TRIAGE`: governance entry stage for scope calibration and routing.
 - Hermes Kanban `triage`: task status for an underspecified Kanban card that needs specification before it becomes `todo`.
 
-When UACP later binds PLAN and EXECUTE to Hermes Kanban, it should record:
+When UACP binds PLAN and EXECUTE to Hermes Kanban, it records:
 
 - board slug,
 - root task IDs,
@@ -111,6 +111,13 @@ When UACP later binds PLAN and EXECUTE to Hermes Kanban, it should record:
 - assignee/profile,
 - workspace kind and path policy,
 - completion summaries and metadata needed for VERIFY.
+
+Active binding:
+
+- `state/kanban.yaml` is the current binding artifact.
+- `board_slug` is `uacp`.
+- `root_task_ids` records the current binding anchor task ids for PLAN/EXECUTE traceability.
+- `state/current.yaml` may point at the binding artifact for fast retrieval.
 
 ## State And Version-Control Design
 
@@ -168,7 +175,7 @@ Deferred implementation:
 
 - Do not expand state mutation beyond bootstrap direct edits until `uacp-state` exists.
 - Do not create lifecycle skills until the mutation boundary is approved.
-- Do not bind Hermes Kanban until UACP can record Kanban task IDs in state artifacts.
+- Do not treat Kanban as UACP phase state; only task ids and graphs belong there.
 
 ## VERIFY
 
