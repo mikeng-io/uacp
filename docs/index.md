@@ -62,7 +62,7 @@ For design or governance changes, also read:
 | reference | Stable workflow, lifecycle, and user-facing model | Few canonical files; update existing before adding |
 | policy | Operational rules for governance behavior | Prefer sections in canonical docs unless policy is large |
 | schema_config | Machine-readable rules and artifact shapes | Lives under `config/`; must parse as YAML |
-| runtime_state | Mutable run state and current pointers | Bootstrap only until `uacp-state` exists |
+| runtime_state | Mutable run state and current pointers | Governed through `uacp-state` after bootstrap closure |
 | decision_log | Durable record of major decisions | Prefer entries in this file, not standalone docs |
 | working_note | Temporary exploration or transition note | Must be folded, promoted, deleted, or tombstoned |
 | tombstone | Short pointer to deleted legacy material | Stored in this registry; no full stale document |
@@ -128,11 +128,26 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `config/review-routing.yaml` | schema_config | generated | Review intensity and routing rules | Keep aligned with triage scoring and risk model |
 | `config/memory-policy.yaml` | schema_config | generated | Memory, artifact, and future Knowledge Bank boundaries | Keep aligned with alignment spec |
 | `config/roots.yaml` | schema_config | generated | Symbolic roots and path-resolution rules | Keep aligned with path convention in this registry |
-| `config/state.yaml` | schema_config | generated | File-based state layer and version-control binding | Keep aligned with lifecycle reference and future `uacp-state` |
-| `state/` | runtime_state | canonical | Mutable run state layer | Keep pointer-based; bootstrap-only until governed mutation exists |
+| `config/state.yaml` | schema_config | generated | File-based state layer and version-control binding | Keep aligned with lifecycle reference and active `uacp-state` policy |
+| `state/` | runtime_state | canonical | Mutable run state layer | Keep pointer-based; mutate through `uacp-state` after bootstrap closure |
 | `state/current.yaml` | runtime_state | canonical | Active state pointer | Update with the current run manifest and provenance |
 | `state/kanban.yaml` | runtime_state | canonical | Active Hermes Kanban binding | Update when the board slug or root task ids change |
 | `state/runs/` | runtime_state | canonical | Per-run manifests and checkpoint records | Append new run manifests; do not overwrite historical runs |
+
+## Lifecycle Skill Registry
+
+The lifecycle skill family is implemented under `HERMES_ROOT/skills/devops/uacp/`.
+Skills implement the governed workflow; they do not override this registry, canonical docs, or config.
+
+| Skill | Symbolic path | Status |
+|---|---|---|
+| `uacp-state` | `HERMES_ROOT/skills/devops/uacp/uacp-state/SKILL.md` | active |
+| `uacp-triage` | `HERMES_ROOT/skills/devops/uacp/uacp-triage/SKILL.md` | active |
+| `uacp-propose` | `HERMES_ROOT/skills/devops/uacp/uacp-propose/SKILL.md` | active |
+| `uacp-plan` | `HERMES_ROOT/skills/devops/uacp/uacp-plan/SKILL.md` | active |
+| `uacp-execute` | `HERMES_ROOT/skills/devops/uacp/uacp-execute/SKILL.md` | active |
+| `uacp-verify` | `HERMES_ROOT/skills/devops/uacp/uacp-verify/SKILL.md` | active |
+| `uacp-resolve` | `HERMES_ROOT/skills/devops/uacp/uacp-resolve/SKILL.md` | active |
 
 ## Creation Rules
 
@@ -258,10 +273,23 @@ Canonical targets:
 - `state/current.yaml`
 - `state/kanban.yaml`
 - `config/state.yaml`
+
+### 2026-05-11 — Activate Lifecycle Skill Family And Governed Mutation
+
+Decision: The UACP lifecycle skill family exists under `HERMES_ROOT/skills/devops/uacp/`, bootstrap direct state edits are closed, and governed mutation through `uacp-state` is active for runtime state changes.
+
+Rationale: The pre-lifecycle-skill checkpoint has been satisfied by the implemented skill family, state/current.yaml records `mutation_policy: uacp_state_required`, and bootstrap closure is now a current operational fact rather than a future condition.
+
+Status: accepted.
+
+Canonical targets:
+
+- `docs/index.md`
 - `docs/lifecycle-reference.md`
-- `config/gate-selection.yaml`
-- `config/phase-transitions.yaml`
-- `config/review-routing.yaml`
+- `config/state.yaml`
+- `state/current.yaml`
+
+Follow-up: runtime Guardian/Heartgate enforcement remains unresolved. Current skill and state boundaries are policy-level until a Hermes-native pre-tool-call Guardian adapter is implemented.
 
 ### 2026-05-10 — Clarify Hermes Kanban Binding
 
@@ -284,13 +312,15 @@ Rationale: UACP now has its artifact directories, canonical docs, seed config, d
 
 Status: accepted.
 
-Deferred items:
+Deferred items at the time:
 
 - version-control binding,
 - state model implementation,
 - lifecycle skill skeletons,
 - Hermes Kanban binding,
 - standalone Knowledge Bank service.
+
+Current status: version-control binding, state model, lifecycle skill skeletons, and Hermes Kanban binding have since been implemented. The standalone Knowledge Bank service remains deferred.
 
 Canonical targets:
 
@@ -300,11 +330,11 @@ Canonical targets:
 
 ### 2026-05-10 — Design State And Version-Control Layer
 
-Decision: UACP should use a `state/` layer with file-based YAML run manifests first, governed mutation through future `uacp-state`, and git versioning for governance/history artifacts. SQLite or service-backed state is deferred until query or concurrency needs justify it.
+Decision: UACP should use a `state/` layer with file-based YAML run manifests first, governed mutation through `uacp-state`, and git versioning for governance/history artifacts. SQLite or service-backed state is deferred until query or concurrency needs justify it.
 
 Rationale: UACP phase state must be explicit and separate from Hermes Kanban task status. File-based YAML is inspectable, portable, and sufficient for bootstrap. Git should preserve governance and tombstone history, but runtime state should not require committing every mutation.
 
-Status: design accepted; implementation deferred.
+Status: accepted. Initial implementation is active; SQLite/service-backed state remains deferred.
 
 Canonical targets:
 
@@ -354,7 +384,7 @@ Canonical targets:
 - `state/current.yaml`
 - `state/runs/uacp-bootstrap-stage-3-state-binding.yaml`
 
-Follow-up: `state/` remains bootstrap-only until `uacp-state` exists.
+Follow-up: complete. `state/` is no longer bootstrap-only; governed mutation is active through `uacp-state`.
 
 ### 2026-05-10 — Tighten Tombstone And Path Rules
 
@@ -384,7 +414,7 @@ Canonical targets:
 - `state/current.yaml`
 - `state/runs/`
 
-Follow-up: active runtime-state commit cadence remains deferred until `uacp-state` exists.
+Follow-up: active runtime-state commit cadence remains unresolved now that `uacp-state` exists.
 
 ### 2026-05-10 — Define Lifecycle Skill Contracts Before Skill Creation
 
@@ -399,13 +429,13 @@ Canonical targets:
 - `docs/lifecycle-reference.md`
 - `config/state.yaml`
 
-Follow-up: skill files remain deferred until the checkpoint policy allows creation.
+Follow-up: complete. Lifecycle skill files have been created after checkpoint review.
 
 ### 2026-05-10 — Enforce Machine-Readable Lifecycle Control
 
 Decision: The lifecycle boundary must carry machine-readable bootstrap closure, triage routing persistence, checkpoint artifact references, and structured Kanban binding fields before lifecycle skill files are created.
 
-Rationale: Prose alone is not enough to govern mutation boundaries. The next implementation step needs fields that a state mutator and future lifecycle skills can validate directly.
+Rationale: Prose alone is not enough to govern mutation boundaries. At the time, the next implementation step needed fields that a state mutator and then-future lifecycle skills could validate directly.
 
 Status: accepted.
 
@@ -416,7 +446,7 @@ Canonical targets:
 - `config/phase-transitions.yaml`
 - `config/review-routing.yaml`
 
-Follow-up: implement `uacp-state` against these contracts, then create lifecycle skill files only after the pre-lifecycle-skill checkpoint is satisfied.
+Follow-up: complete for `uacp-state` and lifecycle skill creation. Runtime Guardian/Heartgate enforcement remains the next hardening step.
 
 ## Tombstones
 
@@ -437,6 +467,5 @@ Follow-up: implement `uacp-state` against these contracts, then create lifecycle
 ## Open Document Actions
 
 - Keep tombstone commit pointers aligned with the repository history that owns `UACP_ROOT`.
-- Replace bootstrap direct state edits with `uacp-state` once lifecycle skills are created.
-- Define commit cadence for active runtime state once `uacp-state` exists.
-- Create lifecycle skill files only after the pre-lifecycle-skill council checkpoint is satisfied.
+- Define commit cadence for active runtime state now that `uacp-state` exists.
+- Design and implement runtime Guardian/Heartgate enforcement so governed mutation becomes mechanically enforced, not only policy-guided.

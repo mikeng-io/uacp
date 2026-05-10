@@ -1,10 +1,11 @@
 schema_version: "0.1"
 kind: uacp.state_config
-status: seed
+status: active
 purpose: >
   Defines the initial file-based UACP state layer and version-control binding.
-  This is the bootstrap state contract before lifecycle skills or runtime
-  integration exist.
+  Bootstrap is closed; governed runtime-state mutation is active through the
+  uacp-state skill. Runtime Guardian enforcement is still a deferred hardening
+  item.
 
 state_layer:
   storage: file_based_yaml
@@ -20,12 +21,16 @@ state_principles:
   - "State does not replace canonical governance docs or config."
   - "State does not replace Hermes Kanban; Kanban task IDs are traceability references."
   - "State must use UACP_ROOT-relative paths or symbolic roots."
-  - "Direct state edits are bootstrap-only until uacp-state exists."
+  - "Direct state edits were bootstrap-only; governed mutation now routes through uacp-state."
   - "Bootstrap mode ends only when bootstrap_closure_flag is true and governed_mutation_active is true."
 
 lifecycle_skill_contracts:
-  status: design_seed
-  creation_gate: "Pre-lifecycle-skill local council checkpoint must be satisfied before any lifecycle skill files are created."
+  status: implemented
+  creation_gate: "satisfied"
+  creation_gate_status: satisfied
+  implementation_root: "HERMES_ROOT/skills/devops/uacp/"
+  enforcement_status: policy_level
+  enforcement_gap: "Runtime Guardian/Heartgate enforcement is not yet implemented."
   skills:
     uacp-state:
       responsibility: "Own governed state mutation, state transitions, and pointer updates."
@@ -177,13 +182,13 @@ current_pointer_schema:
 
 mutation_rules:
   bootstrap:
-    allowed: "Direct edits by the orchestrating agent inside UACP_ROOT."
-    exit_rule: "Bootstrap direct edits end once the run manifest has proposal, plan, transition, verification, and council artifacts or the work moves behind uacp-state."
+    allowed: "closed"
+    exit_rule: "Bootstrap direct edits ended when bootstrap_closure_flag became true and governed_mutation_active became true."
     required_evidence:
       - "docs/index.md decision log"
       - "matching run manifest update"
       - "verification artifact when closing a milestone"
-  future:
+  governed:
     required: "uacp-state owns state mutation."
     direct_edit_policy: "block unless explicitly authorized for recovery."
   invariants:
@@ -221,9 +226,9 @@ version_control_binding:
     updates the tombstone. Retrieve deleted content from that commit's parent
     at deleted_path.
   unresolved:
-    - "Define commit cadence for active runtime state once uacp-state exists."
+    - "Define commit cadence for active runtime state now that uacp-state exists."
 
-example_run_manifest:
+historical_bootstrap_example_run_manifest:
   kind: uacp.run_state
   run_id: uacp-bootstrap-stage-3-state-binding
   status: active
@@ -279,3 +284,18 @@ example_run_manifest:
     - event: git_binding_established
       source: "git commit e7fcb8e"
       artifact: "docs/index.md"
+
+current_closed_run_example:
+  kind: uacp.run_state
+  run_id: uacp-governed-lifecycle-dry-run
+  status: closed
+  current_stage: resolve
+  current_phase: resolve
+  bootstrap_closed: true
+  governed_mutation_active: true
+  current_pointer: "state/current.yaml"
+  run_manifest: "state/runs/uacp-governed-lifecycle-dry-run.yaml"
+  kanban_binding_artifact: "state/kanban.yaml"
+  notes:
+    - "This example reflects the post-bootstrap governed state."
+    - "The dry-run itself kept Kanban unbound; the active Kanban binding was established later in state/kanban.yaml."

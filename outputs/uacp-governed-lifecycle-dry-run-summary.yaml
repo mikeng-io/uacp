@@ -1,7 +1,7 @@
 kind: uacp.run_summary
 run_id: uacp-governed-lifecycle-dry-run
-phase: execute
-status: complete
+phase: resolve
+status: closed
 summary:
   objective: "Execute a full local UACP lifecycle dry run without external side effects."
   completed_units:
@@ -11,13 +11,17 @@ summary:
     - "Document governance remained authoritative throughout the run."
     - "State/version binding was repaired and persisted."
     - "The execute boundary was reconciled with current_state and the run manifest."
-    - "Kanban remained intentionally unbound."
+    - "The dry-run resolved with Kanban intentionally unbound for that run."
+    - "A separate active Hermes Kanban binding was later recorded in state/kanban.yaml."
   open_items:
-    - "Hermes Kanban binding remains deferred."
     - "Knowledge Bank service remains deferred."
+    - "Runtime Guardian/Heartgate enforcement remains deferred."
 next_phase:
-  name: verify
+  name: none
   expected_focus:
-    - "Validate the execute outputs."
-    - "Confirm the learning artifact matches the run outcome."
-    - "Prepare transition from execute to verify."
+    - "Run is closed at resolve."
+    - "Future checkpoints should use the active Kanban binding recorded in state/kanban.yaml."
+correction_note: >
+  This summary previously described the execute-phase package and pointed to
+  VERIFY as the next phase. It now reflects the terminal resolved state recorded
+  in state/runs/uacp-governed-lifecycle-dry-run.yaml and state/current.yaml.

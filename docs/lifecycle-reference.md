@@ -121,7 +121,7 @@ Active binding:
 
 ## State And Version-Control Design
 
-UACP needs an explicit state layer. The bootstrap implementation is file-based YAML.
+UACP has an explicit state layer. The current implementation is file-based YAML with governed mutation routed through `uacp-state`.
 
 Design decision:
 
@@ -132,7 +132,7 @@ Design decision:
 - Runtime state changes should not require a git commit for every mutation.
 - Historical audit artifacts should be append-only where practical.
 
-State file shape should be small and pointer-based. A future run manifest should record:
+State file shape should be small and pointer-based. A run manifest should record:
 
 - run id,
 - current UACP stage or phase,
@@ -147,19 +147,19 @@ State file shape should be small and pointer-based. A future run manifest should
 - deferred items,
 - latest update provenance.
 
-During bootstrap, `current_stage` and `current_phase` must match exactly. They remain aliases until `uacp-state` introduces a single canonical field or a strict derivation rule.
-The bootstrap boundary remains open until `config/state.yaml` flips the machine-readable bootstrap closure flag and a governed mutation policy becomes active.
+During bootstrap, `current_stage` and `current_phase` had to match exactly. They remain aliases until `uacp-state` introduces a single canonical field or a strict derivation rule.
+The bootstrap boundary is closed. `state/current.yaml` records `mutation_policy: uacp_state_required`, `bootstrap_closed: true`, and `governed_mutation_active: true`.
 
 State mutation rule:
 
-- State mutation must eventually go through a dedicated `uacp-state` procedure or skill.
-- Direct state edits should be treated as temporary bootstrap behavior only.
+- Runtime state mutation goes through the dedicated `uacp-state` skill.
+- Direct state edits are closed bootstrap behavior and require explicit recovery authorization if needed.
 - Every state change must point to an authorizing artifact or phase transition.
 - State must reference artifacts by `UACP_ROOT`-relative paths or symbolic roots, not physical deployment paths.
 
 Version-control binding:
 
-- `UACP_ROOT` should be versioned, preferably as its own focused repository or explicitly managed subtree, rather than relying on an unversioned Hermes runtime directory.
+- `UACP_ROOT` is versioned as its own focused repository for UACP governance and durable audit artifacts.
 - `HERMES_ROOT` may bind and host UACP, but should not be the implicit source of truth for UACP history unless explicitly chosen.
 - Tombstone `git_commit` should point to the commit that deleted the legacy file and added or updated the tombstone. Agents can retrieve the deleted content from that commit's parent at the `deleted_path`.
 - When no repository exists, tombstones use `unavailable-no-git-worktree` and must be updated after versioning is established.
@@ -171,10 +171,12 @@ Boundary definitions:
 - Historical audit: proposals, plans, executions, verification artifacts, outputs, lessons, and tombstones.
 - Knowledge artifacts: reusable scenarios, templates, lessons, and indexes under `knowledge/`, later eligible for Knowledge Bank ingestion.
 
-Deferred implementation:
+Active implementation:
 
-- Do not expand state mutation beyond bootstrap direct edits until `uacp-state` exists.
-- Do not create lifecycle skills until the mutation boundary is approved.
+- `uacp-state` exists and owns governed runtime-state mutation.
+- The lifecycle skill family exists under `HERMES_ROOT/skills/devops/uacp/`.
+- Bootstrap direct edits are closed.
+- Runtime Guardian/Heartgate enforcement remains a future hardening step; until then, skills and config provide policy-level governance.
 - Do not treat Kanban as UACP phase state; only task ids and graphs belong there.
 
 ## VERIFY
@@ -212,11 +214,11 @@ The lifecycle phases are stable; the skill files that operate them are separate 
 | `uacp-verify` | Validate completed work with adaptive evidence clusters. | Writes verification artifacts only. |
 | `uacp-resolve` | Finalize outputs, lessons, and memory or skill update decisions. | Writes resolution and learning artifacts only. |
 
-Creation rule:
+Implementation status:
 
-- Do not create lifecycle skill files until the state mutation boundary is approved and the checkpoint review policy for pre-lifecycle-skill creation is satisfied.
+- Lifecycle skill files have been created after checkpoint review.
 - Each skill file must read `docs/index.md` first and follow the canonical lifecycle and path rules.
-- Skill creation is an implementation step, not a new governance source of truth.
+- Skill files are implementation artifacts, not new governance sources of truth.
 
 ## Artifact Schemas
 

@@ -57,7 +57,7 @@ invariants:
     evidence: "current_stage and current_phase both equal resolve"
   - id: checkpoint_blocked
     status: pass
-    evidence: "Verify checkpoint passed and the run is ready to close."
+    evidence: "Verify checkpoint passed and the run closed at resolve."
 deferred_items:
   - id: kanban_binding
     reason: "Kanban remains intentionally unbound for the dry run."

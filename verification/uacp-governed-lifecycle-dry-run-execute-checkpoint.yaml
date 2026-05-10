@@ -29,9 +29,9 @@ resolution:
     evidence: "stage_phase_consistency evidence now states current_stage and current_phase both equal execute."
 summary: >
   The execute checkpoint is valid and traceable after the pointer and evidence
-  refresh. Kanban remains intentionally unbound, and no external side effects
-  are introduced by this checkpoint.
+  refresh. Kanban was intentionally unbound for this dry-run checkpoint, and no
+  external side effects are introduced by this checkpoint.
 conditions:
   - "Keep all writes inside UACP_ROOT."
-  - "Do not bind Hermes Kanban yet."
+  - "Do not bind Hermes Kanban to this dry-run checkpoint."
   - "Preserve delete-by-default handling for temporary notes."

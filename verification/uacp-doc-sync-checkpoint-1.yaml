@@ -1,0 +1,93 @@
+kind: uacp.verification
+verification_id: uacp-doc-sync-checkpoint-1
+subject:
+  plan_artifact: "plans/uacp-goal-driven-kickoff-prompt.md"
+  kanban_task_id: t_9f0f686b
+  changed_artifacts:
+    - "docs/index.md"
+    - "docs/lifecycle-reference.md"
+    - "config/state.yaml"
+    - "state/current.yaml"
+    - "state/kanban.yaml"
+    - "state/runs/uacp-governed-lifecycle-dry-run.yaml"
+    - "outputs/uacp-governed-lifecycle-dry-run-summary.yaml"
+    - "verification/uacp-bootstrap-stage-3-state-binding-verification.yaml"
+    - "verification/uacp-governed-lifecycle-dry-run-plan-approval.yaml"
+    - "verification/uacp-governed-lifecycle-dry-run-council.yaml"
+    - "verification/uacp-governed-lifecycle-dry-run-execute-checkpoint.yaml"
+    - "verification/uacp-governed-lifecycle-dry-run-verify-council.yaml"
+    - "verification/uacp-governed-lifecycle-dry-run-resolve.yaml"
+decision: pass
+council_checkpoint:
+  status: pass_after_fixes
+  reviewers:
+    - role: Document Authority Reviewer
+      verdict: warn
+      disposition: fixed
+      notes:
+        - "Updated runtime_state class wording after bootstrap closure."
+        - "Updated config/state.yaml inventory wording from future to active uacp-state policy."
+    - role: State Consistency Reviewer
+      verdict: warn
+      disposition: fixed
+      notes:
+        - "Updated state/current.yaml stale future mutation wording."
+        - "Updated run-manifest closure evidence from ready-to-close to closed-at-resolve."
+    - role: Runtime Enforcement Reviewer
+      verdict: warn
+      disposition: accepted_open_item
+      notes:
+        - "Guardian/Heartgate enforcement remains policy-level and is documented as unresolved."
+    - role: Kanban Boundary Reviewer
+      verdict: warn
+      disposition: fixed
+      notes:
+        - "Added task t_9f0f686b to state/kanban.yaml as checkpoint doc-sync traceability."
+    - role: Drift/Hallucination Reviewer
+      verdict: block
+      disposition: fixed
+      notes:
+        - "Removed stale future-tense state mutation wording."
+        - "Clarified then-future lifecycle-skill wording in historical decision log."
+checks:
+  yaml_parse:
+    status: pass
+    command: "python3 YAML safe_load over all UACP_ROOT YAML files"
+    observed:
+      - "YAML parse passed for all UACP_ROOT YAML files after checkpoint edits."
+  state_consistency:
+    status: pass
+    observed:
+      - "state/current.yaml active_run_id matches the run manifest run_id."
+      - "Run manifest status is closed."
+      - "Run manifest current_stage and current_phase both equal resolve."
+      - "Run summary phase and status match the closed resolve run."
+      - "state/current.yaml records bootstrap_closed and governed_mutation_active as true."
+      - "state/current.yaml points at kanban board slug uacp."
+  document_authority:
+    status: pass
+    observed:
+      - "No new canonical docs were created."
+      - "Lifecycle skill registry is in docs/index.md."
+      - "Decision log records lifecycle skill activation and governed mutation."
+  kanban_boundary:
+    status: pass
+    observed:
+      - "state/kanban.yaml records Kanban as task substrate and traceability."
+      - "UACP phase state remains in state/current.yaml and state/runs/."
+      - "Dry-run Kanban-unbound status is historical and does not override the active binding."
+  runtime_enforcement:
+    status: warn
+    observed:
+      - "Guardian/Heartgate runtime enforcement is not implemented yet."
+      - "Current enforcement is policy-level through docs, config, skills, state, and review."
+open_items:
+  - id: runtime-guardian-heartgate
+    status: deferred
+    reason: "Hermes-native pre-tool-call Guardian adapter is not implemented yet."
+  - id: runtime-state-commit-cadence
+    status: unresolved
+    reason: "Commit cadence for active runtime state is not yet defined."
+  - id: knowledge-bank-service
+    status: deferred
+    reason: "Standalone Knowledge Bank service remains outside Checkpoint 1."

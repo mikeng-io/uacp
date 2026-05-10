@@ -13,6 +13,11 @@ current_tasks:
     title: "Bind UACP PLAN/EXECUTE to Hermes Kanban"
     status: ready
     role: root binding task
+  - id: t_9f0f686b
+    title: "UACP doc sync: reconcile prototype/lifecycle-skill status"
+    status: active
+    role: checkpoint 1 doc-sync task
 binding_notes:
   - "This binding is active for future PLAN/EXECUTE workstreams."
   - "The board is board-scoped and isolated from unrelated streams of work."
+  - "Task t_9f0f686b records the current bounded doc-sync checkpoint under the root binding task."

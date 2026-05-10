@@ -13,8 +13,9 @@ findings: {}
 resolution: []
 summary: >
   The execute outputs are complete, the verification artifacts are coherent,
-  and the run is ready to close at resolve. Kanban remains intentionally
-  unbound for this dry run.
+  and the run closed at resolve. Kanban was intentionally unbound for this
+  dry run; future PLAN/EXECUTE workstreams use the active binding recorded in
+  state/kanban.yaml.
 conditions:
   - "Keep all writes inside UACP_ROOT."
-  - "Do not bind Hermes Kanban yet."
+  - "Do not retroactively bind Hermes Kanban to this dry run."

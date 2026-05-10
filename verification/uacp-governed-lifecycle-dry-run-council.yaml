@@ -45,8 +45,8 @@ summary: >
   The proposal is now sufficiently traceable to move toward PLAN with
   conditions. The remaining condition is to carry the transition package
   forward with the explicit approval record and preserve Kanban as unbound
-  during this dry-run checkpoint.
+  for this dry-run checkpoint only.
 conditions:
   - "Keep all writes inside UACP_ROOT."
-  - "Do not bind Hermes Kanban yet."
+  - "Do not bind Hermes Kanban to this dry-run checkpoint."
   - "Create the plan artifact only after the transition record is updated."

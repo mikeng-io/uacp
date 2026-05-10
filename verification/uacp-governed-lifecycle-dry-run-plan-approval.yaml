@@ -8,7 +8,7 @@ authority:
   source: "operator continuation request after council review"
 conditions:
   - "Keep all writes inside UACP_ROOT."
-  - "Do not bind Hermes Kanban yet."
+  - "Do not bind Hermes Kanban to this dry-run checkpoint."
   - "Create the plan artifact only after the transition record is updated."
   - "Preserve delete-by-default handling for any temporary notes."
 rationale:

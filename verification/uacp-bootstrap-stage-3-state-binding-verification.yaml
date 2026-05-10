@@ -31,7 +31,8 @@ checks:
     observed: "The checkpoint remains open because version-control binding is unresolved."
 known_blockers:
   - "git/version-control binding"
-  - "future uacp-state implementation"
-  - "lifecycle skill creation"
+  - "historical uacp-state implementation blocker, now implemented"
+  - "historical lifecycle skill creation blocker, now implemented"
 notes:
   - "This verification artifact records a blocked checkpoint, not a closed milestone."
+  - "The blocker wording is historical; current state is governed through uacp-state."

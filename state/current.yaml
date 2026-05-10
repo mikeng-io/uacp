@@ -10,9 +10,9 @@ governed_mutation_active: true
 notes:
   - "Bootstrap state existed before uacp-state skill implementation."
   - "Direct edits were allowed only inside UACP_ROOT during bootstrap initialization."
-  - "Future state mutation should move behind uacp-state."
+  - "Runtime state mutation now routes through uacp-state."
   - "UACP_ROOT is a standalone git repository at commit e7fcb8e."
   - "uacp-state skill now exists under HERMES_ROOT/skills/devops/uacp/uacp-state/SKILL.md."
   - "Bootstrap has been closed; governed mutation is now active."
-  - "Active run has advanced to resolve."
+  - "Last governed run advanced to resolve and is closed."
   - "Active Kanban binding is recorded in state/kanban.yaml."
