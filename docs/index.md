@@ -122,6 +122,7 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `docs/first-principles.md` | reference | canonical | Reasoning principles behind UACP | Update when core philosophy changes |
 | `docs/lifecycle-reference.md` | reference | canonical | Current workflow and phase/stage model | Primary place for lifecycle wording |
 | `docs/alignment-spec.md` | reference | canonical | Hermes/Norty integration alignment | Update when integration boundaries change |
+| `docs/runtime-enforcement.md` | reference / policy | canonical | Guardian and Heartgate runtime enforcement design | Update before runtime enforcement implementation changes |
 | `config/evidence-clusters.yaml` | schema_config | generated | Evidence cluster families and schema | Keep aligned with canonical docs; YAML must parse |
 | `config/gate-selection.yaml` | schema_config | generated | Meta-gate, triage scoring, gate-selection schema | Keep aligned with lifecycle and constitution |
 | `config/phase-transitions.yaml` | schema_config | generated | Stage/phase transitions and transition artifact schema | Keep aligned with lifecycle reference |
@@ -129,6 +130,7 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `config/memory-policy.yaml` | schema_config | generated | Memory, artifact, and future Knowledge Bank boundaries | Keep aligned with alignment spec |
 | `config/roots.yaml` | schema_config | generated | Symbolic roots and path-resolution rules | Keep aligned with path convention in this registry |
 | `config/state.yaml` | schema_config | generated | File-based state layer and version-control binding | Keep aligned with lifecycle reference and active `uacp-state` policy |
+| `config/guardian-policy.yaml` | schema_config | generated | Machine-readable Guardian and Heartgate policy seed | Keep aligned with runtime enforcement design |
 | `state/` | runtime_state | canonical | Mutable run state layer | Keep pointer-based; mutate through `uacp-state` after bootstrap closure |
 | `state/current.yaml` | runtime_state | canonical | Active state pointer | Update with the current run manifest and provenance |
 | `state/kanban.yaml` | runtime_state | canonical | Active Hermes Kanban binding | Update when the board slug or root task ids change |
@@ -290,6 +292,23 @@ Canonical targets:
 - `state/current.yaml`
 
 Follow-up: runtime Guardian/Heartgate enforcement remains unresolved. Current skill and state boundaries are policy-level until a Hermes-native pre-tool-call Guardian adapter is implemented.
+
+### 2026-05-11 — Define Runtime Guardian And Heartgate Design
+
+Decision: Add `docs/runtime-enforcement.md` as the canonical runtime-enforcement design and `config/guardian-policy.yaml` as the machine-readable Guardian/Heartgate policy seed.
+
+Rationale: UACP runtime enforcement has a distinct long-term reader, implementation boundary, and adapter contract. It cannot be safely buried in lifecycle prose or Hermes plugin code. The design records that production enforcement requires both tool-call Guardian enforcement and Kanban/control-plane enforcement.
+
+Status: council reviewed; ready for runtime implementation planning/execution.
+
+Canonical targets:
+
+- `docs/runtime-enforcement.md`
+- `config/guardian-policy.yaml`
+- `plans/uacp-runtime-guardian-implementation-plan.md`
+- `verification/uacp-runtime-guardian-design-council.yaml`
+
+Follow-up: implement Guardian core, Heartgate core, Hermes adapter, state mutation tool, audit, and Kanban/control-plane enforcement after the design checkpoint passes.
 
 ### 2026-05-10 — Clarify Hermes Kanban Binding
 
@@ -468,4 +487,4 @@ Follow-up: complete for `uacp-state` and lifecycle skill creation. Runtime Guard
 
 - Keep tombstone commit pointers aligned with the repository history that owns `UACP_ROOT`.
 - Define commit cadence for active runtime state now that `uacp-state` exists.
-- Design and implement runtime Guardian/Heartgate enforcement so governed mutation becomes mechanically enforced, not only policy-guided.
+- Review and then implement runtime Guardian/Heartgate enforcement so governed mutation becomes mechanically enforced, not only policy-guided.
