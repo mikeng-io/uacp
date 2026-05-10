@@ -1,5 +1,5 @@
 kind: uacp.kanban_binding
-status: active
+status: closed
 board_slug: uacp
 board_name: UACP
 root_task_ids:
@@ -11,13 +11,16 @@ task_graph_policy:
 current_tasks:
   - id: t_ac2981a9
     title: "Bind UACP PLAN/EXECUTE to Hermes Kanban"
-    status: ready
+    status: done
     role: root binding task
+    completed_at: "2026-05-11T04:10:00+08:00"
   - id: t_9f0f686b
     title: "UACP doc sync: reconcile prototype/lifecycle-skill status"
-    status: active
+    status: done
     role: checkpoint 1 doc-sync task
+    completed_at: "2026-05-11T04:10:00+08:00"
 binding_notes:
-  - "This binding is active for future PLAN/EXECUTE workstreams."
-  - "The board is board-scoped and isolated from unrelated streams of work."
-  - "Task t_9f0f686b records the current bounded doc-sync checkpoint under the root binding task."
+  - "Binding established and verified through Phase 2 execution."
+  - "Phase 2 contract cleanup (PR #7) dispatched through Kanban worker profile."
+  - "Board closed after successful Phase 2 execution."
+  - "Next run: new board, new root binding task."
