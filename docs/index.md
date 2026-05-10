@@ -310,6 +310,47 @@ Canonical targets:
 
 Follow-up: implement Guardian core, Heartgate core, Hermes adapter, state mutation tool, audit, and Kanban/control-plane enforcement after the design checkpoint passes.
 
+### 2026-05-11 — Record Runtime Prototype Status
+
+Decision: UACP is now an early runtime prototype, not only a document/specification project. The first Hermes Guardian/Heartgate runtime enforcement checkpoint has been implemented and merged in the Hermes Agent runtime, with durable UACP verification recorded.
+
+Rationale: The governance root, state layer, lifecycle skills, Kanban binding, and runtime Guardian checkpoint now exist. Remaining work should focus on live runtime activation, proof testing, lifecycle wiring, containment hardening, and governed doc synchronization rather than continuing to treat runtime enforcement as purely future design.
+
+Status: accepted as current checkpoint summary.
+
+Canonical targets:
+
+- `docs/index.md`
+- `docs/runtime-enforcement.md`
+- `outputs/uacp-current-status.yaml`
+- `verification/uacp-runtime-guardian-implementation-checkpoint-1.yaml`
+
+Implementation references:
+
+- UACP governance commit: `2f9fad1`
+- Hermes Agent runtime commit: `a07da521a`
+
+Follow-up: live runtime proof tests are still required before calling the Guardian production-complete.
+
+### 2026-05-11 — Wire UACP Into Hermes Instruction Surfaces
+
+Decision: Add minimal pointer-level UACP wiring to the active Hermes instruction and dispatch surfaces.
+
+Rationale: UACP existed in docs, state, skills, Kanban, and runtime code, but the core Hermes startup/dispatch surfaces did not clearly route UACP-bound work through the UACP lifecycle. The correct fix is a small pointer to UACP authority, not copying the full UACP constitution into global persona files.
+
+Status: accepted as minimal wiring checkpoint.
+
+Changed surfaces:
+
+- `HERMES_ROOT/SOUL.md`
+- `HERMES_ROOT/workspace/SOUL.md`
+- `HERMES_ROOT/workspace/AGENTS.md`
+- `HERMES_ROOT/routing/dispatch-workspaces.yaml`
+- `HERMES_ROOT/config.yaml`
+- `outputs/uacp-current-status.yaml`
+
+Follow-up: restart/reload Hermes and run a live UACP-bound dispatch test.
+
 ### 2026-05-10 — Clarify Hermes Kanban Binding
 
 Decision: UACP treats Hermes Kanban as a durable task substrate, not as the UACP lifecycle state machine.
@@ -487,4 +528,6 @@ Follow-up: complete for `uacp-state` and lifecycle skill creation. Runtime Guard
 
 - Keep tombstone commit pointers aligned with the repository history that owns `UACP_ROOT`.
 - Define commit cadence for active runtime state now that `uacp-state` exists.
-- Review and then implement runtime Guardian/Heartgate enforcement so governed mutation becomes mechanically enforced, not only policy-guided.
+- Keep `outputs/uacp-current-status.yaml` current at major checkpoints.
+- Process any future doc-sync drift through a new governed Kanban task; `t_9f0f686b` is already closed.
+- After live proof tests, update `docs/runtime-enforcement.md` and the current status artifact with the tested activation state.
