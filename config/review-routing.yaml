@@ -111,6 +111,27 @@ checkpoint_review_policy:
     If local council cannot be dispatched, record the unavailable surface in the
     verification artifact. For medium or higher risk milestones, block closure
     or require explicit operator acceptance.
+  triage_admission_map:
+    direct:
+      disposition: direct_action
+      lifecycle_entry: none
+      artifact_policy: lightweight
+    lightweight:
+      disposition: lightweight_governed_path
+      lifecycle_entry: propose
+      artifact_policy: lightweight
+    standard_uacp:
+      disposition: standard_governed_path
+      lifecycle_entry: propose
+      artifact_policy: standard
+    full_governance:
+      disposition: full_governance_path
+      lifecycle_entry: propose
+      artifact_policy: full
+    block_or_clarify:
+      disposition: blocked_or_clarify
+      lifecycle_entry: none
+      artifact_policy: none
 
 domain_routing_notes:
   software:

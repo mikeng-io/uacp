@@ -44,6 +44,7 @@ transition_rule:
     - current_stage_or_phase_artifact
     - gate_selection_artifact
     - required_cluster_artifacts
+    - triage_artifact
     - council_synthesis_artifact
     - declared_side_effects
     - write_containment_record
@@ -80,6 +81,14 @@ artifact_schema:
     from_phase:
       type: enum
       values: [triage, propose, plan, execute, verify, resolve]
+    routing_outcome:
+      type: enum
+      values: [direct, lightweight, standard_uacp, full_governance, block_or_clarify]
+    granularity_level:
+      type: integer
+      description: "Governance intensity derived by TRIAGE."
+    triage_artifact:
+      type: string
     terminal_kind:
       type: enum
       values: [none, direct_action, lightweight_action, blocked_or_clarify]
@@ -121,6 +130,17 @@ artifact_schema:
       type: list
       item_type: string
       description: "UACP_ROOT-relative paths unless a symbolic external root is declared."
+    council_synthesis_artifact:
+      type: string
+    verification_artifact:
+      type: string
+    accepted_exceptions:
+      type: list
+      item_type: map
+      fields:
+        artifact_path: string
+        rationale: string
+        owner: string
 
 example_artifact:
   kind: uacp.phase_transition
@@ -128,6 +148,9 @@ example_artifact:
   run_id: uacp-bootstrap-001
   from_phase: plan
   to_phase: execute
+  routing_outcome: standard_uacp
+  granularity_level: 5
+  triage_artifact: "proposals/uacp-bootstrap-stage-1-2-triage.yaml"
   decision: pass
   terminal_kind: none
   invariant_summary:
@@ -153,3 +176,6 @@ example_artifact:
   artifact_paths:
     - "config/gate-selection.yaml"
     - "config/evidence-clusters.yaml"
+  council_synthesis_artifact: ""
+  verification_artifact: ""
+  accepted_exceptions: []

@@ -13,6 +13,7 @@ state_layer:
   run_manifests: "state/runs/"
   implementation_status: bootstrap
   mutation_boundary: "future uacp-state skill"
+  bootstrap_closure_flag: false
 
 state_principles:
   - "State records current lifecycle position and pointers; artifacts carry detailed evidence."
@@ -20,6 +21,36 @@ state_principles:
   - "State does not replace Hermes Kanban; Kanban task IDs are traceability references."
   - "State must use UACP_ROOT-relative paths or symbolic roots."
   - "Direct state edits are bootstrap-only until uacp-state exists."
+  - "Bootstrap mode ends only when bootstrap_closure_flag is true and governed_mutation_active is true."
+
+lifecycle_skill_contracts:
+  status: design_seed
+  creation_gate: "Pre-lifecycle-skill local council checkpoint must be satisfied before any lifecycle skill files are created."
+  skills:
+    uacp-state:
+      responsibility: "Own governed state mutation, state transitions, and pointer updates."
+      write_scope: "state/"
+      notes:
+        - "Exclusive mutator after bootstrap."
+        - "Must not become a hidden source of truth."
+    uacp-triage:
+      responsibility: "Calibrate scope, score granularity, and route the request."
+      write_scope: "proposals/triage artifacts"
+    uacp-propose:
+      responsibility: "Capture authority, scope, side effects, and proposal viability."
+      write_scope: "proposals/"
+    uacp-plan:
+      responsibility: "Convert approved proposals into bounded execution and verification strategy."
+      write_scope: "plans/"
+    uacp-execute:
+      responsibility: "Dispatch bounded work through Kanban or delegated workers."
+      write_scope: "executions/"
+    uacp-verify:
+      responsibility: "Validate completed work with adaptive evidence clusters."
+      write_scope: "verification/"
+    uacp-resolve:
+      responsibility: "Finalize outputs, lessons, and memory or skill update decisions."
+      write_scope: "outputs/ and knowledge/"
 
 run_manifest_schema:
   kind: uacp.run_state
@@ -34,6 +65,8 @@ run_manifest_schema:
     - artifacts
     - invariants
     - state_history
+    - bootstrap_closed
+    - governed_mutation_active
   fields:
     run_id: string
     status:
@@ -54,6 +87,10 @@ run_manifest_schema:
       type: string
     council_synthesis_artifact:
       type: string
+    bootstrap_closed:
+      type: boolean
+    governed_mutation_active:
+      type: boolean
     artifacts:
       type: map
       fields:
@@ -71,8 +108,27 @@ run_manifest_schema:
       type: map
       fields:
         enabled: boolean
-        board: string
-        task_ids: list
+        board_slug: string
+        root_task_ids:
+          type: list
+          item_type: string
+        parent_child_graph:
+          type: list
+          item_type: map
+          fields:
+            parent_id: string
+            child_id: string
+        assignee_profile: string
+        workspace:
+          type: map
+          fields:
+            kind:
+              type: enum
+              values: [scratch, dir, worktree]
+            path_policy: string
+        completion_summary_ref: string
+        metadata:
+          type: map
     invariants:
       type: list
       item_type: map
@@ -98,6 +154,8 @@ current_pointer_schema:
     - active_run_manifest
     - mutation_policy
     - current_transition_artifact
+    - bootstrap_closed
+    - governed_mutation_active
   fields:
     active_run_id: string
     active_run_manifest: string
@@ -105,6 +163,10 @@ current_pointer_schema:
       type: enum
       values: [bootstrap_direct_edit, uacp_state_required]
     current_transition_artifact: string
+    bootstrap_closed:
+      type: boolean
+    governed_mutation_active:
+      type: boolean
     notes:
       type: list
       item_type: string
@@ -168,6 +230,8 @@ example_run_manifest:
     source: "operator requested long-term UACP development goal"
   transition_artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
   council_synthesis_artifact: "verification/uacp-bootstrap-stage-3-state-binding-council.yaml"
+  bootstrap_closed: false
+  governed_mutation_active: false
   artifacts:
     triage: "proposals/uacp-bootstrap-stage-1-2-triage.yaml"
     proposal: "proposals/uacp-bootstrap-stage-3-state-binding-proposal.yaml"
@@ -182,8 +246,15 @@ example_run_manifest:
     - version_control_binding
   kanban:
     enabled: false
-    board: ""
-    task_ids: []
+    board_slug: ""
+    root_task_ids: []
+    parent_child_graph: []
+    assignee_profile: ""
+    workspace:
+      kind: scratch
+      path_policy: "UACP_ROOT-relative"
+    completion_summary_ref: ""
+    metadata: {}
   invariants:
     - id: document_authority
       status: pass

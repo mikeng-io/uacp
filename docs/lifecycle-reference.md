@@ -31,6 +31,16 @@ Typical artifacts:
 
 Exit condition: request is routed to direct action, blocked for clarification, or admitted into `PROPOSE`.
 
+Triage admission map:
+
+| Outcome | Disposition |
+|---|---|
+| `direct` | No UACP lifecycle; handle directly with a lightweight record only when needed. |
+| `lightweight` | Enter a minimal governed path with a small artifact footprint. |
+| `standard_uacp` | Enter the normal UACP lifecycle at standard governance intensity. |
+| `full_governance` | Enter the full lifecycle with councils, broader review, and durable learning. |
+| `block_or_clarify` | Stop and request clarification or authority before proceeding. |
+
 ## PROPOSE
 
 Purpose: define the requested work, authority, scope, affected domains, side effects, and risk.
@@ -131,6 +141,7 @@ State file shape should be small and pointer-based. A future run manifest should
 - latest update provenance.
 
 During bootstrap, `current_stage` and `current_phase` must match exactly. They remain aliases until `uacp-state` introduces a single canonical field or a strict derivation rule.
+The bootstrap boundary remains open until `config/state.yaml` flips the machine-readable bootstrap closure flag and a governed mutation policy becomes active.
 
 State mutation rule:
 
@@ -179,6 +190,26 @@ Typical artifacts:
 - memory policy decision
 
 Exit condition: run is resolved and lessons are stored in the appropriate substrate.
+
+## Lifecycle Skill Contracts
+
+The lifecycle phases are stable; the skill files that operate them are separate implementation artifacts. The skill contract is:
+
+| Skill | Core responsibility | State/write boundary |
+|---|---|---|
+| `uacp-state` | Own governed state mutation, state transitions, and pointer updates. | Exclusive mutator for runtime state after bootstrap. |
+| `uacp-triage` | Calibrate scope, score granularity, and route the request. | Writes triage artifacts only. |
+| `uacp-propose` | Capture authority, scope, side effects, and proposal viability. | Writes proposal artifacts only. |
+| `uacp-plan` | Convert approved proposals into bounded execution and verification strategy. | Writes plan artifacts and task graph references only. |
+| `uacp-execute` | Dispatch bounded work through Kanban or delegated workers. | Writes execution history and run-side-effect records only. |
+| `uacp-verify` | Validate completed work with adaptive evidence clusters. | Writes verification artifacts only. |
+| `uacp-resolve` | Finalize outputs, lessons, and memory or skill update decisions. | Writes resolution and learning artifacts only. |
+
+Creation rule:
+
+- Do not create lifecycle skill files until the state mutation boundary is approved and the checkpoint review policy for pre-lifecycle-skill creation is satisfied.
+- Each skill file must read `docs/index.md` first and follow the canonical lifecycle and path rules.
+- Skill creation is an implementation step, not a new governance source of truth.
 
 ## Artifact Schemas
 

@@ -8,6 +8,8 @@ authority:
   source: "operator requested a long-term UACP goal and continuation from Stage 1/2 foundation"
 transition_artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
 council_synthesis_artifact: "verification/uacp-bootstrap-stage-3-state-binding-council.yaml"
+bootstrap_closed: false
+governed_mutation_active: false
 artifacts:
   triage: "proposals/uacp-bootstrap-stage-1-2-triage.yaml"
   proposal: "proposals/uacp-bootstrap-stage-3-state-binding-proposal.yaml"
@@ -24,8 +26,15 @@ selected_clusters:
   - agent_council_checkpoint
 kanban:
   enabled: false
-  board: ""
-  task_ids: []
+  board_slug: ""
+  root_task_ids: []
+  parent_child_graph: []
+  assignee_profile: ""
+  workspace:
+    kind: scratch
+    path_policy: "UACP_ROOT-relative"
+  completion_summary_ref: ""
+  metadata: {}
 invariants:
   - id: document_authority
     status: pass

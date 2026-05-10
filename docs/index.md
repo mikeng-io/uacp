@@ -24,8 +24,9 @@ UACP authority flows in this order:
 1. `docs/index.md` defines the active document map and decision log.
 2. Canonical prose docs define intent, principles, lifecycle, and policy.
 3. YAML config encodes machine-readable rules derived from canonical docs.
-4. Skills and runtime behavior implement the documented rules.
-5. Execution artifacts record what happened in a specific run.
+4. Runtime state records the current run pointers and operational checkpoint evidence.
+5. Skills and runtime behavior implement the documented rules.
+6. Execution artifacts record what happened in a specific run.
 
 When these conflict, earlier layers win unless a newer decision log entry explicitly changes the authority chain.
 
@@ -152,8 +153,9 @@ When making a UACP documentation change:
 2. Identify the target canonical document.
 3. Update config only after the prose source of truth is clear.
 4. Add a decision log entry for major lifecycle, governance, memory, routing, or document-structure changes.
-5. Mark temporary notes as folded, promoted, deleted, or tombstoned.
-6. Verify changed YAML files parse.
+5. Authority-changing decision log entries must reference the accepted checkpoint artifact and the exact canonical targets they modify.
+6. Mark temporary notes as folded, promoted, deleted, or tombstoned.
+7. Verify changed YAML files parse.
 
 ## Retirement Rules
 
@@ -368,6 +370,38 @@ Canonical targets:
 
 Follow-up: active runtime-state commit cadence remains deferred until `uacp-state` exists.
 
+### 2026-05-10 — Define Lifecycle Skill Contracts Before Skill Creation
+
+Decision: Lifecycle skill files must follow the canonical skill contract in `docs/lifecycle-reference.md` and must not be created before the pre-lifecycle-skill council checkpoint is satisfied.
+
+Rationale: `uacp-state` and the lifecycle skills are the next implementation boundary, but they should not be improvised. The contract keeps the skills aligned with the document registry, state mutation boundary, and Kanban distinction.
+
+Status: accepted.
+
+Canonical targets:
+
+- `docs/lifecycle-reference.md`
+- `config/state.yaml`
+
+Follow-up: skill files remain deferred until the checkpoint policy allows creation.
+
+### 2026-05-10 — Enforce Machine-Readable Lifecycle Control
+
+Decision: The lifecycle boundary must carry machine-readable bootstrap closure, triage routing persistence, checkpoint artifact references, and structured Kanban binding fields before lifecycle skill files are created.
+
+Rationale: Prose alone is not enough to govern mutation boundaries. The next implementation step needs fields that a state mutator and future lifecycle skills can validate directly.
+
+Status: accepted.
+
+Canonical targets:
+
+- `docs/lifecycle-reference.md`
+- `config/state.yaml`
+- `config/phase-transitions.yaml`
+- `config/review-routing.yaml`
+
+Follow-up: implement `uacp-state` against these contracts, then create lifecycle skill files only after the pre-lifecycle-skill checkpoint is satisfied.
+
 ## Tombstones
 
 ```yaml
@@ -389,3 +423,4 @@ Follow-up: active runtime-state commit cadence remains deferred until `uacp-stat
 - Keep tombstone commit pointers aligned with the repository history that owns `UACP_ROOT`.
 - Replace bootstrap direct state edits with `uacp-state` once lifecycle skills are created.
 - Define commit cadence for active runtime state once `uacp-state` exists.
+- Create lifecycle skill files only after the pre-lifecycle-skill council checkpoint is satisfied.
