@@ -1,0 +1,20 @@
+kind: uacp.council_review
+review_id: uacp-governed-lifecycle-dry-run-verify
+run_id: uacp-governed-lifecycle-dry-run
+scope: "Verify-to-resolve handoff for the governed lifecycle dry run"
+verdict: approved
+domains_covered:
+  - governance
+  - state
+  - verification
+  - integration
+  - lifecycle
+findings: {}
+resolution: []
+summary: >
+  The execute outputs are complete, the verification artifacts are coherent,
+  and the run is ready to close at resolve. Kanban remains intentionally
+  unbound for this dry run.
+conditions:
+  - "Keep all writes inside UACP_ROOT."
+  - "Do not bind Hermes Kanban yet."

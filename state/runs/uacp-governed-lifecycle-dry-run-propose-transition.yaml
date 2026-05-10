@@ -1,0 +1,70 @@
+kind: uacp.phase_transition
+transition_id: uacp-governed-lifecycle-dry-run-propose-to-plan
+run_id: uacp-governed-lifecycle-dry-run
+from_phase: propose
+to_phase: plan
+routing_outcome: full_governance
+granularity_level: 10
+triage_artifact: "proposals/uacp-governed-lifecycle-dry-run-triage.yaml"
+gate_selection_artifact: "proposals/uacp-governed-lifecycle-dry-run-gate-selection.yaml"
+decision: warn
+terminal_kind: none
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: "Operator continuation request is explicit."
+  - id: writes.contained
+    status: pass
+    evidence: "All state writes remain under UACP_ROOT."
+  - id: state.traceable
+    status: pass
+    evidence: "The run manifest and current pointer are UACP-relative."
+cluster_summary:
+  - cluster_id: document_authority
+    state: pass
+    artifact_path: "proposals/uacp-governed-lifecycle-dry-run-proposal.yaml"
+  - cluster_id: state_traceability
+    state: pass
+    artifact_path: "state/current.yaml"
+  - cluster_id: version_control_binding
+    state: pass
+    artifact_path: "config/state.yaml"
+  - cluster_id: memory_lessons
+    state: pass
+    artifact_path: "proposals/uacp-governed-lifecycle-dry-run-gate-selection.yaml"
+  - cluster_id: council_checkpoint
+    state: pass
+    artifact_path: "verification/uacp-governed-lifecycle-dry-run-council.yaml"
+blockers: []
+warnings:
+  - "Kanban remains intentionally unbound for this dry-run checkpoint."
+  - "Plan artifact must be created before advancing current phase."
+deferred_items:
+  - id: plan_artifact
+    reason: "PLAN artifact is the next governed step."
+  - id: kanban_binding
+    reason: "Execution substrate remains unbound in this checkpoint."
+authority:
+  requested_by: "operator"
+  authorization_source: "governed lifecycle dry run"
+artifact_paths:
+  - "proposals/uacp-governed-lifecycle-dry-run-triage.yaml"
+  - "proposals/uacp-governed-lifecycle-dry-run-gate-selection.yaml"
+  - "proposals/uacp-governed-lifecycle-dry-run-proposal.yaml"
+  - "verification/uacp-governed-lifecycle-dry-run-council.yaml"
+  - "verification/uacp-governed-lifecycle-dry-run-plan-approval.yaml"
+  - "state/current.yaml"
+declared_side_effects:
+  - "No external side effects."
+  - "UACP_ROOT-local artifact writes only."
+write_containment_record: "UACP_ROOT only"
+blocker_synthesis: >
+  The handoff is traceable and conditionally approved. The next governed step is
+  to write the plan artifact under UACP_ROOT; execution and Kanban binding stay
+  deferred.
+council_synthesis_artifact: "verification/uacp-governed-lifecycle-dry-run-council.yaml"
+verification_artifact: "verification/uacp-governed-lifecycle-dry-run-council.yaml"
+accepted_exceptions:
+  - artifact_path: "verification/uacp-governed-lifecycle-dry-run-plan-approval.yaml"
+    rationale: "Operator explicitly accepted the remaining handoff risk."
+    owner: "operator"

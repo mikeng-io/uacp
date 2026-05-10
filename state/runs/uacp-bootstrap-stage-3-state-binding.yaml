@@ -1,15 +1,15 @@
 kind: uacp.run_state
 run_id: uacp-bootstrap-stage-3-state-binding
-status: active
-current_stage: plan
-current_phase: plan
+status: closed
+current_stage: resolve
+current_phase: resolve
 authority:
   status: pass
   source: "operator requested a long-term UACP goal and continuation from Stage 1/2 foundation"
 transition_artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
 council_synthesis_artifact: "verification/uacp-bootstrap-stage-3-state-binding-council.yaml"
-bootstrap_closed: false
-governed_mutation_active: false
+bootstrap_closed: true
+governed_mutation_active: true
 artifacts:
   triage: "proposals/uacp-bootstrap-stage-1-2-triage.yaml"
   proposal: "proposals/uacp-bootstrap-stage-3-state-binding-proposal.yaml"
@@ -55,8 +55,6 @@ invariants:
     status: pass
     evidence: "Blocked checkpoint is now explicitly documented by transition and verification artifacts"
 deferred_items:
-  - id: uacp-state-skill
-    reason: "State mutation skill comes after bootstrap state schema is proven."
   - id: lifecycle-skill-skeletons
     reason: "Lifecycle skills come after state mutation boundary."
   - id: kanban-binding
@@ -85,3 +83,12 @@ state_history:
   - event: git_binding_established
     source: "git commit e7fcb8e"
     artifact: "verification/uacp-bootstrap-stage-3-git-binding-verification.yaml"
+  - event: uacp_state_skill_created
+    source: "external skill implementation"
+    artifact: "HERMES_ROOT/skills/devops/uacp/uacp-state/SKILL.md"
+  - event: bootstrap_closed
+    source: "state closure artifact"
+    artifact: "verification/uacp-bootstrap-stage-3-state-binding-closure.yaml"
+  - event: run_closed
+    source: "governed lifecycle dry run initialization"
+    artifact: "state/current.yaml"

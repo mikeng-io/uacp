@@ -11,9 +11,9 @@ state_layer:
   root: "state/"
   current_pointer: "state/current.yaml"
   run_manifests: "state/runs/"
-  implementation_status: bootstrap
-  mutation_boundary: "future uacp-state skill"
-  bootstrap_closure_flag: false
+  implementation_status: governed_mutation
+  mutation_boundary: "uacp-state skill"
+  bootstrap_closure_flag: true
 
 state_principles:
   - "State records current lifecycle position and pointers; artifacts carry detailed evidence."

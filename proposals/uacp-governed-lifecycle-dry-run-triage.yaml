@@ -1,0 +1,50 @@
+kind: uacp.triage
+run_id: uacp-governed-lifecycle-dry-run
+triage_id: uacp-governed-lifecycle-dry-run
+request: "Run a full local UACP lifecycle dry run"
+status: routed
+granularity:
+  impact: 10
+  reversibility: 6
+  domain_count: 5
+  runtime_count: 4
+  verification_difficulty: 9
+  total: 10
+route: full_governance
+domains:
+  - governance
+  - state
+  - verification
+  - integration
+  - lifecycle
+artifact_types:
+  - control_plane
+  - state_manifest
+  - lifecycle_artifact
+  - skill_bundle
+selected_clusters:
+  - document_authority
+  - state_traceability
+  - version_control_binding
+  - triage_admission
+  - adaptive_gate_selection
+  - council_checkpoint
+  - kanban_boundary
+not_applicable:
+  - marketing_brand_fit
+  - lifestyle_safety
+  - purchase_risk
+required_lifecycle_phases:
+  - propose
+  - plan
+  - execute
+  - verify
+  - resolve
+review_intensity: full
+authority:
+  status: pass
+  source: "operator continuation request plus governed bootstrap closure"
+reasoning: >
+  This is a multi-domain control-plane change with state, version control,
+  lifecycle skill activation, future Kanban binding, and verification demands.
+  It should enter the full governed lifecycle.

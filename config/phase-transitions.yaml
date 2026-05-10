@@ -89,6 +89,8 @@ artifact_schema:
       description: "Governance intensity derived by TRIAGE."
     triage_artifact:
       type: string
+    gate_selection_artifact:
+      type: string
     terminal_kind:
       type: enum
       values: [none, direct_action, lightweight_action, blocked_or_clarify]
@@ -130,6 +132,13 @@ artifact_schema:
       type: list
       item_type: string
       description: "UACP_ROOT-relative paths unless a symbolic external root is declared."
+    declared_side_effects:
+      type: list
+      item_type: string
+    write_containment_record:
+      type: string
+    blocker_synthesis:
+      type: string
     council_synthesis_artifact:
       type: string
     verification_artifact:

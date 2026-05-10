@@ -1,0 +1,83 @@
+kind: uacp.plan
+plan_id: uacp-lifecycle-skill-implementation
+run_id: uacp-lifecycle-skill-implementation
+objective: >
+  Prepare the lifecycle skill skeletons and state mutator contract so they can
+  be written in the Hermes skills tree after explicit approval to write outside
+  UACP_ROOT.
+status: blocked
+blocker: "External skill file writes require explicit operator approval."
+scope:
+  in_scope:
+    - "Define lifecycle skill file targets and responsibilities."
+    - "Define the uacp-state skill contract."
+    - "Define the write boundary for each skill."
+    - "Prepare the approval path for writing under /home/norty/.hermes/skills/devops/uacp/."
+  out_of_scope:
+    - "Creating or editing files outside UACP_ROOT before approval."
+    - "Kanban integration implementation."
+    - "Knowledge Bank implementation."
+target_files:
+  - path: "/home/norty/.hermes/skills/devops/uacp/SKILL.md"
+    role: "canonical lifecycle skill registry"
+    action: "update"
+  - path: "/home/norty/.hermes/skills/devops/uacp/uacp-state/SKILL.md"
+    role: "state mutation skill"
+    action: "create"
+  - path: "/home/norty/.hermes/skills/devops/uacp/uacp-triage/SKILL.md"
+    role: "triage skill"
+    action: "create"
+  - path: "/home/norty/.hermes/skills/devops/uacp/uacp-propose/SKILL.md"
+    role: "propose skill"
+    action: "create"
+  - path: "/home/norty/.hermes/skills/devops/uacp/uacp-plan/SKILL.md"
+    role: "plan skill"
+    action: "create"
+  - path: "/home/norty/.hermes/skills/devops/uacp/uacp-execute/SKILL.md"
+    role: "execute skill"
+    action: "create"
+  - path: "/home/norty/.hermes/skills/devops/uacp/uacp-verify/SKILL.md"
+    role: "verify skill"
+    action: "create"
+  - path: "/home/norty/.hermes/skills/devops/uacp/uacp-resolve/SKILL.md"
+    role: "resolve skill"
+    action: "create"
+order_of_operations:
+  - step: "Obtain explicit approval to write outside UACP_ROOT."
+    status: pending
+  - step: "Create or update the canonical UACP skill registry skill."
+    status: pending
+  - step: "Create uacp-state first so state mutation is governed before other lifecycle skills."
+    status: pending
+  - step: "Create uacp-triage, uacp-propose, uacp-plan, uacp-execute, uacp-verify, and uacp-resolve."
+    status: pending
+  - step: "Verify each skill reads docs/index.md first and follows the canonical contract."
+    status: pending
+skill_contract:
+  read_first:
+    - "UACP_ROOT/docs/index.md"
+    - "UACP_ROOT/docs/constitution.md"
+    - "UACP_ROOT/docs/lifecycle-reference.md"
+    - "UACP_ROOT/config/state.yaml"
+    - "UACP_ROOT/config/review-routing.yaml"
+  write_boundaries:
+    uacp-state: "state/"
+    uacp-triage: "proposals/"
+    uacp-propose: "proposals/"
+    uacp-plan: "plans/"
+    uacp-execute: "executions/"
+    uacp-verify: "verification/"
+    uacp-resolve: "outputs/ and knowledge/"
+  global_rules:
+    - "Do not hardcode physical paths inside canonical skill docs."
+    - "Do not hardcode model names."
+    - "Do not treat Hermes Kanban as phase state."
+    - "Do not create lifecycle skill files until the checkpoint review policy is satisfied."
+approval_required:
+  kind: operator_explicit
+  reason: "Skill file creation targets the Hermes skills tree, which is outside UACP_ROOT."
+acceptance_criteria:
+  - "The skill registry file exists and names all lifecycle skills."
+  - "The uacp-state contract is the first external skill implementation."
+  - "Each skill has a documented read-first set and write boundary."
+  - "The plan is ready for execution immediately after approval."

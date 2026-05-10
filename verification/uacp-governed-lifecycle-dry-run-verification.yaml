@@ -1,0 +1,32 @@
+kind: uacp.verification
+verification_id: uacp-governed-lifecycle-dry-run-execution
+run_id: uacp-governed-lifecycle-dry-run
+subject:
+  execution: "executions/uacp-governed-lifecycle-dry-run.yaml"
+  current_state: "state/current.yaml"
+  run_manifest: "state/runs/uacp-governed-lifecycle-dry-run.yaml"
+decision: pass
+checks:
+  yaml_parse:
+    status: pass
+    observed:
+      - "execution artifact parses"
+      - "current state parses"
+      - "run manifest parses"
+  pointer_coherence:
+    status: pass
+    observed:
+      - "current state and run manifest both point at the plan-to-execute transition artifact"
+      - "run manifest current_stage/current_phase both equal execute"
+  execution_package:
+    status: pass
+    observed:
+      - "plan.package output exists as the current execution package unit"
+      - "verification artifact path reserved and now created"
+  boundary_preservation:
+    status: pass
+    observed:
+      - "Kanban remains unbound"
+      - "writes remain within UACP_ROOT"
+notes:
+  - "This is a local dry-run execution verification, not an external deployment check."

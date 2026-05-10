@@ -1,0 +1,60 @@
+kind: uacp.phase_transition
+transition_id: uacp-governed-lifecycle-dry-run-execute-to-verify
+run_id: uacp-governed-lifecycle-dry-run
+from_phase: execute
+to_phase: verify
+routing_outcome: full_governance
+granularity_level: 10
+triage_artifact: "proposals/uacp-governed-lifecycle-dry-run-triage.yaml"
+gate_selection_artifact: "proposals/uacp-governed-lifecycle-dry-run-gate-selection.yaml"
+decision: pass
+terminal_kind: none
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: "Operator continuation request is explicit."
+  - id: writes.contained
+    status: pass
+    evidence: "All writes remain inside UACP_ROOT."
+  - id: state.traceable
+    status: pass
+    evidence: "The run manifest and current pointer are UACP-relative."
+cluster_summary:
+  - cluster_id: execution_package
+    state: pass
+    artifact_path: "executions/uacp-governed-lifecycle-dry-run.yaml"
+  - cluster_id: execution_verification
+    state: pass
+    artifact_path: "verification/uacp-governed-lifecycle-dry-run-verification.yaml"
+  - cluster_id: learning_artifact
+    state: pass
+    artifact_path: "knowledge/lessons/uacp-governed-lifecycle-dry-run.yaml"
+  - cluster_id: write_containment
+    state: pass
+    artifact_path: "state/current.yaml"
+blockers: []
+warnings:
+  - "Kanban remains intentionally unbound for this dry-run checkpoint."
+  - "Verification phase should confirm the execute outputs before any resolve transition."
+deferred_items:
+  - id: kanban_binding
+    reason: "Execution substrate remains unbound in this checkpoint."
+authority:
+  requested_by: "operator"
+  authorization_source: "governed lifecycle dry run"
+artifact_paths:
+  - "executions/uacp-governed-lifecycle-dry-run.yaml"
+  - "outputs/uacp-governed-lifecycle-dry-run-summary.yaml"
+  - "knowledge/lessons/uacp-governed-lifecycle-dry-run.yaml"
+  - "verification/uacp-governed-lifecycle-dry-run-verification.yaml"
+declared_side_effects:
+  - "No external side effects."
+  - "UACP_ROOT-local artifact writes only."
+write_containment_record: "UACP_ROOT only"
+blocker_synthesis: >
+  The execute package is complete and locally verified. The next governed step
+  is VERIFY, which should check the execute outputs and prepare the resolve
+  transition.
+council_synthesis_artifact: "verification/uacp-governed-lifecycle-dry-run-execute-checkpoint.yaml"
+verification_artifact: "verification/uacp-governed-lifecycle-dry-run-verification.yaml"
+accepted_exceptions: []

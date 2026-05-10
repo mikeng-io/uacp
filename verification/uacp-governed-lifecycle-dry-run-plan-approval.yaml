@@ -1,0 +1,25 @@
+kind: uacp.approval
+approval_id: uacp-governed-lifecycle-dry-run-plan-approval
+run_id: uacp-governed-lifecycle-dry-run
+subject: "Proposal-to-plan handoff for the governed lifecycle dry run"
+status: approved_with_conditions
+authority:
+  status: pass
+  source: "operator continuation request after council review"
+conditions:
+  - "Keep all writes inside UACP_ROOT."
+  - "Do not bind Hermes Kanban yet."
+  - "Create the plan artifact only after the transition record is updated."
+  - "Preserve delete-by-default handling for any temporary notes."
+rationale:
+  - "The dry run is a local governance exercise and does not touch external systems."
+  - "The current blocker is traceability, which is now explicitly recorded."
+  - "Proceeding to PLAN is appropriate after the transition package is made traceable."
+references:
+  - "proposals/uacp-governed-lifecycle-dry-run-proposal.yaml"
+  - "proposals/uacp-governed-lifecycle-dry-run-gate-selection.yaml"
+  - "verification/uacp-governed-lifecycle-dry-run-council.yaml"
+  - "state/runs/uacp-governed-lifecycle-dry-run-propose-transition.yaml"
+notes:
+  - "This approval accepts the council's blocking findings with the above conditions."
+  - "It does not waive future verification or plan-step review."

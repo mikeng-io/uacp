@@ -1,0 +1,54 @@
+kind: uacp.phase_transition
+transition_id: uacp-governed-lifecycle-dry-run-verify-to-resolve
+run_id: uacp-governed-lifecycle-dry-run
+from_phase: verify
+to_phase: resolve
+routing_outcome: full_governance
+granularity_level: 10
+triage_artifact: "proposals/uacp-governed-lifecycle-dry-run-triage.yaml"
+gate_selection_artifact: "proposals/uacp-governed-lifecycle-dry-run-gate-selection.yaml"
+decision: pass
+terminal_kind: none
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: "Operator continuation request is explicit."
+  - id: writes.contained
+    status: pass
+    evidence: "All writes remain inside UACP_ROOT."
+  - id: state.traceable
+    status: pass
+    evidence: "The run manifest and current pointer are UACP-relative."
+cluster_summary:
+  - cluster_id: verify_result
+    state: pass
+    artifact_path: "verification/uacp-governed-lifecycle-dry-run-verify.yaml"
+  - cluster_id: resolution_summary
+    state: pass
+    artifact_path: "outputs/uacp-governed-lifecycle-dry-run-summary.yaml"
+  - cluster_id: learning_artifact
+    state: pass
+    artifact_path: "knowledge/lessons/uacp-governed-lifecycle-dry-run.yaml"
+blockers: []
+warnings:
+  - "Kanban remains intentionally unbound for this dry-run checkpoint."
+deferred_items:
+  - id: kanban_binding
+    reason: "Execution substrate remains unbound in this checkpoint."
+authority:
+  requested_by: "operator"
+  authorization_source: "governed lifecycle dry run"
+artifact_paths:
+  - "verification/uacp-governed-lifecycle-dry-run-verify.yaml"
+  - "outputs/uacp-governed-lifecycle-dry-run-summary.yaml"
+  - "knowledge/lessons/uacp-governed-lifecycle-dry-run.yaml"
+declared_side_effects:
+  - "No external side effects."
+  - "UACP_ROOT-local artifact writes only."
+write_containment_record: "UACP_ROOT only"
+blocker_synthesis: >
+  The verify checkpoint passed and the run artifacts are complete. The dry run
+  can now be formally resolved and closed.
+council_synthesis_artifact: "verification/uacp-governed-lifecycle-dry-run-verify-council.yaml"
+verification_artifact: "verification/uacp-governed-lifecycle-dry-run-resolve.yaml"
+accepted_exceptions: []

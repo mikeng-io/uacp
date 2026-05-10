@@ -1,0 +1,88 @@
+kind: uacp.gate_selection
+selection_id: uacp-governed-lifecycle-dry-run-propose-selection
+run_id: uacp-governed-lifecycle-dry-run
+phase: propose
+domains:
+  - governance
+  - state
+  - verification
+  - integration
+  - lifecycle
+artifact_types:
+  - proposal
+  - state_manifest
+  - phase_transition
+  - council_review
+risk_level: high
+granularity_level: 10
+routing_outcome: full_governance
+triage_factor_scores:
+  impact: 10
+  reversibility: 6
+  domain_count: 5
+  runtime_count: 4
+  verification_difficulty: 9
+  calculation_notes:
+    - "Multi-domain control-plane work with explicit state mutation."
+    - "Plan/execute follow-up will require review surfaces and traceability."
+invariant_checks:
+  - id: authority.explicit
+    status: pass
+    reason: "Operator continuation request is explicit."
+  - id: side_effects.declared
+    status: pass
+    reason: "Writes remain inside UACP_ROOT."
+  - id: writes.contained
+    status: pass
+    reason: "No external files are targeted in this phase."
+  - id: privacy_safety.constrained
+    status: pass
+    reason: "No privacy-sensitive or safety-sensitive external actions."
+  - id: state.traceable
+    status: pass
+    reason: "Run pointer and artifacts are UACP-relative."
+  - id: failure.conservative
+    status: pass
+    reason: "Plan remains blocked until the council package is complete."
+  - id: mutation.visible
+    status: pass
+    reason: "All state mutations are represented by YAML artifacts."
+selected_clusters:
+  required:
+    - document_authority
+    - state_traceability
+    - version_control_binding
+    - memory_lessons
+    - council_checkpoint
+    - write_containment
+    - blocker_synthesis
+  optional:
+    - adaptive_gate_selection
+    - hermes_kanban_boundary
+  generated: []
+not_applicable:
+  - cluster_id: marketing_brand_fit
+    reason: "No marketing artifact is being produced."
+  - cluster_id: lifestyle_safety
+    reason: "No lifestyle decision is being made."
+  - cluster_id: purchase_risk
+    reason: "No purchase or spending decision is involved."
+ranking_basis:
+  similar_scenarios:
+    - "uacp-bootstrap-stage-3-state-binding"
+  templates_considered:
+    - "universal_cluster_families"
+    - "uacp_blueprint_docs"
+    - "state_version_control_checkpoint"
+  scoring_notes:
+    - "Governance bootstrap now transitions into a structured dry run."
+    - "Proposal and plan must remain traceable through a real transition package."
+transition_requirements:
+  - "Council synthesis artifact exists."
+  - "Write containment record is explicit."
+  - "Blocker synthesis names the remaining blockers."
+  - "Current run manifest points at the transition artifact, not the proposal itself."
+reasoning: >
+  The dry run is high-impact, multi-domain governance work. It requires a full
+  transition package and explicit review surfaces before moving from PROPOSE to
+  PLAN.

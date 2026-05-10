@@ -1,0 +1,52 @@
+kind: uacp.council_review
+review_id: uacp-governed-lifecycle-dry-run-propose
+run_id: uacp-governed-lifecycle-dry-run
+scope: "Proposal-to-plan handoff for the governed lifecycle dry run"
+verdict: approved_with_conditions
+domains_covered:
+  - governance
+  - state
+  - verification
+  - integration
+  - lifecycle
+findings:
+  high:
+    - id: H1
+      title: "No dedicated gate-selection artifact"
+      evidence: "Proposal only had a selected_clusters list."
+      remediation: "Create a uacp.gate_selection artifact and reference it from the proposal and transition."
+    - id: H2
+      title: "Transition record missing"
+      evidence: "Run pointer still referenced the proposal instead of a phase transition artifact."
+      remediation: "Create a uacp.phase_transition artifact for propose -> plan and point state/current.yaml at it."
+  medium:
+    - id: M1
+      title: "Invariant evidence stale"
+      evidence: "Run manifest said propose while the invariant text still said triage."
+      remediation: "Update the invariant evidence to match the live phase."
+    - id: M2
+      title: "Learning cluster vocabulary mismatch"
+      evidence: "Proposal used learning_artifact instead of memory_lessons."
+      remediation: "Normalize to memory_lessons everywhere."
+resolution:
+  - finding_id: H1
+    status: resolved
+    evidence: "Gate-selection artifact now exists and is linked from the proposal."
+  - finding_id: H2
+    status: resolved
+    evidence: "Dedicated propose-to-plan transition artifact now exists."
+  - finding_id: M1
+    status: resolved
+    evidence: "Run invariant now matches current_stage/current_phase = propose."
+  - finding_id: M2
+    status: resolved
+    evidence: "Proposal now uses memory_lessons."
+summary: >
+  The proposal is now sufficiently traceable to move toward PLAN with
+  conditions. The remaining condition is to carry the transition package
+  forward with the explicit approval record and preserve Kanban as unbound
+  during this dry-run checkpoint.
+conditions:
+  - "Keep all writes inside UACP_ROOT."
+  - "Do not bind Hermes Kanban yet."
+  - "Create the plan artifact only after the transition record is updated."

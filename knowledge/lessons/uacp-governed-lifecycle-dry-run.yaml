@@ -1,0 +1,43 @@
+kind: uacp.learning
+scenario_id: uacp-governed-lifecycle-dry-run
+domains:
+  - governance
+  - state
+  - verification
+  - integration
+artifact_types:
+  - run_state
+  - plan
+  - execution
+  - verification
+risk_level: high
+selected_clusters:
+  - document_authority
+  - state_traceability
+  - version_control_binding
+  - memory_lessons
+  - triage_admission
+  - adaptive_gate_selection
+  - council_checkpoint
+not_applicable:
+  - kanban_binding
+  - knowledge_bank_service
+outcome:
+  transition_result: pass
+  verification_result: pass
+  incidents_or_rework:
+    - "Execute boundary state pointers needed repair before verification."
+ranking_signals:
+  useful_clusters:
+    - document_authority
+    - state_traceability
+    - memory_lessons
+    - council_checkpoint
+  unnecessary_clusters:
+    - kanban_binding
+  missing_clusters: []
+lessons:
+  - "Keep the run manifest and current pointer aligned before advancing a phase."
+  - "Execute checkpoints need their own traceable verification artifact, not only council approval."
+  - "Delete-by-default document hygiene reduces stale context risk during governance work."
+  - "Learning artifacts should record what changed, what remained deferred, and why."
