@@ -291,7 +291,7 @@ Canonical targets:
 - `config/state.yaml`
 - `state/current.yaml`
 
-Follow-up: runtime Guardian/Heartgate enforcement remains unresolved. Current skill and state boundaries are policy-level until a Hermes-native pre-tool-call Guardian adapter is implemented.
+Follow-up: superseded by the later runtime Guardian/Heartgate checkpoint. Current remaining work is live activation, proof testing, lifecycle-skill wiring to Heartgate, and `uacp_state_write` adoption.
 
 ### 2026-05-11 — Define Runtime Guardian And Heartgate Design
 
@@ -506,7 +506,7 @@ Canonical targets:
 - `config/phase-transitions.yaml`
 - `config/review-routing.yaml`
 
-Follow-up: complete for `uacp-state` and lifecycle skill creation. Runtime Guardian/Heartgate enforcement remains the next hardening step.
+Follow-up: complete for `uacp-state` and lifecycle skill creation. Runtime Guardian/Heartgate checkpoint 1 has since been implemented; live activation and proof testing remain open.
 
 ## Tombstones
 

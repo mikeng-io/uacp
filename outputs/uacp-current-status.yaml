@@ -8,7 +8,7 @@ authority:
   runtime_checkpoint: "verification/uacp-runtime-guardian-implementation-checkpoint-1.yaml"
 repositories:
   uacp:
-    commit: "2f9fad1"
+    checkpoint_commit: "65d8fbb"
     role: "governance source of truth, durable artifacts, state, docs, config"
   hermes_agent:
     commit: "a07da521a"
