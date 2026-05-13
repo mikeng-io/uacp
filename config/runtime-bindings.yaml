@@ -1,0 +1,34 @@
+schema_version: "0.1"
+kind: uacp.runtime_bindings
+status: seed
+purpose: >
+  Defines runtime-adapter source locations and downstream runtime binding targets
+  for UACP-owned plugins/adapters.
+bindings:
+  hermes:
+    runtime_role: "first downstream host runtime"
+    source_root: "runtime-adapters/hermes/"
+    user_plugin_binding_root: "HERMES_ROOT/plugins/"
+    discovery_status: "symlink_probe_passed"
+    adapters:
+      uacp_guardian:
+        source: "runtime-adapters/hermes/plugins/uacp_guardian/"
+        binding: "HERMES_ROOT/plugins/uacp_guardian"
+        binding_kind: symlink
+        migration_status: "source_copied_not_bound"
+      thread_title_sync:
+        source: "runtime-adapters/hermes/plugins/thread_title_sync/"
+        binding: "HERMES_ROOT/plugins/thread_title_sync"
+        binding_kind: symlink
+        migration_status: "source_copied_not_bound"
+      uacp_symlink_probe:
+        source: "runtime-adapters/hermes/plugins/uacp_symlink_probe/"
+        binding: "HERMES_ROOT/plugins/uacp_symlink_probe"
+        binding_kind: symlink
+        migration_status: "temporary_probe_only"
+future_runtimes:
+  opencode: {source_root: "runtime-adapters/opencode/", status: planned}
+  claude_code: {source_root: "runtime-adapters/claude-code/", status: planned}
+  codex: {source_root: "runtime-adapters/codex/", status: planned}
+  kimi: {source_root: "runtime-adapters/kimi/", status: planned}
+  gemini: {source_root: "runtime-adapters/gemini/", status: planned}

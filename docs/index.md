@@ -124,6 +124,7 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `docs/lifecycle-reference.md` | reference | canonical | Current workflow and phase/stage model | Primary place for lifecycle wording |
 | `docs/alignment-spec.md` | reference | canonical | Hermes/Norty integration alignment | Update when integration boundaries change |
 | `docs/runtime-enforcement.md` | reference / policy | canonical | Guardian and Heartgate runtime enforcement design | Update before runtime enforcement implementation changes |
+| `docs/runtime-porting-and-version-control.md` | reference / policy | canonical | Runtime adapter ownership, runtime binding, repository/branch/worktree policy, and Hermes local-patch reduction path | Update before changing runtime adapter ownership or binding policy |
 | `docs/orchestration-model.md` | reference | canonical | Agent Council, council modes/tiers, runtime adapters, and downstream orchestration vocabulary | Update before changing multi-agent orchestration semantics or downstream agent-skill extraction |
 | `config/evidence-clusters.yaml` | schema_config | generated | Evidence cluster families and schema | Keep aligned with canonical docs; YAML must parse |
 | `config/gate-selection.yaml` | schema_config | generated | Meta-gate, triage scoring, gate-selection schema | Keep aligned with lifecycle and constitution |
@@ -133,10 +134,13 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `config/roots.yaml` | schema_config | generated | Symbolic roots and path-resolution rules | Keep aligned with path convention in this registry |
 | `config/state.yaml` | schema_config | generated | File-based state layer and version-control binding | Keep aligned with lifecycle reference and active `uacp-state` policy |
 | `config/guardian-policy.yaml` | schema_config | generated | Machine-readable Guardian and Heartgate policy seed | Keep aligned with runtime enforcement design |
+| `config/runtime-bindings.yaml` | schema_config | generated | Runtime adapter source and downstream runtime binding map | Keep aligned with runtime-porting policy and verified runtime discovery |
+| `config/version-control.yaml` | schema_config | generated | UACP repository, branch/worktree, remote-backup, and commit-boundary policy | Keep aligned with runtime-porting policy and state/version-control docs |
 | `state/` | runtime_state | canonical | Mutable run state layer | Keep pointer-based; mutate through `uacp-state` after bootstrap closure |
 | `state/current.yaml` | runtime_state | canonical | Active state pointer | Update with the current run manifest and provenance |
 | `state/kanban.yaml` | runtime_state | canonical | Active Hermes Kanban binding | Update when the board slug or root task ids change |
 | `state/runs/` | runtime_state | canonical | Per-run manifests and checkpoint records | Append new run manifests; do not overwrite historical runs |
+| `runtime-adapters/` | runtime_adapter_source | canonical | UACP-owned runtime adapter/plugin source for Hermes and future runtimes | Source changes require runtime binding verification and rollback evidence |
 
 ## Lifecycle Skill Registry
 
@@ -207,6 +211,24 @@ Required fields:
 No timestamp is required. The git commit is the retrieval coordinate. If no git commit exists, use `unavailable-no-git-worktree` and update it after the artifact root is versioned.
 
 ## Decision Log
+
+### 2026-05-13 — Establish Runtime Porting And Version-Control Binding Policy
+
+Decision: UACP owns governed runtime adapter source under `runtime-adapters/`, records runtime binding targets in `config/runtime-bindings.yaml`, and records repository/branch/worktree/backup policy in `config/version-control.yaml`. Hermes Agent remains the first downstream runtime target, not the long-term authority root for UACP-owned plugin source.
+
+Rationale: Keeping UACP-specific plugins only inside the Hermes Agent repository couples governance authority to an upstream runtime checkout and makes backup/portability fragile. UACP needs its own Git-controlled source boundary plus runtime-specific symlink/install/export bindings.
+
+Status: accepted as a runtime-porting policy seed after non-destructive Hermes symlink discovery proof.
+
+Canonical targets:
+
+- `docs/runtime-porting-and-version-control.md`
+- `config/runtime-bindings.yaml`
+- `config/version-control.yaml`
+- `runtime-adapters/hermes/plugins/`
+- `executions/runtime-porting-20260513-symlink-proof.yaml`
+
+Follow-up: bind real `uacp_guardian` and `thread_title_sync` through `HERMES_ROOT/plugins/` only after review, then run affected behavior tests before removing Hermes Agent bundled/transitional copies.
 
 ### 2026-05-13 — Integrate Agent-Skills Branch Concepts Into UACP Doctrine
 
@@ -552,3 +574,5 @@ Follow-up: complete for `uacp-state` and lifecycle skill creation. Runtime Guard
 - Keep `outputs/uacp-current-status.yaml` current at major checkpoints.
 - Process any future doc-sync drift through a new governed Kanban task; `t_9f0f686b` is already closed.
 - After live proof tests, update `docs/runtime-enforcement.md` and the current status artifact with the tested activation state.
+- Configure a private remote for `UACP_ROOT`; local Git history is not backup.
+- Review and bind UACP-owned Hermes plugin sources through `HERMES_ROOT/plugins/` after symlink proof; then reduce Hermes Agent local plugin copies only after affected tests pass.

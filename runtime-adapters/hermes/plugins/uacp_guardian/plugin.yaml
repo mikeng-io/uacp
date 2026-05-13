@@ -1,0 +1,9 @@
+name: uacp_guardian
+version: 0.1.0
+description: "UACP Guardian and Heartgate runtime enforcement adapter for Hermes."
+author: "Hermes/UACP"
+hooks:
+  - pre_tool_call
+  - post_tool_call
+tools:
+  - uacp_state_write

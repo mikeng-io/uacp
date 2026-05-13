@@ -1,0 +1,25 @@
+schema_version: "0.1"
+kind: uacp.version_control
+status: seed
+purpose: >
+  Defines repository, branch, worktree, backup, and commit-boundary policy for
+  UACP-owned doctrine, configs, audit artifacts, and runtime adapters.
+repository:
+  root: "UACP_ROOT"
+  stable_branch: main
+  private_remote_required_for_backup: true
+  local_git_is_backup: false
+  push_policy: "external side effect; requires explicit operator confirmation"
+branch_policy:
+  active_run_branch_pattern: "uacp/<run-id>/<topic>"
+  active_worktree_pattern: "HERMES_ROOT/worktrees/uacp/<run-id>/"
+  current_runtime_porting_branch: "uacp/runtime-porting-20260513/hermes-plugin-port"
+commit_policy:
+  meaningful_slices: [proposal_or_plan_artifacts, runtime_adapter_source_import, binding_config_or_sop, verification_evidence, resolution_or_lessons]
+  avoid_noisy_commits_for: [high_frequency_runtime_state_churn, unreviewed_temporary_probe_output]
+runtime_repositories:
+  hermes_agent:
+    role: "downstream runtime target"
+    local_patch_policy: "single local patch commit while unavoidable"
+    ownership_rule: "UACP-specific plugin source should migrate to UACP_ROOT runtime-adapters after binding proof"
+    backup_rule: "do not use Hermes Agent commits as UACP backup"

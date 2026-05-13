@@ -1,0 +1,6 @@
+name: thread_title_sync
+version: 0.1.0
+description: Generic thread title sync policy with Discord #N recovery.
+author: Hermes Agent
+provides_hooks:
+  - pre_thread_title_sync

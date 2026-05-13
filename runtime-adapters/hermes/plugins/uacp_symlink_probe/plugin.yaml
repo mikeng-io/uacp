@@ -1,0 +1,6 @@
+name: uacp_symlink_probe
+version: "0.1.0"
+description: "Temporary UACP runtime-adapter symlink discovery probe."
+kind: standalone
+provides_hooks:
+  - on_session_start
