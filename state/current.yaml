@@ -10,5 +10,6 @@ governed_mutation_active: true
 notes:
   - "Current pointer updated after Phase 2 resolve and Heartgate tool implementation."
   - "Phase 2 governed writer hardening is resolved; the Heartgate transition tool is live and verified."
-  - "Remaining work is runtime/tool schema reload verification, lifecycle-skill live dispatch exposure, and later containment hardening."
-  - "Manual-drill state update used guarded state handler with full UACP context because the current session still needs reload verification for some newly registered tools."
+  - "Runtime/tool schema reload verification passed in a fresh Hermes session."
+  - "Remaining work is full filesystem containment before any UACP-bound shell/code execution can be allowed."
+  - "Fresh Hermes session confirmed UACP writer and Heartgate tools are exposed after restart."

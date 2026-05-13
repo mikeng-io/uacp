@@ -17,4 +17,5 @@ composite_granularity: 6
 notes:
   - Phase 2 concerns were hardened and resolved.
   - uacp_heartgate_check is implemented and verified.
-  - Remaining work is fresh-session/runtime reload verification, containment hardening, and lifecycle-skill dispatch exposure.
+  - Fresh-session runtime reload verification passed.
+  - Remaining work is full filesystem containment hardening.

@@ -1,7 +1,7 @@
 schema_version: '0.1'
 kind: uacp.operational_dashboard
 status: runtime_prototype_active
-last_updated: 2026-05-14T02:55:00+0800
+last_updated: 2026-05-14T03:05:00+0800
 authority:
   registry: docs/index.md
   runtime_design: docs/runtime-enforcement.md
@@ -52,7 +52,7 @@ open_blockers:
   summary: Hermes is the reference adapter, but the cross-runtime adapter contract is not yet stabilized.
 next_actions_ordered:
 - Restart/reload Hermes runtime when convenient so uacp_doc_write, uacp_config_write, and uacp_heartgate_check appear in active tool schemas.
-- Verify lifecycle skills in a fresh session so uacp_heartgate_check, uacp_doc_write, and uacp_config_write are visible in active tool schemas.
+- Fresh-session reload verification passed: uacp_heartgate_check, uacp_doc_write, uacp_config_write, uacp_state_write, and uacp_artifact_write are visible in a new Hermes session.
 - Design and prove filesystem containment for UACP-bound shell/code execution.
 - Current surfaces are fail-closed for UACP-bound shell/code execution without containment.
 operator_approval_policy:

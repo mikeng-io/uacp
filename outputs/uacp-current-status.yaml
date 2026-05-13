@@ -84,7 +84,7 @@ instruction_surface_wiring:
   - routing/dispatch-workspaces.yaml now routes the uacp workspace to UACP_ROOT and lists the uacp skill.
   - 'config.yaml Discord #dispatch prompt now tells UACP-bound work to select the uacp workspace, load the uacp skill, start at TRIAGE, and preserve Guardian context.'
   - 'config.yaml Discord #dispatch skill binding now includes uacp.'
-  - UACP lifecycle skills now reference uacp_state_write, uacp_heartgate_check, uacp_doc_write, and uacp_config_write; fresh-session/runtime reload verification is still needed before declaring live schema exposure complete.
+  - UACP lifecycle skills now reference uacp_state_write, uacp_heartgate_check, uacp_doc_write, and uacp_config_write; fresh-session runtime reload verification is complete and the tools appear in a new Hermes session.
   - The bundled hermes-agent/AGENTS.md is a developer guide for the Hermes Agent repo; it is not the operator-level UACP authority document.
   changed_surfaces:
   - HERMES_ROOT/SOUL.md
@@ -98,7 +98,8 @@ instruction_surface_wiring:
   recommended_next_steps:
   - Restart or reload the Hermes gateway/runtime so config and instruction-surface changes take effect.
   - Run a live dispatch test for a UACP-bound thread and confirm it selects the uacp workspace and skill.
-  - Verify lifecycle skills and runtime tool schemas in a fresh session, then continue containment hardening.
+  - The runtime tool schema reload check has passed in a fresh Hermes session.
+  - Continue with full filesystem containment if UACP-bound shell/code execution should ever be enabled.
   - Avoid stuffing full UACP docs into SOUL.md, PERSONALITY.md, or AGENTS.md; keep those files as pointers to UACP_ROOT authority.
 live_proof_tests_required:
 - Direct write to UACP state/ is blocked unless routed through the guarded state mutation path.
