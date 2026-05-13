@@ -1,0 +1,64 @@
+schema_version: '0.1'
+kind: uacp.operational_dashboard
+status: runtime_prototype_active
+last_updated: 2026-05-14T00:00:00+0800
+authority:
+  registry: docs/index.md
+  runtime_design: docs/runtime-enforcement.md
+  runtime_porting_policy: docs/runtime-porting-and-version-control.md
+  current_status: outputs/uacp-current-status.yaml
+repositories:
+  uacp:
+    remote: git@github.com:nortrix-labs/uacp.git
+    head: 512fef2
+    branch_status: '## main...origin/main'
+  hermes_agent:
+    remote: git@github.com:NousResearch/hermes-agent.git
+    local_patch_commit: 45afd64f5
+    policy: local patch only; do not push to upstream without explicit PR workflow
+live_bindings:
+  thread_title_sync:
+    source: runtime-adapters/hermes/plugins/thread_title_sync/
+    binding: HERMES_ROOT/plugins/thread_title_sync
+    status: enabled_user_plugin
+    verification: verification/runtime-porting-20260513-thread-title-sync-live-bind.yaml
+  uacp_guardian:
+    source: runtime-adapters/hermes/plugins/uacp_guardian/
+    binding: HERMES_ROOT/plugins/uacp_guardian
+    status: enabled_user_plugin_partial_enforcement
+    verification: verification/runtime-porting-20260513-uacp-guardian-live-bind.yaml
+implemented:
+- UACP-owned Hermes adapter source lives under runtime-adapters/hermes/plugins/.
+- thread_title_sync and uacp_guardian are live-bound via HERMES_ROOT/plugins symlinks.
+- Hermes Agent duplicate UACP plugin source copies were removed from the local patch set.
+- Temporary uacp_symlink_probe was removed after real-adapter binding proof.
+- Guardian blocks protected UACP path actions without required context fields.
+open_blockers:
+- id: governed-doc-config-writer
+  severity: high
+  summary: Docs/config mutation still lacks a governed writer surface; manual local writes are accepted-risk only.
+- id: heartgate-transition-tool
+  severity: high
+  summary: Lifecycle transitions are not yet mechanically checked by a live Heartgate tool path.
+- id: filesystem-containment
+  severity: high
+  summary: UACP-bound shell/code execution remains blocked until verified containment exists.
+- id: kanban-guardian-evidence
+  severity: medium
+  summary: UACP-bound Kanban worker completion needs reliable Guardian evidence propagation and VERIFY checks.
+- id: runtime-adapter-contract
+  severity: medium
+  summary: Hermes is the reference adapter, but the cross-runtime adapter contract is not yet stabilized.
+next_actions_ordered:
+- Run scripts/live_guardian_probe.py and record verification/live-guardian-proof-YYYYMMDD.yaml.
+- Implement governed docs/config writer surfaces in uacp_guardian.
+- Patch lifecycle skills to require governed writer/Heartgate paths.
+- Implement Heartgate check/transition tool.
+- Design and prove filesystem containment for UACP-bound shell/code execution.
+operator_approval_policy:
+  autonomous: local UACP artifact edits, local tests, local commits, local proof harnesses, skill/doc sync after verified behavior
+  notify_not_ask: local gateway restart for scoped UACP verification, local branch/worktree cleanup, long tests
+  explicit_approval_required: remote pushes unless standing authority granted, Hermes Agent upstream push/PR, weakening security, disabling Guardian outside a scoped test, external/public side effects
+compression:
+  status: deferred
+  handoff: HERMES_ROOT/notes/compression-loop-handoff-20260514.md
