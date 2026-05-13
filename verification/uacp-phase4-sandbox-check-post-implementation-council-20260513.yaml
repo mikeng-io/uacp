@@ -1,0 +1,58 @@
+schema_version: '0.1'
+kind: uacp.council_synthesis
+council_id: uacp-phase4-sandbox-check-post-implementation-council-20260513
+run_id: uacp-phase4-filesystem-containment-20260513-215531
+mode: verify
+tier: tier_2_role_diverse
+phase: execute
+phase_local_granularity:
+  phase: execute
+  entry_estimate: 8
+  exit_actual: 7
+  delta_reason: Implementation added evidence checker only and preserved fail-closed standard execution paths.
+  downstream_projection:
+    verify: 7
+    resolve: 5
+roles:
+  - Security/Guardian boundary reviewer
+  - Lifecycle/verification reviewer
+dispatch_surfaces:
+  - delegate_task configured delegation runtime
+findings:
+  - id: fail_closed_preserved
+    severity: high
+    state: resolved
+    summary: Standard terminal and execute_code paths remain blocked without filesystem_guard_verified; no adapter path sets it true automatically.
+  - id: no_self_attestation
+    severity: high
+    state: resolved
+    summary: uacp_sandbox_check proves bwrap mechanism availability only and returns allow_standard_tool_path false.
+  - id: workspace_escape_checks
+    severity: medium
+    state: resolved
+    summary: Workspace under UACP_ROOT is rejected; path resolution is symlink-aware.
+  - id: status_artifacts_consistent
+    severity: medium
+    state: resolved
+    summary: Current status, dashboard, manifest, and verification artifacts consistently state that shell/code allow path is not enabled.
+  - id: future_runtime_seam_needed
+    severity: high
+    state: deferred
+    summary: A real runtime execution seam or contained-shell surface is still required before any shell/code allow path can be claimed.
+    owner: main_session
+    condition: Next phase/design must actually execute commands inside verified containment and re-run proof/council.
+verdict: pass
+human_escalation:
+  required: false
+  reason: No blockers found; residual risks are accepted/deferred and do not enable unsafe execution.
+  authority_needed: none
+artifact_paths:
+  - verification/phase4-sandbox-check-implementation-20260513.yaml
+  - verification/live-guardian-proof-20260513-phase4-sandbox-check.yaml
+  - outputs/uacp-current-status.yaml
+  - outputs/uacp-operational-dashboard.yaml
+required_followups:
+  - Design runtime execution seam that actually invokes commands inside bwrap/read-only-root containment.
+  - Re-run live proof after any future runtime seam implementation.
+  - Run Agent Council before claiming Phase 4 enables an allow path for shell/code.
+  - Ensure any future caller honors TTL or revalidates containment evidence.

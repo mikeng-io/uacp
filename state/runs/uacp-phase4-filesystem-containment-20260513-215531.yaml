@@ -20,6 +20,7 @@ artifacts:
   plan_to_execute_transition: state/runs/uacp-phase4-filesystem-containment-20260513-plan-to-execute-transition.yaml
   phase4_sandbox_verification: verification/phase4-sandbox-check-implementation-20260513.yaml
   phase4_live_probe: verification/live-guardian-proof-20260513-phase4-sandbox-check.yaml
+  post_implementation_council: verification/uacp-phase4-sandbox-check-post-implementation-council-20260513.yaml
 heartgate:
   propose_to_plan:
     decision: warn
@@ -35,4 +36,4 @@ execution_constraints:
 - Keep shell/code fail-closed until positive containment evidence exists.
 - Do not push Hermes Agent upstream.
 - Do not claim UACP prevents out-of-band manual/host mutation.
-next_step: Run phase-end verification/council for sandbox-check implementation; do not claim standard shell/code allow path is enabled.
+next_step: Design a real runtime execution seam or contained-shell surface; do not claim standard shell/code allow path is enabled.
