@@ -1,0 +1,32 @@
+kind: uacp.triage
+triage_id: cortex-x-fallback-2026-05-12-001
+request_summary: >
+  Implement 4-layer fallback chain for Cortex X posting pipeline.
+  Bird CLI is blocked by X (HTTP 226). Need to wire existing X API v2
+  activities (x_writes.py) into XDecisionWorkflow as Layer 2 fallback,
+  plus rich manual escalation (Layer 4). Includes workflow refactor,
+  activity extension, Discord message formatting, and test coverage.
+authority:
+  status: pass
+  source: "Operator (Mike) explicitly requested agent council review and UACP governance"
+factor_scores:
+  impact: 7
+  reversibility: 4
+  domain_count: 4
+  runtime_count: 3
+  verification_difficulty: 5
+  notes:
+    - "Impact: Restores core Cortex X pipeline functionality; affects all future posts"
+    - "Reversibility: Code changes are git-tracked; DB schema unchanged; rollback via git revert"
+    - "Domain count: Temporal workflows, X API, Discord integration, DB state management"
+    - "Runtime count: Cortex worker, Temporal server, Discord listener, X API"
+    - "Verification: Need integration test with real X API; dry-run mode helps"
+granularity_level: 6
+routing_outcome: standard_uacp
+rationale:
+  - "Multi-domain code change with production impact"
+  - "Reversible via git but affects live posting pipeline"
+  - "Medium verification difficulty — needs real API test"
+  - "Standard UACP lifecycle warranted for traceability"
+artifact_policy: standard
+next_step: "Enter PROPOSE phase with bounded scope proposal"

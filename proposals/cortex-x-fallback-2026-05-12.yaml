@@ -1,0 +1,248 @@
+kind: uacp.proposal
+proposal_id: cortex-x-fallback-2026-05-12
+status: draft
+triage_ref: cortex-x-fallback-2026-05-12-001
+
+# ── Authority ──────────────────────────────────────────────────────────────
+authority:
+  requester: Mike (伍善正)
+  operator: Norty (Hermes Agent)
+  authorization: "Operator explicitly requested agent council review, then directed UACP governance with 'Go'"
+  date: "2026-05-12"
+
+# ── Scope ──────────────────────────────────────────────────────────────────
+title: "Cortex X Post Fallback Chain Implementation"
+summary: >
+  Wire existing X API v2 activities (x_writes.py) into XDecisionWorkflow
+  as Layer 2 fallback when Bird CLI fails. Implement rich manual escalation
+  (Layer 4) with formatted Discord messages. Refactor record_bird_failure
+  into generic record_failure for multi-layer error tracking.
+
+in_scope:
+  - "XDecisionWorkflow tone_pick path: add Layer 2 fallback after Bird failure"
+  - "Action-specific routing: post/quote/retweet via x_writes, reply with mention check"
+  - "record_bird_failure → record_failure refactor with layer parameter"
+  - "Rich Discord manual escalation message (draft + target URL + action + errors)"
+  - "Unit tests for fallback chain logic"
+  - "Dry-run mode support for safe testing"
+
+non_goals:
+  - "Layer 3 (Browser Automation / Playwright) — deferred to future"
+  - "X API credential rotation or health check endpoint"
+  - "Metrics dashboard for layer success rates"
+  - "Cleanup of 460+ stale pending candidates (separate task)"
+  - "Changes to x_writes.py internals (already complete)"
+
+# ── Affected Domains ───────────────────────────────────────────────────────
+domains:
+  - temporal_workflows
+  - x_api_integration
+  - discord_integration
+  - database_state
+
+# ── Invariant Checks (Non-Waivable) ────────────────────────────────────────
+invariant_checks:
+  - id: authority.explicit
+    status: pass
+    reason: "Operator explicitly authorized this work through Discord after council review"
+  - id: side_effects.declared
+    status: pass
+    reason: "All side effects listed in side_effects section below"
+  - id: writes.contained
+    status: pass
+    reason: "Writes constrained to src/cortex/workflows/, src/cortex/activities/, tests/"
+  - id: privacy_safety.constrained
+    status: pass
+    reason: "No PII exposure; X API credentials remain in .env; error messages sanitized"
+  - id: state.traceable
+    status: pass
+    reason: "All state changes trace to this proposal and UACP run artifacts"
+  - id: failure.conservative
+    status: pass
+    reason: "Missing X API credentials will fast-fail to Layer 4; no guessing"
+  - id: mutation.visible
+    status: pass
+    reason: "All changes git-tracked; no hidden state mutation"
+
+# ── Evidence Cluster Selection ─────────────────────────────────────────────
+evidence_clusters:
+  required:
+    - cluster_id: scope
+      family: scope
+      reason: "Scope is bounded with explicit non-goals"
+    - cluster_id: context
+      family: context
+      reason: "Domains and artifacts classified"
+    - cluster_id: authority
+      family: authority
+      reason: "Explicit operator authorization recorded"
+    - cluster_id: side_effects
+      family: side_effects
+      reason: "Live pipeline behavior changes declared"
+    - cluster_id: write_containment
+      family: write_containment
+      reason: "Write paths explicitly bounded"
+    - cluster_id: risk
+      family: risk
+      reason: "Failure modes and mitigations documented"
+    - cluster_id: verification_strategy
+      family: verification_strategy
+      reason: "Unit tests and integration tests defined"
+  optional:
+    - cluster_id: architecture_design
+      family: architecture_design
+      reason: "Fallback chain design reviewed by agent council"
+    - cluster_id: execution_strategy
+      family: execution_strategy
+      reason: "Kanban decomposition may be used for EXECUTE phase"
+  not_applicable:
+    - cluster_id: privacy_safety_deep
+      family: privacy_safety
+      reason: "No new PII processing; credentials unchanged"
+    - cluster_id: grounding
+      family: grounding
+      reason: "No external facts needed beyond existing code"
+  generated: []
+
+# ── Agent Council Review ───────────────────────────────────────────────────
+agent_council:
+  status: completed
+  date: "2026-05-12"
+  bridges_dispatched:
+    - bridge: claude
+      status: completed
+      model: MiniMax-M2.7
+      findings_count: 14
+      critical_findings: 3
+      verdict: FAIL
+      summary: "4-layer fallback is designed but NOT implemented. Workflow only tries Bird and exits on failure. x_writes.py exists but is never called."
+    - bridge: codex
+      status: exhausted
+      model: N/A
+      findings_count: 0
+      note: "Codex weekly quota exhausted; skipped"
+    - bridge: opencode
+      status: completed
+      model: MiniMax-M2.7
+      findings_count: 9
+      critical_findings: 3
+      verdict: FAIL
+      summary: "Same conclusion: x_writes.py is wired but disconnected from workflow. Layer 2-4 are missing from implementation."
+  cross_council_consensus:
+    - "Workflow only attempts Bird CLI — no fallback chain implemented (CRITICAL)"
+    - "x_writes.py exists with full X API v2 activities but workflow never imports or calls it (CRITICAL)"
+    - "retweet action falls through to post_tweet silently instead of using x_writes.post_retweet (CRITICAL)"
+    - "quote uses bird workaround instead of x_writes.post_quote native API (HIGH)"
+    - "Manual escalation Discord message lacks required fields (HIGH)"
+    - "record_bird_failure only logs bird errors, not X API layer errors (HIGH)"
+    - "No observability for fallback layer success/failure rates (MEDIUM)"
+  council_recommendations:
+    - "Wire x_writes into x_decision.py as Layer 2 fallback"
+    - "Implement rich manual escalation with draft + target URL + action + errors"
+    - "Add per-layer error logging in decision_reason"
+    - "Consider Playwright-based Layer 3 fallback for future"
+  operator_response: "Accepted all council findings. Proceeding with UACP-governed implementation."
+
+# ── Audit Trail ────────────────────────────────────────────────────────────
+audit_trail:
+  - timestamp: "2026-05-12T06:51:15Z"
+    actor: "Mike"
+    action: "Reported issue — Discord reaction on x-approvals not working"
+  - timestamp: "2026-05-12T07:00:00Z"
+    actor: "Norty"
+    action: "Diagnosed root cause — Bird CLI HTTP 226 anti-bot block"
+  - timestamp: "2026-05-12T07:15:00Z"
+    actor: "Norty"
+    action: "Discovered x_writes.py exists but is disconnected from workflow"
+  - timestamp: "2026-05-12T07:30:00Z"
+    actor: "Mike"
+    action: "Requested agent council review for full-dimension check"
+  - timestamp: "2026-05-12T08:00:00Z"
+    actor: "Norty"
+    action: "Dispatched Deep Council — Claude bridge + OpenCode bridge"
+  - timestamp: "2026-05-12T08:30:00Z"
+    actor: "Norty"
+    action: "Council review complete — both bridges verdict FAIL, 14+9 findings"
+  - timestamp: "2026-05-12T09:00:00Z"
+    actor: "Mike"
+    action: "Directed UACP governance — 'Go'"
+  - timestamp: "2026-05-12T09:15:00Z"
+    actor: "Norty"
+    action: "Completed UACP TRIAGE — granularity 6, standard_uacp routing"
+  - timestamp: "2026-05-12T09:30:00Z"
+    actor: "Norty"
+    action: "Completed UACP PROPOSE — awaiting approval"
+
+# ── Side Effects ───────────────────────────────────────────────────────────
+side_effects:
+  - "Live Cortex X posting pipeline behavior changes"
+  - "Discord thread close messages will have new format on failure"
+  - "DB status values: 'failed' (bird only) vs 'manual_required' (all layers fail)"
+  - "XDecisionWorkflow execution time increases (Bird 45s + X API 30s)"
+  - "New dependency: x_writes imported in x_decision.py workflow"
+
+# ── Risk Assessment ────────────────────────────────────────────────────────
+risk_level: medium
+risks:
+  - id: R1
+    description: "X API v2 may also face restrictions in future"
+    likelihood: medium
+    impact: high
+    mitigation: "Fast-fail on 403/401; proceed to Layer 4 manual escalation"
+  - id: R2
+    description: "Workflow timeout with sequential fallback attempts"
+    likelihood: low
+    impact: medium
+    mitigation: "Total timeout budget 120s; X API fails fast on auth errors"
+  - id: R3
+    description: "execute_candidate_write may have undiscovered bugs"
+    likelihood: low
+    impact: high
+    mitigation: "Unit test all 4 action types; dry-run mode for safe validation"
+  - id: R4
+    description: "Discord message format change may confuse user"
+    likelihood: low
+    impact: low
+    mitigation: "Clear emoji headers; code block for copy-paste"
+
+# ── Containment ────────────────────────────────────────────────────────────
+write_paths:
+  - "src/cortex/workflows/x_decision.py"
+  - "src/cortex/activities/x_state.py"
+  - "tests/ (new unit tests)"
+  - "docs/14-X-POST-FALLBACK-DESIGN.md (update status)"
+
+forbidden_paths:
+  - "src/cortex/activities/x_writes.py (no changes — already complete)"
+  - "src/cortex/activities/bird_post.py (no changes)"
+  - "src/cortex/activities/x_approvals.py (no changes)"
+  - "Database schema (no migrations needed)"
+
+# ── Verification Strategy ──────────────────────────────────────────────────
+verification:
+  - "Unit tests: test_post_bird_success, test_post_bird_fail_xapi_success, test_quote_xapi_native, test_retweet_skips_bird, test_reply_bird_fail_xapi_403, test_all_layers_fail, test_dry_run"
+  - "Integration test: real X API credentials with sandbox/low-risk tweet"
+  - "Dry-run mode: workflow logs without calling external APIs"
+  - "Manual test: Discord thread close message formatting"
+
+# ── Acceptance Criteria ────────────────────────────────────────────────────
+acceptance_criteria:
+  - "Bird success: status=posted, Discord shows 'Posted via bird'"
+  - "Bird fail + X API success: status=posted, Discord shows 'Posted via X API'"
+  - "All layers fail: status=manual_required, Discord shows rich message with draft + target URL"
+  - "Retweet action: skips Bird, uses X API post_retweet directly"
+  - "Quote action: uses X API post_quote (native) not Bird workaround"
+  - "Dry-run: no API calls, logs intended actions"
+  - "All unit tests pass"
+
+# ── Resources ──────────────────────────────────────────────────────────────
+resources:
+  design_doc: "docs/14-X-POST-FALLBACK-DESIGN.md"
+  existing_code:
+    - "src/cortex/activities/x_writes.py (reuse — complete)"
+    - "src/cortex/activities/x_state.py (extend)"
+    - "src/cortex/workflows/x_decision.py (refactor)"
+  dependencies:
+    - "X API OAuth 1.0a credentials (already configured)"
+    - "Temporal server (running)"
+    - "Discord bot (running)"
