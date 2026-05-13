@@ -1,7 +1,7 @@
 schema_version: '0.1'
 kind: uacp.operational_dashboard
 status: runtime_prototype_active
-last_updated: 2026-05-14T00:00:00+0800
+last_updated: 2026-05-14T02:30:00+0800
 authority:
   registry: docs/index.md
   runtime_design: docs/runtime-enforcement.md
@@ -10,7 +10,7 @@ authority:
 repositories:
   uacp:
     remote: git@github.com:nortrix-labs/uacp.git
-    head: 512fef2
+    head: affeda6
     branch_status: '## main...origin/main'
   hermes_agent:
     remote: git@github.com:NousResearch/hermes-agent.git
@@ -33,15 +33,14 @@ implemented:
 - Hermes Agent duplicate UACP plugin source copies were removed from the local patch set.
 - Temporary uacp_symlink_probe was removed after real-adapter binding proof.
 - Guardian blocks protected UACP path actions without required context fields.
-- uacp_doc_write and uacp_config_write are implemented in the UACP-owned Hermes Guardian adapter.
-- Known plugin writer tools are classified by tool-specific policy while unknown plugin mutators remain blocked.
+- uacp_doc_write and uacp_config_write are implemented and hardened in the UACP-owned Hermes Guardian adapter.
+- Canonical docs/config writers are classified as docs.uacp and config.uacp with explicit allowed tools.
+- uacp_heartgate_check is implemented as a callable Heartgate transition validation tool.
+- Unknown plugin mutators remain blocked.
 open_blockers:
 - id: writer-tool-schema-reload
   severity: medium
   summary: New uacp_doc_write/uacp_config_write tools are implemented and manifest-declared; active sessions may need restart/reload before schemas appear as direct tools.
-- id: heartgate-transition-tool
-  severity: high
-  summary: Lifecycle transitions are not yet mechanically checked by a live Heartgate tool path.
 - id: filesystem-containment
   severity: high
   summary: UACP-bound shell/code execution remains blocked until verified containment exists.
@@ -52,9 +51,8 @@ open_blockers:
   severity: medium
   summary: Hermes is the reference adapter, but the cross-runtime adapter contract is not yet stabilized.
 next_actions_ordered:
-- Restart/reload Hermes runtime when convenient so uacp_doc_write and uacp_config_write appear in active tool schemas.
-- Patch lifecycle skills to route canonical docs/config changes through uacp_doc_write and uacp_config_write.
-- Implement Heartgate check/transition tool.
+- Restart/reload Hermes runtime when convenient so uacp_doc_write, uacp_config_write, and uacp_heartgate_check appear in active tool schemas.
+- Patch lifecycle skills to call uacp_heartgate_check before phase transitions and route canonical docs/config changes through uacp_doc_write/uacp_config_write.
 - Design and prove filesystem containment for UACP-bound shell/code execution.
 operator_approval_policy:
   autonomous: local UACP artifact edits, local tests, local commits, local proof harnesses, skill/doc sync after verified behavior

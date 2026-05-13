@@ -142,6 +142,16 @@ protected_categories:
       - declared_write_scope
       - canonical_config_path_containment
       - yaml_parse
+  lifecycle.transition:
+    default_decision: require_approval
+    audit: true
+    allowed_tools:
+      - uacp_heartgate_check
+    checks:
+      - transition_schema
+      - phase_transition_allowed
+      - blockers_resolved
+      - deferred_items_accepted
   state.uacp:
     default_decision: block
     audit: true
@@ -240,6 +250,7 @@ tool_classification:
   uacp_artifact_write: file.write
   uacp_doc_write: docs.uacp
   uacp_config_write: config.uacp
+  uacp_heartgate_check: lifecycle.transition
   send_message: external.human_message
   homeassistant: external.physical_device
   ha_list_entities: read.local

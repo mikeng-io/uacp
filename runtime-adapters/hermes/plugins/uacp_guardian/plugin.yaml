@@ -10,3 +10,4 @@ tools:
 - uacp_artifact_write
 - uacp_doc_write
 - uacp_config_write
+- uacp_heartgate_check

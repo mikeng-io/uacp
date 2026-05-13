@@ -31,16 +31,20 @@ implemented:
   - Live loader behavior was verified in verification/runtime-porting-20260513-thread-title-sync-live-bind.yaml and verification/runtime-porting-20260513-uacp-guardian-live-bind.yaml.
   - A live protected-path shell action was blocked by Guardian for missing UACP context, confirming active enforcement on that surface.
   governed_canonical_writers:
-  - uacp_doc_write writes canonical Markdown docs under docs/ with full UACP context and path containment.
-  - uacp_config_write writes canonical YAML config under config/ with full UACP context, path containment, and YAML parse validation.
-  - Guardian classification now allows known plugin writer tools through tool-specific policy while keeping unknown plugin mutators blocked as runtime.extension.
-  - Safe temporary-root proof recorded in verification/live-guardian-proof-20260514-phase2-writers.yaml.
+  - uacp_doc_write writes canonical Markdown docs under docs/ with full UACP context and hardened path containment.
+  - uacp_config_write writes canonical YAML config under config/ with full UACP context, hardened path containment, and YAML parse validation.
+  - Guardian now classifies canonical docs/config writers as docs.uacp and config.uacp with explicit allowed tools.
+  - Safe temporary-root proof recorded in verification/live-guardian-proof-20260514-phase2-hardening.yaml.
+  heartgate_transition_check_tool:
+  - uacp_heartgate_check validates UACP phase-transition artifacts through the neutral Heartgate kernel.
+  - Safe probe coverage confirms valid transitions pass, invalid transitions block, missing context is rejected, and Guardian classifies the tool as lifecycle.transition.
+  - Proof recorded in verification/live-guardian-proof-20260514-phase3-heartgate.yaml.
 not_yet_done:
   live_activation_and_testing:
   - Keep live positive/negative proof tests current after cleanup and runtime restarts.
   - Do not call Guardian production-complete until containment, lifecycle wiring, and non-cooperative extension boundaries are covered.
   lifecycle_wiring:
-  - Wire lifecycle skills to call Heartgate before phase transitions.
+  - Wire lifecycle skills to call uacp_heartgate_check before phase transitions.
   - Route uacp-state mutations through runtime uacp_state_write.
   - Route canonical docs/config changes through uacp_doc_write and uacp_config_write after tool schema reload exposes them to sessions.
   - Ensure UACP lifecycle skills create Kanban tasks with required uacp_context.
@@ -100,11 +104,11 @@ live_proof_tests_required:
 - Plugin-dispatched protected write is blocked or audited by Guardian.
 - UACP-bound shell/code execution remains blocked until verified containment exists.
 - uacp_state_write succeeds only with complete authority, workspace, run id, phase, policy version, and declared side effects.
-- uacp_doc_write and uacp_config_write are exposed after runtime/tool schema reload and continue to block missing context, invalid YAML, and path escapes.
+- uacp_doc_write, uacp_config_write, and uacp_heartgate_check are exposed after runtime/tool schema reload and continue to block missing context, invalid YAML/path escapes, and invalid transitions respectively.
 - Kanban workers for UACP-bound tasks receive UACP_ROOT, UACP_RUN_ID, UACP_PHASE, UACP_GUARDIAN_POLICY_VERSION, UACP_WORKSPACE_POLICY, and UACP_GUARDIAN_MODE.
 backup_guidance:
   recommended_scope: full HERMES_ROOT snapshot before live runtime activation
   rationale:
   - UACP now spans governance artifacts, Hermes runtime code, lifecycle skills, Kanban state, plugin config, and runtime settings.
   - Backing up only UACP_ROOT or hermes-agent can miss cross-layer state needed for rollback.
-conclusion: The remaining work is lifecycle Heartgate/state-writer integration, runtime/tool schema reload verification for new writer tools, containment hardening, Kanban Guardian evidence propagation, and continued live proof testing. Compression-loop diagnosis is deferred to a separate session.
+conclusion: Phase 2 governed writer hardening is resolved and the first callable Heartgate check tool is implemented. Remaining work is lifecycle-skill adoption, runtime/tool schema reload verification for new plugin tools, containment hardening, Kanban Guardian evidence propagation, and continued live proof testing. Compression-loop diagnosis is deferred to a separate session.

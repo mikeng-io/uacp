@@ -31,7 +31,7 @@ HOME = Path(os.environ.get("HERMES_HOME", "/home/norty/.hermes")).expanduser()
 UACP_ROOT = Path(os.environ.get("UACP_ROOT", str(HOME / "uacp"))).expanduser()
 HERMES_AGENT = Path(os.environ.get("HERMES_AGENT_ROOT", str(HOME / "hermes-agent"))).expanduser()
 EXPECTED = ["thread_title_sync", "uacp_guardian"]
-EXPECTED_GUARDIAN_TOOLS = ["uacp_state_write", "uacp_artifact_write", "uacp_doc_write", "uacp_config_write"]
+EXPECTED_GUARDIAN_TOOLS = ["uacp_state_write", "uacp_artifact_write", "uacp_doc_write", "uacp_config_write", "uacp_heartgate_check"]
 
 
 def check(condition: bool, name: str, evidence=None):
@@ -53,7 +53,9 @@ def _exercise_guardian_writers(checks):
         tmp_root = Path(tmp)
         (tmp_root / "config").mkdir(parents=True)
         (tmp_root / "docs").mkdir(parents=True)
+        (tmp_root / "state/runs").mkdir(parents=True)
         shutil.copy2(UACP_ROOT / "config/guardian-policy.yaml", tmp_root / "config/guardian-policy.yaml")
+        shutil.copy2(UACP_ROOT / "config/phase-transitions.yaml", tmp_root / "config/phase-transitions.yaml")
         old_env = {key: os.environ.get(key) for key in ["UACP_ROOT", "UACP_GUARDIAN_MODE"]}
         try:
             os.environ["UACP_ROOT"] = str(tmp_root)
@@ -142,6 +144,82 @@ def _exercise_guardian_writers(checks):
             checks.append(check(known_doc.decision == "allow_with_audit" and known_doc.category == "docs.uacp", "guardian_classifies_known_doc_writer", {"decision": known_doc.decision, "category": known_doc.category, "reason": known_doc.reason}))
             known_config = guardian.evaluate(make_event(tool_name="uacp_config_write", tool_provider="plugin", args={**common, "target_path": "config/probe.yaml"}))
             checks.append(check(known_config.decision == "allow_with_audit" and known_config.category == "config.uacp", "guardian_classifies_known_config_writer", {"decision": known_config.decision, "category": known_config.category, "reason": known_config.reason}))
+            transition_ok = tmp_root / "state/runs/probe-verify-to-resolve.yaml"
+            transition_ok.write_text("""kind: uacp.phase_transition
+transition_id: probe-verify-to-resolve
+run_id: live-guardian-proof-20260514
+from_phase: verify
+to_phase: resolve
+decision: pass
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: safe probe
+cluster_summary:
+  - cluster_id: writer_hardening
+    state: pass
+    artifact_path: verification/live-guardian-proof-20260514-phase2-hardening.yaml
+blockers: []
+warnings: []
+deferred_items: []
+authority:
+  requested_by: operator
+  authorization_source: safe live proof harness
+artifact_paths:
+  - verification/live-guardian-proof-20260514-phase2-hardening.yaml
+phase_local_granularity:
+  phase: verify
+  entry_estimate: 5
+  exit_actual: 5
+  delta_reason: safe probe
+  downstream_projection:
+    resolve: 5
+composite_granularity: 5
+human_involvement:
+  required: false
+  reason: safe probe only
+  authority_needed: none
+  decision_owner: none
+  accepted_risk_artifact: ''
+""", encoding="utf-8")
+            heartgate_ok = json.loads(guardian_plugin._handle_uacp_heartgate_check({
+                **common,
+                "transition_path": "state/runs/probe-verify-to-resolve.yaml",
+            }))
+            checks.append(check(heartgate_ok.get("ok") is True and heartgate_ok.get("decision") == "pass", "uacp_heartgate_check_passes_valid_transition", heartgate_ok))
+
+            transition_bad = tmp_root / "state/runs/probe-invalid-transition.yaml"
+            transition_bad.write_text("""kind: uacp.phase_transition
+transition_id: probe-invalid
+run_id: live-guardian-proof-20260514
+from_phase: execute
+to_phase: resolve
+decision: pass
+invariant_summary: []
+cluster_summary: []
+blockers: []
+warnings: []
+deferred_items: []
+authority: {}
+artifact_paths: []
+phase_local_granularity: {}
+composite_granularity: 5
+human_involvement: {}
+""", encoding="utf-8")
+            heartgate_bad = json.loads(guardian_plugin._handle_uacp_heartgate_check({
+                **common,
+                "transition_path": "state/runs/probe-invalid-transition.yaml",
+            }))
+            checks.append(check(heartgate_bad.get("ok") is False and heartgate_bad.get("decision") == "block", "uacp_heartgate_check_blocks_invalid_transition", heartgate_bad))
+
+            heartgate_missing_context = json.loads(guardian_plugin._handle_uacp_heartgate_check({
+                "transition_path": "state/runs/probe-verify-to-resolve.yaml",
+                "authority_artifact": "verification/live-guardian-proof-20260514.yaml",
+            }))
+            checks.append(check("error" in heartgate_missing_context, "uacp_heartgate_check_blocks_missing_context", heartgate_missing_context))
+
+            known_heartgate = guardian.evaluate(make_event(tool_name="uacp_heartgate_check", tool_provider="plugin", args={**common, "transition_path": "state/runs/probe-verify-to-resolve.yaml"}))
+            checks.append(check(known_heartgate.decision == "allow_with_audit" and known_heartgate.category == "lifecycle.transition", "guardian_classifies_heartgate_check", {"decision": known_heartgate.decision, "category": known_heartgate.category, "reason": known_heartgate.reason}))
             unknown = guardian.evaluate(make_event(tool_name="unknown_plugin_mutator", tool_provider="plugin", args=common))
             checks.append(check(unknown.decision == "block" and unknown.category == "runtime.extension", "guardian_blocks_unknown_plugin_mutator", {"decision": unknown.decision, "category": unknown.category, "reason": unknown.reason}))
         finally:

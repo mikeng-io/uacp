@@ -212,6 +212,25 @@ No timestamp is required. The git commit is the retrieval coordinate. If no git 
 
 ## Decision Log
 
+### 2026-05-14 — Harden Canonical Writers And Expose Heartgate Check Tool
+
+Decision: Phase 2 governed canonical writer concerns are resolved by hardening path validation, adding symlink/absolute/root/directory negative tests, and splitting canonical writer policy into `docs.uacp` and `config.uacp`. The UACP-owned Hermes Guardian adapter also exposes `uacp_heartgate_check` as the first callable Heartgate transition validation tool.
+
+Rationale: Phase-end Agent Council found that canonical writer boundaries should not remain generic `file.write` and needed stronger negative proof coverage before Phase 3. Heartgate already existed as a neutral kernel, but lifecycle wiring needed a callable runtime boundary before phase transitions can be mechanically checked.
+
+Status: accepted and verified by `verification/live-guardian-proof-20260514-phase2-hardening.yaml`, `verification/phase2-hardening-20260514.yaml`, and `verification/live-guardian-proof-20260514-phase3-heartgate.yaml`. Active long-running sessions may still require runtime reload before newly registered plugin tools appear as direct model-callable tools.
+
+Canonical targets:
+
+- `runtime-adapters/hermes/plugins/uacp_guardian/`
+- `config/guardian-policy.yaml`
+- `scripts/live_guardian_probe.py`
+- `verification/phase2-agent-council-retrospective-20260514.yaml`
+- `verification/phase2-hardening-20260514.yaml`
+- `verification/live-guardian-proof-20260514-phase3-heartgate.yaml`
+
+Follow-up: patch lifecycle skills to require `uacp_heartgate_check` before phase transitions and to mandate `uacp_doc_write` / `uacp_config_write` for canonical docs/config mutations after runtime reload verification.
+
 ### 2026-05-14 — Add Governed Docs And Config Writer Boundary
 
 Decision: UACP-owned Hermes Guardian now provides `uacp_doc_write` for canonical Markdown docs under `docs/` and `uacp_config_write` for canonical YAML config under `config/`. Known plugin writer tools are classified by tool-specific policy; unknown plugin mutators remain blocked as `runtime.extension`.
@@ -228,7 +247,7 @@ Canonical targets:
 - `outputs/uacp-operational-dashboard.yaml`
 - `verification/live-guardian-proof-20260514-phase2-writers.yaml`
 
-Follow-up: patch lifecycle skills to use `uacp_doc_write` and `uacp_config_write`, then continue to Heartgate transition tooling.
+Follow-up: writer hardening is complete and `uacp_heartgate_check` is implemented. Remaining work is lifecycle-skill adoption plus fresh-session/runtime reload verification.
 
 ### 2026-05-14 — Confirm Live Hermes Runtime Adapter Bindings And Cleanup Lane
 

@@ -12,6 +12,8 @@ from .kernel import (
     GuardianEvent,
     GuardianPolicy,
     GuardianPolicyError,
+    Heartgate,
+    HeartgateError,
     make_event,
     write_audit_record,
 )
@@ -347,6 +349,48 @@ def _handle_uacp_config_write(args: dict, **_: Any) -> str:
         return json.dumps({"error": f"uacp_config_write failed: {type(exc).__name__}: {exc}"})
 
 
+def _handle_uacp_heartgate_check(args: dict, **_: Any) -> str:
+    """Validate a UACP phase-transition artifact through the Heartgate boundary."""
+    try:
+        policy = _policy()
+        root = policy.uacp_root
+        transition_path = str(args.get("transition_path") or args.get("target_path") or "")
+        if not transition_path:
+            return json.dumps({"error": "transition_path is required"})
+        if missing_context := _required_uacp_context_missing(args):
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing_context)}"})
+        authority = str(args.get("authority_artifact") or args.get("declared_authority") or "")
+        if not authority:
+            return json.dumps({"error": "authority_artifact is required"})
+
+        target = _resolve_uacp_path(transition_path, root)
+        rel = target.relative_to(root.resolve())
+        if not rel.parts or rel.parts[0] not in {"state", "verification", "executions"}:
+            return json.dumps({"error": "transition_path must be under state/, verification/, or executions/"})
+        if target.suffix not in {".yaml", ".yml"}:
+            return json.dumps({"error": "transition_path must be a YAML file"})
+        if not target.exists():
+            return json.dumps({"error": "transition artifact not found"})
+
+        decision = Heartgate.load(root).validate_transition_file(rel)
+        return json.dumps(
+            {
+                "ok": not decision.blocks_transition,
+                "decision": decision.decision,
+                "reason": decision.reason,
+                "blockers": decision.blockers,
+                "warnings": decision.warnings,
+                "path": str(rel),
+                "authority_artifact": authority,
+            },
+            ensure_ascii=False,
+        )
+    except HeartgateError as exc:
+        return json.dumps({"error": f"uacp_heartgate_check failed: HeartgateError: {exc}"})
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_heartgate_check failed: {type(exc).__name__}: {exc}"})
+
+
 def _write_tool_schema(name: str, description: str) -> dict[str, Any]:
     return {
         "name": name,
@@ -471,4 +515,35 @@ def register(ctx) -> None:
         ),
         handler=_handle_uacp_config_write,
         description="Governed UACP config writer",
+    )
+    ctx.register_tool(
+        name="uacp_heartgate_check",
+        toolset="uacp_guardian",
+        schema={
+            "name": "uacp_heartgate_check",
+            "description": "Validate a UACP phase-transition artifact through Heartgate.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "transition_path": {"type": "string"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "transition_path",
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+        },
+        handler=_handle_uacp_heartgate_check,
+        description="UACP Heartgate transition checker",
     )
