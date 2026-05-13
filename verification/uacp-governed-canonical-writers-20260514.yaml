@@ -1,0 +1,26 @@
+schema_version: '0.1'
+kind: uacp.verification.governed_canonical_writers
+run_id: uacp-phase2-governed-writers-20260514
+phase: verify
+status: pass
+timestamp: 2026-05-14T00:00:00+0800
+authority:
+- docs/runtime-enforcement.md
+- outputs/uacp-operational-dashboard.yaml
+- operator standing approval in Telegram current session
+implemented_tools:
+- uacp_doc_write
+- uacp_config_write
+checks:
+- uacp_doc_write positive write to isolated temp UACP_ROOT docs/ passed.
+- uacp_config_write positive write to isolated temp UACP_ROOT config/ passed.
+- uacp_config_write invalid YAML negative test passed.
+- uacp_doc_write path escape negative test passed.
+- Guardian classifies known plugin writer tool as file.write allow_with_audit with declared authority.
+- Guardian blocks unknown plugin mutator as runtime.extension.
+- Real UACP config/guardian-policy.yaml was rewritten through uacp_config_write after implementation.
+- Real UACP docs/index.md was updated through uacp_doc_write after implementation.
+deferred:
+- Active current session tool schemas may not include newly registered tools until Hermes runtime/session reload.
+- Lifecycle skills still need patching to mandate uacp_doc_write/uacp_config_write for canonical mutations.
+- Heartgate transition tool remains next implementation phase.

@@ -103,11 +103,11 @@ tool_provenance:
   default_when_missing: unknown
   classification_by_provider:
     core: use_tool_classification
-    plugin: runtime.extension
+    plugin: prefer_tool_classification_else_runtime_extension
     mcp: runtime.extension
     inline_agent_loop: require_explicit_classification
     control_plane: require_control_plane_guard
-    unknown: runtime.extension
+    unknown: prefer_tool_classification_else_runtime_extension
 
 protected_categories:
   read.local:
@@ -218,6 +218,10 @@ tool_classification:
   memory: memory.persistent
   skill_manage: memory.persistent
   cronjob: automation.future
+  uacp_state_write: state.uacp
+  uacp_artifact_write: file.write
+  uacp_doc_write: file.write
+  uacp_config_write: file.write
   send_message: external.human_message
   homeassistant: external.physical_device
   ha_list_entities: read.local

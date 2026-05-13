@@ -33,10 +33,12 @@ implemented:
 - Hermes Agent duplicate UACP plugin source copies were removed from the local patch set.
 - Temporary uacp_symlink_probe was removed after real-adapter binding proof.
 - Guardian blocks protected UACP path actions without required context fields.
+- uacp_doc_write and uacp_config_write are implemented in the UACP-owned Hermes Guardian adapter.
+- Known plugin writer tools are classified by tool-specific policy while unknown plugin mutators remain blocked.
 open_blockers:
-- id: governed-doc-config-writer
-  severity: high
-  summary: Docs/config mutation still lacks a governed writer surface; manual local writes are accepted-risk only.
+- id: writer-tool-schema-reload
+  severity: medium
+  summary: New uacp_doc_write/uacp_config_write tools are implemented and manifest-declared; active sessions may need restart/reload before schemas appear as direct tools.
 - id: heartgate-transition-tool
   severity: high
   summary: Lifecycle transitions are not yet mechanically checked by a live Heartgate tool path.
@@ -50,9 +52,8 @@ open_blockers:
   severity: medium
   summary: Hermes is the reference adapter, but the cross-runtime adapter contract is not yet stabilized.
 next_actions_ordered:
-- Run scripts/live_guardian_probe.py and record verification/live-guardian-proof-YYYYMMDD.yaml.
-- Implement governed docs/config writer surfaces in uacp_guardian.
-- Patch lifecycle skills to require governed writer/Heartgate paths.
+- Restart/reload Hermes runtime when convenient so uacp_doc_write and uacp_config_write appear in active tool schemas.
+- Patch lifecycle skills to route canonical docs/config changes through uacp_doc_write and uacp_config_write.
 - Implement Heartgate check/transition tool.
 - Design and prove filesystem containment for UACP-bound shell/code execution.
 operator_approval_policy:

@@ -260,6 +260,106 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
         return json.dumps({"error": f"uacp_artifact_write failed: {type(exc).__name__}: {exc}"})
 
 
+def _validate_canonical_target(root: Path, target_path: str, *, allowed_top: str, suffixes: set[str]) -> tuple[Path, Path] | str:
+    target = _resolve_uacp_path(target_path, root)
+    rel = target.relative_to(root)
+    if not rel.parts or rel.parts[0] != allowed_top:
+        return f"target_path must be under {allowed_top}/"
+    if target.name in {"", ".", ".."}:
+        return "target_path must point to a file"
+    if suffixes and target.suffix not in suffixes:
+        return f"target_path must use one of these suffixes: {', '.join(sorted(suffixes))}"
+    return target, rel
+
+
+def _handle_uacp_doc_write(args: dict, **_: Any) -> str:
+    """Write canonical UACP docs through an explicit governed docs boundary."""
+    try:
+        policy = _policy()
+        root = policy.uacp_root
+        validated = _validate_common_write_args(args)
+        if isinstance(validated, str):
+            return json.dumps({"error": validated})
+        target_path, content, reason, authority = validated
+
+        resolved = _validate_canonical_target(root, target_path, allowed_top="docs", suffixes={".md"})
+        if isinstance(resolved, str):
+            return json.dumps({"error": resolved})
+        target, rel = resolved
+        _write_uacp_file(target, content)
+        return json.dumps(
+            {
+                "ok": True,
+                "path": str(rel),
+                "reason": reason,
+                "authority_artifact": authority,
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_doc_write failed: {type(exc).__name__}: {exc}"})
+
+
+def _handle_uacp_config_write(args: dict, **_: Any) -> str:
+    """Write canonical UACP YAML config through an explicit governed config boundary."""
+    try:
+        policy = _policy()
+        root = policy.uacp_root
+        validated = _validate_common_write_args(args)
+        if isinstance(validated, str):
+            return json.dumps({"error": validated})
+        target_path, content, reason, authority = validated
+
+        resolved = _validate_canonical_target(root, target_path, allowed_top="config", suffixes={".yaml", ".yml"})
+        if isinstance(resolved, str):
+            return json.dumps({"error": resolved})
+        target, rel = resolved
+        _write_uacp_file(target, content)
+        return json.dumps(
+            {
+                "ok": True,
+                "path": str(rel),
+                "reason": reason,
+                "authority_artifact": authority,
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_config_write failed: {type(exc).__name__}: {exc}"})
+
+
+def _write_tool_schema(name: str, description: str) -> dict[str, Any]:
+    return {
+        "name": name,
+        "description": description,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "target_path": {"type": "string"},
+                "content": {"type": "string"},
+                "reason": {"type": "string"},
+                "authority_artifact": {"type": "string"},
+                "workspace": {"type": "string"},
+                "uacp_run_id": {"type": "string"},
+                "uacp_phase": {"type": "string"},
+                "policy_version": {"type": "string"},
+                "declared_side_effects": {"type": "string"},
+            },
+            "required": [
+                "target_path",
+                "content",
+                "reason",
+                "authority_artifact",
+                "workspace",
+                "uacp_run_id",
+                "uacp_phase",
+                "policy_version",
+                "declared_side_effects",
+            ],
+        },
+    }
+
+
 def register(ctx) -> None:
     ctx.register_hook("pre_tool_call", on_pre_tool_call)
     ctx.register_hook("post_tool_call", on_post_tool_call)
@@ -332,4 +432,24 @@ def register(ctx) -> None:
         },
         handler=_handle_uacp_artifact_write,
         description="Governed UACP artifact writer",
+    )
+    ctx.register_tool(
+        name="uacp_doc_write",
+        toolset="uacp_guardian",
+        schema=_write_tool_schema(
+            "uacp_doc_write",
+            "Write canonical UACP Markdown docs under docs/ through the governed docs boundary.",
+        ),
+        handler=_handle_uacp_doc_write,
+        description="Governed UACP docs writer",
+    )
+    ctx.register_tool(
+        name="uacp_config_write",
+        toolset="uacp_guardian",
+        schema=_write_tool_schema(
+            "uacp_config_write",
+            "Write canonical UACP YAML config under config/ through the governed config boundary.",
+        ),
+        handler=_handle_uacp_config_write,
+        description="Governed UACP config writer",
     )

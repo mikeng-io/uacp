@@ -17,6 +17,8 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
+import shutil
 from pathlib import Path
 
 try:
@@ -29,6 +31,7 @@ HOME = Path(os.environ.get("HERMES_HOME", "/home/norty/.hermes")).expanduser()
 UACP_ROOT = Path(os.environ.get("UACP_ROOT", str(HOME / "uacp"))).expanduser()
 HERMES_AGENT = Path(os.environ.get("HERMES_AGENT_ROOT", str(HOME / "hermes-agent"))).expanduser()
 EXPECTED = ["thread_title_sync", "uacp_guardian"]
+EXPECTED_GUARDIAN_TOOLS = ["uacp_state_write", "uacp_artifact_write", "uacp_doc_write", "uacp_config_write"]
 
 
 def check(condition: bool, name: str, evidence=None):
@@ -38,6 +41,73 @@ def check(condition: bool, name: str, evidence=None):
 def run(cmd, cwd=None):
     proc = subprocess.run(cmd, cwd=cwd, text=True, capture_output=True, timeout=60)
     return {"returncode": proc.returncode, "stdout": proc.stdout, "stderr": proc.stderr}
+
+
+def _exercise_guardian_writers(checks):
+    adapter_plugins_root = UACP_ROOT / "runtime-adapters/hermes/plugins"
+    sys.path.insert(0, str(adapter_plugins_root))
+    import uacp_guardian as guardian_plugin
+    from uacp_guardian.kernel import Guardian, GuardianPolicy, make_event
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_root = Path(tmp)
+        (tmp_root / "config").mkdir(parents=True)
+        (tmp_root / "docs").mkdir(parents=True)
+        shutil.copy2(UACP_ROOT / "config/guardian-policy.yaml", tmp_root / "config/guardian-policy.yaml")
+        old_env = {key: os.environ.get(key) for key in ["UACP_ROOT", "UACP_GUARDIAN_MODE"]}
+        try:
+            os.environ["UACP_ROOT"] = str(tmp_root)
+            os.environ.pop("UACP_GUARDIAN_MODE", None)
+            guardian_plugin._POLICY = None
+            common = {
+                "reason": "safe live probe temporary root",
+                "authority_artifact": "verification/live-guardian-proof-20260514.yaml",
+                "workspace": str(tmp_root),
+                "uacp_run_id": "live-guardian-proof-20260514",
+                "uacp_phase": "verify",
+                "policy_version": "0.1",
+                "declared_side_effects": "temporary proof write under isolated temp UACP root",
+            }
+            doc_result = json.loads(guardian_plugin._handle_uacp_doc_write({
+                **common,
+                "target_path": "docs/probe.md",
+                "content": "# Probe\n",
+            }))
+            checks.append(check(doc_result.get("ok") is True and (tmp_root / "docs/probe.md").read_text() == "# Probe\n", "uacp_doc_write_positive_temp_root", doc_result))
+
+            config_result = json.loads(guardian_plugin._handle_uacp_config_write({
+                **common,
+                "target_path": "config/probe.yaml",
+                "content": "ok: true\n",
+            }))
+            checks.append(check(config_result.get("ok") is True and (tmp_root / "config/probe.yaml").exists(), "uacp_config_write_positive_temp_root", config_result))
+
+            bad_yaml = json.loads(guardian_plugin._handle_uacp_config_write({
+                **common,
+                "target_path": "config/bad.yaml",
+                "content": "ok: [unterminated\n",
+            }))
+            checks.append(check("error" in bad_yaml, "uacp_config_write_blocks_invalid_yaml", bad_yaml))
+
+            bad_path = json.loads(guardian_plugin._handle_uacp_doc_write({
+                **common,
+                "target_path": "../escape.md",
+                "content": "escape",
+            }))
+            checks.append(check("error" in bad_path, "uacp_doc_write_blocks_path_escape", bad_path))
+
+            guardian = Guardian(GuardianPolicy.load(tmp_root))
+            known = guardian.evaluate(make_event(tool_name="uacp_doc_write", tool_provider="plugin", args={**common, "target_path": "docs/probe.md"}))
+            checks.append(check(known.decision == "allow_with_audit" and known.category == "file.write", "guardian_classifies_known_plugin_writer", {"decision": known.decision, "category": known.category, "reason": known.reason}))
+            unknown = guardian.evaluate(make_event(tool_name="unknown_plugin_mutator", tool_provider="plugin", args=common))
+            checks.append(check(unknown.decision == "block" and unknown.category == "runtime.extension", "guardian_blocks_unknown_plugin_mutator", {"decision": unknown.decision, "category": unknown.category, "reason": unknown.reason}))
+        finally:
+            guardian_plugin._POLICY = None
+            for key, value in old_env.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
 
 
 def main():
@@ -50,7 +120,13 @@ def main():
         checks.append(check(binding.is_symlink(), f"binding_is_symlink:{plugin}", str(binding)))
         target = binding.resolve() if binding.is_symlink() else None
         checks.append(check(target == source.resolve() if target else False, f"binding_targets_source:{plugin}", {"target": str(target) if target else "", "source": str(source.resolve()) if source.exists() else str(source)}))
-        checks.append(check((source / "plugin.yaml").exists(), f"manifest_exists:{plugin}", str(source / "plugin.yaml")))
+        manifest_path = source / "plugin.yaml"
+        checks.append(check(manifest_path.exists(), f"manifest_exists:{plugin}", str(manifest_path)))
+        if plugin == "uacp_guardian" and manifest_path.exists():
+            manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+            tools = manifest.get("tools") or []
+            for tool in EXPECTED_GUARDIAN_TOOLS:
+                checks.append(check(tool in tools, f"manifest_tool_registered:{tool}", tools))
 
     # Config checks
     config_path = HOME / "config.yaml"
@@ -80,6 +156,12 @@ def main():
             checks.append(check(True, f"yaml_parse:{rel}", rel))
         except Exception as exc:
             checks.append(check(False, f"yaml_parse:{rel}", str(exc)))
+
+    # Safe temporary-root writer/Guardian checks
+    try:
+        _exercise_guardian_writers(checks)
+    except Exception as exc:
+        checks.append(check(False, "guardian_writer_exercise_unhandled_exception", f"{type(exc).__name__}: {exc}"))
 
     # Cleanup invariants
     absent_paths = [

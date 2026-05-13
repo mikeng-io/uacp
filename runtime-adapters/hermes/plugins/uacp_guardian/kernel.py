@@ -160,6 +160,7 @@ class GuardianPolicy:
             "use_tool_classification",
             "require_explicit_classification",
             "require_control_plane_guard",
+            "prefer_tool_classification_else_runtime_extension",
         }
         for provider, category in provider_map.items():
             if category in symbolic:
@@ -266,6 +267,10 @@ class Guardian:
     def classify(self, event: GuardianEvent) -> str:
         provider_map = self.policy.tool_provenance.get("classification_by_provider") or {}
         provider_category = provider_map.get(event.tool_provider)
+        if provider_category == "prefer_tool_classification_else_runtime_extension":
+            if event.tool_name in self.policy.tool_classification:
+                return str(self.policy.tool_classification[event.tool_name])
+            return "runtime.extension"
         if provider_category and provider_category not in {
             "use_tool_classification",
             "require_explicit_classification",

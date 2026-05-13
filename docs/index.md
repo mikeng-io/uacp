@@ -212,6 +212,24 @@ No timestamp is required. The git commit is the retrieval coordinate. If no git 
 
 ## Decision Log
 
+### 2026-05-14 — Add Governed Docs And Config Writer Boundary
+
+Decision: UACP-owned Hermes Guardian now provides `uacp_doc_write` for canonical Markdown docs under `docs/` and `uacp_config_write` for canonical YAML config under `config/`. Known plugin writer tools are classified by tool-specific policy; unknown plugin mutators remain blocked as `runtime.extension`.
+
+Rationale: After bootstrap closure, canonical docs/config changes need a governed mutation path. `uacp_artifact_write` intentionally refuses `docs/` and `config/`, while direct file writes are Guardian-blocked. Dedicated writer surfaces remove the manual accepted-risk path for normal doc/config synchronization.
+
+Status: implemented in the UACP-owned Hermes runtime adapter and verified with safe temporary-root positive/negative probes. Active long-running sessions may require runtime reload before the new tools appear in tool schemas.
+
+Canonical targets:
+
+- `runtime-adapters/hermes/plugins/uacp_guardian/`
+- `config/guardian-policy.yaml`
+- `outputs/uacp-current-status.yaml`
+- `outputs/uacp-operational-dashboard.yaml`
+- `verification/live-guardian-proof-20260514-phase2-writers.yaml`
+
+Follow-up: patch lifecycle skills to use `uacp_doc_write` and `uacp_config_write`, then continue to Heartgate transition tooling.
+
 ### 2026-05-14 — Confirm Live Hermes Runtime Adapter Bindings And Cleanup Lane
 
 Decision: `thread_title_sync` and `uacp_guardian` are active Hermes user-plugin bindings sourced from `UACP_ROOT/runtime-adapters/hermes/plugins/`. Hermes Agent local plugin copies are transitional duplicates and may be removed after verifying the user-plugin bindings remain active. The temporary `uacp_symlink_probe` adapter is no longer an active runtime artifact and should be removed after cleanup verification.
