@@ -1,14 +1,14 @@
 kind: uacp.current_state
-active_run_id: uacp-agent-council-followthrough-20260513
-active_run_manifest: "state/runs/uacp-agent-council-followthrough-20260513.yaml"
+active_run_id: uacp-phase2-governed-writers-20260514
+active_run_manifest: "state/runs/uacp-phase2-governed-writers-20260514.yaml"
 mutation_policy: uacp_state_required
-current_transition_artifact: "state/runs/uacp-agent-council-followthrough-20260513-verify-to-resolve-transition.yaml"
+current_transition_artifact: "state/runs/uacp-phase2-governed-writers-20260514-verify-to-resolve-transition.yaml"
 kanban_binding_artifact: "state/kanban.yaml"
 kanban_board_slug: "uacp"
 bootstrap_closed: true
 governed_mutation_active: true
 notes:
-  - "Current pointer updated for UACP Agent-Council follow-through run closure."
-  - "Run closed with concerns for design/manual-drill scope only; production Guardian/Heartgate activation remains deferred."
-  - "Manual-drill state update used local execution path because normal shell/file writes were blocked by missing UACP context fields; recorded as accepted risk in verification/uacp-agent-council-followthrough-20260513-verify.yaml."
-  - "Kanban binding remains recorded in state/kanban.yaml but was not used for this design execution due worker dogfood pause."
+  - "Current pointer updated after Phase 2 resolve and Heartgate tool implementation."
+  - "Phase 2 governed writer hardening is resolved; the Heartgate transition tool is live and verified."
+  - "Remaining work is runtime/tool schema reload verification, lifecycle-skill live dispatch exposure, and later containment hardening."
+  - "Manual-drill state update used guarded state handler with full UACP context because the current session still needs reload verification for some newly registered tools."

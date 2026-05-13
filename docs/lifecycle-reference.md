@@ -261,6 +261,12 @@ The lifecycle phases are stable; the skill files that operate them are separate 
 | `uacp-verify` | Validate completed work with adaptive evidence clusters. | Writes verification artifacts only. |
 | `uacp-resolve` | Finalize outputs, lessons, and memory or skill update decisions. | Writes resolution and learning artifacts only. |
 
+Lifecycle transition rule:
+
+- When a phase boundary is about to be crossed or recorded, use `uacp_heartgate_check` on the transition artifact before accepting the move.
+- When canonical docs/config need to change, use `uacp_doc_write` for `docs/*.md` and `uacp_config_write` for `config/*.{yaml,yml}` instead of generic file writes.
+- `uacp-state` remains the exclusive mutator for runtime state after bootstrap; canonical docs/config changes and phase transitions are separate governed surfaces.
+
 Implementation status:
 
 - Lifecycle skill files have been created after checkpoint review.

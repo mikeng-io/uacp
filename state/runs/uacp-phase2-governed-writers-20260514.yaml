@@ -1,0 +1,20 @@
+kind: uacp.run_manifest
+run_id: uacp-phase2-governed-writers-20260514
+status: resolved
+phase: resolve
+summary: Phase 2 governed writer hardening and Heartgate check tool implementation.
+current_transition_artifact: state/runs/uacp-phase2-governed-writers-20260514-verify-to-resolve-transition.yaml
+verification_artifacts:
+  - verification/phase2-agent-council-retrospective-20260514.yaml
+  - verification/phase2-hardening-20260514.yaml
+  - verification/live-guardian-proof-20260514-phase3-heartgate.yaml
+  - verification/phase3-heartgate-check-20260514.yaml
+council_synthesis_artifact: verification/phase2-agent-council-retrospective-20260514.yaml
+phase_local_granularity:
+  verify: 5
+  resolve: 4
+composite_granularity: 6
+notes:
+  - Phase 2 concerns were hardened and resolved.
+  - uacp_heartgate_check is implemented and verified.
+  - Remaining work is fresh-session/runtime reload verification, containment hardening, and lifecycle-skill dispatch exposure.

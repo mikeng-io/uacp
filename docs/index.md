@@ -229,7 +229,7 @@ Canonical targets:
 - `verification/phase2-hardening-20260514.yaml`
 - `verification/live-guardian-proof-20260514-phase3-heartgate.yaml`
 
-Follow-up: patch lifecycle skills to require `uacp_heartgate_check` before phase transitions and to mandate `uacp_doc_write` / `uacp_config_write` for canonical docs/config mutations after runtime reload verification.
+Follow-up: lifecycle skills now reference `uacp_heartgate_check`, `uacp_doc_write`, and `uacp_config_write`; remaining work is fresh-session/runtime reload verification for exposed tool schemas and any final containment hardening before broad activation.
 
 ### 2026-05-14 — Add Governed Docs And Config Writer Boundary
 
