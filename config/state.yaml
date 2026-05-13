@@ -4,8 +4,8 @@ status: active
 purpose: >
   Defines the initial file-based UACP state layer and version-control binding.
   Bootstrap is closed; governed runtime-state mutation is active through the
-  uacp-state skill. Runtime Guardian enforcement is still a deferred hardening
-  item.
+  uacp-state skill. Hermes uacp_guardian is live-bound as a user plugin for
+  protected-path enforcement, while full production hardening remains incomplete.
 
 state_layer:
   storage: file_based_yaml
@@ -29,8 +29,8 @@ lifecycle_skill_contracts:
   creation_gate: "satisfied"
   creation_gate_status: satisfied
   implementation_root: "HERMES_ROOT/skills/devops/uacp/"
-  enforcement_status: policy_level
-  enforcement_gap: "Runtime Guardian/Heartgate enforcement is not yet implemented."
+  enforcement_status: live_adapter_partial
+  enforcement_gap: "Hermes uacp_guardian is live-bound and enforcing protected paths, but lifecycle Heartgate calls, governed doc/config writer surfaces, and production containment hardening remain incomplete."
   skills:
     uacp-state:
       responsibility: "Own governed state mutation, state transitions, and pointer updates."

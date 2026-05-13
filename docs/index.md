@@ -212,6 +212,25 @@ No timestamp is required. The git commit is the retrieval coordinate. If no git 
 
 ## Decision Log
 
+### 2026-05-14 — Confirm Live Hermes Runtime Adapter Bindings And Cleanup Lane
+
+Decision: `thread_title_sync` and `uacp_guardian` are active Hermes user-plugin bindings sourced from `UACP_ROOT/runtime-adapters/hermes/plugins/`. Hermes Agent local plugin copies are transitional duplicates and may be removed after verifying the user-plugin bindings remain active. The temporary `uacp_symlink_probe` adapter is no longer an active runtime artifact and should be removed after cleanup verification.
+
+Rationale: UACP-owned runtime adapters should remain in UACP, with Hermes Agent as a downstream host runtime. Keeping identical plugin copies in the Hermes Agent checkout creates source-of-truth drift now that user-plugin symlink bindings are active.
+
+Status: accepted for local cleanup and documentation/config synchronization. No remote push is authorized by this entry.
+
+Canonical targets:
+
+- `docs/index.md`
+- `config/runtime-bindings.yaml`
+- `config/state.yaml`
+- `outputs/uacp-current-status.yaml`
+- `runtime-adapters/hermes/plugins/`
+- `verification/runtime-porting-20260514-cleanup-doc-sync.yaml`
+
+Follow-up: run post-cleanup loader verification and keep production-complete claims blocked until lifecycle wiring, containment hardening, and governed docs/config writer support are complete.
+
 ### 2026-05-13 — Establish Runtime Porting And Version-Control Binding Policy
 
 Decision: UACP owns governed runtime adapter source under `runtime-adapters/`, records runtime binding targets in `config/runtime-bindings.yaml`, and records repository/branch/worktree/backup policy in `config/version-control.yaml`. Hermes Agent remains the first downstream runtime target, not the long-term authority root for UACP-owned plugin source.
@@ -228,7 +247,7 @@ Canonical targets:
 - `runtime-adapters/hermes/plugins/`
 - `executions/runtime-porting-20260513-symlink-proof.yaml`
 
-Follow-up: bind real `uacp_guardian` and `thread_title_sync` through `HERMES_ROOT/plugins/` only after review, then run affected behavior tests before removing Hermes Agent bundled/transitional copies.
+Follow-up status: real `uacp_guardian` and `thread_title_sync` are now live-bound through `HERMES_ROOT/plugins/` as user plugins with loader evidence recorded. Remaining work is duplicate Hermes Agent source reduction, temporary probe cleanup, continued live proof tests, and production hardening before claiming Guardian complete.
 
 ### 2026-05-13 — Integrate Agent-Skills Branch Concepts Into UACP Doctrine
 

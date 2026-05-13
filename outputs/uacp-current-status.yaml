@@ -1,98 +1,104 @@
-schema_version: "0.1"
-kind: "uacp.status.current"
-status: "runtime_prototype"
-summary: "UACP has moved beyond paper design into an early runtime prototype with the first Hermes Guardian/Heartgate enforcement checkpoint implemented and merged."
+schema_version: '0.1'
+kind: uacp.status.current
+status: runtime_prototype
+summary: UACP is an early runtime prototype with Hermes user-plugin live bindings active for thread_title_sync and uacp_guardian; production hardening remains incomplete.
 authority:
-  registry: "docs/index.md"
-  runtime_design: "docs/runtime-enforcement.md"
-  runtime_checkpoint: "verification/uacp-runtime-guardian-implementation-checkpoint-1.yaml"
+  registry: docs/index.md
+  runtime_design: docs/runtime-enforcement.md
+  runtime_checkpoint: verification/uacp-runtime-guardian-implementation-checkpoint-1.yaml
 repositories:
   uacp:
-    checkpoint_commit: "65d8fbb"
-    role: "governance source of truth, durable artifacts, state, docs, config"
+    checkpoint_commit: 65d8fbb
+    role: governance source of truth, durable artifacts, state, docs, config
   hermes_agent:
-    commit: "a07da521a"
-    role: "runtime enforcement implementation for Hermes"
+    commit: a07da521a
+    role: runtime enforcement implementation for Hermes
 implemented:
   governance_foundation:
-    - "Artifact root, canonical docs, config, state layer, and git binding exist."
-    - "Lifecycle skill family exists for triage, propose, plan, execute, verify, resolve, and state."
-    - "Hermes Kanban binding exists for durable task graph traceability."
+  - Artifact root, canonical docs, config, state layer, and git binding exist.
+  - Lifecycle skill family exists for triage, propose, plan, execute, verify, resolve, and state.
+  - Hermes Kanban binding exists for durable task graph traceability.
   runtime_enforcement_checkpoint_1:
-    - "Guardian core and Heartgate core implemented in Hermes Agent."
-    - "Built-in UACP preflight blocks protected actions through standard Hermes tool dispatch."
-    - "Bundled uacp_guardian plugin provides hooks, audit behavior, and uacp_state_write."
-    - "Plugin dispatch path is guarded."
-    - "UACP-bound shell/code execution fails closed when filesystem containment is unavailable."
-    - "Kanban UACP context storage, dispatcher checks, and worker environment propagation are implemented."
+  - Guardian core and Heartgate core implemented in Hermes Agent.
+  - Built-in UACP preflight blocks protected actions through standard Hermes tool dispatch.
+  - Bundled uacp_guardian plugin provides hooks, audit behavior, and uacp_state_write.
+  - Plugin dispatch path is guarded.
+  - UACP-bound shell/code execution fails closed when filesystem containment is unavailable.
+  - Kanban UACP context storage, dispatcher checks, and worker environment propagation are implemented.
+  live_user_plugin_bindings:
+  - thread_title_sync is live-bound from UACP runtime-adapters into HERMES_ROOT/plugins and loads as an enabled user plugin.
+  - uacp_guardian is live-bound from UACP runtime-adapters into HERMES_ROOT/plugins and loads as an enabled user plugin.
+  - Live loader behavior was verified in verification/runtime-porting-20260513-thread-title-sync-live-bind.yaml and verification/runtime-porting-20260513-uacp-guardian-live-bind.yaml.
+  - A live protected-path shell action was blocked by Guardian for missing UACP context, confirming active enforcement on that surface.
 not_yet_done:
   live_activation_and_testing:
-    - "Enable or confirm uacp_guardian plugin activation in the live Hermes runtime where UACP operates."
-    - "Restart or reload Hermes runtime so the merged Guardian code is actually active."
-    - "Run live negative/positive proof tests, not only pytest."
+  - Keep live positive/negative proof tests current after cleanup and runtime restarts.
+  - Do not call Guardian production-complete until containment, lifecycle wiring, and non-cooperative extension boundaries are covered.
   lifecycle_wiring:
-    - "Wire lifecycle skills to call Heartgate before phase transitions."
-    - "Route uacp-state mutations through runtime uacp_state_write."
-    - "Ensure UACP lifecycle skills create Kanban tasks with required uacp_context."
+  - Wire lifecycle skills to call Heartgate before phase transitions.
+  - Route uacp-state mutations through runtime uacp_state_write.
+  - Ensure UACP lifecycle skills create Kanban tasks with required uacp_context.
   hardening:
-    - "Implement verified filesystem containment before allowing UACP-bound shell/code execution."
-    - "Add stronger boundaries for non-cooperative plugins or direct lower-level mutation paths."
-    - "Keep full Knowledge Bank retrieval/ranking deferred until the local artifact loop is stable."
+  - Implement verified filesystem containment before allowing UACP-bound shell/code execution.
+  - Add stronger boundaries for non-cooperative plugins or direct lower-level mutation paths.
+  - Keep full Knowledge Bank retrieval/ranking deferred until the local artifact loop is stable.
   documentation_sync:
-    - "Earlier bootstrap/lifecycle-skill doc drift was reconciled by governed doc-sync Kanban task t_9f0f686b."
-    - "Future drift should be handled through a new governed doc-sync task, not by reopening the closed task."
-    - "Update documents after runtime proof tests, not before evidence exists."
+  - Runtime binding config and current-status artifacts were synchronized after live binding evidence.
+  - Future drift should be handled through a new governed doc-sync task, not by reopening closed tasks.
+  - Update documents after new runtime proof evidence exists, not before evidence exists.
   repository_hygiene:
-    - "Decide what to do with the unrelated dirty hermes-agent uv.lock change."
-    - "Define commit cadence for active runtime state mutations."
+  - Hermes Agent duplicate plugin source copies are being removed now that UACP-owned user-plugin symlink bindings are active.
+  - Temporary uacp_symlink_probe runtime adapter artifact is being removed after successful real-adapter binding.
+  - Do not push repository changes without explicit operator confirmation.
 instruction_surface_wiring:
-  status: "minimally_wired"
+  status: minimally_wired
   checked:
-    - "HERMES_ROOT/SOUL.md"
-    - "HERMES_ROOT/workspace/SOUL.md"
-    - "HERMES_ROOT/workspace/PERSONALITY.md"
-    - "HERMES_ROOT/workspace/AGENTS.md"
-    - "HERMES_ROOT/workspace/KERNEL.md"
-    - "HERMES_ROOT/workspace/SECURITY.md"
-    - "HERMES_ROOT/workspace/WORKFLOWS.md"
-    - "HERMES_ROOT/config.yaml"
-    - "HERMES_ROOT/routing/dispatch-workspaces.yaml"
-    - "HERMES_ROOT/hermes-agent/AGENTS.md"
-    - "HERMES_ROOT/skills/devops/uacp/"
+  - HERMES_ROOT/SOUL.md
+  - HERMES_ROOT/workspace/SOUL.md
+  - HERMES_ROOT/workspace/PERSONALITY.md
+  - HERMES_ROOT/workspace/AGENTS.md
+  - HERMES_ROOT/workspace/KERNEL.md
+  - HERMES_ROOT/workspace/SECURITY.md
+  - HERMES_ROOT/workspace/WORKFLOWS.md
+  - HERMES_ROOT/config.yaml
+  - HERMES_ROOT/routing/dispatch-workspaces.yaml
+  - HERMES_ROOT/hermes-agent/AGENTS.md
+  - HERMES_ROOT/skills/devops/uacp/
   findings:
-    - "Hermes loads HERMES_ROOT/SOUL.md as primary identity when context files are enabled."
-    - "Hermes loads project context from TERMINAL_CWD or cwd using .hermes.md, HERMES.md, AGENTS.md, CLAUDE.md, then cursor rules priority."
-    - "HERMES_ROOT/SOUL.md now contains a short UACP pointer for governed work."
-    - "HERMES_ROOT/workspace/SOUL.md now contains the same UACP pointer and no longer hardcodes specific external agent model commands."
-    - "HERMES_ROOT/workspace/AGENTS.md now defines UACP-bound work routing and required Guardian/Heartgate context."
-    - "routing/dispatch-workspaces.yaml now routes the uacp workspace to UACP_ROOT and lists the uacp skill."
-    - "config.yaml Discord #dispatch prompt now tells UACP-bound work to select the uacp workspace, load the uacp skill, start at TRIAGE, and preserve Guardian context."
-    - "config.yaml Discord #dispatch skill binding now includes uacp."
-    - "UACP lifecycle skills exist under HERMES_ROOT/skills/devops/uacp, but the skill text is mostly policy-level and does not yet require runtime uacp_state_write or Heartgate calls at every transition."
-    - "The bundled hermes-agent/AGENTS.md is a developer guide for the Hermes Agent repo; it is not the operator-level UACP authority document."
+  - Hermes loads HERMES_ROOT/SOUL.md as primary identity when context files are enabled.
+  - Hermes loads project context from TERMINAL_CWD or cwd using .hermes.md, HERMES.md, AGENTS.md, CLAUDE.md, then cursor rules priority.
+  - HERMES_ROOT/SOUL.md now contains a short UACP pointer for governed work.
+  - HERMES_ROOT/workspace/SOUL.md now contains the same UACP pointer and no longer hardcodes specific external agent model commands.
+  - HERMES_ROOT/workspace/AGENTS.md now defines UACP-bound work routing and required Guardian/Heartgate context.
+  - routing/dispatch-workspaces.yaml now routes the uacp workspace to UACP_ROOT and lists the uacp skill.
+  - 'config.yaml Discord #dispatch prompt now tells UACP-bound work to select the uacp workspace, load the uacp skill, start at TRIAGE, and preserve Guardian context.'
+  - 'config.yaml Discord #dispatch skill binding now includes uacp.'
+  - UACP lifecycle skills exist under HERMES_ROOT/skills/devops/uacp, but the skill text is mostly policy-level and does not yet require runtime uacp_state_write or Heartgate calls at every transition.
+  - The bundled hermes-agent/AGENTS.md is a developer guide for the Hermes Agent repo; it is not the operator-level UACP authority document.
   changed_surfaces:
-    - "HERMES_ROOT/SOUL.md"
-    - "HERMES_ROOT/workspace/SOUL.md"
-    - "HERMES_ROOT/workspace/AGENTS.md"
-    - "HERMES_ROOT/routing/dispatch-workspaces.yaml"
-    - "HERMES_ROOT/config.yaml"
-    - "UACP_ROOT/docs/index.md"
-    - "UACP_ROOT/outputs/uacp-current-status.yaml"
-  conclusion: "UACP is now minimally wired into the main Hermes instruction/startup surfaces and dispatch routing. This is pointer-level wiring, not full production activation."
+  - HERMES_ROOT/SOUL.md
+  - HERMES_ROOT/workspace/SOUL.md
+  - HERMES_ROOT/workspace/AGENTS.md
+  - HERMES_ROOT/routing/dispatch-workspaces.yaml
+  - HERMES_ROOT/config.yaml
+  - UACP_ROOT/docs/index.md
+  - UACP_ROOT/outputs/uacp-current-status.yaml
+  conclusion: UACP is now minimally wired into the main Hermes instruction/startup surfaces and dispatch routing. This is pointer-level wiring, not full production activation.
   recommended_next_steps:
-    - "Restart or reload the Hermes gateway/runtime so config and instruction-surface changes take effect."
-    - "Run a live dispatch test for a UACP-bound thread and confirm it selects the uacp workspace and skill."
-    - "Update lifecycle skills so phase transitions call Heartgate and state changes use uacp_state_write after live activation."
-    - "Avoid stuffing full UACP docs into SOUL.md, PERSONALITY.md, or AGENTS.md; keep those files as pointers to UACP_ROOT authority."
+  - Restart or reload the Hermes gateway/runtime so config and instruction-surface changes take effect.
+  - Run a live dispatch test for a UACP-bound thread and confirm it selects the uacp workspace and skill.
+  - Update lifecycle skills so phase transitions call Heartgate and state changes use uacp_state_write after live activation.
+  - Avoid stuffing full UACP docs into SOUL.md, PERSONALITY.md, or AGENTS.md; keep those files as pointers to UACP_ROOT authority.
 live_proof_tests_required:
-  - "Direct write to UACP state/ is blocked unless routed through the guarded state mutation path."
-  - "Plugin-dispatched protected write is blocked or audited by Guardian."
-  - "UACP-bound shell/code execution is blocked until verified containment exists."
-  - "uacp_state_write succeeds only with complete authority, workspace, run id, phase, policy version, and declared side effects."
-  - "Kanban workers for UACP-bound tasks receive UACP_ROOT, UACP_RUN_ID, UACP_PHASE, UACP_GUARDIAN_POLICY_VERSION, UACP_WORKSPACE_POLICY, and UACP_GUARDIAN_MODE."
+- Direct write to UACP state/ is blocked unless routed through the guarded state mutation path.
+- Plugin-dispatched protected write is blocked or audited by Guardian.
+- UACP-bound shell/code execution remains blocked until verified containment exists.
+- uacp_state_write succeeds only with complete authority, workspace, run id, phase, policy version, and declared side effects.
+- Kanban workers for UACP-bound tasks receive UACP_ROOT, UACP_RUN_ID, UACP_PHASE, UACP_GUARDIAN_POLICY_VERSION, UACP_WORKSPACE_POLICY, and UACP_GUARDIAN_MODE.
+- Docs/config mutation still needs a governed writer surface; manual local doc-sync writes must be recorded as an accepted implementation gap until that exists.
 backup_guidance:
-  recommended_scope: "full HERMES_ROOT snapshot before live runtime activation"
+  recommended_scope: full HERMES_ROOT snapshot before live runtime activation
   rationale:
-    - "UACP now spans governance artifacts, Hermes runtime code, lifecycle skills, Kanban state, plugin config, and runtime settings."
-    - "Backing up only UACP_ROOT or hermes-agent can miss cross-layer state needed for rollback."
-conclusion: "The remaining work is activation, live proof testing, lifecycle wiring, containment hardening, and governed documentation synchronization."
+  - UACP now spans governance artifacts, Hermes runtime code, lifecycle skills, Kanban state, plugin config, and runtime settings.
+  - Backing up only UACP_ROOT or hermes-agent can miss cross-layer state needed for rollback.
+conclusion: The remaining work is duplicate-source cleanup verification, lifecycle Heartgate/state-writer wiring, containment hardening, governed docs/config writer support, and continued live proof testing. Compression-loop diagnosis is deferred to a separate session.
