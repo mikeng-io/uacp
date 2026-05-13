@@ -1,0 +1,24 @@
+schema_version: '0.1'
+kind: uacp.execution_evidence
+run_id: runtime-porting-20260513
+phase: execute
+status: pass
+timestamp: 2026-05-13T23:23:07+0800
+action: live-bind uacp_guardian into Hermes user plugin directory
+source: /home/norty/.hermes/uacp/runtime-adapters/hermes/plugins/uacp_guardian
+target: /home/norty/.hermes/plugins/uacp_guardian
+config_path: /home/norty/.hermes/config.yaml
+verification:
+  loaded_present: true
+  enabled: true
+  error: null
+  manifest_source: user
+  manifest_path: /home/norty/.hermes/plugins/uacp_guardian
+  hooks_registered:
+  - pre_tool_call
+  - post_tool_call
+rollback: rm /home/norty/.hermes/plugins/uacp_guardian
+notes:
+- Bound uacp_guardian after thread_title_sync proof and private remote setup.
+- Plugin allow-list updated to permit the user plugin to load.
+- Existing target path was backed up before replacement if present.
