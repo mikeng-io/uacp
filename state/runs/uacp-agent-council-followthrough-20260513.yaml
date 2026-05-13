@@ -1,0 +1,61 @@
+schema_version: "0.1"
+kind: uacp.run_state
+run_id: "uacp-agent-council-followthrough-20260513"
+status: closed
+current_stage: resolve
+current_phase: resolve
+authority:
+  status: pass
+  source: "proposals/uacp-agent-council-followthrough-20260513.yaml"
+transition_artifact: "state/runs/uacp-agent-council-followthrough-20260513-verify-to-resolve-transition.yaml"
+council_synthesis_artifact: "verification/uacp-agent-council-followthrough-20260513-agent-council.yaml"
+bootstrap_closed: true
+governed_mutation_active: true
+artifacts:
+  triage: "state/runs/uacp-agent-council-followthrough-20260513-triage.yaml"
+  proposal: "proposals/uacp-agent-council-followthrough-20260513.yaml"
+  plan: "plans/uacp-agent-council-followthrough-20260513-execution-plan.md"
+  execution: "executions/uacp-agent-council-followthrough-20260513.yaml"
+  verification: "verification/uacp-agent-council-followthrough-20260513-verify.yaml"
+  resolution: "outputs/uacp-agent-council-followthrough-20260513-resolution.yaml"
+  learning: "knowledge/lessons/uacp-agent-council-followthrough-20260513.yaml"
+selected_clusters:
+  - authority
+  - write_containment
+  - execution_strategy
+  - verification_strategy
+  - memory_lessons
+kanban:
+  enabled: false
+  board_slug: "uacp"
+  root_task_ids: []
+  metadata:
+    reason: "Kanban worker design dogfood paused by current execution posture note."
+invariants:
+  - id: authority.explicit
+    status: pass
+    evidence: "Operator authorized execution."
+  - id: writes.contained
+    status: pass
+    evidence: "Writes limited to UACP_ROOT."
+  - id: mutation.visible
+    status: pass
+    evidence: "Run artifacts list visible mutations."
+deferred_items:
+  - item: "Production uacp_state_write/Heartgate lifecycle wiring remains follow-up."
+    owner: "future runtime hardening run"
+  - item: "Stricter validator fixtures/schema remain follow-up."
+    owner: "future validator hardening run"
+state_history:
+  - event: "run_manifest_created"
+    source: "manual UACP follow-through execution"
+    artifact: "state/runs/uacp-agent-council-followthrough-20260513.yaml"
+  - event: "manual_drill_bypass_recorded"
+    source: "execute_code local artifact write"
+    artifact: "executions/uacp-agent-council-followthrough-20260513.yaml"
+  - event: "final_agent_council_completed"
+    source: "delegate_task role-diverse council"
+    artifact: "verification/uacp-agent-council-followthrough-20260513-agent-council.yaml"
+  - event: "run_closed_with_concerns"
+    source: "uacp-resolve"
+    artifact: "outputs/uacp-agent-council-followthrough-20260513-resolution.yaml"

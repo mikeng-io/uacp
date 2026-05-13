@@ -1,0 +1,19 @@
+kind: uacp.verification_artifact
+schema_version: '0.1'
+run_id: uacp-execution-profiles-personas
+phase: VERIFY
+timestamp: '2026-05-12T18:23:49.142336+00:00'
+authority_artifact: plans/uacp-agent-council-followthrough/08-execution-profiles-and-personas.md
+verified_changes:
+- orchestration model includes execution profiles/personas
+- review-routing includes execution_profile routing input and diversity dimensions
+- follow-through package includes T8 profile/persona matrix task
+- Kanban task T8 created/subscribed if missing
+checks:
+- id: content:orchestration-model
+  state: pass
+  evidence: profile section present
+- id: kanban:T8
+  state: pass
+  evidence: t_1907e113
+decision: pass

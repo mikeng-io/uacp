@@ -45,8 +45,9 @@ For most work, read in this order:
 1. `docs/index.md`
 2. `docs/constitution.md`
 3. `docs/lifecycle-reference.md`
-4. Relevant config under `config/`
-5. Supporting docs only when the current task needs them
+4. `docs/orchestration-model.md` when multi-agent orchestration, council review, runtime adapters, or downstream agent-skill extraction are involved
+5. Relevant config under `config/`
+6. Supporting docs only when the current task needs them
 
 For design or governance changes, also read:
 
@@ -123,6 +124,7 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `docs/lifecycle-reference.md` | reference | canonical | Current workflow and phase/stage model | Primary place for lifecycle wording |
 | `docs/alignment-spec.md` | reference | canonical | Hermes/Norty integration alignment | Update when integration boundaries change |
 | `docs/runtime-enforcement.md` | reference / policy | canonical | Guardian and Heartgate runtime enforcement design | Update before runtime enforcement implementation changes |
+| `docs/orchestration-model.md` | reference | canonical | Agent Council, council modes/tiers, runtime adapters, and downstream orchestration vocabulary | Update before changing multi-agent orchestration semantics or downstream agent-skill extraction |
 | `config/evidence-clusters.yaml` | schema_config | generated | Evidence cluster families and schema | Keep aligned with canonical docs; YAML must parse |
 | `config/gate-selection.yaml` | schema_config | generated | Meta-gate, triage scoring, gate-selection schema | Keep aligned with lifecycle and constitution |
 | `config/phase-transitions.yaml` | schema_config | generated | Stage/phase transitions and transition artifact schema | Keep aligned with lifecycle reference |
@@ -205,6 +207,25 @@ Required fields:
 No timestamp is required. The git commit is the retrieval coordinate. If no git commit exists, use `unavailable-no-git-worktree` and update it after the artifact root is versioned.
 
 ## Decision Log
+
+### 2026-05-13 — Integrate Agent-Skills Branch Concepts Into UACP Doctrine
+
+Decision: UACP absorbs the useful doctrine from `mikeng-io/agent-skills` branch `origin/codex/guardian-agent-council-uacp` and remains the single canonical source of truth. The branch is source material, not competing authority. Downstream agent-skills should later be re-extracted from stabilized UACP doctrine.
+
+Rationale: The branch introduced useful Guardian, council, runtime adapter, and domain concepts, but UACP must remain one integrated doctrine for governance, execution, verification, orchestration, and enforcement. Keeping parallel agent-skills doctrine would create drift.
+
+Status: accepted for canonical doc/config integration after review of `plans/agent-skills-branch-integration/`.
+
+Canonical targets:
+
+- `docs/index.md`
+- `docs/orchestration-model.md`
+- `docs/lifecycle-reference.md`
+- `docs/runtime-enforcement.md`
+- `config/review-routing.yaml`
+- `config/evidence-clusters.yaml`
+
+Follow-up: Do not port `guardian.py`, runtime adapter scripts, or other implementation code until the doctrine stabilizes and an implementation phase is explicitly approved. Keep symbolic paths such as `UACP_ROOT/verification/` in canonical docs/config.
 
 ### 2026-05-10 — Add TRIAGE Before PROPOSE
 

@@ -1,0 +1,21 @@
+kind: uacp.verification_artifact
+schema_version: '0.1'
+run_id: uacp-profile-runtime-routing-design
+phase: PLAN_VERIFY
+timestamp: '2026-05-12T18:38:54.314610+00:00'
+verified_changes:
+- Expanded execution profiles design note with profile/runtime/subagent/external routing
+  semantics
+- Patched orchestration model with profile selection versus runtime selection
+- Added profile set seed and runtime surface separation to review-routing config
+checks:
+- id: yaml:review-routing
+  state: pass
+  evidence: config/review-routing.yaml parsed successfully
+- id: content:profile-runtime-separation
+  state: pass
+  evidence: docs/orchestration-model.md contains profile/runtime distinction
+- id: content:profile-set
+  state: pass
+  evidence: profile_sets includes external adapter profiles
+decision: pass

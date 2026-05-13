@@ -1,0 +1,36 @@
+kind: uacp.verification_artifact
+schema_version: '0.1'
+run_id: uacp-full-auto-execute-controller-design
+phase: VERIFY
+timestamp: '2026-05-12T19:45:32.085632+00:00'
+authority_artifact: plans/uacp-agent-council-followthrough/11-full-auto-execute-phase-controller.md
+verified_changes:
+- Expanded full-auto EXECUTE controller design from roadmap stub to draft-ready artifact
+- Defined controller loop, inputs, outputs, state model, task graph lifecycle, worker
+  failure handling, retry/rerun/escalation rules, human checkpoint triggers, external
+  runtime escalation, adapter contract, execute evidence artifact, and phase exit
+  rules
+- Updated review-routing config roadmap status to draft_ready_for_review
+changed_files:
+- plans/uacp-agent-council-followthrough/11-full-auto-execute-phase-controller.md
+- config/review-routing.yaml
+- verification/uacp-full-auto-execute-controller-design-verify.yaml
+checks:
+- id: yaml:review-routing
+  state: pass
+  evidence: config/review-routing.yaml parses
+- id: doc:failure-states
+  state: pass
+  evidence: blocked/crashed/timed_out/protocol_violation all covered
+- id: doc:execute-evidence
+  state: pass
+  evidence: uacp.execute_evidence artifact schema defined
+- id: doc:phase-boundary
+  state: pass
+  evidence: design explicitly limited to EXECUTE phase only
+decision: pass
+residual_risks:
+- Runtime implementation is not created yet.
+- Kanban worker default profile continues to crash on this workload; this design was
+  completed by main orchestrator under authorized scope and the failure is explicitly
+  incorporated as a controller requirement.

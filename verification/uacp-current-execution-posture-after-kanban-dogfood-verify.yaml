@@ -1,0 +1,19 @@
+kind: uacp.verification_artifact
+schema_version: '0.1'
+run_id: uacp-current-execution-posture-after-kanban-dogfood
+phase: RESOLVE_NOTE
+timestamp: '2026-05-12T19:48:09.389044+00:00'
+verified_changes:
+- Recorded current decision to continue remaining UACP reramp design in main session
+  after Kanban worker crashes
+- Updated package index and current operating model note
+- Added machine-readable config note preserving Kanban as future/target EXECUTE adapter
+  while pausing design dogfood through workers
+checks:
+- id: doc:decision-note
+  state: pass
+  evidence: /home/norty/.hermes/uacp/plans/uacp-agent-council-followthrough/12-current-execution-posture-after-kanban-dogfood.md
+- id: yaml:review-routing
+  state: pass
+  evidence: config/review-routing.yaml parses
+decision: pass

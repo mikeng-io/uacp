@@ -1,0 +1,54 @@
+kind: uacp.verification_artifact
+schema_version: '0.1'
+run_id: uacp-execute-task-schema
+phase: VERIFY
+timestamp: '2026-05-12T19:27:52.282019+00:00'
+authority_artifact: plans/uacp-agent-council-followthrough/09-current-operating-model-and-future-slots.md
+verified_changes:
+- Created EXECUTE task schema and examples
+- Updated package index
+- Patched orchestration model with schema reference
+- Updated review-routing config with schema summary
+- Patched schema after scratch delegate critique to add council mode/tier, complete
+  adapter contract, default profile semantics, structured findings, granularity reassessment,
+  operator/domain/cross-phase fields, public visibility, and migration notes
+changed_files:
+- config/review-routing.yaml
+- docs/orchestration-model.md
+- plans/uacp-agent-council-followthrough/00-index.md
+- plans/uacp-agent-council-followthrough/10-execute-task-schema.md
+- verification/uacp-execute-task-schema-verify.yaml
+checks:
+- id: yaml:review-routing
+  state: pass
+  evidence: config/review-routing.yaml parses
+- id: doc:schema-exists
+  state: pass
+  evidence: plans/uacp-agent-council-followthrough/10-execute-task-schema.md created
+- id: doc:adapter-neutrality
+  state: pass
+  evidence: schema includes adapter-neutral mapping
+- id: doc:examples
+  state: pass
+  evidence: five example classes included
+- id: review:delegate-high-findings
+  state: pass
+  evidence: Resolved high-severity delegate critique items 1-3 in schema
+- id: review:adapter-contract-complete
+  state: pass
+  evidence: Adapter contract includes full 9 fields
+- id: review:structured-findings
+  state: pass
+  evidence: Structured findings section present
+decision: pass
+residual_risks:
+- This remains a draft-ready schema artifact; runtime enforcement and validators are
+  not implemented yet.
+- Initial Kanban worker for task t_f66dbea8 crashed due to completion protocol violation,
+  so main orchestrator completed the bounded work under the same authorized scope
+  and recorded the incident.
+review_followup:
+  scratch_delegate_critique: MiniMax-M2.7 same-profile delegate critique identified
+    gaps in council mode/tier, adapter contract completeness, profile_id null semantics,
+    structured findings, granularity reassessment, synthesis artifact, domain/cross-phase
+    fields, operator constraints, public visibility, and migration notes.

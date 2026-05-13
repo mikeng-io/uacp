@@ -1,118 +1,168 @@
-schema_version: "0.1"
+schema_version: '0.1'
 kind: uacp.phase_transition_config
 status: seed
-purpose: >
-  Defines stable lifecycle phase envelopes and the adaptive transition artifact
-  shape. Transition decisions combine invariant checks, selected evidence
-  cluster outcomes, and blocker synthesis.
+purpose: 'Defines stable lifecycle phase envelopes and the adaptive transition artifact
+  shape. Transition decisions combine invariant checks, selected evidence cluster
+  outcomes, and blocker synthesis.
 
+  '
 stages:
   triage:
-    enters_from: [none]
-    exits_to: [propose, terminal]
-    purpose: "Calibrate scope, score granularity, and route the request."
+    enters_from:
+    - none
+    exits_to:
+    - propose
+    - terminal
+    purpose: Calibrate scope, score granularity, and route the request.
     can_terminate_without_full_lifecycle: true
     routing_outcomes:
-      direct: "terminal_direct"
-      lightweight: "propose"
-      standard_uacp: "propose"
-      full_governance: "propose"
-      block_or_clarify: "terminal_blocked"
+      direct: terminal_direct
+      lightweight: propose
+      standard_uacp: propose
+      full_governance: propose
+      block_or_clarify: terminal_blocked
   propose:
-    enters_from: [triage]
-    exits_to: [plan]
-    purpose: "Establish authority, scope, context, risk, and proposal viability."
+    enters_from:
+    - triage
+    exits_to:
+    - plan
+    purpose: Establish authority, scope, context, risk, and proposal viability.
   plan:
-    enters_from: [propose]
-    exits_to: [execute]
-    purpose: "Convert approved proposal into bounded execution and verification strategy."
+    enters_from:
+    - propose
+    exits_to:
+    - execute
+    purpose: Convert approved proposal into bounded execution and verification strategy.
   execute:
-    enters_from: [plan]
-    exits_to: [verify]
-    purpose: "Perform bounded work through Hermes Kanban or delegated workers."
+    enters_from:
+    - plan
+    exits_to:
+    - verify
+    purpose: Perform bounded work through UACP-authorized Agent Council orchestration,
+      Hermes Kanban coordination, delegated workers, selected runtimes, and approved
+      tool/evidence adapters.
   verify:
-    enters_from: [execute]
-    exits_to: [resolve]
-    purpose: "Validate completed work with context-selected evidence clusters."
+    enters_from:
+    - execute
+    exits_to:
+    - resolve
+    purpose: Validate completed work with context-selected evidence clusters.
   resolve:
-    enters_from: [verify]
-    exits_to: [terminal]
-    purpose: "Finalize outputs, archive artifacts, and emit lessons."
-
+    enters_from:
+    - verify
+    exits_to:
+    - terminal
+    purpose: Finalize outputs, archive artifacts, and emit lessons.
 transition_rule:
   required_inputs:
-    - current_stage_or_phase_artifact
-    - gate_selection_artifact
-    - required_cluster_artifacts
-    - triage_artifact
-    - council_synthesis_artifact
-    - declared_side_effects
-    - write_containment_record
-    - blocker_synthesis
-  pass_condition: >
-    All non-waivable invariants pass, all required clusters are pass or accepted
-    warn, no unresolved blocker remains, and the next phase explicitly accepts
-    any deferred cluster.
-  warn_condition: >
-    Transition may proceed only when warnings are documented with owners,
-    residual risk, and next-phase acceptance.
-  block_condition: >
-    Any invariant block, missing required evidence, unauthorized side effect,
-    uncontained write, untraceable state change, or unresolved material risk.
+  - current_stage_or_phase_artifact
+  - gate_selection_artifact
+  - required_cluster_artifacts
+  - triage_artifact
+  - council_synthesis_artifact
+  - declared_side_effects
+  - write_containment_record
+  - blocker_synthesis
+  pass_condition: 'All non-waivable invariants pass, all required clusters are pass
+    or accepted warn, no unresolved blocker remains, and the next phase explicitly
+    accepts any deferred cluster.
 
+    '
+  warn_condition: 'Transition may proceed only when warnings are documented with owners,
+    residual risk, and next-phase acceptance.
+
+    '
+  block_condition: 'Any invariant block, missing required evidence, unauthorized side
+    effect, uncontained write, untraceable state change, or unresolved material risk.
+
+    '
 artifact_schema:
   kind: uacp.phase_transition
   required_fields:
-    - transition_id
-    - run_id
-    - from_phase
-    - to_phase
-    - decision
-    - invariant_summary
-    - cluster_summary
-    - blockers
-    - warnings
-    - deferred_items
-    - authority
-    - artifact_paths
+  - transition_id
+  - run_id
+  - from_phase
+  - to_phase
+  - decision
+  - invariant_summary
+  - cluster_summary
+  - blockers
+  - warnings
+  - deferred_items
+  - authority
+  - artifact_paths
+  - phase_local_granularity
+  - composite_granularity
+  - human_involvement
   fields:
     transition_id: string
     run_id: string
     from_phase:
       type: enum
-      values: [triage, propose, plan, execute, verify, resolve]
+      values:
+      - triage
+      - propose
+      - plan
+      - execute
+      - verify
+      - resolve
     routing_outcome:
       type: enum
-      values: [direct, lightweight, standard_uacp, full_governance, block_or_clarify]
+      values:
+      - direct
+      - lightweight
+      - standard_uacp
+      - full_governance
+      - block_or_clarify
+      description: TRIAGE routing outcome; terminal_kind uses the same vocabulary
+        plus none.
     granularity_level:
       type: integer
-      description: "Governance intensity derived by TRIAGE."
+      description: Legacy/current composite governance intensity. Prefer phase_local_granularity
+        and composite_granularity when available.
     triage_artifact:
       type: string
     gate_selection_artifact:
       type: string
     terminal_kind:
       type: enum
-      values: [none, direct_action, lightweight_action, blocked_or_clarify]
+      values:
+      - none
+      - direct
+      - lightweight
+      - standard_uacp
+      - full_governance
+      - block_or_clarify
+      description: Disposition/terminal kind aligned with routing_outcome; use none
+        for non-terminal transitions.
     to_phase:
       type: enum
-      values: [propose, plan, execute, verify, resolve, terminal]
+      values:
+      - propose
+      - plan
+      - execute
+      - verify
+      - resolve
+      - terminal
     decision:
       type: enum
-      values: [pass, warn, block]
+      values:
+      - pass
+      - warn
+      - block
     invariant_summary:
       type: list
       item_type: map
       fields:
         id: string
-        status: "pass|block"
+        status: pass|block
         evidence: string
     cluster_summary:
       type: list
       item_type: map
       fields:
         cluster_id: string
-        state: "pass|warn|block|not_applicable|deferred"
+        state: pass|warn|block|not_applicable|deferred
         artifact_path: string
     blockers:
       type: list
@@ -131,7 +181,7 @@ artifact_schema:
     artifact_paths:
       type: list
       item_type: string
-      description: "UACP_ROOT-relative paths unless a symbolic external root is declared."
+      description: UACP_ROOT-relative paths unless a symbolic external root is declared.
     declared_side_effects:
       type: list
       item_type: string
@@ -141,6 +191,8 @@ artifact_schema:
       type: string
     council_synthesis_artifact:
       type: string
+      description: UACP_ROOT-relative path to artifact matching council_synthesis_schema
+        when council review/orchestration is selected or required.
     verification_artifact:
       type: string
     accepted_exceptions:
@@ -150,7 +202,27 @@ artifact_schema:
         artifact_path: string
         rationale: string
         owner: string
-
+    phase_local_granularity:
+      type: map
+      description: Phase-local granularity reassessment for the transition phase.
+      fields:
+        phase: string
+        entry_estimate: integer
+        exit_actual: integer
+        delta_reason: string
+        downstream_projection: map
+    composite_granularity:
+      type: integer
+      description: Current run-level granularity derived from phase-local scores and
+        cross-phase coupling.
+    human_involvement:
+      type: map
+      fields:
+        required: boolean
+        reason: string
+        authority_needed: string
+        decision_owner: string
+        accepted_risk_artifact: string
 example_artifact:
   kind: uacp.phase_transition
   transition_id: uacp-bootstrap-001-plan-to-execute
@@ -159,32 +231,112 @@ example_artifact:
   to_phase: execute
   routing_outcome: standard_uacp
   granularity_level: 5
-  triage_artifact: "proposals/uacp-bootstrap-stage-1-2-triage.yaml"
+  triage_artifact: proposals/uacp-bootstrap-stage-1-2-triage.yaml
   decision: pass
   terminal_kind: none
   invariant_summary:
-    - id: authority.explicit
-      status: pass
-      evidence: "Operator requested Stage 1 and Stage 2 implementation."
-    - id: writes.contained
-      status: pass
-      evidence: "All planned writes are under UACP_ROOT."
+  - id: authority.explicit
+    status: pass
+    evidence: Operator requested Stage 1 and Stage 2 implementation.
+  - id: writes.contained
+    status: pass
+    evidence: All planned writes are under UACP_ROOT.
   cluster_summary:
-    - cluster_id: scope
-      state: pass
-      artifact_path: "docs/lifecycle-reference.md"
-    - cluster_id: verification_strategy
-      state: pass
-      artifact_path: "config/phase-transitions.yaml"
+  - cluster_id: scope
+    state: pass
+    artifact_path: docs/lifecycle-reference.md
+  - cluster_id: verification_strategy
+    state: pass
+    artifact_path: config/phase-transitions.yaml
   blockers: []
   warnings: []
   deferred_items: []
   authority:
-    requested_by: "operator"
-    authorization_source: "current task prompt"
+    requested_by: operator
+    authorization_source: current task prompt
   artifact_paths:
-    - "config/gate-selection.yaml"
-    - "config/evidence-clusters.yaml"
-  council_synthesis_artifact: ""
-  verification_artifact: ""
+  - config/gate-selection.yaml
+  - config/evidence-clusters.yaml
+  council_synthesis_artifact: ''
+  verification_artifact: ''
   accepted_exceptions: []
+  phase_local_granularity:
+    phase: plan
+    entry_estimate: 5
+    exit_actual: 5
+    delta_reason: No material delta in example artifact.
+    downstream_projection:
+      execute: 5
+      verify: 5
+  composite_granularity: 5
+  human_involvement:
+    required: false
+    reason: Authority and containment are clear in example.
+    authority_needed: none
+    decision_owner: none
+    accepted_risk_artifact: ''
+council_synthesis_schema:
+  kind: uacp.council_synthesis
+  purpose: Minimum schema for Agent Council outputs consumed by phase transitions.
+  required_fields:
+  - council_id
+  - mode
+  - tier
+  - phase
+  - phase_local_granularity
+  - roles
+  - dispatch_surfaces
+  - findings
+  - verdict
+  - artifact_paths
+  fields:
+    council_id:
+      type: string
+    mode:
+      type: enum
+      values:
+      - plan
+      - propose
+      - execute
+      - verify
+      - audit
+      - review
+      - research
+      - brainstorm_design
+      - resolve
+    tier:
+      type: enum
+      values:
+      - tier_0_single
+      - tier_1_bounded
+      - tier_2_role_diverse
+      - tier_3_cross_runtime
+      - tier_4_deep_council
+    phase:
+      type: enum
+      values:
+      - triage
+      - propose
+      - plan
+      - execute
+      - verify
+      - resolve
+    phase_local_granularity:
+      type: map
+    roles:
+      type: list
+    dispatch_surfaces:
+      type: list
+    findings:
+      type: list
+      item_schema: finding schema from docs/orchestration-model.md
+    verdict:
+      type: enum
+      values:
+      - pass
+      - concerns
+      - fail
+    human_escalation:
+      type: map
+    artifact_paths:
+      type: list

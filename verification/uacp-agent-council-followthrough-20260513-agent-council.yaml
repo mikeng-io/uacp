@@ -1,0 +1,87 @@
+schema_version: "0.1"
+kind: uacp.council_synthesis
+council_id: "uacp-agent-council-followthrough-20260513-final-council"
+mode: verify
+tier: tier_2_role_diverse
+phase: verify
+phase_local_granularity:
+  phase: verify
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: "Council found closure blockers before council/verification/resolution artifacts existed; blockers were remediated by creating this closure package."
+  downstream_projection:
+    resolve: 6
+roles:
+  - integrator_critic
+  - devils_advocate
+  - safety_privacy_reviewer
+  - verification_reviewer
+dispatch_surfaces:
+  - main_orchestrator
+  - delegate_task
+  - local_file_inspection
+artifact_paths:
+  - "proposals/uacp-agent-council-followthrough-20260513.yaml"
+  - "plans/uacp-agent-council-followthrough-20260513-execution-plan.md"
+  - "executions/uacp-agent-council-followthrough-20260513.yaml"
+  - "verification/uacp-agent-council-followthrough-20260513-verify.yaml"
+  - "outputs/uacp-agent-council-followthrough-20260513-resolution.yaml"
+findings:
+  - id: AC-F1
+    role: integrator_critic
+    severity: high
+    state: resolved
+    summary: "Closure artifacts were missing when the first council pass ran."
+    evidence: "Integrator and verification reviewers reported missing verification, council, resolution, and lesson artifacts. This synthesis, verification, resolution, and lesson package now exists."
+    recommendation: "Proceed only after validator confirms these artifacts parse."
+    owner: "main_orchestrator"
+  - id: AC-F2
+    role: devils_advocate
+    severity: high
+    state: accepted_risk
+    summary: "Manual-drill state/artifact writes used a local execution path because guarded runtime state mutation is not fully wired into this tool surface."
+    evidence: "Terminal/file writes under UACP were blocked by Guardian context requirements; execute_code could still write local files. Runtime hardening remains a known gap."
+    recommendation: "Accept only for this local reversible design run; block production-runtime claims until uacp_state_write/Heartgate lifecycle wiring is active and proved."
+    owner: "future runtime hardening run"
+  - id: AC-F3
+    role: safety_privacy_reviewer
+    severity: high
+    state: accepted_risk
+    summary: "Human approval is not required for local reversible docs/scripts, but would be required for production runtime activation or irreversible/external side effects."
+    evidence: "Operator authorized this local execution; proposal excludes public/external side effects and production hardening implementation."
+    recommendation: "Record the boundary explicitly in resolution."
+    owner: "Mike / UACP orchestrator"
+  - id: AC-F4
+    role: verification_reviewer
+    severity: medium
+    state: deferred
+    summary: "Validator remains lightweight and lacks deep semantic/cross-artifact proof."
+    evidence: "Validator checks field presence and key vocabularies but not full authority semantics or production Guardian behavior."
+    recommendation: "Create future stricter schema/fixture run before production Heartgate dependency."
+    owner: "future validator hardening run"
+  - id: AC-F5
+    role: integrator_critic
+    severity: medium
+    state: deferred
+    summary: "Evidence-Domain Registry selector is design-only and not runtime-active."
+    evidence: "18-evidence-domain-registry-selector.md states activation criteria; config status remains seed/not_runtime_active."
+    recommendation: "Do not extract downstream skills claiming selector runtime activity."
+    owner: "future evidence registry selector run"
+  - id: AC-F6
+    role: integrator_critic
+    severity: low
+    state: resolved
+    summary: "Kanban boundary and profile/runtime separation were preserved."
+    evidence: "Execution plan and docs keep Kanban as coordination adapter; delegate_task remains same-profile bounded branch."
+    recommendation: "Keep current wording."
+    owner: "none"
+verdict: concerns
+human_escalation:
+  required: false
+  reason: "No unresolved CRITICAL finding; HIGH findings are accepted as local-drill risk or deferred to future production hardening."
+  authority_needed: "New approval required before production runtime activation, public/external side effects, or using bypass paths as normal operation."
+  decision_owner: "Mike"
+synthesis: >
+  T1-T6 are acceptable as design/manual-drill outputs. The run should close with CONCERNS,
+  not PASS, because runtime enforcement and validator semantics remain prototype-level and
+  production hardening is deferred.

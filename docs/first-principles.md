@@ -16,9 +16,22 @@ Every decision point starts with classification: domain, artifact type, side eff
 
 Authority, declared side effects, write containment, privacy and safety constraints, traceable state, and conservative failure apply across all domains.
 
+
+## Cognitive Separation
+
+UACP separates governance cognition, deliberative cognition, coordination memory, execution loops, and actuation/evidence surfaces.
+
+- UACP governs authority, phases, risk, human involvement, and evidence obligations.
+- Agent Council supplies deliberative multi-perspective cognition when single-agent reasoning is insufficient.
+- Hermes Kanban records durable coordination state; it is not the governance brain and not the deliberation engine.
+- Agent runtimes and delegated workers execute bounded work under propagated UACP/council context.
+- Tool adapters and evidence services observe or act; they do not own policy.
+
+This separation is a reasoning invariant, not only a runtime wiring choice.
+
 ## Bounded Execution
 
-EXECUTE work should be decomposed into bounded units through Hermes Kanban. The main Hermes/Norty orchestrator synthesizes and routes; heavy implementation belongs to delegated workers or external coding agents when selected.
+EXECUTE work should be decomposed into bounded units with Hermes Kanban as the durable task substrate. For non-trivial implementation, Agent Council provides the role-aware orchestration topology over those bounded units: decomposition, worker assignment, adversarial checking, integration critique, and synthesis. Heavy implementation belongs to delegated workers, external coding agents, browser/computer-use automation, web extraction/search services, or other approved execution/evidence adapters when selected by PLAN and guarded by UACP authority, side-effect, and containment rules.
 
 ## Retrieval-Led Learning
 

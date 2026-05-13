@@ -1,0 +1,45 @@
+kind: uacp.kanban_notification_subscriptions
+platform: telegram
+chat_id: '61628657'
+created_at: '2026-05-12T18:16:27.637860+00:00'
+subscriptions:
+- key: ROOT
+  task_id: t_c4d15164
+  returncode: 0
+  stdout: Subscribed telegram:61628657 to t_c4d15164
+  stderr: ''
+- key: T1
+  task_id: t_cc7735d5
+  returncode: 0
+  stdout: Subscribed telegram:61628657 to t_cc7735d5
+  stderr: ''
+- key: T2
+  task_id: t_fa9357e5
+  returncode: 0
+  stdout: Subscribed telegram:61628657 to t_fa9357e5
+  stderr: ''
+- key: T3
+  task_id: t_48f4cad3
+  returncode: 0
+  stdout: Subscribed telegram:61628657 to t_48f4cad3
+  stderr: ''
+- key: T4
+  task_id: t_91edad52
+  returncode: 0
+  stdout: Subscribed telegram:61628657 to t_91edad52
+  stderr: ''
+- key: T5
+  task_id: t_7bb7c078
+  returncode: 0
+  stdout: Subscribed telegram:61628657 to t_7bb7c078
+  stderr: ''
+- key: T6
+  task_id: t_afb883aa
+  returncode: 0
+  stdout: Subscribed telegram:61628657 to t_afb883aa
+  stderr: ''
+- key: T7
+  task_id: t_a3505386
+  returncode: 0
+  stdout: Subscribed telegram:61628657 to t_a3505386
+  stderr: ''

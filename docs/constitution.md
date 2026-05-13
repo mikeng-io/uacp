@@ -16,7 +16,7 @@ The workflow starts with `TRIAGE`, then enters the stable lifecycle phases when 
 TRIAGE -> PROPOSE -> PLAN -> EXECUTE -> VERIFY -> RESOLVE
 ```
 
-Triage is scope calibration, granularity scoring, and governance routing. It can route Level 1 work to direct action without a full governed run. The evidence inside each later phase is adaptive. Before a phase transition, UACP runs a gate-selection preflight that selects required, optional, not applicable, or generated evidence clusters.
+Triage is scope calibration, phase-local and composite granularity estimation, and governance routing. It can route `direct` work to action without a full governed run, or require human involvement when authority, side effects, or phase-local/composite granularity justify it. The evidence inside each later phase is adaptive. Before a phase transition, UACP runs a gate-selection preflight that selects required, optional, not applicable, or generated evidence clusters.
 
 ## Non-Waivable Invariants
 

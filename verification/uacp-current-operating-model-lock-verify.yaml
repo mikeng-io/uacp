@@ -1,0 +1,22 @@
+kind: uacp.verification_artifact
+schema_version: '0.1'
+run_id: uacp-current-operating-model-lock
+phase: PLAN_VERIFY
+timestamp: '2026-05-12T19:09:15.903556+00:00'
+verified_changes:
+- Created consolidated decision record 09 with rationale, questions, considerations,
+  future slots, and action plan
+- Patched orchestration model with locked current operating mode
+- Updated review-routing config with machine-readable current mode
+- Updated package index/task breakdown
+checks:
+- id: doc:decision-record
+  state: pass
+  evidence: /home/norty/.hermes/uacp/plans/uacp-agent-council-followthrough/09-current-operating-model-and-future-slots.md
+- id: doc:orchestration-lock
+  state: pass
+  evidence: docs/orchestration-model.md contains locked mode
+- id: yaml:review-routing
+  state: pass
+  evidence: config/review-routing.yaml parses
+decision: pass

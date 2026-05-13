@@ -1,0 +1,46 @@
+kind: uacp.verification_artifact
+schema_version: '0.1'
+run_id: agent-skills-branch-integration-cleanup
+phase: VERIFY
+timestamp: '2026-05-12T17:44:16.030283+00:00'
+authority_artifact: verification/agent-skills-branch-integration-agent-council-review.yaml
+verified_changes:
+- cognitive boundary enforcement added
+- phase transition schema normalized
+- council synthesis schema defined
+- human involvement policy operationalized
+- Evidence-Domain Registry marked not_runtime_active
+- review-routing council dispatch surfaces and mid-phase escalation recorded
+checks:
+- id: yaml_parse:config/phase-transitions.yaml
+  state: pass
+  evidence: PyYAML safe_load succeeded
+- id: yaml_parse:config/review-routing.yaml
+  state: pass
+  evidence: PyYAML safe_load succeeded
+- id: yaml_parse:config/evidence-clusters.yaml
+  state: pass
+  evidence: PyYAML safe_load succeeded
+- id: yaml_parse:config/guardian-policy.yaml
+  state: pass
+  evidence: PyYAML safe_load succeeded
+- id: yaml_parse:config/state.yaml
+  state: pass
+  evidence: PyYAML safe_load succeeded
+- id: content:docs/runtime-enforcement.md
+  state: pass
+  evidence: all required terms present
+- id: content:docs/lifecycle-reference.md
+  state: pass
+  evidence: all required terms present
+- id: content:docs/first-principles.md
+  state: pass
+  evidence: all required terms present
+- id: content:config/phase-transitions.yaml
+  state: pass
+  evidence: all required terms present
+- id: content:config/evidence-clusters.yaml
+  state: pass
+  evidence: all required terms present
+findings: []
+decision: pass

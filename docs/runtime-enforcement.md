@@ -32,10 +32,33 @@ If docs, config, and state conflict, Guardian and Heartgate fail closed for prot
 |---|---|---|
 | Guardian core | Runtime-neutral policy engine for tool calls, paths, state mutation, side effects, and audit decisions. | Implements docs/config/state. |
 | Heartgate core | Runtime-neutral phase transition validator. | Implements lifecycle and transition config. |
+| Policy packs | Runtime-neutral policy bundles for UACP, Trustless ACP compatibility, or future project/domain-specific governance. | Derived from canonical docs/config; selected by declared governance context. |
 | Hermes adapter | Hermes plugin and runtime integration using `pre_tool_call`, `post_tool_call`, and any required control-plane hooks. | Thin adapter only. |
 | State mutation tool | The only approved runtime path for UACP runtime-state writes after bootstrap closure. | Implements `uacp-state` policy. |
 | Kanban control-plane guard | Protects UACP-bound Kanban task creation, worker spawning, metadata propagation, and completion evidence. | Keeps Kanban as task substrate only. |
 | Audit writer | Writes runtime enforcement events to logs and durable UACP artifacts when needed. | Observational, not policy authority. |
+
+## Policy Packs And Runtime Adapters
+
+Guardian is a runtime-neutral enforcement kernel plus policy packs and runtime adapters.
+
+Policy packs encode which governance doctrine applies to a normalized runtime event. The primary policy pack is UACP. Trustless ACP is source material for compatibility where useful, but UACP must not inherit fixed Trustless gate numbers, software-only assumptions, or project-specific path schemas as universal doctrine.
+
+Runtime adapters are UACP-facing downstream implementation components. They translate runtime-specific payloads into normalized Guardian and Heartgate events, pass authority and side-effect metadata, and return decisions/audit evidence to the host runtime. Adapters may include Hermes, Claude Code, OpenCode, Codex, Kimi, Gemini, or future runtimes.
+
+Hermes is the first host/runtime, not the conceptual boundary. Adapter code must stay thin: it may translate, enforce, and audit, but it must not own policy that belongs in UACP docs/config.
+
+
+## Cognitive Boundary Enforcement
+
+Guardian and Heartgate enforce boundaries between UACP's cognitive/control planes:
+
+- UACP owns governance authority, phase transitions, side-effect permission, human-involvement thresholds, and evidence obligations.
+- Agent Council owns deliberative orchestration when selected: role topology, challenge, synthesis, and execution strategy.
+- Hermes Kanban owns durable coordination state: task graph, dependencies, status, ownership, and handoffs.
+- Agent runtimes, tool adapters, and evidence services perform bounded work or observation under declared authority.
+
+Runtime enforcement must not let one plane silently impersonate another. Kanban mutations must not change UACP phase state. Tool/evidence adapters must not create authority. Worker runtimes must not broaden side effects beyond the plan. Council outputs are evidence and recommendations until accepted by the relevant UACP phase transition.
 
 ## Guardian Core
 

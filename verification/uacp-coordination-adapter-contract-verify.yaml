@@ -1,0 +1,37 @@
+kind: uacp.verification_artifact
+schema_version: '0.1'
+run_id: uacp-coordination-adapter-contract
+phase: VERIFY
+timestamp: '2026-05-12T19:55:41.570731+00:00'
+authority_artifact: plans/uacp-agent-council-followthrough/13-coordination-adapter-contract.md
+verified_changes:
+- Created coordination adapter contract
+- Updated package index and task breakdown
+- Patched orchestration model with contract reference
+- Updated review-routing config with adapter contract reference
+changed_files:
+- plans/uacp-agent-council-followthrough/13-coordination-adapter-contract.md
+- plans/uacp-agent-council-followthrough/00-index.md
+- plans/uacp-agent-council-followthrough/04-task-breakdown.md
+- docs/orchestration-model.md
+- config/review-routing.yaml
+- verification/uacp-coordination-adapter-contract-verify.yaml
+checks:
+- id: yaml:review-routing
+  state: pass
+  evidence: config/review-routing.yaml parses
+- id: doc:contract-ops
+  state: pass
+  evidence: all 9 required operations defined
+- id: doc:kanban-mapping
+  state: pass
+  evidence: Hermes Kanban mapping included
+- id: doc:uacp-vs-adapter
+  state: pass
+  evidence: UACP-owned vs adapter-owned responsibilities separated
+decision: pass
+residual_risks:
+- Contract is design-only; runtime adapter conformance checks are not implemented
+  yet.
+- Hermes Kanban worker reliability issue remains unresolved and should be diagnosed
+  before more dogfood.

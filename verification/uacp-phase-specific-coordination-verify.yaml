@@ -1,0 +1,22 @@
+kind: uacp.verification_artifact
+schema_version: '0.1'
+run_id: uacp-phase-specific-coordination
+phase: PLAN_VERIFY
+timestamp: '2026-05-12T18:56:30.352040+00:00'
+verified_changes:
+- Declared coordination adapter use phase-local and need-based
+- Marked EXECUTE as default/strongest coordination-adapter candidate
+- Clarified full automation may represent all phases as command-bot/controller tasks
+  but is not conceptually required
+- Added Insight/phase-controller topology-selection rule
+checks:
+- id: yaml:review-routing
+  state: pass
+  evidence: config/review-routing.yaml parses
+- id: doc:phase-specific-coordination
+  state: pass
+  evidence: orchestration model patched
+- id: skill:phase-specific-coordination
+  state: pass
+  evidence: uacp skill patched
+decision: pass

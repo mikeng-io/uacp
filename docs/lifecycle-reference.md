@@ -6,7 +6,40 @@ UACP governs work through a triage entry stage followed by a stable five-phase l
 TRIAGE -> PROPOSE -> PLAN -> EXECUTE -> VERIFY -> RESOLVE
 ```
 
-Triage decides whether the request should enter UACP at all, and at what governance intensity. Each later phase transition runs adaptive gate selection before deciding whether to proceed.
+Triage decides whether the request should enter UACP at all, at what governance intensity, and whether immediate human involvement is required. Each later phase transition runs adaptive gate selection before deciding whether to proceed.
+
+Human involvement may be selected by TRIAGE or by later phase-local reassessment when authority, side effects, granularity, unresolved findings, or Guardian/Heartgate uncertainty require it.
+
+## Orchestration And Council Routing
+
+UACP phases may invoke Agent Council as a runtime-neutral multi-agent orchestration primitive. The canonical vocabulary for council modes, council tiers, runtime adapters, roles, diversity dimensions, and deep-* compatibility lives in `docs/orchestration-model.md`.
+
+Granularity and council tier are separate axes:
+
+- UACP granularity is the end-to-end governance complexity of the whole request or proposal.
+- Council tier is the orchestration depth selected for one council invocation.
+
+TRIAGE derives request granularity and may recommend a default council tier. Later phases may override that default when the specific evidence need is narrower or broader than the overall run.
+
+Council outputs are phase evidence. They do not replace phase artifacts, Guardian/Heartgate checks, or the document authority chain.
+
+VERIFY uses a finding-driven pattern when council review, audit, research, or validation is selected. Findings must identify severity, evidence, affected artifact, recommended action, owner/disposition, and state. Phase closure depends on whether findings are resolved, accepted as explicit residual risk, deferred with owner/condition, or blocking.
+
+
+## Phase-Local Granularity
+
+Granularity is not only a single run-level number. Each phase may carry its own phase-local granularity score, and the run's composite granularity is derived from those phase scores plus cross-phase coupling.
+
+TRIAGE records an initial estimate for the whole request and likely phase hotspots. PROPOSE, PLAN, EXECUTE, VERIFY, and RESOLVE revise their own phase-local granularity as evidence changes. This prevents a simple intake from hiding a complex implementation or verification phase.
+
+Each phase should record:
+
+- `entry_estimate`: expected phase-local granularity at phase start.
+- `exit_actual`: observed phase-local granularity at phase end.
+- `delta_reason`: why the score changed materially, if it changed.
+- `downstream_projection`: updates to expected complexity for later phases.
+
+Composite granularity should consider the maximum phase score, accumulated phase scores, unresolved findings carried forward, side effects, runtime/domain diversity, and coupling between phases. Composite granularity should be recalculated after each phase exit so downstream phases inherit the best current estimate.
 
 ## TRIAGE
 
@@ -24,12 +57,15 @@ Typical artifacts:
 
 - triage summary for Level 2+ work
 - scoring factors: impact, reversibility, domain count, runtime count, verification difficulty
-- granularity score
+- initial composite granularity estimate
+- phase-local granularity estimates or hotspots when visible
 - routing outcome
 - initial domains and artifact types
 - authority, side-effect, and trust-boundary notes
 
-Exit condition: request is routed to direct action, blocked for clarification, or admitted into `PROPOSE`.
+Exit condition: request is routed to direct action, blocked for clarification, routed to human involvement, or admitted into `PROPOSE`. TRIAGE can terminate without entering PROPOSE when the routing outcome is `direct` or `block_or_clarify`.
+
+Phase transition artifacts use `routing_outcome` and `terminal_kind` with aligned vocabulary: `direct`, `lightweight`, `standard_uacp`, `full_governance`, and `block_or_clarify`; `terminal_kind: none` is used for non-terminal transitions.
 
 Triage admission map:
 
@@ -70,7 +106,13 @@ Exit condition: execution can start with clear boundaries and acceptance evidenc
 
 ## EXECUTE
 
-Purpose: perform bounded work through Hermes Kanban, delegated workers, external coding agents, or local tools as selected.
+Purpose: perform bounded work through Hermes Kanban, Agent Council execution topology, delegated workers, external coding agents, or local tools as selected.
+
+For non-trivial implementation, EXECUTE should treat Agent Council as the preferred orchestration layer. Kanban stores durable tasks and dependencies; Agent Council defines the role-aware worker topology, critique loops, fan-out/fan-in, and synthesis needed to implement safely. Single-agent/local-tool execution remains valid for direct or lightweight work where council overhead would not improve safety or quality.
+
+Cognitive responsibility during EXECUTE must remain explicit: UACP authorizes and gates, Agent Council deliberates and synthesizes when selected, Kanban persists coordination state, and runtimes/tools perform bounded work.
+
+Execution topology composes four layers: UACP lifecycle authority, Agent Council orchestration when selected, Hermes Kanban as durable task substrate, and selected agent runtimes/tool adapters/evidence services for bounded work. Browser automation, Puppeteer/Playwright, computer use, Firecrawl, Tavily, SearXNG, web search, and scraping APIs are execution/evidence surfaces governed by PLAN and Guardian policy; they are not automatically agent runtimes.
 
 Typical artifacts:
 
@@ -136,6 +178,7 @@ State file shape should be small and pointer-based. A run manifest should record
 
 - run id,
 - current UACP stage or phase,
+- phase-local granularity scores and current composite granularity when available,
 - authority source,
 - selected artifact paths,
 - current transition artifact,
@@ -199,6 +242,10 @@ Typical artifacts:
 - memory policy decision
 
 Exit condition: run is resolved and lessons are stored in the appropriate substrate.
+
+## Council Synthesis Artifacts
+
+Council synthesis artifacts consumed by phase transitions must include council id, mode, tier, phase, phase-local granularity, roles, dispatch surfaces, findings, verdict, human escalation state, and artifact paths. The machine-readable seed schema lives in `config/phase-transitions.yaml`.
 
 ## Lifecycle Skill Contracts
 
