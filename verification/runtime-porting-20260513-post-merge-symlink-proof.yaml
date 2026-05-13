@@ -1,0 +1,32 @@
+schema_version: '0.1'
+kind: uacp.verification_evidence
+run_id: runtime-porting-20260513
+phase: verify
+status: pass
+timestamp_utc: '2026-05-13T14:37:23.682939+00:00'
+scope: Post-merge canonical UACP main verification and non-destructive Hermes symlink
+  proof.
+verified_commit: f021cfc
+checks:
+  main_status: clean
+  yaml_parse: pass
+  uacp_validator: RESULT PASS
+  git_diff_check: pass
+  symlink_probe:
+    enabled: true
+    error: null
+    hooks_registered:
+    - on_session_start
+    link_is_symlink: true
+    link_realpath: /home/norty/.hermes/uacp/runtime-adapters/hermes/plugins/uacp_symlink_probe
+    loaded_present: true
+    manifest_path: /home/norty/.hermes/plugins/uacp_symlink_probe
+    manifest_source: user
+  probe_symlink_removed_after_test: true
+not_done:
+- No remote push performed.
+- No live uacp_guardian/thread_title_sync symlink binding switched.
+- No Hermes Agent bundled/transitional plugin copies removed.
+- No gateway restart performed.
+next_gate: Focused Agent Council or equivalent review before live plugin binding and
+  Hermes local-patch reduction.
