@@ -39,6 +39,10 @@ implemented:
   - uacp_heartgate_check validates UACP phase-transition artifacts through the neutral Heartgate kernel.
   - Safe probe coverage confirms valid transitions pass, invalid transitions block, missing context is rejected, and Guardian classifies the tool as lifecycle.transition.
   - Proof recorded in verification/live-guardian-proof-20260514-phase3-heartgate.yaml.
+  runtime_trust_boundary:
+  - UACP governs declared runtime execution and evidence; it does not claim to prevent arbitrary manual or host-side edits outside that runtime boundary.
+  - Out-of-band changes are treated as untrusted until revalidated through the relevant verification path.
+  - Containment is a host/runtime property that UACP can require and Guardian can verify; it is not a permission that UACP self-declares.
 not_yet_done:
   live_activation_and_testing:
   - Keep live positive/negative proof tests current after cleanup and runtime restarts.
@@ -52,6 +56,7 @@ not_yet_done:
   - Implement verified filesystem containment before allowing UACP-bound shell/code execution.
   - The fail-closed blocker is already verified on the current surfaces.
   - Add stronger boundaries for non-cooperative plugins or direct lower-level mutation paths.
+  - Keep non-cooperative or out-of-band host/user mutation outside UACP's claimed enforcement boundary; require revalidation before trusting affected artifacts.
   - Keep full Knowledge Bank retrieval/ranking deferred until the local artifact loop is stable.
   documentation_sync:
   - Runtime binding config and current-status artifacts were synchronized after live binding evidence.
@@ -108,6 +113,7 @@ live_proof_tests_required:
 - uacp_state_write succeeds only with complete authority, workspace, run id, phase, policy version, and declared side effects.
 - uacp_doc_write, uacp_config_write, and uacp_heartgate_check are exposed after runtime/tool schema reload and continue to block missing context, invalid YAML/path escapes, and invalid transitions respectively.
 - Kanban workers for UACP-bound tasks receive UACP_ROOT, UACP_RUN_ID, UACP_PHASE, UACP_GUARDIAN_POLICY_VERSION, UACP_WORKSPACE_POLICY, and UACP_GUARDIAN_MODE.
+- Manual/out-of-band edits are not claimed as preventable by UACP; affected artifacts must be revalidated before use.
 backup_guidance:
   recommended_scope: full HERMES_ROOT snapshot before live runtime activation
   rationale:

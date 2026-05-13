@@ -26,6 +26,14 @@ Runtime enforcement follows the document authority order in `docs/index.md`:
 
 If docs, config, and state conflict, Guardian and Heartgate fail closed for protected actions until the conflict is resolved or an explicit recovery authority is recorded.
 
+## Runtime Trust Boundary
+
+UACP governs actions inside a declared runtime boundary. It does not claim to prevent arbitrary human or host-side mutation outside that boundary, such as editing files in VS Code, changing repository contents manually, or running an external runtime without UACP integration enabled.
+
+Out-of-band mutation is treated as untrusted input until revalidated. When a file, config, plugin binding, or artifact may have changed outside a governed runtime path, the correct response is to re-run the relevant verification and update evidence before relying on it. UACP records whether the current runtime posture is verified; it does not pretend that mutable user files are impossible to change.
+
+Containment is a host/runtime property, not a self-declared UACP permission. UACP may declare that a phase or action requires contained execution; Guardian may verify that the runtime has provided that containment before allowing protected shell/code execution. If the runtime cannot provide or prove the required posture, UACP-bound execution remains fail-closed.
+
 ## Runtime Components
 
 | Component | Responsibility | Authority |

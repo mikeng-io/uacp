@@ -607,6 +607,22 @@ Canonical targets:
 
 Follow-up: complete for `uacp-state` and lifecycle skill creation. Runtime Guardian/Heartgate checkpoint 1 has since been implemented; live activation and proof testing remain open.
 
+### 2026-05-14 — Clarify Runtime Trust Boundary
+
+Decision: UACP governs declared runtime execution and evidence. It does not claim to prevent arbitrary operator or host-side mutation outside the controlled runtime boundary, such as editing files manually, changing plugin bindings from an editor, or running an external runtime without UACP integration enabled.
+
+Rationale: Treating mutable user files as impossible to change would push UACP outside its intended framework and create circular enforcement assumptions. The durable rule is to verify runtime posture and revalidate out-of-band changes before trusting them, not to pretend that UACP can police all human behavior.
+
+Status: accepted.
+
+Canonical targets:
+
+- `docs/runtime-enforcement.md`
+- `outputs/uacp-current-status.yaml`
+- `outputs/uacp-operational-dashboard.yaml`
+
+Follow-up: containment design should proceed from this boundary: UACP declares required execution posture, Guardian verifies runtime-provided evidence, and shell/code remains fail-closed when the host/runtime cannot prove containment.
+
 ## Tombstones
 
 ```yaml
