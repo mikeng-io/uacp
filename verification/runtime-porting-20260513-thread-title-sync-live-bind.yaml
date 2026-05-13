@@ -1,0 +1,23 @@
+schema_version: '0.1'
+kind: uacp.execution_evidence
+run_id: runtime-porting-20260513
+phase: execute
+status: pass
+timestamp: 2026-05-13T23:20:20+0800
+action: live-bind thread_title_sync into Hermes user plugin directory
+source: /home/norty/.hermes/uacp/runtime-adapters/hermes/plugins/thread_title_sync
+target: /home/norty/.hermes/plugins/thread_title_sync
+config_path: /home/norty/.hermes/config.yaml
+verification:
+  loaded_present: true
+  enabled: true
+  error: null
+  manifest_source: user
+  manifest_path: /home/norty/.hermes/plugins/thread_title_sync
+  hooks_registered:
+  - pre_thread_title_sync
+rollback: rm /home/norty/.hermes/plugins/thread_title_sync
+notes:
+- Bound only thread_title_sync, not uacp_guardian.
+- Plugin allow-list updated to permit the user plugin to load.
+- Existing target path was backed up before replacement if present.
