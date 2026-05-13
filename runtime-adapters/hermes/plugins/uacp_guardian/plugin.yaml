@@ -11,3 +11,4 @@ tools:
 - uacp_doc_write
 - uacp_config_write
 - uacp_heartgate_check
+- uacp_sandbox_check

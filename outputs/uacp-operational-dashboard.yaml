@@ -38,13 +38,16 @@ implemented:
 - uacp_heartgate_check is implemented as a callable Heartgate transition validation tool.
 - Unknown plugin mutators remain blocked.
 - Runtime trust boundary is clarified: UACP governs declared runtime execution, not arbitrary manual edits outside that boundary.
+- uacp_sandbox_check is implemented and manifest-declared as a Guardian plugin tool.
+- Guardian policy classifies uacp_sandbox_check as evidence.containment.
+- Live proof confirms bwrap read-only-root evidence succeeds while standard shell/code paths remain fail-closed.
 open_blockers:
 - id: writer-tool-schema-reload
   severity: medium
   summary: New uacp_doc_write/uacp_config_write tools are implemented and manifest-declared; active sessions may need restart/reload before schemas appear as direct tools.
 - id: filesystem-containment
   severity: high
-  summary: UACP-bound shell/code execution remains blocked until verified containment exists.
+  summary: Evidence checker exists and bwrap read-only-root proof passes, but standard terminal/execute_code allow path remains blocked until a real runtime execution seam is implemented.
 - id: kanban-guardian-evidence
   severity: medium
   summary: UACP-bound Kanban worker completion needs reliable Guardian evidence propagation and VERIFY checks.
@@ -60,6 +63,8 @@ next_actions_ordered:
 - Design and prove filesystem containment for UACP-bound shell/code execution.
 - Current surfaces are fail-closed for UACP-bound shell/code execution without containment.
 - Use the corrected trust boundary for containment design: UACP declares required posture, Guardian verifies runtime evidence, and host/runtime supplies containment.
+- Design the runtime execution seam or contained-shell surface that actually runs commands inside the verified bwrap/read-only-root containment.
+- Run post-implementation Agent Council before any claim that Phase 4 enables an allow path for shell/code.
 operator_approval_policy:
   autonomous: local UACP artifact edits, local tests, local commits, local proof harnesses, skill/doc sync after verified behavior
   notify_not_ask: local gateway restart for scoped UACP verification, local branch/worktree cleanup, long tests

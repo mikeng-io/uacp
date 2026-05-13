@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -200,6 +202,173 @@ def _write_uacp_file(target: Path, content: str) -> None:
         yaml.safe_load(content)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
+
+
+
+
+def _path_relationship(root: Path, workspace: Path) -> dict[str, Any]:
+    root = root.resolve()
+    workspace = workspace.expanduser().resolve(strict=False)
+    return {
+        "uacp_root_resolved": str(root),
+        "workspace_resolved": str(workspace),
+        "workspace_exists": workspace.exists(),
+        "workspace_is_dir": workspace.is_dir(),
+        "workspace_under_uacp_root": root == workspace or root in workspace.parents,
+        "uacp_root_under_workspace": workspace == root or workspace in root.parents,
+    }
+
+
+def _run_bwrap_readonly_probe(root: Path, workspace: Path, *, timeout: int = 20) -> dict[str, Any]:
+    """Probe whether bubblewrap can run with UACP_ROOT read-only and workspace writable.
+
+    This proves availability of a lower-level bwrap containment mechanism. It does
+    not by itself prove that the standard Hermes terminal/execute_code tool path
+    is wrapped; callers must keep standard tool paths fail-closed unless the
+    runtime actually executes through this containment layer.
+    """
+    code = """
+from pathlib import Path
+import json
+import sys
+root = Path(sys.argv[1])
+workspace = Path(sys.argv[2])
+probe = root / '.uacp_sandbox_write_probe'
+try:
+    probe.write_text('probe', encoding='utf-8')
+    write_blocked = False
+    write_error = 'write_succeeded'
+    try:
+        probe.unlink()
+    except Exception:
+        pass
+except OSError as exc:
+    write_blocked = True
+    write_error = f'{type(exc).__name__}:{getattr(exc, "errno", "")}'
+workspace_probe = workspace / '.uacp_sandbox_workspace_probe'
+try:
+    workspace_probe.write_text('ok', encoding='utf-8')
+    workspace_writable = workspace_probe.exists()
+    workspace_probe.unlink()
+except OSError as exc:
+    workspace_writable = False
+print(json.dumps({
+    'uacp_root_exists': root.exists(),
+    'workspace_exists': workspace.exists(),
+    'write_probe_blocked': write_blocked,
+    'write_probe_error': write_error,
+    'workspace_writable': workspace_writable,
+}, sort_keys=True))
+"""
+    cmd = [
+        "bwrap",
+        "--unshare-all",
+        "--die-with-parent",
+        "--ro-bind",
+        "/",
+        "/",
+        "--dev",
+        "/dev",
+        "--proc",
+        "/proc",
+        "--bind",
+        str(workspace),
+        str(workspace),
+        "--chdir",
+        str(workspace),
+        "python3",
+        "-c",
+        code,
+        str(root),
+        str(workspace),
+    ]
+    try:
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout)
+    except FileNotFoundError:
+        return {"ok": False, "mechanism": "bwrap_readonly_root", "error": "bwrap not found"}
+    except Exception as exc:
+        return {"ok": False, "mechanism": "bwrap_readonly_root", "error": f"{type(exc).__name__}: {exc}"}
+    parsed: dict[str, Any] = {}
+    if proc.stdout.strip():
+        try:
+            parsed = json.loads(proc.stdout.strip().splitlines()[-1])
+        except Exception as exc:
+            parsed = {"parse_error": f"{type(exc).__name__}: {exc}", "stdout": proc.stdout[-500:]}
+    ok = (
+        proc.returncode == 0
+        and parsed.get("uacp_root_exists") is True
+        and parsed.get("workspace_exists") is True
+        and parsed.get("write_probe_blocked") is True
+        and parsed.get("workspace_writable") is True
+    )
+    return {
+        "ok": ok,
+        "mechanism": "bwrap_readonly_root",
+        "returncode": proc.returncode,
+        "stdout_tail": proc.stdout[-500:],
+        "stderr_tail": proc.stderr[-500:],
+        "probe": parsed,
+    }
+
+
+def _sandbox_check(args: Mapping[str, Any]) -> dict[str, Any]:
+    policy = _policy()
+    root = policy.uacp_root.resolve()
+    workspace_raw = str(args.get("execution_workspace") or args.get("workdir") or args.get("cwd") or args.get("workspace") or "")
+    tool_surface = str(args.get("tool_surface") or "exec.shell")
+    backend = str(args.get("backend") or "local")
+    mechanism = str(args.get("mechanism") or "bwrap_readonly_root")
+    if missing_context := _required_uacp_context_missing(args):
+        return {"ok": False, "error": f"missing UACP context field(s): {', '.join(missing_context)}"}
+    authority = str(args.get("authority_artifact") or args.get("declared_authority") or "")
+    if not authority:
+        return {"ok": False, "error": "authority_artifact is required"}
+    if not workspace_raw:
+        return {"ok": False, "error": "execution_workspace, workdir, cwd, or workspace is required"}
+    workspace = Path(workspace_raw).expanduser()
+    relationship = _path_relationship(root, workspace)
+    evidence: dict[str, Any] = {
+        "tool_surface": tool_surface,
+        "backend": backend,
+        "mechanism": mechanism,
+        "path_relationship": relationship,
+        "standard_tool_path_verified": False,
+        "standard_tool_path_reason": "Hermes standard terminal/execute_code path is not automatically wrapped by this evidence check.",
+    }
+    blockers: list[str] = []
+    if not relationship["workspace_exists"] or not relationship["workspace_is_dir"]:
+        blockers.append("execution workspace does not exist or is not a directory")
+    if relationship["workspace_under_uacp_root"]:
+        blockers.append("execution workspace is under UACP_ROOT")
+    if relationship["uacp_root_under_workspace"]:
+        blockers.append("UACP_ROOT is under execution workspace")
+    if tool_surface == "exec.code_with_tool_proxy":
+        blockers.append("execute_code backend containment is not proven by the Hermes adapter yet")
+    if mechanism != "bwrap_readonly_root":
+        blockers.append(f"unsupported containment mechanism: {mechanism}")
+    if not blockers:
+        evidence["bwrap_probe"] = _run_bwrap_readonly_probe(root, Path(relationship["workspace_resolved"]))
+        if not evidence["bwrap_probe"].get("ok"):
+            blockers.append("bwrap read-only root probe failed")
+    containment_verified = not blockers
+    return {
+        "ok": True,
+        "containment_verified": containment_verified,
+        "allow_standard_tool_path": False,
+        "verdict_reason": "bwrap containment mechanism is available for a wrapped execution surface" if containment_verified else "; ".join(blockers),
+        "blockers": blockers,
+        "evidence": evidence,
+        "ttl_seconds": 60,
+        "authority_artifact": authority,
+    }
+
+
+def _handle_uacp_sandbox_check(args: dict, **_: Any) -> str:
+    """Return filesystem containment evidence for UACP-bound execution surfaces."""
+    try:
+        return json.dumps(_sandbox_check(args), ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": f"uacp_sandbox_check failed: {type(exc).__name__}: {exc}"})
 
 
 def _handle_uacp_state_write(args: dict, **_: Any) -> str:
@@ -515,6 +684,41 @@ def register(ctx) -> None:
         ),
         handler=_handle_uacp_config_write,
         description="Governed UACP config writer",
+    )
+    ctx.register_tool(
+        name="uacp_sandbox_check",
+        toolset="uacp_guardian",
+        schema={
+            "name": "uacp_sandbox_check",
+            "description": "Verify filesystem containment evidence for UACP-bound shell/code execution surfaces.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "execution_workspace": {"type": "string"},
+                    "workdir": {"type": "string"},
+                    "cwd": {"type": "string"},
+                    "tool_surface": {"type": "string"},
+                    "backend": {"type": "string"},
+                    "mechanism": {"type": "string"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+        },
+        handler=_handle_uacp_sandbox_check,
+        description="UACP filesystem containment evidence checker",
     )
     ctx.register_tool(
         name="uacp_heartgate_check",

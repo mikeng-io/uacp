@@ -31,7 +31,7 @@ HOME = Path(os.environ.get("HERMES_HOME", "/home/norty/.hermes")).expanduser()
 UACP_ROOT = Path(os.environ.get("UACP_ROOT", str(HOME / "uacp"))).expanduser()
 HERMES_AGENT = Path(os.environ.get("HERMES_AGENT_ROOT", str(HOME / "hermes-agent"))).expanduser()
 EXPECTED = ["thread_title_sync", "uacp_guardian"]
-EXPECTED_GUARDIAN_TOOLS = ["uacp_state_write", "uacp_artifact_write", "uacp_doc_write", "uacp_config_write", "uacp_heartgate_check"]
+EXPECTED_GUARDIAN_TOOLS = ["uacp_state_write", "uacp_artifact_write", "uacp_doc_write", "uacp_config_write", "uacp_heartgate_check", "uacp_sandbox_check"]
 
 
 def check(condition: bool, name: str, evidence=None):
@@ -220,6 +220,37 @@ human_involvement: {}
 
             known_heartgate = guardian.evaluate(make_event(tool_name="uacp_heartgate_check", tool_provider="plugin", args={**common, "transition_path": "state/runs/probe-verify-to-resolve.yaml"}))
             checks.append(check(known_heartgate.decision == "allow_with_audit" and known_heartgate.category == "lifecycle.transition", "guardian_classifies_heartgate_check", {"decision": known_heartgate.decision, "category": known_heartgate.category, "reason": known_heartgate.reason}))
+            sandbox_workspace = tmp_root.parent / "uacp-sandbox-workspace"
+            sandbox_workspace.mkdir(exist_ok=True)
+            sandbox_ok = json.loads(guardian_plugin._handle_uacp_sandbox_check({
+                **common,
+                "execution_workspace": str(sandbox_workspace),
+                "tool_surface": "exec.shell",
+                "backend": "local",
+                "mechanism": "bwrap_readonly_root",
+            }))
+            checks.append(check(sandbox_ok.get("ok") is True and sandbox_ok.get("containment_verified") is True and sandbox_ok.get("allow_standard_tool_path") is False, "uacp_sandbox_check_proves_bwrap_but_not_standard_tool_path", sandbox_ok))
+
+            sandbox_under_root = json.loads(guardian_plugin._handle_uacp_sandbox_check({
+                **common,
+                "execution_workspace": str(tmp_root / "docs"),
+                "tool_surface": "exec.shell",
+                "backend": "local",
+                "mechanism": "bwrap_readonly_root",
+            }))
+            checks.append(check(sandbox_under_root.get("ok") is True and sandbox_under_root.get("containment_verified") is False, "uacp_sandbox_check_blocks_workspace_under_uacp_root", sandbox_under_root))
+
+            sandbox_code = json.loads(guardian_plugin._handle_uacp_sandbox_check({
+                **common,
+                "execution_workspace": str(sandbox_workspace),
+                "tool_surface": "exec.code_with_tool_proxy",
+                "backend": "local-python",
+                "mechanism": "bwrap_readonly_root",
+            }))
+            checks.append(check(sandbox_code.get("ok") is True and sandbox_code.get("containment_verified") is False, "uacp_sandbox_check_blocks_unproven_execute_code_backend", sandbox_code))
+
+            known_sandbox = guardian.evaluate(make_event(tool_name="uacp_sandbox_check", tool_provider="plugin", args={**common, "execution_workspace": str(sandbox_workspace)}))
+            checks.append(check(known_sandbox.decision == "allow_with_audit" and known_sandbox.category == "evidence.containment", "guardian_classifies_sandbox_check", {"decision": known_sandbox.decision, "category": known_sandbox.category, "reason": known_sandbox.reason}))
             shell_guard_block = guardian.evaluate(make_event(tool_name="terminal", tool_provider="core", args={**common, "command": "echo probe", "workspace": str(tmp_root), "filesystem_guard_verified": False}))
             checks.append(check(shell_guard_block.decision == "block" and shell_guard_block.category == "exec.shell" and "containment" in shell_guard_block.reason, "guardian_blocks_uacp_shell_without_containment", {"decision": shell_guard_block.decision, "category": shell_guard_block.category, "reason": shell_guard_block.reason}))
             code_guard_block = guardian.evaluate(make_event(tool_name="execute_code", tool_provider="core", args={**common, "code": "print('probe')", "workspace": str(tmp_root), "filesystem_guard_verified": False}))

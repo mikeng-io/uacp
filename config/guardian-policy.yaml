@@ -152,6 +152,16 @@ protected_categories:
       - phase_transition_allowed
       - blockers_resolved
       - deferred_items_accepted
+  evidence.containment:
+    default_decision: require_approval
+    audit: true
+    allowed_tools:
+      - uacp_sandbox_check
+    checks:
+      - runtime_containment_evidence
+      - symlink_aware_path_resolution
+      - readonly_or_write_probe
+      - evidence_ttl
   state.uacp:
     default_decision: block
     audit: true
@@ -251,6 +261,7 @@ tool_classification:
   uacp_doc_write: docs.uacp
   uacp_config_write: config.uacp
   uacp_heartgate_check: lifecycle.transition
+  uacp_sandbox_check: evidence.containment
   send_message: external.human_message
   homeassistant: external.physical_device
   ha_list_entities: read.local

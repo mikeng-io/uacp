@@ -2,8 +2,8 @@ schema_version: '0.1'
 kind: uacp.run_manifest
 run_id: uacp-phase4-filesystem-containment-20260513-215531
 title: Phase 4 filesystem containment
-current_phase: plan
-status: active
+current_phase: execute
+status: active_execute_evidence_checker_implemented
 routing_outcome: standard_uacp
 granularity_level: 8
 authority:
@@ -17,15 +17,22 @@ artifacts:
   propose_to_plan_transition: state/runs/uacp-phase4-filesystem-containment-20260513-propose-to-plan-transition.yaml
   plan: plans/uacp-phase4-filesystem-containment/00-plan.md
   plan_gate_selection: plans/uacp-phase4-filesystem-containment/01-plan-gate-selection.yaml
+  plan_to_execute_transition: state/runs/uacp-phase4-filesystem-containment-20260513-plan-to-execute-transition.yaml
+  phase4_sandbox_verification: verification/phase4-sandbox-check-implementation-20260513.yaml
+  phase4_live_probe: verification/live-guardian-proof-20260513-phase4-sandbox-check.yaml
 heartgate:
   propose_to_plan:
     decision: warn
     accepted_warnings:
-      - filesystem_containment_design concerns accepted into PLAN requirements
-      - verification_strategy concerns accepted into PLAN requirements
+    - filesystem_containment_design concerns accepted into PLAN requirements
+    - verification_strategy concerns accepted into PLAN requirements
+  plan_to_execute:
+    decision: warn
+    accepted_warnings:
+    - standard terminal/execute_code paths remain fail-closed until a real runtime seam exists
 execution_constraints:
-  - Do not implement until PLAN-to-EXECUTE transition is written and checked by uacp_heartgate_check.
-  - Keep shell/code fail-closed until positive containment evidence exists.
-  - Do not push Hermes Agent upstream.
-  - Do not claim UACP prevents out-of-band manual/host mutation.
-next_step: Create PLAN-to-EXECUTE transition only after reviewing exact implementation target files and containment mechanism feasibility.
+- Do not implement until PLAN-to-EXECUTE transition is written and checked by uacp_heartgate_check.
+- Keep shell/code fail-closed until positive containment evidence exists.
+- Do not push Hermes Agent upstream.
+- Do not claim UACP prevents out-of-band manual/host mutation.
+next_step: Run phase-end verification/council for sandbox-check implementation; do not claim standard shell/code allow path is enabled.

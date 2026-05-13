@@ -1,0 +1,99 @@
+schema_version: '0.1'
+kind: uacp.phase_transition
+transition_id: uacp-phase4-filesystem-containment-plan-to-execute-20260513
+run_id: uacp-phase4-filesystem-containment-20260513-215531
+from_phase: plan
+to_phase: execute
+routing_outcome: standard_uacp
+granularity_level: 8
+triage_artifact: state/runs/uacp-phase4-filesystem-containment-20260513-215531-triage.yaml
+gate_selection_artifact: plans/uacp-phase4-filesystem-containment/01-plan-gate-selection.yaml
+council_synthesis_artifact: verification/uacp-phase4-filesystem-containment-council-synthesis-20260513.yaml
+decision: pass
+terminal_kind: none
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: Operator said go after Phase 4 PLAN checkpoint.
+  - id: side_effects.declared
+    status: pass
+    evidence: Execute is bounded to UACP-owned Guardian adapter, plugin manifest, policy classification, proof harness, and verification artifacts.
+  - id: writes.contained
+    status: pass
+    evidence: Code/config/test writes remain under UACP_ROOT; shell/code allow behavior remains fail-closed unless concrete containment evidence is proven.
+  - id: privacy_safety.constrained
+    status: pass
+    evidence: No private data or credentials are required for containment implementation.
+  - id: state.traceable
+    status: pass
+    evidence: Triage, proposal, plan, gate selections, council synthesis, and transitions are linked by run_id.
+  - id: failure.conservative
+    status: pass
+    evidence: Implementation must preserve current fail-closed default; if positive containment cannot be proven locally, record that and do not enable broad shell/code execution.
+  - id: mutation.visible
+    status: pass
+    evidence: Target files and verification outputs are named in the PLAN artifact.
+cluster_summary:
+  - cluster_id: concrete_containment_mechanism
+    state: pass
+    artifact_path: plans/uacp-phase4-filesystem-containment/00-plan.md
+  - cluster_id: sandbox_evidence_contract
+    state: pass
+    artifact_path: plans/uacp-phase4-filesystem-containment/00-plan.md
+  - cluster_id: terminal_backend_verification
+    state: pass
+    artifact_path: plans/uacp-phase4-filesystem-containment/00-plan.md
+  - cluster_id: execute_code_backend_verification
+    state: pass
+    artifact_path: plans/uacp-phase4-filesystem-containment/00-plan.md
+  - cluster_id: symlink_mount_escape_probes
+    state: pass
+    artifact_path: plans/uacp-phase4-filesystem-containment/00-plan.md
+  - cluster_id: write_probe_failure
+    state: pass
+    artifact_path: plans/uacp-phase4-filesystem-containment/00-plan.md
+  - cluster_id: rollback_plan
+    state: pass
+    artifact_path: plans/uacp-phase4-filesystem-containment/00-plan.md
+blockers: []
+warnings:
+  - owner: main_session
+    residual_risk: Local host has bwrap available, but standard Hermes terminal/execute_code paths may still lack a runtime seam for automatic contained execution.
+    next_phase_acceptance: EXECUTE may implement evidence/check tooling while preserving fail-closed behavior if no safe allow path exists.
+deferred_items:
+  - id: positive_allow_path
+    cluster_id: phase4_live_proof
+    owner: main_session
+    condition: Positive allow path may proceed only if execution is actually inside a verified sandbox or equivalent lower-level guard; otherwise record blocked/unverified status and keep fail-closed.
+    accepted_by: execute
+authority:
+  requested_by: Mike
+  authorization_source: 'current private Telegram control prompt: go'
+declared_side_effects:
+  - Local code/config/proof harness edits under UACP_ROOT.
+  - No upstream Hermes Agent push or PR.
+  - No destructive file deletion except cleanup of generated __pycache__ artifacts if needed.
+write_containment_record: Planned writes remain under UACP_ROOT and canonical config changes use governed config writer when practical.
+blocker_synthesis: No blockers to bounded EXECUTE; warnings constrain implementation to fail-closed if containment cannot be proven.
+artifact_paths:
+  - plans/uacp-phase4-filesystem-containment/00-plan.md
+  - plans/uacp-phase4-filesystem-containment/01-plan-gate-selection.yaml
+  - verification/uacp-phase4-filesystem-containment-council-synthesis-20260513.yaml
+verification_artifact: ''
+accepted_exceptions: []
+phase_local_granularity:
+  phase: plan
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: Operator approved execution; plan remains high sensitivity but bounded and fail-closed.
+  downstream_projection:
+    execute: 8
+    verify: 8
+    resolve: 5
+composite_granularity: 8
+human_involvement:
+  required: false
+  reason: Execution scope is bounded and reversible; new external/upstream/destructive effects remain excluded.
+  authority_needed: none for bounded local UACP implementation
+  decision_owner: Mike
+  accepted_risk_artifact: ''

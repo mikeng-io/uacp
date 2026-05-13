@@ -43,6 +43,11 @@ implemented:
   - UACP governs declared runtime execution and evidence; it does not claim to prevent arbitrary manual or host-side edits outside that runtime boundary.
   - Out-of-band changes are treated as untrusted until revalidated through the relevant verification path.
   - Containment is a host/runtime property that UACP can require and Guardian can verify; it is not a permission that UACP self-declares.
+  phase4_sandbox_check_evidence:
+  - uacp_sandbox_check is implemented as a containment evidence tool in the UACP-owned Hermes Guardian adapter.
+  - The live proof confirms bwrap read-only-root evidence can block writes to UACP_ROOT while keeping the sandbox workspace writable.
+  - The standard Hermes terminal/execute_code paths remain fail-closed; uacp_sandbox_check does not self-attest those paths as contained.
+  - execute_code backend containment remains unproven and blocked under UACP context.
 not_yet_done:
   live_activation_and_testing:
   - Keep live positive/negative proof tests current after cleanup and runtime restarts.
@@ -58,6 +63,8 @@ not_yet_done:
   - Add stronger boundaries for non-cooperative plugins or direct lower-level mutation paths.
   - Keep non-cooperative or out-of-band host/user mutation outside UACP's claimed enforcement boundary; require revalidation before trusting affected artifacts.
   - Keep full Knowledge Bank retrieval/ranking deferred until the local artifact loop is stable.
+  - Implement a runtime execution seam or contained-shell surface before any standard terminal/execute_code allow path can be enabled.
+  - Keep uacp_sandbox_check as evidence-only until a guarded runtime actually executes through the proven containment layer.
   documentation_sync:
   - Runtime binding config and current-status artifacts were synchronized after live binding evidence.
   - Future drift should be handled through a new governed doc-sync task, not by reopening closed tasks.
@@ -114,9 +121,11 @@ live_proof_tests_required:
 - uacp_doc_write, uacp_config_write, and uacp_heartgate_check are exposed after runtime/tool schema reload and continue to block missing context, invalid YAML/path escapes, and invalid transitions respectively.
 - Kanban workers for UACP-bound tasks receive UACP_ROOT, UACP_RUN_ID, UACP_PHASE, UACP_GUARDIAN_POLICY_VERSION, UACP_WORKSPACE_POLICY, and UACP_GUARDIAN_MODE.
 - Manual/out-of-band edits are not claimed as preventable by UACP; affected artifacts must be revalidated before use.
+- uacp_sandbox_check must continue to prove bwrap/read-only-root evidence without marking the standard Hermes terminal/execute_code path as contained.
+- execute_code must remain blocked until backend-specific containment evidence exists.
 backup_guidance:
   recommended_scope: full HERMES_ROOT snapshot before live runtime activation
   rationale:
   - UACP now spans governance artifacts, Hermes runtime code, lifecycle skills, Kanban state, plugin config, and runtime settings.
   - Backing up only UACP_ROOT or hermes-agent can miss cross-layer state needed for rollback.
-conclusion: Phase 2 governed writer hardening is resolved and the first callable Heartgate check tool is implemented. Remaining work is lifecycle-skill adoption, runtime/tool schema reload verification for new plugin tools, containment hardening, Kanban Guardian evidence propagation, and continued live proof testing. Compression-loop diagnosis is deferred to a separate session.
+conclusion: Phase 4 has implemented the sandbox evidence checker and preserved fail-closed shell/code behavior. Remaining work is a real runtime execution seam for contained terminal/code execution before any allow path can be claimed.
