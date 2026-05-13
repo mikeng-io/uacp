@@ -220,6 +220,10 @@ human_involvement: {}
 
             known_heartgate = guardian.evaluate(make_event(tool_name="uacp_heartgate_check", tool_provider="plugin", args={**common, "transition_path": "state/runs/probe-verify-to-resolve.yaml"}))
             checks.append(check(known_heartgate.decision == "allow_with_audit" and known_heartgate.category == "lifecycle.transition", "guardian_classifies_heartgate_check", {"decision": known_heartgate.decision, "category": known_heartgate.category, "reason": known_heartgate.reason}))
+            shell_guard_block = guardian.evaluate(make_event(tool_name="terminal", tool_provider="core", args={**common, "command": "echo probe", "workspace": str(tmp_root), "filesystem_guard_verified": False}))
+            checks.append(check(shell_guard_block.decision == "block" and shell_guard_block.category == "exec.shell" and "containment" in shell_guard_block.reason, "guardian_blocks_uacp_shell_without_containment", {"decision": shell_guard_block.decision, "category": shell_guard_block.category, "reason": shell_guard_block.reason}))
+            code_guard_block = guardian.evaluate(make_event(tool_name="execute_code", tool_provider="core", args={**common, "code": "print('probe')", "workspace": str(tmp_root), "filesystem_guard_verified": False}))
+            checks.append(check(code_guard_block.decision == "block" and code_guard_block.category == "exec.code_with_tool_proxy" and "containment" in code_guard_block.reason, "guardian_blocks_uacp_code_without_containment", {"decision": code_guard_block.decision, "category": code_guard_block.category, "reason": code_guard_block.reason}))
             unknown = guardian.evaluate(make_event(tool_name="unknown_plugin_mutator", tool_provider="plugin", args=common))
             checks.append(check(unknown.decision == "block" and unknown.category == "runtime.extension", "guardian_blocks_unknown_plugin_mutator", {"decision": unknown.decision, "category": unknown.category, "reason": unknown.reason}))
         finally:

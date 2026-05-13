@@ -50,6 +50,7 @@ not_yet_done:
   - Ensure UACP lifecycle skills create Kanban tasks with required uacp_context.
   hardening:
   - Implement verified filesystem containment before allowing UACP-bound shell/code execution.
+  - The fail-closed blocker is already verified on the current surfaces.
   - Add stronger boundaries for non-cooperative plugins or direct lower-level mutation paths.
   - Keep full Knowledge Bank retrieval/ranking deferred until the local artifact loop is stable.
   documentation_sync:
@@ -102,7 +103,7 @@ instruction_surface_wiring:
 live_proof_tests_required:
 - Direct write to UACP state/ is blocked unless routed through the guarded state mutation path.
 - Plugin-dispatched protected write is blocked or audited by Guardian.
-- UACP-bound shell/code execution remains blocked until verified containment exists.
+- UACP-bound shell/code execution remains blocked until verified containment exists; live probe confirms fail-closed behavior on exec.shell and exec.code_with_tool_proxy without filesystem containment.
 - uacp_state_write succeeds only with complete authority, workspace, run id, phase, policy version, and declared side effects.
 - uacp_doc_write, uacp_config_write, and uacp_heartgate_check are exposed after runtime/tool schema reload and continue to block missing context, invalid YAML/path escapes, and invalid transitions respectively.
 - Kanban workers for UACP-bound tasks receive UACP_ROOT, UACP_RUN_ID, UACP_PHASE, UACP_GUARDIAN_POLICY_VERSION, UACP_WORKSPACE_POLICY, and UACP_GUARDIAN_MODE.

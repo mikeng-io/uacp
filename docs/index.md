@@ -218,7 +218,7 @@ Decision: Phase 2 governed canonical writer concerns are resolved by hardening p
 
 Rationale: Phase-end Agent Council found that canonical writer boundaries should not remain generic `file.write` and needed stronger negative proof coverage before Phase 3. Heartgate already existed as a neutral kernel, but lifecycle wiring needed a callable runtime boundary before phase transitions can be mechanically checked.
 
-Status: accepted and verified by `verification/live-guardian-proof-20260514-phase2-hardening.yaml`, `verification/phase2-hardening-20260514.yaml`, and `verification/live-guardian-proof-20260514-phase3-heartgate.yaml`. Active long-running sessions may still require runtime reload before newly registered plugin tools appear as direct model-callable tools.
+Status: accepted and verified by `verification/live-guardian-proof-20260514-phase2-hardening.yaml`, `verification/phase2-hardening-20260514.yaml`, `verification/live-guardian-proof-20260514-phase3-heartgate.yaml`, and `verification/containment-fail-closed-20260514.yaml`. Active long-running sessions may still require runtime reload before newly registered plugin tools appear as direct model-callable tools.
 
 Canonical targets:
 

@@ -1,7 +1,7 @@
 schema_version: '0.1'
 kind: uacp.operational_dashboard
 status: runtime_prototype_active
-last_updated: 2026-05-14T02:30:00+0800
+last_updated: 2026-05-14T02:55:00+0800
 authority:
   registry: docs/index.md
   runtime_design: docs/runtime-enforcement.md
@@ -54,6 +54,7 @@ next_actions_ordered:
 - Restart/reload Hermes runtime when convenient so uacp_doc_write, uacp_config_write, and uacp_heartgate_check appear in active tool schemas.
 - Verify lifecycle skills in a fresh session so uacp_heartgate_check, uacp_doc_write, and uacp_config_write are visible in active tool schemas.
 - Design and prove filesystem containment for UACP-bound shell/code execution.
+- Current surfaces are fail-closed for UACP-bound shell/code execution without containment.
 operator_approval_policy:
   autonomous: local UACP artifact edits, local tests, local commits, local proof harnesses, skill/doc sync after verified behavior
   notify_not_ask: local gateway restart for scoped UACP verification, local branch/worktree cleanup, long tests
