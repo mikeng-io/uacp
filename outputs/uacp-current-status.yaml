@@ -8,10 +8,10 @@ authority:
   runtime_checkpoint: verification/uacp-runtime-guardian-implementation-checkpoint-1.yaml
 repositories:
   uacp:
-    checkpoint_commit: 65d8fbb
+    checkpoint_commit: 29886cd
     role: governance source of truth, durable artifacts, state, docs, config
   hermes_agent:
-    commit: a07da521a
+    commit: 45afd64f5
     role: runtime enforcement implementation for Hermes
 implemented:
   governance_foundation:
@@ -53,9 +53,9 @@ not_yet_done:
   - Keep live positive/negative proof tests current after cleanup and runtime restarts.
   - Do not call Guardian production-complete until containment, lifecycle wiring, and non-cooperative extension boundaries are covered.
   lifecycle_wiring:
-  - Wire lifecycle skills to call uacp_heartgate_check before phase transitions.
-  - Route uacp-state mutations through runtime uacp_state_write.
-  - Route canonical docs/config changes through uacp_doc_write and uacp_config_write after tool schema reload exposes them to sessions.
+  - Lifecycle skills call uacp_heartgate_check before phase transitions.
+  - UACP state mutations route through runtime uacp_state_write.
+  - Canonical docs/config changes route through uacp_doc_write and uacp_config_write; fresh-session and active schema exposure are verified.
   - Ensure UACP lifecycle skills create Kanban tasks with required uacp_context.
   hardening:
   - Implement verified filesystem containment before allowing UACP-bound shell/code execution.
@@ -70,8 +70,8 @@ not_yet_done:
   - Future drift should be handled through a new governed doc-sync task, not by reopening closed tasks.
   - Update documents after new runtime proof evidence exists, not before evidence exists.
   repository_hygiene:
-  - Hermes Agent duplicate plugin source copies are being removed now that UACP-owned user-plugin symlink bindings are active.
-  - Temporary uacp_symlink_probe runtime adapter artifact is being removed after successful real-adapter binding.
+  - Hermes Agent duplicate plugin source copies are removed from the local patch set; live bindings now resolve to UACP-owned runtime-adapter source.
+  - Temporary uacp_symlink_probe runtime adapter source is absent; only historical evidence/config cleanup records remain.
   - Do not push repository changes without explicit operator confirmation.
 instruction_surface_wiring:
   status: minimally_wired
@@ -108,9 +108,8 @@ instruction_surface_wiring:
   - UACP_ROOT/outputs/uacp-current-status.yaml
   conclusion: UACP is now minimally wired into the main Hermes instruction/startup surfaces and dispatch routing. This is pointer-level wiring, not full production activation.
   recommended_next_steps:
-  - Restart or reload the Hermes gateway/runtime so config and instruction-surface changes take effect.
   - Run a live dispatch test for a UACP-bound thread and confirm it selects the uacp workspace and skill.
-  - The runtime tool schema reload check has passed in a fresh Hermes session.
+  - Runtime tool schema reload checks have passed; current active schema includes the UACP Guardian tool surfaces.
   - Continue with full filesystem containment if UACP-bound shell/code execution should ever be enabled.
   - Avoid stuffing full UACP docs into SOUL.md, PERSONALITY.md, or AGENTS.md; keep those files as pointers to UACP_ROOT authority.
 live_proof_tests_required:
