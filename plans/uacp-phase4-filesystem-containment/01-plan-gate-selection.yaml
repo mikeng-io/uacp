@@ -1,0 +1,91 @@
+schema_version: '0.1'
+kind: uacp.gate_selection
+selection_id: uacp-phase4-filesystem-containment-20260513-plan-selection
+run_id: uacp-phase4-filesystem-containment-20260513-215531
+phase: plan
+domains:
+  - uacp-governance
+  - runtime-enforcement
+  - filesystem-containment
+  - hermes-plugin-adapter
+artifact_types:
+  - plan
+  - runtime-adapter-code
+  - plugin-manifest
+  - guardian-policy-config
+  - live-proof-harness
+  - verification-artifact
+risk_level: high
+granularity_level: 8
+routing_outcome: standard_uacp
+triage_factor_scores:
+  impact: 8
+  reversibility: 6
+  domain_count: 4
+  runtime_count: 5
+  verification_difficulty: 8
+  calculation_notes:
+    - PLAN controls future permission to run shell/code under UACP context.
+    - Council concerns require concrete containment evidence before EXECUTE.
+invariant_checks:
+  - id: authority.explicit
+    status: pass
+    reason: Operator authorized Phase 4 start; PLAN remains local and pre-implementation.
+  - id: side_effects.declared
+    status: pass
+    reason: PLAN declares target files, verification artifacts, and rollback boundaries.
+  - id: writes.contained
+    status: pass
+    reason: PLAN writes are contained to UACP_ROOT; EXECUTE will require containment evidence before behavior change is accepted.
+  - id: privacy_safety.constrained
+    status: pass
+    reason: No private data needed; runtime trust boundary remains explicit.
+  - id: state.traceable
+    status: pass
+    reason: PLAN references triage, proposal, gate-selection, council synthesis, and transition artifacts.
+  - id: failure.conservative
+    status: pass
+    reason: Fail-closed shell/code behavior remains default until positive proof exists.
+  - id: mutation.visible
+    status: pass
+    reason: Planned mutations are named and will be verified by diff/proof artifacts.
+selected_clusters:
+  required:
+    - concrete_containment_mechanism
+    - sandbox_evidence_contract
+    - terminal_backend_verification
+    - execute_code_backend_verification
+    - symlink_mount_escape_probes
+    - write_probe_failure
+    - rollback_plan
+    - phase4_live_proof
+    - post_execute_council_review
+  optional:
+    - kanban_traceability
+    - runtime_adapter_contract_notes
+  generated:
+    - filesystem_guard_verified_attestation_boundary
+not_applicable:
+  - cluster_id: public_communications
+    reason: No public-facing communication.
+  - cluster_id: upstream_pr
+    reason: Hermes Agent upstream push/PR is out of scope.
+ranking_basis:
+  similar_scenarios:
+    - verification/containment-fail-closed-20260514.yaml
+    - verification/uacp-phase4-filesystem-containment-council-synthesis-20260513.yaml
+  templates_considered:
+    - runtime_enforcement
+    - guardian_neutral_kernel_adapter
+    - governed_canonical_writers
+  scoring_notes:
+    - PLAN must turn council concerns into executable checks.
+    - Positive containment proof must be runtime evidence, not prompt or model self-attestation.
+transition_requirements:
+  - PLAN artifact exists and records council constraints.
+  - PLAN-to-EXECUTE transition artifact must exist.
+  - uacp_heartgate_check must pass or warn with accepted residual risk before EXECUTE.
+  - No implementation begins until transition allows EXECUTE.
+reasoning: >
+  Phase 4 PLAN should proceed only if the containment evidence contract is explicit enough to avoid self-attested permission.
+  The selected clusters focus on runtime evidence, backend-specific containment, rollback, and live proof.

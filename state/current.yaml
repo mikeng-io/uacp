@@ -1,15 +1,17 @@
 kind: uacp.current_state
-active_run_id: uacp-phase2-governed-writers-20260514
-active_run_manifest: "state/runs/uacp-phase2-governed-writers-20260514.yaml"
+active_run_id: uacp-phase4-filesystem-containment-20260513-215531
+active_run_manifest: "state/runs/uacp-phase4-filesystem-containment-20260513-215531.yaml"
 mutation_policy: uacp_state_required
-current_transition_artifact: "state/runs/uacp-phase2-governed-writers-20260514-verify-to-resolve-transition.yaml"
+current_transition_artifact: "state/runs/uacp-phase4-filesystem-containment-20260513-propose-to-plan-transition.yaml"
 kanban_binding_artifact: "state/kanban.yaml"
 kanban_board_slug: "uacp"
 bootstrap_closed: true
 governed_mutation_active: true
 notes:
-  - "Current pointer updated after Phase 2 resolve and Heartgate tool implementation."
-  - "Phase 2 governed writer hardening is resolved; the Heartgate transition tool is live and verified."
-  - "Runtime/tool schema reload verification passed in a fresh Hermes session."
-  - "Remaining work is full filesystem containment before any UACP-bound shell/code execution can be allowed."
-  - "Fresh Hermes session confirmed UACP writer and Heartgate tools are exposed after restart."
+  - "Phase 4 filesystem containment has entered PLAN after propose-to-plan Heartgate returned warn with accepted warnings."
+  - "Focused Agent Council returned concerns; those concerns are hard PLAN requirements before EXECUTE."
+  - "UACP-bound shell/code execution remains fail-closed until runtime containment evidence is implemented and verified."
+  - "No runtime behavior change has been made in Phase 4 yet."
+previous_active_run:
+  run_id: uacp-phase2-governed-writers-20260514
+  manifest: "state/runs/uacp-phase2-governed-writers-20260514.yaml"

@@ -1,0 +1,53 @@
+schema_version: '0.1'
+kind: uacp.triage
+triage_id: uacp-phase4-filesystem-containment-20260513-215531-triage
+run_id: uacp-phase4-filesystem-containment-20260513-215531
+request_summary: >
+  Start Phase 4 for UACP filesystem containment: design and then implement verified
+  host/runtime containment evidence so UACP-bound shell and code execution can move
+  from fail-closed-only to allowed only when containment is proven.
+authority:
+  status: pass
+  source: >
+    Operator explicitly requested "let start the phase 4" in the current private
+    control session after Phase 3/containment fail-closed verification completed.
+factor_scores:
+  impact: 8
+  reversibility: 6
+  domain_count: 4
+  runtime_count: 5
+  verification_difficulty: 8
+  notes:
+    - Security-sensitive runtime gating affects whether shell/code execution may run under UACP context.
+    - Changes are local and reversible, but incorrect containment could permit writes to protected paths.
+    - Domains include UACP lifecycle, Guardian adapter, Hermes terminal/code execution surfaces, filesystem isolation, and verification evidence.
+    - Verification requires both negative fail-closed and positive contained-execution proof.
+granularity_level: 8
+routing_outcome: standard_uacp
+artifact_policy: standard
+phase_local_granularity:
+  phase: triage
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: >
+    Scope is bounded to filesystem containment but remains high-sensitivity because it changes execution permission boundaries.
+  downstream_projection:
+    propose: 8
+    plan: 8
+    execute: 8
+    verify: 8
+    resolve: 5
+composite_granularity: 8
+human_involvement:
+  required: false
+  reason: >
+    Current operator prompt authorizes starting Phase 4; implementation remains bounded and local. New destructive, upstream, or external side effects still require explicit confirmation.
+  authority_needed: none for triage/proposal artifacts
+  decision_owner: Mike
+rationale:
+  - Proceed through PROPOSE and PLAN before implementation because this changes runtime authority boundaries.
+  - Focused Agent Council is required before EXECUTE due to containment/security risk.
+  - Keep current fail-closed behavior until positive containment evidence exists.
+  - Use UACP-owned Guardian runtime adapter as source; do not push Hermes Agent upstream.
+next_step: >
+  Create Phase 4 proposal and gate-selection artifacts, then run a focused Agent Council review before implementation.

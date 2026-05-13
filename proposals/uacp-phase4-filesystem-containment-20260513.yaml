@@ -1,0 +1,80 @@
+schema_version: '0.1'
+kind: uacp.proposal
+proposal_id: uacp-phase4-filesystem-containment-20260513
+run_id: uacp-phase4-filesystem-containment-20260513-215531
+phase: propose
+triage_artifact: state/runs/uacp-phase4-filesystem-containment-20260513-215531-triage.yaml
+summary: >
+  Phase 4 will introduce verified filesystem containment for UACP-bound shell and code execution.
+  The current safe baseline remains fail-closed: terminal/execute_code stay blocked under UACP context unless
+  the runtime adapter can prove containment.
+authority:
+  requested_by: Mike
+  authorization_source: 'Current private Telegram control prompt: "let start the phase 4"'
+  scope_status: bounded
+scope:
+  in_scope:
+    - Define containment evidence requirements for UACP-bound terminal and execute_code surfaces.
+    - Implement minimal Guardian adapter verification only after design/council review.
+    - Add an optional/recommended uacp_sandbox_check evidence tool if PLAN confirms it.
+    - Extend live Guardian proof coverage with blocked-uncontained and allowed-contained cases.
+    - Record verification/status artifacts under UACP_ROOT.
+  out_of_scope:
+    - Claiming UACP prevents arbitrary manual/operator edits outside the governed runtime boundary.
+    - Pushing or proposing changes to upstream Hermes Agent.
+    - Enabling broad shell/code execution without positive containment proof.
+    - Solving Kanban Guardian evidence propagation or cross-runtime adapter contract in this phase.
+side_effects:
+  declared:
+    - Local UACP artifact writes for proposal, gate-selection, plan, council synthesis, and verification evidence.
+    - Later, if approved by PLAN, local edits to UACP-owned Guardian runtime adapter and live proof harness.
+  excluded:
+    - Destructive file deletion.
+    - Remote push without explicit operator confirmation at that point.
+    - Hermes Agent upstream push or PR.
+trust_boundary:
+  rule: >
+    UACP declares required execution posture; Guardian verifies runtime-provided evidence; host/runtime supplies containment.
+    Out-of-band changes remain possible and are treated as untrusted until revalidated.
+current_baseline:
+  status: fail_closed_verified
+  evidence:
+    - verification/containment-fail-closed-20260514.yaml
+    - verification/live-guardian-proof-20260514-phase3-heartgate.yaml
+    - verification/runtime-tool-schema-reload-20260514.yaml
+proposed_design_direction:
+  minimal_delta: true
+  core_mechanism: read-only protected-root check plus sandbox working directory outside UACP_ROOT
+  guardian_adapter_responsibility:
+    - Resolve workspace paths with symlink-aware checks.
+    - Verify UACP_ROOT is not writable/reachable from shell/code execution workspace, or is read-only if mounted.
+    - Set filesystem_guard_verified only after positive proof.
+  neutral_kernel_responsibility:
+    - Continue enforcing existing policy decision based on filesystem_guard_verified.
+  runtime_responsibility:
+    - Provide actual containment via sandbox, read-only bind mount, separate workdir/user/container, or equivalent evidence.
+risks:
+  - id: false_positive_containment
+    severity: high
+    mitigation: require live negative and positive probe cases; never self-declare containment without runtime evidence.
+  - id: symlink_or_mount_escape
+    severity: high
+    mitigation: Path.resolve checks plus read-only mount/write-probe verification where applicable.
+  - id: execute_code_host_filesystem_sharing
+    severity: high
+    mitigation: verify execute_code backend separately; keep blocked if evidence is unavailable.
+  - id: scope_creep_into_operator_behavior
+    severity: medium
+    mitigation: preserve runtime trust boundary; treat manual edits as out-of-band revalidation issue.
+review_policy:
+  agent_council_required_before_execute: true
+  selected_mode: propose_plan_review
+  selected_tier: tier_2_role_diverse
+acceptance_criteria:
+  - Phase 4 PLAN names exact files, allowed changes, rollback, and verification commands/artifacts.
+  - Guardian remains fail-closed by default.
+  - Positive containment permission is based on verifiable runtime evidence, not prompt/context claims.
+  - Live proof harness covers allowed-contained and blocked-uncontained shell/code scenarios.
+  - Verification artifact and current status are updated only after proof exists.
+next_step: >
+  Write gate-selection artifact and dispatch focused Agent Council before implementation.
