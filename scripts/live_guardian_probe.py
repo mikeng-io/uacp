@@ -96,9 +96,52 @@ def _exercise_guardian_writers(checks):
             }))
             checks.append(check("error" in bad_path, "uacp_doc_write_blocks_path_escape", bad_path))
 
+            absolute_path = json.loads(guardian_plugin._handle_uacp_doc_write({
+                **common,
+                "target_path": str(tmp_root.parent / "absolute-escape.md"),
+                "content": "escape",
+            }))
+            checks.append(check("error" in absolute_path, "uacp_doc_write_blocks_absolute_path", absolute_path))
+
+            root_target = json.loads(guardian_plugin._handle_uacp_doc_write({
+                **common,
+                "target_path": ".",
+                "content": "escape",
+            }))
+            checks.append(check("error" in root_target, "uacp_doc_write_blocks_root_target", root_target))
+
+            directory_target = json.loads(guardian_plugin._handle_uacp_config_write({
+                **common,
+                "target_path": "config",
+                "content": "ok: true\n",
+            }))
+            checks.append(check("error" in directory_target, "uacp_config_write_blocks_directory_target", directory_target))
+
+            outside_dir = tmp_root.parent / "outside-uacp-writer-proof"
+            outside_dir.mkdir(exist_ok=True)
+            symlink_path = tmp_root / "docs" / "leak.md"
+            symlink_path.symlink_to(outside_dir / "leak.md")
+            symlink_result = json.loads(guardian_plugin._handle_uacp_doc_write({
+                **common,
+                "target_path": "docs/leak.md",
+                "content": "escape",
+            }))
+            checks.append(check("error" in symlink_result and not (outside_dir / "leak.md").exists(), "uacp_doc_write_blocks_symlink_escape", symlink_result))
+
+            symlink_parent = tmp_root / "config" / "outside"
+            symlink_parent.symlink_to(outside_dir, target_is_directory=True)
+            symlink_parent_result = json.loads(guardian_plugin._handle_uacp_config_write({
+                **common,
+                "target_path": "config/outside/leak.yaml",
+                "content": "ok: true\n",
+            }))
+            checks.append(check("error" in symlink_parent_result and not (outside_dir / "leak.yaml").exists(), "uacp_config_write_blocks_symlink_parent_escape", symlink_parent_result))
+
             guardian = Guardian(GuardianPolicy.load(tmp_root))
-            known = guardian.evaluate(make_event(tool_name="uacp_doc_write", tool_provider="plugin", args={**common, "target_path": "docs/probe.md"}))
-            checks.append(check(known.decision == "allow_with_audit" and known.category == "file.write", "guardian_classifies_known_plugin_writer", {"decision": known.decision, "category": known.category, "reason": known.reason}))
+            known_doc = guardian.evaluate(make_event(tool_name="uacp_doc_write", tool_provider="plugin", args={**common, "target_path": "docs/probe.md"}))
+            checks.append(check(known_doc.decision == "allow_with_audit" and known_doc.category == "docs.uacp", "guardian_classifies_known_doc_writer", {"decision": known_doc.decision, "category": known_doc.category, "reason": known_doc.reason}))
+            known_config = guardian.evaluate(make_event(tool_name="uacp_config_write", tool_provider="plugin", args={**common, "target_path": "config/probe.yaml"}))
+            checks.append(check(known_config.decision == "allow_with_audit" and known_config.category == "config.uacp", "guardian_classifies_known_config_writer", {"decision": known_config.decision, "category": known_config.category, "reason": known_config.reason}))
             unknown = guardian.evaluate(make_event(tool_name="unknown_plugin_mutator", tool_provider="plugin", args=common))
             checks.append(check(unknown.decision == "block" and unknown.category == "runtime.extension", "guardian_blocks_unknown_plugin_mutator", {"decision": unknown.decision, "category": unknown.category, "reason": unknown.reason}))
         finally:

@@ -1,0 +1,100 @@
+schema_version: '0.1'
+kind: uacp.verification.agent_council_retrospective
+run_id: uacp-phase2-governed-writers-20260514
+phase: verify
+status: concerns_non_blocking
+verdict: concerns
+created_at: '2026-05-14T02:14:21+08:00'
+model_routing:
+  delegate_task_provider: kimi-coding
+  delegate_task_model: moonshotai/kimi-k2.6
+  main_session_provider: openai-codex
+  main_session_model: gpt-5.5
+scope:
+  summary: Phase 2 retrospective review of governed UACP docs/config writers before Phase 3.
+  artifacts:
+    - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py
+    - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    - runtime-adapters/hermes/plugins/uacp_guardian/plugin.yaml
+    - config/guardian-policy.yaml
+    - scripts/live_guardian_probe.py
+    - verification/live-guardian-proof-20260514-phase2-writers.yaml
+    - verification/uacp-governed-canonical-writers-20260514.yaml
+council_roles:
+  - primary_reviewer
+  - devils_advocate
+  - integration_checker
+synthesis:
+  phase2_resolution_readiness: hold_for_small_hardening_patch
+  rationale: >
+    Phase 2 implementation is directionally correct and verified for its claimed scope,
+    but council found several hardening gaps worth addressing before formal RESOLVE and
+    before Phase 3 Heartgate work builds on the writer boundary.
+  no_confirmed_failures:
+    - No demonstrated docs/config path traversal in existing probe.
+    - Manifest, policy classification, positive writes, invalid YAML rejection, path escape rejection, and unknown plugin mutator blocking were verified.
+    - Hermes Agent duplicate plugin removal and temporary probe cleanup were verified absent in the Phase 2 proof artifact.
+  confirmed_concerns:
+    - id: C001
+      severity: medium
+      title: Canonical writer path hardening should reject root/directories explicitly and add absolute/symlink negative tests.
+      evidence:
+        - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py:145-152
+        - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py:263-272
+        - verification/live-guardian-proof-20260514-phase2-writers.yaml:97-104
+      disposition: open
+      remediation: Harden target validation and extend probe with absolute path, directory/root target, and symlink escape cases.
+    - id: C002
+      severity: medium
+      title: Canonical docs/config writers are policy-classified as generic file.write.
+      evidence:
+        - config/guardian-policy.yaml:121-127
+        - config/guardian-policy.yaml:221-224
+      disposition: open
+      remediation: Either document this as intentional for Phase 2 or introduce distinct canonical docs/config protected categories in a future policy revision.
+    - id: C003
+      severity: low
+      title: authority_artifact and declared_authority naming is inconsistent across schema/internal aliases.
+      evidence:
+        - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py:169-184
+        - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py:331-360
+      disposition: open
+      remediation: Choose one public field name or explicitly document/map aliases end-to-end.
+    - id: C004
+      severity: low
+      title: YAML validation is syntactic only.
+      evidence:
+        - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py:187-193
+      disposition: accepted_risk_for_phase2
+      remediation: Add schema/semantic validation later where config kinds require it.
+    - id: C005
+      severity: low
+      title: Active-session tool schema reload remains deferred.
+      evidence:
+        - verification/uacp-governed-canonical-writers-20260514.yaml:23-26
+      disposition: deferred
+      remediation: Verify new tools from a fresh Hermes session/runtime reload.
+    - id: C006
+      severity: medium
+      title: Lifecycle skills still need mandatory adoption of uacp_doc_write and uacp_config_write.
+      evidence:
+        - verification/uacp-governed-canonical-writers-20260514.yaml:23-26
+      disposition: deferred_to_phase3
+      remediation: Patch lifecycle skill contracts during Phase 3 wiring.
+    - id: C007
+      severity: high
+      title: Heartgate transition tool and filesystem containment remain Phase 3/4 blockers, not Phase 2 regressions.
+      evidence:
+        - Phase 2 verification deferred list
+        - council integration checker report
+      disposition: deferred_to_next_phases
+      remediation: Implement callable Heartgate check and containment proof in subsequent phases.
+debate_notes:
+  - >
+    Devil's Advocate labelled symlink traversal HIGH. Main synthesis downgrades this to MEDIUM because _resolve_uacp_path resolves symlinks and rejects resolved paths outside UACP_ROOT; however explicit symlink/absolute/root negative tests are still missing and should be added.
+  - >
+    Council agreed Phase 2 is structurally complete but should not be formally RESOLVED until a small hardening patch and expanded proof are applied.
+recommended_next_action:
+  - Patch writer target validation and live probe negative coverage.
+  - Re-run proof harness.
+  - Then mark Phase 2 resolved and proceed to Phase 3 Heartgate wiring.

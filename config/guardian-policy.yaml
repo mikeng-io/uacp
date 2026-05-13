@@ -124,6 +124,24 @@ protected_categories:
     checks:
       - declared_write_scope
       - path_containment
+  docs.uacp:
+    default_decision: require_approval
+    audit: true
+    allowed_tools:
+      - uacp_doc_write
+    checks:
+      - declared_write_scope
+      - canonical_docs_path_containment
+      - markdown_suffix
+  config.uacp:
+    default_decision: require_approval
+    audit: true
+    allowed_tools:
+      - uacp_config_write
+    checks:
+      - declared_write_scope
+      - canonical_config_path_containment
+      - yaml_parse
   state.uacp:
     default_decision: block
     audit: true
@@ -220,8 +238,8 @@ tool_classification:
   cronjob: automation.future
   uacp_state_write: state.uacp
   uacp_artifact_write: file.write
-  uacp_doc_write: file.write
-  uacp_config_write: file.write
+  uacp_doc_write: docs.uacp
+  uacp_config_write: config.uacp
   send_message: external.human_message
   homeassistant: external.physical_device
   ha_list_entities: read.local

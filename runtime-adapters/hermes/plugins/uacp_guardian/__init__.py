@@ -143,11 +143,16 @@ def _infer_hermes_tool_provider(tool_name: str) -> str:
 
 
 def _resolve_uacp_path(raw: str, root: Path) -> Path:
+    root = root.resolve()
     path = Path(raw)
     if path.is_absolute():
         raise ValueError("target_path must be UACP-root-relative")
-    resolved = (root / path).resolve()
-    if root not in resolved.parents and resolved != root:
+    if any(part in {"", ".", ".."} for part in path.parts):
+        raise ValueError("target_path must not contain empty, current, or parent path segments")
+    resolved = (root / path).resolve(strict=False)
+    if resolved == root:
+        raise ValueError("target_path must point to a file under UACP_ROOT")
+    if root not in resolved.parents:
         raise ValueError("target_path escapes UACP_ROOT")
     return resolved
 
@@ -185,6 +190,8 @@ def _validate_common_write_args(args: Mapping[str, Any]) -> tuple[str, str, str,
 
 
 def _write_uacp_file(target: Path, content: str) -> None:
+    if target.exists() and target.is_dir():
+        raise ValueError("target_path must point to a file, not a directory")
     if target.suffix in {".yaml", ".yml"}:
         import yaml
 
@@ -261,12 +268,24 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
 
 
 def _validate_canonical_target(root: Path, target_path: str, *, allowed_top: str, suffixes: set[str]) -> tuple[Path, Path] | str:
-    target = _resolve_uacp_path(target_path, root)
-    rel = target.relative_to(root)
-    if not rel.parts or rel.parts[0] != allowed_top:
+    raw = Path(target_path)
+    if raw.is_absolute():
+        return "target_path must be UACP-root-relative"
+    if any(part in {"", ".", ".."} for part in raw.parts):
+        return "target_path must not contain empty, current, or parent path segments"
+    if not raw.parts or raw.parts[0] != allowed_top:
         return f"target_path must be under {allowed_top}/"
+    try:
+        target = _resolve_uacp_path(target_path, root)
+        rel = target.relative_to(root.resolve())
+    except Exception as exc:
+        return str(exc)
+    if not rel.parts or rel.parts[0] != allowed_top:
+        return f"target_path must resolve under {allowed_top}/"
     if target.name in {"", ".", ".."}:
         return "target_path must point to a file"
+    if target.exists() and target.is_dir():
+        return "target_path must point to a file, not a directory"
     if suffixes and target.suffix not in suffixes:
         return f"target_path must use one of these suffixes: {', '.join(sorted(suffixes))}"
     return target, rel
