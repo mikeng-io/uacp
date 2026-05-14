@@ -2,10 +2,10 @@ schema_version: '0.1'
 kind: uacp.run_manifest
 run_id: uacp-phase4-filesystem-containment-20260513-215531
 title: Phase 4 filesystem containment
-current_phase: execute
-status: active_execute_evidence_checker_implemented
+current_phase: resolve
+status: resolved_completed_evidence_only
 routing_outcome: standard_uacp
-granularity_level: 8
+granularity_level: 7
 authority:
   requested_by: Mike
   authorization_source: current private Telegram control prompt
@@ -21,19 +21,35 @@ artifacts:
   phase4_sandbox_verification: verification/phase4-sandbox-check-implementation-20260513.yaml
   phase4_live_probe: verification/live-guardian-proof-20260513-phase4-sandbox-check.yaml
   post_implementation_council: verification/uacp-phase4-sandbox-check-post-implementation-council-20260513.yaml
+  resolve_readiness: verification/phase4-resolve-readiness-20260514.yaml
+  execute_to_verify_transition: state/runs/uacp-phase4-filesystem-containment-20260513-execute-to-verify-transition.yaml
+  verify_to_resolve_transition: state/runs/uacp-phase4-filesystem-containment-20260513-verify-to-resolve-transition.yaml
+  resolution: outputs/uacp-phase4-resolution-20260514.yaml
 heartgate:
   propose_to_plan:
     decision: warn
     accepted_warnings:
-    - filesystem_containment_design concerns accepted into PLAN requirements
-    - verification_strategy concerns accepted into PLAN requirements
+      - filesystem_containment_design concerns accepted into PLAN requirements
+      - verification_strategy concerns accepted into PLAN requirements
   plan_to_execute:
     decision: warn
     accepted_warnings:
-    - standard terminal/execute_code paths remain fail-closed until a real runtime seam exists
+      - standard terminal/execute_code paths remain fail-closed until a real runtime seam exists
+  execute_to_verify:
+    decision: warn
+    accepted_warnings:
+      - deferred runtime execution seam accepted into next phase
+  verify_to_resolve:
+    decision: warn
+    accepted_warnings:
+      - evidence-only closure accepted; shell/code allow path remains blocked
 execution_constraints:
-- Do not implement until PLAN-to-EXECUTE transition is written and checked by uacp_heartgate_check.
-- Keep shell/code fail-closed until positive containment evidence exists.
-- Do not push Hermes Agent upstream.
-- Do not claim UACP prevents out-of-band manual/host mutation.
-next_step: Design a real runtime execution seam or contained-shell surface; do not claim standard shell/code allow path is enabled.
+  - Keep shell/code fail-closed until positive containment evidence is consumed by a real runtime execution seam.
+  - Do not push Hermes Agent upstream.
+  - Do not claim UACP prevents out-of-band manual/host mutation.
+completion_summary:
+  result: uacp_sandbox_check evidence tool implemented and verified; no standard shell/code allow path enabled.
+  live_probe: 48 checks pass
+  council: post-implementation Agent Council passed
+  cleanup: Hermes Agent duplicate plugin copies and temporary probe source are absent
+next_step: Start next phase for a real contained runtime execution seam.

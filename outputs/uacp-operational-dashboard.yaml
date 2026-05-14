@@ -1,7 +1,7 @@
 schema_version: '0.1'
 kind: uacp.operational_dashboard
 status: runtime_prototype_active
-last_updated: 2026-05-14T07:53:18+0800
+last_updated: 2026-05-14T08:21:54+0800
 authority:
   registry: docs/index.md
   runtime_design: docs/runtime-enforcement.md
@@ -55,12 +55,11 @@ open_blockers:
   severity: medium
   summary: Manual or host-side edits are outside UACP's enforcement boundary and must be revalidated before affected artifacts are trusted.
 next_actions_ordered:
-- Fresh-session reload verification passed: uacp_state_write, uacp_artifact_write, uacp_doc_write, uacp_config_write, uacp_heartgate_check, and uacp_sandbox_check are visible in the active tool schema.
-- Design and prove filesystem containment for UACP-bound shell/code execution.
-- Current surfaces are fail-closed for UACP-bound shell/code execution without containment.
-- Use the corrected trust boundary for containment design: UACP declares required posture, Guardian verifies runtime evidence, and host/runtime supplies containment.
-- Design the runtime execution seam or contained-shell surface that actually runs commands inside the verified bwrap/read-only-root containment.
-- Run post-implementation Agent Council before any claim that Phase 4 enables an allow path for shell/code.
+- Phase 4 is resolved as evidence-only; standard shell/code remain fail-closed.
+- Phase 4B TRIAGE is active for a contained runtime execution seam.
+- Create bounded PROPOSE and PLAN artifacts before implementing any contained-shell allow path.
+- Use the corrected trust boundary: UACP declares required posture, Guardian verifies runtime evidence, and host/runtime supplies containment.
+- Run post-implementation Agent Council before any claim that a shell/code allow path is enabled.
 operator_approval_policy:
   autonomous: local UACP artifact edits, local tests, local commits, local proof harnesses, skill/doc sync after verified behavior
   notify_not_ask: local gateway restart for scoped UACP verification, local branch/worktree cleanup, long tests
@@ -68,3 +67,10 @@ operator_approval_policy:
 compression:
   status: deferred
   handoff: HERMES_ROOT/notes/compression-loop-handoff-20260514.md
+active_run:
+  run_id: uacp-phase4b-contained-execution-seam-20260514-082154
+  phase: triage
+  manifest: state/runs/uacp-phase4b-contained-execution-seam-20260514-082154.yaml
+previous_run:
+  run_id: uacp-phase4-filesystem-containment-20260513-215531
+  status: resolved_completed_evidence_only

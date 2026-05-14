@@ -1,0 +1,43 @@
+schema_version: '0.1'
+kind: uacp.resolution
+resolution_id: uacp-phase4-filesystem-containment-resolve-20260514
+run_id: uacp-phase4-filesystem-containment-20260513-215531
+title: Phase 4 filesystem containment evidence checker
+status: resolved
+timestamp: 2026-05-14T08:21:54+0800
+summary: Phase 4 implemented a bwrap-backed containment evidence checker and preserved fail-closed standard shell/code behavior. It closed as an evidence-only phase; contained execution is deferred to the next phase.
+completed:
+  - uacp_sandbox_check registered in the UACP-owned Hermes Guardian adapter.
+  - Guardian policy classifies uacp_sandbox_check as evidence.containment.
+  - Live proof harness covers 48 checks and passes.
+  - Agent Council post-implementation review passed.
+  - Hermes Agent duplicate plugin copies are absent from the local patch set.
+  - Temporary uacp_symlink_probe source and binding are absent.
+  - Phase 4 plan document is marked completed/resolved.
+not_enabled:
+  - Standard Hermes terminal allow path for UACP-bound shell execution.
+  - Standard Hermes execute_code allow path for UACP-bound code execution.
+accepted_residual_risks:
+  - id: runtime_execution_seam_absent
+    owner: next_phase
+    condition: Design/prove a contained execution seam before enabling shell/code allow paths.
+  - id: execute_code_backend_unproven
+    owner: next_phase_or_later
+    condition: Keep execute_code blocked until backend-specific containment evidence exists.
+heartgate:
+  execute_to_verify:
+    artifact: state/runs/uacp-phase4-filesystem-containment-20260513-execute-to-verify-transition.yaml
+    decision: warn
+    accepted: true
+  verify_to_resolve:
+    artifact: state/runs/uacp-phase4-filesystem-containment-20260513-verify-to-resolve-transition.yaml
+    decision: warn
+    accepted: true
+lessons:
+  - Evidence tools must not be treated as permission grants unless the actual runtime path is proven to consume the evidence and execute inside containment.
+  - UACP should continue separating mechanism evidence from execution allow paths.
+  - Heartgate schema requires deferred items to include owner, condition, and accepted_by; warnings require owner and residual_risk.
+next_recommended_phase:
+  run_theme: contained runtime execution seam
+  objective: Design and prove a Hermes runtime surface that actually executes UACP-bound shell commands inside bwrap/read-only-root containment.
+  initial_boundary: Do not include execute_code backend containment until terminal containment seam is proven.

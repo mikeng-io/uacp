@@ -1,19 +1,18 @@
 kind: uacp.current_state
-active_run_id: uacp-phase4-filesystem-containment-20260513-215531
-active_run_manifest: state/runs/uacp-phase4-filesystem-containment-20260513-215531.yaml
+active_run_id: uacp-phase4b-contained-execution-seam-20260514-082154
+active_run_manifest: state/runs/uacp-phase4b-contained-execution-seam-20260514-082154.yaml
 mutation_policy: uacp_state_required
-current_transition_artifact: state/runs/uacp-phase4-filesystem-containment-20260513-plan-to-execute-transition.yaml
+current_transition_artifact: null
 kanban_binding_artifact: state/kanban.yaml
 kanban_board_slug: uacp
 bootstrap_closed: true
 governed_mutation_active: true
 notes:
-- Phase 4 filesystem containment has entered PLAN after propose-to-plan Heartgate returned warn with accepted warnings.
-- Focused Agent Council returned concerns; those concerns are hard PLAN requirements before EXECUTE.
-- UACP-bound shell/code execution remains fail-closed until runtime containment evidence is implemented and verified.
-- No runtime behavior change has been made in Phase 4 yet.
-- Phase 4 entered EXECUTE after PLAN-to-EXECUTE Heartgate returned warn with accepted warning.
-- Sandbox evidence checker is implemented and verified; standard shell/code execution remains fail-closed pending a real runtime execution seam.
+  - Phase 4 filesystem containment is resolved as evidence-only; uacp_sandbox_check is implemented and verified.
+  - Standard terminal and execute_code remain fail-closed for UACP-bound shell/code execution.
+  - Phase 4B active TRIAGE has started for a real contained runtime execution seam.
+  - Phase 4B must not enable any allow path until proposal, plan, Heartgate, live proof, and Agent Council review pass.
 previous_active_run:
-  run_id: uacp-phase2-governed-writers-20260514
-  manifest: state/runs/uacp-phase2-governed-writers-20260514.yaml
+  run_id: uacp-phase4-filesystem-containment-20260513-215531
+  manifest: state/runs/uacp-phase4-filesystem-containment-20260513-215531.yaml
+  final_status: resolved_completed_evidence_only

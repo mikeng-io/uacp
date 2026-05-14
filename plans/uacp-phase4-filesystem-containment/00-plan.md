@@ -1,26 +1,39 @@
 # UACP Phase 4 — Filesystem Containment Plan
 
 Run ID: `uacp-phase4-filesystem-containment-20260513-215531`
-Phase: `PLAN`
-Status: draft, pre-EXECUTE
+Phase: `RESOLVE`
+Status: completed — evidence-only containment phase resolved on 2026-05-14.
 
 ## Objective
 
 Enable UACP-bound `exec.shell` and `exec.code_with_tool_proxy` only when the runtime can prove filesystem containment. The default remains fail-closed.
 
+## Resolution outcome
+
+Phase 4 implemented and verified `uacp_sandbox_check` as a containment evidence checker. It proves that the local host can run a bwrap read-only-root probe that blocks writes to `UACP_ROOT` while keeping a sandbox workspace writable.
+
+Phase 4 deliberately did **not** enable the standard Hermes `terminal` or `execute_code` paths. Those paths remain fail-closed for UACP-bound shell/code execution until a real contained execution seam exists.
+
+Resolution artifacts:
+
+- `verification/phase4-resolve-readiness-20260514.yaml`
+- `verification/uacp-phase4-sandbox-check-post-implementation-council-20260513.yaml`
+- `state/runs/uacp-phase4-filesystem-containment-20260513-execute-to-verify-transition.yaml`
+- `state/runs/uacp-phase4-filesystem-containment-20260513-verify-to-resolve-transition.yaml`
+
 ## Authority and boundaries
 
-- Authority: Mike explicitly requested Phase 4 start in the private control session.
+- Authority: Mike explicitly requested Phase 4 start in the private control session and later authorized continuing if completion checks passed.
 - UACP declares required posture and evidence obligations.
 - Guardian verifies runtime-provided evidence inside the controlled tool path.
 - Host/runtime supplies real containment.
 - Manual/operator-side edits remain out-of-band and untrusted until revalidated.
-- No upstream Hermes Agent push or PR in this phase.
-- No broad shell/code enablement without positive proof.
+- No upstream Hermes Agent push or PR was performed in this phase.
+- No broad shell/code enablement was performed.
 
 ## Council constraints accepted into PLAN
 
-The focused Agent Council returned `concerns`, not `fail`. The following are hard requirements before EXECUTE can be accepted:
+The focused Agent Council returned `concerns`, not `fail`. The following were accepted as hard requirements before EXECUTE:
 
 1. Name a concrete containment mechanism.
 2. Make `uacp_sandbox_check` or equivalent evidence generation required for allow decisions.
@@ -30,81 +43,82 @@ The focused Agent Council returned `concerns`, not `fail`. The following are har
 6. Define evidence TTL/invalidation and rollback to fail-closed.
 7. Generate PLAN-phase gate selection and Heartgate-check PLAN→EXECUTE transition before implementation.
 
-## Proposed implementation shape
+All applicable evidence-checker requirements were satisfied. The positive allow-path candidate was explicitly deferred because no real contained execution seam exists yet.
+
+## Implemented shape
 
 ### Target files
 
 - `runtime-adapters/hermes/plugins/uacp_guardian/__init__.py`
-  - Add containment verification helper.
-  - Add `uacp_sandbox_check` tool handler if implementation proceeds.
-  - Ensure `filesystem_guard_verified=True` is set only after positive evidence.
+  - Added containment path relationship helper.
+  - Added bwrap read-only-root probe helper.
+  - Added `uacp_sandbox_check` tool handler.
+  - Preserved fail-closed standard shell/code behavior.
 - `runtime-adapters/hermes/plugins/uacp_guardian/plugin.yaml`
-  - Register `uacp_sandbox_check` if implemented.
-- `runtime-adapters/hermes/plugins/uacp_guardian/kernel.py`
-  - No change expected unless PLAN→EXECUTE discovers a missing neutral-kernel concept.
+  - Registered `uacp_sandbox_check`.
 - `config/guardian-policy.yaml`
-  - Add explicit classification for `uacp_sandbox_check` if implemented.
+  - Added `evidence.containment` classification for `uacp_sandbox_check`.
 - `scripts/live_guardian_probe.py`
-  - Add positive/negative containment proof cases.
+  - Added positive and negative containment evidence checks.
 - `verification/*phase4*`
-  - Record evidence artifacts after execution.
+  - Recorded implementation, live proof, council review, and resolve readiness evidence.
 - `outputs/uacp-current-status.yaml` and `outputs/uacp-operational-dashboard.yaml`
-  - Update only after proof exists.
+  - Synchronized after proof and cleanup verification.
 
-### Containment evidence contract
+## Containment evidence contract
 
-`uacp_sandbox_check` or equivalent must return:
+`uacp_sandbox_check` returns the required evidence shape, including:
 
-- `containment_verified`: boolean
-- `mechanism`: one of `filesystem_sandbox`, `readonly_mount_for_protected_paths`, `tool_runtime_write_guard`, or `unverified`
-- `workspace_resolved`: resolved workspace path
-- `uacp_root_resolved`: resolved UACP root path
-- `path_relationship`: whether either path is inside the other
-- `mount_evidence`: read-only/mount namespace observations when available
-- `write_probe`: attempted write result from the execution context
-- `tool_surface`: `exec.shell` or `exec.code_with_tool_proxy`
-- `backend`: terminal backend or execute_code backend identifier
-- `expires_at` or `ttl_seconds`
-- `verdict_reason`
+- `containment_verified`
+- `mechanism`
+- resolved workspace and UACP root paths
+- path relationship evidence
+- bwrap write-probe result
+- tool surface/backend distinction
+- TTL/evidence reason
+- `allow_standard_tool_path: false`
 
-Guardian must treat missing, stale, or failed evidence as `filesystem_guard_verified=False`.
+Guardian treats missing, stale, failed, or non-applicable evidence as `filesystem_guard_verified=False`.
 
-### Required probe cases
+## Required probe cases
 
-- Existing negative: terminal without containment → block.
-- Existing negative: execute_code without containment → block.
-- New positive candidate: terminal in verified contained workspace → allow_with_audit.
-- New negative: terminal with workspace under UACP_ROOT → block.
-- New negative: terminal where write probe to UACP_ROOT succeeds → block.
-- New positive candidate: execute_code with verified backend containment → allow_with_audit.
-- New negative: execute_code backend unknown/shared host filesystem without proof → block.
+Final live proof status: pass, 48 checks.
 
-If no positive containment mechanism can be safely proven locally, Phase 4 should resolve as design-only with fail-closed preserved.
+Covered:
+
+- terminal without containment → block
+- execute_code without containment → block
+- bwrap evidence probe → pass as mechanism evidence
+- workspace under UACP_ROOT → block
+- execute_code backend unproven → block
+- unknown plugin mutator → block
+- live symlink bindings → pass
+- duplicate local plugin copies absent → pass
+- temporary symlink probe absent → pass
+
+Deferred:
+
+- terminal executing through a real contained runtime seam → next phase
+- execute_code with verified backend containment → next phase or later
 
 ## Rollback
 
-Rollback trigger:
+Rollback remains simple because no shell/code allow path was enabled:
 
-- Any containment probe fails after an allow path was added.
-- `uacp_sandbox_check` evidence is stale/malformed.
-- Live proof shows shell/code can write to UACP_ROOT when it should not.
-
-Rollback action:
-
-- Revert adapter changes or disable allow path by policy/config.
-- Force `filesystem_guard_verified=False` for affected tool surface.
+- Remove/disable `uacp_sandbox_check` classification or handler if evidence semantics are found unsafe.
+- Keep `filesystem_guard_verified=False` for standard tool paths.
 - Re-run live proof to confirm shell/code fail-closed.
-- Record rollback verification artifact before updating status.
 
-## Verification before EXECUTE may close
+## Verification before closure
 
-- YAML validates.
-- Python compiles for touched adapter/probe files.
-- Live Guardian proof passes all Phase 4 cases.
-- Verification artifact records command, result, and residual risks.
-- Agent Council review runs after implementation if behavior changes execution permission.
+- YAML parse: pass
+- Live Guardian proof: pass, 48 checks
+- Post-implementation Agent Council: pass
+- Heartgate EXECUTE→VERIFY: warn accepted, no blockers
+- Heartgate VERIFY→RESOLVE: warn accepted, no blockers
 
-## Transition gates
+## Final deferred items
 
-- Before EXECUTE: create PLAN-phase gate-selection artifact and PLAN→EXECUTE transition artifact; run `uacp_heartgate_check`.
-- Before VERIFY→RESOLVE: run proof harness, council review, and Heartgate on transition artifact.
+- Design and implement a real contained execution seam before any UACP-bound shell/code allow path can be enabled.
+- Keep `execute_code` blocked until backend-specific containment evidence exists.
+- Re-run live proof and Agent Council before claiming any shell/code allow path is enabled.

@@ -1,0 +1,76 @@
+schema_version: '0.1'
+kind: uacp.phase_transition
+transition_id: uacp-phase4-filesystem-containment-20260513-verify-to-resolve
+run_id: uacp-phase4-filesystem-containment-20260513-215531
+from_phase: verify
+to_phase: resolve
+decision: pass
+routing_outcome: standard_uacp
+granularity_level: 5
+triage_artifact: state/runs/uacp-phase4-filesystem-containment-20260513-215531-triage.yaml
+gate_selection_artifact: plans/uacp-phase4-filesystem-containment/01-plan-gate-selection.yaml
+invariant_summary:
+  - id: verification_artifact_present
+    status: pass
+    evidence: verification/phase4-resolve-readiness-20260514.yaml
+  - id: council_synthesis_present
+    status: pass
+    evidence: verification/uacp-phase4-sandbox-check-post-implementation-council-20260513.yaml
+  - id: cleanup_state_synchronized
+    status: pass
+    evidence: "e5d2fd2 docs: sync runtime binding cleanup status"
+cluster_summary:
+  - cluster_id: verification
+    state: pass
+    artifact_path: verification/phase4-resolve-readiness-20260514.yaml
+  - cluster_id: council
+    state: pass
+    artifact_path: verification/uacp-phase4-sandbox-check-post-implementation-council-20260513.yaml
+  - cluster_id: documentation_sync
+    state: pass
+    artifact_path: outputs/uacp-current-status.yaml
+blockers: []
+warnings:
+  - id: phase4_evidence_only_closure
+    owner: next_phase
+    residual_risk: Phase 4 resolved as evidence-only; standard shell/code allow path remains blocked until a contained execution seam is designed and verified.
+deferred_items:
+  - id: runtime_execution_seam_absent
+    owner: next_phase
+    accepted_by: Mike current private control prompt to continue next phase
+    condition: Next phase must design/prove a contained execution seam before enabling shell/code.
+  - id: execute_code_backend_unproven
+    owner: next_phase
+    accepted_by: Mike current private control prompt to continue next phase
+    condition: execute_code remains blocked until backend-specific containment evidence exists.
+authority:
+  requested_by: Mike
+  authorization_source: current private Telegram control prompt asking to continue next phase if complete
+artifact_paths:
+  - state/runs/uacp-phase4-filesystem-containment-20260513-execute-to-verify-transition.yaml
+  - verification/phase4-resolve-readiness-20260514.yaml
+  - verification/uacp-phase4-sandbox-check-post-implementation-council-20260513.yaml
+  - plans/uacp-phase4-filesystem-containment/00-plan.md
+  - outputs/uacp-current-status.yaml
+  - outputs/uacp-operational-dashboard.yaml
+declared_side_effects:
+  - Advance Phase 4 from VERIFY to RESOLVE and mark Phase 4 complete.
+write_containment_record: governed state/artifact writers for UACP artifacts; live probe confirms standard shell/code remain fail-closed without containment.
+blocker_synthesis: Phase 4 has no unresolved blocker for closure. The unresolved execution seam is not part of the evidence-only phase closure and is carried forward.
+council_synthesis_artifact: verification/uacp-phase4-sandbox-check-post-implementation-council-20260513.yaml
+verification_artifact: verification/phase4-resolve-readiness-20260514.yaml
+accepted_exceptions: []
+phase_local_granularity:
+  phase: verify
+  entry_estimate: 6
+  exit_actual: 5
+  delta_reason: Verification confirmed evidence-only behavior and preserved fail-closed execution boundaries.
+  downstream_projection:
+    resolve: 4
+composite_granularity: 5
+human_involvement:
+  required: false
+  reason: Mike authorized continuing if completion checks pass; no unsafe runtime allow path is enabled.
+  authority_needed: none
+  decision_owner: Mike
+terminal_kind: none
