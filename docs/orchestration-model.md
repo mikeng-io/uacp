@@ -421,6 +421,14 @@ A council invocation must declare:
 - dispatch surfaces allowed: `delegate_task`, Hermes Kanban workers, external coding agents, browser/computer-use automation, web extraction/search services, or other approved adapters.
 - tool/evidence adapter allowlist and side-effect boundaries.
 - expected output artifact and finding format.
+- retrieval obligations when the council is asked to validate governance, runtime, artifact-management, or security-sensitive claims.
+
+Retrieval-led council rule:
+
+- A council that reviews governance, runtime, artifact-management, Guardian/Heartgate, lifecycle, or security-sensitive claims must inspect ground-truth artifacts directly.
+- The council prompt must name the concrete files, directories, commands, or evidence artifacts to inspect.
+- The synthesis artifact must record `inspected_paths` and file/path evidence for material findings.
+- A summary-only council may brainstorm or critique framing, but it must not be used to claim runtime/governance correctness.
 
 Dispatch semantics:
 
@@ -476,6 +484,17 @@ A finding should include:
 - state: `open`, `resolved`, `accepted_risk`, `not_applicable`, or `deferred`.
 
 VERIFY and RESOLVE decide whether findings block, warn, or pass according to selected evidence clusters and non-waivable invariants.
+
+### Blocker, concern, and rerun protocol
+
+Council findings must be resolved before they are allowed to become transition evidence:
+
+- `blocker`: phase transition is blocked until the issue is patched, explicitly rescoped, or rejected with human authority.
+- `concern`: must be patched, accepted as residual risk, or deferred with owner, acceptance, and condition.
+- `rerun_required`: true when the finding touches a boundary the next phase depends on, such as Guardian writer containment, Heartgate transition truthfulness, council artifact schema, runtime tool exposure, or protected state mutation.
+- Rerun synthesis must cite the original finding IDs, the patch or accepted-risk artifact, and updated inspected paths/evidence.
+
+A council rerun is not ceremony. It is required when the previous council found a blocker or boundary-touching concern and later work claims that finding is resolved.
 
 ## Deep-* Compatibility
 

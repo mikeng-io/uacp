@@ -298,6 +298,7 @@ council_synthesis_schema:
   - findings
   - verdict
   - artifact_paths
+  - inspected_paths
   fields:
     council_id:
       type: string
@@ -349,6 +350,17 @@ council_synthesis_schema:
       type: map
     artifact_paths:
       type: list
+      description: Output, synthesis, and related artifact paths.
+    inspected_paths:
+      type: list
+      description: Ground-truth files, directories, commands, or evidence artifacts inspected by retrieval-led council reviewers.
+    rerun_of_findings:
+      type: list
+      description: Original finding IDs addressed by a rerun council, when applicable.
+  artifact_conventions:
+    phase_local_council: verification/<run-or-topic>-<phase>-council-synthesis-<date>.yaml
+    heartgate_coherence: verification/<run-or-topic>-heartgate-coherence-<date>.yaml
+    transition_reference_rule: council_synthesis_artifact references phase-local council evidence; heartgate_coherence.artifact_path references transition-boundary coherence evidence.
   heartgate_council_extension:
     purpose: When a council is attached to Heartgate rather than a phase work product,
       findings should focus on transition truthfulness, lifecycle contract satisfaction,

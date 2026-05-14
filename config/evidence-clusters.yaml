@@ -280,6 +280,9 @@ evidence_domain_registry:
     runtime implementation until selection logic exists and is verified.
   deferred_until: domain registry shape and runtime selector are reviewed in a later
     implementation phase
+  phase6_decision: Runtime selector activation is explicitly deferred. Retrieval-led
+    council protocol may reference this registry as design input, but must not claim
+    it is runtime-active until a separate implementation phase adds and verifies selector logic.
 example_artifact:
   kind: uacp.evidence_cluster
   cluster_id: verify.runtime_validation

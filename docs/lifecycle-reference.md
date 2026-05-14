@@ -34,6 +34,13 @@ The Heartgate Council is not a duplicate code review. It performs lifecycle cohe
 
 For non-trivial runtime/governance work, phase transitions should include both: phase-local council synthesis as evidence, and Heartgate-level transition coherence before accepting the move. For low-risk reversible work, Heartgate may perform the coherence checklist without a separate council fan-out.
 
+Artifact separation rule:
+
+- Phase-local Agent Council outputs use `kind: uacp.council_synthesis`, live under `verification/`, and are referenced from transition artifacts by `council_synthesis_artifact`.
+- Heartgate/transition coherence evidence lives under `verification/` and is referenced from transition artifacts by `heartgate_coherence.artifact_path`.
+- A single artifact may cover both roles only when it explicitly states the dual scope and includes the required Heartgate lenses; otherwise phase-local council synthesis and Heartgate coherence are separate artifacts.
+- Recommended naming: `verification/<run-or-topic>-<phase>-council-synthesis-<date>.yaml` for phase-local councils and `verification/<run-or-topic>-heartgate-coherence-<date>.yaml` for transition coherence. Existing legacy artifacts may have older names but new artifacts should prefer this pattern.
+
 VERIFY uses a finding-driven pattern when council review, audit, research, or validation is selected. Findings must identify severity, evidence, affected artifact, recommended action, owner/disposition, and state. Phase closure depends on whether findings are resolved, accepted as explicit residual risk, deferred with owner/condition, or blocking.
 
 

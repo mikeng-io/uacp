@@ -269,6 +269,32 @@ council_model:
   mid_phase_escalation: Apply higher tier to pending work; pause before next protected/irreversible/external
     side effect; block phase exit on unresolved HIGH/CRITICAL findings unless resolved,
     accepted, or re-planned.
+  finding_disposition_protocol:
+    blocker: Must be patched, rescoped, or rejected with explicit human authority before phase transition.
+    concern: Must be patched, accepted as residual risk, or deferred with owner, acceptance, and condition.
+    rerun_required_when:
+      - Guardian or Heartgate boundary semantics changed
+      - protected state or governed writer containment changed
+      - council synthesis schema or artifact evidence contract changed
+      - runtime/tool exposure or execution authority changed
+      - next phase depends on the finding being resolved
+    rerun_synthesis_requires:
+      - original finding IDs
+      - patch or accepted-risk artifact paths
+      - inspected_paths showing ground-truth revalidation
+      - updated verdict and residual risks
+  retrieval_led_council_requirement:
+    applies_to:
+      - governance
+      - runtime_policy
+      - guardian
+      - heartgate
+      - lifecycle
+      - artifact_management
+      - security_sensitive
+    synthesis_must_record:
+      - inspected_paths
+      - file_or_artifact_evidence_for_material_findings
   profile_selection: Select execution profiles from role, phase-local granularity,
     risk, required tools/evidence services, permission boundaries, cost/quality tradeoff,
     and need for independent perspective.

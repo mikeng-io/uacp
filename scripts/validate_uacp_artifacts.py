@@ -123,9 +123,42 @@ def validate_council_synthesis(path: Path, obj: dict, config: dict, issues: list
     verdict = obj.get("verdict")
     if verdict and verdict not in VALID_COUNCIL_VERDICTS:
         issues.append(f"BLOCK {path}: invalid council verdict {verdict!r}")
+    inspected = obj.get("inspected_paths")
+    if inspected is not None and not isinstance(inspected, list):
+        issues.append(f"BLOCK {path}: inspected_paths must be a list")
+    if inspected == []:
+        issues.append(f"BLOCK {path}: inspected_paths must not be empty for council synthesis")
     validate_finding_states(path, obj, issues)
 
 
+def validate_triage(path: Path, obj: dict, issues: list[str]) -> None:
+    required = [
+        "kind", "triage_id", "request_summary", "authority", "factor_scores",
+        "granularity_level", "routing_outcome", "next_step",
+    ]
+    check_required(str(path), obj, required, issues)
+    routing = obj.get("routing_outcome")
+    if routing and routing not in {"direct", "lightweight", "standard_uacp", "full_governance", "block_or_clarify"}:
+        issues.append(f"BLOCK {path}: invalid routing_outcome {routing!r}")
+    authority = obj.get("authority") if isinstance(obj.get("authority"), dict) else {}
+    if authority.get("status") not in {"pass", "warn", "block"}:
+        issues.append(f"BLOCK {path}: authority.status must be pass|warn|block")
+
+
+def validate_proposal(path: Path, obj: dict, issues: list[str]) -> None:
+    required = [
+        "kind", "proposal_id", "run_id", "phase", "triage_artifact", "title",
+        "objective", "scope", "declared_side_effects", "authority", "human_involvement",
+    ]
+    check_required(str(path), obj, required, issues)
+    if obj.get("phase") != "propose":
+        issues.append(f"BLOCK {path}: proposal phase must be 'propose'")
+    authority = obj.get("authority") if isinstance(obj.get("authority"), dict) else {}
+    if authority.get("status") not in {"pass", "warn", "block"}:
+        issues.append(f"BLOCK {path}: authority.status must be pass|warn|block")
+    scope = obj.get("scope") if isinstance(obj.get("scope"), dict) else {}
+    if "in_scope" not in scope or "out_of_scope" not in scope:
+        issues.append(f"BLOCK {path}: scope must include in_scope and out_of_scope")
 
 
 def validate_heartgate_coherence(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
@@ -282,6 +315,10 @@ def main() -> int:
                 validate_council_synthesis(path, obj, phase_config, issues)
             elif kind == "uacp.gate_selection":
                 validate_gate_selection(path, obj, issues)
+            elif kind == "uacp.triage":
+                validate_triage(path, obj, issues)
+            elif kind == "uacp.proposal":
+                validate_proposal(path, obj, issues)
             elif kind == "uacp.execute_task":
                 validate_execute_task(path, obj, issues)
             elif kind == "uacp.evidence_cluster":
