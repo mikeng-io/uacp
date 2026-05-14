@@ -1,0 +1,24 @@
+schema_version: '0.1'
+kind: uacp.run_manifest
+run_id: uacp-phase6-agent-council-operationalization-20260515-012634
+phase: plan
+status: active_plan
+summary: Phase 6 Agent Council operationalization is in PLAN. Proposal council concerns were patched into proposal/gate artifacts; PROPOSE_TO_PLAN Heartgate returned warn with no blockers. Plan and plan gate-selection artifacts exist.
+triage_artifact: state/runs/uacp-phase6-agent-council-operationalization-20260515-012634-triage.yaml
+proposal: proposals/uacp-phase6-agent-council-operationalization-20260515.yaml
+gate_selection: proposals/uacp-phase6-agent-council-operationalization-20260515-gate-selection.yaml
+proposal_council_synthesis: verification/uacp-phase6-agent-council-proposal-council-synthesis-20260515.yaml
+transition_propose_to_plan: state/runs/uacp-phase6-agent-council-operationalization-20260515-propose-to-plan-transition.yaml
+plan: plans/uacp-phase6-agent-council-operationalization-20260515/00-plan.md
+plan_gate_selection: plans/uacp-phase6-agent-council-operationalization-20260515/01-plan-gate-selection.yaml
+created_at: '2026-05-15T01:26:34+08:00'
+constraints:
+  - do_not_collapse_agent_council_into_kanban
+  - keep_heartgate_council_distinct_from_phase_local_council
+  - retrieval_led_ground_truth_before_correctness_claims
+  - no_public_upstream_push_without_explicit_approval
+  - no_security_boundary_weakening
+warnings_carried:
+  - proposal_triage_validator_gap
+  - evidence_domain_registry_not_runtime_active
+next_step: create surface inventory, then run plan council before PLAN_TO_EXECUTE

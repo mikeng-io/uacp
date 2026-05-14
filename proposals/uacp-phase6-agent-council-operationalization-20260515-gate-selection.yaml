@@ -1,0 +1,92 @@
+schema_version: '0.1'
+kind: uacp.gate_selection
+selection_id: uacp-phase6-agent-council-operationalization-20260515-propose-gate
+run_id: uacp-phase6-agent-council-operationalization-20260515-012634
+phase: propose
+created_at: '2026-05-15T01:26:34+08:00'
+updated_at: '2026-05-15T01:31:00+08:00'
+domains:
+  - governance
+  - agent_council
+  - heartgate
+  - lifecycle
+  - runtime_policy
+  - artifact_management
+artifact_types:
+  - uacp.proposal
+  - uacp.gate_selection
+  - uacp.council_synthesis
+  - uacp.phase_transition
+  - uacp.verification
+risk_level: high
+granularity_level: 7
+routing_outcome: full_governance
+invariant_checks:
+  - id: authority.explicit
+    status: pass
+    reason: Mike instructed continue in private Telegram after Phase 5 resolve/push.
+  - id: side_effects.declared
+    status: pass
+    reason: Current phase writes proposal/gate/state/verification artifacts; later docs/config/runtime changes require governed writers and phase transitions.
+  - id: writes.contained
+    status: pass
+    reason: UACP artifacts are written through governed writer tools under UACP_ROOT.
+  - id: privacy_safety.constrained
+    status: pass
+    reason: No private data or credentials involved; public/upstream actions are gated.
+  - id: state.traceable
+    status: pass
+    reason: Triage, proposal, gate selection, council synthesis, and current-state pointers are artifact-backed.
+  - id: failure.conservative
+    status: pass
+    reason: Missing council evidence or transition blockers will stop later phases.
+  - id: mutation.visible
+    status: pass
+    reason: All UACP mutations are recorded as artifacts/state updates.
+selected_clusters:
+  required:
+    - id: scope
+      reason: Operational boundaries must distinguish Agent Council, Heartgate, Kanban, lifecycle state, and runtime tools.
+    - id: authority
+      reason: Later automation/external changes require explicit gating.
+    - id: side_effects
+      reason: Proposal may lead to docs/config/skills/validator/runtime policy edits.
+    - id: risk
+      reason: Wrong council protocol can create false governance confidence.
+    - id: verification
+      reason: Phase 6 needs retrieval-led council and deterministic artifact validation.
+    - id: integration
+      reason: Council protocol touches lifecycle transitions, Heartgate coherence, Kanban, and runtime dispatch.
+    - id: retrieval_led_council_protocol
+      reason: Phase 5 revealed this as a recurring evidence obligation and proposal council required mechanization.
+  optional:
+    - id: model_routing
+      reason: Delegate routing matters operationally; canonical docs/config must remain model-agnostic and use configured routing.
+    - id: runtime_automation
+      reason: Only selected if PLAN approves implementation beyond docs/config/protocol and current dogfood posture allows it.
+    - id: evidence_domain_registry
+      reason: PLAN must decide whether to include or explicitly defer the not-runtime-active registry/selector.
+  generated:
+    - id: blocker_concern_rerun_protocol
+      reason: Proposal council identified rerun handling as underspecified and scattered across current doctrine.
+not_applicable:
+  - id: external_public_release
+    reason: Public Hermes upstream PR/push is explicitly out of scope for PROPOSE.
+transition_requirements:
+  propose_to_plan:
+    - proposal council synthesis artifact with ground-truth file/path evidence
+    - proposal/gate patched for proposal council concerns before transition
+    - Heartgate transition check before PLAN; heartgate_coherence is optional here unless exceptional risk is recorded because current config requires coherence primarily for execute/verify material transitions
+  later_transitions:
+    - docs/config changes must use governed writer tools
+    - state mutation must route through uacp-state/governed state writer surfaces
+    - Heartgate coherence required for material execute/verify transitions when configured triggers match
+    - phase-local council and Heartgate Council artifacts must remain distinct
+    - council_synthesis_artifact must reference a uacp.council_synthesis artifact when council review is selected
+    - heartgate_coherence.artifact_path must reference Heartgate/transition coherence evidence, not phase-local work-product council alone
+reasoning:
+  summary: >-
+    Full governance remains selected because this work affects UACP's multi-agent deliberation model,
+    phase-end closure confidence, Heartgate coherence, and future execution policy. Gate selection was
+    patched after proposal council to remove vague artifact type labels, align Heartgate requirements
+    with config, and require explicit council synthesis/schema boundaries.

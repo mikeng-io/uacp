@@ -1,0 +1,117 @@
+kind: uacp.council_synthesis
+council_id: uacp-phase6-agent-council-operationalization-proposal-council-20260515
+mode: propose
+tier: tier_2_role_diverse
+phase: propose
+run_id: uacp-phase6-agent-council-operationalization-20260515-012634
+created_at: '2026-05-15T01:30:00+08:00'
+phase_local_granularity:
+  phase: propose
+  entry_estimate: 7
+  exit_actual: 7
+  delta_reason: Proposal is directionally viable but required patching before PLAN to avoid duplicate doctrine, model routing drift, schema ambiguity, and missing baseline references.
+  downstream_projection:
+    plan: 7
+    execute: 8
+    verify: 8
+    resolve: 5
+roles:
+  - lifecycle_governance_reviewer
+  - integration_runtime_reviewer
+  - devils_advocate_artifact_management_reviewer
+dispatch_surfaces:
+  - delegate_task:kimi-coding/moonshotai/kimi-k2.6
+artifact_paths:
+  reviewed:
+    - proposals/uacp-phase6-agent-council-operationalization-20260515.yaml
+    - proposals/uacp-phase6-agent-council-operationalization-20260515-gate-selection.yaml
+    - state/runs/uacp-phase6-agent-council-operationalization-20260515-012634-triage.yaml
+    - docs/orchestration-model.md
+    - docs/lifecycle-reference.md
+    - docs/index.md
+    - docs/runtime-enforcement.md
+    - config/phase-transitions.yaml
+    - config/review-routing.yaml
+    - config/evidence-clusters.yaml
+    - config/state.yaml
+    - scripts/validate_uacp_artifacts.py
+    - knowledge/phase5-kanban-guard-resolve-lessons-20260514.md
+    - verification/phase5-resolve-20260514.yaml
+    - plans/uacp-agent-council-followthrough/
+  synthesis: verification/uacp-phase6-agent-council-proposal-council-synthesis-20260515.yaml
+findings:
+  - id: C1
+    severity: medium
+    status: resolved
+    title: Missing explicit phase-local vs Heartgate Council artifact separation convention
+    evidence: Proposal stated separation but did not commit to council_synthesis_artifact and heartgate_coherence field usage from config/phase-transitions.yaml.
+    remediation: Patch proposal/gate to require phase-local council synthesis artifacts under verification/ and Heartgate coherence through transition heartgate_coherence.artifact_path.
+  - id: C2
+    severity: medium
+    status: resolved
+    title: Retrieval-led obligation not mechanized
+    evidence: Phase 5 lesson requires retrieval-led council; proposal did not require inspected_paths in synthesis artifacts.
+    remediation: Patch proposal/gate to require retrieval_led_checklist and inspected_paths/file evidence in council synthesis.
+  - id: C3
+    severity: low
+    status: resolved
+    title: Hardcoded model name in proposal authority artifact
+    evidence: Proposal design direction named Kimi K 2.6 while also warning against hardcoded model names in canonical docs.
+    remediation: Patch proposal to use configured Delegate Task routing/operator constraints rather than canonical hardcoded model names.
+  - id: C4
+    severity: low
+    status: resolved
+    title: Heartgate transition/coherence requirement mismatch for propose-to-plan
+    evidence: Gate selection required Heartgate check before PLAN; config requires heartgate_coherence for execute/verify material transitions.
+    remediation: Patch gate to require Heartgate check for transition validation but reserve heartgate_coherence requirement for execute/verify unless exceptional risk justifies earlier use.
+  - id: C5
+    severity: medium
+    status: resolved
+    title: Current dogfood posture not acknowledged
+    evidence: config/review-routing.yaml locks current mode to manual_semi_auto and pauses Kanban for UACP design dogfood.
+    remediation: Patch proposal to state Kanban-backed council automation is deferred unless PLAN explicitly reopens it.
+  - id: C6
+    severity: medium
+    status: resolved
+    title: uacp-state exclusive mutation boundary omitted
+    evidence: config/state.yaml and lifecycle docs make uacp-state the governed mutation path.
+    remediation: Patch proposal/gate to require uacp-state/governed writer boundaries for state/docs/config/artifacts.
+  - id: C7
+    severity: medium
+    status: resolved
+    title: Existing council_synthesis_schema not bound
+    evidence: config/phase-transitions.yaml defines council_synthesis_schema but proposal only said verification artifacts generically.
+    remediation: Patch proposal/gate to bind council outputs to uacp.council_synthesis schema.
+  - id: C8
+    severity: medium
+    status: resolved
+    title: Blocker/concern rerun protocol underspecified
+    evidence: Rerun handling was in scope but not specified as reuse vs new deliverable.
+    remediation: Patch proposal to make unified blocker/concern rerun protocol a Phase 6 deliverable, grounded in existing escalation semantics.
+  - id: C9
+    severity: medium
+    status: accepted_risk
+    title: Proposal/triage validator coverage missing
+    evidence: scripts/validate_uacp_artifacts.py currently validates phase_transition, council_synthesis, gate_selection, execute_task, and evidence_cluster, not proposal/triage.
+    remediation: PLAN must include either validator coverage for uacp.proposal/uacp.triage or an explicit accepted-risk artifact with owner/condition. Preferred action is validator coverage.
+  - id: C10
+    severity: medium
+    status: resolved
+    title: Prior Agent Council followthrough plan set not referenced
+    evidence: plans/uacp-agent-council-followthrough/ contains existing detailed plan documents.
+    remediation: Patch proposal to baseline against the prior plan set and clarify reuse/supersession/defer decisions in PLAN.
+  - id: C11
+    severity: medium
+    status: resolved
+    title: Evidence Domain Registry deferred status not addressed
+    evidence: config/evidence-clusters.yaml marks evidence_domain_registry as seed_merge_target/not_runtime_active.
+    remediation: Patch proposal to require PLAN to explicitly include or defer evidence_domain_registry/runtime selector work.
+verdict: concerns
+human_escalation:
+  required: false
+  reason: Concerns are patchable in local UACP proposal/gate artifacts and do not require external action.
+  authority_needed: explicit Mike approval remains required for public/upstream pushes or security boundary changes.
+synthesis: >-
+  Proposal is directionally viable but required pre-PLAN patching. Main risk was duplicate doctrine/false confidence:
+  Phase 6 should close gaps between existing canonical Agent Council doctrine and executable tooling/skills/artifacts,
+  not create a parallel doctrine. Proposal and gate-selection should be patched before PROPOSE_TO_PLAN.

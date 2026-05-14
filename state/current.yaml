@@ -1,6 +1,6 @@
 schema_version: '0.1'
 kind: uacp.current_state
-active_run_id: uacp-phase5-kanban-guard-20260514-130416
-active_phase: resolve
-active_status: resolved
-last_updated_reason: Phase 5 VERIFY_TO_RESOLVE Heartgate returned warn with no blockers; resolution and lessons artifacts are recorded. Await Mike approval for push or next Phase 6 TRIAGE.
+active_run_id: uacp-phase6-agent-council-operationalization-20260515-012634
+active_phase: plan
+active_status: active_plan
+last_updated_reason: Phase 6 PROPOSE_TO_PLAN Heartgate returned warn with no blockers; plan and plan gate-selection artifacts are created. Surface inventory and plan council are next.
