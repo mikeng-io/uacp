@@ -1,0 +1,83 @@
+schema_version: '0.1'
+kind: uacp.phase_transition
+transition_id: uacp-phase4b-contained-execution-seam-20260514-propose-to-plan
+run_id: uacp-phase4b-contained-execution-seam-20260514-082154
+from_phase: propose
+to_phase: plan
+decision: pass
+routing_outcome: standard_uacp
+granularity_level: 8
+triage_artifact: state/runs/uacp-phase4b-contained-execution-seam-20260514-082154-triage.yaml
+gate_selection_artifact: proposals/uacp-phase4b-contained-execution-seam-20260514-gate-selection.yaml
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: Mike current private Telegram control prompt to continue after Phase 4 completion checks passed.
+  - id: side_effects.declared
+    status: pass
+    evidence: proposals/uacp-phase4b-contained-execution-seam-20260514.yaml
+  - id: writes.contained
+    status: pass
+    evidence: proposals/uacp-phase4b-contained-execution-seam-20260514.yaml
+  - id: failure.conservative
+    status: pass
+    evidence: proposals/uacp-phase4b-contained-execution-seam-20260514.yaml
+cluster_summary:
+  - cluster_id: proposal_bounded_scope
+    state: pass
+    artifact_path: proposals/uacp-phase4b-contained-execution-seam-20260514.yaml
+  - cluster_id: gate_selection
+    state: pass
+    artifact_path: proposals/uacp-phase4b-contained-execution-seam-20260514-gate-selection.yaml
+  - cluster_id: council_review
+    state: pass
+    artifact_path: verification/uacp-phase4b-contained-execution-seam-proposal-council-synthesis-20260514.yaml
+blockers: []
+warnings:
+  - id: mechanism_not_yet_named
+    owner: plan-phase
+    residual_risk: The proposal is approved, but the concrete contained execution seam mechanism still needs to be named and designed in PLAN.
+  - id: ttl_and_invalidation
+    owner: plan-phase
+    residual_risk: Evidence TTL, invalidation, and rollback remain to be specified in PLAN.
+deferred_items:
+  - id: contained_execution_seam_contract
+    owner: plan-phase
+    accepted_by: Mike current private Telegram control prompt to continue
+    condition: PLAN must name the concrete containment mechanism and integration point.
+  - id: rollback_fail_closed
+    owner: plan-phase
+    accepted_by: Mike current private Telegram control prompt to continue
+    condition: PLAN must define TTL/revalidation and rollback semantics.
+authority:
+  requested_by: Mike
+  authorization_source: current private Telegram control prompt to continue
+artifact_paths:
+  - proposals/uacp-phase4b-contained-execution-seam-20260514.yaml
+  - proposals/uacp-phase4b-contained-execution-seam-20260514-gate-selection.yaml
+  - verification/uacp-phase4b-contained-execution-seam-proposal-council-synthesis-20260514.yaml
+  - outputs/uacp-phase4-resolution-20260514.yaml
+declared_side_effects:
+  - Advance Phase 4B from PROPOSE to PLAN.
+write_containment_record: Proposal-only state transition; no runtime allow path is enabled.
+blocker_synthesis: Proposal is approved with plan-scoped deferred design items. No blocker remains for PLAN admission.
+council_synthesis_artifact: verification/uacp-phase4b-contained-execution-seam-proposal-council-synthesis-20260514.yaml
+verification_artifact: verification/uacp-phase4b-contained-execution-seam-proposal-council-synthesis-20260514.yaml
+accepted_exceptions: []
+phase_local_granularity:
+  phase: propose
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: Proposal remained high-impact but bounded; Council concerns were plan-scoped, not proposal blockers.
+  downstream_projection:
+    plan: 8
+    execute: 9
+    verify: 8
+    resolve: 6
+composite_granularity: 8
+human_involvement:
+  required: false
+  reason: No allow path enabled and no irreversible external side effect is being committed.
+  authority_needed: none
+  decision_owner: Mike
+terminal_kind: none

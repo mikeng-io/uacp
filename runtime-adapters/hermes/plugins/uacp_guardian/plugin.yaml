@@ -12,3 +12,4 @@ tools:
 - uacp_config_write
 - uacp_heartgate_check
 - uacp_sandbox_check
+- uacp_contained_shell

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import time
+import uuid
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -23,6 +25,7 @@ from .kernel import (
 
 _POLICY: GuardianPolicy | None = None
 _POLICY_ERROR: str = ""
+_CONTAINED_SHELL_ATTESTATIONS: dict[str, dict[str, Any]] = {}
 
 
 def _policy() -> GuardianPolicy:
@@ -369,6 +372,199 @@ def _handle_uacp_sandbox_check(args: dict, **_: Any) -> str:
         return json.dumps(_sandbox_check(args), ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"ok": False, "error": f"uacp_sandbox_check failed: {type(exc).__name__}: {exc}"})
+
+
+def _handle_uacp_contained_shell(args: dict, **_: Any) -> str:
+    """Execute shell commands inside verified bwrap containment and return attestation evidence."""
+    try:
+        return json.dumps(_sandbox_contained_shell(args), ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"ok": False, "error": f"uacp_contained_shell failed: {type(exc).__name__}: {exc}"})
+
+
+def _validate_contained_shell_attestation(attestation_id: str | None, policy_version: str) -> tuple[bool, str]:
+    if not attestation_id:
+        return True, "new attestation"
+    record = _CONTAINED_SHELL_ATTESTATIONS.get(attestation_id)
+    if record is None:
+        return False, "attestation not found"
+    now = time.time()
+    expires_at = float(record.get("expires_at") or 0.0)
+    if expires_at and expires_at <= now:
+        return False, "attestation expired"
+    if str(record.get("policy_version") or "") != policy_version:
+        return False, "attestation policy version mismatch"
+    if not bool(record.get("containment_verified")):
+        return False, "attestation is not containment-verified"
+    return True, "attestation valid"
+
+
+def _run_bwrap_contained_shell(root: Path, workspace: Path, command: str, *, timeout: int = 60) -> dict[str, Any]:
+    if not command.strip():
+        return {"ok": False, "mechanism": "bwrap_readonly_root", "error": "command is required"}
+
+    probe = _run_bwrap_readonly_probe(root, workspace, timeout=min(timeout, 20))
+    if not probe.get("ok"):
+        return {
+            "ok": False,
+            "mechanism": "bwrap_readonly_root",
+            "write_probe_blocked": False,
+            "bwrap_probe": probe,
+            "error": "containment probe failed",
+        }
+
+    cmd = [
+        "bwrap",
+        "--unshare-all",
+        "--die-with-parent",
+        "--ro-bind",
+        "/",
+        "/",
+        "--tmpfs",
+        "/tmp",
+        "--dev",
+        "/dev",
+        "--proc",
+        "/proc",
+        "--bind",
+        str(workspace),
+        str(workspace),
+        "--chdir",
+        str(workspace),
+        "--setenv",
+        "HOME",
+        str(workspace),
+        "--setenv",
+        "TMPDIR",
+        "/tmp",
+        "--setenv",
+        "PATH",
+        "/usr/bin:/bin",
+        "sh",
+        "-lc",
+        command,
+    ]
+    try:
+        proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout)
+    except FileNotFoundError:
+        return {"ok": False, "mechanism": "bwrap_readonly_root", "error": "bwrap not found", "write_probe_blocked": True, "bwrap_probe": probe}
+    except Exception as exc:
+        return {"ok": False, "mechanism": "bwrap_readonly_root", "error": f"{type(exc).__name__}: {exc}", "write_probe_blocked": True, "bwrap_probe": probe}
+
+    attestation_id = uuid.uuid4().hex
+    ttl_seconds = max(30, min(int(timeout) if timeout else 60, 300))
+    expires_at = time.time() + ttl_seconds
+    record = {
+        "attestation_id": attestation_id,
+        "expires_at": expires_at,
+        "ttl_seconds": ttl_seconds,
+        "policy_version": str(_policy().version),
+        "workspace_resolved": str(workspace.resolve()),
+        "uacp_root_resolved": str(root.resolve()),
+        "containment_verified": True,
+        "mechanism": "bwrap_readonly_root",
+        "command": command,
+        "exit_code": proc.returncode,
+    }
+    _CONTAINED_SHELL_ATTESTATIONS[attestation_id] = record
+
+    write_probe = probe.get("probe") or {}
+    write_probe_blocked = bool(write_probe.get("write_probe_blocked"))
+    verdict_reason = "command executed inside bwrap read-only-root containment" if write_probe_blocked else "containment write probe did not block as expected"
+    return {
+        "ok": True,
+        "containment_verified": bool(write_probe_blocked and probe.get("ok") is True),
+        "allow_standard_tool_path": False,
+        "verdict_reason": verdict_reason,
+        "blockers": [] if write_probe_blocked else ["write probe did not block writes to UACP_ROOT"],
+        "evidence": {
+            "tool_surface": "exec.shell.contained",
+            "backend": "local",
+            "mechanism": "bwrap_readonly_root",
+            "path_relationship": {
+                "uacp_root_resolved": str(root.resolve()),
+                "workspace_resolved": str(workspace.resolve()),
+                "workspace_exists": workspace.exists(),
+                "workspace_is_dir": workspace.is_dir(),
+                "workspace_under_uacp_root": False,
+                "uacp_root_under_workspace": False,
+            },
+            "write_probe_blocked": write_probe_blocked,
+            "bwrap_probe": probe,
+            "command": command,
+            "exit_code": proc.returncode,
+            "stdout_tail": proc.stdout[-500:],
+            "stderr_tail": proc.stderr[-500:],
+            "attestation_id": attestation_id,
+            "expires_at": expires_at,
+            "ttl_seconds": ttl_seconds,
+            "policy_version": str(_policy().version),
+        },
+        "attestation_id": attestation_id,
+        "expires_at": expires_at,
+        "ttl_seconds": ttl_seconds,
+        "policy_version": str(_policy().version),
+        "write_probe_blocked": write_probe_blocked,
+        "stdout_tail": proc.stdout[-500:],
+        "stderr_tail": proc.stderr[-500:],
+        "exit_code": proc.returncode,
+        "command": command,
+    }
+
+
+def _sandbox_contained_shell(args: Mapping[str, Any]) -> dict[str, Any]:
+    policy = _policy()
+    root = policy.uacp_root.resolve()
+    authority = str(args.get("authority_artifact") or args.get("declared_authority") or "")
+    command = str(args.get("command") or "")
+    workspace_raw = str(args.get("workspace") or args.get("workdir") or args.get("cwd") or "")
+    attestation_id = str(args.get("attestation_id") or "")
+    if missing_context := _required_uacp_context_missing(args):
+        return {"ok": False, "error": f"missing UACP context field(s): {', '.join(missing_context)}"}
+    if not authority:
+        return {"ok": False, "error": "authority_artifact is required"}
+    if not workspace_raw:
+        return {"ok": False, "error": "workspace, workdir, or cwd is required"}
+    if not command:
+        return {"ok": False, "error": "command is required"}
+    workspace = Path(workspace_raw).expanduser()
+    relationship = _path_relationship(root, workspace)
+    blockers: list[str] = []
+    if not relationship["workspace_exists"] or not relationship["workspace_is_dir"]:
+        blockers.append("execution workspace does not exist or is not a directory")
+    if relationship["workspace_under_uacp_root"]:
+        blockers.append("execution workspace is under UACP_ROOT")
+    if relationship["uacp_root_under_workspace"]:
+        blockers.append("UACP_ROOT is under execution workspace")
+    attestation_ok, attestation_reason = _validate_contained_shell_attestation(attestation_id or None, str(policy.version))
+    if not attestation_ok and attestation_id:
+        blockers.append(attestation_reason)
+    if blockers:
+        return {
+            "ok": True,
+            "containment_verified": False,
+            "allow_standard_tool_path": False,
+            "verdict_reason": "; ".join(blockers),
+            "blockers": blockers,
+            "evidence": {
+                "tool_surface": "exec.shell.contained",
+                "backend": "local",
+                "mechanism": "bwrap_readonly_root",
+                "path_relationship": relationship,
+                "command": command,
+                "attestation_id": attestation_id,
+                "policy_version": str(policy.version),
+            },
+            "authority_artifact": authority,
+        }
+    result = _run_bwrap_contained_shell(root, workspace, command, timeout=int(args.get("timeout") or 60))
+    result["authority_artifact"] = authority
+    result["policy_version"] = str(policy.version)
+    result["path_relationship"] = relationship
+    if result.get("ok") is True and result.get("containment_verified") is True:
+        result["verdict_reason"] = result.get("verdict_reason") or "command executed inside contained shell surface"
+    return result
+
 
 
 def _handle_uacp_state_write(args: dict, **_: Any) -> str:
@@ -719,6 +915,41 @@ def register(ctx) -> None:
         },
         handler=_handle_uacp_sandbox_check,
         description="UACP filesystem containment evidence checker",
+    )
+    ctx.register_tool(
+        name="uacp_contained_shell",
+        toolset="uacp_guardian",
+        schema={
+            "name": "uacp_contained_shell",
+            "description": "Execute a bounded shell command inside verified bwrap read-only-root containment.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "workdir": {"type": "string"},
+                    "cwd": {"type": "string"},
+                    "timeout": {"type": "integer"},
+                    "attestation_id": {"type": "string"},
+                    "authority_artifact": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "command",
+                    "workspace",
+                    "authority_artifact",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+        },
+        handler=_handle_uacp_contained_shell,
+        description="UACP contained shell execution surface",
     )
     ctx.register_tool(
         name="uacp_heartgate_check",

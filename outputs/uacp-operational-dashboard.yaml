@@ -40,11 +40,11 @@ implemented:
 - Runtime trust boundary is clarified: UACP governs declared runtime execution, not arbitrary manual edits outside that boundary.
 - uacp_sandbox_check is implemented and manifest-declared as a Guardian plugin tool.
 - Guardian policy classifies uacp_sandbox_check as evidence.containment.
-- Live proof confirms bwrap read-only-root evidence succeeds while standard shell/code paths remain fail-closed.
+- Live proof confirms the contained shell seam and read-only-root evidence succeed while standard shell/code paths remain fail-closed.
 open_blockers:
-- id: filesystem-containment
-  severity: high
-  summary: Evidence checker exists and bwrap read-only-root proof passes, but standard terminal/execute_code allow path remains blocked until a real runtime execution seam is implemented.
+- id: contained-shell-hardening
+  severity: medium
+  summary: Contained shell seam is live and verified, but output capture pressure, host-read exposure, and attestation persistence remain hardening follow-ups.
 - id: kanban-guardian-evidence
   severity: medium
   summary: UACP-bound Kanban worker completion needs reliable Guardian evidence propagation and VERIFY checks.
@@ -55,11 +55,11 @@ open_blockers:
   severity: medium
   summary: Manual or host-side edits are outside UACP's enforcement boundary and must be revalidated before affected artifacts are trusted.
 next_actions_ordered:
-- Phase 4 is resolved as evidence-only; standard shell/code remain fail-closed.
-- Phase 4B TRIAGE is active for a contained runtime execution seam.
-- Create bounded PROPOSE and PLAN artifacts before implementing any contained-shell allow path.
-- Use the corrected trust boundary: UACP declares required posture, Guardian verifies runtime evidence, and host/runtime supplies containment.
-- Run post-implementation Agent Council before any claim that a shell/code allow path is enabled.
+- Phase 4B execute-to-verify passed; contained-shell seam is implemented and verified.
+- Sync status artifacts to reflect the new contained-shell execution seam.
+- Keep standard shell/code fail-closed unless and until backend-specific containment is proven for those paths.
+- Apply follow-on hardening for output capture, host read exposure, and attestation persistence.
+- Run resolve-phase closure review before marking Phase 4B complete.
 operator_approval_policy:
   autonomous: local UACP artifact edits, local tests, local commits, local proof harnesses, skill/doc sync after verified behavior
   notify_not_ask: local gateway restart for scoped UACP verification, local branch/worktree cleanup, long tests
@@ -69,7 +69,7 @@ compression:
   handoff: HERMES_ROOT/notes/compression-loop-handoff-20260514.md
 active_run:
   run_id: uacp-phase4b-contained-execution-seam-20260514-082154
-  phase: triage
+  phase: verify
   manifest: state/runs/uacp-phase4b-contained-execution-seam-20260514-082154.yaml
 previous_run:
   run_id: uacp-phase4-filesystem-containment-20260513-215531

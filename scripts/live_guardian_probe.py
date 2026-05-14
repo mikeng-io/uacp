@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import shutil
+import time
 from pathlib import Path
 
 try:
@@ -31,7 +32,7 @@ HOME = Path(os.environ.get("HERMES_HOME", "/home/norty/.hermes")).expanduser()
 UACP_ROOT = Path(os.environ.get("UACP_ROOT", str(HOME / "uacp"))).expanduser()
 HERMES_AGENT = Path(os.environ.get("HERMES_AGENT_ROOT", str(HOME / "hermes-agent"))).expanduser()
 EXPECTED = ["thread_title_sync", "uacp_guardian"]
-EXPECTED_GUARDIAN_TOOLS = ["uacp_state_write", "uacp_artifact_write", "uacp_doc_write", "uacp_config_write", "uacp_heartgate_check", "uacp_sandbox_check"]
+EXPECTED_GUARDIAN_TOOLS = ["uacp_state_write", "uacp_artifact_write", "uacp_doc_write", "uacp_config_write", "uacp_heartgate_check", "uacp_sandbox_check", "uacp_contained_shell"]
 
 
 def check(condition: bool, name: str, evidence=None):
@@ -251,6 +252,40 @@ human_involvement: {}
 
             known_sandbox = guardian.evaluate(make_event(tool_name="uacp_sandbox_check", tool_provider="plugin", args={**common, "execution_workspace": str(sandbox_workspace)}))
             checks.append(check(known_sandbox.decision == "allow_with_audit" and known_sandbox.category == "evidence.containment", "guardian_classifies_sandbox_check", {"decision": known_sandbox.decision, "category": known_sandbox.category, "reason": known_sandbox.reason}))
+            contained_shell = guardian.evaluate(make_event(tool_name="uacp_contained_shell", tool_provider="plugin", args={**common, "workspace": str(sandbox_workspace), "command": "echo probe"}))
+            checks.append(check(contained_shell.decision == "allow_with_audit" and contained_shell.category == "exec.shell.contained", "guardian_classifies_contained_shell", {"decision": contained_shell.decision, "category": contained_shell.category, "reason": contained_shell.reason}))
+            shell_ok = json.loads(guardian_plugin._handle_uacp_contained_shell({
+                **common,
+                "workspace": str(sandbox_workspace),
+                "command": "echo contained-ok",
+                "timeout": 20,
+            }))
+            checks.append(check(shell_ok.get("ok") is True and shell_ok.get("containment_verified") is True and shell_ok.get("allow_standard_tool_path") is False and shell_ok.get("exit_code") == 0, "uacp_contained_shell_executes_inside_containment", shell_ok))
+            attestation_id = shell_ok.get("attestation_id")
+            if attestation_id:
+                guardian_plugin._CONTAINED_SHELL_ATTESTATIONS[attestation_id]["expires_at"] = time.time() - 1
+            shell_stale = json.loads(guardian_plugin._handle_uacp_contained_shell({
+                **common,
+                "workspace": str(sandbox_workspace),
+                "command": "echo stale",
+                "attestation_id": attestation_id or "stale",
+            }))
+            checks.append(check(shell_stale.get("ok") is True and shell_stale.get("containment_verified") is False and "expired" in shell_stale.get("verdict_reason", ""), "uacp_contained_shell_blocks_stale_attestation", shell_stale))
+            shell_write_attempt = json.loads(guardian_plugin._handle_uacp_contained_shell({
+                **common,
+                "workspace": str(sandbox_workspace),
+                "command": """python3 - <<'PY'
+from pathlib import Path
+probe = Path('/home/norty/.hermes/uacp/.contained_shell_probe')
+try:
+    probe.write_text('x', encoding='utf-8')
+    print('unexpected-write')
+except Exception as exc:
+    print(f'blocked:{type(exc).__name__}')
+PY""",
+                "timeout": 20,
+            }))
+            checks.append(check(shell_write_attempt.get("ok") is True and shell_write_attempt.get("containment_verified") is True and shell_write_attempt.get("write_probe_blocked") is True and shell_write_attempt.get("exit_code") == 0 and "blocked:" in shell_write_attempt.get("stdout_tail", ""), "uacp_contained_shell_blocks_write_attempt_to_uacp_root", shell_write_attempt))
             shell_guard_block = guardian.evaluate(make_event(tool_name="terminal", tool_provider="core", args={**common, "command": "echo probe", "workspace": str(tmp_root), "filesystem_guard_verified": False}))
             checks.append(check(shell_guard_block.decision == "block" and shell_guard_block.category == "exec.shell" and "containment" in shell_guard_block.reason, "guardian_blocks_uacp_shell_without_containment", {"decision": shell_guard_block.decision, "category": shell_guard_block.category, "reason": shell_guard_block.reason}))
             code_guard_block = guardian.evaluate(make_event(tool_name="execute_code", tool_provider="core", args={**common, "code": "print('probe')", "workspace": str(tmp_root), "filesystem_guard_verified": False}))

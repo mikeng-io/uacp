@@ -183,6 +183,16 @@ protected_categories:
     checks:
       - memory_policy
       - storage_boundary
+  exec.shell.contained:
+    default_decision: allow_with_audit
+    audit: true
+    allowed_tools:
+      - uacp_contained_shell
+    checks:
+      - runtime_containment_evidence
+      - symlink_aware_path_resolution
+      - readonly_or_write_probe
+      - evidence_ttl
   exec.shell:
     default_decision: require_approval
     audit: true
@@ -251,6 +261,7 @@ tool_classification:
   write_file: file.write
   patch: file.write
   terminal: exec.shell
+  uacp_contained_shell: exec.shell.contained
   execute_code: exec.code_with_tool_proxy
   delegate_task: runtime.subagent
   memory: memory.persistent

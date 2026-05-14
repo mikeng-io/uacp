@@ -1,0 +1,53 @@
+schema_version: '0.1'
+kind: uacp.resolution
+resolution_id: phase4b-resolve-20260514
+run_id: uacp-phase4b-contained-execution-seam-20260514-082154
+phase: resolve
+status: completed_with_hardening_followups
+summary: >-
+  Phase 4B is resolved. UACP now has a governed contained shell execution seam
+  exposed as uacp_contained_shell. Live probe evidence confirms the seam executes
+  inside the bwrap read-only-root mechanism, rejects stale attestations, blocks
+  attempted writes to UACP_ROOT, and preserves fail-closed behavior for standard
+  terminal and execute_code surfaces without containment.
+closure_evidence:
+  - state/runs/uacp-phase4b-contained-execution-seam-20260514-verify-to-resolve-transition.yaml
+  - verification/phase4b-contained-shell-implementation-20260514.yaml
+  - verification/live-guardian-proof-20260514-phase4b-contained-shell.yaml
+  - verification/uacp-phase4b-contained-execution-seam-execute-council-synthesis-20260514.yaml
+  - verification/phase4b-verify-readiness-20260514.yaml
+resolved_invariants:
+  - contained_shell_surface_registered
+  - guardian_policy_classifies_exec_shell_contained
+  - live_probe_53_checks_pass
+  - stale_attestation_reuse_blocked
+  - uacp_root_write_attempt_blocked
+  - standard_terminal_execute_code_fail_closed_preserved
+repository_hygiene:
+  hermes_agent_duplicate_plugin_sources: absent
+  temporary_symlink_probe_adapter_source: absent
+  generated_pycache_present: scripts/__pycache__/live_guardian_probe.cpython-313.pyc
+  generated_pycache_authority: non_authoritative_cache
+rollback:
+  - Disable uacp_guardian and thread_title_sync in ~/.hermes/config.yaml plugins.enabled if loader instability appears.
+  - Remove or retarget ~/.hermes/plugins/uacp_guardian and ~/.hermes/plugins/thread_title_sync symlinks only with explicit operator approval.
+  - Revert UACP runtime adapter commits after commit/push approval if contained shell behavior regresses.
+carried_forward_hardening:
+  - id: bounded_output_capture
+    priority: medium
+    reason: Avoid memory pressure from large stdout/stderr payloads.
+  - id: host_read_exposure_threat_model
+    priority: medium
+    reason: Current bwrap seam is read-only-root, not a narrow read whitelist.
+  - id: attestation_lifecycle_hardening
+    priority: low
+    reason: In-memory attestations are adequate for current closure but may need cleanup or persistence later.
+side_effects_performed:
+  - Created verify-to-resolve transition artifact.
+  - Updated Phase 4B run manifest to resolve.
+  - Updated state/current.yaml to resolved Phase 4B.
+side_effects_not_performed:
+  - no_push
+  - no_unbind
+  - no_delete
+  - no_security_weakening

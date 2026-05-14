@@ -1,0 +1,85 @@
+schema_version: '0.1'
+kind: uacp.phase_transition
+transition_id: uacp-phase4b-contained-execution-seam-20260514-plan-to-execute
+run_id: uacp-phase4b-contained-execution-seam-20260514-082154
+from_phase: plan
+to_phase: execute
+decision: pass
+routing_outcome: standard_uacp
+granularity_level: 8
+triage_artifact: state/runs/uacp-phase4b-contained-execution-seam-20260514-082154-triage.yaml
+gate_selection_artifact: plans/uacp-phase4b-contained-execution-seam-20260514/01-plan-gate-selection.yaml
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: Mike current private Telegram control prompt to continue after Phase 4 completion checks passed.
+  - id: side_effects.declared
+    status: pass
+    evidence: plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+  - id: writes.contained
+    status: pass
+    evidence: plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+  - id: failure.conservative
+    status: pass
+    evidence: plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+cluster_summary:
+  - cluster_id: contained_execution_seam_contract
+    state: pass
+    artifact_path: plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+  - cluster_id: evidence_attestation_flow
+    state: pass
+    artifact_path: plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+  - cluster_id: ttl_and_invalidation
+    state: warn
+    artifact_path: plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+blockers: []
+warnings:
+  - id: ttl_enforcement_agent
+    owner: execute-phase
+    residual_risk: The plan specifies stale conditions and rollback semantics, but the implementation must still decide whether Guardian, the adapter, or both enforce TTL on each call.
+  - id: attestation_state_shape
+    owner: execute-phase
+    residual_risk: The plan uses short-lived attestation records, but the final state shape and storage location remain to be implemented.
+deferred_items:
+  - id: contained_shell_input_schema
+    owner: execute-phase
+    accepted_by: Mike current private Telegram control prompt to continue
+    condition: IMPLEMENTATION must add the concrete tool input schema, handler, and bwrap invocation details.
+  - id: attestation_storage_and_expiry
+    owner: execute-phase
+    accepted_by: Mike current private Telegram control prompt to continue
+    condition: IMPLEMENTATION must add the attestation store and TTL invalidation path.
+authority:
+  requested_by: Mike
+  authorization_source: current private Telegram control prompt to continue
+artifact_paths:
+  - plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+  - plans/uacp-phase4b-contained-execution-seam-20260514/01-plan-gate-selection.yaml
+  - verification/uacp-phase4b-contained-execution-seam-proposal-council-synthesis-20260514.yaml
+  - outputs/uacp-phase4-resolution-20260514.yaml
+declared_side_effects:
+  - Advance Phase 4B from PLAN to EXECUTE.
+write_containment_record: Plan-only state transition; no runtime allow path is enabled yet.
+blocker_synthesis: Plan is ready for execution with implementation-scoped warnings accepted.
+council_synthesis_artifact: verification/uacp-phase4b-contained-execution-seam-proposal-council-synthesis-20260514.yaml
+verification_artifact: verification/uacp-phase4b-contained-execution-seam-proposal-council-synthesis-20260514.yaml
+accepted_exceptions:
+  - artifact_path: plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+    rationale: TTL and attestation storage remain to be concretized in implementation; this is accepted into EXECUTE as a controlled implementation detail.
+    owner: execute-phase
+phase_local_granularity:
+  phase: plan
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: Plan now names a concrete contained shell seam and specifies evidence/rollback requirements.
+  downstream_projection:
+    execute: 9
+    verify: 8
+    resolve: 6
+composite_granularity: 8
+human_involvement:
+  required: false
+  reason: No runtime allow path is enabled yet; implementation warnings are accepted into EXECUTE.
+  authority_needed: none
+  decision_owner: Mike
+terminal_kind: none

@@ -1,0 +1,105 @@
+schema_version: '0.1'
+kind: uacp.phase_transition
+transition_id: uacp-phase4b-contained-execution-seam-20260514-verify-to-resolve
+run_id: uacp-phase4b-contained-execution-seam-20260514-082154
+from_phase: verify
+to_phase: resolve
+decision: pass
+routing_outcome: standard_uacp
+granularity_level: 5
+triage_artifact: state/runs/uacp-phase4b-contained-execution-seam-20260514-082154-triage.yaml
+gate_selection_artifact: plans/uacp-phase4b-contained-execution-seam-20260514/01-plan-gate-selection.yaml
+invariant_summary:
+  - id: contained_shell_live_probe_passed
+    status: pass
+    evidence: verification/live-guardian-proof-20260514-phase4b-contained-shell.yaml
+  - id: implementation_verification_present
+    status: pass
+    evidence: verification/phase4b-contained-shell-implementation-20260514.yaml
+  - id: council_synthesis_present
+    status: pass
+    evidence: verification/uacp-phase4b-contained-execution-seam-execute-council-synthesis-20260514.yaml; council concerns are accepted as warnings/deferred hardening items below.
+  - id: standard_shell_code_fail_closed_preserved
+    status: pass
+    evidence: verification/live-guardian-proof-20260514-phase4b-contained-shell.yaml
+  - id: runtime_binding_hygiene_checked
+    status: pass
+    evidence: outputs/uacp-current-status.yaml
+cluster_summary:
+  - cluster_id: verification
+    state: pass
+    artifact_path: verification/phase4b-verify-readiness-20260514.yaml
+  - cluster_id: live_probe
+    state: pass
+    artifact_path: verification/live-guardian-proof-20260514-phase4b-contained-shell.yaml
+  - cluster_id: council
+    state: pass
+    artifact_path: verification/uacp-phase4b-contained-execution-seam-execute-council-synthesis-20260514.yaml
+  - cluster_id: repository_hygiene
+    state: pass
+    artifact_path: outputs/uacp-current-status.yaml
+blockers: []
+warnings:
+  - id: contained_shell_host_read_exposure
+    owner: next_phase
+    residual_risk: The current bwrap seam uses read-only host binding and therefore reduces write risk but still exposes host-readable files to contained commands.
+    accepted_by: Mike current private Telegram instruction to proceed 4b
+    condition: Document and harden the host read exposure threat model before treating contained execution as broadly safe for untrusted commands.
+  - id: contained_shell_output_capture_pressure
+    owner: next_phase
+    residual_risk: stdout/stderr capture remains bounded by caller/runtime behavior rather than a dedicated streaming/truncation policy.
+    accepted_by: Mike current private Telegram instruction to proceed 4b
+    condition: Add bounded output capture before scaling contained shell use.
+  - id: ephemeral_attestation_store
+    owner: next_phase
+    residual_risk: Contained shell attestations are in-memory and reset on plugin/runtime restart.
+    accepted_by: Mike current private Telegram instruction to proceed 4b
+    condition: Add cleanup/persistence only if restart continuity becomes a requirement.
+deferred_items:
+  - id: bounded_output_capture
+    owner: next_phase
+    accepted_by: Mike current private Telegram instruction to proceed 4b
+    condition: Implement output truncation or streaming for uacp_contained_shell before heavy use.
+  - id: host_read_exposure_threat_model
+    owner: next_phase
+    accepted_by: Mike current private Telegram instruction to proceed 4b
+    condition: Decide whether current read-only host exposure is acceptable per command class or whether narrower bind mounts are required.
+  - id: attestation_lifecycle_hardening
+    owner: next_phase
+    accepted_by: Mike current private Telegram instruction to proceed 4b
+    condition: Keep ephemeral attestation state unless operational evidence requires persistence or scheduled cleanup.
+authority:
+  requested_by: Mike
+  authorization_source: current private Telegram control prompt, "Proceed 4b"
+artifact_paths:
+  - proposals/uacp-phase4b-contained-execution-seam-20260514.yaml
+  - plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+  - verification/phase4b-contained-shell-implementation-20260514.yaml
+  - verification/live-guardian-proof-20260514-phase4b-contained-shell.yaml
+  - verification/uacp-phase4b-contained-execution-seam-execute-council-synthesis-20260514.yaml
+  - verification/phase4b-verify-readiness-20260514.yaml
+  - outputs/uacp-current-status.yaml
+  - outputs/uacp-operational-dashboard.yaml
+declared_side_effects:
+  - Advance Phase 4B from VERIFY to RESOLVE and mark Phase 4B complete.
+  - Preserve live UACP-owned symlink bindings for thread_title_sync and uacp_guardian.
+  - Do not push, unbind, or delete artifacts as part of this transition.
+write_containment_record: governed state/artifact writers for UACP artifacts; uacp_contained_shell exists but is intentionally not used for UACP_ROOT mutation.
+blocker_synthesis: Phase 4B has no unresolved blocker for closure. Remaining concerns are hardening follow-ups, not blockers for resolving the contained execution seam phase.
+council_synthesis_artifact: verification/uacp-phase4b-contained-execution-seam-execute-council-synthesis-20260514.yaml
+verification_artifact: verification/phase4b-verify-readiness-20260514.yaml
+accepted_exceptions: []
+phase_local_granularity:
+  phase: verify
+  entry_estimate: 6
+  exit_actual: 5
+  delta_reason: Verification confirmed the contained shell seam, preserved fail-closed standard execution, and reduced remaining work to hardening follow-ups.
+  downstream_projection:
+    resolve: 4
+composite_granularity: 5
+human_involvement:
+  required: false
+  reason: Mike explicitly authorized proceeding with Phase 4B; no destructive action, push, unbind, or security weakening is performed.
+  authority_needed: none
+  decision_owner: Mike
+terminal_kind: none

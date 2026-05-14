@@ -1,18 +1,6 @@
+schema_version: '0.1'
 kind: uacp.current_state
 active_run_id: uacp-phase4b-contained-execution-seam-20260514-082154
-active_run_manifest: state/runs/uacp-phase4b-contained-execution-seam-20260514-082154.yaml
-mutation_policy: uacp_state_required
-current_transition_artifact: null
-kanban_binding_artifact: state/kanban.yaml
-kanban_board_slug: uacp
-bootstrap_closed: true
-governed_mutation_active: true
-notes:
-  - Phase 4 filesystem containment is resolved as evidence-only; uacp_sandbox_check is implemented and verified.
-  - Standard terminal and execute_code remain fail-closed for UACP-bound shell/code execution.
-  - Phase 4B active TRIAGE has started for a real contained runtime execution seam.
-  - Phase 4B must not enable any allow path until proposal, plan, Heartgate, live proof, and Agent Council review pass.
-previous_active_run:
-  run_id: uacp-phase4-filesystem-containment-20260513-215531
-  manifest: state/runs/uacp-phase4-filesystem-containment-20260513-215531.yaml
-  final_status: resolved_completed_evidence_only
+active_phase: resolve
+active_status: resolved_completed_with_hardening_followups
+last_updated_reason: Phase 4B contained shell seam passed verify-to-resolve Heartgate and was resolved without push, unbind, or destructive cleanup.

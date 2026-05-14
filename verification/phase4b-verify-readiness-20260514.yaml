@@ -1,0 +1,19 @@
+schema_version: '0.1'
+kind: uacp.verification
+verification_id: phase4b-verify-readiness-20260514
+run_id: uacp-phase4b-contained-execution-seam-20260514-082154
+phase: verify
+status: ready
+summary: >-
+  Phase 4B is ready for resolve review. The contained shell seam is implemented,
+  live probe evidence is durable, the execute-to-verify transition passed Heartgate,
+  and standard terminal/execute_code remain blocked without containment.
+key_evidence:
+  - verification/phase4b-contained-shell-implementation-20260514.yaml
+  - verification/live-guardian-proof-20260514-phase4b-contained-shell.yaml
+  - verification/uacp-phase4b-contained-execution-seam-execute-council-synthesis-20260514.yaml
+  - state/runs/uacp-phase4b-contained-execution-seam-20260514-execute-to-verify-transition.yaml
+remaining_followups:
+  - bounded stdout/stderr capture
+  - reduce host read exposure if threat model narrows
+  - optional persistence for attestation state

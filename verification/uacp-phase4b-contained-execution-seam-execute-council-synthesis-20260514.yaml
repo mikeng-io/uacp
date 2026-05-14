@@ -1,0 +1,32 @@
+schema_version: '0.1'
+kind: uacp.council_synthesis
+council_id: uacp-phase4b-contained-execution-seam-execute-review-20260514
+run_id: uacp-phase4b-contained-execution-seam-20260514-082154
+mode: execute_post_implementation
+verdict: pass_with_concerns
+summary: >-
+  The contained shell seam is functionally sound and fail-closed. Standard
+  terminal and execute_code remain blocked, the bwrap probe is real, and the
+  attestation reuse path rejects stale evidence. Remaining concerns are hardening
+  items rather than blockers.
+concerns:
+  - id: output_memory_pressure
+    severity: medium
+    owner: runtime_adapter
+    residual_risk: >-
+      subprocess.run capture_output can be abused by large-output commands to
+      consume memory before truncation.
+  - id: host_read_exposure
+    severity: medium
+    owner: doctrine_docs
+    residual_risk: >-
+      bwrap --ro-bind / / preserves read access to the host filesystem inside the
+      sandbox; this is acceptable only within the documented threat model.
+  - id: ephemeral_attestation_store
+    severity: low
+    owner: runtime_adapter
+    residual_risk: >-
+      attestations are process-local and are lost on adapter restart.
+acceptance:
+  - concerns are tracked for follow-on hardening
+  - no blocker prevents moving to VERIFY

@@ -1,29 +1,30 @@
 schema_version: '0.1'
 kind: uacp.run_manifest
 run_id: uacp-phase4b-contained-execution-seam-20260514-082154
-title: Phase 4B contained runtime execution seam
-current_phase: triage
-status: active_triage
-routing_outcome: standard_uacp
-granularity_level: 8
-authority:
-  requested_by: Mike
-  authorization_source: current private Telegram control prompt to continue next phase if complete
-artifacts:
-  triage: state/runs/uacp-phase4b-contained-execution-seam-20260514-082154-triage.yaml
-scope:
-  objective: Design a real contained shell/runtime execution seam that can execute UACP-bound shell commands inside verified bwrap/read-only-root containment.
-  in_scope:
-    - contained shell execution seam
-    - Guardian evidence consumption and policy boundary
-    - live proof positive/negative cases
-    - rollback to fail-closed
-  out_of_scope:
-    - execute_code backend containment until shell seam is proven
-    - Hermes Agent upstream push or PR
-    - broad standard terminal allow path without wrapper containment
-initial_constraints:
-  - Standard terminal and execute_code remain fail-closed until this phase proves a contained execution path.
-  - uacp_sandbox_check is evidence-only and must not be treated as a permission grant by itself.
-  - Any implementation must preserve UACP runtime trust boundary and out-of-band revalidation language.
-next_step: Create bounded PROPOSE artifact and gate-selection artifact for the contained runtime execution seam.
+phase: resolve
+status: resolved_completed_with_hardening_followups
+summary: Phase 4B contained shell execution seam is resolved. The governed uacp_contained_shell surface is implemented and live-verified; standard terminal/execute_code remain fail-closed without containment. Remaining items are hardening follow-ups, not closure blockers.
+proposal: proposals/uacp-phase4b-contained-execution-seam-20260514.yaml
+gate_selection: proposals/uacp-phase4b-contained-execution-seam-20260514-gate-selection.yaml
+council_synthesis: verification/uacp-phase4b-contained-execution-seam-execute-council-synthesis-20260514.yaml
+plan: plans/uacp-phase4b-contained-execution-seam-20260514/00-plan.md
+plan_gate_selection: plans/uacp-phase4b-contained-execution-seam-20260514/01-plan-gate-selection.yaml
+transition_plan_to_execute: state/runs/uacp-phase4b-contained-execution-seam-20260514-plan-to-execute-transition.yaml
+transition_execute_to_verify: state/runs/uacp-phase4b-contained-execution-seam-20260514-execute-to-verify-transition.yaml
+transition_verify_to_resolve: state/runs/uacp-phase4b-contained-execution-seam-20260514-verify-to-resolve-transition.yaml
+verification:
+  - verification/phase4b-contained-shell-implementation-20260514.yaml
+  - verification/phase4b-verify-readiness-20260514.yaml
+  - verification/live-guardian-proof-20260514-phase4b-contained-shell.yaml
+resolved_at: '2026-05-14'
+resolution:
+  verdict: completed_with_hardening_followups
+  blockers: []
+  warnings_carried_forward:
+    - contained_shell_host_read_exposure
+    - contained_shell_output_capture_pressure
+    - ephemeral_attestation_store
+  no_push_performed: true
+  live_bindings_preserved:
+    - ~/.hermes/plugins/thread_title_sync -> ~/.hermes/uacp/runtime-adapters/hermes/plugins/thread_title_sync
+    - ~/.hermes/plugins/uacp_guardian -> ~/.hermes/uacp/runtime-adapters/hermes/plugins/uacp_guardian
