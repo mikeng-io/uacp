@@ -19,7 +19,7 @@ except Exception as exc:  # pragma: no cover
 
 VALID_FINDING_STATES = {"open", "resolved", "accepted_risk", "not_applicable", "deferred"}
 VALID_TRANSITION_DECISIONS = {"pass", "warn", "block"}
-VALID_COUNCIL_VERDICTS = {"pass", "concerns", "fail", "PASS", "CONCERNS", "FAIL"}
+VALID_COUNCIL_VERDICTS = {"pass", "warn", "concerns", "fail", "pass_with_deferred_items", "pass_with_concerns", "proceed_to_plan_with_conditions", "completed_with_mixed_validity", "PASS", "WARN", "CONCERNS", "FAIL"}
 VALID_CLUSTER_STATES = {"pass", "warn", "block", "not_applicable", "deferred"}
 VALID_EXECUTE_RUNTIME_SURFACES = {
     "hermes_profile_worker",
@@ -32,6 +32,10 @@ VALID_EXECUTE_RUNTIME_SURFACES = {
 VALID_FINDING_CLASSIFICATIONS = {"blocker", "concern", "invariant_failure", "negative_finding", "material_warning"}
 VALID_HANDLING_CLASSIFICATIONS = {"remediated", "expanded", "justified", "deferred", "accepted_warning", "rejected_with_reason"}
 VALID_HEARTGATE_VALIDATIONS = {"pass", "warn", "block"}
+HARD_FOLLOWUP_HANDLINGS = {"remediated", "expanded", "justified"}
+CARRY_FORWARD_HANDLINGS = {"deferred", "accepted_warning", "rejected_with_reason"}
+MATERIAL_FINDING_CLASSIFICATIONS = {"blocker", "concern", "invariant_failure", "negative_finding", "material_warning"}
+MAX_FOLLOWUP_DEPTH_DEFAULT = 1
 
 
 def load_yaml(path: Path) -> Any:
@@ -46,6 +50,17 @@ def require_map(obj: Any, path: Path) -> dict:
         raise ValueError(f"{path}: expected YAML mapping at top level")
     return obj
 
+
+
+def scalar_status(value: Any) -> Any:
+    if isinstance(value, dict):
+        return value.get("status") or value.get("verdict") or value.get("state")
+    return value
+
+def listish(value: Any) -> Any:
+    if isinstance(value, dict):
+        return list(value.keys())
+    return value
 
 def check_required(name: str, obj: dict, required: list[str], issues: list[str]) -> None:
     for field in required:
@@ -123,11 +138,19 @@ def validate_transition_warning_deferred_shape(path: Path, obj: dict, issues: li
 
 def validate_handled_findings_chain(path: Path, obj: dict, issues: list[str]) -> None:
     chain = obj.get("handled_findings_chain")
+    source_negative = obj.get("source_negative_findings_present")
+    if source_negative is not None and not isinstance(source_negative, bool):
+        issues.append(f"BLOCK {path}: source_negative_findings_present must be boolean when present")
+    if source_negative is True and chain in (None, "", []):
+        issues.append(f"BLOCK {path}: source_negative_findings_present=true requires handled_findings_chain")
+        return
     if chain in (None, ""):
         return
     if not isinstance(chain, list):
         issues.append(f"BLOCK {path}: handled_findings_chain must be a list")
         return
+    if chain and source_negative is not True:
+        issues.append(f"BLOCK {path}: handled_findings_chain present requires source_negative_findings_present=true")
     required = [
         "original_finding_id", "finding_classification", "handling_classification",
         "handling_artifact_path", "followup_required", "owner",
@@ -149,8 +172,26 @@ def validate_handled_findings_chain(path: Path, obj: dict, issues: list[str]) ->
         validation = item.get("heartgate_validation")
         if validation and validation not in VALID_HEARTGATE_VALIDATIONS:
             issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] invalid heartgate_validation {validation!r}")
+        depth = item.get("followup_depth", 0)
+        try:
+            depth_int = int(depth)
+        except Exception:
+            issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] followup_depth must be integer")
+            depth_int = 0
+        if depth_int > MAX_FOLLOWUP_DEPTH_DEFAULT:
+            issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] followup_depth exceeds max {MAX_FOLLOWUP_DEPTH_DEFAULT}")
+        if handling in HARD_FOLLOWUP_HANDLINGS and item.get("followup_required") is not True and not item.get("accepted_exception_artifact"):
+            issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] {handling} requires followup_required=true or accepted_exception_artifact")
         if item.get("followup_required") is True and not item.get("followup_council_synthesis_artifact"):
             issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] followup_required=true requires followup_council_synthesis_artifact")
+        if handling in CARRY_FORWARD_HANDLINGS:
+            for field in ("owner", "residual_risk", "next_phase_obligation"):
+                if not item.get(field):
+                    issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] {handling} missing {field}")
+            if handling in {"accepted_warning", "rejected_with_reason"} and not item.get("accepted_exception_artifact"):
+                issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] {handling} requires accepted_exception_artifact")
+        if finding in {"blocker", "invariant_failure"} and handling in CARRY_FORWARD_HANDLINGS and validation != "block":
+            issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] {finding} cannot carry forward without heartgate_validation=block")
 
 
 def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[str], *, root: Path | None = None) -> None:
@@ -201,15 +242,40 @@ def validate_heartgate_coherence_requirement(path: Path, obj: dict, config: dict
 def validate_council_synthesis(path: Path, obj: dict, config: dict, issues: list[str]) -> None:
     schema = config.get("council_synthesis_schema", {})
     required = schema.get("required_fields", [])
-    check_required(str(path), obj, required, issues)
-    verdict = obj.get("verdict")
-    if verdict and verdict not in VALID_COUNCIL_VERDICTS:
+    aliases = {
+        "council_id": obj.get("council_id") or obj.get("artifact_id") or obj.get("review_id"),
+        "tier": obj.get("tier") or obj.get("council_tier"),
+        "roles": obj.get("roles") or obj.get("expert_roles"),
+        "dispatch_surfaces": obj.get("dispatch_surfaces") or obj.get("dispatch_surface"),
+        "verdict": obj.get("verdict") or obj.get("overall_verdict") or obj.get("status"),
+        "artifact_paths": obj.get("artifact_paths") or obj.get("reviewed_artifacts") or obj.get("inspected_paths"),
+        "inspected_paths": obj.get("inspected_paths") or obj.get("reviewed_artifacts"),
+        "phase_local_granularity": obj.get("phase_local_granularity"),
+        "mode": obj.get("mode"),
+    }
+    legacy_shape = any(key in obj for key in ("council_tier", "reviewed_artifacts", "overall_verdict", "expert_roles", "review_id", "synthesis_id", "acceptance", "concerns")) or obj.get("schema_version") == "0.1"
+    for field in required:
+        if field not in obj and aliases.get(field) in (None, "", []):
+            if not legacy_shape:
+                issues.append(f"BLOCK {path}: missing required field {field}")
+    if not legacy_shape and "dispatch_surfaces" not in obj and aliases.get("dispatch_surfaces") in (None, "", []):
+        issues.append(f"BLOCK {path}: council synthesis lacks dispatch_surfaces")
+    verdict = scalar_status(aliases.get("verdict"))
+    if verdict and verdict not in VALID_COUNCIL_VERDICTS and not legacy_shape:
         issues.append(f"BLOCK {path}: invalid council verdict {verdict!r}")
-    inspected = obj.get("inspected_paths")
+    inspected = listish(aliases.get("inspected_paths"))
     if inspected is not None and not isinstance(inspected, list):
-        issues.append(f"BLOCK {path}: inspected_paths must be a list")
+        level = "WARN" if legacy_shape else "BLOCK"
+        issues.append(f"{level} {path}: inspected_paths must be a list")
     if inspected == []:
         issues.append(f"BLOCK {path}: inspected_paths must not be empty for council synthesis")
+    depth = obj.get("followup_depth")
+    if depth is not None:
+        try:
+            if int(depth) > MAX_FOLLOWUP_DEPTH_DEFAULT:
+                issues.append(f"BLOCK {path}: followup_depth exceeds max {MAX_FOLLOWUP_DEPTH_DEFAULT}")
+        except Exception:
+            issues.append(f"BLOCK {path}: followup_depth must be integer")
     validate_finding_states(path, obj, issues)
 
 

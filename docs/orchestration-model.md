@@ -484,6 +484,24 @@ Mid-phase escalation semantics:
 
 ## Relationship To UACP Phases
 
+
+## Concrete Skill Execution Loop
+
+Lifecycle skills implement this document through an explicit execution loop. This loop is mandatory whenever council routing is selected or when the phase consumes prior council findings.
+
+1. **Load routing authority** — read `docs/index.md`, this document, `docs/lifecycle-reference.md`, `config/review-routing.yaml`, and `config/phase-transitions.yaml` before deciding council depth.
+2. **Select council invocation** — declare `mode`, `tier`, roles, dispatch surfaces, retrieval obligations, side-effect boundaries, and expected artifact path. `tier_0_single` is allowed only when no phase boundary depends on multi-perspective validation.
+3. **Dispatch retrieval-led roles** — for governance, runtime, Guardian/Heartgate, artifact schema, protected-state, profile-boundary, or skill-behavior claims, prompts must require direct inspection of named files/config/scripts/artifacts.
+4. **Persist synthesis** — write `kind: uacp.council_synthesis` under `verification/` with verdict, roles, `inspected_paths`, findings, and evidence paths/lines.
+5. **Extract material findings** — normalize blockers, concerns, invariant failures, negative findings, and material warnings into finding IDs and classifications.
+6. **Handle before movement** — if material findings exist, phase movement is blocked until each finding has a handling classification, handling artifact, owner, residual risk, and required follow-up decision.
+7. **Run focused follow-up once** — `remediated`, `expanded`, and `justified` material findings require a focused follow-up council when they affect the next phase, Guardian/Heartgate semantics, runtime enforcement, protected state, artifact schema, or lifecycle truthfulness. Record `followup_depth`; default cap is one rerun.
+8. **Encode transition chain** — transition artifacts must set `source_negative_findings_present: true` and include `handled_findings_chain` entries for handled material findings.
+9. **Run Heartgate after council** — Heartgate evaluates the transition artifact after follow-through evidence exists. Council synthesis is evidence, not approval.
+10. **Fail closed** — if required handling, follow-up, ownership, residual-risk, next-phase obligation, or Heartgate coherence is missing, the skill must stop instead of treating the phase as passed.
+
+This loop is the bridge between doctrine and skills. Skills may wrap it with phase-specific prompts, but they must not omit the follow-through, artifact, or Heartgate steps when their triggers apply.
+
 ## Phase-local and Heartgate Council Split
 
 Agent Council can appear in two positions with different jobs:

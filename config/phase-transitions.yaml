@@ -226,6 +226,10 @@ artifact_schema:
         authority_needed: string
         decision_owner: string
         accepted_risk_artifact: string
+    source_negative_findings_present:
+      type: boolean
+      required_when: material findings are handled or handled_findings_chain is present
+      description: True when the transition carries handled material council/gate findings or when source council findings required handling before phase movement.
     handled_findings_chain:
       type: list
       description: Traceability chain for handled blockers, concerns, invariant failures, negative findings, or material warnings before transition approval.
@@ -237,6 +241,8 @@ artifact_schema:
         handling_artifact_path: string
         followup_council_synthesis_artifact: string|null
         followup_required: boolean
+        followup_depth: integer
+        accepted_exception_artifact: string|null
         owner: string
         residual_risk: string
         next_phase_obligation: string|null
@@ -249,6 +255,7 @@ artifact_schema:
         and next-phase readiness.
 followthrough_gate:
   max_followup_depth_default: 1
+  escalate_instead_of_recursing_after_depth: 1
   hard_followup_handling_classifications: [remediated, expanded, justified]
   conditional_followup_handling_classifications: [deferred, accepted_warning, rejected_with_reason]
   material_finding_classifications: [blocker, concern, invariant_failure, negative_finding, material_warning]

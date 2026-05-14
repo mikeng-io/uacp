@@ -1,6 +1,24 @@
 schema_version: '0.1'
 kind: uacp.council_synthesis
 council_id: uacp-phase4b-contained-execution-seam-execute-review-20260514
+tier: tier_2_role_diverse
+phase: execute
+phase_local_granularity:
+  phase: execute
+  entry_estimate: 7
+  exit_actual: 7
+roles:
+  - Primary Reviewer
+  - Devil's Advocate
+  - Integration Checker
+dispatch_surfaces:
+  - delegate_task
+findings: []
+artifact_paths:
+  - verification/uacp-phase4b-contained-execution-seam-execute-council-synthesis-20260514.yaml
+inspected_paths:
+  - docs/runtime-enforcement.md
+  - config/phase-transitions.yaml
 run_id: uacp-phase4b-contained-execution-seam-20260514-082154
 mode: execute_post_implementation
 verdict: pass_with_concerns

@@ -1,0 +1,104 @@
+kind: uacp.council_synthesis
+council_id: council-followthrough-gate-postcommit-20260515
+mode: review
+tier: tier_2_role_diverse
+phase_local_granularity:
+  phase: verify
+  entry_estimate: 8
+  exit_actual: 8
+dispatch_surfaces:
+  - delegate_task
+artifact_paths:
+  - verification/council-followthrough-gate-postcommit-council-synthesis-20260515.yaml
+review_id: council-followthrough-gate-postcommit-20260515
+reviewed_commit: "7469437"
+reviewed_commit_subject: "feat: add council follow-through gate"
+phase: post_commit_agent_council
+verdict: CONCERNS
+created_at: "2026-05-15T05:45:00+08:00"
+inspected_paths:
+  - docs/lifecycle-reference.md
+  - docs/runtime-enforcement.md
+  - docs/orchestration-model.md
+  - config/phase-transitions.yaml
+  - config/review-routing.yaml
+  - config/gate-selection.yaml
+  - config/evidence-clusters.yaml
+  - scripts/validate_uacp_artifacts.py
+expert_roles:
+  - role: Primary Reviewer
+    verdict: CONCERNS
+    summary: >-
+      Core governance semantics are present. Minor cross-config inconsistency:
+      phase-transitions.yaml declares max_followup_depth_default but does not
+      repeat the escalation clause present in review-routing.yaml.
+  - role: Devil's Advocate
+    verdict: CONCERNS
+    summary: >-
+      Validator and schema are incomplete relative to documented gate rules.
+      It validates field shape when handled_findings_chain is present, but does
+      not infer when the chain is mandatory, does not derive followup_required
+      from finding/handling severity, does not enforce next_phase_obligation for
+      deferred/accepted warnings, and does not enforce recursion depth.
+  - role: Integration Checker
+    verdict: PASS
+    summary: >-
+      Names, enums, evidence cluster IDs, transition fields, docs, config, and
+      validator are aligned; changes are additive and preserve backwards
+      compatibility.
+findings:
+  - id: AC-001
+    severity: MEDIUM
+    status: open
+    title: Validator does not infer when handled_findings_chain is mandatory
+    evidence:
+      - scripts/validate_uacp_artifacts.py:124-153
+      - config/phase-transitions.yaml:229-260
+    required_handling: >-
+      Add mechanical validation or explicit transition fields that mark handled
+      negative findings, so omission cannot silently pass when negative findings
+      were handled.
+  - id: AC-002
+    severity: MEDIUM
+    status: open
+    title: followup_required is weakly coupled to finding/handling semantics
+    evidence:
+      - scripts/validate_uacp_artifacts.py:152-153
+      - config/review-routing.yaml:781-786
+    required_handling: >-
+      Derive or validate followup_required for blockers/invariant failures and
+      remediated/expanded/justified handling classes, or require an accepted
+      Heartgate-visible exception.
+  - id: AC-003
+    severity: LOW_MEDIUM
+    status: open
+    title: Follow-up recursion cap is declared but not mechanically enforced
+    evidence:
+      - config/phase-transitions.yaml:251
+      - config/review-routing.yaml:785-786
+    required_handling: >-
+      Add a depth/dependency field or explicit escalation record so validators
+      and Heartgate can detect rerun depth exhaustion.
+  - id: AC-004
+    severity: LOW
+    status: open
+    title: next_phase_obligation may be null for deferred/accepted warning cases
+    evidence:
+      - config/phase-transitions.yaml:242
+      - scripts/validate_uacp_artifacts.py:124-153
+    required_handling: >-
+      Require next_phase_obligation for deferred, accepted_warning, and
+      rejected_with_reason handling classes unless a documented exception exists.
+validation:
+  command: >-
+    python -m py_compile scripts/validate_uacp_artifacts.py && python
+    scripts/validate_uacp_artifacts.py
+    verification/council-followthrough-gate-triage-to-propose-20260514.yaml
+    verification/council-followthrough-gate-propose-to-plan-20260514.yaml
+    verification/council-followthrough-gate-plan-to-execute-20260514.yaml
+    verification/council-followthrough-gate-plan-council-synthesis-20260514.yaml
+  result: PASS
+next_gate_decision: >-
+  Do not proceed to RESOLVE as clean pass. Treat council result as CONCERNS and
+  patch the validator/config follow-through enforcement in a follow-up commit,
+  then rerun a focused Agent Council review capped at one rerun before Heartgate.
