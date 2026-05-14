@@ -765,3 +765,22 @@ locked_current_operating_mode:
   status: locked_until_superseded
   summary: UACP remains manual/semi-auto unless explicitly superseded by canonical
     docs/config.
+
+triage_council_trigger:
+  purpose: Select TRIAGE-local Agent Council before PROPOSE for high-granularity governance-core admission work.
+  required_when:
+    phase: triage
+    any_of:
+      - phase_local_granularity >= 7
+      - composite_granularity >= 7
+      - domains include agent_council/heartgate/guardian/lifecycle_semantics/artifact_schema/runtime_enforcement/protected_state
+  scope: admission, routing, scope, granularity; not proposal authority or side effects
+  minimum_tier: tier_2_role_diverse
+  required_artifact: council_synthesis_artifact
+
+followthrough_council_routing:
+  purpose: Route follow-up councils for handled negative findings.
+  tier_1_bounded_when: [material concern, material warning]
+  tier_2_role_diverse_when: [blocker, invariant_failure, authority-boundary change, lifecycle schema change, runtime enforcement change]
+  max_followup_depth_default: 1
+  escalate_instead_of_recursing_after_depth: 1

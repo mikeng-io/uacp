@@ -31,6 +31,15 @@ It can be used for planning, proposal critique, execution support, verification,
 
 Review is only one Agent Council mode. `agent-council` must not collapse into `deep-review`.
 
+
+## Follow-Through Council Reruns
+
+A follow-through council is a bounded Agent Council rerun/follow-up selected when a prior council or transition finding is marked handled. It is not a new lifecycle phase and it is not a substitute for Heartgate. Its scope is the handling artifact and affected transition evidence; it may reopen the original finding only when new evidence shows the handling changed the underlying risk.
+
+Default recursion is capped at one follow-up rerun. If that rerun produces a new blocker or material concern, the next transition blocks or escalates through operator/Heartgate-selected routing instead of spawning unbounded councils.
+
+Minimum routing should remain adaptive: bounded local council is sufficient for material concerns, while blockers, invariant failures, authority-boundary changes, lifecycle schema changes, or runtime enforcement changes should select role-diverse council. Cross-runtime or deep council is reserved for cases where runtime diversity or independent verification materially improves confidence.
+
 ## Council Modes
 
 Council mode describes what the council is doing in a specific invocation.
@@ -176,9 +185,11 @@ profile = Hermes execution identity/configuration
 runtime surface = where the work actually runs
 ```
 
-A Hermes profile may execute directly, receive durable Kanban work, spawn native bounded subagents, or act as an adapter-controller for an external runtime such as Claude Code, Codex, OpenCode, Kimi, or Gemini. External runtimes must not be confused with profiles: the profile is the controller identity and instruction/config bundle; the runtime is the execution surface.
+A runtime execution profile may execute directly, receive durable coordination-adapter work, spawn native bounded subagents, or act as an adapter-controller for an external runtime such as Claude Code, Codex, OpenCode, Kimi, or Gemini. External runtimes must not be confused with profiles: the profile is the controller identity and instruction/config bundle; the runtime is the execution surface.
 
-Native `delegate_task` is a bounded in-process subagent surface. It can vary goal, context, toolsets, role, model/provider settings, and ACP transport overrides, but it does not currently instantiate a separate Hermes `--profile` home. When full profile isolation is required, use Hermes Kanban assignment to a profile or a spawned `hermes --profile <name>` process.
+A bounded same-runtime branch is an in-process subagent surface. It can vary goal, context, toolsets, role, and model/provider settings, but it does not instantiate a separate profile home. When full profile isolation is required, use a coordination-adapter assignment to a named profile or a spawned profile-isolated runtime process.
+
+In Hermes: the same-runtime branch is `delegate_task`, profile-isolated processes use `hermes --profile <name>`, and durable profile workers are assigned through Kanban.
 
 PLAN should record both `profile_id` and `runtime_surface` when either materially affects permissions, model behavior, independence, evidence quality, or verification confidence.
 
@@ -186,22 +197,25 @@ PLAN should record both `profile_id` and `runtime_surface` when either materiall
 
 ### Same-Profile Branches Versus Profile Workers
 
-Native `delegate_task` is a same-profile branch: it runs as an in-process bounded child with an ephemeral prompt. It can be role-framed, tool-limited, and in some cases model/provider-adjusted, but it does not load a separate Hermes profile home or profile-local doctrine stack.
+A bounded same-runtime branch runs as an in-process bounded child with an ephemeral prompt. It can be role-framed, tool-limited, and in some cases model/provider-adjusted, but it does not load a separate profile home or profile-local doctrine stack.
 
-Therefore UACP must not treat `delegate_task` as equivalent to a full Agent Council profile when profile diversity matters.
+Therefore UACP must not treat a same-runtime branch as equivalent to a full Agent Council profile when profile diversity matters.
 
 Canonical distinction:
 
 ```text
-same_profile_branch: delegate_task; synchronous; low overhead; provisional cognition.
-profile_worker: Kanban-assigned profile or spawned hermes --profile process; durable; profile-local config/doctrine/model/tool policy.
-runtime_adapter: external execution surface such as Claude Code, Codex, OpenCode, Kimi, or Gemini, usually controlled by a Hermes profile or orchestrator.
+same_runtime_branch: synchronous; low overhead; provisional cognition; no separate profile home.
+  Hermes example: delegate_task
+profile_worker: durable; profile-local config/doctrine/model/tool policy; isolated execution.
+  Hermes example: Kanban-assigned profile or spawned `hermes --profile <name>` process
+runtime_adapter: external execution surface controlled by a profile or orchestrator.
+  Examples: Claude Code, Codex, OpenCode, Kimi, Gemini
 ```
 
 Agent Council may run in two practical forms:
 
-- `scratch_council`: same-profile branches for fast brainstorming, provisional review, and low-risk analysis.
-- `profile_council`: Kanban/profile-backed workers for real role/profile diversity, durable debate rounds, and auditable review.
+- `scratch_council`: same-runtime branches for fast brainstorming, provisional review, and low-risk analysis.
+- `profile_council`: coordination-adapter/profile-backed workers for real role/profile diversity, durable debate rounds, and auditable review.
 
 Kanban can support debate/review by representing each round as tasks and comments/artifacts. Kanban is still coordination memory, not the debating mind; the assigned profile workers perform the reasoning and the orchestrator/integrator synthesizes.
 
@@ -249,6 +263,26 @@ Tools + evidence services = observe / act / produce evidence
 Guardian + Heartgate = enforce the boundaries between these planes
 ```
 
+```mermaid
+graph TD
+    UACP["**UACP**\nGovernance cognition\nShould / may / must / under what risk"]
+    AC["**Agent Council**\nDeliberative cognition\nThink / design / challenge / synthesize"]
+    CA["**Coordination Adapter**\nCoordination memory\nRemember / coordinate / track / hand off"]
+    RT["**Agent Runtimes**\nWorker cognition\nReason locally / perform bounded work"]
+    TS["**Tool + Evidence Adapters**\nActuation and observation\nObserve / act / produce evidence"]
+    GH["**Guardian + Heartgate**\nBoundary enforcement"]
+
+    UACP -->|authorizes| AC
+    AC -->|orchestrates| CA
+    CA -->|dispatches| RT
+    RT -->|uses| TS
+    GH -. enforces .-> UACP
+    GH -. enforces .-> AC
+    GH -. enforces .-> CA
+    GH -. enforces .-> RT
+    GH -. enforces .-> TS
+```
+
 This prevents category errors:
 
 - Do not use Kanban to decide policy or strategy.
@@ -286,6 +320,8 @@ PLAN selects the execution topology: which agent runtimes, tool adapters, eviden
 
 ### Locked Current Operating Mode
 
+> **Hermes/current-deployment note:** The following operating mode applies to the current Hermes deployment. It is a snapshot of current practice, not a universal UACP architectural requirement. Future deployments or full-autonomy topologies may differ.
+
 Until explicitly superseded, UACP operates in manual/semi-auto mode:
 
 - `TRIAGE`, `PROPOSE`, `PLAN`, `VERIFY`, and `RESOLVE` are main-orchestrator-led by default.
@@ -300,6 +336,8 @@ Until explicitly superseded, UACP operates in manual/semi-auto mode:
 A Kanban task is a bounded work unit inside a phase, most often EXECUTE; it is not automatically equal to a UACP lifecycle phase.
 
 ### Current-Stage Profile Policy
+
+> **Hermes/current-deployment note:** The following profile policy applies to the current Hermes deployment. Named profiles and delegation boundaries may differ in other runtimes or future autonomy topologies.
 
 UACP currently operates in semi-auto/manual mode by default. Named UACP profiles are design targets and optional escalation identities, not mandatory workers for every phase.
 

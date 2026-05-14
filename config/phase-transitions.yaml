@@ -226,12 +226,39 @@ artifact_schema:
         authority_needed: string
         decision_owner: string
         accepted_risk_artifact: string
+    handled_findings_chain:
+      type: list
+      description: Traceability chain for handled blockers, concerns, invariant failures, negative findings, or material warnings before transition approval.
+      item_fields:
+        original_finding_id: string
+        original_artifact_path: string
+        finding_classification: blocker|concern|invariant_failure|negative_finding|material_warning
+        handling_classification: remediated|expanded|justified|deferred|accepted_warning|rejected_with_reason
+        handling_artifact_path: string
+        followup_council_synthesis_artifact: string|null
+        followup_required: boolean
+        owner: string
+        residual_risk: string
+        next_phase_obligation: string|null
+        heartgate_validation: pass|warn|block
     heartgate_coherence:
       type: map
       description: Optional transition-boundary coherence check or Heartgate Council
         synthesis summary. Records doctrine coherence, cross-artifact consistency,
         runtime-state alignment, warning/deferred-item honesty, authority-plane integrity,
         and next-phase readiness.
+followthrough_gate:
+  max_followup_depth_default: 1
+  hard_followup_handling_classifications: [remediated, expanded, justified]
+  conditional_followup_handling_classifications: [deferred, accepted_warning, rejected_with_reason]
+  material_finding_classifications: [blocker, concern, invariant_failure, negative_finding, material_warning]
+  fail_closed_when:
+    - missing_required_handling_artifact
+    - missing_required_followup_council
+    - unowned_warning_or_deferred_item
+    - non_waivable_invariant_warn_or_deferred
+    - unaccepted_recursion_depth_exceeded
+
 example_artifact:
   kind: uacp.phase_transition
   transition_id: uacp-bootstrap-001-plan-to-execute

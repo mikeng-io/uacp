@@ -195,6 +195,18 @@ universal_cluster_families:
   purpose: Decide what becomes artifact, lesson, memory, or skill update.
   typical_phases:
   - resolve
+  - id: handled_negative_result_followthrough
+    purpose: Validate that handled negative findings do not silently pass without documented handling, required follow-up council evidence, and Heartgate-visible residual risk/next-phase obligations.
+    typical_phases: [triage, propose, plan, execute, verify, resolve]
+    required_when:
+      - transition carries handled blockers, concerns, invariant failures, negative findings, or material warnings
+    checks:
+      - original finding is referenced
+      - handling classification is valid
+      - required follow-up council exists or accepted exception is recorded
+      - warnings/deferred items have owner/residual_risk/next_phase_acceptance
+      - Heartgate validation is recorded
+
 evidence_domain_registry:
   status: seed_merge_target
   purpose: 'Merge adaptive UACP evidence cluster selection with static domain registry

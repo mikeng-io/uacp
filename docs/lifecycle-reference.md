@@ -8,7 +8,28 @@ TRIAGE -> PROPOSE -> PLAN -> EXECUTE -> VERIFY -> RESOLVE
 
 Triage decides whether the request should enter UACP at all, at what governance intensity, and whether immediate human involvement is required. Each later phase transition runs adaptive gate selection before deciding whether to proceed.
 
+For high-granularity governance-core admission work, TRIAGE must not be silently compressed into PROPOSE. When TRIAGE estimates phase-local or composite granularity at 7 or higher, or when the request touches Agent Council, Heartgate, Guardian, lifecycle semantics, artifact schema, runtime enforcement, or protected state, TRIAGE should select a phase-local Agent Council focused only on admission/routing/scope/granularity. A TRIAGE-local council does not replace PROPOSE council; PROPOSE council remains responsible for authority, side effects, proposal quality, and artifact contract review. When selected, TRIAGE→PROPOSE should record council synthesis and Heartgate transition coherence before PROPOSE artifacts are treated as adopted.
+
 Human involvement may be selected by TRIAGE or by later phase-local reassessment when authority, side effects, granularity, unresolved findings, or Guardian/Heartgate uncertainty require it.
+
+## Lifecycle Flow
+
+```mermaid
+flowchart LR
+    REQ([Request]) --> TRIAGE
+    TRIAGE -->|direct| DIRECT([Direct Action])
+    TRIAGE -->|block_or_clarify| BLOCKED([Blocked / Clarify])
+    TRIAGE -->|lightweight| PROPOSE
+    TRIAGE -->|standard_uacp| PROPOSE
+    TRIAGE -->|full_governance| PROPOSE
+    PROPOSE --> PLAN
+    PLAN --> EXECUTE
+    EXECUTE --> VERIFY
+    VERIFY --> RESOLVE
+    RESOLVE --> TERMINAL([Resolved])
+```
+
+Evidence inside each phase is adaptive. Gate selection runs before each phase transition to choose required, optional, not-applicable, or generated evidence clusters based on domain, risk, reversibility, and artifact type.
 
 ## Orchestration And Council Routing
 
@@ -22,6 +43,14 @@ Granularity and council tier are separate axes:
 TRIAGE derives request granularity and may recommend a default council tier. Later phases may override that default when the specific evidence need is narrower or broader than the overall run.
 
 Council outputs are phase evidence. They do not replace phase artifacts, Guardian/Heartgate checks, or the document authority chain.
+
+### Council Follow-Through Gate
+
+When a phase-local Agent Council, Heartgate Council, evidence cluster, invariant check, or transition review returns blockers, concerns, invariant failures, negative findings, or material warnings, those findings must not silently become a pass after being handled.
+
+Material findings marked `remediated`, `expanded`, or `justified` require a traceable handling artifact and context-selected follow-up Agent Council review before phase progression. Findings marked `deferred`, `accepted_warning`, or `rejected_with_reason` require Heartgate visibility, owner, residual risk, and next-phase obligation; follow-up council is selected when severity, risk, or routing requires it.
+
+The follow-up council synthesis is evidence for Heartgate, not transition approval. Heartgate independently validates transition coherence and may still block. Default follow-up recursion is capped at one rerun; if the follow-up council creates a new blocker or material concern, the transition blocks or escalates instead of spawning endless councils.
 
 ### Phase-local Council vs Heartgate Council
 
@@ -141,11 +170,11 @@ Typical artifacts:
 
 Exit condition: planned execution units are complete or explicitly blocked.
 
-## Hermes Kanban Binding
+## Coordination Adapter Binding
 
-Hermes Kanban is a durable task substrate, not the UACP lifecycle state machine.
+A coordination adapter is a replaceable durable task substrate, not the UACP lifecycle state machine. The adapter stores task graphs, dependencies, ownership, status, and handoff state. UACP records phase state in UACP artifacts; the adapter provides execution traceability through task IDs.
 
-Confirmed Hermes Kanban semantics:
+The current coordination adapter is Hermes Kanban. Its confirmed semantics:
 
 - storage is SQLite-backed and board-scoped,
 - boards can isolate unrelated streams of work,
@@ -156,14 +185,14 @@ Confirmed Hermes Kanban semantics:
 - workspaces are declared as `scratch`, `dir`, or `worktree`,
 - completion summaries and metadata are the structured handoff surface.
 
-UACP must not assume Kanban knows UACP phases. UACP phase state must be recorded in UACP artifacts, while Kanban task IDs provide execution traceability.
+UACP must not assume the coordination adapter knows UACP phases. UACP phase state must be recorded in UACP artifacts, while adapter task IDs provide execution traceability.
 
 Do not conflate:
 
 - UACP `TRIAGE`: governance entry stage for scope calibration and routing.
-- Hermes Kanban `triage`: task status for an underspecified Kanban card that needs specification before it becomes `todo`.
+- Coordination adapter task status (e.g., Hermes Kanban `triage`): status for an underspecified task card that needs specification before it becomes `todo`. This is not a UACP lifecycle phase.
 
-When UACP binds PLAN and EXECUTE to Hermes Kanban, it records:
+When UACP binds PLAN and EXECUTE to a coordination adapter, it records:
 
 - board slug,
 - root task IDs,

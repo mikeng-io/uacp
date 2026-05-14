@@ -34,6 +34,15 @@ Out-of-band mutation is treated as untrusted input until revalidated. When a fil
 
 Containment is a host/runtime property, not a self-declared UACP permission. UACP may declare that a phase or action requires contained execution; Guardian may verify that the runtime has provided that containment before allowing protected shell/code execution. If the runtime cannot provide or prove the required posture, UACP-bound execution remains fail-closed.
 
+
+## Heartgate Follow-Through Gate Enforcement
+
+Heartgate must fail closed when a transition claims that a blocker, concern, invariant failure, negative finding, or material warning has been handled but the transition artifact does not preserve the handling chain required by lifecycle policy.
+
+For material findings marked `remediated`, `expanded`, or `justified`, Heartgate expects a handling artifact and follow-up Agent Council synthesis unless an explicit accepted exception is present. For `deferred`, `accepted_warning`, or `rejected_with_reason`, Heartgate expects owner, residual risk, and next-phase obligation fields and may require follow-up council based on severity or routing.
+
+Agent Council remains evidence, not approval. Heartgate independently checks the transition artifact, invariant status, warnings/deferred items, accepted exceptions, authority, side effects, and next-phase readiness. Missing required follow-through evidence blocks the transition rather than being normalized to pass.
+
 ## Runtime Components
 
 | Component | Responsibility | Authority |
@@ -100,6 +109,26 @@ Decision values:
 - `require_approval`
 - `block`
 - `block_pending_heartgate`
+
+```mermaid
+flowchart TD
+    EVENT([Runtime Event]) --> NORM[Normalize Event]
+    NORM --> PROV{Provenance\nKnown?}
+    PROV -->|No / unknown| BLOCK_PROV[block_pending_heartgate]
+    PROV -->|Yes| CAT[Classify Category]
+    CAT --> PROTECTED{Protected\nCategory?}
+    PROTECTED -->|No| ALLOW[allow / allow_with_audit]
+    PROTECTED -->|Yes| AUTH{Authority\nDeclared?}
+    AUTH -->|Missing| BLOCK[block]
+    AUTH -->|Present| SIDE{Side Effects\nDeclared?}
+    SIDE -->|Missing| BLOCK
+    SIDE -->|Present| HEARTGATE{Heartgate\nRequired?}
+    HEARTGATE -->|No| ALLOW_AUDIT[allow_with_audit]
+    HEARTGATE -->|Yes| HG[Heartgate Validation]
+    HG -->|pass| ALLOW_AUDIT
+    HG -->|warn| ALLOW_WARN[allow_with_audit + warning recorded]
+    HG -->|block| BLOCK_HG[block_pending_heartgate]
+```
 
 Conservative failure rule: if a protected action lacks enough context to classify safely, Guardian returns `block` or `block_pending_heartgate`.
 

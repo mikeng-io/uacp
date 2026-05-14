@@ -32,6 +32,11 @@ classification_inputs:
   - triage_factor_scores
   - available_skills_or_domain_templates
   - prior_scenarios_or_lessons
+  - finding_classification
+  - handling_classification
+  - handled_findings_chain_present
+  - followup_council_required
+  - material_warning_threshold
 
 non_waivable_invariants:
   - id: authority.explicit
@@ -367,3 +372,13 @@ example_artifact:
     This is a Hermes governance bootstrap task with local file writes only.
     Required clusters focus on authority, containment, adaptive gate semantics,
     and verification of the created artifacts.
+
+handled_negative_result_followthrough:
+  purpose: Select evidence when prior negative findings have been marked handled before a phase transition.
+  material_warning_threshold: Warnings are material when they affect lifecycle progression, authority, invariants, trust boundary, side-effect containment, runtime enforcement, artifact schema, or next-phase obligations.
+  required_when:
+    - handled material blocker/concern/invariant_failure/negative_finding/material_warning exists before transition
+  fail_closed_when:
+    - handling chain missing
+    - required follow-up council missing
+    - warning/deferred lacks owner or next-phase acceptance

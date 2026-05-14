@@ -29,6 +29,9 @@ VALID_EXECUTE_RUNTIME_SURFACES = {
     "evidence_service",
     "human_checkpoint",
 }
+VALID_FINDING_CLASSIFICATIONS = {"blocker", "concern", "invariant_failure", "negative_finding", "material_warning"}
+VALID_HANDLING_CLASSIFICATIONS = {"remediated", "expanded", "justified", "deferred", "accepted_warning", "rejected_with_reason"}
+VALID_HEARTGATE_VALIDATIONS = {"pass", "warn", "block"}
 
 
 def load_yaml(path: Path) -> Any:
@@ -74,6 +77,82 @@ def validate_finding_states(path: Path, obj: Any, issues: list[str]) -> None:
             )
 
 
+def validate_transition_invariant_summary(path: Path, obj: dict, issues: list[str]) -> None:
+    summary = obj.get("invariant_summary")
+    if summary is None:
+        return
+    if not isinstance(summary, list):
+        issues.append(f"BLOCK {path}: invariant_summary must be a list")
+        return
+    for item in summary:
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: invariant_summary entries must be mappings")
+            continue
+        status = item.get("status")
+        if status not in {"pass", "block"}:
+            issues.append(
+                f"BLOCK {path}: invariant_summary {item.get('id', '<unknown>')} status {status!r}; "
+                "non-waivable invariants must be pass|block"
+            )
+
+
+def validate_transition_warning_deferred_shape(path: Path, obj: dict, issues: list[str]) -> None:
+    warnings = obj.get("warnings") or []
+    if not isinstance(warnings, list):
+        issues.append(f"BLOCK {path}: warnings must be a list")
+    else:
+        for idx, item in enumerate(warnings):
+            if not isinstance(item, dict):
+                issues.append(f"BLOCK {path}: warnings[{idx}] must be a mapping")
+                continue
+            for field in ("owner", "residual_risk", "next_phase_acceptance"):
+                if not item.get(field):
+                    issues.append(f"BLOCK {path}: warnings[{idx}] missing {field}")
+    deferred = obj.get("deferred_items") or []
+    if not isinstance(deferred, list):
+        issues.append(f"BLOCK {path}: deferred_items must be a list")
+    else:
+        for idx, item in enumerate(deferred):
+            if not isinstance(item, dict):
+                issues.append(f"BLOCK {path}: deferred_items[{idx}] must be a mapping")
+                continue
+            for field in ("id", "cluster_id", "owner", "condition", "accepted_by"):
+                if not item.get(field):
+                    issues.append(f"BLOCK {path}: deferred_items[{idx}] missing {field}")
+
+
+def validate_handled_findings_chain(path: Path, obj: dict, issues: list[str]) -> None:
+    chain = obj.get("handled_findings_chain")
+    if chain in (None, ""):
+        return
+    if not isinstance(chain, list):
+        issues.append(f"BLOCK {path}: handled_findings_chain must be a list")
+        return
+    required = [
+        "original_finding_id", "finding_classification", "handling_classification",
+        "handling_artifact_path", "followup_required", "owner",
+        "residual_risk", "heartgate_validation",
+    ]
+    for idx, item in enumerate(chain):
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] must be a mapping")
+            continue
+        for field in required:
+            if field not in item or item.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] missing {field}")
+        finding = item.get("finding_classification")
+        if finding and finding not in VALID_FINDING_CLASSIFICATIONS:
+            issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] invalid finding_classification {finding!r}")
+        handling = item.get("handling_classification")
+        if handling and handling not in VALID_HANDLING_CLASSIFICATIONS:
+            issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] invalid handling_classification {handling!r}")
+        validation = item.get("heartgate_validation")
+        if validation and validation not in VALID_HEARTGATE_VALIDATIONS:
+            issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] invalid heartgate_validation {validation!r}")
+        if item.get("followup_required") is True and not item.get("followup_council_synthesis_artifact"):
+            issues.append(f"BLOCK {path}: handled_findings_chain[{idx}] followup_required=true requires followup_council_synthesis_artifact")
+
+
 def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[str], *, root: Path | None = None) -> None:
     schema = config.get("artifact_schema", {})
     required = schema.get("required_fields", [])
@@ -85,6 +164,9 @@ def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[
     values = schema.get("fields", {}).get("terminal_kind", {}).get("values", [])
     if terminal and values and terminal not in values:
         issues.append(f"BLOCK {path}: terminal_kind {terminal!r} not in {values}")
+    validate_transition_invariant_summary(path, obj, issues)
+    validate_transition_warning_deferred_shape(path, obj, issues)
+    validate_handled_findings_chain(path, obj, issues)
     validate_heartgate_coherence(path, obj, issues, root=root)
     validate_heartgate_coherence_requirement(path, obj, config, issues)
 
