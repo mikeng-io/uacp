@@ -1,0 +1,91 @@
+artifact_type: verification
+run_id: uacp-phase6-agent-council-operationalization-20260515-012634
+phase: verify
+created_at: '2026-05-15T02:12:00+08:00'
+verification_type: phase6_verify_package
+summary: >-
+  Phase 6 VERIFY checked deterministic validation obligations carried from EXECUTE,
+  including explicit validation of council synthesis artifacts and out-of-repo skill alignment.
+checks:
+  contained_shell_validation:
+    status: pass
+    command_surface: uacp_contained_shell
+    mechanism: bwrap_readonly_root
+    write_probe_blocked: true
+    result: RESULT PASS
+    syntax_parse:
+      - scripts/validate_uacp_artifacts.py
+    validated_artifacts:
+      - state/runs/uacp-phase6-agent-council-operationalization-20260515-012634-triage.yaml
+      - proposals/uacp-phase6-agent-council-operationalization-20260515.yaml
+      - proposals/uacp-phase6-agent-council-operationalization-20260515-gate-selection.yaml
+      - state/runs/uacp-phase6-agent-council-operationalization-20260515-propose-to-plan-transition.yaml
+      - plans/uacp-phase6-agent-council-operationalization-20260515/01-plan-gate-selection.yaml
+      - state/runs/uacp-phase6-agent-council-operationalization-20260515-plan-to-execute-transition.yaml
+      - verification/uacp-phase6-agent-council-proposal-council-synthesis-20260515.yaml
+      - verification/uacp-phase6-agent-council-plan-council-synthesis-20260515.yaml
+      - verification/uacp-phase6-agent-council-execute-council-synthesis-20260515.yaml
+      - verification/uacp-phase6-agent-council-execute-implementation-20260515.yaml
+      - state/runs/uacp-phase6-agent-council-operationalization-20260515-execute-to-verify-transition.yaml
+    attestation_id: 166421ad4b2a43c4a495c92f7e3e842a
+  no_hardcoded_transient_models_in_canonical_docs_config:
+    status: pass
+    paths:
+      - docs/
+      - config/
+    checked_terms:
+      - Kimi K 2.6
+      - GPT-5
+      - gpt-5
+      - moonshotai
+      - kimi-k2.6
+  artifact_separation_search:
+    status: pass
+    evidence: council_synthesis_artifact and heartgate_coherence are present as distinct fields in current transition artifacts and configs.
+  skill_alignment:
+    status: pass
+    inspected_skills:
+      - uacp-verify
+      - uacp-plan
+      - agent-council
+    evidence:
+      - uacp-verify requires retrieval-led UACP council synthesis with inspected_paths.
+      - uacp-plan requires retrieval-led review and uacp.council_synthesis with inspected_paths when Agent Council is selected for governance/runtime/artifact-management work.
+      - agent-council distinguishes generic .outputs/council output from UACP verification/uacp.council_synthesis artifacts and requires inspected_paths for UACP-governed work.
+execute_obligations:
+  validator_explicit_artifact_selection:
+    status: resolved
+    evidence: VERIFY explicitly validated current Phase 6 council synthesis artifacts via scripts/validate_uacp_artifacts.py.
+  skill_files_outside_uacp_repo:
+    status: resolved_with_residual_note
+    evidence: Skill contents were inspected through skill_view and include the required operational language.
+    residual_note: Skill patches are not committed in UACP repo; this is expected because skills live in Hermes skill storage.
+findings:
+  - id: V1
+    severity: low
+    state: resolved
+    summary: Explicit council artifact validation coverage completed.
+    evidence: contained shell validation returned RESULT PASS for proposal, plan, and execute council synthesis artifacts.
+    affected_artifact: scripts/validate_uacp_artifacts.py
+    recommended_action: none
+    owner: phase6_verify
+  - id: V2
+    severity: low
+    state: resolved
+    summary: Out-of-repo skill alignment checked.
+    evidence: uacp-verify, uacp-plan, and agent-council skill contents include inspected_paths / UACP council artifact separation guidance.
+    affected_artifact: Hermes skills store
+    recommended_action: mention in RESOLVE that skill patches are outside UACP repo commits.
+    owner: phase6_resolve
+residual_risks:
+  - id: validator_auto_discovery_not_implemented
+    severity: low
+    state: accepted_risk
+    owner: future_uacp_run
+    condition: A future validator hardening run may add auto-discovery of current-run verification artifacts; current Phase 6 contract only requires explicit validation.
+  - id: evidence_domain_registry_runtime_selector_deferred
+    severity: low
+    state: deferred
+    owner: future_uacp_run
+    condition: Runtime selector activation remains explicitly deferred and must not be claimed active.
+conclusion: Phase 6 VERIFY deterministic checks pass. Proceed to VERIFY-phase Agent Council before VERIFY_TO_RESOLVE.

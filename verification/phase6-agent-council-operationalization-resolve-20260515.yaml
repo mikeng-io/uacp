@@ -1,0 +1,61 @@
+artifact_type: resolution
+run_id: uacp-phase6-agent-council-operationalization-20260515-012634
+phase: resolve
+created_at: '2026-05-15T02:21:00+08:00'
+status: resolved
+summary: >-
+  Phase 6 closed. Agent Council operationalization is now reflected in UACP canonical
+  docs/config/validator behavior: retrieval-led councils, inspected_paths in council
+  synthesis, phase-local vs Heartgate artifact separation, blocker/concern/rerun protocol,
+  proposal/triage validator coverage, and explicit evidence_domain_registry runtime-selector deferral.
+final_state:
+  active_phase: resolve
+  active_status: resolved
+  final_phase_local_granularity:
+    verify: 6
+    resolve: 5
+  final_composite_granularity: 6
+implemented:
+  - retrieval_led_council_rule
+  - inspected_paths_council_synthesis_contract
+  - phase_local_council_vs_heartgate_coherence_artifact_separation
+  - blocker_concern_rerun_protocol
+  - proposal_triage_validator_coverage
+  - evidence_domain_registry_runtime_selector_deferral
+  - skill_alignment_for_uacp_verify_uacp_plan_agent_council
+verification:
+  deterministic_verify_artifact: verification/uacp-phase6-agent-council-verify-20260515.yaml
+  verify_council_synthesis: verification/uacp-phase6-agent-council-verify-council-synthesis-20260515.yaml
+  verify_to_resolve_transition: state/runs/uacp-phase6-agent-council-operationalization-20260515-verify-to-resolve-transition.yaml
+  heartgate_decision: warn
+  heartgate_blockers: []
+accepted_risks:
+  - id: skill_files_outside_uacp_repo
+    severity: low
+    owner: phase6_resolve
+    disposition: accepted_risk
+    note: Skills were inspected and patched through Hermes skill storage, not committed inside UACP repo.
+  - id: validator_auto_discovery_not_implemented
+    severity: low
+    owner: future_uacp_run
+    disposition: accepted_risk
+    note: Validator still requires explicit artifact lists; Phase 6 VERIFY explicitly validated relevant artifacts.
+deferred_items:
+  - id: evidence_domain_registry_runtime_activation
+    owner: future_uacp_run
+    condition: Runtime selector activation must be implemented and verified in a separate future run before being claimed active.
+  - id: private_uacp_push_after_resolve
+    owner: human_operator
+    condition: Requires explicit Mike approval.
+  - id: public_upstream_changes
+    owner: human_operator
+    condition: Requires explicit Mike approval.
+not_enabled:
+  - No new public Hermes Agent upstream push or PR.
+  - No new runtime selector for evidence_domain_registry.
+  - No destructive state reset, force push, or security weakening.
+rollback:
+  checkpoint_commit: ce4b1c5
+  local_commits_after_checkpoint: multiple Phase 6 execute/verify/resolve commits before push
+  rollback_requires_explicit_approval_for_destructive_reset: true
+conclusion: Phase 6 is resolved locally and ready for private UACP repo push if Mike approves.

@@ -1,9 +1,9 @@
 schema_version: '0.1'
 kind: uacp.run_manifest
 run_id: uacp-phase6-agent-council-operationalization-20260515-012634
-phase: verify
-status: active_verify
-summary: Phase 6 Agent Council operationalization is in VERIFY. Execute patched bounded docs/config/validator surfaces and updated council synthesis evidence. EXECUTE_TO_VERIFY Heartgate returned warn with no blockers; VERIFY must explicitly validate council synthesis artifacts and skill alignment outside UACP repo.
+phase: resolve
+status: resolved
+summary: Phase 6 Agent Council operationalization is resolved locally. UACP now has canonical retrieval-led council protocol, inspected_paths council synthesis contract, phase-local versus Heartgate artifact separation, blocker/concern/rerun protocol, proposal/triage validator coverage, and explicit evidence-domain runtime selector deferral.
 triage_artifact: state/runs/uacp-phase6-agent-council-operationalization-20260515-012634-triage.yaml
 proposal: proposals/uacp-phase6-agent-council-operationalization-20260515.yaml
 gate_selection: proposals/uacp-phase6-agent-council-operationalization-20260515-gate-selection.yaml
@@ -17,19 +17,19 @@ transition_plan_to_execute: state/runs/uacp-phase6-agent-council-operationalizat
 execute_implementation: verification/uacp-phase6-agent-council-execute-implementation-20260515.yaml
 execute_council_synthesis: verification/uacp-phase6-agent-council-execute-council-synthesis-20260515.yaml
 transition_execute_to_verify: state/runs/uacp-phase6-agent-council-operationalization-20260515-execute-to-verify-transition.yaml
+verify_artifact: verification/uacp-phase6-agent-council-verify-20260515.yaml
+verify_council_synthesis: verification/uacp-phase6-agent-council-verify-council-synthesis-20260515.yaml
+transition_verify_to_resolve: state/runs/uacp-phase6-agent-council-operationalization-20260515-verify-to-resolve-transition.yaml
+resolution_artifact: verification/phase6-agent-council-operationalization-resolve-20260515.yaml
+lessons_artifact: knowledge/phase6-agent-council-operationalization-lessons-20260515.md
 created_at: '2026-05-15T01:26:34+08:00'
-constraints:
-  - do_not_collapse_agent_council_into_kanban
-  - keep_heartgate_council_distinct_from_phase_local_council
-  - retrieval_led_ground_truth_before_correctness_claims
-  - no_public_upstream_push_without_explicit_approval
-  - no_security_boundary_weakening
-warnings_carried:
-  - validator_explicit_artifact_selection
+resolved_at: '2026-05-15T02:21:00+08:00'
+accepted_risks:
   - skill_files_outside_uacp_repo
+  - validator_auto_discovery_not_implemented
 deferred_items:
   - evidence_domain_registry_runtime_activation
-  - private_uacp_push_after_verify_or_resolve
+  - private_uacp_push_after_resolve
   - public_upstream_changes
 rollback_checkpoint_commit: ce4b1c5
-next_step: perform VERIFY checks for council synthesis validation coverage and out-of-repo skill alignment
+next_step: commit local resolve artifacts, then optionally push UACP private repo with explicit approval
