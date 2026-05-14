@@ -3,20 +3,22 @@ kind: uacp.status.current
 status: runtime_prototype
 summary: >-
   UACP is an early runtime prototype with Hermes user-plugin live bindings active
-  for thread_title_sync and uacp_guardian. Phase 4B is resolved: the governed
-  contained shell seam exists and is live-verified; production hardening remains
-  incomplete.
+  for thread_title_sync and uacp_guardian. Phase 4B is resolved. Phase 5 is now
+  in VERIFY after Kanban completion guard implementation, Heartgate Council
+  coherence hardening, rerun Agent Council audit, final validation, and an
+  EXECUTE_TO_VERIFY Heartgate warn/no-blockers decision.
 authority:
   registry: docs/index.md
   runtime_design: docs/runtime-enforcement.md
   latest_resolution: verification/phase4b-resolve-20260514.yaml
+  active_transition: state/runs/uacp-phase5-kanban-guard-20260514-execute-to-verify-transition.yaml
 repositories:
   uacp:
     role: governance source of truth, durable artifacts, state, docs, config
     remote: git@github.com:nortrix-labs/uacp.git
     push_status: not_pushed_this_step
   hermes_agent:
-    role: runtime host; duplicate UACP plugin source copies absent from local patch set
+    role: runtime host; Phase 5 Kanban completion guard local patch exists but public upstream push/PR remains gated
 implemented:
   governance_foundation:
     - Artifact root, canonical docs, config, state layer, and git binding exist.
@@ -33,7 +35,8 @@ implemented:
     - uacp_state_write writes UACP runtime state through the governed state mutation boundary.
   heartgate_transition_check_tool:
     - uacp_heartgate_check validates UACP phase-transition artifacts through Heartgate.
-    - Phase 4B verify-to-resolve passed Heartgate with accepted warnings and no blockers.
+    - heartgate_coherence is validated for shape, artifact existence/containment, required lenses, and policy-driven mandatory use on material transitions.
+    - Phase 5 EXECUTE_TO_VERIFY passed Heartgate with accepted warnings and no blockers.
   runtime_trust_boundary:
     - UACP governs declared runtime execution and evidence; it does not claim to prevent arbitrary manual or host-side edits outside that runtime boundary.
     - Out-of-band changes are treated as untrusted until revalidated through the relevant verification path.
@@ -41,13 +44,19 @@ implemented:
   phase4_sandbox_check_evidence:
     - uacp_sandbox_check is implemented as a containment evidence tool in the UACP-owned Hermes Guardian adapter.
     - The live proof confirms bwrap read-only-root evidence can block writes to UACP_ROOT while keeping the sandbox workspace writable.
-    - The standard Hermes terminal/execute_code paths remain fail-closed.
+    - The standard Hermes terminal/execute_code paths remain fail-closed unless declared UACP context or containment is provided.
   phase4b_contained_shell_seam:
     - status: resolved_completed_with_hardening_followups
     - uacp_contained_shell is implemented as the governed contained-shell execution seam.
     - Live proof confirms the contained shell executes inside bwrap, rejects stale attestation reuse, and blocks write attempts to UACP_ROOT.
-    - Standard terminal/execute_code remain blocked without containment evidence.
     - Resolution artifact: verification/phase4b-resolve-20260514.yaml
+  phase5_kanban_completion_guard:
+    - status: active_verify
+    - Local Hermes Agent Kanban completion guard implementation exists and targeted tests pass.
+    - UACP-bound Kanban task completion requires metadata/evidence and matching governance context; ordinary non-UACP completion remains unchanged.
+    - Heartgate Council doctrine/config/runtime/validator/artifact-management hardening was patched after council blockers.
+    - Rerun Agent Council verified blockers B1-B4 and concerns C1-C6 as resolved.
+    - Execute final validation artifact: verification/uacp-phase5-execute-final-validation-20260514.yaml
 not_yet_done:
   hardening:
     - Reduce output capture pressure for uacp_contained_shell before heavy use.
@@ -55,21 +64,21 @@ not_yet_done:
     - Add optional persistence or cleanup for attestation state if restart continuity becomes necessary.
     - Add stronger boundaries for non-cooperative plugins or direct lower-level mutation paths.
     - Keep non-cooperative or out-of-band host/user mutation outside UACP's claimed enforcement boundary; require revalidation before trusting affected artifacts.
+    - Hermes hook-boundary bypass/fail-open gaps remain documented; do not claim total runtime hook closure yet.
   lifecycle_wiring:
-    - Ensure UACP lifecycle skills create Kanban tasks with required uacp_context.
+    - Complete Phase 5 VERIFY and RESOLVE.
   future_phases:
-    - Phase 5 Kanban guard: mandatory evidence and Guardian metadata on task completion.
     - Phase 6 Agent Council operationalization.
     - Phase 7 runtime adapter portability.
 repository_hygiene:
   hermes_agent_duplicate_plugin_sources: absent
   temporary_uacp_symlink_probe_runtime_adapter_source: absent
-  generated_probe_cache: scripts/__pycache__/live_guardian_probe.cpython-313.pyc is present but non-authoritative
+  generated_probe_cache: ignored_if_present
   push_policy: Do not push repository changes without explicit operator confirmation.
 live_proof_tests_required:
   - Direct write to UACP state/ is blocked unless routed through the guarded state mutation path.
   - Plugin-dispatched protected write is blocked or audited by Guardian.
-  - UACP-bound shell/code execution remains blocked unless verified containment exists.
+  - UACP-bound shell/code execution remains blocked unless verified containment exists or declared UACP context is accepted.
   - uacp_state_write succeeds only with complete authority, workspace, run id, phase, policy version, and declared side effects.
   - uacp_doc_write, uacp_config_write, uacp_artifact_write, uacp_state_write, uacp_heartgate_check, uacp_sandbox_check, and uacp_contained_shell remain exposed after runtime/tool schema reload.
   - Manual/out-of-band edits are not claimed as preventable by UACP; affected artifacts must be revalidated before use.
@@ -78,4 +87,4 @@ backup_guidance:
   rationale:
     - UACP now spans governance artifacts, Hermes runtime plugin adapters, lifecycle skills, state, plugin config, and runtime settings.
     - Backing up only UACP_ROOT or hermes-agent can miss cross-layer state needed for rollback.
-conclusion: Phase 4B is resolved. UACP has a live governed contained shell seam with accepted hardening follow-ups; no push, unbind, delete, or security weakening was performed during closure.
+conclusion: Phase 5 is in VERIFY. The EXECUTE_TO_VERIFY transition passed Heartgate with accepted warnings and no blockers; no push, unbind, deletion, or security weakening was performed.

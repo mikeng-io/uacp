@@ -1,9 +1,9 @@
 schema_version: '0.1'
 kind: uacp.run_manifest
 run_id: uacp-phase5-kanban-guard-20260514-130416
-phase: execute
-status: active_execute_implementation_verified
-summary: Phase 5 Kanban guard implementation is applied locally and targeted tests pass. Completion-time UACP evidence/metadata enforcement now exists for UACP-bound Kanban tasks; ordinary non-UACP completion remains covered by regression test.
+phase: verify
+status: active_verify
+summary: Phase 5 Kanban guard implementation and Heartgate Council coherence hardening have passed final EXECUTE validation. Heartgate accepted EXECUTE_TO_VERIFY with warnings only; VERIFY is active.
 triage_artifact: state/runs/uacp-phase5-kanban-guard-20260514-130416-triage.yaml
 proposal: proposals/uacp-phase5-kanban-guard-20260514.yaml
 gate_selection: proposals/uacp-phase5-kanban-guard-20260514-gate-selection.yaml
@@ -14,10 +14,21 @@ plan_gate_selection: plans/uacp-phase5-kanban-guard-20260514/01-plan-gate-select
 surface_inventory: verification/uacp-phase5-kanban-guard-surface-inventory-20260514.yaml
 transition_plan_to_execute: state/runs/uacp-phase5-kanban-guard-20260514-plan-to-execute-transition.yaml
 implementation_verification: verification/uacp-phase5-kanban-guard-execute-implementation-20260514.yaml
+heartgate_blocker_patch_validation: verification/uacp-heartgate-blocker-concern-patch-validation-20260514.yaml
+heartgate_rerun_council_synthesis: verification/uacp-heartgate-blocker-concern-rerun-council-synthesis-20260514.yaml
+execute_final_validation: verification/uacp-phase5-execute-final-validation-20260514.yaml
+transition_execute_to_verify: state/runs/uacp-phase5-kanban-guard-20260514-execute-to-verify-transition.yaml
 created_at: '2026-05-14'
 constraints:
   - no_global_completion_loosening
   - no_kanban_as_uacp_phase_state
   - guardian_heartgate_boundaries_preserved
   - no_public_upstream_push_without_explicit_approval
-next_step: run final review/transition from EXECUTE to VERIFY after inspecting diff and deciding commit boundary
+  - no_private_uacp_push_without_explicit_approval
+warnings_carried:
+  - hermes_hook_boundary_gaps
+  - guardian_policy_duplicate_transition_data
+deferred_items:
+  - public_hermes_upstream_pr
+  - private_uacp_push_after_verify
+next_step: perform VERIFY phase checks and then prepare VERIFY_TO_RESOLVE transition if no blockers emerge
