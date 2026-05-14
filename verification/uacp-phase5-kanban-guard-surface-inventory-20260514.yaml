@@ -1,0 +1,31 @@
+schema_version: '0.1'
+kind: uacp.surface_inventory
+inventory_id: uacp-phase5-kanban-guard-surface-inventory-20260514
+run_id: uacp-phase5-kanban-guard-20260514-130416
+phase: plan
+status: ready_for_execute_transition
+summary: >-
+  Initial exact surface inventory confirms Phase 5 implementation should target
+  Hermes Kanban DB completion, Kanban tool wrapper completion, CLI completion,
+  and existing UACP Kanban guard tests.
+confirmed_surfaces:
+  - path: HERMES_ROOT/hermes-agent/hermes_cli/kanban_db.py
+    role: canonical Kanban DB completion implementation
+    evidence: contains def complete_task, complete_task calls, governance_context, uacp references
+  - path: HERMES_ROOT/hermes-agent/tools/kanban_tools.py
+    role: model/tool wrapper surface for kanban completion
+    evidence: contains complete_task calls, kanban_complete, governance_context, uacp references
+  - path: HERMES_ROOT/hermes-agent/hermes_cli/kanban.py
+    role: CLI completion surface
+    evidence: contains complete_task calls, governance_context, uacp references
+  - path: HERMES_ROOT/hermes-agent/tests/hermes_cli/test_uacp_kanban_guard.py
+    role: existing UACP Kanban guard test suite to extend
+    evidence: file exists
+implementation_focus:
+  - Add completion-time validation for UACP-bound tasks.
+  - Define required UACP completion metadata schema.
+  - Ensure tool and CLI surfaces can pass required completion metadata.
+  - Add positive/negative/regression tests.
+notes:
+  - Main-session inventory supersedes low-confidence council path failures.
+  - Exact line-level reads remain part of EXECUTE entry before editing.

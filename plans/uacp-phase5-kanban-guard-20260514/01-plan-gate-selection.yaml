@@ -1,0 +1,76 @@
+schema_version: '0.1'
+kind: uacp.gate_selection
+selection_id: uacp-phase5-kanban-guard-20260514-plan-gate-selection
+run_id: uacp-phase5-kanban-guard-20260514-130416
+phase: plan
+domains:
+  - kanban_completion
+  - uacp_evidence_contract
+  - guardian_metadata
+  - regression_testing
+artifact_types:
+  - plan
+  - future_code_patch
+  - future_tests
+  - future_verification_artifact
+risk_level: medium_high
+granularity_level: 8
+routing_outcome: standard_uacp
+invariant_checks:
+  - id: authority.explicit
+    status: pass
+    reason: Mike authorized Phase 5 start and plan follows accepted proposal.
+  - id: side_effects.declared
+    status: pass
+    reason: PLAN declares future implementation surfaces and gates execution.
+  - id: writes.contained
+    status: pass
+    reason: Plan artifacts are written via governed UACP artifact writer.
+  - id: privacy_safety.constrained
+    status: pass
+    reason: No private data or external public side effects are in scope.
+  - id: state.traceable
+    status: pass
+    reason: Plan links run, triage, proposal, transition, and council synthesis.
+selected_clusters:
+  required:
+    - id: exact_surface_inventory
+      reason: Execute must inspect concrete Kanban completion paths before editing.
+    - id: completion_schema_finalization
+      reason: Required metadata must be explicit and testable.
+    - id: positive_negative_completion_tests
+      reason: Guard behavior must be proven both ways.
+    - id: non_uacp_regression_test
+      reason: Ordinary Kanban behavior must remain unchanged.
+    - id: rollback_path
+      reason: Completion semantics are runtime-sensitive.
+  optional:
+    - id: dashboard_indicator
+      reason: Useful only if implementation exposes guarded completion status to UI.
+not_applicable:
+  - id: public_release
+    reason: No public upstream push/PR is authorized.
+transition_requirements:
+  plan_to_execute:
+    - Exact file surfaces must be confirmed.
+    - Completion schema must be final.
+    - Tests/probes must be named.
+    - Heartgate must accept transition warnings/deferred items.
+reasoning:
+  - Plan granularity rises to 8 because execution will affect task completion trust semantics.
+  - Mixed proposal council validity requires direct source inspection before execute.
+phase_local_granularity:
+  phase: plan
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: Planning must constrain completion-time runtime semantics and regression proof.
+  downstream_projection:
+    execute: 8
+    verify: 8
+    resolve: 5
+composite_granularity: 8
+human_involvement:
+  required: false
+  reason: Planning is authorized and reversible; push/public upstream remains gated.
+  authority_needed: none for PLAN artifacts
+  decision_owner: Mike

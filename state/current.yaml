@@ -1,6 +1,6 @@
 schema_version: '0.1'
 kind: uacp.current_state
-active_run_id: uacp-phase4b-contained-execution-seam-20260514-082154
-active_phase: resolve
-active_status: resolved_completed_with_hardening_followups
-last_updated_reason: Phase 4B contained shell seam passed verify-to-resolve Heartgate and was resolved without push, unbind, or destructive cleanup.
+active_run_id: uacp-phase5-kanban-guard-20260514-130416
+active_phase: execute
+active_status: active_execute
+last_updated_reason: Phase 5 plan-to-execute Heartgate passed with accepted warnings; bounded local implementation is active.
