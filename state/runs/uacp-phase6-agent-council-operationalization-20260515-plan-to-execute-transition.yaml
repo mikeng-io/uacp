@@ -1,0 +1,122 @@
+schema_version: '0.1'
+kind: uacp.phase_transition
+transition_id: uacp-phase6-agent-council-operationalization-20260515-plan-to-execute
+run_id: uacp-phase6-agent-council-operationalization-20260515-012634
+from_phase: plan
+to_phase: execute
+decision: warn
+routing_outcome: full_governance
+granularity_level: 8
+triage_artifact: state/runs/uacp-phase6-agent-council-operationalization-20260515-012634-triage.yaml
+gate_selection_artifact: plans/uacp-phase6-agent-council-operationalization-20260515/01-plan-gate-selection.yaml
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: current private Telegram instruction, "continue"
+  - id: side_effects.declared
+    status: pass
+    evidence: plans/uacp-phase6-agent-council-operationalization-20260515/00-plan.md
+  - id: writes.contained
+    status: pass
+    evidence: governed UACP writers and contained validation shell
+  - id: state.traceable
+    status: pass
+    evidence: state/runs/uacp-phase6-agent-council-operationalization-20260515-012634.yaml
+cluster_summary:
+  - cluster_id: plan
+    state: pass
+    artifact_path: plans/uacp-phase6-agent-council-operationalization-20260515/00-plan.md
+  - cluster_id: plan_gate_selection
+    state: pass
+    artifact_path: plans/uacp-phase6-agent-council-operationalization-20260515/01-plan-gate-selection.yaml
+  - cluster_id: surface_inventory
+    state: pass
+    artifact_path: verification/uacp-phase6-agent-council-surface-inventory-20260515.yaml
+  - cluster_id: plan_council
+    state: pass
+    artifact_path: verification/uacp-phase6-agent-council-plan-council-synthesis-20260515.yaml
+  - cluster_id: artifact_validation
+    state: pass
+    artifact_path: contained_shell_attestation:51fcbfb90e6a4e5b86bd4b7631039e0d
+blockers: []
+warnings:
+  - id: council_synthesis_schema_needs_inspected_paths
+    owner: phase6_execute
+    residual_risk: Current council_synthesis_schema does not require inspected_paths, so retrieval-led evidence is not yet schema-enforced.
+    accepted_by: Phase 6 plan orchestrator
+    condition: EXECUTE must patch config/phase-transitions.yaml and validator/docs to add inspected_paths or equivalent.
+  - id: generic_agent_council_skill_convention_mismatch
+    owner: phase6_verify
+    residual_risk: Generic agent-council skill writes .outputs/council artifacts rather than UACP verification/uacp.council_synthesis artifacts.
+    accepted_by: Phase 6 plan orchestrator
+    condition: After canonical patches, inspect skills and patch or defer explicitly if stale.
+  - id: heartgate_artifact_naming_inconsistent_historically
+    owner: phase6_execute
+    residual_risk: Historical Heartgate artifacts use mixed names; Phase 6 must codify a pattern before relying on naming.
+    accepted_by: Phase 6 plan orchestrator
+    condition: EXECUTE must update docs/config wording for artifact naming convention.
+deferred_items:
+  - id: evidence_domain_registry_runtime_activation
+    owner: future_uacp_run
+    accepted_by: Phase 6 plan orchestrator
+    condition: Phase 6 defers runtime selector activation; do not claim evidence_domain_registry is runtime-active.
+  - id: kanban_backed_council_automation
+    owner: future_uacp_run
+    accepted_by: Phase 6 plan orchestrator
+    condition: Current manual_semi_auto/dogfood posture remains; no Kanban-backed council automation in this phase.
+  - id: public_upstream_changes
+    owner: human_operator
+    accepted_by: Phase 6 plan orchestrator
+    condition: Requires explicit Mike approval later.
+  - id: private_uacp_push_after_checkpoint
+    owner: human_operator
+    accepted_by: Phase 6 plan orchestrator
+    condition: No push in this step unless Mike approves.
+authority:
+  requested_by: Mike
+  authorization_source: current private Telegram instruction, "continue"
+artifact_paths:
+  - plans/uacp-phase6-agent-council-operationalization-20260515/00-plan.md
+  - plans/uacp-phase6-agent-council-operationalization-20260515/01-plan-gate-selection.yaml
+  - verification/uacp-phase6-agent-council-surface-inventory-20260515.yaml
+  - verification/uacp-phase6-agent-council-plan-council-synthesis-20260515.yaml
+declared_side_effects:
+  - Advance Phase 6 from PLAN to EXECUTE if Heartgate accepts warnings and finds no blockers.
+  - Permit bounded local UACP docs/config/script patches listed in plan inventory.
+  - Do not push public Hermes Agent or private UACP repo without explicit approval.
+write_containment_record: UACP artifacts/state were written through governed tools; validation ran through contained shell.
+rollback:
+  checkpoint_commit: ba6b78a
+  verification_command: PYTHONDONTWRITEBYTECODE=1 python3 scripts/validate_uacp_artifacts.py
+  rollback_requires_human_for: [destructive_reset, force_push, public_upstream_action, private_remote_push]
+blocker_synthesis: Plan Council found transition/schema issues, which were patched; remaining concerns are explicit EXECUTE/VERIFY work items.
+council_synthesis_artifact: verification/uacp-phase6-agent-council-plan-council-synthesis-20260515.yaml
+verification_artifact: verification/uacp-phase6-agent-council-surface-inventory-20260515.yaml
+accepted_exceptions: []
+phase_local_granularity:
+  phase: plan
+  entry_estimate: 7
+  exit_actual: 7
+  delta_reason: Plan is bounded with exact target surfaces, surface inventory, plan council, rollback checkpoint, and explicit carried work items.
+  downstream_projection:
+    execute: 8
+    verify: 8
+    resolve: 5
+composite_granularity: 8
+human_involvement:
+  required: false
+  reason: Mike authorized continuation; EXECUTE is local/reversible UACP docs/config/script work. External pushes and destructive actions remain gated.
+  authority_needed: explicit approval before public upstream PR/push, private UACP push, destructive action, or weakening security.
+  decision_owner: Mike
+terminal_kind: none
+heartgate_coherence:
+  status: warn
+  artifact_path: verification/uacp-phase6-agent-council-plan-council-synthesis-20260515.yaml
+  lenses:
+    - doctrine_coherence
+    - cross_artifact_consistency
+    - runtime_state_alignment
+    - warning_and_deferred_item_honesty
+    - authority_plane_integrity
+    - next_phase_readiness
+  summary: Plan council inspected ground-truth files, target surfaces, validator behavior, and prior followthrough inventory. Blockers were patched; carried warnings are explicit EXECUTE/VERIFY obligations.

@@ -1,6 +1,6 @@
 schema_version: '0.1'
 kind: uacp.current_state
 active_run_id: uacp-phase6-agent-council-operationalization-20260515-012634
-active_phase: plan
-active_status: active_plan
-last_updated_reason: Phase 6 PROPOSE_TO_PLAN Heartgate returned warn with no blockers; plan and plan gate-selection artifacts are created. Surface inventory and plan council are next.
+active_phase: execute
+active_status: active_execute
+last_updated_reason: Phase 6 PLAN_TO_EXECUTE Heartgate returned warn with no blockers after plan council remediation; EXECUTE is active.
