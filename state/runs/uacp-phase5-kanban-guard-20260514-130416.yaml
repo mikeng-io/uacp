@@ -1,9 +1,9 @@
 schema_version: '0.1'
 kind: uacp.run_manifest
 run_id: uacp-phase5-kanban-guard-20260514-130416
-phase: verify
-status: active_verify
-summary: Phase 5 Kanban guard implementation and Heartgate Council coherence hardening have passed final EXECUTE validation. Heartgate accepted EXECUTE_TO_VERIFY with warnings only; VERIFY is active.
+phase: resolve
+status: resolved
+summary: Phase 5 Kanban completion guard is resolved locally. UACP-bound Kanban task completion now requires completion-time governance metadata/evidence, ordinary non-UACP completion remains unchanged, Heartgate Council coherence hardening is patched and verified, and residual risks are accepted/deferred with owners.
 triage_artifact: state/runs/uacp-phase5-kanban-guard-20260514-130416-triage.yaml
 proposal: proposals/uacp-phase5-kanban-guard-20260514.yaml
 gate_selection: proposals/uacp-phase5-kanban-guard-20260514-gate-selection.yaml
@@ -18,7 +18,12 @@ heartgate_blocker_patch_validation: verification/uacp-heartgate-blocker-concern-
 heartgate_rerun_council_synthesis: verification/uacp-heartgate-blocker-concern-rerun-council-synthesis-20260514.yaml
 execute_final_validation: verification/uacp-phase5-execute-final-validation-20260514.yaml
 transition_execute_to_verify: state/runs/uacp-phase5-kanban-guard-20260514-execute-to-verify-transition.yaml
+verify_package: verification/uacp-phase5-verify-20260514.yaml
+transition_verify_to_resolve: state/runs/uacp-phase5-kanban-guard-20260514-verify-to-resolve-transition.yaml
+resolution_artifact: verification/phase5-resolve-20260514.yaml
+lessons_artifact: knowledge/phase5-kanban-guard-resolve-lessons-20260514.md
 created_at: '2026-05-14'
+resolved_at: '2026-05-14'
 constraints:
   - no_global_completion_loosening
   - no_kanban_as_uacp_phase_state
@@ -30,5 +35,6 @@ warnings_carried:
   - guardian_policy_duplicate_transition_data
 deferred_items:
   - public_hermes_upstream_pr
-  - private_uacp_push_after_verify
-next_step: perform VERIFY phase checks and then prepare VERIFY_TO_RESOLVE transition if no blockers emerge
+  - private_uacp_push_after_resolve
+  - phase6_agent_council_operationalization
+next_step: await Mike approval for private UACP push or start Phase 6 TRIAGE separately

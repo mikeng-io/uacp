@@ -1,6 +1,6 @@
 schema_version: '0.1'
 kind: uacp.current_state
 active_run_id: uacp-phase5-kanban-guard-20260514-130416
-active_phase: verify
-active_status: active_verify
-last_updated_reason: Phase 5 EXECUTE_TO_VERIFY Heartgate returned warn with no blockers after final validation and rerun Agent Council; VERIFY phase is active.
+active_phase: resolve
+active_status: resolved
+last_updated_reason: Phase 5 VERIFY_TO_RESOLVE Heartgate returned warn with no blockers; resolution and lessons artifacts are recorded. Await Mike approval for push or next Phase 6 TRIAGE.

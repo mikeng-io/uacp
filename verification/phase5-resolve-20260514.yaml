@@ -1,0 +1,68 @@
+artifact_type: resolution
+run_id: uacp-phase5-kanban-guard-20260514-130416
+phase: resolve
+created_at: '2026-05-14T23:59:59+08:00'
+status: resolved
+summary: >-
+  Phase 5 closed. UACP-bound Hermes Kanban task completion now requires completion-time
+  governance metadata and evidence, while ordinary non-UACP completion remains unchanged.
+  During VERIFY, Heartgate Council coherence hardening was also patched across docs,
+  config, runtime, validator, transition artifacts, and status. Retrieval-led Agent
+  Council rerun verified blockers B1-B4 and concern items C1-C6 as resolved.
+final_evidence:
+  implementation_verification: verification/uacp-phase5-kanban-guard-execute-implementation-20260514.yaml
+  blocker_patch_validation: verification/uacp-heartgate-blocker-concern-patch-validation-20260514.yaml
+  rerun_council_synthesis: verification/uacp-heartgate-blocker-concern-rerun-council-synthesis-20260514.yaml
+  execute_final_validation: verification/uacp-phase5-execute-final-validation-20260514.yaml
+  verify_package: verification/uacp-phase5-verify-20260514.yaml
+  execute_to_verify_transition: state/runs/uacp-phase5-kanban-guard-20260514-execute-to-verify-transition.yaml
+  verify_to_resolve_transition: state/runs/uacp-phase5-kanban-guard-20260514-verify-to-resolve-transition.yaml
+heartgate_results:
+  execute_to_verify:
+    decision: warn
+    blockers: []
+  verify_to_resolve:
+    decision: warn
+    blockers: []
+validation_results:
+  artifact_validator: pass
+  syntax_parse: pass
+  contained_shell_write_probe_blocked: true
+  hermes_agent_targeted_tests: 9 passed
+accepted_risks:
+  - id: hermes_hook_boundary_gaps
+    owner: future_runtime_hardening
+    severity: medium
+    summary: Phase 5 does not close all Hermes hook-boundary bypass/fail-open risks; do not claim total runtime hook closure.
+  - id: guardian_policy_duplicate_transition_data
+    owner: future_config_refactor
+    severity: low
+    summary: Duplicate transition data remains controlled by validator drift checks; future refactor may derive it from phase-transitions.yaml.
+deferred_items:
+  - id: public_hermes_upstream_pr
+    owner: human_operator
+    condition: Requires explicit Mike approval.
+  - id: private_uacp_push_after_resolve
+    owner: human_operator
+    condition: Requires explicit Mike approval.
+  - id: phase6_agent_council_operationalization
+    owner: future_uacp_run
+    condition: Start separately from TRIAGE if Mike continues roadmap.
+final_granularity:
+  composite: 6
+  resolve_exit_actual: 5
+lessons:
+  - Retrieval-led council must inspect ground-truth files/scripts/config before UACP runtime/governance changes are declared complete.
+  - Heartgate Council coherence belongs as a transition-boundary verification artifact and must be referenced through heartgate_coherence.artifact_path.
+  - Accepted warnings/deferred items need owners, acceptance, and conditions; otherwise Heartgate should block.
+  - UACP artifact validation should check both schema shape and cross-file drift where duplicate policy data still exists.
+  - Python compile under read-only UACP containment may fail from bytecode writes; AST parse plus PYTHONDONTWRITEBYTECODE is the safer read-only syntax check.
+skill_or_memory_updates:
+  memory: none; details are phase-specific and captured in UACP artifacts.
+  skills: no immediate skill patch required; existing UACP references already encode Phase 5 and Heartgate Council patterns.
+external_side_effects:
+  pushed: false
+  deleted: false
+  unbound_plugins: false
+  weakened_security: false
+conclusion: Phase 5 resolved locally with accepted warnings and deferred external push/PR actions.
