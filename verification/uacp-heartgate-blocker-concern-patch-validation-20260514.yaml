@@ -1,0 +1,32 @@
+schema_version: '0.1'
+kind: uacp.runtime_validation
+validation_id: uacp-heartgate-blocker-concern-patch-validation-20260514
+run_id: uacp-phase5-kanban-guard-20260514-130416
+phase: execute
+status: pass
+summary: Patched all Agent Council blocker and concern items for Heartgate Council
+  doctrine/runtime/artifact-management update.
+patched_blockers:
+  B1: uacp_guardian writer path resolution now rejects symlink traversal and symlink
+    target files before writes.
+  B2: config/phase-transitions.yaml adds heartgate_coherence_required_when and Heartgate
+    enforces it for material transitions.
+  B3: Guardian relative path resolution now resolves against UACP_ROOT, not cwd.
+  B4: uacp_heartgate_check whitelist widened to managed UACP artifact/state directories.
+patched_concerns:
+  C1: validate_uacp_artifacts.py validates heartgate_coherence artifact_path existence
+    and containment.
+  C2: locked_current_operating_mode normalized to top-level review-routing config.
+  C3: guardian-policy allowed_transitions synced with phase-transitions stages and
+    validator checks drift.
+  C4: runtime validation artifact now records Hermes hook-boundary residual risks.
+  C5: plan-to-execute transition now includes heartgate_coherence referencing council
+    synthesis.
+  C6: .gitignore added for __pycache__/ and *.pyc; generated cache cleaned.
+verification:
+  py_compile: pass
+  artifact_validator: pass
+  targeted_runtime_checks: pass
+notes:
+- No push performed in this patch step.
+- A final Agent Council/Heartgate check is still recommended before EXECUTE->VERIFY.

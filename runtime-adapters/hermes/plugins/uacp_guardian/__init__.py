@@ -156,7 +156,17 @@ def _resolve_uacp_path(raw: str, root: Path) -> Path:
         raise ValueError("target_path must be UACP-root-relative")
     if any(part in {"", ".", ".."} for part in path.parts):
         raise ValueError("target_path must not contain empty, current, or parent path segments")
-    resolved = (root / path).resolve(strict=False)
+    candidate = root / path
+    # Fail closed on symlinked path components before writing.  A symlink inside
+    # UACP_ROOT can otherwise resolve outside the governed workspace.
+    current = root
+    for part in path.parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            raise ValueError("target_path must not traverse symlinked directories")
+    if candidate.exists() and candidate.is_symlink():
+        raise ValueError("target_path must not be a symlink")
+    resolved = candidate.resolve(strict=False)
     if resolved == root:
         raise ValueError("target_path must point to a file under UACP_ROOT")
     if root not in resolved.parents:
@@ -730,8 +740,9 @@ def _handle_uacp_heartgate_check(args: dict, **_: Any) -> str:
 
         target = _resolve_uacp_path(transition_path, root)
         rel = target.relative_to(root.resolve())
-        if not rel.parts or rel.parts[0] not in {"state", "verification", "executions"}:
-            return json.dumps({"error": "transition_path must be under state/, verification/, or executions/"})
+        allowed_transition_roots = {"state", "verification", "executions", "plans", "proposals", "outputs", "knowledge"}
+        if not rel.parts or rel.parts[0] not in allowed_transition_roots:
+            return json.dumps({"error": "transition_path must be under a managed UACP artifact/state directory"})
         if target.suffix not in {".yaml", ".yml"}:
             return json.dumps({"error": "transition_path must be a YAML file"})
         if not target.exists():

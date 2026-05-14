@@ -76,6 +76,9 @@ transition_rule:
     effect, uncontained write, untraceable state change, or unresolved material risk.
 
     '
+  heartgate_council_role: Heartgate may require a transition-boundary council that
+    checks lifecycle coherence and cross-artifact consistency. This is distinct from
+    phase-local Agent Council review of phase work products.
 artifact_schema:
   kind: uacp.phase_transition
   required_fields:
@@ -223,6 +226,12 @@ artifact_schema:
         authority_needed: string
         decision_owner: string
         accepted_risk_artifact: string
+    heartgate_coherence:
+      type: map
+      description: Optional transition-boundary coherence check or Heartgate Council
+        synthesis summary. Records doctrine coherence, cross-artifact consistency,
+        runtime-state alignment, warning/deferred-item honesty, authority-plane integrity,
+        and next-phase readiness.
 example_artifact:
   kind: uacp.phase_transition
   transition_id: uacp-bootstrap-001-plan-to-execute
@@ -340,3 +349,32 @@ council_synthesis_schema:
       type: map
     artifact_paths:
       type: list
+  heartgate_council_extension:
+    purpose: When a council is attached to Heartgate rather than a phase work product,
+      findings should focus on transition truthfulness, lifecycle contract satisfaction,
+      coherence, consistency, and next-phase readiness.
+heartgate_coherence_required_when:
+  purpose: Require transition-boundary Heartgate coherence evidence for material runtime/governance
+    transitions while keeping low-risk transitions lightweight.
+  min_composite_granularity: 7
+  phases:
+  - execute
+  - verify
+  routing_outcomes:
+  - full_governance
+  domains:
+  - runtime
+  - governance
+  - guardian
+  - heartgate
+  - kanban
+  - agent_council
+  - uacp
+  required_field: heartgate_coherence
+  required_lenses:
+  - doctrine_coherence
+  - cross_artifact_consistency
+  - runtime_state_alignment
+  - warning_and_deferred_item_honesty
+  - authority_plane_integrity
+  - next_phase_readiness

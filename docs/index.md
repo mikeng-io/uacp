@@ -129,6 +129,7 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `config/evidence-clusters.yaml` | schema_config | generated | Evidence cluster families and schema | Keep aligned with canonical docs; YAML must parse |
 | `config/gate-selection.yaml` | schema_config | generated | Meta-gate, triage scoring, gate-selection schema | Keep aligned with lifecycle and constitution |
 | `config/phase-transitions.yaml` | schema_config | generated | Stage/phase transitions and transition artifact schema | Keep aligned with lifecycle reference |
+| `verification/*heartgate*coherence*.yaml` | evidence_artifact | generated | Heartgate Council / transition-boundary coherence evidence | Reference from phase transition `heartgate_coherence.artifact_path` when used |
 | `config/review-routing.yaml` | schema_config | generated | Review intensity and routing rules | Keep aligned with triage scoring and risk model |
 | `config/memory-policy.yaml` | schema_config | generated | Memory, artifact, and future Knowledge Bank boundaries | Keep aligned with alignment spec |
 | `config/roots.yaml` | schema_config | generated | Symbolic roots and path-resolution rules | Keep aligned with path convention in this registry |

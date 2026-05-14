@@ -23,6 +23,17 @@ TRIAGE derives request granularity and may recommend a default council tier. Lat
 
 Council outputs are phase evidence. They do not replace phase artifacts, Guardian/Heartgate checks, or the document authority chain.
 
+### Phase-local Council vs Heartgate Council
+
+UACP distinguishes two council responsibilities:
+
+- **Phase-local Agent Council** checks the work inside a phase: artifact quality, implementation correctness, role-specific risks, evidence quality, and local consistency with the phase plan. It answers: *did this phase team do its work properly?*
+- **Heartgate Council** checks the phase boundary: whether the completed phase truthfully satisfies its lifecycle contract and whether the next phase is receiving a coherent state. It answers: *is this transition legitimate, consistent, and safe?*
+
+The Heartgate Council is not a duplicate code review. It performs lifecycle coherence and cross-artifact consistency checks across doctrine, proposal/plan, state, runtime behavior, verification evidence, carried warnings, and next-phase obligations.
+
+For non-trivial runtime/governance work, phase transitions should include both: phase-local council synthesis as evidence, and Heartgate-level transition coherence before accepting the move. For low-risk reversible work, Heartgate may perform the coherence checklist without a separate council fan-out.
+
 VERIFY uses a finding-driven pattern when council review, audit, research, or validation is selected. Findings must identify severity, evidence, affected artifact, recommended action, owner/disposition, and state. Phase closure depends on whether findings are resolved, accepted as explicit residual risk, deferred with owner/condition, or blocking.
 
 

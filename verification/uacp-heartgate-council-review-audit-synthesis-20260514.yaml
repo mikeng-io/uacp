@@ -1,0 +1,175 @@
+schema_version: '0.1'
+kind: uacp.council_synthesis
+synthesis_id: uacp-heartgate-council-review-audit-synthesis-20260514
+run_id: uacp-phase5-kanban-guard-20260514-130416
+phase: execute
+status: completed_resolved_after_patch
+council_type: phase_local_review_audit
+trigger: Mike corrected that Heartgate Council/resource updates must be ground-truth
+  and Agent-Council reviewed/audited, not inferred from the main session's understanding.
+review_scope:
+- docs/lifecycle-reference.md
+- docs/orchestration-model.md
+- docs/runtime-enforcement.md
+- docs/index.md
+- config/review-routing.yaml
+- config/phase-transitions.yaml
+- config/guardian-policy.yaml
+- runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+- runtime-adapters/hermes/plugins/uacp_guardian/__init__.py
+- scripts/validate_uacp_artifacts.py
+- verification/uacp-heartgate-council-doctrine-sync-20260514.yaml
+- verification/uacp-heartgate-coherence-runtime-validation-20260514.yaml
+- state/runs/uacp-phase5-kanban-guard-20260514-130416.yaml
+- state/current.yaml
+roles:
+- lifecycle_coherence_reviewer
+- guardian_heartgate_runtime_reviewer
+- artifact_management_repository_hygiene_reviewer
+verdict: pass
+agreed_good_findings:
+- Phase-local Agent Council vs Heartgate Council distinction is coherent across canonical
+  docs.
+- Heartgate kernel enforces heartgate_coherence shape when present.
+- Artifact validator checks heartgate_coherence shape.
+- Heartgate coherence artifacts belong under verification/ and are not lifecycle state.
+- The field being optional for low-risk transitions is acceptable only as an interim
+  posture.
+blockers:
+- id: B1
+  title: Governed writer symlink escape risk
+  evidence: &id001
+  - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py _resolve_uacp_path and
+    canonical target handling need explicit symlink escape hardening.
+  disposition: must_fix_before_claiming_production_hardened
+- id: B2
+  title: No config-driven trigger requires heartgate_coherence for high-risk transitions
+  evidence: &id002
+  - config/phase-transitions.yaml marks heartgate_coherence optional and Heartgate.validate_transition
+    does not enforce risk/routing requirements.
+  disposition: must_fix_before_claiming_automatic_Heartgate_Council_enforcement
+- id: B3
+  title: Guardian path resolution uses CWD for relative paths
+  evidence: &id003
+  - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py Guardian._resolve_path
+    resolves relative paths against Path.cwd(), conflicting with UACP_ROOT-relative
+    path convention.
+  disposition: must_fix_for_enforcement_correctness
+- id: B4
+  title: uacp_heartgate_check transition path whitelist may be too narrow
+  evidence: &id004
+  - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py restricts transition_path
+    to state/, verification/, executions/.
+  disposition: review_and_fix_or_document_as_intentional
+concerns:
+- id: C1
+  title: Manual validator does not check heartgate_coherence artifact_path existence.
+  disposition: add strict check or document lightweight gap.
+- id: C2
+  title: Review-routing locked_current_operating_mode may be nested unexpectedly.
+  disposition: inspect and normalize or document.
+- id: C3
+  title: guardian-policy.yaml duplicates allowed transition data from phase-transitions.yaml.
+  disposition: add consistency validation or derive from canonical config later.
+- id: C4
+  title: Verification artifact underreports documented Hermes hook fail-open / bypass
+    gaps.
+  disposition: update residual risk notes.
+- id: C5
+  title: No real transition artifact yet exercises heartgate_coherence.
+  disposition: include heartgate_coherence in the next EXECUTE-to-VERIFY transition
+    artifact.
+- id: C6
+  title: Pycache hygiene / ignore policy.
+  disposition: clean generated cache before commit; consider gitignore if not already
+    handled.
+required_next_actions:
+- Patch B1-B4 or explicitly record why a blocker is deferred.
+- Update verification artifact residual risks for C4.
+- Use a real transition artifact with heartgate_coherence in the next phase boundary.
+- Re-run validation and council/Heartgate after fixes.
+notes:
+- This synthesis supersedes the earlier main-session-only assessment.
+- No push has been performed after these findings.
+council_id: uacp-heartgate-council-review-audit-20260514
+mode: review_audit_coherence
+tier: tier_2_role_diverse
+phase_local_granularity:
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: Heartgate doctrine/runtime/artifact updates affect transition semantics.
+dispatch_surfaces:
+- delegate_task:kimi-k2.6:file+terminal
+artifact_paths:
+  synthesis: verification/uacp-heartgate-council-review-audit-synthesis-20260514.yaml
+  doctrine_sync: verification/uacp-heartgate-council-doctrine-sync-20260514.yaml
+  runtime_validation: verification/uacp-heartgate-coherence-runtime-validation-20260514.yaml
+findings:
+- id: B1
+  severity: high
+  state: resolved
+  summary: Governed writer symlink escape risk
+  evidence: *id001
+  recommended_action: must_fix_before_claiming_production_hardened
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+- id: B2
+  severity: high
+  state: resolved
+  summary: No config-driven trigger requires heartgate_coherence for high-risk transitions
+  evidence: *id002
+  recommended_action: must_fix_before_claiming_automatic_Heartgate_Council_enforcement
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+- id: B3
+  severity: high
+  state: resolved
+  summary: Guardian path resolution uses CWD for relative paths
+  evidence: *id003
+  recommended_action: must_fix_for_enforcement_correctness
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+- id: B4
+  severity: high
+  state: resolved
+  summary: uacp_heartgate_check transition path whitelist may be too narrow
+  evidence: *id004
+  recommended_action: review_and_fix_or_document_as_intentional
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+- id: C1
+  severity: medium
+  state: resolved
+  summary: Manual validator does not check heartgate_coherence artifact_path existence.
+  recommended_action: add strict check or document lightweight gap.
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+- id: C2
+  severity: medium
+  state: resolved
+  summary: Review-routing locked_current_operating_mode may be nested unexpectedly.
+  recommended_action: inspect and normalize or document.
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+- id: C3
+  severity: medium
+  state: resolved
+  summary: guardian-policy.yaml duplicates allowed transition data from phase-transitions.yaml.
+  recommended_action: add consistency validation or derive from canonical config later.
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+- id: C4
+  severity: medium
+  state: resolved
+  summary: Verification artifact underreports documented Hermes hook fail-open / bypass
+    gaps.
+  recommended_action: update residual risk notes.
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+- id: C5
+  severity: medium
+  state: resolved
+  summary: No real transition artifact yet exercises heartgate_coherence.
+  recommended_action: include heartgate_coherence in the next EXECUTE-to-VERIFY transition
+    artifact.
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+- id: C6
+  severity: medium
+  state: resolved
+  summary: Pycache hygiene / ignore policy.
+  recommended_action: clean generated cache before commit; consider gitignore if not
+    already handled.
+  resolution: Patched in current EXECUTE hardening pass; see uacp-heartgate-blocker-concern-patch-validation-20260514.yaml.
+post_patch_validation: verification/uacp-heartgate-blocker-concern-patch-validation-20260514.yaml

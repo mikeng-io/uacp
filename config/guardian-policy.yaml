@@ -1,446 +1,113 @@
-schema_version: "0.1"
+schema_version: '0.1'
 kind: uacp.guardian_policy
-status: design_seed
-purpose: >
-  Machine-readable policy seed for UACP Guardian and Heartgate runtime
-  enforcement. This config derives from canonical docs and is not a standalone
-  authority source.
-
-authority_chain:
-  - "docs/index.md"
-  - "docs/constitution.md"
-  - "docs/runtime-enforcement.md"
-  - "docs/lifecycle-reference.md"
-  - "config/phase-transitions.yaml"
-  - "config/evidence-clusters.yaml"
-  - "config/state.yaml"
-  - "state/current.yaml"
-
-runtime_modes:
-  default: observe_unless_uacp_bound
-  uacp_bound: enforce
-  fail_closed_for_protected_actions: true
-  breakglass_allowed: true
-
-symbolic_roots:
-  default_base: UACP_ROOT
-  external_roots:
-    - HERMES_ROOT
-    - PRIVATE_ROOT
-  forbid_path_traversal: true
-  forbid_environment_specific_paths_in_policy: true
-
-decision_schema:
-  values:
-    - allow
-    - allow_with_audit
-    - require_approval
-    - block
-    - block_pending_heartgate
-  required_fields:
-    - decision
-    - category
-    - reason
-    - evidence
-    - audit_required
-
-event_schema:
-  required_fields:
-    - runtime
-    - adapter
-    - event_type
-    - tool_provider
-    - tool_name
-    - tool_args
-    - task_id
-    - session_id
-    - tool_call_id
-  optional_fields:
-    - kanban_task_id
-    - kanban_run_id
-  conditionally_required_fields:
-    uacp_bound_or_protected_action:
-      - workspace
-      - uacp_run_id
-      - uacp_phase
-      - policy_version
-      - declared_authority
-      - declared_side_effects
-    kanban_uacp_bound_action:
-      - kanban_task_id
-      - workspace
-      - uacp_run_id
-      - uacp_phase
-      - policy_version
-    delegation_or_background_agent:
-      - workspace
-      - uacp_run_id
-      - uacp_phase
-      - policy_version
-      - declared_authority
-      - declared_side_effects
-      - child_context_injection
-      - child_tool_scope
-  context_fields:
-    - workspace
-    - uacp_run_id
-    - uacp_phase
-    - policy_version
-    - declared_authority
-    - declared_side_effects
-    - authority_artifact
-    - side_effect_artifact
-
-tool_provenance:
-  required: true
-  values:
-    - core
-    - plugin
-    - mcp
-    - inline_agent_loop
-    - control_plane
-    - unknown
-  default_when_missing: unknown
-  classification_by_provider:
-    core: use_tool_classification
-    plugin: prefer_tool_classification_else_runtime_extension
-    mcp: runtime.extension
-    inline_agent_loop: require_explicit_classification
-    control_plane: require_control_plane_guard
-    unknown: prefer_tool_classification_else_runtime_extension
-
+purpose: 'Machine-readable seed policy for UACP Guardian and Heartgate runtime enforcement.
+  Canonical prose authority remains docs/runtime-enforcement.md and docs/lifecycle-reference.md.'
+mode: enforce
 protected_categories:
-  read.local:
-    default_decision: allow
-    audit: false
-  external.network_read:
-    default_decision: allow_with_audit
-    audit: true
-    checks:
-      - privacy_safety
-  file.write:
-    default_decision: require_approval
-    audit: true
-    checks:
-      - declared_write_scope
-      - path_containment
-  docs.uacp:
-    default_decision: require_approval
-    audit: true
-    allowed_tools:
-      - uacp_doc_write
-    checks:
-      - declared_write_scope
-      - canonical_docs_path_containment
-      - markdown_suffix
-  config.uacp:
-    default_decision: require_approval
-    audit: true
-    allowed_tools:
-      - uacp_config_write
-    checks:
-      - declared_write_scope
-      - canonical_config_path_containment
-      - yaml_parse
-  lifecycle.transition:
-    default_decision: require_approval
-    audit: true
-    allowed_tools:
-      - uacp_heartgate_check
-    checks:
-      - transition_schema
-      - phase_transition_allowed
-      - blockers_resolved
-      - deferred_items_accepted
-  evidence.containment:
-    default_decision: require_approval
-    audit: true
-    allowed_tools:
-      - uacp_sandbox_check
-    checks:
-      - runtime_containment_evidence
-      - symlink_aware_path_resolution
-      - readonly_or_write_probe
-      - evidence_ttl
   state.uacp:
+    description: Runtime lifecycle state under state/.
     default_decision: block
-    audit: true
     allowed_tools:
-      - uacp_state_write
-    checks:
-      - state_mutation_authority
-      - state_schema_parse
-      - provenance
-  state.kanban:
-    default_decision: allow_with_audit
-    audit: true
-    checks:
-      - kanban_traceability_only
-      - no_phase_state_mutation
-  memory.persistent:
+    - uacp_state_write
+  docs.uacp:
+    description: Canonical UACP Markdown docs under docs/.
+    default_decision: block
+    allowed_tools:
+    - uacp_doc_write
+  config.uacp:
+    description: Canonical UACP YAML config under config/.
+    default_decision: block
+    allowed_tools:
+    - uacp_config_write
+  file.write:
+    description: Local filesystem write outside explicit UACP state/config/doc boundaries.
     default_decision: require_approval
-    audit: true
-    checks:
-      - memory_policy
-      - storage_boundary
-  exec.shell.contained:
-    default_decision: allow_with_audit
-    audit: true
-    allowed_tools:
-      - uacp_contained_shell
-    checks:
-      - runtime_containment_evidence
-      - symlink_aware_path_resolution
-      - readonly_or_write_probe
-      - evidence_ttl
   exec.shell:
-    default_decision: require_approval
-    audit: true
-    checks:
-      - phase_allows_execution
-      - declared_side_effects
-      - path_containment
-      - filesystem_guard_for_protected_paths
-      - no_command_string_only_enforcement
+    description: Shell command execution.
+    default_decision: block_pending_heartgate
   exec.code_with_tool_proxy:
-    default_decision: block
-    audit: true
-    checks:
-      - approved_tool_subset
-  external.browser_interact:
+    description: Code execution that can call filesystem or terminal tools.
+    default_decision: block_pending_heartgate
+  external.message:
+    description: Sending messages or commitments outside origin conversation.
     default_decision: require_approval
-    audit: true
-    checks:
-      - declared_external_side_effect
-  external.human_message:
+  external.network_write:
+    description: Network mutation including APIs, posts, issues, PRs, pushes, deploys.
     default_decision: require_approval
-    audit: true
-    checks:
-      - explicit_recipient_authority
-      - content_visibility
-  external.physical_device:
-    default_decision: block
-    audit: true
-    checks:
-      - explicit_device_authority
-      - rollback_or_stop_path
-  runtime.subagent:
-    default_decision: require_approval
-    audit: true
-    checks:
-      - bounded_task_scope
-      - child_context_injection
-      - child_tool_scope
-      - guardian_policy_propagation
-      - completion_evidence_required
+  external.network_read:
+    description: Network read or web retrieval.
+    default_decision: allow_with_audit
   runtime.extension:
-    default_decision: block
-    audit: true
-    checks:
-      - trusted_source
-      - manifest_classification
-  automation.future:
-    default_decision: require_approval
-    audit: true
-    checks:
-      - owner
-      - duration
-      - stop_path
-      - rollback_path
-  external.unknown_mutator:
-    default_decision: block
-    audit: true
-    checks:
-      - explicit_classification_required
-
+    description: Plugin or MCP-provided tool whose provenance must be classified before protected use.
+    default_decision: block_pending_heartgate
+  read.local:
+    description: Local non-private file reads.
+    default_decision: allow
 tool_classification:
-  read_file: read.local
-  search_files: read.local
-  web_search: external.network_read
-  web_extract: external.network_read
-  write_file: file.write
-  patch: file.write
-  terminal: exec.shell
-  uacp_contained_shell: exec.shell.contained
-  execute_code: exec.code_with_tool_proxy
-  delegate_task: runtime.subagent
-  memory: memory.persistent
-  skill_manage: memory.persistent
-  cronjob: automation.future
   uacp_state_write: state.uacp
-  uacp_artifact_write: file.write
   uacp_doc_write: docs.uacp
   uacp_config_write: config.uacp
-  uacp_heartgate_check: lifecycle.transition
-  uacp_sandbox_check: evidence.containment
-  send_message: external.human_message
-  homeassistant: external.physical_device
-  ha_list_entities: read.local
-  ha_get_state: read.local
-  ha_list_services: read.local
-  ha_call_service: external.physical_device
-  computer_use: external.physical_device
-  browser_navigate: external.network_read
-  browser_scroll: external.browser_interact
-  browser_back: external.browser_interact
-  browser_console: external.browser_interact
-  browser_get_images: external.network_read
-  browser_vision: external.network_read
-  browser_cdp: external.browser_interact
-  browser_click: external.browser_interact
-  browser_type: external.browser_interact
-  browser_press: external.browser_interact
-  browser_evaluate: external.browser_interact
-  kanban_show: read.local
-  kanban_complete: state.kanban
-  kanban_block: state.kanban
-  kanban_create: state.kanban
-  kanban_link: state.kanban
-  kanban_comment: state.kanban
-  kanban_heartbeat: state.kanban
-
+  terminal: exec.shell
+  execute_code: exec.code_with_tool_proxy
+  send_message: external.message
+  cronjob: external.message
 tool_pattern_classification:
-  "mcp_*": runtime.extension
-  "plugin:*": runtime.extension
-  "background_agent:*": runtime.subagent
-
+  spotify_*: external.network_write
+  github_*: external.network_write
+  browser_*: external.network_read
+  web_*: external.network_read
+  mcp_*: runtime.extension
+tool_provenance:
+  classification_by_provider:
+    core: use_tool_classification
+    plugin: require_explicit_classification
+    mcp: require_explicit_classification
+    inline_agent_loop: require_control_plane_guard
+    unknown: block_pending_heartgate
 path_rules:
-  uacp_state_paths:
-    - "state/"
-  uacp_canonical_docs:
-    - "docs/"
-    - "config/"
-  direct_state_write_policy: block_unless_uacp_state_tool
-  canonical_doc_write_policy: require_governed_doc_change
-  recovery_policy: require_breakglass
+  uacp_root_env: UACP_ROOT
+  protected_state_globs:
+  - state/**
+  protected_doc_globs:
+  - docs/**
+  protected_config_globs:
+  - config/**
   protected_write_enforcement:
     required_for:
-      - exec.shell
-      - exec.code_with_tool_proxy
-      - runtime.subagent
-      - automation.future
-      - runtime.extension
-    accepted_mechanisms:
-      - filesystem_sandbox
-      - readonly_mount_for_protected_paths
-      - tool_runtime_write_guard
-    insufficient_mechanisms:
-      - command_string_pattern_matching_only
-      - post_run_diff_detection_only
-    fail_closed_if_unavailable: true
-
+    - state.uacp
+    - docs.uacp
+    - config.uacp
+    - exec.shell
+    - exec.code_with_tool_proxy
+runtime_modes:
+  observe:
+    description: Log decisions but allow unless non-waivable secret/private boundary is crossed.
+  enforce:
+    description: Block protected actions that lack required authority, side-effect declaration,
+      or Heartgate clearance.
 heartgate:
-  enabled: true
-  fail_closed_on_conflict: true
+  transition_config: config/phase-transitions.yaml
   allowed_transitions:
-    triage: [propose, terminal]
-    propose: [plan]
-    plan: [execute]
-    execute: [verify]
-    verify: [resolve]
-    resolve: [terminal]
-  invariant_status_values:
-    allowed:
-      - pass
-      - block
-    forbidden:
-      - warn
-      - deferred
-      - not_applicable
-  required_transition_checks:
-    - transition_allowed
-    - required_artifacts_exist
-    - yaml_parse
-    - invariant_pass
-    - required_clusters_satisfied
-    - blockers_resolved
-    - warnings_owned
-    - deferred_items_accepted
-    - declared_side_effects
-    - write_containment
-    - state_traceability
-
-kanban_control_plane:
-  enabled: true
-  uacp_bound_detector:
-    configured_board_from: "state/kanban.yaml"
-    active_root_tasks_from: "state/kanban.yaml"
-    true_when:
-      - explicit_uacp_task_context_exists
-      - board_is_configured_uacp_board_and_task_is_active_root
-      - board_is_configured_uacp_board_and_task_is_descendant_of_active_root
-      - created_by_uacp_lifecycle_or_state_tool
-      - explicitly_marked_uacp_bound_by_guarded_request
-    ambiguous_on_configured_board: treat_as_uacp_bound
-  metadata_storage:
-    preferred: "kanban task_uacp_context table keyed by task_id"
-    fallback_until_migrated: "task_events kind=uacp_context payload"
-    forbidden:
-      - "worker prose only"
-      - "completion metadata only"
-  uacp_bound_task_metadata:
-    - uacp_run_id
-    - uacp_phase
-    - guardian_policy_version
-    - workspace_policy
-    - guardian_mode
-  worker_environment:
-    - UACP_ROOT
-    - UACP_RUN_ID
-    - UACP_PHASE
-    - UACP_GUARDIAN_POLICY_VERSION
-    - UACP_WORKSPACE_POLICY
-    - UACP_GUARDIAN_MODE
-  completion_evidence_schema:
-    required_fields:
-      - guardian.policy_version
-      - guardian.mode
-      - guardian.verdicts
-      - guardian.missing_verdicts
-  dispatcher_preflight: required_for_uacp_bound_tasks
-  worker_context_propagation: required
-  verify_missing_guardian_verdict: warn_or_block_by_risk
-
+  - execute->verify
+  - plan->execute
+  - propose->plan
+  - resolve->terminal
+  - triage->propose
+  - triage->terminal
+  - verify->resolve
+  decision_values:
+  - pass
+  - warn
+  - block
 audit:
-  runtime_log_root: "HERMES_ROOT/logs/uacp/"
-  durable_artifact_roots:
-    - "verification/"
-    - "executions/"
-    - "state/runs/"
-    - "outputs/"
-    - "knowledge/lessons/"
-  record_allow_for_protected_actions: true
-  record_blocks: true
-  record_breakglass: true
-  minimum_record_fields:
-    - policy_version
-    - uacp_run_id
-    - uacp_phase
-    - runtime
-    - adapter
-    - tool_provider
-    - tool_name
-    - category
-    - decision
-    - reason
-    - workspace
-    - authority_artifact
-    - side_effects
-    - audit_artifact
-    - runtime_commit
-    - uacp_commit
-
-breakglass:
-  allowed: true
+  log_path: logs/uacp/guardian.jsonl
   required_fields:
-    - authority
-    - reason
-    - affected_scope
-    - expiry
-    - audit_artifact
-  default_expiry: one_shot
-  forbidden:
-    - "disable Guardian globally without expiry"
-    - "disable Guardian plugin without breakglass authority"
-    - "skip audit"
-    - "mutate canonical docs through state mutation tool"
+  - ts
+  - uacp_run_id
+  - uacp_phase
+  - tool_name
+  - decision
+  - authority_artifact
+  - side_effects
+  - runtime_commit
+  - uacp_commit

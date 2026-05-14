@@ -1,0 +1,45 @@
+schema_version: '0.1'
+kind: uacp.doctrine_sync
+sync_id: uacp-heartgate-council-doctrine-sync-20260514
+run_id: uacp-phase5-kanban-guard-20260514-130416
+phase: execute
+status: complete
+summary: >-
+  Reflected Mike's distinction between phase-local Agent Council and Heartgate
+  Council into canonical UACP docs, config, and lifecycle skills. Phase-local
+  council checks the phase work product; Heartgate Council checks transition
+  truthfulness, lifecycle coherence, cross-artifact consistency, and next-phase
+  readiness.
+updated_canonical_docs:
+  - docs/lifecycle-reference.md
+  - docs/orchestration-model.md
+  - docs/runtime-enforcement.md
+updated_config:
+  - config/review-routing.yaml
+  - config/phase-transitions.yaml
+updated_skills:
+  - HERMES_ROOT/skills/devops/uacp/SKILL.md
+  - HERMES_ROOT/skills/devops/uacp/uacp-plan/SKILL.md
+  - HERMES_ROOT/skills/devops/uacp/uacp-verify/SKILL.md
+core_distinction:
+  phase_local_council: Checks whether the phase's own work was done properly.
+  heartgate_council: Checks whether the phase legitimately and coherently satisfies its lifecycle contract and may transition.
+heartgate_lenses:
+  - doctrine_coherence
+  - cross_artifact_consistency
+  - runtime_state_alignment
+  - warning_and_deferred_item_honesty
+  - authority_plane_integrity
+  - next_phase_readiness
+validation:
+  yaml_parse:
+    config/review-routing.yaml: pass
+    config/phase-transitions.yaml: pass
+  content_presence:
+    docs/lifecycle-reference.md: Heartgate Council distinction present
+    docs/orchestration-model.md: Heartgate Council distinction present
+    docs/runtime-enforcement.md: Heartgate transition coherence responsibility present
+notes:
+  - Phase-local Agent Council remains useful for review/audit/implementation critique.
+  - Heartgate Council is not duplicate review; it is lifecycle boundary coherence.
+  - For low-risk transitions, Heartgate may perform the checklist without fan-out.

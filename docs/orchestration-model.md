@@ -438,6 +438,17 @@ Mid-phase escalation semantics:
 
 ## Relationship To UACP Phases
 
+## Phase-local and Heartgate Council Split
+
+Agent Council can appear in two positions with different jobs:
+
+1. **Phase-local council** — attached to a phase's own work. It reviews or executes the phase output according to the selected mode: propose critique, plan review, execute implementation review, verify audit, or resolve lessons. Its object is the work product inside the phase.
+2. **Heartgate council** — attached to the transition boundary. It evaluates whether the phase as a whole fulfilled its declared lifecycle responsibility and whether moving forward would be truthful. Its object is the phase transition, not the raw work product.
+
+Heartgate council checks include doctrine coherence, docs/config/state consistency, runtime-state alignment, warning/deferred-item honesty, boundary-role integrity, and next-phase readiness. It should detect cases where implementation, artifacts, or Kanban state quietly redefine UACP doctrine.
+
+A phase-local council may say "the implementation is good" while Heartgate still blocks because artifacts disagree, warnings are unowned, phase state is stale, or the next phase would inherit incoherent assumptions. Conversely, Heartgate may pass with warnings when phase-local findings are accepted and correctly carried forward.
+
 Each phase may invoke Agent Council when useful:
 
 - `TRIAGE`: classify scope, risk, domains, routing, and possible council tier.

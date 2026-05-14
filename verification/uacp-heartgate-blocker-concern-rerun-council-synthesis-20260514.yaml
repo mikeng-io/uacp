@@ -1,0 +1,63 @@
+artifact_type: verification
+run_id: uacp-phase5-kanban-guard-20260514
+phase: execute
+created_at: '2026-05-14T23:59:00+08:00'
+review_type: agent_council_rerun_after_blocker_concern_patches
+model_routing:
+  delegate_task_provider: kimi-coding
+  delegate_task_model: moonshotai/kimi-k2.6
+scope:
+  question: Should Agent Council be re-run after patching B1-B4 and C1-C6?
+  answer: yes; re-run completed before advancing Phase 5 to VERIFY
+  reviewed_paths:
+    - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py
+    - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    - config/phase-transitions.yaml
+    - config/review-routing.yaml
+    - config/guardian-policy.yaml
+    - scripts/validate_uacp_artifacts.py
+    - docs/index.md
+    - docs/lifecycle-reference.md
+    - docs/orchestration-model.md
+    - docs/runtime-enforcement.md
+    - state/runs/uacp-phase5-kanban-guard-20260514-plan-to-execute-transition.yaml
+    - verification/uacp-heartgate-council-review-audit-synthesis-20260514.yaml
+    - verification/uacp-heartgate-blocker-concern-patch-validation-20260514.yaml
+council_roles:
+  - security_runtime_audit
+  - lifecycle_coherence_heartgate_policy_audit
+  - artifact_management_repo_hygiene_audit
+verdicts:
+  security_runtime_audit: PASS
+  lifecycle_coherence_heartgate_policy_audit: PASS_WITH_RESIDUAL_RISK_NOTES
+  artifact_management_repo_hygiene_audit: PASS_WITH_CONCERNS
+resolved_blockers:
+  B1_symlink_escape: pass
+  B2_heartgate_coherence_mandatory_policy: pass
+  B3_uacp_root_relative_resolution: pass
+  B4_transition_path_whitelist: pass
+resolved_concerns:
+  C1_validator_artifact_path_existence_containment: pass
+  C2_locked_current_operating_mode_discoverability: pass
+  C3_guardian_policy_transition_drift_control: pass
+  C4_residual_hermes_hook_risks_documented: pass
+  C5_real_transition_artifact_exercises_coherence: pass
+  C6_pycache_hygiene: pass
+residual_risks:
+  - id: RR1
+    severity: medium
+    summary: Hermes hook-boundary gaps remain documented residual risk; this council validates Heartgate coherence contract behavior, not total Hermes runtime hook closure.
+    blocking_for_execute_to_verify: false
+  - id: RR2
+    severity: low
+    summary: guardian-policy.yaml still duplicates transition data, but drift is controlled by validator consistency checks; future refactor may derive from phase-transitions.yaml.
+    blocking_for_execute_to_verify: false
+  - id: RR3
+    severity: low
+    summary: current changes are local and uncommitted; commit before further work to preserve evidence.
+    blocking_for_execute_to_verify: false
+recommended_next_steps:
+  - commit current UACP changes after final local verification
+  - run final validator and Heartgate check before EXECUTE_TO_VERIFY transition
+  - do not claim total runtime hook closure until Hermes hook fail-open gaps are fixed in code
+final_assessment: Phase 5 can proceed toward EXECUTE_TO_VERIFY after committing/recording this rerun council evidence and re-running final validation.

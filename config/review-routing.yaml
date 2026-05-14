@@ -709,3 +709,33 @@ council_synthesis:
   - pass
   - concerns
   - fail
+heartgate_council_model:
+  purpose: Define the transition-boundary council distinct from phase-local Agent
+    Council review or execution.
+  distinction:
+    phase_local_council: 'Checks the work product inside a phase: artifact quality,
+      implementation correctness, role-specific risks, and local evidence.'
+    heartgate_council: Checks whether the phase as a whole satisfied its lifecycle
+      contract and whether the transition is truthful, coherent, and safe.
+  trigger_defaults:
+  - phase transition has material warnings or deferred items
+  - runtime, governance, Guardian, Heartgate, Kanban, or Agent Council semantics changed
+  - docs/config/state/runtime/test artifacts could drift or disagree
+  - phase-local council findings are accepted rather than fully resolved
+  - transition would carry hidden assumptions into the next phase
+  required_lenses:
+  - doctrine_coherence
+  - cross_artifact_consistency
+  - runtime_state_alignment
+  - warning_and_deferred_item_honesty
+  - authority_plane_integrity
+  - next_phase_readiness
+  adaptive_depth:
+    low_risk: main orchestrator Heartgate coherence checklist
+    medium_risk: focused Heartgate council or explicit coherence synthesis
+    high_risk: role-diverse or cross-runtime Heartgate council before transition acceptance
+locked_current_operating_mode:
+  mode: manual_semi_auto
+  status: locked_until_superseded
+  summary: UACP remains manual/semi-auto unless explicitly superseded by canonical
+    docs/config.

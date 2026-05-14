@@ -74,7 +74,7 @@ def validate_finding_states(path: Path, obj: Any, issues: list[str]) -> None:
             )
 
 
-def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[str]) -> None:
+def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[str], *, root: Path | None = None) -> None:
     schema = config.get("artifact_schema", {})
     required = schema.get("required_fields", [])
     check_required(str(path), obj, required, issues)
@@ -85,6 +85,35 @@ def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[
     values = schema.get("fields", {}).get("terminal_kind", {}).get("values", [])
     if terminal and values and terminal not in values:
         issues.append(f"BLOCK {path}: terminal_kind {terminal!r} not in {values}")
+    validate_heartgate_coherence(path, obj, issues, root=root)
+    validate_heartgate_coherence_requirement(path, obj, config, issues)
+
+
+def validate_heartgate_coherence_requirement(path: Path, obj: dict, config: dict, issues: list[str]) -> None:
+    rule = config.get("heartgate_coherence_required_when") or {}
+    if not rule or obj.get("heartgate_coherence") not in (None, ""):
+        return
+    reasons: list[str] = []
+    min_granularity = rule.get("min_composite_granularity")
+    if min_granularity is not None:
+        try:
+            if int(obj.get("composite_granularity") or 0) >= int(min_granularity):
+                reasons.append(f"composite_granularity>={min_granularity}")
+        except Exception:
+            pass
+    phases = {str(x) for x in (rule.get("phases") or [])}
+    if phases and str(obj.get("from_phase") or "") in phases:
+        reasons.append("phase=" + str(obj.get("from_phase") or ""))
+    routing = {str(x) for x in (rule.get("routing_outcomes") or [])}
+    if routing and str(obj.get("routing_outcome") or "") in routing:
+        reasons.append("routing_outcome=" + str(obj.get("routing_outcome") or ""))
+    domains = {str(x) for x in (rule.get("domains") or [])}
+    artifact_domains = {str(x) for x in (obj.get("domains") or [])}
+    overlap = domains.intersection(artifact_domains)
+    if overlap:
+        reasons.append("domain=" + ",".join(sorted(overlap)))
+    if reasons:
+        issues.append(f"BLOCK {path}: heartgate_coherence required by transition policy: {'; '.join(reasons)}")
 
 
 def validate_council_synthesis(path: Path, obj: dict, config: dict, issues: list[str]) -> None:
@@ -97,6 +126,48 @@ def validate_council_synthesis(path: Path, obj: dict, config: dict, issues: list
     validate_finding_states(path, obj, issues)
 
 
+
+
+def validate_heartgate_coherence(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    coherence = obj.get("heartgate_coherence")
+    if coherence in (None, ""):
+        return
+    if not isinstance(coherence, dict):
+        issues.append(f"BLOCK {path}: heartgate_coherence must be a mapping")
+        return
+    status = coherence.get("status")
+    if status not in {"pass", "warn", "block"}:
+        issues.append(f"BLOCK {path}: heartgate_coherence.status must be pass|warn|block")
+    artifact_path = coherence.get("artifact_path")
+    if not artifact_path:
+        issues.append(f"BLOCK {path}: heartgate_coherence requires artifact_path")
+    elif root is not None:
+        candidate = Path(str(artifact_path))
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        try:
+            resolved = candidate.resolve()
+            if resolved != root and root not in resolved.parents:
+                issues.append(f"BLOCK {path}: heartgate_coherence artifact_path escapes UACP_ROOT")
+            elif not resolved.exists():
+                issues.append(f"BLOCK {path}: heartgate_coherence artifact_path not found: {artifact_path}")
+        except Exception as exc:
+            issues.append(f"BLOCK {path}: heartgate_coherence artifact_path invalid: {exc}")
+    required_lenses = {
+        "doctrine_coherence",
+        "cross_artifact_consistency",
+        "runtime_state_alignment",
+        "warning_and_deferred_item_honesty",
+        "authority_plane_integrity",
+        "next_phase_readiness",
+    }
+    lenses = coherence.get("lenses") or []
+    if not isinstance(lenses, list):
+        issues.append(f"BLOCK {path}: heartgate_coherence.lenses must be a list")
+        return
+    missing = sorted(required_lenses - {str(item) for item in lenses})
+    if missing:
+        issues.append(f"BLOCK {path}: heartgate_coherence missing lens(es): {', '.join(missing)}")
 
 
 def validate_gate_selection(path: Path, obj: dict, issues: list[str]) -> None:
@@ -170,6 +241,22 @@ def validate_configs(root: Path, issues: list[str]) -> dict:
     return configs
 
 
+def validate_transition_config_consistency(configs: dict, issues: list[str]) -> None:
+    phase_cfg = configs.get("config/phase-transitions.yaml") or {}
+    guardian_cfg = configs.get("config/guardian-policy.yaml") or {}
+    stages = phase_cfg.get("stages") or {}
+    canonical = sorted(
+        f"{stage}->{target}"
+        for stage, body in stages.items()
+        for target in (body.get("exits_to") or [])
+    )
+    allowed = sorted(
+        str(item) for item in ((guardian_cfg.get("heartgate") or {}).get("allowed_transitions") or [])
+    )
+    if allowed and canonical and allowed != canonical:
+        issues.append("WARN config/guardian-policy.yaml: heartgate.allowed_transitions differs from config/phase-transitions.yaml stages")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=".", help="UACP_ROOT")
@@ -180,6 +267,7 @@ def main() -> int:
     issues: list[str] = []
     try:
         configs = validate_configs(root, issues)
+        validate_transition_config_consistency(configs, issues)
         phase_config = configs["config/phase-transitions.yaml"]
         for raw in args.artifacts:
             path = Path(raw)
@@ -189,7 +277,7 @@ def main() -> int:
             kind = obj.get("kind", "")
             validate_finding_states(path, obj, issues)
             if kind == "uacp.phase_transition":
-                validate_phase_transition(path, obj, phase_config, issues)
+                validate_phase_transition(path, obj, phase_config, issues, root=root)
             elif kind == "uacp.council_synthesis" or "council_id" in obj:
                 validate_council_synthesis(path, obj, phase_config, issues)
             elif kind == "uacp.gate_selection":

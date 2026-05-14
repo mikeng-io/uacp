@@ -154,6 +154,18 @@ Each transition must satisfy:
 
 Heartgate is not a fixed gate checklist. It validates the selected adaptive evidence set plus invariant checks.
 
+Heartgate also owns the **transition coherence check**. A phase-local council reviews the phase's own work; Heartgate decides whether the lifecycle boundary is truthful. For medium/high-risk transitions, Heartgate may invoke or require a Heartgate Council whose mandate is cross-artifact coherence and consistency, not duplicate implementation review.
+
+Heartgate Council checks:
+
+- phase objective satisfied against the proposal/plan;
+- required artifacts and selected evidence clusters exist and parse;
+- docs, config, state, runtime behavior, tests, and verification artifacts tell the same story;
+- phase-local council findings are resolved, accepted with owners, or blocking;
+- warnings/deferred items are honestly carried into the next phase;
+- Kanban, Guardian, Heartgate, Agent Council, and runtime adapters have not drifted into each other's authority roles;
+- the next phase has a coherent state and explicit obligations.
+
 ## Hermes Adapter Requirements
 
 Hermes runtime enforcement starts with a plugin adapter, but the plugin alone is not the whole solution.

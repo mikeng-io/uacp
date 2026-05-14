@@ -161,6 +161,7 @@ class GuardianPolicy:
             "require_explicit_classification",
             "require_control_plane_guard",
             "prefer_tool_classification_else_runtime_extension",
+            "block_pending_heartgate",
         }
         for provider, category in provider_map.items():
             if category in symbolic:
@@ -291,7 +292,10 @@ class Guardian:
 
     def is_uacp_bound(self, event: GuardianEvent) -> bool:
         if os.getenv("UACP_GUARDIAN_MODE", "").lower() == "enforce":
-            return True
+            # Enforce mode alone should not create a false UACP binding.  The
+            # event still needs explicit run/phase context or a UACP path touch.
+            if event.uacp_run_id or event.uacp_phase:
+                return True
         if event.uacp_run_id or event.uacp_phase:
             return True
         if os.getenv("UACP_RUN_ID") or os.getenv("UACP_PHASE"):
@@ -366,7 +370,7 @@ class Guardian:
     def _resolve_path(self, raw_path: str) -> Path:
         path = Path(raw_path).expanduser()
         if not path.is_absolute():
-            path = Path.cwd() / path
+            path = self.policy.uacp_root / path
         return path.resolve()
 
 
@@ -523,6 +527,9 @@ class Heartgate:
             if not any("deferred item lacks" in b for b in blockers):
                 warnings.append("transition has accepted deferred items")
 
+        self._validate_heartgate_coherence(artifact, blockers, warnings)
+        self._validate_heartgate_coherence_requirement(artifact, blockers)
+
         declared_decision = str(artifact.get("decision") or "")
         if declared_decision == "block":
             blockers.append("transition artifact declares block")
@@ -543,6 +550,84 @@ class Heartgate:
         if not isinstance(artifact, dict):
             return HeartgateDecision("block", "transition artifact must be a YAML mapping", ["invalid artifact"])
         return self.validate_transition(artifact)
+
+    def _validate_heartgate_coherence(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
+        """Validate optional Heartgate transition-coherence evidence."""
+        coherence = artifact.get("heartgate_coherence")
+        if coherence in (None, ""):
+            return
+        if not isinstance(coherence, Mapping):
+            blockers.append("heartgate_coherence must be a mapping")
+            return
+        status = str(coherence.get("status") or "")
+        if status not in {"pass", "warn", "block"}:
+            blockers.append("heartgate_coherence.status must be pass, warn, or block")
+        if status == "block":
+            blockers.append("heartgate coherence blocks transition")
+        artifact_path = str(coherence.get("artifact_path") or "")
+        if not artifact_path:
+            blockers.append("heartgate_coherence requires artifact_path")
+        elif not self._artifact_path_exists(artifact_path):
+            blockers.append(f"heartgate_coherence artifact not found: {artifact_path}")
+        required_lenses = {
+            "doctrine_coherence",
+            "cross_artifact_consistency",
+            "runtime_state_alignment",
+            "warning_and_deferred_item_honesty",
+            "authority_plane_integrity",
+            "next_phase_readiness",
+        }
+        lenses = coherence.get("lenses") or []
+        if not isinstance(lenses, list):
+            blockers.append("heartgate_coherence.lenses must be a list")
+        else:
+            missing = sorted(required_lenses - {str(item) for item in lenses})
+            if missing:
+                blockers.append("heartgate_coherence missing lens(es): " + ", ".join(missing))
+        if status == "warn":
+            warnings.append("heartgate coherence passed with warnings")
+
+    def _artifact_path_exists(self, artifact_path: str) -> bool:
+        try:
+            path = Path(artifact_path)
+            if not path.is_absolute():
+                path = self.uacp_root / path
+            resolved = path.resolve()
+            root = self.uacp_root.resolve()
+            if resolved != root and root not in resolved.parents:
+                return False
+            return resolved.exists()
+        except Exception:
+            return False
+
+
+    def _validate_heartgate_coherence_requirement(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        rule = self.config.get("heartgate_coherence_required_when") or {}
+        if not rule:
+            return
+        coherence = artifact.get("heartgate_coherence")
+        if coherence not in (None, ""):
+            return
+        reasons = []
+        min_granularity = rule.get("min_composite_granularity")
+        if min_granularity is not None:
+            try:
+                if int(artifact.get("composite_granularity") or 0) >= int(min_granularity):
+                    reasons.append(f"composite_granularity>={min_granularity}")
+            except Exception:
+                pass
+        phases = set(str(x) for x in (rule.get("phases") or []))
+        if phases and str(artifact.get("from_phase") or "") in phases:
+            reasons.append("phase=" + str(artifact.get("from_phase") or ""))
+        routing = set(str(x) for x in (rule.get("routing_outcomes") or []))
+        if routing and str(artifact.get("routing_outcome") or "") in routing:
+            reasons.append("routing_outcome=" + str(artifact.get("routing_outcome") or ""))
+        categories = set(str(x) for x in (rule.get("domains") or []))
+        artifact_domains = {str(x) for x in (artifact.get("domains") or [])}
+        if categories and categories.intersection(artifact_domains):
+            reasons.append("domain=" + ",".join(sorted(categories.intersection(artifact_domains))))
+        if reasons:
+            blockers.append("heartgate_coherence required by transition policy: " + "; ".join(reasons))
 
     def _transition_allowed(self, from_phase: str, to_phase: str) -> bool:
         stage = self.stages.get(from_phase) or {}
