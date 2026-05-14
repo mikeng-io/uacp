@@ -40,6 +40,26 @@ PLAN/EXECUTE must ground changes in these existing sources:
 
 ## Work packages
 
+### WP0 — Plan-council remediation and rollback checkpoint
+
+Before PLAN→EXECUTE:
+
+- Patch the PROPOSE→PLAN transition artifact so validator returns `RESULT PASS`:
+  - `terminal_kind` must use a valid transition enum.
+  - `heartgate_coherence` must be present when policy requires it.
+- Record plan-council findings as a `uacp.council_synthesis` artifact.
+- Confirm `uacp_doc_write` and `uacp_config_write` are exposed as governed writer tools before EXECUTE attempts canonical doc/config mutation.
+- Confirm skill alignment scope:
+  - UACP canonical docs/config/script changes are in this run.
+  - Hermes skill files under `HERMES_ROOT/skills/...` are conditional and may be patched only after canonical changes if stale.
+
+Rollback checkpoint:
+
+- Create/keep a local git commit before EXECUTE begins.
+- If EXECUTE doc/config/script patches regress validation, rollback with `git revert <checkpoint..HEAD>` or reset only under explicit operator approval.
+- Rollback verification command: `PYTHONDONTWRITEBYTECODE=1 python3 scripts/validate_uacp_artifacts.py` must return `RESULT PASS` after rollback.
+- Human approval is required before destructive rollback, force push, public upstream action, or private remote push.
+
 ### WP1 — Surface inventory and gap map
 
 Create `verification/uacp-phase6-agent-council-surface-inventory-20260515.yaml`.
@@ -106,28 +126,30 @@ Likely target surfaces:
 
 ### WP5 — Validator coverage decision
 
-Preferred: extend `scripts/validate_uacp_artifacts.py` to validate basic `uacp.proposal` and `uacp.triage` shapes.
+Preferred and selected for EXECUTE: extend `scripts/validate_uacp_artifacts.py` to validate basic `uacp.proposal` and `uacp.triage` shapes.
 
-Minimum if not implemented now:
+Minimum if implementation proves unsafe:
 
-- record accepted risk with owner, condition, and later phase target.
+- record accepted risk with owner, condition, and later phase target before VERIFY.
 
 Acceptance:
 
 - PLAN must not leave proposal/triage validation gap unnamed.
+- VERIFY must include at least one valid proposal and one valid triage validation path, either from live artifacts or lightweight fixtures.
 
 ### WP6 — Evidence Domain Registry decision
 
-Decide whether `evidence_domain_registry` work is part of Phase 6.
+Decision for Phase 6: defer runtime selector activation.
 
-Default recommendation:
+Phase 6 may add wording that:
 
-- Defer runtime selector activation.
-- Include only the minimum reference needed so retrieval-led council protocol does not claim the registry is runtime-active.
+- `evidence_domain_registry` remains not runtime-active,
+- retrieval-led council protocol must not claim runtime selector activation,
+- future registry/selector activation requires a separate implementation phase.
 
 Acceptance:
 
-- The plan or verification artifact explicitly states include/defer and why.
+- The plan or verification artifact explicitly states defer and why.
 
 ## Execution topology
 
@@ -144,6 +166,7 @@ Deterministic checks:
 - Python syntax parse for modified scripts if validator changes.
 - Search/read verification that no canonical docs hardcode transient model names.
 - Check that council synthesis schema and transition artifacts preserve `council_synthesis_artifact` vs `heartgate_coherence` distinction.
+- Verify `uacp_doc_write` and `uacp_config_write` are available as governed writer tools before/while using them.
 
 Council checks:
 
@@ -155,7 +178,9 @@ Council checks:
 
 - UACP changes are committed locally at checkpoints.
 - Revert latest UACP commits if artifacts/config/docs regress.
-- No public upstream or private push unless explicitly approved.
+- Before EXECUTE, record the checkpoint commit hash in the PLAN_TO_EXECUTE transition artifact.
+- Rollback verification command: `PYTHONDONTWRITEBYTECODE=1 python3 scripts/validate_uacp_artifacts.py` must return `RESULT PASS` after rollback.
+- No public upstream, private push, destructive rollback, or force operation unless explicitly approved.
 
 ## Phase-local granularity
 

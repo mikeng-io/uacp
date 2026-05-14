@@ -89,4 +89,15 @@ human_involvement:
   reason: Mike authorized continuation; PLAN will remain local/governed and external pushes remain gated.
   authority_needed: explicit approval before public upstream PR/push, private UACP push, destructive action, or weakening security.
   decision_owner: Mike
-terminal_kind: contained_validation_plus_governed_writes
+terminal_kind: none
+heartgate_coherence:
+  status: warn
+  artifact_path: verification/uacp-phase6-agent-council-proposal-council-synthesis-20260515.yaml
+  lenses:
+    - doctrine_coherence
+    - cross_artifact_consistency
+    - runtime_state_alignment
+    - warning_and_deferred_item_honesty
+    - authority_plane_integrity
+    - next_phase_readiness
+  summary: Retrofitted during PLAN after plan council found validator drift. Proposal council inspected ground-truth files and proposal/gate artifacts were patched; remaining warnings are plan-owned and explicit.
