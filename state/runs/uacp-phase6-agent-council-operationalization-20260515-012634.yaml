@@ -1,9 +1,9 @@
 schema_version: '0.1'
 kind: uacp.run_manifest
 run_id: uacp-phase6-agent-council-operationalization-20260515-012634
-phase: execute
-status: active_execute
-summary: Phase 6 Agent Council operationalization is in EXECUTE. Surface inventory and plan council are complete; PLAN_TO_EXECUTE Heartgate returned warn with no blockers. Execution is bounded to UACP docs/config/script patches and conditional skill alignment.
+phase: verify
+status: active_verify
+summary: Phase 6 Agent Council operationalization is in VERIFY. Execute patched bounded docs/config/validator surfaces and updated council synthesis evidence. EXECUTE_TO_VERIFY Heartgate returned warn with no blockers; VERIFY must explicitly validate council synthesis artifacts and skill alignment outside UACP repo.
 triage_artifact: state/runs/uacp-phase6-agent-council-operationalization-20260515-012634-triage.yaml
 proposal: proposals/uacp-phase6-agent-council-operationalization-20260515.yaml
 gate_selection: proposals/uacp-phase6-agent-council-operationalization-20260515-gate-selection.yaml
@@ -14,6 +14,9 @@ plan_gate_selection: plans/uacp-phase6-agent-council-operationalization-20260515
 surface_inventory: verification/uacp-phase6-agent-council-surface-inventory-20260515.yaml
 plan_council_synthesis: verification/uacp-phase6-agent-council-plan-council-synthesis-20260515.yaml
 transition_plan_to_execute: state/runs/uacp-phase6-agent-council-operationalization-20260515-plan-to-execute-transition.yaml
+execute_implementation: verification/uacp-phase6-agent-council-execute-implementation-20260515.yaml
+execute_council_synthesis: verification/uacp-phase6-agent-council-execute-council-synthesis-20260515.yaml
+transition_execute_to_verify: state/runs/uacp-phase6-agent-council-operationalization-20260515-execute-to-verify-transition.yaml
 created_at: '2026-05-15T01:26:34+08:00'
 constraints:
   - do_not_collapse_agent_council_into_kanban
@@ -22,13 +25,11 @@ constraints:
   - no_public_upstream_push_without_explicit_approval
   - no_security_boundary_weakening
 warnings_carried:
-  - council_synthesis_schema_needs_inspected_paths
-  - generic_agent_council_skill_convention_mismatch
-  - heartgate_artifact_naming_inconsistent_historically
+  - validator_explicit_artifact_selection
+  - skill_files_outside_uacp_repo
 deferred_items:
   - evidence_domain_registry_runtime_activation
-  - kanban_backed_council_automation
+  - private_uacp_push_after_verify_or_resolve
   - public_upstream_changes
-  - private_uacp_push_after_checkpoint
-rollback_checkpoint_commit: ba6b78a
-next_step: execute bounded docs/config/validator patches from surface inventory
+rollback_checkpoint_commit: ce4b1c5
+next_step: perform VERIFY checks for council synthesis validation coverage and out-of-repo skill alignment

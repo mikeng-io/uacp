@@ -1,6 +1,6 @@
 schema_version: '0.1'
 kind: uacp.current_state
 active_run_id: uacp-phase6-agent-council-operationalization-20260515-012634
-active_phase: execute
-active_status: active_execute
-last_updated_reason: Phase 6 PLAN_TO_EXECUTE Heartgate returned warn with no blockers after plan council remediation; EXECUTE is active.
+active_phase: verify
+active_status: active_verify
+last_updated_reason: Phase 6 EXECUTE_TO_VERIFY Heartgate returned warn with no blockers; VERIFY is active with explicit council synthesis validation and skill alignment obligations.
