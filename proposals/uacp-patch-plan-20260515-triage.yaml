@@ -1,0 +1,166 @@
+kind: uacp.triage
+triage_id: uacp-patch-plan-20260515-triage-001
+run_id: uacp-patch-plan-20260515
+
+request_summary: >
+  Execute the UACP Long-Term Patch Plan. Five-phase structured remediation of the gap
+  between UACP's aspirational governance model and its mechanical enforcement reality.
+  Identified through deep gap analysis (Trustless ACP comparison + confirmed Hermes
+  internals investigation, 2026-05-15). Operator explicitly authorized full execution.
+  Codex full-dimension review gate required after each phase; must return pass with
+  zero material findings before next phase begins.
+
+authority:
+  status: pass
+  source: >
+    Operator (Mike, iam@mikeng.io) explicitly authorized in conversation 2026-05-15.
+    Authorizing statement: "proceed and execute as u recommend" on the documented
+    patch plan; confirmed "long-term solution, not a hotfix"; confirmed Codex review
+    gate after each phase with pass-only requirement.
+
+# --- Conversation checkpoint: key findings that drove this plan ---
+
+context_checkpoint:
+  gap_analysis_source: >
+    Deep comparative analysis of UACP skills/docs/Guardian against Trustless ACP's
+    mechanically enforced patterns. Four parallel Hermes-internals investigation
+    agents confirmed ground truth before plan was written.
+
+  confirmed_hermes_internals:
+    - hooks_fail_open: >
+        All hook subprocess errors, timeouts, and non-zero exits return None and
+        log warnings. Exceptions never block the agent. Confirmed in shell_hooks.py.
+    - dispatch_tool_invokes_hooks: >
+        PluginContext.dispatch_tool() DOES invoke pre_tool_call and post_tool_call
+        hooks (lines 490-500, 505-515). Not a bypass.
+    - delegate_task_is_thread_based: >
+        delegate_task spawns ThreadPoolExecutor threads, not subprocesses. In-process
+        AIAgent instances with skip_memory=True, skip_context_files=True. Restricted
+        toolset (blocked: delegate_task, clarify, memory, send_message, execute_code).
+    - kanban_workers_are_subprocesses: >
+        Kanban workers are actual subprocesses: hermes -p <profile> chat "work kanban
+        task {task_id}". Fully profile-isolated.
+    - task_uacp_context_table_exists: >
+        SQLite table task_uacp_context already exists at ~/.hermes/kanban.db with
+        columns: uacp_root, uacp_run_id, uacp_phase, guardian_policy_version,
+        workspace_policy, guardian_mode. Metadata handoff channel is live.
+    - filesystem_guard_verified_never_set: >
+        CRITICAL BUG: filesystem_guard_verified is never set to True anywhere in
+        __init__.py. UACP-bound shell/code execution is always blocked regardless
+        of mode. This is Phase 0, item 0.1.
+    - enforce_mode_cosmetic: >
+        guardian_mode=enforce only changes UACP binding inference, not decision
+        logic. Warn does not become block in enforce mode. This is Phase 0, item 0.2.
+    - post_hook_cannot_block: >
+        post_tool_call always returns None by Hermes architecture design. It is
+        fail-open and cannot prevent a harmful action after it has started.
+        Detection-only; all enforcement must happen pre-tool-call.
+
+  six_gap_categories:
+    - id: gap_1
+      label: Skills missing mechanical specificity
+      detail: >
+        No pre-flight invariant contracts in skill YAML, no gate ledger, no PIV
+        protocol, no allowed-tools declarations, no handoff invariant registry.
+        Governance is prose-dependent, not machine-enforceable.
+    - id: gap_2
+      label: Evidence/artifact structure underspecified
+      detail: >
+        No scope artifact (write_paths, api_surfaces, blast_radius), no evidence
+        disposition pairs (verified-facts + assumptions with formal outcomes), no
+        run intent doc, no structured lessons pattern for Knowledge Bank retrieval.
+    - id: gap_3
+      label: Plan validation missing as discrete gate
+      detail: >
+        PLAN→EXECUTE has no mandatory pre-execution structural check. Scope artifact
+        existence, allowed-tools coverage, execution boundary vs. proposal alignment —
+        none of these are verified before EXECUTE begins.
+    - id: gap_4
+      label: Concurrent-run coordination absent
+      detail: >
+        No run registry. Two concurrent UACP runs can declare overlapping write paths
+        and neither will know. No Cross-Spec Awareness equivalent.
+    - id: gap_5
+      label: Document gaps
+      detail: >
+        Missing: skill-enforcement-spec.md (machine-readable authority per skill),
+        proposal-schema.md (full field semantics), lifecycle-trace-table.md
+        (cross-phase artifact dependency map).
+    - id: gap_6
+      label: Guardian not wired to skills
+      detail: >
+        uacp_heartgate_check exists but skills reference it as prose instruction,
+        not enforced contract. Write surfaces per skill not declared. Enforce mode
+        is cosmetic. filesystem_guard_verified bug prevents contained-shell use.
+
+  patch_plan_summary:
+    phase_0: Fix Guardian bugs (filesystem_guard_verified, enforce mode, post-hook doc)
+    phase_1: Mechanical pre-flight contracts (gate ledger, PIV, invariant declarations, allowed-tools)
+    phase_2: Artifact structure (scope artifact, evidence disposition pairs, intent doc, lessons)
+    phase_3: Governance completeness (plan validation gate, run registry, 3 missing docs)
+    phase_4: Autonomous mode slot (uacp_mode ladder, autonomy-policy.yaml, escalation triggers, mode stubs)
+    phase_5: Full autonomous mode (future, gated on 3 supervised-auto runs post-Phase 4)
+
+  review_gate_requirement: >
+    After each phase (0-4), Codex runs a full-dimension (all 15 evidence clusters),
+    full-perspective (minimum tier_2_role_diverse: technical + governance + skeptic)
+    review. Verdict must be pass with zero material findings unresolved before the
+    next phase begins. Each review produces verification/uacp-patch-plan-phase{N}-codex-review.yaml.
+
+# --- Triage scoring ---
+
+factor_scores:
+  impact: 8
+  reversibility: 6
+  domain_count: 7
+  runtime_count: 4
+  verification_difficulty: 7
+  notes:
+    - "Touches Guardian plugin code (~1660 lines), all 7 skills, state schema, 3 new docs, 2 new configs"
+    - "filesystem_guard_verified bug means Phase 0 affects all subsequent enforcement testing"
+    - "Autonomous mode slot (Phase 4) requires one Hermes core seam (async escalation surface)"
+    - "Reversibility is medium: git revert recovers code; state schema changes need care"
+
+phase_local_granularity:
+  phase: triage
+  entry_estimate: 7
+  exit_actual: 7
+  delta_reason: No material change; analysis confirms 7.
+  downstream_projection:
+    propose: 7
+    plan: 6
+    execute: 8
+    verify: 7
+    resolve: 4
+
+composite_granularity: 7
+
+routing_outcome: full_governance
+
+rationale:
+  - "Composite granularity 7 → full_governance threshold"
+  - "Modifies runtime enforcement infrastructure (Guardian plugin)"
+  - "Introduces autonomous mode architecture — authority-plane change"
+  - "Codex review gate after each execution phase is a non-standard governance obligation"
+  - "Requires council at each phase gate per full_governance routing"
+
+artifact_policy: full
+
+council:
+  required: true
+  reason: >
+    Full governance routing at granularity 7. Phase-local council at TRIAGE not
+    required (scope is clear from deep investigation already completed). Council
+    required at PLAN→EXECUTE and after each execution phase (Codex review gate).
+
+human_involvement:
+  required: false
+  reason: >
+    Authority is explicit (operator statement). Side effects are contained within
+    UACP_ROOT and the Guardian plugin source. No external, irreversible, or
+    production-facing side effects in Phases 0-3. Phase 4 requires one Hermes
+    core seam discussion before implementation.
+  authority_needed: none
+  decision_owner: none
+
+next_step: PROPOSE — formalize authority, side effects, write surfaces, and phase contract.

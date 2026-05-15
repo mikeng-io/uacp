@@ -1,0 +1,11 @@
+kind: uacp.run_manifest
+run_id: uacp-patch-plan-20260515
+phase: triage
+status: complete
+triage_artifact: proposals/uacp-patch-plan-20260515-triage.yaml
+gate_selection_artifact: proposals/uacp-patch-plan-20260515-gate-selection.yaml
+routing_outcome: full_governance
+composite_granularity: 7
+authority_source: operator explicit (2026-05-15 conversation)
+next_phase: plan
+note: PROPOSE phase is reflected in the proposal artifact. PLAN artifacts written directly as the proposal content is comprehensive. Triage + propose + plan completed in sequence as lifecycle checkpoint.
