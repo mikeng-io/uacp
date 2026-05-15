@@ -1,0 +1,181 @@
+schema_version: '0.1'
+kind: uacp.artifact_schemas
+purpose: >
+  Canonical schemas for Phase-2 structured artifacts. Heartgate enforces these
+  at phase transitions: scope at PLAN→EXECUTE, intent at TRIAGE→PROPOSE,
+  evidence_disposition at VERIFY→RESOLVE, lessons at VERIFY→RESOLVE.
+
+# --- Phase 2.1: scope artifact ---
+
+scope:
+  kind: uacp.scope
+  required_for_transition: plan->execute
+  path_template: "plans/{run_id}-scope.yaml"
+  description: >
+    Declares the bounded blast radius of the run during EXECUTE. Guardian
+    enforces `write_paths` as a write-containment check; entries outside the
+    list block in enforce mode. `forbidden_paths` block unconditionally.
+    `write_paths` is cross-checked against the active phase's Layer B
+    `allowed_tools` — every declared write target must be reachable by at
+    least one admissible tool.
+  required_fields:
+  - run_id
+  - write_paths
+  - blast_radius
+  - rollback_path
+  optional_fields:
+  - read_paths
+  - forbidden_paths
+  - api_surfaces
+  - runtime_surfaces
+  - migrations
+  - side_effects
+  fields:
+    run_id: string
+    write_paths:
+      type: list
+      item_type: string
+      description: UACP_ROOT-relative glob patterns that EXECUTE may write.
+    read_paths:
+      type: list
+      item_type: string
+    forbidden_paths:
+      type: list
+      item_type: string
+    api_surfaces:
+      type: list
+      item_schema:
+        service: string
+        endpoint: string
+        method: string
+    runtime_surfaces:
+      type: list
+      item_type: string
+    migrations:
+      type: list
+      item_type: string
+    side_effects:
+      type: list
+      item_type: string
+    blast_radius:
+      type: enum
+      values: [low, medium, high, critical]
+    rollback_path:
+      type: string
+      description: How to undo, or 'none--write-only-artifact' if not reversible.
+
+# --- Phase 2.2: evidence disposition pair ---
+
+evidence_disposition:
+  kind: uacp.evidence_disposition
+  required_for_transition: verify->resolve
+  description: >
+    Each verification cluster that runs produces TWO companion files: a
+    verified-facts.md (assertions with source evidence) and an assumptions.md
+    (assertions accepted without direct verification, each with formal
+    disposition). Heartgate blocks VERIFY->RESOLVE when files are missing or
+    when assumptions.md contains a `pending` row without owner +
+    next_phase_obligation.
+  paired_paths:
+    verified_facts: "verification/{run_id}-{cluster}-verified-facts.md"
+    assumptions:    "verification/{run_id}-{cluster}-assumptions.md"
+  assumptions_dispositions:
+    accepted_risk:
+      description: Acknowledged risk; owner accepts impact.
+      requires: [owner]
+    deferred:
+      description: Deferred to a later phase or run.
+      requires: [owner, next_phase_obligation]
+    pending:
+      description: Must be resolved before RESOLVE — blocks if unowned.
+      requires: [owner, next_phase_obligation]
+
+# --- Phase 2.3: run intent doc ---
+
+intent:
+  kind: uacp.intent
+  required_for_transition: triage->propose
+  path_template: "proposals/{run_id}-intent.md"
+  description: >
+    A 1-page charter recorded at the end of TRIAGE. Defines success, explicit
+    out-of-scope, termination condition, and authority source. Feeds into
+    RESOLVE lessons and into Phase 4's autonomous-mode scope-bounding logic.
+  required_sections:
+  - "Success Definition"
+  - "Explicit Out-of-Scope"
+  - "Termination Condition"
+  - "Authority Source"
+
+# --- Phase 2.4: structured lessons ---
+
+lessons:
+  kind: uacp.lessons
+  required_for_transition: verify->resolve
+  path_template: "outputs/{run_id}-lessons.yaml"
+  description: >
+    Structured lessons emitted at RESOLVE. Entries with
+    applies_to_future_runs=true are auto-copied to knowledge/lessons/ (the
+    Phase 5 Knowledge Bank seed).
+  required_fields:
+  - run_id
+  - lessons
+  fields:
+    run_id: string
+    lessons:
+      type: list
+      item_schema:
+        id: string
+        category:
+          type: enum
+          values: [governance, technical, process, tooling, enforcement]
+        finding: string
+        recommendation: string
+        gate_affected: string
+        applies_to_future_runs: boolean
+        knowledge_path: string
+        ledger_citations:
+          type: list
+          item_schema:
+            run_id: string
+            gate: string
+            ts: integer
+            byte_offset: integer
+            reviewer: string
+
+# --- Cross-checks (Phase 1 propagated_constraints) ---
+
+cross_checks:
+  scope_write_paths_vs_layer_b:
+    description: >
+      Every entry in scope.write_paths must be reachable by at least one
+      tool in `config/phase-transitions.yaml stages.execute.allowed_tools`.
+      Enforced at PLAN->EXECUTE Heartgate by scanning each write_path
+      against the writer tools' declared path prefixes below.
+    enforcement: plan->execute Heartgate blocker on mismatch
+    tool_path_capabilities:
+      description: >
+        Phase 2 remediation (F2): per-tool path prefixes are declared here in
+        config, not hardcoded in adapter code. Heartgate loads this list at
+        startup. Shell/code execution surfaces (terminal, execute_code,
+        uacp_contained_shell) are deliberately omitted — they target the
+        workspace, not UACP_ROOT, and do not satisfy UACP-rooted
+        scope.write_paths (F1 remediation).
+      uacp_state_write: ["state/"]
+      uacp_doc_write: ["docs/"]
+      uacp_config_write: ["config/"]
+      uacp_artifact_write:
+        - "plans/"
+        - "proposals/"
+        - "executions/"
+        - "verification/"
+        - "outputs/"
+        - "knowledge/"
+      uacp_gate_ledger_append: ["state/gate-ledger/"]
+
+  evidence_disposition_minimum_content:
+    description: >
+      Phase 2 remediation (F3): disposition pair files cannot be empty. Each
+      file must contain at least the table header line. Heartgate VERIFY->RESOLVE
+      blocks when a disposition pair file is present-but-empty.
+    verified_facts_required_header_substring: "Fact"
+    assumptions_required_header_substring: "Disposition"

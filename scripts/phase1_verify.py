@@ -314,15 +314,19 @@ def main() -> int:
             })
 
             # --- Remediation R1 (skeptic F1): uacp_state_write refuses state/gate-ledger/ ---
+            # pc_p1_t1 (Phase 2 propagated): assert the SPECIFIC gate-ledger
+            # refusal branch fires, not just any error.
             forge = json.loads(plugin._handle_uacp_state_write({
                 **_common_args(tmp, phase="execute"),
+                "reason": "phase1 verify R1 forge attempt",
                 "target_path": "state/gate-ledger/forged.jsonl",
                 "content": json.dumps({"gate": "PIV", "result": "pass", "phase": "execute", "piv_attempt": 1, "run_id": "phase1-verify"}) + "\n",
             }))
+            err = forge.get("error") or ""
             report["checks"].append({
                 "name": "remediation_R1_state_write_refuses_gate_ledger",
-                "status": "pass" if forge.get("error") else "fail",
-                "error": forge.get("error"),
+                "status": "pass" if "may not write under state/gate-ledger/" in err else "fail",
+                "error": err,
             })
 
             # --- Remediation R2 (skeptic F2): policy validator rejects poisoned self_attesting_tools ---

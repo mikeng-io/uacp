@@ -1,0 +1,232 @@
+kind: uacp.council_synthesis
+council_id: uacp-patch-plan-phase2-codex-review-20260516
+run_id: uacp-patch-plan-20260515
+phase: execute
+mode: review
+tier: tier_2_role_diverse
+purpose: >
+  Codex full-dimension review gate for Phase 2 (structured artifacts +
+  Heartgate enforcement). Two-pass council per the patch plan gate spec.
+
+roles:
+  - role: consolidated
+    coverage: technical correctness + governance authority chain + skeptical regressions/bypasses
+
+dispatch_surfaces:
+  - subagent: general-purpose
+    invocation: one consolidated 3-role agent for first pass; one for second pass after remediation
+
+inspected_paths:
+  - config/artifact-schemas.yaml
+  - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+  - docs/index.md
+  - docs/runtime-enforcement.md
+  - scripts/phase2_verify.py
+  - scripts/phase1_verify.py
+  - scripts/phase0_verify.py
+  - scripts/live_guardian_probe.py
+  - executions/uacp-patch-plan-20260515-phase2-drift-reconciliation.yaml
+  - verification/uacp-patch-plan-phase1-codex-review.yaml
+
+first_pass_findings:
+  - id: F1
+    severity: material
+    category: technical
+    description: >
+      `_tool_path_capabilities` returned ["*"] for terminal/execute_code/
+      uacp_contained_shell but the matcher (`startswith(pfx)` or `wp_str
+      == pfx.rstrip("/")`) did not treat "*" as a wildcard. The Layer B
+      cross-check was silently broken when shell/exec tools were in
+      stages.execute.allowed_tools. pc_p1_gov_2 was not actually closed.
+    handling_classification: remediated
+    remediation: >
+      Shell/exec surfaces removed entirely from the capabilities map.
+      They target the workspace, not UACP_ROOT, and should not satisfy
+      UACP-rooted scope.write_paths. Documented in config comment.
+
+  - id: F2
+    severity: material
+    category: governance
+    description: >
+      `_tool_path_capabilities` was a hardcoded in-kernel dict — same
+      hidden-authority anti-pattern Phase 0 flagged for _SELF_ATTESTING_TOOLS.
+    handling_classification: remediated
+    remediation: >
+      Moved per-tool path-prefix map into config/artifact-schemas.yaml#cross_checks.scope_write_paths_vs_layer_b.tool_path_capabilities.
+      Kernel reads from self.artifact_schemas. Fail-closed default: missing/
+      malformed config returns empty mapping so every write_path is
+      unreachable.
+
+  - id: F3
+    severity: material
+    category: skeptic
+    description: >
+      `_validate_evidence_dispositions` only checked file existence; empty
+      files passed VERIFY->RESOLVE.
+    handling_classification: remediated
+    remediation: >
+      New config/artifact-schemas.yaml#cross_checks.evidence_disposition_minimum_content
+      declares required header substring per file type. Heartgate reads
+      each file and blocks if "Fact" (verified-facts) or "Disposition"
+      (assumptions) is absent.
+
+  - id: F4
+    severity: minor
+    category: technical
+    description: assumptions parser is case-sensitive on "Disposition" header
+    handling_classification: deferred
+    deferred_to: phase_3
+    next_phase_obligation: pc_p2_t4
+
+  - id: F5
+    severity: minor
+    category: skeptic
+    description: empty cluster_summary at VERIFY->RESOLVE passes silently
+    handling_classification: deferred
+    deferred_to: phase_3
+    next_phase_obligation: pc_p2_t3
+
+  - id: F6
+    severity: minor
+    category: technical
+    description: intent doc section regex uses substring not anchored regex
+    handling_classification: deferred
+    deferred_to: phase_3
+    next_phase_obligation: pc_p2_t5
+
+  - id: F7
+    severity: info
+    category: governance
+    description: Heartgate check-list table in docs/runtime-enforcement.md matches kernel; docs/index.md inventory updated with state/gate-ledger/ and config/artifact-schemas.yaml.
+    handling_classification: justified
+
+  - id: F8
+    severity: info
+    category: technical
+    description: Lessons schema with ledger_citations validated; pc_p1_gov_3 closed.
+    handling_classification: justified
+
+  - id: F9
+    severity: info
+    category: technical
+    description: pc_p1_t1 closed (R1 asserts specific gate-ledger refusal); pc_p1_t2 closed (_is_safe_run_id rejects "." and "..")
+    handling_classification: justified
+
+  - id: F10
+    severity: info
+    category: verification
+    description: phase0/1/2 verify all pass; live probe shows same 2 pre-existing failures, 0 new regressions
+    handling_classification: justified
+
+remediation_summary:
+  - description: Drop shell/exec from tool_path_capabilities; document workspace-vs-root semantics
+    path: config/artifact-schemas.yaml
+    closes: [F1]
+  - description: Read tool_path_capabilities from config; remove hardcoded mapping from kernel
+    path: runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    closes: [F2]
+  - description: Disposition files must contain documented header substring; new minimum-content config
+    path: runtime-adapters/hermes/plugins/uacp_guardian/kernel.py + config/artifact-schemas.yaml
+    closes: [F3]
+  - description: Phase 2 verification extended with R_F1, R_F2, R_F3 regression tests
+    path: scripts/phase2_verify.py
+
+second_pass_findings:
+  - id: V2_N1
+    severity: low
+    category: robustness
+    description: >
+      Matcher would self-match if "*" sentinel were reintroduced to config.
+      Currently absent; latent only. Defensive guard recommended.
+    handling_classification: deferred
+    deferred_to: phase_3
+    next_phase_obligation: pc_p2_n1
+
+  - id: V2_N2
+    severity: low
+    category: doc
+    description: >
+      F3 minimum-content check is case-sensitive but the YAML schema description
+      does not state it. Operators may be surprised.
+    handling_classification: deferred
+    deferred_to: phase_3
+    next_phase_obligation: pc_p2_n2
+
+verification:
+  phase2_verify_checks_total: 18
+  phase2_verify_checks_passing: 18
+  phase1_verify_status: pass (24/24)
+  phase0_verify_status: pass (14/14)
+  live_guardian_probe_new_regressions: 0
+  live_guardian_probe_pre_existing_failures: 2
+
+phase_1_propagated_constraints_closure:
+  pc_p1_t1: closed
+  pc_p1_t2: closed
+  pc_p1_gov_1: closed
+  pc_p1_gov_2: closed (after F1 remediation)
+  pc_p1_gov_3: closed
+  pc_p1_gov_4: closed
+  pc_p1_minor: partially_closed (PIPE_BUF & JSONL fail-closed deferred to phase_3)
+
+propagated_constraints_for_phase_3:
+  - constraint_id: pc_p2_t3
+    description: Empty cluster_summary at VERIFY->RESOLVE should block or require explicit not_applicable
+    sourced_from: F5
+  - constraint_id: pc_p2_t4
+    description: Assumptions parser hardening — case-insensitive header, column-count warn
+    sourced_from: F4
+  - constraint_id: pc_p2_t5
+    description: Intent doc section regex anchored, ignore fenced code blocks
+    sourced_from: F6
+  - constraint_id: pc_p2_n1
+    description: Defensive guard against "*" sentinel in tool_path_capabilities config
+    sourced_from: V2_N1
+  - constraint_id: pc_p2_n2
+    description: Document case sensitivity of minimum-content header check in YAML schema
+    sourced_from: V2_N2
+  - constraint_id: pc_p2_minor
+    description: Carried-over Phase 1 minor items (PIPE_BUF bound, JSONL fail-closed parse, parametrized verification across all 6 phases, observe-mode invariant test, Heartgate yaml share)
+    sourced_from: pc_p1_minor
+
+verdict: pass
+
+verdict_rationale: >
+  All 3 material first-pass findings (F1, F2, F3) remediated correctly and
+  verified by regression tests R_F1, R_F2, R_F3 in scripts/phase2_verify.py.
+  Phase 1 propagated_constraints all closed (pc_p1_t1, pc_p1_t2, pc_p1_gov_1..4)
+  with pc_p1_minor partially closed. Two new low/info findings (V2_N1, V2_N2)
+  are advisory and deferred to Phase 3. Phase 2 verification reports 18/18 pass;
+  Phase 0 and Phase 1 still pass; live probe shows zero new regressions.
+
+source_negative_findings_present: true
+
+handled_findings_chain:
+  - original_finding_id: F1
+    finding_classification: blocker
+    handling_classification: remediated
+    handling_artifact_path: config/artifact-schemas.yaml
+    followup_council_synthesis_artifact: verification/uacp-patch-plan-phase2-codex-review.yaml
+    followup_required: true
+    followup_depth: 1
+    owner: phase_2_executor
+    residual_risk: low (V2_N1 latent if config edit reintroduces "*")
+    heartgate_validation: pass
+  - original_finding_id: F2
+    finding_classification: concern
+    handling_classification: remediated
+    handling_artifact_path: runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    followup_required: true
+    followup_depth: 1
+    owner: phase_2_executor
+    residual_risk: none
+    heartgate_validation: pass
+  - original_finding_id: F3
+    finding_classification: blocker
+    handling_classification: remediated
+    handling_artifact_path: runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    followup_required: true
+    followup_depth: 1
+    owner: phase_2_executor
+    residual_risk: low (V2_N2 case-sensitivity undocumented)
+    heartgate_validation: pass

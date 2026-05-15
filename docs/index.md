@@ -143,6 +143,8 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `state/current.yaml` | runtime_state | canonical | Active state pointer | Update with the current run manifest and provenance |
 | `state/kanban.yaml` | runtime_state | canonical | Active Hermes Kanban binding | Update when the board slug or root task ids change |
 | `state/runs/` | runtime_state | canonical | Per-run manifests and checkpoint records | Append new run manifests; do not overwrite historical runs |
+| `state/gate-ledger/` | runtime_state | canonical | Append-only JSONL gate-decision ledger per run | Written exclusively through `uacp_gate_ledger_append`; schema in `config/state.yaml#gate_ledger` |
+| `config/artifact-schemas.yaml` | schema_config | generated | Phase-2 structured-artifact schemas (scope, intent, evidence_disposition, lessons) | Keep aligned with Heartgate enforcement in `runtime-adapters/.../kernel.py` |
 | `runtime-adapters/` | runtime_adapter_source | canonical | UACP-owned runtime adapter/plugin source for Hermes and future runtimes | Source changes require runtime binding verification and rollback evidence |
 
 ## Lifecycle Skill Registry

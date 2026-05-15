@@ -183,6 +183,31 @@ Each transition must satisfy:
 
 Heartgate is not a fixed gate checklist. It validates the selected adaptive evidence set plus invariant checks.
 
+### Heartgate Full Check List (pc_p1_gov_4)
+
+The current runtime-neutral kernel runs the following checks in
+`Heartgate.validate_transition()`, in order. Any blocker fails the transition;
+warnings are surfaced but allow passage if owned.
+
+| Order | Check | Source | Blocks on |
+|---|---|---|---|
+| 1 | required_fields | `config/phase-transitions.yaml artifact_schema.required_fields` | missing required field |
+| 2 | transition_allowed | `config/phase-transitions.yaml stages.*.exits_to` | unauthorized from→to |
+| 3 | invariant_summary | transition artifact | any invariant status ≠ pass |
+| 4 | cluster_summary | transition artifact | cluster block / unaccepted warn / undeferred-deferred / invalid state |
+| 5 | blockers | transition artifact | any unresolved blocker |
+| 6 | warnings | transition artifact | warnings without owner+residual_risk |
+| 7 | deferred_items | transition artifact | items without owner/condition/accepted_by |
+| 8 | heartgate_coherence | transition artifact `heartgate_coherence` block | missing artifact_path / unmet lenses / status=block |
+| 9 | heartgate_coherence_required_when | `config/phase-transitions.yaml heartgate_coherence_required_when` | required-but-absent coherence evidence |
+| 10 | phase_exit_invariants (Phase 1.2) | `config/phase-transitions.yaml stages.<from>.phase_exit_invariants` | required artifact glob unmet / gate-ledger entry missing |
+| 11 | piv_record (Phase 1.4) | `config/phase-transitions.yaml piv_rule` + `state/gate-ledger/{run_id}.jsonl` | no PIV pass; 2 PIV failures; malformed `piv_rule` |
+| 12 | intent_doc (Phase 2.3) | `config/artifact-schemas.yaml intent` + `proposals/{run_id}-intent.md` | TRIAGE→PROPOSE: missing file or missing required section |
+| 13 | scope_artifact (Phase 2.1) | `config/artifact-schemas.yaml scope` + `plans/{run_id}-scope.yaml` | PLAN→EXECUTE: missing file / missing required fields / write_paths not reachable by Layer B allowed_tools |
+| 14 | evidence_dispositions (Phase 2.2) | `config/artifact-schemas.yaml evidence_disposition` + `verification/{run_id}-{cluster}-(verified-facts\|assumptions).md` | VERIFY→RESOLVE: missing pair files / unowned `pending` assumption |
+| 15 | lessons_artifact (Phase 2.4) | `config/artifact-schemas.yaml lessons` + `outputs/{run_id}-lessons.yaml` | VERIFY→RESOLVE: missing file / missing required fields / malformed shape |
+| 16 | declared_decision | transition artifact `decision` field | declared `block` |
+
 Heartgate also owns the **transition coherence check**. A phase-local council reviews the phase's own work; Heartgate decides whether the lifecycle boundary is truthful. For medium/high-risk transitions, Heartgate may invoke or require a Heartgate Council whose mandate is cross-artifact coherence and consistency, not duplicate implementation review.
 
 Heartgate Council checks:

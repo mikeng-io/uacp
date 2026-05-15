@@ -588,8 +588,14 @@ def _is_safe_run_id(run_id: str) -> bool:
     Phase 1 remediation (skeptic F1 / technical F1): bound run_id to a
     conservative charset so it cannot escape state/gate-ledger/ via "..",
     "/", "\\", control chars, or pathological lengths.
+
+    Phase 2 hardening (pc_p1_t2 / CRR-2): also reject the literal `.` and
+    `..` so any future code that uses run_id without the .jsonl suffix
+    cannot construct a directory reference.
     """
     if not isinstance(run_id, str) or not run_id:
+        return False
+    if run_id in {".", ".."}:
         return False
     return bool(_RUN_ID_RE.match(run_id))
 
@@ -600,6 +606,21 @@ def _truthy(value: Any) -> bool:
     if isinstance(value, str):
         return value.lower() in {"1", "true", "yes", "on"}
     return bool(value)
+
+
+def _load_artifact_schemas(uacp_root: Path) -> dict[str, Any]:
+    """Load config/artifact-schemas.yaml (Phase 2). Returns empty dict on
+    missing / malformed so legacy transitions keep working."""
+    if yaml is None:
+        return {}
+    path = uacp_root / "config" / "artifact-schemas.yaml"
+    if not path.exists():
+        return {}
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        return raw if isinstance(raw, dict) else {}
+    except Exception:
+        return {}
 
 
 class Heartgate:
@@ -615,6 +636,8 @@ class Heartgate:
         self.stages = self.config.get("stages") or {}
         schema = self.config.get("artifact_schema") or {}
         self.required_fields = list(schema.get("required_fields") or [])
+        # Phase 2: artifact schemas (scope, intent, evidence_disposition, lessons)
+        self.artifact_schemas = _load_artifact_schemas(self.uacp_root)
 
     @classmethod
     def load(cls, uacp_root: str | Path | None = None) -> "Heartgate":
@@ -696,6 +719,11 @@ class Heartgate:
         self._validate_heartgate_coherence_requirement(artifact, blockers)
         self._validate_phase_exit_invariants(artifact, blockers)
         self._validate_piv_record(artifact, blockers)
+        # Phase 2: per-transition artifact-structure checks.
+        self._validate_intent_doc(artifact, blockers)
+        self._validate_scope_artifact(artifact, blockers, warnings)
+        self._validate_evidence_dispositions(artifact, blockers)
+        self._validate_lessons_artifact(artifact, blockers)
 
         declared_decision = str(artifact.get("decision") or "")
         if declared_decision == "block":
@@ -965,6 +993,245 @@ class Heartgate:
         except Exception:
             return False
         return False
+
+    def _validate_intent_doc(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Phase 2.3: TRIAGE->PROPOSE requires proposals/{run_id}-intent.md
+        with the four required sections.
+        """
+        schema = (self.artifact_schemas.get("intent") or {})
+        required_transition = str(schema.get("required_for_transition") or "")
+        if not required_transition:
+            return
+        from_phase = str(artifact.get("from_phase") or "")
+        to_phase = str(artifact.get("to_phase") or "")
+        if f"{from_phase}->{to_phase}" != required_transition:
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not _is_safe_run_id(run_id):
+            blockers.append("intent doc: unsafe or missing run_id")
+            return
+        template = str(schema.get("path_template") or "proposals/{run_id}-intent.md")
+        path = self.uacp_root / template.replace("{run_id}", run_id)
+        if not path.exists():
+            blockers.append(f"intent doc missing: {path.relative_to(self.uacp_root)}")
+            return
+        try:
+            text = path.read_text(encoding="utf-8")
+        except Exception as exc:
+            blockers.append(f"intent doc unreadable: {type(exc).__name__}")
+            return
+        required_sections = list(schema.get("required_sections") or [])
+        for section in required_sections:
+            if f"## {section}" not in text and f"# {section}" not in text:
+                blockers.append(f"intent doc missing required section: '{section}'")
+
+    def _validate_scope_artifact(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
+        """Phase 2.1: PLAN->EXECUTE requires plans/{run_id}-scope.yaml.
+        Validates required fields, cross-checks write_paths against Layer B
+        allowed_tools (pc_p1_gov_2).
+        """
+        schema = (self.artifact_schemas.get("scope") or {})
+        required_transition = str(schema.get("required_for_transition") or "")
+        if not required_transition:
+            return
+        from_phase = str(artifact.get("from_phase") or "")
+        to_phase = str(artifact.get("to_phase") or "")
+        if f"{from_phase}->{to_phase}" != required_transition:
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not _is_safe_run_id(run_id):
+            blockers.append("scope artifact: unsafe or missing run_id")
+            return
+        template = str(schema.get("path_template") or "plans/{run_id}-scope.yaml")
+        path = self.uacp_root / template.replace("{run_id}", run_id)
+        if not path.exists():
+            blockers.append(f"scope artifact missing: {path.relative_to(self.uacp_root)}")
+            return
+        if yaml is None:
+            blockers.append("scope artifact requires PyYAML to validate")
+            return
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            blockers.append(f"scope artifact unparseable: {type(exc).__name__}")
+            return
+        if not isinstance(data, Mapping):
+            blockers.append("scope artifact must be a YAML mapping")
+            return
+        for field_name in (schema.get("required_fields") or []):
+            if field_name not in data:
+                blockers.append(f"scope artifact missing required field: {field_name}")
+        # Cross-check write_paths against EXECUTE Layer B (pc_p1_gov_2).
+        write_paths = data.get("write_paths") or []
+        if not isinstance(write_paths, list):
+            blockers.append("scope.write_paths must be a list")
+            return
+        execute_stage = (self.stages.get("execute") or {})
+        allowed_tools = list((execute_stage or {}).get("allowed_tools") or [])
+        tool_path_capabilities = self._tool_path_capabilities()
+        for wp in write_paths:
+            wp_str = str(wp)
+            reachable = False
+            for tool in allowed_tools:
+                prefixes = tool_path_capabilities.get(tool) or []
+                if any(wp_str.startswith(pfx) or wp_str == pfx.rstrip("/") for pfx in prefixes):
+                    reachable = True
+                    break
+            if not reachable:
+                blockers.append(
+                    f"scope.write_paths cross-check: '{wp_str}' is not reachable by any execute-phase allowed_tool"
+                )
+
+    def _tool_path_capabilities(self) -> dict[str, list[str]]:
+        """Path prefixes each governed writer tool can reach.
+
+        Phase 2 remediation (F2): the canonical source is now
+        `config/artifact-schemas.yaml#cross_checks.scope_write_paths_vs_layer_b.tool_path_capabilities`.
+        Loaded from `self.artifact_schemas`. Shell/exec surfaces are
+        deliberately absent — they target the workspace, not UACP_ROOT,
+        and do not satisfy UACP-rooted scope.write_paths (F1).
+
+        Fail-closed default: if the config section is missing or malformed,
+        return an empty mapping so every write_path is unreachable.
+        """
+        cross = (self.artifact_schemas.get("cross_checks") or {})
+        block = (cross.get("scope_write_paths_vs_layer_b") or {})
+        caps = block.get("tool_path_capabilities") or {}
+        if not isinstance(caps, Mapping):
+            return {}
+        result: dict[str, list[str]] = {}
+        for tool, prefixes in caps.items():
+            if not isinstance(tool, str):
+                continue
+            if isinstance(prefixes, list):
+                result[tool] = [str(p) for p in prefixes if isinstance(p, str)]
+            elif isinstance(prefixes, str):
+                result[tool] = [prefixes]
+        return result
+
+    def _validate_evidence_dispositions(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Phase 2.2: VERIFY->RESOLVE requires verified-facts + assumptions
+        pair files for each required cluster. Pending assumptions without
+        owner/next_phase_obligation block.
+        """
+        schema = (self.artifact_schemas.get("evidence_disposition") or {})
+        required_transition = str(schema.get("required_for_transition") or "")
+        if not required_transition:
+            return
+        from_phase = str(artifact.get("from_phase") or "")
+        to_phase = str(artifact.get("to_phase") or "")
+        if f"{from_phase}->{to_phase}" != required_transition:
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not _is_safe_run_id(run_id):
+            blockers.append("evidence_disposition: unsafe or missing run_id")
+            return
+        cluster_summary = artifact.get("cluster_summary") or []
+        if not isinstance(cluster_summary, list):
+            return
+        paired = schema.get("paired_paths") or {}
+        facts_tmpl = str(paired.get("verified_facts") or "")
+        assumptions_tmpl = str(paired.get("assumptions") or "")
+        if not facts_tmpl or not assumptions_tmpl:
+            return
+        for cluster in cluster_summary:
+            if not isinstance(cluster, Mapping):
+                continue
+            cluster_id = str(cluster.get("cluster_id") or "")
+            state = str(cluster.get("state") or "")
+            if not cluster_id or state in {"not_applicable", "deferred"}:
+                continue
+            # Phase 2 F3 remediation: file existence is insufficient; each file
+            # must contain at least the documented table header (Fact / Disposition).
+            cross = (self.artifact_schemas.get("cross_checks") or {})
+            minc = (cross.get("evidence_disposition_minimum_content") or {})
+            facts_req = str(minc.get("verified_facts_required_header_substring") or "")
+            assump_req = str(minc.get("assumptions_required_header_substring") or "")
+            for tmpl, label, required_substring in (
+                (facts_tmpl, "verified-facts", facts_req),
+                (assumptions_tmpl, "assumptions", assump_req),
+            ):
+                rel = tmpl.replace("{run_id}", run_id).replace("{cluster}", cluster_id)
+                p = self.uacp_root / rel
+                if not p.exists():
+                    blockers.append(f"evidence_disposition: missing {label} for cluster '{cluster_id}': {rel}")
+                    continue
+                if required_substring:
+                    try:
+                        body = p.read_text(encoding="utf-8")
+                    except Exception:
+                        body = ""
+                    if required_substring not in body:
+                        blockers.append(
+                            f"evidence_disposition: {label} file for cluster '{cluster_id}' is empty or missing required header '{required_substring}': {rel}"
+                        )
+            # Inspect assumptions for unowned 'pending' rows.
+            assumptions_rel = assumptions_tmpl.replace("{run_id}", run_id).replace("{cluster}", cluster_id)
+            assumptions_path = self.uacp_root / assumptions_rel
+            if assumptions_path.exists():
+                try:
+                    text = assumptions_path.read_text(encoding="utf-8")
+                    self._check_pending_assumptions(text, cluster_id, blockers)
+                except Exception:
+                    pass
+
+    def _check_pending_assumptions(self, text: str, cluster_id: str, blockers: list[str]) -> None:
+        """Parse a simple markdown table looking for `pending` rows with empty
+        owner or empty next_phase_obligation. The expected table shape is:
+            | Assumption | Disposition | Owner | Next-phase obligation |
+        """
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+            if not line.startswith("|") or "Disposition" in line or "---" in line:
+                continue
+            cells = [c.strip() for c in line.strip("|").split("|")]
+            if len(cells) < 4:
+                continue
+            disposition = cells[1].lower()
+            owner = cells[2]
+            next_obl = cells[3]
+            if disposition == "pending" and (not owner or not next_obl):
+                blockers.append(
+                    f"evidence_disposition: cluster '{cluster_id}' has unowned 'pending' assumption: {cells[0][:60]}"
+                )
+
+    def _validate_lessons_artifact(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Phase 2.4: VERIFY->RESOLVE requires outputs/{run_id}-lessons.yaml
+        with structured schema (run_id + lessons list).
+        """
+        schema = (self.artifact_schemas.get("lessons") or {})
+        required_transition = str(schema.get("required_for_transition") or "")
+        if not required_transition:
+            return
+        from_phase = str(artifact.get("from_phase") or "")
+        to_phase = str(artifact.get("to_phase") or "")
+        if f"{from_phase}->{to_phase}" != required_transition:
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not _is_safe_run_id(run_id):
+            blockers.append("lessons: unsafe or missing run_id")
+            return
+        template = str(schema.get("path_template") or "outputs/{run_id}-lessons.yaml")
+        path = self.uacp_root / template.replace("{run_id}", run_id)
+        if not path.exists():
+            blockers.append(f"lessons artifact missing: {path.relative_to(self.uacp_root)}")
+            return
+        if yaml is None:
+            return
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            blockers.append(f"lessons artifact unparseable: {type(exc).__name__}")
+            return
+        if not isinstance(data, Mapping):
+            blockers.append("lessons artifact must be a YAML mapping")
+            return
+        for field_name in (schema.get("required_fields") or []):
+            if field_name not in data:
+                blockers.append(f"lessons artifact missing required field: {field_name}")
+        lessons_list = data.get("lessons")
+        if lessons_list is not None and not isinstance(lessons_list, list):
+            blockers.append("lessons.lessons must be a list")
 
     def _transition_allowed(self, from_phase: str, to_phase: str) -> bool:
         stage = self.stages.get(from_phase) or {}
