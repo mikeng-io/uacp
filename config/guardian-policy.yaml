@@ -28,6 +28,26 @@ protected_categories:
   exec.code_with_tool_proxy:
     description: Code execution that can call filesystem or terminal tools.
     default_decision: block_pending_heartgate
+  exec.shell.contained:
+    description: bwrap-contained shell execution surface used to mint filesystem-containment attestations.
+    default_decision: block
+    allowed_tools:
+    - uacp_contained_shell
+  artifact.uacp:
+    description: Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, outputs/, knowledge/.
+    default_decision: block
+    allowed_tools:
+    - uacp_artifact_write
+  evidence.containment:
+    description: Read-only filesystem-containment evidence checks.
+    default_decision: allow_with_audit
+    allowed_tools:
+    - uacp_sandbox_check
+  lifecycle.transition:
+    description: Heartgate phase-transition artifact validation (read-only).
+    default_decision: allow_with_audit
+    allowed_tools:
+    - uacp_heartgate_check
   external.message:
     description: Sending messages or commitments outside origin conversation.
     default_decision: require_approval
@@ -47,6 +67,10 @@ tool_classification:
   uacp_state_write: state.uacp
   uacp_doc_write: docs.uacp
   uacp_config_write: config.uacp
+  uacp_artifact_write: artifact.uacp
+  uacp_sandbox_check: evidence.containment
+  uacp_contained_shell: exec.shell.contained
+  uacp_heartgate_check: lifecycle.transition
   terminal: exec.shell
   execute_code: exec.code_with_tool_proxy
   send_message: external.message

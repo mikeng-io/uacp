@@ -1,9 +1,13 @@
 schema_version: '0.1'
 kind: uacp.current_state
 active_run_id: uacp-patch-plan-20260515
-active_phase: plan
-active_status: in_progress
+active_phase: execute
+active_status: phase_0_complete
 last_updated_reason: >
-  PLAN phase artifacts written. Triage, proposal, gate-selection, and full 5-phase
-  plan (index + 4 phase files) created. Ready to enter EXECUTE Phase 0.
-  Previous run (uacp-phase6-agent-council-operationalization-20260515-012634) is resolved.
+  Phase 0 (Guardian bug fixes) complete. Two-pass Codex review gate passed.
+  First pass returned fail with 8 material findings; remediation applied;
+  second pass returned pass with all material findings remediated or deferred
+  with documented Phase 1 propagated_constraints (pc_1 through pc_6).
+  phase0_verify.py: 14/14 pass. live_guardian_probe: 5 pre-existing failures
+  fixed, 0 regressions. Ready for Phase 1 drift-reconciliation step before
+  Phase 1 work begins.

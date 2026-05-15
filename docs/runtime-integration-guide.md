@@ -277,9 +277,22 @@ Processes executing UACP-bound work must receive the following environment varia
 
 ### Mode semantics
 
-**`observe` mode** — Guardian logs decisions but allows execution to proceed, unless a non-waivable secret or private boundary crossing is detected. Observe mode is intended for integration testing and non-critical runtimes, not for production enforcement.
+Mode is resolved from `config/guardian-policy.yaml` (`mode:` key) with `UACP_GUARDIAN_MODE` as an environment override. Invalid or missing values fall back to `enforce`. Mode is read once at policy load.
+
+**`observe` mode** — Guardian logs decisions and downgrades **policy-default** blocks for UACP-bound actions to `allow_with_audit`. Observe mode is intended for integration testing and non-critical runtimes, not for production enforcement.
 
 **`enforce` mode** — Guardian blocks any protected action that lacks required authority, side-effect declaration, or Heartgate clearance. Enforce mode is required for production UACP-bound work.
+
+#### What observe mode does NOT waive
+
+The following blocks are non-waivable invariants and continue to block in both modes:
+
+- **Missing UACP context** — events whose required context fields (`workspace`, `uacp_run_id`, `uacp_phase`, `policy_version`, `declared_authority`, `declared_side_effects`) are not populated continue to block.
+- **Missing filesystem containment** — UACP-bound `exec.shell` / `exec.code_with_tool_proxy` events without a valid attestation continue to block. Write containment is a non-waivable constitutional invariant.
+- **Direct state write through a non-governed tool** — writes that land under `state/` via any tool other than `uacp_state_write` continue to block.
+- **Direct doc/config write through a non-governed tool** — writes that land under `docs/` (`config/`) via any tool other than `uacp_doc_write` (`uacp_config_write`) continue to block via the category default — the allowed-tools branch grants entry only to the policy-named tool.
+
+Observe mode is a relaxation of policy-default enforcement, not a relaxation of constitutional invariants.
 
 ---
 
@@ -347,7 +360,7 @@ The rollback path must be executable by an operator who has no knowledge of UACP
 
 ## 14. Known Implementation Pitfalls
 
-- Hook errors that are fail-open (not fail-closed) create enforcement gaps for protected actions. All hooks must be fail-closed: an error in the hook must produce `block`, not a pass-through.
+- Pre-hook errors that are fail-open (not fail-closed) create enforcement gaps for protected actions. All `pre_tool_call` hooks must be fail-closed: an error in the pre-hook must produce `block`, not a pass-through. (Post-hooks are fail-open by runtime architecture — see the dedicated post-hook pitfall below — and cannot be made fail-closed at the post-hook surface; their enforcement must shift to the pre-hook.)
 
 - Not passing the full `session_id` and `tool_call_id` in precheck calls prevents proper audit correlation. These fields must be propagated from the runtime event into every Guardian event object.
 
@@ -358,6 +371,8 @@ The rollback path must be executable by an operator who has no knowledge of UACP
 - Slash commands, dashboards, and control-plane actions typically fall outside normal tool-call hooks and require a separate control-plane guard. Do not assume that registering a `pre_tool_call` hook is sufficient to cover all runtime action surfaces.
 
 - A runtime that confuses tool provenance — for example, marking `plugin` or `mcp` tools as `core` — will misclassify policy decisions. Provenance must be derived from how the tool was registered, not from the tool name.
+
+- **Post-hook cannot block.** In several host runtimes (including Hermes), `post_tool_call` is fail-open by architecture: it runs after the tool has already executed, its return value is discarded, and subprocess errors, timeouts, and non-zero exits are silently swallowed. This means `post_tool_call` is detection-and-audit only — it cannot prevent a harmful action. Any enforcement that must stop a tool from running must happen in `pre_tool_call`. Do not design blocking logic that relies on post-hook execution; it will silently fail to block. When porting to a new runtime, verify whether that runtime's post-hook can return a blocking decision; if not, document the limitation and shift all blocking logic to the pre-hook surface.
 
 ---
 

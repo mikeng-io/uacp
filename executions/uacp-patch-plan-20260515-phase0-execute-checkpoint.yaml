@@ -1,0 +1,83 @@
+kind: uacp.execute_checkpoint
+checkpoint_id: uacp-patch-plan-20260515-phase0-checkpoint-001
+run_id: uacp-patch-plan-20260515
+phase: execute
+phase_substage: phase_0_guardian_bug_fixes
+status: complete
+ts: '2026-05-16'
+
+plan_artifact: plans/uacp-patch-plan/01-phase0-guardian-bugs.md
+codex_review_artifact: verification/uacp-patch-plan-phase0-codex-review.yaml
+
+deliverables:
+  - id: 0.1
+    description: filesystem_guard_verified wiring (helper + hook injection)
+    status: complete
+    files:
+      - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py
+  - id: 0.2
+    description: policy.mode read and consulted; observe mode downgrades policy-default blocks (NOT non-waivable invariants)
+    status: complete
+    files:
+      - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+  - id: 0.3
+    description: Post-hook architectural constraint documented; line 350 rescoped; mode-semantics section added
+    status: complete
+    files:
+      - docs/runtime-integration-guide.md
+  - id: 0_remediation_1
+    description: 4 governed tools classified (artifact.uacp, evidence.containment, exec.shell.contained, lifecycle.transition)
+    status: complete
+    files:
+      - config/guardian-policy.yaml
+  - id: 0_remediation_2
+    description: Verification script created and extended through second-pass review
+    status: complete
+    files:
+      - scripts/phase0_verify.py
+
+files_touched_in_phase_0:
+  - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py
+  - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+  - config/guardian-policy.yaml
+  - docs/runtime-integration-guide.md
+  - scripts/phase0_verify.py (new)
+
+verification:
+  phase0_verify_status: pass
+  phase0_verify_checks: 14/14
+  live_guardian_probe_delta: 5 pre-existing failures fixed, 0 regressions
+  codex_gate_first_pass: fail (8 material findings)
+  codex_gate_second_pass: pass (all material findings remediated or deferred with rationale)
+
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: Operator explicit authorization (proposals/uacp-patch-plan-20260515.yaml authority block)
+  - id: writes.contained
+    status: pass
+    evidence: All writes within UACP_ROOT — declared scope verified
+  - id: traceable_state
+    status: pass
+    evidence: Two-pass Codex review, both artifacts in verification/
+  - id: visible_mutation
+    status: pass
+    evidence: All changes tracked in git; no hidden state
+  - id: conservative_failure
+    status: pass
+    evidence: First Codex gate caught material findings; remediated rather than waived
+
+deferred_to_phase_1:
+  - pc_1 (move _SELF_ATTESTING_TOOLS to policy YAML; reconcile with allowed_tools)
+  - pc_2 (Phase 1 allowed_tools must reuse/supersede new general branch)
+  - pc_3 (attestation cache pruning; policy reload semantics)
+  - pc_4 (empty tool_name should block in all modes)
+  - pc_5 (explicit guard for state.uacp branch mutual exclusivity)
+  - pc_6 (audit-reason-string consistency for read-only governed categories)
+
+deferred_to_phase_3:
+  - pc_7 (live probe assertion brittleness)
+  - pc_8 (uacp_heartgate_check_passes_valid_transition pre-existing failure root cause)
+
+next_phase: phase_1
+next_phase_prerequisite: drift-reconciliation step reading this artifact and updating Phase 1 scope for pc_1, pc_2, pc_3, pc_4, pc_5, pc_6

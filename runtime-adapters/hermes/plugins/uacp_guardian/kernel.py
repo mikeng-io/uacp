@@ -122,6 +122,15 @@ class GuardianPolicy:
         self.tool_provenance = dict(self.data.get("tool_provenance") or {})
         self.path_rules = dict(self.data.get("path_rules") or {})
         self.runtime_modes = dict(self.data.get("runtime_modes") or {})
+        # Enforcement mode is read from policy `mode` field with optional
+        # UACP_GUARDIAN_MODE env override.  `enforce` is the default; `observe`
+        # downgrades policy-default blocks on UACP-bound actions to
+        # allow_with_audit (non-waivable invariants — missing context, missing
+        # containment, wrong tool for state.uacp — still block).
+        env_mode = os.getenv("UACP_GUARDIAN_MODE", "").strip().lower()
+        self.mode = (env_mode or str(self.data.get("mode") or "enforce")).lower()
+        if self.mode not in {"enforce", "observe"}:
+            self.mode = "enforce"
 
     @classmethod
     def load(cls, uacp_root: str | Path | None = None) -> "GuardianPolicy":
@@ -216,6 +225,8 @@ class Guardian:
         audit = category != "read.local"
         evidence = [f"tool_provider={event.tool_provider}", f"tool_name={event.tool_name}"]
 
+        # Direct writes that land under state/ via a non-state.uacp tool path
+        # remain a hard block — they bypass the governed state writer.
         if self._is_direct_uacp_state_write(event, category):
             if self.policy.is_allowed_tool_for_category("state.uacp", event.tool_name):
                 if missing := self._missing_context(event):
@@ -229,6 +240,23 @@ class Guardian:
                 )
             return self._block("state.uacp", "direct UACP state writes must use uacp_state_write", evidence)
 
+        # Generalized allowed-tools branch for any protected category whose
+        # policy default is `block` and which lists `allowed_tools`.  This
+        # covers docs.uacp, config.uacp, and any future category modelled on
+        # the same pattern.  Without this branch the governed writers were
+        # blocked by the category's policy default even though the policy
+        # itself names them as the authorized tool.
+        if self._category_has_governed_tool(category) and self.policy.is_allowed_tool_for_category(category, event.tool_name):
+            if missing := self._missing_context(event):
+                return self._block(category, f"missing UACP context fields: {', '.join(missing)}", evidence)
+            return GuardianDecision(
+                DECISION_ALLOW_WITH_AUDIT,
+                category,
+                f"authorized governed tool for {category}",
+                evidence,
+                True,
+            )
+
         uacp_bound = self.is_uacp_bound(event)
         protected = self._is_protected(category)
 
@@ -238,16 +266,37 @@ class Guardian:
 
         if uacp_bound and category in self._requires_filesystem_containment_categories():
             if not event.filesystem_guard_verified:
+                # Write containment is a non-waivable invariant per the
+                # constitution: observe mode MUST NOT downgrade this block.
+                # Only policy-default blocks below are mode-sensitive.
                 return self._block(
                     category,
                     "protected filesystem containment is unavailable for UACP-bound execution",
-                    evidence + ["containment=missing"],
+                    evidence + ["containment=missing", f"mode={self.policy.mode}"],
                 )
 
         default = str(self.policy.category_defaults(category).get("default_decision") or DECISION_ALLOW)
 
         if uacp_bound and default in {DECISION_BLOCK, DECISION_BLOCK_PENDING_HEARTGATE}:
-            return GuardianDecision(default, category, "policy default blocks UACP-bound action", evidence, True)
+            if self.policy.mode == "observe":
+                # Observe mode logs but does not block policy-default blocks.
+                # Non-waivable blocks (missing context, missing containment,
+                # wrong tool for state.uacp) already returned earlier and are
+                # unaffected by this downgrade.
+                return GuardianDecision(
+                    DECISION_ALLOW_WITH_AUDIT,
+                    category,
+                    f"observe mode downgrade of policy default {default}",
+                    evidence + [f"mode={self.policy.mode}", f"original_default={default}"],
+                    True,
+                )
+            return GuardianDecision(
+                default,
+                category,
+                "policy default blocks UACP-bound action",
+                evidence + [f"mode={self.policy.mode}"],
+                True,
+            )
 
         if uacp_bound and default == DECISION_REQUIRE_APPROVAL:
             return GuardianDecision(
@@ -291,11 +340,11 @@ class Guardian:
         return "external.unknown_mutator"
 
     def is_uacp_bound(self, event: GuardianEvent) -> bool:
-        if os.getenv("UACP_GUARDIAN_MODE", "").lower() == "enforce":
-            # Enforce mode alone should not create a false UACP binding.  The
-            # event still needs explicit run/phase context or a UACP path touch.
-            if event.uacp_run_id or event.uacp_phase:
-                return True
+        # Mode is consulted via self.policy.mode in evaluate(); UACP binding is
+        # purely a function of context presence and UACP_ROOT path touch.  The
+        # previous duplicated `UACP_GUARDIAN_MODE` env branch here was dead — it
+        # was a strict subset of the next branch and added a second, drift-prone
+        # source of truth for mode.
         if event.uacp_run_id or event.uacp_phase:
             return True
         if os.getenv("UACP_RUN_ID") or os.getenv("UACP_PHASE"):
@@ -331,6 +380,16 @@ class Guardian:
         rule = self.policy.path_rules.get("protected_write_enforcement") or {}
         required_for = rule.get("required_for") or []
         return set(required_for)
+
+    def _category_has_governed_tool(self, category: str) -> bool:
+        """True when the policy default for the category is block AND the
+        category lists at least one allowed_tool — i.e. the category is meant
+        to be entered only through a governed writer surface.
+        """
+        defaults = self.policy.category_defaults(category)
+        if str(defaults.get("default_decision") or "") != DECISION_BLOCK:
+            return False
+        return bool(defaults.get("allowed_tools"))
 
     def _is_direct_uacp_state_write(self, event: GuardianEvent, category: str) -> bool:
         if category == "state.uacp":

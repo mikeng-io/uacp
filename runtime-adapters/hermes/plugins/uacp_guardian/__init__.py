@@ -27,6 +27,20 @@ _POLICY: GuardianPolicy | None = None
 _POLICY_ERROR: str = ""
 _CONTAINED_SHELL_ATTESTATIONS: dict[str, dict[str, Any]] = {}
 
+# Tools whose handlers perform their own path-bounded containment (governed writers,
+# sandbox/heartgate checks, and the bwrap-backed contained shell itself).  These do
+# not require an external bwrap attestation to satisfy Guardian's filesystem-
+# containment check — their containment is intrinsic to the handler.
+_SELF_ATTESTING_TOOLS: frozenset[str] = frozenset({
+    "uacp_state_write",
+    "uacp_doc_write",
+    "uacp_config_write",
+    "uacp_artifact_write",
+    "uacp_sandbox_check",
+    "uacp_heartgate_check",
+    "uacp_contained_shell",
+})
+
 
 def _policy() -> GuardianPolicy:
     global _POLICY, _POLICY_ERROR
@@ -44,6 +58,35 @@ def _policy() -> GuardianPolicy:
 def _decision_for_event(event: GuardianEvent) -> GuardianDecision:
     policy = _policy()
     return Guardian(policy).evaluate(event)
+
+
+def _filesystem_guard_verified(tool_name: str, args: Mapping[str, Any] | None) -> bool:
+    """Whether this event satisfies UACP filesystem-containment requirements.
+
+    Returns True when either:
+      - The tool is one of the UACP-governed writers/checks whose handler
+        performs its own path-bounded containment (`_SELF_ATTESTING_TOOLS`).
+      - The args include an `attestation_id` that matches an unexpired,
+        containment-verified record produced by `uacp_contained_shell` with
+        a policy version matching the currently-loaded policy.
+    Returns False otherwise.
+
+    This wiring closes the gap where the kernel checked
+    `event.filesystem_guard_verified` but the adapter never set it, blocking
+    every UACP-bound writer call.
+    """
+    if tool_name in _SELF_ATTESTING_TOOLS:
+        return True
+    args = args or {}
+    attestation_id = str(args.get("attestation_id") or "")
+    if not attestation_id:
+        return False
+    try:
+        policy_version = str(_policy().version)
+    except GuardianPolicyError:
+        return False
+    ok, _ = _validate_contained_shell_attestation(attestation_id, policy_version)
+    return ok
 
 
 def _block_for_policy_error(tool_name: str, args: Mapping[str, Any] | None) -> dict[str, str] | None:
@@ -76,6 +119,7 @@ def on_pre_tool_call(
             task_id=task_id,
             session_id=session_id,
             tool_call_id=tool_call_id,
+            filesystem_guard_verified=_filesystem_guard_verified(tool_name, args),
         )
         decision = _decision_for_event(event)
         if decision.audit_required:
@@ -117,6 +161,7 @@ def on_post_tool_call(
             task_id=task_id,
             session_id=session_id,
             tool_call_id=tool_call_id,
+            filesystem_guard_verified=_filesystem_guard_verified(tool_name, args),
         )
         decision = _decision_for_event(event)
         record = decision.to_audit_record(event)
