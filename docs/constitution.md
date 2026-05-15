@@ -1,6 +1,6 @@
 # UACP Constitution
 
-UACP is the governance layer for Hermes/Norty work. It provides stable lifecycle phases and adaptive evidence selection without turning every task into the same checklist.
+UACP is a runtime-neutral governance framework for AI agent work. It provides stable lifecycle phases and adaptive evidence selection without turning every task into the same checklist.
 
 ## Scope
 

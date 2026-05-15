@@ -1,10 +1,10 @@
 # UACP Alignment Spec
 
-This spec aligns the initial UACP artifact root with the current Hermes/Norty architecture.
+This spec defines the canonical artifact root layout and generic alignment conventions for UACP. It covers artifact directory layout, gate selection model, review routing alignment, and knowledge alignment — these are generic UACP conventions that apply regardless of host runtime.
 
-## Operator Preferences
+## Hermes/Norty Deployment Preferences
 
-UACP should preserve these working constraints:
+The following constraints are specific to the current Hermes/Norty deployment. They are not generic UACP policy and should not be treated as universal governance invariants. A different deployment may legitimately override these.
 
 - Use Hermes-only framing unless another project boundary is explicitly requested.
 - Keep the main orchestration context lean.
