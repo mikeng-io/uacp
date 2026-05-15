@@ -1,0 +1,58 @@
+kind: uacp.proposal_amendment
+phase: PROPOSE
+amendment_id: cortex-editorial-image-contract-20260514-203854-proposal-amendment-001
+run_id: cortex-editorial-image-contract-20260514-203854
+proposal_artifact: proposals/cortex-editorial-image-contract-20260514-203854.yaml
+gate_selection_artifact: proposals/cortex-editorial-image-contract-20260514-203854-gate-selection.yaml
+council_synthesis_artifact: proposals/cortex-editorial-image-contract-20260514-203854-council-synthesis.yaml
+purpose: >-
+  Convert PROPOSE Agent Council blockers/concerns into explicit PLAN entry
+  obligations before any PROPOSE→PLAN transition.
+accepted_blockers:
+  - id: schema-image-plan-missing
+    owner_phase: PLAN
+    required_resolution: Define image_plan schema/model, validation, writer activity, artifact path, and workflow checkpoint placement.
+  - id: schema-registry-v2-migration
+    owner_phase: PLAN
+    required_resolution: Define registry v1→v2 compatibility, default handling, migration/sidecar policy, and tests.
+  - id: workflow-pass-order-determinism
+    owner_phase: PLAN
+    required_resolution: Specify CANONICAL_PASS_ORDER insertion, checkpoint version impact, and replay-safe data flow.
+  - id: workflow-dry-run-side-effects
+    owner_phase: PLAN
+    required_resolution: Classify image plan/export/cost surfaces in side-effect policy and require dry-run/test coverage; generate_cover_image must accept or receive dry-run gating.
+  - id: cost-pricing-config-missing
+    owner_phase: PLAN
+    required_resolution: Define canonical image pricing config, unknown/null pricing behavior, cost_summary shape, and rollup strategy.
+  - id: prompt-brand-css-drift
+    owner_phase: PLAN
+    required_resolution: Define brand boundary contract from mikeng.io visual tokens; decide whether OG accent drift is in-scope or deferred with owner.
+  - id: prompt-fallback-generic-risk
+    owner_phase: PLAN
+    required_resolution: Require article-grounded fallback or fail-closed behavior for image prompt fallback.
+accepted_concerns:
+  - id: cost-prediction-metadata-not-plumbed
+    owner_phase: PLAN
+    required_resolution: Generation result contract must carry prediction_id, duration, status, model, provider, and billing metadata.
+  - id: provider-adapter-seam
+    owner_phase: PLAN
+    required_resolution: PLAN must define provider adapter seam; Replicate-only v1 allowed only if explicit and replaceable.
+  - id: prompt-provider-template-tests
+    owner_phase: PLAN
+    required_resolution: PLAN must include tests for FLUX/Imagen family prompt shape, guardrails, and template version provenance.
+  - id: filesystem-artifact-graph
+    owner_phase: PLAN
+    required_resolution: PLAN must define manifest → image_plan → registry → per-image metadata graph and topology.
+transition_implications:
+  propose_to_plan:
+    status: not_ready
+    reason: Council blockers must be incorporated into the PLAN artifact and gate transition conditions before Heartgate.
+    required_before_transition:
+      - planning package or PLAN artifact that covers every accepted blocker
+      - updated/derived gate-selection transition requirements
+      - validation of proposal/council/amendment artifacts
+      - Heartgate check for PROPOSE→PLAN if required by current config
+non_actions:
+  - No Cortex code modified.
+  - No Replicate call made.
+  - No live workflow run launched.

@@ -1,0 +1,36 @@
+kind: uacp.execution_checkpoint
+schema_version: "0.1"
+artifact_id: council-followthrough-gate-execute-checkpoint-20260514-guarded-write-surface
+run_id: council-followthrough-gate-20260514-201718
+phase: execute
+created_at: "2026-05-14T21:15:00Z"
+status: blocked_pending_governed_write_strategy
+summary: >
+  EXECUTE started. A targeted patch attempt against docs/lifecycle-reference.md was correctly blocked by UACP Guardian
+  because generic patch is not an authorized UACP docs mutator. Canonical docs/config mutation must use uacp_doc_write
+  and uacp_config_write. The current tool surface accepts full-file content for governed writes, which requires a
+  safer full-file generation/write strategy before continuing canonical mutations.
+authority:
+  source: verification/council-followthrough-gate-plan-to-execute-20260514.yaml
+  status: pass
+declared_side_effects:
+  attempted:
+    - "Attempted generic patch of docs/lifecycle-reference.md; blocked before mutation."
+  actual:
+    - "No canonical docs/config/runtime mutation performed."
+    - "This execution checkpoint artifact was written under executions/."
+blocked_action:
+  tool: patch
+  target: docs/lifecycle-reference.md
+  blocker: "UACP Guardian blocked external.unknown_mutator: missing UACP context fields."
+  interpretation: "Expected fail-closed behavior; do not bypass with direct terminal writes."
+required_next_step:
+  - "Prepare full-file governed write payloads for uacp_doc_write/uacp_config_write, or introduce/verify a governed targeted patch writer surface."
+  - "Continue E1/E2 only through governed writers."
+  - "Record any writer-surface gaps as execution warnings before phase exit."
+non_actions:
+  - "No direct terminal write was used to bypass Guardian."
+  - "No canonical config/doc file was mutated."
+  - "No production/external side effect occurred."
+residual_risk:
+  - "EXECUTE is paused on canonical mutation until governed write mechanics are handled safely."

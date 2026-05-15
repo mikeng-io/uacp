@@ -1,0 +1,104 @@
+kind: uacp.phase_transition
+schema_version: "0.1"
+transition_id: council-followthrough-gate-propose-to-plan-20260514
+run_id: council-followthrough-gate-20260514-201718
+from_phase: propose
+to_phase: plan
+decision: pass
+routing_outcome: standard_uacp
+granularity_level: 7
+triage_artifact: state/runs/council-followthrough-gate-20260514-201718-triage.yaml
+gate_selection_artifact: proposals/council-followthrough-gate-20260514-201718-gate-selection.yaml
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: "Mike explicitly approved existing UACP lifecycle start."
+  - id: authority.canonical_mutation_ungranted
+    status: pass
+    evidence: "Canonical mutation remains blocked until PLAN/EXECUTE approval."
+  - id: side_effects.declared
+    status: pass
+    evidence: "Proposal phase side effects are artifact writes only."
+  - id: writes.contained
+    status: pass
+    evidence: "Writes performed through governed UACP writer tools."
+  - id: privacy_safety.constrained
+    status: pass
+    evidence: "No private data, credentials, external posts, or production changes."
+  - id: state.traceable
+    status: pass
+    evidence: "Triage, proposal, gate-selection, council synthesis, and coherence artifacts share run_id."
+  - id: failure.conservative
+    status: pass
+    evidence: "Future canonical mutation and runtime binding deferred to PLAN/EXECUTE gates."
+  - id: mutation.visible
+    status: pass
+    evidence: "All current writes are declared artifacts."
+cluster_summary:
+  - cluster_id: lifecycle_coherence
+    state: pass
+    artifact_path: verification/council-followthrough-gate-propose-plan-heartgate-coherence-20260514.yaml
+  - cluster_id: handled_negative_result_followthrough
+    state: pass
+    artifact_path: proposals/council-followthrough-gate-20260514-201718.yaml
+  - cluster_id: artifact_schema_alignment
+    state: warn
+    artifact_path: proposals/council-followthrough-gate-20260514-201718-gate-selection.yaml
+  - cluster_id: authority_and_side_effects
+    state: pass
+    artifact_path: proposals/council-followthrough-gate-20260514-201718.yaml
+blockers: []
+warnings:
+  - owner: plan_phase
+    residual_risk: "Runtime binding and exact transition schema fields are not designed yet."
+    next_phase_acceptance: "PLAN must inventory and specify docs/config/runtime/validator deltas before EXECUTE."
+deferred_items:
+  - id: transition_schema_and_runtime_binding
+    cluster_id: artifact_schema_alignment
+    owner: plan_phase
+    condition: "PLAN defines handled_findings_chain or equivalent transition evidence contract plus Heartgate/Guardian binding."
+    accepted_by: plan
+authority:
+  status: pass
+  source: "Mike approved existing UACP lifecycle; PROPOSE artifacts validated and council-remediated."
+artifact_paths:
+  - state/runs/council-followthrough-gate-20260514-201718-triage.yaml
+  - proposals/council-followthrough-gate-20260514-201718.yaml
+  - proposals/council-followthrough-gate-20260514-201718-gate-selection.yaml
+  - verification/council-followthrough-gate-propose-council-synthesis-20260514.yaml
+  - verification/council-followthrough-gate-propose-plan-heartgate-coherence-20260514.yaml
+declared_side_effects:
+  - "Advance from PROPOSE readiness to PLAN readiness via transition artifact."
+  - "No canonical docs/config/runtime mutation."
+write_containment_record: "pass: all writes performed through UACP governed artifact/state writer tools under UACP_ROOT."
+blocker_synthesis: "pass: proposal council blockers were converted into proposal/gate-selection patches or explicit PLAN obligations."
+council_synthesis_artifact: verification/council-followthrough-gate-propose-council-synthesis-20260514.yaml
+heartgate_coherence:
+  status: pass
+  artifact_path: verification/council-followthrough-gate-propose-plan-heartgate-coherence-20260514.yaml
+  lenses:
+    - doctrine_coherence
+    - cross_artifact_consistency
+    - runtime_state_alignment
+    - warning_and_deferred_item_honesty
+    - authority_plane_integrity
+    - next_phase_readiness
+accepted_exceptions:
+  - artifact_path: proposals/council-followthrough-gate-20260514-201718-gate-selection.yaml
+    rationale: "Artifact schema/runtime binding is accepted as a PLAN-phase requirement, not a blocker to entering PLAN."
+    owner: plan_phase
+phase_local_granularity:
+  phase: propose
+  entry_estimate: 7
+  exit_actual: 7
+  delta_reason: "Council found concerns, all remediated or deferred as PLAN obligations."
+  downstream_projection:
+    plan: 7
+    execute: 8
+    verify: 8
+    resolve: 5
+composite_granularity: 7
+human_involvement:
+  required: false
+  reason: "Mike approved the lifecycle start; this transition only enters PLAN and does not mutate canonical docs/config/runtime."
+  decision_owner: Mike

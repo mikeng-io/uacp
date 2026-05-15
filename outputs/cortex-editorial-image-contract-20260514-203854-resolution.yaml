@@ -1,0 +1,52 @@
+kind: uacp.resolution
+phase: RESOLVE
+resolution_id: cortex-editorial-image-contract-20260514-203854-resolution
+run_id: cortex-editorial-image-contract-20260514-203854
+final_status: resolved_for_declared_scope
+worktree:
+  path: /home/norty/cortex
+  branch: feat/editorial-image-contract
+  commit: 8e0c3a7
+  pushed: false
+summary: >-
+  Cortex editorial image contract infrastructure implemented and verified: image
+  planning contract, Replicate image model catalog, provider-family prompt renderer,
+  registry v2 cost/provenance metadata, cover-only workflow wiring, and docs/tests.
+phase_transitions:
+  execute_to_verify:
+    artifact: verification/cortex-editorial-image-contract-20260514-203854-execute-to-verify.yaml
+    heartgate_decision: warn
+    blockers: []
+  verify_to_resolve:
+    artifact: verification/cortex-editorial-image-contract-20260514-203854-verify-to-resolve.yaml
+    heartgate_decision: warn
+    blockers: []
+verification:
+  artifact: verification/cortex-editorial-image-contract-20260514-203854-verify-001.yaml
+  council: verification/cortex-editorial-image-contract-20260514-203854-verify-council.yaml
+  result: pass_with_deferred_items
+  tests:
+    - 11 targeted image tests passed
+    - 96 editorial focused tests passed
+    - 381 full tests passed
+non_actions:
+  - No Replicate call.
+  - No live editorial workflow rerun.
+  - No publish, PR, push, or production DB migration.
+  - Unrelated untracked file docs/design/editorial-mass-restructure/x-draft-verification-review.md remains untouched.
+deferred_items:
+  - id: provider-forward-compatibility
+    owner: future provider expansion run
+    condition: Add non-Replicate providers only after adapter/provenance/prompt/cost contract is generalized and tested.
+  - id: image-theme-richness
+    owner: future creative-quality run
+    condition: Add LLM-backed article-specific theme generation after schema/cost/prompt contracts are stable.
+lessons:
+  - Keep image plan, prompt rendering, generation, registry, and publication as separate boundaries.
+  - Image costs should live in image-provider artifact metadata/cost_summary, not token_usage.
+  - UACP Heartgate transition artifacts require exact schema shapes; warn transitions are acceptable when deferred items are owned and accepted.
+skill_or_memory_updates:
+  memory: none
+  skill_updates: none
+next_recommended_action: >-
+  Review commit 8e0c3a7. If accepted, decide whether to push/PR/merge the branch; live cover generation and inline image generation remain separate approvals.

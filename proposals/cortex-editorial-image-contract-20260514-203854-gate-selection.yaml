@@ -1,0 +1,65 @@
+kind: uacp.gate_selection
+selection_id: cortex-editorial-image-contract-20260514-203854-gate-selection
+run_id: cortex-editorial-image-contract-20260514-203854
+phase: PROPOSE
+domains:
+  - cortex.editorial_workflow
+  - artifacts.filesystem_topology
+  - image_generation.provider_routing
+  - cost_accounting
+  - publication_brand_boundary
+artifact_types:
+  - proposal
+  - image_plan_schema
+  - registry_schema
+  - prompt_template_contract
+  - cost_metadata_contract
+risk_level: medium
+granularity_level: 7
+invariant_checks:
+  - id: workflow_owns_export_boundary
+    status: pass
+    reason: Proposal preserves workflow decision boundary and activity-owned filesystem I/O.
+  - id: no_postgres_blob_storage
+    status: pass
+    reason: Proposal explicitly forbids image binaries and markdown blobs in Postgres.
+  - id: dry_run_no_paid_side_effects
+    status: pass
+    reason: Replicate calls remain prohibited unless explicitly enabled.
+  - id: model_agnostic_canonical_contract
+    status: pass
+    reason: Proposal records model families/templates without hardcoding transient model names as doctrine.
+  - id: human_approval_for_live_side_effects
+    status: pass
+    reason: Paid generation, live rerun, DB migration, and publishing require Mike approval.
+selected_clusters:
+  required:
+    - schema_contract_integrity
+    - side_effect_boundary
+    - cost_provenance
+    - filesystem_artifact_topology
+    - prompt_provider_variance
+    - workflow_temporal_boundary
+  optional:
+    - database_migration_review
+    - provider_pricing_ground_truth
+  generated:
+    - article_specific_visual_theme_coherence
+    - registry_v2_backward_compatibility
+not_applicable:
+  - cluster: hermes_runtime_guardian_mutation
+    reason: Work targets Cortex editorial workflow, not Hermes/UACP runtime enforcement.
+  - cluster: public_message_commitment
+    reason: No public posts/messages are in scope.
+transition_requirements:
+  propose_to_plan:
+    - phase-local Agent Council critique synthesis artifact or documented operator waiver
+    - proposal concerns resolved, deferred, or accepted with owner/residual risk
+    - validation of proposal and gate-selection artifact shapes
+  plan_to_execute:
+    - approved execution plan with tests, rollback, allowed/forbidden files, and side-effect policy
+    - no live generation/publish side effects unless separately authorized
+reasoning:
+  - The work is cross-cutting, contract-heavy, and publication-affecting.
+  - The immediate proposal/plan can stay local and reversible.
+  - Verification must include schema/topology/prompt/cost behavior, so standard UACP is appropriate.

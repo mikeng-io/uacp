@@ -1,0 +1,76 @@
+kind: uacp.council_synthesis
+schema_version: "0.1"
+artifact_id: council-followthrough-gate-plan-council-synthesis-20260514
+council_id: council-followthrough-gate-plan-council-20260514
+run_id: council-followthrough-gate-20260514-201718
+mode: plan
+tier: tier_2_role_diverse
+phase: plan
+created_at: "2026-05-14T21:02:00Z"
+phase_local_granularity:
+  phase: plan
+  entry_estimate: 7
+  exit_actual: 7
+  delta_reason: "PLAN council found concrete schema/config/validator specificity gaps; all are remediable within PLAN before EXECUTE."
+roles:
+  - lifecycle_coherence_reviewer
+  - guardian_heartgate_reviewer
+  - minimality_implementation_reviewer
+dispatch_surfaces:
+  - delegate_task
+artifact_paths:
+  - verification/council-followthrough-gate-plan-council-synthesis-20260514.yaml
+  - plans/council-followthrough-gate/00-index.md
+  - plans/council-followthrough-gate/01-surface-inventory.md
+  - plans/council-followthrough-gate/02-requirements-and-design.md
+  - plans/council-followthrough-gate/03-execution-plan.md
+  - plans/council-followthrough-gate/04-verification-and-resolution.md
+inspected_paths:
+  - plans/council-followthrough-gate/00-index.md
+  - plans/council-followthrough-gate/01-surface-inventory.md
+  - plans/council-followthrough-gate/02-requirements-and-design.md
+  - plans/council-followthrough-gate/03-execution-plan.md
+  - plans/council-followthrough-gate/04-verification-and-resolution.md
+  - docs/lifecycle-reference.md
+  - docs/runtime-enforcement.md
+  - docs/orchestration-model.md
+  - config/phase-transitions.yaml
+  - config/review-routing.yaml
+  - config/gate-selection.yaml
+  - config/evidence-clusters.yaml
+  - scripts/validate_uacp_artifacts.py
+findings:
+  - id: P1
+    severity: blocker
+    state: resolved
+    title: "handled_findings_chain schema/contract must be exact before EXECUTE."
+    resolution: "Plan patched to require phase-transitions schema extension with exact optional field and validator checks."
+  - id: P2
+    severity: blocker
+    state: resolved
+    title: "TRIAGE-local council trigger must be explicit in docs/config."
+    resolution: "Plan patched to target lifecycle-reference and review-routing with exact trigger."
+  - id: P3
+    severity: blocker
+    state: resolved
+    title: "handled_negative_result_followthrough evidence cluster is missing."
+    resolution: "Plan patched to promote this generated cluster into evidence-clusters.yaml during EXECUTE unless an exact equivalent is found."
+  - id: P4
+    severity: blocker
+    state: resolved
+    title: "Validator scope under-specified."
+    resolution: "Plan patched with exact minimal validator checklist."
+  - id: P5
+    severity: concern
+    state: resolved
+    title: "Recursion cap needs machine-readable home."
+    resolution: "Plan patched to place max_followup_depth_default in phase-transitions or review-routing during EXECUTE."
+  - id: P6
+    severity: concern
+    state: resolved
+    title: "Skill target paths should use HERMES_ROOT skill locations."
+    resolution: "Plan patched to clarify HERMES_ROOT skill path and downstream-only alignment."
+verdict: concerns
+human_escalation:
+  required: false
+  reason: "Council findings are resolved by plan patches and do not authorize canonical mutation until PLAN→EXECUTE Heartgate passes."

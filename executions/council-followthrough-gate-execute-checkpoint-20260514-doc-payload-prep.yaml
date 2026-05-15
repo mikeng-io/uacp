@@ -1,0 +1,32 @@
+kind: uacp.execution_checkpoint
+schema_version: "0.1"
+artifact_id: council-followthrough-gate-execute-checkpoint-20260514-doc-payload-prep
+run_id: council-followthrough-gate-20260514-201718
+phase: execute
+created_at: "2026-05-14T21:24:00Z"
+status: partial_progress_payload_prepared
+summary: >
+  Prepared the lifecycle-reference full-file modification in a temporary local payload for governed write. The payload adds
+  TRIAGE-local council selection for high-granularity governance-core admission and the Agent Council follow-through gate
+  language. The actual canonical doc write was not applied yet because the governed doc writer requires full content inline
+  and the next safe step is to apply the prepared payload through `uacp_doc_write` without using generic patch/terminal writes.
+prepared_payload:
+  temp_path: /tmp/lifecycle-reference.modified.md
+  target_path: docs/lifecycle-reference.md
+  intended_writer: uacp_doc_write
+  changes:
+    - "Adds rule: TRIAGE must not be compressed into PROPOSE for high-granularity governance-core work."
+    - "Adds TRIAGE-local Agent Council scope: admission/routing/scope/granularity only."
+    - "Adds follow-through gate language for handled blockers, concerns, invariant failures, negative findings, and material warnings."
+    - "States follow-up council is Heartgate evidence, not transition approval."
+    - "Adds default one-rerun recursion cap."
+verification_performed:
+  - "Generated payload from current docs/lifecycle-reference.md using a deterministic replacement script."
+  - "Did not mutate canonical docs/config with generic tools."
+blocked_or_pending:
+  - "Apply payload through uacp_doc_write full-file writer."
+  - "Repeat payload/write process for runtime-enforcement, orchestration-model, phase-transitions, review-routing, gate-selection, evidence-clusters."
+non_actions:
+  - "No direct terminal write to docs/lifecycle-reference.md."
+  - "No generic patch bypass after Guardian block."
+  - "No production/external side effects."

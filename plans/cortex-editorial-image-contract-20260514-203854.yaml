@@ -1,0 +1,251 @@
+kind: uacp.plan
+phase: PLAN
+plan_id: cortex-editorial-image-contract-20260514-203854-plan
+run_id: cortex-editorial-image-contract-20260514-203854
+proposal_artifact: proposals/cortex-editorial-image-contract-20260514-203854.yaml
+triage_artifact: state/runs/cortex-editorial-image-contract-20260514-203854-triage.yaml
+gate_selection_artifact: proposals/cortex-editorial-image-contract-20260514-203854-gate-selection.yaml
+council_synthesis_artifact: proposals/cortex-editorial-image-contract-20260514-203854-council-synthesis.yaml
+proposal_amendment_artifact: proposals/cortex-editorial-image-contract-20260514-203854-proposal-amendment-001.yaml
+objective: >-
+  Implement Cortex editorial image planning and cost contracts in a bounded,
+  test-first sequence: define schemas, produce image_plan.json, render
+  provider-family prompts, extend registry/cost metadata, and wire cover-only
+  workflow behavior without enabling inline generation or live side effects.
+authority:
+  status: pass
+  source: Mike instructed to continue the general UACP lifecycle.
+  constraints:
+    - No live editorial workflow rerun without explicit approval.
+    - No Replicate paid image generation during PLAN or EXECUTE verification unless explicitly approved.
+    - No blog publish, PR creation, or production DB migration without explicit approval.
+phase_local_granularity:
+  phase: PLAN
+  entry_estimate: 8
+  exit_actual: null
+  delta_reason: Council found multiple execution-shaping blockers; PLAN must be exact before code mutation.
+  downstream_projection:
+    EXECUTE: 8
+    VERIFY: 8
+    RESOLVE: 5
+execution_topology:
+  orchestrator: main Hermes session
+  implementation_runtime:
+    preferred: direct main-session patches for controlled schema/tests; external runtime only if implementation size/complexity justifies it
+    external_runtime_reason_required: true
+  kanban_required: false
+  rationale: Work is bounded and synchronous enough for direct execution; Kanban is not needed unless EXECUTE expands into durable multi-worker graph.
+current_repo_state:
+  cortex_workdir: /home/norty/cortex
+  branch: main
+  head: 3ca7eb7
+  status_notes:
+    - One unrelated untracked file exists: docs/design/editorial-mass-restructure/x-draft-verification-review.md
+    - Plan must avoid staging or modifying unrelated untracked file.
+branch_strategy:
+  create_branch: true
+  branch_name: feat/editorial-image-contract
+  base: main
+  commit_style: small logical commits
+  push: false_unless_approved
+allowed_files:
+  cortex:
+    - config/delivery.yaml
+    - config/image_models.yaml
+    - src/cortex/activities/editorial_image_plan.py
+    - src/cortex/activities/editorial_image_prompts.py
+    - src/cortex/activities/editorial_image_registry.py
+    - src/cortex/activities/editorial_images.py
+    - src/cortex/activities/checkpoint.py
+    - src/cortex/workflows/editorial/workflow.py
+    - src/cortex/workflows/editorial/_image_contracts.py
+    - src/cortex/workflows/editorial/_contracts.py
+    - tests/test_activities/test_editorial_image_plan.py
+    - tests/test_activities/test_editorial_image_prompts.py
+    - tests/test_activities/test_editorial_image_registry.py
+    - tests/test_activities/test_editorial_images_provider.py
+    - tests/test_workflows/test_editorial_image_plan_contract.py
+    - tests/test_workflows/test_editorial_image_registry_contract.py
+    - tests/test_workflows/test_editorial_dry_run_isolation.py
+    - tests/test_workflows/test_editorial_seeded_cli.py
+    - docs/07-EDITORIAL-PIPELINE.md
+    - docs/11-OPERATIONS.md
+    - artifacts/README.md
+forbidden_files_or_actions:
+  - docs/design/editorial-mass-restructure/x-draft-verification-review.md
+  - /private/**
+  - blog publish output under /home/norty/workspace/mikeng-io unless explicitly approved
+  - production DB migrations unless explicitly approved
+  - live Replicate API calls unless explicitly approved
+  - live editorial workflow reruns unless explicitly approved
+design_decisions:
+  artifact_graph:
+    root_manifest: manifest.json
+    image_plan: images/image_plan.json
+    registry: images/registry.json
+    per_image_metadata: images/<role_or_scope>/<image_id>.metadata.json
+    prompt_file: images/<role_or_scope>/<image_id>.prompt.md
+  image_plan_schema:
+    location: images/image_plan.json
+    schema_version: 1
+    required_top_level:
+      - schema_version
+      - workflow_id
+      - article
+      - global_style_boundary
+      - article_visual_theme
+      - placements
+      - budget_policy
+      - provider_tier_recommendations
+    placement_rules:
+      - cover placement is mandatory and selected
+      - inline placements are recommendations only unless config enables generation
+      - max inline counts depend on slot and default to conservative zero or one values
+  registry_schema:
+    version: 2
+    compatibility: v1 payloads remain readable and get safe defaults for missing v2 fields
+    required_new_fields:
+      - image_plan_path
+      - placement_id
+      - model_family
+      - prompt_template_id
+      - billing
+      - generation
+      - cost_summary
+  prompt_model_strategy:
+    layers:
+      - global_style_boundary
+      - article_visual_theme
+      - placement_role
+      - provider_model_constraints
+    family_shapes:
+      flux: compact subject-first prompt with strict word budget and positive guardrails
+      imagen: natural-language layered prompt with composition, lighting, palette, and guardrails
+    fallback_policy: fail closed or derive article-grounded anchors; never raw-thesis-only generic fallback
+  pricing_strategy:
+    config_source: config/image_models.yaml
+    unknown_pricing: null cost plus unknown_pricing_count, never fake zero
+    estimated_vs_actual: estimated cost required when price known; actual_cost_usd nullable/backfilled only
+    rollup_source: checkpointed image metadata and registry activity returns, not workflow filesystem reads
+  side_effect_strategy:
+    image_plan_export: local artifact export, allowed in test_full as inspection contract
+    prompt_rendering: local deterministic or activity-bound; no external paid call
+    cover_generation: paid side effect, disabled unless side-effect policy permits
+    registry_export: local artifact export after image bytes or plan metadata exists
+    cost_rollup_persistence: local artifact metadata only in v1; DB table deferred unless EXECUTE proves unavoidable need
+work_packages:
+  - id: WP0-ground-truth-and-red-tests
+    phase: EXECUTE
+    purpose: Establish failing or targeted tests before implementation.
+    tasks:
+      - Add schema/topology tests for image_plan and registry v2.
+      - Add prompt-family tests for flux and imagen prompt shapes.
+      - Add cost-pricing tests for known, unknown, and rollup behavior.
+      - Add dry-run tests proving no Replicate generation when disabled.
+    acceptance:
+      - Tests fail against current code for missing image plan, registry v2, prompt, or cost behavior.
+  - id: WP1-schema-and-config
+    depends_on: [WP0-ground-truth-and-red-tests]
+    tasks:
+      - Create _image_contracts.py with schema helpers.
+      - Add config/image_models.yaml with provider, model-family, tier, pricing, and template metadata.
+      - Define brand boundary object derived from mikeng.io Precision Dark vocabulary without forcing article-specific style uniformity.
+    acceptance:
+      - Unit tests pass for schema defaults, validation, and unknown pricing null behavior.
+  - id: WP2-image-plan-activity
+    depends_on: [WP1-schema-and-config]
+    tasks:
+      - Implement editorial_image_plan.py activity to create validated plan payload.
+      - Add deterministic section placement scoring helper with cover mandatory and inline disabled by default.
+      - Write images/image_plan.json through an activity-owned filesystem boundary.
+    acceptance:
+      - image_plan.json contains global boundary, article theme, placements, and provider tier recommendations.
+      - No Replicate calls occur.
+  - id: WP3-prompt-renderer
+    depends_on: [WP1-schema-and-config, WP2-image-plan-activity]
+    tasks:
+      - Implement editorial_image_prompts.py renderer.
+      - Render prompt from global boundary, article theme, placement, and provider/model family.
+      - Capture prompt_template_id, template version, prompt_sha256, and guardrail flags.
+    acceptance:
+      - Flux prompts are compact, subject-first, and within configured word budget.
+      - Imagen prompts are natural-language layered.
+      - All prompts include no text, no watermark, and default no-face guardrails unless explicitly overridden by plan constraints.
+  - id: WP4-registry-v2-and-cost
+    depends_on: [WP1-schema-and-config, WP3-prompt-renderer]
+    tasks:
+      - Extend editorial_image_registry.py for registry v2 while accepting v1-style payloads.
+      - Add billing and generation metadata fields and cost_summary rollup.
+      - Preserve sha256 for image bytes and add prompt or metadata hash where practical.
+    acceptance:
+      - Registry v2 entries record placement, template, provider/model family, billing, generation, paths, and hashes.
+      - Unknown pricing yields null estimated cost and increments unknown count.
+  - id: WP5-workflow-wiring-cover-only
+    depends_on: [WP2-image-plan-activity, WP3-prompt-renderer, WP4-registry-v2-and-cost]
+    tasks:
+      - Insert image_plan into canonical pass order at post-formatted/pre-image-brief boundary or other justified location.
+      - Bump checkpoint signature/version fields as needed.
+      - Thread plan-derived prompt/config into cover generation.
+      - Ensure cover generation remains side-effect gated and inline generation remains off.
+      - Return image plan, registry, and cost metadata in workflow result fields.
+    acceptance:
+      - Workflow contract tests pass for dry-run and test_full behavior.
+      - Existing cover-only path remains compatible.
+  - id: WP6-docs-and-operations
+    depends_on: [WP5-workflow-wiring-cover-only]
+    tasks:
+      - Update docs/07-EDITORIAL-PIPELINE.md pass catalog and artifact contract.
+      - Update artifacts/README.md topology.
+      - Update docs/11-OPERATIONS.md cost-query guidance for image cost estimates.
+    acceptance:
+      - Docs match implemented behavior and explicitly state non-actions and live side-effect constraints.
+  - id: WP7-verification-and-council
+    depends_on: [WP0-ground-truth-and-red-tests, WP1-schema-and-config, WP2-image-plan-activity, WP3-prompt-renderer, WP4-registry-v2-and-cost, WP5-workflow-wiring-cover-only, WP6-docs-and-operations]
+    tasks:
+      - Run targeted tests and full suite.
+      - Inspect git diff for unrelated files.
+      - Run VERIFY Agent Council on implementation artifacts.
+      - Record verification artifact.
+    acceptance:
+      - Full test suite passes.
+      - Council blockers resolved or explicitly carried with owner and residual risk.
+verification_commands:
+  targeted:
+    - uv run pytest tests/test_activities/test_editorial_image_plan.py -q
+    - uv run pytest tests/test_activities/test_editorial_image_prompts.py -q
+    - uv run pytest tests/test_activities/test_editorial_image_registry.py -q
+    - uv run pytest tests/test_activities/test_editorial_images_provider.py -q
+    - uv run pytest tests/test_workflows/test_editorial_image_plan_contract.py -q
+    - uv run pytest tests/test_workflows/test_editorial_image_registry_contract.py -q
+    - uv run pytest tests/test_workflows/test_editorial_dry_run_isolation.py -q
+    - uv run pytest tests/test_workflows/test_editorial_seeded_cli.py -q
+  full:
+    - uv run pytest tests/ -q
+manual_artifact_checks:
+  - Confirm images/image_plan.json path is produced by test or local artifact flow.
+  - Confirm images/registry.json has schema_version 2 and cost_summary.
+  - Confirm no Replicate network call occurs in dry-run or test verification.
+  - Confirm unrelated untracked x-draft review file remains untouched.
+rollback_plan:
+  - Revert feature branch commits before merge.
+  - If generated local artifacts are created during tests, remove only test temp or artifact paths created by tests.
+  - Do not touch historical editorial artifacts unless explicitly approved.
+human_checkpoints:
+  before_execute:
+    required: true
+    reason: PLAN contains Cortex code mutation and schema/config changes.
+  before_paid_generation:
+    required: true
+    reason: Replicate generation is a paid external side effect.
+  before_live_publish:
+    required: true
+    reason: Blog publish, PR, or delivery is external side effect.
+plan_council:
+  selected: false_initially
+  rationale: PROPOSE council already shaped blockers; run VERIFY council after implementation. If PLAN is materially changed before EXECUTE, run a focused PLAN council.
+transition_requirements:
+  plan_to_execute:
+    - Operator approval to mutate Cortex code/config/docs.
+    - Optional Heartgate check if current UACP policy requires transition validation.
+    - Working tree check and feature branch creation.
+    - No unresolved PLAN blockers.

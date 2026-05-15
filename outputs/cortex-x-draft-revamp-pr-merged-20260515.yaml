@@ -1,0 +1,40 @@
+schema_version: "0.1"
+kind: uacp.remote_side_effect_record
+artifact_id: cortex-x-draft-revamp-pr-merged-20260515
+run_id: cortex-x-draft-revamp-20260514
+phase: resolve
+status: pr_merged_verified
+created_at: "2026-05-15T05:20:00+08:00"
+repository:
+  remote: git@github.com:nortrix-labs/cortex.git
+  base: main
+pull_request:
+  number: 12
+  url: https://github.com/nortrix-labs/cortex/pull/12
+  title: "feat: add gated X casual intent contracts"
+  state: MERGED
+  merged_at_utc: "2026-05-14T21:20:19Z"
+  merged_by: mikeng-io
+  merge_commit: ad4383788509cc1df644996b6f5d6b9edb863e92
+verification:
+  commands:
+    - gh pr view 12 --json number,url,state,mergedAt,mergedBy,mergeCommit,title
+    - git fetch origin --prune
+    - git log --oneline origin/main -5
+  result: origin/main contains feature branch commits through 73a6c6d
+local_state:
+  worktree: /tmp/cortex-x-draft-revamp
+  local_branch: feat/x-draft-coherent-hybrid-stream
+  optional_untracked_handoff: artifacts/x-draft-revamp-pr-handoff-20260515.md
+side_effects_performed_by_norty_this_turn:
+  - read PR status
+  - fetch origin --prune
+side_effects_not_performed_by_norty_this_turn:
+  - no merge command issued by Norty; PR was already merged by mikeng-io
+  - no branch deletion
+  - no local worktree removal
+  - no DB migration
+  - no production DB mutation
+  - no Temporal schedule mutation
+  - no Discord post
+  - no public X post

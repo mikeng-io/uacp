@@ -1,0 +1,106 @@
+schema_version: "0.1"
+kind: uacp.phase_transition
+transition_id: cortex-x-draft-revamp-20260514-execute-to-verify
+run_id: cortex-x-draft-revamp-20260514
+from_phase: execute
+to_phase: verify
+phase: execute
+created_at: "2026-05-15T05:01:32+08:00"
+decision: proceed
+authority:
+  requested_by: Mike
+  request_source: Discord Cortex thread
+  authority_artifact: Discord instruction "continue" in Cortex thread
+  protected_actions_crossed: false
+  external_side_effects_crossed: false
+summary: EXECUTE implementation for the X casual draft coherent hybrid stream is complete for local branch scope and has deterministic verification evidence.
+artifact_paths:
+  - executions/cortex-x-draft-revamp-execute-checkpoint-20260515.yaml
+  - verification/cortex-x-draft-revamp-verify-20260515-0455.yaml
+artifacts:
+  execution_checkpoint: executions/cortex-x-draft-revamp-execute-checkpoint-20260515.yaml
+  verification: verification/cortex-x-draft-revamp-verify-20260515-0455.yaml
+  worktree: /tmp/cortex-x-draft-revamp
+  branch: feat/x-draft-coherent-hybrid-stream
+  head_commit: 73a6c6d
+blockers: []
+invariant_summary:
+  - id: feature_flags_default_off
+    status: pass
+    evidence: config/x_casual.yaml reports content_intent.enabled=false and coherence.enabled=false
+  - id: side_effect_boundary_preserved
+    status: pass
+    evidence: no DB migration, no production DB mutation, no Temporal schedule mutation, no public X/Discord posting, no push/PR
+  - id: branch_hygiene
+    status: pass
+    evidence: branch worktree clean; git diff --check passed
+cluster_summary:
+  - cluster_id: code_tests
+    state: pass
+    evidence: targeted tests 54 passed; full suite 384 passed
+  - cluster_id: configuration_defaults
+    state: pass
+    evidence: new behavior remains gated/off by default
+  - cluster_id: dry_run_proof
+    state: pass
+    evidence: forced dry-run sample produced draft with contract_drift=[] and coherence pass, without persistence/posting
+  - cluster_id: side_effect_boundary
+    state: pass
+    evidence: no live side effects were performed
+phase_local_granularity:
+  entry_estimate: standard
+  exit_actual: standard
+  delta_reason: Multi-file Cortex implementation with tests and branch-local dry-run proof; no live side effects or schema migration.
+  downstream_projection: review_or_pr_then_optional_temporal_dry_run
+composite_granularity:
+  current: standard
+  rationale: Implementation touches workflow-adjacent activity code and approval formatting but remains gated/off by default with full local tests passing.
+human_involvement:
+  required: true
+  reason: Push/PR, flag enablement, Temporal integrated dry-run, and any live side effects require Mike review/approval.
+  current_decision: local verification only; no push/PR/live enablement performed.
+heartgate_coherence:
+  status: warn
+  artifact_path: verification/cortex-x-draft-revamp-verify-20260515-0455.yaml
+  lenses:
+    - doctrine_coherence
+    - cross_artifact_consistency
+    - runtime_state_alignment
+    - warning_and_deferred_item_honesty
+    - authority_plane_integrity
+    - next_phase_readiness
+  summary: "Deterministic verification confirms local branch implementation and side-effect boundary. Warnings are explicit and owned: no Temporal workflow dry-run yet and out-of-band review file disposition remains deferred."
+warnings:
+  - id: no_temporal_workflow_dry_run
+    owner: Mike/Norty
+    residual_risk: Branch-local script dry-run and full test suite do not prove Temporal worker replay/integration behavior.
+    next_phase_acceptance: Decide whether to run integrated Temporal dry-run before PR or defer to review.
+  - id: main_checkout_review_file_disposition
+    owner: Mike/Norty
+    residual_risk: /home/norty/cortex/docs/design/editorial-mass-restructure/x-draft-verification-review.md still exists outside this branch's committed scope.
+    next_phase_acceptance: Resolve disposition before final cleanup/merge.
+deferred_items:
+  - id: temporal_workflow_dry_run
+    cluster_id: dry_run_proof
+    owner: Mike/Norty
+    condition: Run only if Mike wants workflow-level proof before PR; otherwise carry as PR review note.
+    accepted_by: Mike via continued local-scope verification boundary
+  - id: prior_stance_runtime_db_lookup
+    cluster_id: implementation_scope
+    owner: future Cortex enhancement
+    condition: Implement only in a later slice if prior-stance retrieval from DB becomes required.
+    accepted_by: Mike via no-migration/no-production-DB constraint
+  - id: out_of_band_review_file_disposition
+    cluster_id: repository_hygiene
+    owner: Mike/Norty
+    condition: Decide adopt/delete/archive for the main-checkout review file during resolve or PR cleanup.
+    accepted_by: Mike via deferred disposition note
+accepted_exceptions: []
+non_actions:
+  - no push
+  - no PR
+  - no DB migration
+  - no production DB mutation
+  - no Temporal schedule mutation
+  - no Discord post
+  - no public X post

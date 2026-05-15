@@ -1,0 +1,78 @@
+kind: uacp.phase_transition
+transition_id: cortex-editorial-image-contract-20260514-203854-verify-to-resolve
+run_id: cortex-editorial-image-contract-20260514-203854
+from_phase: verify
+to_phase: resolve
+decision: warn
+authority:
+  requested_by: Mike
+  authorization_source: current Discord instruction "continue" after PLAN checkpoint
+phase_local_granularity:
+  phase: verify
+  entry_estimate: 7
+  exit_actual: 6
+  delta_reason: Verification passed deterministic tests and council with no blockers; only owned deferred future-scope items remain.
+  downstream_projection:
+    resolve: 5
+composite_granularity: 6
+human_involvement:
+  required: false
+  reason: No unresolved blockers; deferred items are future-scope and non-live.
+  authority_needed: none
+  decision_owner: none
+  accepted_risk_artifact: verification/cortex-editorial-image-contract-20260514-203854-verify-001.yaml
+artifact_paths:
+  - verification/cortex-editorial-image-contract-20260514-203854-execute-to-verify.yaml
+  - verification/cortex-editorial-image-contract-20260514-203854-verify-council.yaml
+  - verification/cortex-editorial-image-contract-20260514-203854-verify-001.yaml
+council_synthesis_artifact: verification/cortex-editorial-image-contract-20260514-203854-verify-council.yaml
+verification_artifact: verification/cortex-editorial-image-contract-20260514-203854-verify-001.yaml
+accepted_exceptions: []
+blockers: []
+warnings:
+  - id: deferred-provider-forward-compatibility
+    owner: future provider expansion run
+    residual_risk: Non-Replicate provider support remains future work.
+    next_phase_acceptance: Accepted as explicitly future-scoped residual risk for this transition.
+  - id: deferred-image-theme-richness
+    owner: future creative-quality run
+    residual_risk: Article visual theme is deterministic/conservative, not LLM-rich.
+    next_phase_acceptance: Accepted as explicitly future-scoped residual risk for this transition.
+deferred_items:
+  - id: provider-forward-compatibility
+    cluster_id: provider-forward-compatibility
+    owner: future provider expansion run
+    condition: When adding Google/Grok/GPT Image/direct providers, generalize config/provider lookup and adapter metadata.
+    accepted_by: Mike-approved current UACP scope via bounded EXECUTE; current run is Replicate-first.
+  - id: image-theme-richness
+    cluster_id: image-theme-richness
+    owner: future creative-quality run
+    condition: When enabling richer creative direction, add LLM-backed article visual theme generation with tests and review.
+    accepted_by: Mike-approved current UACP scope via bounded EXECUTE; current run prioritizes schema/cost safety.
+declared_side_effects:
+  - UACP closure artifacts only
+invariant_summary:
+  - name: no_live_side_effects
+    status: pass
+    evidence: No Replicate call, live workflow rerun, publish, PR/push, or DB migration performed.
+  - name: tests_pass
+    status: pass
+    evidence: Full test suite 381 passed.
+cluster_summary:
+  - id: verification_evidence
+    state: pass
+    evidence: Verification artifact reports pass_with_deferred_items and ready_for_resolve true.
+  - id: council_review
+    state: pass
+    evidence: VERIFY council returned no blockers.
+heartgate_coherence:
+  status: warn
+  artifact_path: verification/cortex-editorial-image-contract-20260514-203854-verify-001.yaml
+  lenses:
+    - doctrine_coherence
+    - cross_artifact_consistency
+    - runtime_state_alignment
+    - warning_and_deferred_item_honesty
+    - authority_plane_integrity
+    - next_phase_readiness
+  summary: Run may resolve for its declared scope; deferred provider/theme items are explicitly future-scoped.

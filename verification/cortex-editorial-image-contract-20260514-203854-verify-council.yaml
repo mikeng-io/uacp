@@ -1,0 +1,76 @@
+kind: uacp.council_synthesis
+council_id: cortex-editorial-image-contract-20260514-203854-verify-council
+run_id: cortex-editorial-image-contract-20260514-203854
+phase: VERIFY
+mode: bounded_delegate_council
+tier: standard
+phase_local_granularity:
+  entry_estimate: 8
+  exit_observed: 7
+  delta_reason: Implementation passed tests and council found no blockers; one workflow checkpoint concern was remediated by wrapping image_plan in _with_checkpoint before final commit.
+roles:
+  - schema_workflow_reviewer
+  - cost_prompt_brand_reviewer
+dispatch_surfaces:
+  - delegate_task:kimi-coding
+inspected_paths:
+  cortex:
+    - config/image_models.yaml
+    - src/cortex/activities/editorial_image_plan.py
+    - src/cortex/activities/editorial_image_prompts.py
+    - src/cortex/activities/editorial_image_registry.py
+    - src/cortex/activities/checkpoint.py
+    - src/cortex/workflows/editorial/_image_contracts.py
+    - src/cortex/workflows/editorial/workflow.py
+    - src/cortex/worker.py
+    - tests/test_activities/test_editorial_image_plan.py
+    - tests/test_activities/test_editorial_image_prompts.py
+    - tests/test_activities/test_editorial_image_registry.py
+    - tests/test_workflows/test_editorial_image_registry_contract.py
+    - docs/07-EDITORIAL-PIPELINE.md
+    - docs/11-OPERATIONS.md
+artifact_paths:
+  execution_checkpoint: executions/cortex-editorial-image-contract-20260514-203854-execute-checkpoint-001.yaml
+findings:
+  - id: image-plan-schema-activity
+    severity: pass
+    state: resolved
+    summary: image_plan schema/activity is deterministic, cover-only by default, writes images/image_plan.json, and updates manifest.
+  - id: registry-v2-cost-metadata
+    severity: pass
+    state: resolved
+    summary: registry v2 records placement/template/billing/generation metadata and cost_summary with null/unknown pricing semantics.
+  - id: workflow-checkpoint-placement
+    severity: concern
+    state: resolved
+    summary: Initial council observed image_plan was listed in canonical order but not checkpointed; implementation was patched before final commit to call self._with_checkpoint('image_plan', _run_image_plan).
+  - id: dry-run-side-effects
+    severity: pass
+    state: resolved
+    summary: cover generation remains side-effect gated; detector-only skips image plan; test_full writes local artifacts only as inspection contract.
+  - id: provider-prompt-family
+    severity: pass
+    state: resolved
+    summary: Flux and Imagen prompt family renderers are separated and tested; guardrails avoid text/watermarks/logos/faces by default.
+  - id: provider-forward-compatibility
+    severity: concern
+    state: deferred
+    owner: future image-provider expansion run
+    residual_risk: Prompt renderer and config are Replicate-first; non-Replicate providers require adapter generalization.
+    next_phase_acceptance: Acceptable because this run explicitly scopes generation adapter to Replicate-first contracts.
+  - id: image-theme-richness
+    severity: concern
+    state: deferred
+    owner: future article-theme quality run
+    residual_risk: Article visual theme is deterministic/conservative rather than LLM-rich.
+    next_phase_acceptance: Acceptable because this run prioritizes contract/schema/cost safety over creative richness.
+verdict:
+  status: pass_with_deferred_items
+  blockers: []
+  concerns:
+    - provider-forward-compatibility
+    - image-theme-richness
+non_actions_verified:
+  - No Replicate call.
+  - No live workflow rerun.
+  - No publish, push, PR, or DB migration.

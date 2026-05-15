@@ -1,0 +1,62 @@
+schema_version: "0.1"
+kind: uacp.execution_checkpoint
+artifact_id: cortex-x-draft-revamp-execute-checkpoint-20260515
+run_id: cortex-x-draft-revamp-20260514
+phase: execute
+status: verified_local_branch_scope
+updated_at: "2026-05-15T04:55:21+08:00"
+workspace: /tmp/cortex-x-draft-revamp
+branch: feat/x-draft-coherent-hybrid-stream
+head_commit: 73a6c6d
+commits:
+  - 16df409 feat: add gated x draft intent metadata
+  - 3eabd05 fix: update x casual dry-run script
+  - 8b940f9 fix: classify scoped stance polarity
+  - 73a6c6d fix: support forced x casual dry-run samples
+scope:
+  target_workflow: XCasualComposerWorkflow
+  schedule_id: x-casual-composer
+  public_posting_changed: false
+  temporal_schedule_changed: false
+  db_migration_added: false
+  production_db_changed: false
+verification_artifact: verification/cortex-x-draft-revamp-verify-20260515-0455.yaml
+verification_summary:
+  targeted_tests: 54 passed in 2.89s
+  full_suite: 384 passed in 13.97s
+  diff_check: pass
+  branch_status: clean
+  feature_flags_default_off: true
+  current_dry_run_sample: pass_no_contract_drift
+work_packages:
+  wp0_out_of_band_file:
+    status: inspected_deferred
+    source: /home/norty/cortex/docs/design/editorial-mass-restructure/x-draft-verification-review.md
+    disposition: not_deleted_not_adopted_in_this_checkpoint
+  wp1_surface_inventory:
+    status: completed
+  wp2_content_intent:
+    status: implemented_behind_flag
+  wp3_prior_stance:
+    status: implemented_no_migration
+  wp4_prompt_gate_integration:
+    status: implemented_behind_flag
+  wp5_discord_metadata:
+    status: implemented
+  wp6_tests:
+    status: full_suite_pass
+  wp7_dry_run_proof:
+    status: compose_sample_pass
+    artifact: artifacts/x-casual-dry-run-sample-20260515.md
+residual_risks:
+  - runtime prior-stance DB lookup is not implemented; first pass is no-migration deterministic helper only
+  - feature flags remain off pending Mike review and formal enablement decision
+  - out-of-band review file still exists untracked in main checkout and needs explicit disposition
+  - Temporal workflow dry-run was not fired from this branch; proof is unit/full-suite plus branch-local compose dry-run
+non_actions:
+  - no push
+  - no PR
+  - no live schedule mutation
+  - no production DB mutation
+  - no public X post
+  - no Discord post
