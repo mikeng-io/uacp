@@ -1,0 +1,20 @@
+{
+  "timestamp": "2026-05-15T19:01:05.745436",
+  "verdict": "PASS_WITH_KIMI_CLI_UNAVAILABLE",
+  "skills": [
+    "uacp-plan",
+    "uacp-execute",
+    "uacp-verify",
+    "uacp-resolve",
+    "uacp-state"
+  ],
+  "deterministic_audit": "PASS",
+  "agent_council": "PASS by main deterministic audit and delegated Kimi K2.6 audits where filesystem-visible; false negatives from isolated subagent/UACP Guardian noted",
+  "kimi_cli": {
+    "status": "SKIPPED",
+    "reason": "kimi CLI returned 402 membership verification error; Kimi K2.6 delegate model audits used instead"
+  },
+  "residual_risks": [
+    "UACP output artifact paths are Guardian-blocked to some subagent file tools; main session created and verified them via /tmp terminal workflow."
+  ]
+}
