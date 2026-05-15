@@ -1,0 +1,157 @@
+kind: uacp.drift_reconciliation
+reconciliation_id: uacp-patch-plan-20260515-phase1-drift-reconciliation-001
+run_id: uacp-patch-plan-20260515
+from_phase: phase_0_complete
+to_phase: phase_1_pending
+
+source_review_artifact: verification/uacp-patch-plan-phase0-codex-review.yaml
+purpose: >
+  Mandatory first step of Phase 1 per the patch plan drift_propagation_rule.
+  Reads Phase 0 review findings, classifies propagated_constraints, and updates
+  Phase 1 scope BEFORE Phase 1 implementation begins.
+
+propagated_constraints_processed:
+
+  - id: pc_1
+    description: >
+      Move _SELF_ATTESTING_TOOLS frozenset from adapter code into
+      config/guardian-policy.yaml; reconcile with Phase 1 allowed_tools.
+    source_findings: [G0-02, G0-06, SK-005]
+    phase_1_scope_update: >
+      ABSORBED into Item 1.3. Add `self_attesting_tools:` list to
+      config/guardian-policy.yaml. Adapter reads from policy via
+      GuardianPolicy attribute. Remove hardcoded frozenset from adapter.
+      Verify the new policy field is loaded and respected by
+      _filesystem_guard_verified(). The per-skill `allowed_tools`
+      declarations (Item 1.3) are a per-phase admissibility check;
+      the policy `self_attesting_tools` list is a per-tool containment
+      claim. Both are reconciled at the SAME location (policy YAML) so
+      there is one source of truth for each concept.
+    acceptance:
+      - config/guardian-policy.yaml contains `self_attesting_tools` list with the 7 entries from Phase 0.
+      - runtime-adapters/.../__init__.py reads from policy, has no inline frozenset.
+      - phase1_verify confirms behavior is identical to Phase 0 self-attestation.
+
+  - id: pc_2
+    description: >
+      Phase 1's allowed_tools design must reuse/supersede the general
+      allowed-tools branch added in Phase 0 (kernel.py:249-258).
+    source_findings: [G0-05]
+    phase_1_scope_update: >
+      The Phase 0 general allowed-tools branch operates at the
+      protected-CATEGORY level (each protected_category lists allowed_tools).
+      Phase 1's per-skill allowed_tools operates at the PHASE level
+      (each phase lists allowed_tools that the active skill may invoke).
+      These are layered, not duplicates:
+        Layer A (Phase 0): policy-level — which tool may enter a protected category
+        Layer B (Phase 1): phase-level — which tool may run in this lifecycle phase
+      A tool call is allowed only if BOTH layers admit it.
+      Phase 1 adds Layer B in pre_tool_call evaluation, before Layer A.
+
+  - id: pc_3
+    description: >
+      Attestation cache pruning + policy reload semantics.
+    source_findings: [F2, SK-003]
+    phase_1_scope_update: >
+      ADDED to Phase 1 as a small hardening task (was eligible for Phase 3,
+      moved up because the attestation chain becomes more heavily exercised
+      with gate-ledger appends in Phase 1). Add periodic pruning on each
+      _validate_contained_shell_attestation call. Document that policy is
+      loaded once per process; agents must restart Hermes after policy edits.
+      Stat-based reload deferred to Phase 3.
+    acceptance:
+      - Expired attestation entries pruned on each lookup.
+      - Policy load behavior documented in runtime-integration-guide.md.
+
+  - id: pc_4
+    description: Empty tool_name should be a non-waivable block in all modes.
+    source_findings: [SK-007]
+    phase_1_scope_update: >
+      ABSORBED into quick-wins. Add explicit check in Guardian.evaluate():
+      empty tool_name → block, regardless of mode.
+
+  - id: pc_5
+    description: >
+      Make state.uacp branch / general allowed-tools branch mutual
+      exclusivity structural rather than incidental.
+    source_findings: [SK-010]
+    phase_1_scope_update: >
+      ABSORBED into quick-wins. Add `category != "state.uacp"` guard or
+      restructure as elif so the two branches cannot double-fire.
+
+  - id: pc_6
+    description: >
+      Audit-reason-string consistency for read-only governed categories
+      (evidence.containment, lifecycle.transition).
+    source_findings: [RR-007]
+    phase_1_scope_update: >
+      ABSORBED into quick-wins. Tighten _category_has_governed_tool() to
+      accept default_decision == allow_with_audit when allowed_tools is set,
+      so all governed categories produce the same "authorized governed tool
+      for <category>" reason string in audit logs.
+
+# --- Reconciled Phase 1 scope ---
+
+reconciled_phase_1_items:
+
+  - id: 1.1
+    label: Gate ledger schema + uacp_gate_ledger_append tool
+    source: original plan
+    affected_paths:
+      - config/state.yaml
+      - config/guardian-policy.yaml
+      - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py
+      - state/gate-ledger/ (new directory)
+
+  - id: 1.2
+    label: phase_exit_invariants in config + Heartgate enforcement
+    source: original plan
+    affected_paths:
+      - config/phase-transitions.yaml
+      - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+
+  - id: 1.3
+    label: Per-skill allowed_tools/forbidden_tools + policy self_attesting_tools
+    source: original plan + pc_1 + pc_2
+    affected_paths:
+      - config/guardian-policy.yaml (new field self_attesting_tools)
+      - config/phase-transitions.yaml (new per-phase allowed_tools)
+      - skills/devops/uacp/*/SKILL.md (mirror for self-documentation)
+      - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py (read self_attesting_tools from policy)
+      - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py (per-phase tool admissibility check)
+
+  - id: 1.4
+    label: PIV (post-phase verification) protocol
+    source: original plan
+    affected_paths:
+      - config/phase-transitions.yaml (piv_rule)
+      - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py (PIV record check in Heartgate)
+
+  - id: 1.5
+    label: Attestation pruning + policy reload doc
+    source: pc_3 (moved up from Phase 3)
+    affected_paths:
+      - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py
+      - docs/runtime-integration-guide.md
+
+  - id: 1.6
+    label: Quick wins (pc_4, pc_5, pc_6)
+    source: pc_4, pc_5, pc_6
+    affected_paths:
+      - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+
+deferred_to_phase_3:
+  - pc_7: live probe assertion brittleness
+  - pc_8: heartgate_check_passes_valid_transition root cause
+
+reconciled_acceptance_criteria:
+  - Layer A (per-category allowed_tools) and Layer B (per-phase allowed_tools) both enforced; tool calls require both layers to admit.
+  - self_attesting_tools is read from policy YAML, not hardcoded.
+  - state/gate-ledger/ exists and uacp_gate_ledger_append works append-only.
+  - Heartgate reads phase_exit_invariants from config and blocks on missing artifacts.
+  - PIV double-failure produces unconditional Heartgate block.
+  - All Phase 0 verification still passes (no regressions).
+  - phase1_verify.py covers each new mechanism.
+  - Two-pass Codex review gate returns pass with zero unresolved material findings.
+
+ready_to_execute: true

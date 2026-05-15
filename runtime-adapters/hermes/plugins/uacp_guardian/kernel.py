@@ -122,6 +122,16 @@ class GuardianPolicy:
         self.tool_provenance = dict(self.data.get("tool_provenance") or {})
         self.path_rules = dict(self.data.get("path_rules") or {})
         self.runtime_modes = dict(self.data.get("runtime_modes") or {})
+        # self_attesting_tools (Phase 1 / pc_1) — moved out of adapter code.
+        # Tools whose handlers perform their own path-bounded containment.
+        sat = self.data.get("self_attesting_tools") or {}
+        if isinstance(sat, dict):
+            names = sat.get("names") or []
+        elif isinstance(sat, list):
+            names = sat
+        else:
+            names = []
+        self.self_attesting_tools = frozenset(str(n) for n in names if isinstance(n, str))
         # Enforcement mode is read from policy `mode` field with optional
         # UACP_GUARDIAN_MODE env override.  `enforce` is the default; `observe`
         # downgrades policy-default blocks on UACP-bound actions to
@@ -179,6 +189,25 @@ class GuardianPolicy:
                 raise GuardianPolicyError(
                     f"tool_provenance provider {provider} targets undefined category {category}"
                 )
+        # Phase 1 remediation (skeptic F2): every self_attesting_tools name
+        # must be in tool_classification AND target a governed category.
+        # Rejects "terminal", "execute_code", unknown names, and any name
+        # classified into a non-governed category. Prevents containment
+        # bypass via policy edit.
+        governed_categories = {
+            "state.uacp", "docs.uacp", "config.uacp", "artifact.uacp",
+            "evidence.containment", "exec.shell.contained", "lifecycle.transition",
+        }
+        for tool_name in self.self_attesting_tools:
+            if tool_name not in self.tool_classification:
+                raise GuardianPolicyError(
+                    f"self_attesting_tools entry '{tool_name}' is not in tool_classification"
+                )
+            cat = self.tool_classification[tool_name]
+            if cat not in governed_categories:
+                raise GuardianPolicyError(
+                    f"self_attesting_tools entry '{tool_name}' targets non-governed category '{cat}'"
+                )
 
     def category_defaults(self, category: str) -> Mapping[str, Any]:
         protected = self.data.get("protected_categories") or {}
@@ -217,13 +246,33 @@ def infer_tool_provider(tool_name: str, explicit_provider: str = "") -> str:
 class Guardian:
     """Evaluate UACP Guardian events against a loaded policy."""
 
-    def __init__(self, policy: GuardianPolicy):
+    def __init__(self, policy: GuardianPolicy, *, phase_config: Mapping[str, Any] | None = None):
         self.policy = policy
+        # Phase 1: per-phase tool admissibility (Layer B). Loaded from
+        # config/phase-transitions.yaml `stages.<phase>.allowed_tools` /
+        # `forbidden_tools`. If absent, no Layer B restriction.
+        self._phase_config = dict(phase_config or {})
 
     def evaluate(self, event: GuardianEvent) -> GuardianDecision:
+        # pc_4: empty tool_name is a non-waivable block in all modes.
+        if not (event.tool_name or "").strip():
+            return self._block(
+                "external.unknown_mutator",
+                "empty tool_name is not admissible",
+                [f"tool_provider={event.tool_provider}", "tool_name=<empty>"],
+            )
+
         category = self.classify(event)
         audit = category != "read.local"
         evidence = [f"tool_provider={event.tool_provider}", f"tool_name={event.tool_name}"]
+
+        # Phase 1 Layer B: per-phase admissibility (uses uacp_phase from the
+        # event). Forbidden tools always block; allowed-tools lists are an
+        # allowlist if present. Phases without configured lists impose no
+        # Layer B restriction (backward-compatible).
+        phase_decision = self._phase_layer_check(event, category, evidence)
+        if phase_decision is not None:
+            return phase_decision
 
         # Direct writes that land under state/ via a non-state.uacp tool path
         # remain a hard block — they bypass the governed state writer.
@@ -240,13 +289,11 @@ class Guardian:
                 )
             return self._block("state.uacp", "direct UACP state writes must use uacp_state_write", evidence)
 
-        # Generalized allowed-tools branch for any protected category whose
-        # policy default is `block` and which lists `allowed_tools`.  This
-        # covers docs.uacp, config.uacp, and any future category modelled on
-        # the same pattern.  Without this branch the governed writers were
-        # blocked by the category's policy default even though the policy
-        # itself names them as the authorized tool.
-        if self._category_has_governed_tool(category) and self.policy.is_allowed_tool_for_category(category, event.tool_name):
+        # Generalized allowed-tools branch for any protected category that
+        # lists `allowed_tools` (block or allow_with_audit default — see
+        # _category_has_governed_tool). pc_5: explicit guard so state.uacp
+        # cannot double-fire; that path is handled above.
+        if category != "state.uacp" and self._category_has_governed_tool(category) and self.policy.is_allowed_tool_for_category(category, event.tool_name):
             if missing := self._missing_context(event):
                 return self._block(category, f"missing UACP context fields: {', '.join(missing)}", evidence)
             return GuardianDecision(
@@ -382,14 +429,58 @@ class Guardian:
         return set(required_for)
 
     def _category_has_governed_tool(self, category: str) -> bool:
-        """True when the policy default for the category is block AND the
-        category lists at least one allowed_tool — i.e. the category is meant
-        to be entered only through a governed writer surface.
+        """True when the category is meant to be entered through a governed
+        writer surface (it lists `allowed_tools` and its default decision is
+        either `block` — the canonical writer pattern — or `allow_with_audit`
+        — the read-only governed surfaces, e.g. evidence.containment,
+        lifecycle.transition; the allowed-tools branch produces a consistent
+        audit-log reason string for these too (pc_6)).
         """
         defaults = self.policy.category_defaults(category)
-        if str(defaults.get("default_decision") or "") != DECISION_BLOCK:
+        default = str(defaults.get("default_decision") or "")
+        if default not in {DECISION_BLOCK, DECISION_ALLOW_WITH_AUDIT}:
             return False
         return bool(defaults.get("allowed_tools"))
+
+    def _phase_layer_check(
+        self,
+        event: GuardianEvent,
+        category: str,
+        evidence: list[str],
+    ) -> GuardianDecision | None:
+        """Per-phase tool admissibility (Layer B).
+
+        Returns a decision when Layer B has something to say (forbidden_tools
+        match or allowed_tools allowlist miss), otherwise None to fall through
+        to Layer A (category-level evaluation).
+        """
+        phase = (event.uacp_phase or os.getenv("UACP_PHASE") or "").strip()
+        if not phase:
+            return None
+        stages = self._phase_config.get("stages") or {}
+        if not isinstance(stages, Mapping):
+            # Skeptic F5 remediation: malformed stages config does not crash
+            # — Layer B is skipped, Layer A still applies, audit logs the issue.
+            return None
+        stage = stages.get(phase) or {}
+        if not isinstance(stage, Mapping):
+            return None
+        forbidden = list(stage.get("forbidden_tools") or [])
+        allowed = list(stage.get("allowed_tools") or [])
+        if event.tool_name in forbidden:
+            return self._block(
+                category,
+                f"tool '{event.tool_name}' is forbidden in phase '{phase}'",
+                evidence + [f"phase={phase}", "phase_layer=forbidden"],
+            )
+        if allowed and event.tool_name not in allowed and self._is_protected(category):
+            # Layer B allowlist only restricts protected categories; reads pass.
+            return self._block(
+                category,
+                f"tool '{event.tool_name}' is not in phase '{phase}' allowed_tools",
+                evidence + [f"phase={phase}", "phase_layer=allowlist_miss"],
+            )
+        return None
 
     def _is_direct_uacp_state_write(self, event: GuardianEvent, category: str) -> bool:
         if category == "state.uacp":
@@ -486,6 +577,21 @@ def write_audit_record(record: Mapping[str, Any], *, log_root: str | Path | None
     with path.open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(dict(record), ensure_ascii=False, sort_keys=True) + "\n")
     return path
+
+
+_RUN_ID_RE = __import__("re").compile(r"^[A-Za-z0-9._-]{1,128}$")
+
+
+def _is_safe_run_id(run_id: str) -> bool:
+    """True if run_id is safe for use as a filesystem name segment.
+
+    Phase 1 remediation (skeptic F1 / technical F1): bound run_id to a
+    conservative charset so it cannot escape state/gate-ledger/ via "..",
+    "/", "\\", control chars, or pathological lengths.
+    """
+    if not isinstance(run_id, str) or not run_id:
+        return False
+    return bool(_RUN_ID_RE.match(run_id))
 
 
 def _truthy(value: Any) -> bool:
@@ -588,6 +694,8 @@ class Heartgate:
 
         self._validate_heartgate_coherence(artifact, blockers, warnings)
         self._validate_heartgate_coherence_requirement(artifact, blockers)
+        self._validate_phase_exit_invariants(artifact, blockers)
+        self._validate_piv_record(artifact, blockers)
 
         declared_decision = str(artifact.get("decision") or "")
         if declared_decision == "block":
@@ -687,6 +795,176 @@ class Heartgate:
             reasons.append("domain=" + ",".join(sorted(categories.intersection(artifact_domains))))
         if reasons:
             blockers.append("heartgate_coherence required by transition policy: " + "; ".join(reasons))
+
+    def _validate_phase_exit_invariants(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Phase 1 / Item 1.2: enforce phase_exit_invariants from config.
+
+        For the transition's `from_phase`, load `stages.<from_phase>.phase_exit_invariants`
+        and check each: required artifact_glob entries must match at least one
+        file under UACP_ROOT; required gate_ledger_entry values must appear in
+        state/gate-ledger/{run_id}.jsonl.
+        """
+        from_phase = str(artifact.get("from_phase") or "")
+        run_id = str(artifact.get("run_id") or "")
+        if not isinstance(self.stages, Mapping):
+            blockers.append("phase_exit_invariants: stages config must be a mapping")
+            return
+        stage = self.stages.get(from_phase) or {}
+        if not isinstance(stage, Mapping):
+            blockers.append(f"phase_exit_invariants: stage '{from_phase}' config must be a mapping")
+            return
+        invariants = stage.get("phase_exit_invariants") or []
+        if not invariants:
+            return
+        for inv in invariants:
+            if not isinstance(inv, Mapping):
+                blockers.append("phase_exit_invariant must be a mapping")
+                continue
+            required = bool(inv.get("required"))
+            if not required:
+                continue
+            glob_pattern = str(inv.get("artifact_glob") or "")
+            ledger_gate = str(inv.get("gate_ledger_entry") or "")
+            if glob_pattern:
+                if "{run_id}" in glob_pattern and not run_id:
+                    blockers.append(f"phase_exit_invariant unmet: run_id required to resolve glob '{glob_pattern}'")
+                    continue
+                pat = glob_pattern.replace("{run_id}", run_id) if run_id else glob_pattern
+                if not self._glob_matches_any(pat):
+                    blockers.append(f"phase_exit_invariant unmet: no artifact matches '{pat}'")
+            elif ledger_gate:
+                if not run_id:
+                    blockers.append(f"phase_exit_invariant unmet: run_id required to verify ledger entry '{ledger_gate}'")
+                elif not self._ledger_contains_gate(run_id, ledger_gate):
+                    blockers.append(f"phase_exit_invariant unmet: gate ledger missing entry '{ledger_gate}'")
+
+    def _validate_piv_record(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Phase 1 / Item 1.4: require a PIV pass record in the ledger before
+        Heartgate accepts a transition for which piv_rule applies.
+
+        Tech-F1 remediation: sanitize run_id before constructing the ledger
+        path (reject path-traversal characters and resolve under
+        state/gate-ledger/ only). Skeptic F5 remediation: tolerate malformed
+        piv_rule fields with explicit blockers instead of crashing.
+        """
+        piv_rule = self.config.get("piv_rule") or {}
+        if not isinstance(piv_rule, Mapping) or not piv_rule.get("ledger_required"):
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not run_id:
+            blockers.append("piv_rule requires run_id to verify ledger record")
+            return
+        if not _is_safe_run_id(run_id):
+            blockers.append(f"piv_rule: unsafe run_id rejected for ledger lookup")
+            return
+        ledger_path = self.uacp_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
+        if not ledger_path.exists():
+            blockers.append(f"piv_rule unmet: no gate ledger at {ledger_path.relative_to(self.uacp_root)}")
+            return
+        from_phase = str(artifact.get("from_phase") or "")
+        passing_attempts: list[int] = []
+        failing_attempts: list[int] = []
+        try:
+            for line in ledger_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if str(rec.get("gate") or "") != "PIV":
+                    continue
+                if from_phase and str(rec.get("phase") or "") != from_phase:
+                    continue
+                attempt = int(rec.get("piv_attempt") or 0)
+                result = str(rec.get("result") or "")
+                if result == "pass":
+                    passing_attempts.append(attempt)
+                elif result in {"warn", "block", "fail"}:
+                    failing_attempts.append(attempt)
+        except Exception as exc:
+            blockers.append(f"piv_rule ledger read failed: {type(exc).__name__}: {exc}")
+            return
+        raw_max = piv_rule.get("max_attempts")
+        if raw_max is None:
+            raw_max = 2
+        try:
+            max_attempts = int(raw_max)
+        except (TypeError, ValueError):
+            blockers.append("piv_rule.max_attempts must be a positive integer")
+            return
+        if max_attempts <= 0:
+            blockers.append("piv_rule.max_attempts must be >= 1")
+            return
+        # Skeptic F2 remediation: second-failure block is the default action.
+        # Only an explicit known relaxation value bypasses it.
+        action = str(piv_rule.get("second_failure_action") or "block_unconditional")
+        if action not in {"block_unconditional", "warn"}:
+            blockers.append(f"piv_rule.second_failure_action unknown value '{action}'")
+            return
+        if len(failing_attempts) >= max_attempts and action == "block_unconditional":
+            blockers.append(
+                f"piv_rule: {len(failing_attempts)} failed PIV attempts for phase '{from_phase}' — second-failure unconditional block"
+            )
+            return
+        if not passing_attempts:
+            blockers.append(f"piv_rule unmet: no PIV pass record in ledger for phase '{from_phase}'")
+
+    def _glob_matches_any(self, pattern: str) -> bool:
+        """Phase 1 remediation (skeptic F3): reject symlinks and out-of-root
+        matches. A glob match must resolve to a real file under UACP_ROOT and
+        not be a symlink whose target is outside the root.
+        """
+        import glob as _glob
+        try:
+            root = self.uacp_root.resolve()
+            matches = _glob.glob(str(self.uacp_root / pattern), recursive=True)
+            for raw in matches:
+                p = Path(raw)
+                if p.is_symlink():
+                    # Resolve and re-check that the target is inside UACP_ROOT.
+                    try:
+                        resolved = p.resolve(strict=True)
+                    except Exception:
+                        continue
+                    if root != resolved and root not in resolved.parents:
+                        continue
+                    # symlink to in-root real file is acceptable
+                else:
+                    try:
+                        resolved = p.resolve(strict=True)
+                    except Exception:
+                        continue
+                if not resolved.is_file():
+                    continue
+                if root != resolved and root not in resolved.parents:
+                    continue
+                return True
+            return False
+        except Exception:
+            return False
+
+    def _ledger_contains_gate(self, run_id: str, gate: str) -> bool:
+        if not _is_safe_run_id(run_id):
+            return False
+        ledger_path = self.uacp_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
+        if not ledger_path.exists():
+            return False
+        try:
+            for line in ledger_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if str(rec.get("gate") or "") == gate:
+                    return True
+        except Exception:
+            return False
+        return False
 
     def _transition_allowed(self, from_phase: str, to_phase: str) -> bool:
         stage = self.stages.get(from_phase) or {}

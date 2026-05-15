@@ -275,9 +275,13 @@ Processes executing UACP-bound work must receive the following environment varia
 | `UACP_WORKSPACE_POLICY` | Allowed workspace path policy |
 | `UACP_GUARDIAN_MODE` | `observe` or `enforce` |
 
+### Policy load and reload semantics
+
+The Guardian policy and the phase-transitions config are loaded **once per process** and cached at module scope. Editing `config/guardian-policy.yaml`, `config/phase-transitions.yaml`, or `config/state.yaml` while the adapter is loaded has **no effect on a running session** — the host runtime must be restarted, or the adapter explicitly reloaded, for changes to take effect. The in-memory bwrap-attestation cache is pruned of expired entries on every validation call; the currently-looked-up id is preserved so the validator can report `expired` rather than `not found`.
+
 ### Mode semantics
 
-Mode is resolved from `config/guardian-policy.yaml` (`mode:` key) with `UACP_GUARDIAN_MODE` as an environment override. Invalid or missing values fall back to `enforce`. Mode is read once at policy load.
+Mode is resolved from `config/guardian-policy.yaml` (`mode:` key) with `UACP_GUARDIAN_MODE` as an environment override. Invalid or missing values fall back to `enforce`. Mode is read once at policy load (see policy load section above).
 
 **`observe` mode** — Guardian logs decisions and downgrades **policy-default** blocks for UACP-bound actions to `allow_with_audit`. Observe mode is intended for integration testing and non-critical runtimes, not for production enforcement.
 

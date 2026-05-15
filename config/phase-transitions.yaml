@@ -21,18 +21,62 @@ stages:
       standard_uacp: propose
       full_governance: propose
       block_or_clarify: terminal_blocked
+    allowed_tools:
+    - uacp_artifact_write
+    - uacp_state_write
+    - uacp_gate_ledger_append
+    - uacp_heartgate_check
+    - uacp_doc_write
+    - uacp_config_write
+    forbidden_tools:
+    - terminal
+    - execute_code
+    phase_exit_invariants:
+    - artifact_glob: "proposals/{run_id}-triage*.yaml"
+      required: true
+    - gate_ledger_entry: "TRIAGE_COMPLETE"
+      required: true
   propose:
     enters_from:
     - triage
     exits_to:
     - plan
     purpose: Establish authority, scope, context, risk, and proposal viability.
+    allowed_tools:
+    - uacp_artifact_write
+    - uacp_state_write
+    - uacp_gate_ledger_append
+    - uacp_heartgate_check
+    - uacp_doc_write
+    forbidden_tools:
+    - terminal
+    - execute_code
+    phase_exit_invariants:
+    - artifact_glob: "proposals/{run_id}*.yaml"
+      required: true
+    - artifact_glob: "proposals/{run_id}*-gate-selection.yaml"
+      required: false
+    - gate_ledger_entry: "TRIAGE->PROPOSE"
+      required: true
   plan:
     enters_from:
     - propose
     exits_to:
     - execute
     purpose: Convert approved proposal into bounded execution and verification strategy.
+    allowed_tools:
+    - uacp_artifact_write
+    - uacp_state_write
+    - uacp_gate_ledger_append
+    - uacp_heartgate_check
+    forbidden_tools:
+    - terminal
+    - execute_code
+    phase_exit_invariants:
+    - artifact_glob: "plans/{run_id}*"
+      required: true
+    - gate_ledger_entry: "PROPOSE->PLAN"
+      required: true
   execute:
     enters_from:
     - plan
@@ -41,18 +85,63 @@ stages:
     purpose: Perform bounded work through UACP-authorized Agent Council orchestration,
       Hermes Kanban coordination, delegated workers, selected runtimes, and approved
       tool/evidence adapters.
+    allowed_tools:
+    - uacp_doc_write
+    - uacp_config_write
+    - uacp_state_write
+    - uacp_artifact_write
+    - uacp_gate_ledger_append
+    - uacp_contained_shell
+    - uacp_sandbox_check
+    - uacp_heartgate_check
+    - terminal
+    - execute_code
+    forbidden_tools: []
+    phase_exit_invariants:
+    - artifact_glob: "executions/{run_id}*"
+      required: true
+    - gate_ledger_entry: "PLAN->EXECUTE"
+      required: true
   verify:
     enters_from:
     - execute
     exits_to:
     - resolve
     purpose: Validate completed work with context-selected evidence clusters.
+    allowed_tools:
+    - uacp_artifact_write
+    - uacp_state_write
+    - uacp_gate_ledger_append
+    - uacp_heartgate_check
+    - uacp_sandbox_check
+    - uacp_contained_shell
+    forbidden_tools:
+    - terminal
+    - execute_code
+    phase_exit_invariants:
+    - artifact_glob: "verification/{run_id}*"
+      required: true
+    - gate_ledger_entry: "EXECUTE->VERIFY"
+      required: true
   resolve:
     enters_from:
     - verify
     exits_to:
     - terminal
     purpose: Finalize outputs, archive artifacts, and emit lessons.
+    allowed_tools:
+    - uacp_artifact_write
+    - uacp_state_write
+    - uacp_gate_ledger_append
+    - uacp_heartgate_check
+    forbidden_tools:
+    - terminal
+    - execute_code
+    phase_exit_invariants:
+    - artifact_glob: "outputs/{run_id}*"
+      required: true
+    - gate_ledger_entry: "VERIFY->RESOLVE"
+      required: true
 transition_rule:
   required_inputs:
   - current_stage_or_phase_artifact
@@ -79,6 +168,33 @@ transition_rule:
   heartgate_council_role: Heartgate may require a transition-boundary council that
     checks lifecycle coherence and cross-artifact consistency. This is distinct from
     phase-local Agent Council review of phase work products.
+
+piv_rule:
+  description: >
+    Post-Phase Verification (PIV) is a deterministic 5-check self-evaluation run at
+    the end of every phase BEFORE Heartgate is invoked. Result is recorded in the
+    gate ledger as `gate: PIV`. PIV may be retried at most once; a second failure
+    blocks the transition unconditionally regardless of mode.
+  checks:
+  - id: piv_1
+    name: artifacts_produced
+    description: Did the phase produce all artifacts declared in phase_exit_invariants?
+  - id: piv_2
+    name: satisfies_plan
+    description: Do produced artifacts satisfy the proposal/plan that authorized this phase?
+  - id: piv_3
+    name: handled_findings_chain
+    description: Are all material council/review findings classified in handled_findings_chain?
+  - id: piv_4
+    name: non_waivable_invariants_intact
+    description: Authority explicit, write containment honored, traceable state, conservative failure preserved.
+  - id: piv_5
+    name: no_new_unresolved_findings
+    description: Did the phase introduce any new material findings still unresolved?
+  max_attempts: 2
+  second_failure_action: block_unconditional
+  ledger_required: true
+  ledger_required_fields: [piv_attempt, result, checks]
 artifact_schema:
   kind: uacp.phase_transition
   required_fields:

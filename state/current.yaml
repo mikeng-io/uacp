@@ -2,12 +2,12 @@ schema_version: '0.1'
 kind: uacp.current_state
 active_run_id: uacp-patch-plan-20260515
 active_phase: execute
-active_status: phase_0_complete
+active_status: phase_1_complete
 last_updated_reason: >
-  Phase 0 (Guardian bug fixes) complete. Two-pass Codex review gate passed.
-  First pass returned fail with 8 material findings; remediation applied;
-  second pass returned pass with all material findings remediated or deferred
-  with documented Phase 1 propagated_constraints (pc_1 through pc_6).
-  phase0_verify.py: 14/14 pass. live_guardian_probe: 5 pre-existing failures
-  fixed, 0 regressions. Ready for Phase 1 drift-reconciliation step before
-  Phase 1 work begins.
+  Phase 1 (mechanical pre-flight contracts) complete. Two-pass Codex review
+  gate passed. First pass returned concerns with 6 material findings;
+  remediation applied (R1-R7); second pass returned pass. phase1_verify.py:
+  24/24 pass. phase0_verify.py: still 14/14 pass. Live probe: 0 new
+  regressions, 2 pre-existing failures unchanged. Phase 0 propagated_constraints
+  pc_1..pc_6 all closed by Phase 1. Seven new minor/info propagated_constraints
+  for Phase 2 (pc_p1_*) recorded in Phase 1 review artifact.

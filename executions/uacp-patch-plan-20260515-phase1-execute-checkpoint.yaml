@@ -1,0 +1,92 @@
+kind: uacp.execute_checkpoint
+checkpoint_id: uacp-patch-plan-20260515-phase1-checkpoint-001
+run_id: uacp-patch-plan-20260515
+phase: execute
+phase_substage: phase_1_mechanical_contracts
+status: complete
+ts: '2026-05-16'
+
+plan_artifact: plans/uacp-patch-plan/02-phase1-mechanical-contracts.md
+drift_reconciliation_artifact: executions/uacp-patch-plan-20260515-phase1-drift-reconciliation.yaml
+codex_review_artifact: verification/uacp-patch-plan-phase1-codex-review.yaml
+
+deliverables:
+  - id: 1.1
+    description: Gate ledger schema + uacp_gate_ledger_append tool (append-only, classified under state.uacp)
+    status: complete
+  - id: 1.2
+    description: phase_exit_invariants per phase in config; Heartgate _validate_phase_exit_invariants enforces mechanically
+    status: complete
+  - id: 1.3
+    description: Per-skill allowed_tools/forbidden_tools in skill YAML + per-phase Layer B admissibility in kernel
+    status: complete
+  - id: 1.4
+    description: PIV protocol in config (5 checks, max_attempts=2, second-failure-block); Heartgate _validate_piv_record enforces
+    status: complete
+  - id: 1.5
+    description: Attestation cache pruning; policy load semantics documented
+    status: complete
+  - id: 1.6
+    description: Quick wins pc_4 (empty tool_name), pc_5 (state.uacp mutex), pc_6 (audit-reason consistency)
+    status: complete
+  - id: 1.7
+    description: pc_1 — self_attesting_tools moved from adapter to policy YAML
+    status: complete
+  - id: 1.8
+    description: Remediation R1-R7 (state-write gate-ledger refusal, policy validator, glob hardening, safe run_id, malformed config tolerance, max_attempts handling)
+    status: complete
+
+files_touched:
+  - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py
+  - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+  - config/guardian-policy.yaml
+  - config/phase-transitions.yaml
+  - config/state.yaml
+  - docs/runtime-integration-guide.md
+  - scripts/phase1_verify.py (new)
+  - skills/devops/uacp/uacp-triage/SKILL.md  # HERMES_ROOT path
+  - skills/devops/uacp/uacp-propose/SKILL.md
+  - skills/devops/uacp/uacp-plan/SKILL.md
+  - skills/devops/uacp/uacp-execute/SKILL.md
+  - skills/devops/uacp/uacp-verify/SKILL.md
+  - skills/devops/uacp/uacp-resolve/SKILL.md
+  - skills/devops/uacp/uacp-state/SKILL.md
+
+verification:
+  phase1_verify_checks: 24/24 pass (17 original + 7 remediation)
+  phase0_verify_checks: 14/14 pass (no regression)
+  live_probe_delta: 0 new regressions; 2 pre-existing failures unchanged
+  codex_gate_first_pass: concerns (6 material findings)
+  codex_gate_second_pass: pass (all 6 remediated; 2 new low/info findings deferred)
+
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: Operator authorization persists from proposal
+  - id: writes.contained
+    status: pass
+    evidence: All writes within UACP_ROOT + HERMES_ROOT/skills/devops/uacp/
+  - id: document_authority
+    status: pass
+    evidence: _SELF_ATTESTING_TOOLS moved from code to policy YAML (pc_1 closed)
+  - id: traceable_state
+    status: pass
+    evidence: Gate ledger + Heartgate phase_exit_invariants + PIV enforce traceability mechanically
+  - id: visible_mutation
+    status: pass
+    evidence: Gate-ledger writes governed; uacp_state_write refuses state/gate-ledger/
+  - id: conservative_failure
+    status: pass
+    evidence: PIV second-failure unconditional block; malformed config produces blockers not crashes
+
+deferred_to_phase_2:
+  - pc_p1_t1 (R1 test tightening)
+  - pc_p1_t2 (_is_safe_run_id reject literal . and ..)
+  - pc_p1_gov_1 (docs/index.md inventory: state/gate-ledger/)
+  - pc_p1_gov_2 (scope artifact write_paths cross-check Layer B)
+  - pc_p1_gov_3 (lessons artifact ledger_citations)
+  - pc_p1_gov_4 (Heartgate check list enumeration in runtime-enforcement.md)
+  - pc_p1_minor (JSONL parse fail-closed, byte_offset semantics, PIPE_BUF, parametrized verify, observe-mode invariant test, Heartgate yaml-share)
+
+next_phase: phase_2
+next_phase_prerequisite: drift-reconciliation step reading this artifact and verification/uacp-patch-plan-phase1-codex-review.yaml

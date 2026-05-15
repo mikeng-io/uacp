@@ -25,21 +25,40 @@ from .kernel import (
 
 _POLICY: GuardianPolicy | None = None
 _POLICY_ERROR: str = ""
+_PHASE_CONFIG: dict[str, Any] | None = None
 _CONTAINED_SHELL_ATTESTATIONS: dict[str, dict[str, Any]] = {}
 
-# Tools whose handlers perform their own path-bounded containment (governed writers,
-# sandbox/heartgate checks, and the bwrap-backed contained shell itself).  These do
-# not require an external bwrap attestation to satisfy Guardian's filesystem-
-# containment check — their containment is intrinsic to the handler.
-_SELF_ATTESTING_TOOLS: frozenset[str] = frozenset({
-    "uacp_state_write",
-    "uacp_doc_write",
-    "uacp_config_write",
-    "uacp_artifact_write",
-    "uacp_sandbox_check",
-    "uacp_heartgate_check",
-    "uacp_contained_shell",
-})
+
+def _phase_config() -> dict[str, Any]:
+    """Phase-transition config used for Layer B (per-phase tool admissibility).
+
+    Loaded once per process from `config/phase-transitions.yaml`. Cached at
+    module level alongside `_POLICY`; see runtime-integration-guide.md for the
+    reload model.
+    """
+    global _PHASE_CONFIG
+    if _PHASE_CONFIG is not None:
+        return _PHASE_CONFIG
+    try:
+        import yaml as _yaml
+        path = _policy().uacp_root / "config" / "phase-transitions.yaml"
+        raw = _yaml.safe_load(path.read_text(encoding="utf-8"))
+        _PHASE_CONFIG = raw if isinstance(raw, dict) else {}
+    except Exception:
+        _PHASE_CONFIG = {}
+    return _PHASE_CONFIG
+
+# Self-attesting tools are declared in `config/guardian-policy.yaml` under
+# `self_attesting_tools.names` (moved out of adapter code in Phase 1 / pc_1 to
+# remove the hidden authority list flagged by the Phase 0 Codex review).
+# `_self_attesting_tools()` returns the active set from the loaded policy.
+
+
+def _self_attesting_tools() -> frozenset[str]:
+    try:
+        return _policy().self_attesting_tools
+    except GuardianPolicyError:
+        return frozenset()
 
 
 def _policy() -> GuardianPolicy:
@@ -57,7 +76,7 @@ def _policy() -> GuardianPolicy:
 
 def _decision_for_event(event: GuardianEvent) -> GuardianDecision:
     policy = _policy()
-    return Guardian(policy).evaluate(event)
+    return Guardian(policy, phase_config=_phase_config()).evaluate(event)
 
 
 def _filesystem_guard_verified(tool_name: str, args: Mapping[str, Any] | None) -> bool:
@@ -65,7 +84,8 @@ def _filesystem_guard_verified(tool_name: str, args: Mapping[str, Any] | None) -
 
     Returns True when either:
       - The tool is one of the UACP-governed writers/checks whose handler
-        performs its own path-bounded containment (`_SELF_ATTESTING_TOOLS`).
+        performs its own path-bounded containment (the active policy's
+        `self_attesting_tools` list — see config/guardian-policy.yaml).
       - The args include an `attestation_id` that matches an unexpired,
         containment-verified record produced by `uacp_contained_shell` with
         a policy version matching the currently-loaded policy.
@@ -75,7 +95,7 @@ def _filesystem_guard_verified(tool_name: str, args: Mapping[str, Any] | None) -
     `event.filesystem_guard_verified` but the adapter never set it, blocking
     every UACP-bound writer call.
     """
-    if tool_name in _SELF_ATTESTING_TOOLS:
+    if tool_name in _self_attesting_tools():
         return True
     args = args or {}
     attestation_id = str(args.get("attestation_id") or "")
@@ -437,7 +457,27 @@ def _handle_uacp_contained_shell(args: dict, **_: Any) -> str:
         return json.dumps({"ok": False, "error": f"uacp_contained_shell failed: {type(exc).__name__}: {exc}"})
 
 
+def _prune_expired_attestations(except_id: str | None = None) -> None:
+    """Phase 1 / pc_3: prune expired entries from the in-memory cache.
+
+    Called from every attestation validation so the cache cannot grow without
+    bound across a long-running adapter session. The currently-validated
+    attestation_id (if any) is preserved so the validator can report a
+    specific "expired" reason rather than a generic "not found".
+    """
+    now = time.time()
+    expired = [
+        aid for aid, rec in _CONTAINED_SHELL_ATTESTATIONS.items()
+        if aid != except_id
+        and float(rec.get("expires_at") or 0.0)
+        and float(rec.get("expires_at") or 0.0) <= now
+    ]
+    for aid in expired:
+        _CONTAINED_SHELL_ATTESTATIONS.pop(aid, None)
+
+
 def _validate_contained_shell_attestation(attestation_id: str | None, policy_version: str) -> tuple[bool, str]:
+    _prune_expired_attestations(except_id=attestation_id)
     if not attestation_id:
         return True, "new attestation"
     record = _CONTAINED_SHELL_ATTESTATIONS.get(attestation_id)
@@ -622,6 +662,75 @@ def _sandbox_contained_shell(args: Mapping[str, Any]) -> dict[str, Any]:
 
 
 
+def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
+    """Append a single JSONL record to the run's gate ledger.
+
+    Enforces append-only semantics: opens the file in append mode, writes
+    exactly one record terminated by a newline, never truncates or seeks.
+    The ledger path is fixed per run: state/gate-ledger/{run_id}.jsonl.
+    Returns the byte offset of the appended record as proof.
+    """
+    try:
+        policy = _policy()
+        root = policy.uacp_root
+        if missing_context := _required_uacp_context_missing(args):
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing_context)}"})
+        run_id = str(args.get("uacp_run_id") or "")
+        gate = str(args.get("gate") or "")
+        record = args.get("record")
+        authority = str(args.get("authority_artifact") or args.get("declared_authority") or "")
+        if not run_id:
+            return json.dumps({"error": "uacp_run_id is required"})
+        if not gate:
+            return json.dumps({"error": "gate is required"})
+        if not isinstance(record, (dict, str)):
+            return json.dumps({"error": "record must be a dict or a JSON string"})
+        if not authority:
+            return json.dumps({"error": "authority_artifact is required"})
+
+        # Reject path-traversal in run_id and reserve the canonical path.
+        if any(c in run_id for c in ("/", "\\", "..")) or run_id in {"", ".", ".."}:
+            return json.dumps({"error": "uacp_run_id contains illegal path characters"})
+
+        # Normalize the record and stamp required envelope fields.
+        if isinstance(record, str):
+            try:
+                record = json.loads(record)
+            except Exception as exc:
+                return json.dumps({"error": f"record is not valid JSON: {exc}"})
+        if not isinstance(record, dict):
+            return json.dumps({"error": "record must decode to a JSON object"})
+        record.setdefault("gate", gate)
+        record.setdefault("run_id", run_id)
+        record.setdefault("ts", int(time.time()))
+        line = json.dumps(record, ensure_ascii=False, sort_keys=True)
+        if "\n" in line:
+            return json.dumps({"error": "record must not contain embedded newlines"})
+
+        ledger_root = (root / "state" / "gate-ledger").resolve()
+        if (root / "state").resolve() not in ledger_root.parents and ledger_root != (root / "state").resolve():
+            return json.dumps({"error": "gate-ledger root resolved outside state/"})
+        ledger_root.mkdir(parents=True, exist_ok=True)
+        ledger_path = ledger_root / f"{run_id}.jsonl"
+        # Append-only — no seek, no truncate.
+        with ledger_path.open("a", encoding="utf-8") as fh:
+            offset = fh.tell()
+            fh.write(line + "\n")
+        return json.dumps(
+            {
+                "ok": True,
+                "path": str(ledger_path.relative_to(root)),
+                "gate": gate,
+                "run_id": run_id,
+                "byte_offset": offset,
+                "authority_artifact": authority,
+            },
+            ensure_ascii=False,
+        )
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_gate_ledger_append failed: {type(exc).__name__}: {exc}"})
+
+
 def _handle_uacp_state_write(args: dict, **_: Any) -> str:
     try:
         policy = _policy()
@@ -635,6 +744,13 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         state_root = (root / "state").resolve()
         if target != state_root and state_root not in target.parents:
             return json.dumps({"error": "uacp_state_write may only write under state/"})
+        # Phase 1 remediation (skeptic F1): the gate ledger is append-only and
+        # must only be written through uacp_gate_ledger_append. uacp_state_write
+        # refuses any path under state/gate-ledger/, eliminating the forge-
+        # PIV-record bypass.
+        gate_ledger_root = (root / "state" / "gate-ledger").resolve()
+        if target == gate_ledger_root or gate_ledger_root in target.parents:
+            return json.dumps({"error": "uacp_state_write may not write under state/gate-ledger/; use uacp_gate_ledger_append"})
 
         _write_uacp_file(target, content)
         return json.dumps(
@@ -1006,6 +1122,39 @@ def register(ctx) -> None:
         },
         handler=_handle_uacp_contained_shell,
         description="UACP contained shell execution surface",
+    )
+    ctx.register_tool(
+        name="uacp_gate_ledger_append",
+        toolset="uacp_guardian",
+        schema={
+            "name": "uacp_gate_ledger_append",
+            "description": "Append a single JSONL record to the run's gate ledger (append-only).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "gate": {"type": "string"},
+                    "record": {"type": "object"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "gate",
+                    "record",
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+        },
+        handler=_handle_uacp_gate_ledger_append,
+        description="UACP gate ledger append-only writer",
     )
     ctx.register_tool(
         name="uacp_heartgate_check",

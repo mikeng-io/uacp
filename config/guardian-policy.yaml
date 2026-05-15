@@ -9,6 +9,7 @@ protected_categories:
     default_decision: block
     allowed_tools:
     - uacp_state_write
+    - uacp_gate_ledger_append
   docs.uacp:
     description: Canonical UACP Markdown docs under docs/.
     default_decision: block
@@ -71,6 +72,7 @@ tool_classification:
   uacp_sandbox_check: evidence.containment
   uacp_contained_shell: exec.shell.contained
   uacp_heartgate_check: lifecycle.transition
+  uacp_gate_ledger_append: state.uacp
   terminal: exec.shell
   execute_code: exec.code_with_tool_proxy
   send_message: external.message
@@ -103,6 +105,23 @@ path_rules:
     - config.uacp
     - exec.shell
     - exec.code_with_tool_proxy
+self_attesting_tools:
+  description: >
+    Tools whose handlers perform their own path-bounded containment (governed
+    writers, sandbox/heartgate checks, and the bwrap-backed contained shell
+    itself). For these tools, Guardian treats `filesystem_guard_verified` as
+    True without requiring an external bwrap attestation. The adapter reads
+    this list at hook-evaluation time so authority remains in policy, not in
+    inline code.
+  names:
+  - uacp_state_write
+  - uacp_doc_write
+  - uacp_config_write
+  - uacp_artifact_write
+  - uacp_sandbox_check
+  - uacp_heartgate_check
+  - uacp_contained_shell
+  - uacp_gate_ledger_append
 runtime_modes:
   observe:
     description: Log decisions but allow unless non-waivable secret/private boundary is crossed.

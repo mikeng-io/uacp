@@ -12,9 +12,29 @@ state_layer:
   root: "state/"
   current_pointer: "state/current.yaml"
   run_manifests: "state/runs/"
+  gate_ledger_root: "state/gate-ledger/"
   implementation_status: governed_mutation
   mutation_boundary: "uacp-state skill"
   bootstrap_closure_flag: true
+
+gate_ledger:
+  description: >
+    Append-only JSONL record of every gate evaluation in a run. One file per
+    run at state/gate-ledger/{run_id}.jsonl. Writes are governed by the
+    uacp_gate_ledger_append tool which enforces append-only semantics.
+  path_template: "state/gate-ledger/{run_id}.jsonl"
+  writer_tool: uacp_gate_ledger_append
+  record_schema:
+    required_fields: [gate, run_id, phase, result, ts]
+    optional_fields: [invariants, clusters, piv_attempt, reviewer, evidence_paths]
+    enum_values:
+      result: [pass, warn, block]
+      reviewer: [model, codex, council, operator]
+  append_only_enforcement:
+    - reject_truncate
+    - reject_seek
+    - reject_overwrite
+    - one_record_per_call
 
 state_principles:
   - "State records current lifecycle position and pointers; artifacts carry detailed evidence."
