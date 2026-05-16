@@ -1,8 +1,25 @@
 # UACP Decision Log
 
-This file is the durable record of major UACP governance decisions. Each entry records a decision, rationale, status, and canonical targets affected. Decisions are listed most-recent first within the file but ordered chronologically. This log is maintained by the document registry in `docs/index.md`.
+This file is the durable record of UACP **operational** governance decisions. Each entry records a decision, rationale, status, and canonical targets affected. Decisions are listed most-recent first within the file but ordered chronologically. This log is maintained by the document registry in `docs/INDEX.md`.
+
+> **As of 2026-05-17, architectural decisions live in [`../architecture/`](../architecture/INDEX.md) as numbered ADRs.** Operational decisions continue to land here. The split was established by [ADR-0001](../architecture/0001-record-architecture-decisions.md). When in doubt, see [`../decisions/INDEX.md`](INDEX.md) for the "when to log here vs author an ADR" criteria.
 
 ## Decision Log
+
+### 2026-05-17 — UACP Patch Plan Run uacp-patch-plan-20260515: Phases 0–4 + Global Review
+
+Decision: A 5-phase UACP patch plan (`proposals/uacp-patch-plan-20260515.yaml`) was authored, council-reviewed, and merged in 7 commits between 2026-05-15 and 2026-05-17, mechanically hardening the governance plane against the original Phase 0 audit findings and propagating constraints forward through each phase. A final cross-phase global review surfaced 14 high-consensus material findings; 10 batched as in-scope R1 remediation, 4+minor propagated to Phase 5.
+
+Rationale: The pre-Phase-0 Guardian had three latent enforcement gaps (filesystem_guard_verified unused, policy.mode unread, governed writers unclassified) that made the rest of the framework's policy claims unverifiable. The patch plan delivered each phase atomically with a two-pass Codex council review gate (three-pass for Phase 3, which introduced a new enforcement category). The global review then validated cross-phase coherence.
+
+Status: accepted; patch-plan run RESOLVED. Each phase has its own ADR for stable reference. The aggregate run completes the "mechanical governance" thesis for Phases 0–4; Phase 5 (full autonomous mode) remains a reserved_slot with a propagated-constraint backlog.
+
+Canonical targets:
+
+- **Architectural decisions per phase**: see ADRs [ADR-0002](../architecture/0002-phase0-policy-mode-and-classification.md) through [ADR-0007](../architecture/0007-global-review-cross-phase-remediation.md) for per-phase rationale, decision drivers, options, consequences, and validation pointers.
+- **Phase 5 backlog**: [`/ROADMAP.md`](/ROADMAP.md), [`../plans/phase5-reserved-slot.md`](../plans/phase5-reserved-slot.md), and the `propagated_constraints_for_phase_5` blocks in the three Codex-review verification YAMLs at `verification/uacp-patch-plan-20260515-{phase3,phase4,global}-review.yaml`.
+- **Bootstrap-posture honest disclosure**: `outputs/uacp-patch-plan-20260515-{lessons,resolve}.yaml` carry the disclosure that the run authored governed writers without itself flowing through them; ledger_citations are tagged `_advisory`.
+- **Doc restructure** (concurrent with run RESOLVE): subdirectory + ADR adoption per [ADR-0008](../architecture/0008-doc-structure-and-adr-adoption.md).
 
 ### 2026-05-15 — Documentation Hardening: Runtime-Neutral Framing And Human-Readable Entry Points
 

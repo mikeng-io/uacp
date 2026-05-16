@@ -134,7 +134,7 @@ uacp-state has no Layer B entry of its own (it's `phase: '*'` / cross-phase); ad
 | Per-category writer (Layer A) | `Guardian.evaluate()` reads `config/guardian-policy.yaml protected_categories.<cat>.allowed_tools` |
 | Self-attesting containment | `Guardian._filesystem_guard_verified` reads `config/guardian-policy.yaml self_attesting_tools.names` |
 | Phase exit invariants | `Heartgate._validate_phase_exit_invariants` reads `stages.<phase>.phase_exit_invariants` |
-| PIV obligation | `Heartgate._validate_piv_record` reads `piv_rule` + run gate-ledger |
+| PIV obligation | `Heartgate._validate_piv_record` reads `piv_rule` + run gate-ledger; enforces per-check pass evidence (each piv_id ∈ {piv_1..piv_5} carrying explicit `result: pass` either as a mapping entry in `checks[]` or via sibling `check_results: {piv_id: pass}`) — Global review SKEP-G-002 generalized the Phase 3 R1 PLAN_VALIDATION pattern to PIV |
 | Plan validation | `Heartgate._validate_plan_validation_gate` reads `plan_validation_gate` (incl. `ledger_required_fields`, `ledger_required_phase`, declared `checks`) + run gate-ledger; enforces per-check pass evidence (Phase 3 R1/R2) |
 | Run registry | `Heartgate._validate_run_registry_overlap` reads `run_registry_rule` + `state/run-registry.yaml`; uses `_canon_write_path`/`_paths_overlap` (PurePosixPath segment match, Phase 3 R1) |
 | Run registry mutation | `uacp_run_registry_update` enforces caller-binding + write-path canonicalization; `uacp_state_write` refuses direct writes to `state/run-registry.yaml` (Phase 3 R1/R2) |

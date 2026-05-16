@@ -201,7 +201,7 @@ warnings are surfaced but allow passage if owned.
 | 8 | heartgate_coherence | transition artifact `heartgate_coherence` block | missing artifact_path / unmet lenses / status=block |
 | 9 | heartgate_coherence_required_when | `config/phase-transitions.yaml heartgate_coherence_required_when` | required-but-absent coherence evidence |
 | 10 | phase_exit_invariants (Phase 1.2) | `config/phase-transitions.yaml stages.<from>.phase_exit_invariants` | required artifact glob unmet / gate-ledger entry missing |
-| 11 | piv_record (Phase 1.4) | `config/phase-transitions.yaml piv_rule` + `state/gate-ledger/{run_id}.jsonl` | no PIV pass; 2 PIV failures; malformed `piv_rule` |
+| 11 | piv_record (Phase 1.4 / Global review SKEP-G-002) | `config/phase-transitions.yaml piv_rule` + `state/gate-ledger/{run_id}.jsonl` | no PIV pass with per-check evidence; 2 PIV failures; malformed `piv_rule`; corrupt ledger line. Per-check pass evidence (each `piv_id` ∈ `{piv_1..piv_5}` carrying explicit `result: pass` either as a `checks[]` mapping entry or via sibling `check_results: {piv_id: pass}`) is required — generalizes the Phase 3 R1 PLAN_VALIDATION contract. |
 | 12 | intent_doc (Phase 2.3) | `config/artifact-schemas.yaml intent` + `proposals/{run_id}-intent.md` | TRIAGE→PROPOSE: missing file or missing required section |
 | 13 | scope_artifact (Phase 2.1) | `config/artifact-schemas.yaml scope` + `plans/{run_id}-scope.yaml` | PLAN→EXECUTE: missing file / missing required fields / write_paths not reachable by Layer B allowed_tools |
 | 14 | evidence_dispositions (Phase 2.2) | `config/artifact-schemas.yaml evidence_disposition` + `verification/{run_id}-{cluster}-(verified-facts\|assumptions).md` | VERIFY→RESOLVE: missing pair files / unowned `pending` assumption |
