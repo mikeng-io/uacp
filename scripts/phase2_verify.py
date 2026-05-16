@@ -83,6 +83,11 @@ def main() -> int:
             import yaml as _yaml
 
             # Seed the gate ledger so phase_exit_invariants do not fire spurious blockers.
+            # Global review R1 (SKEP-G2-001): PIV pass records must carry
+            # explicit piv_id coverage + check_results sibling per the
+            # SKEP-G-002 contract. Without these, _validate_piv_record now
+            # treats the record as a defect.
+            PIV_IDS = ["piv_1", "piv_2", "piv_3", "piv_4", "piv_5"]
             def _seed_ledger(phase: str, gate: str, piv_pass: bool = True):
                 ledger_dir = tmp / "state/gate-ledger"
                 ledger_dir.mkdir(parents=True, exist_ok=True)
@@ -91,7 +96,17 @@ def main() -> int:
                 with path.open("a", encoding="utf-8") as fh:
                     fh.write(json.dumps({"gate": gate, "run_id": run_id, "phase": phase, "result": "pass", "ts": int(_t.time())}, sort_keys=True) + "\n")
                     if piv_pass:
-                        fh.write(json.dumps({"gate": "PIV", "run_id": run_id, "phase": phase, "result": "pass", "piv_attempt": 1, "ts": int(_t.time())}, sort_keys=True) + "\n")
+                        piv_record = {
+                            "gate": "PIV",
+                            "run_id": run_id,
+                            "phase": phase,
+                            "result": "pass",
+                            "piv_attempt": 1,
+                            "checks": list(PIV_IDS),
+                            "check_results": {pid: "pass" for pid in PIV_IDS},
+                            "ts": int(_t.time()),
+                        }
+                        fh.write(json.dumps(piv_record, sort_keys=True) + "\n")
 
             # --- Check 1: scope artifact missing blocks PLAN->EXECUTE ---
             _seed_ledger("plan", "PROPOSE->PLAN")

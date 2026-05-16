@@ -777,8 +777,13 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         # rewrite the pointer would let a skill downgrade its own mode or
         # repoint the active run. Caller-binding mirrors run-registry: writes
         # are only accepted when the caller's uacp_run_id matches the new
-        # content's active_run_id. Bootstrap-mode writes (no existing pointer)
-        # are permitted to seed the run.
+        # content's active_run_id.
+        #
+        # R1 confirmation R2 (SKEP-G5-001): distinguish bootstrap (current.yaml
+        # does not yet exist) from pointer-clear-attack (current.yaml exists
+        # but new content has empty active_run_id). Bootstrap permits any
+        # caller to seed the file; once the file exists, every write must
+        # declare a non-empty active_run_id that matches the caller.
         current_pointer_path = (root / "state" / "current.yaml").resolve()
         if target == current_pointer_path:
             caller_run_id = str(args.get("uacp_run_id") or "")
@@ -790,8 +795,19 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
             if not isinstance(parsed, dict):
                 return json.dumps({"error": "uacp_state_write: state/current.yaml content must be a YAML mapping"})
             declared_run_id = str(parsed.get("active_run_id") or "")
-            if declared_run_id and caller_run_id and declared_run_id != caller_run_id:
-                return json.dumps({"error": f"uacp_state_write: state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}' — current-pointer mutations must be caller-owned"})
+            pointer_exists = current_pointer_path.exists()
+            if pointer_exists:
+                # Post-bootstrap: every write must carry a caller-bound active_run_id.
+                if not declared_run_id:
+                    return json.dumps({"error": "uacp_state_write: state/current.yaml#active_run_id is required (pointer-clear-attack refused; current.yaml already exists)"})
+                if declared_run_id != caller_run_id:
+                    return json.dumps({"error": f"uacp_state_write: state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}' — current-pointer mutations must be caller-owned"})
+            else:
+                # Bootstrap path: file does not yet exist. Permit seeding; if
+                # the new content carries an active_run_id, still require it
+                # match the caller (defense-in-depth).
+                if declared_run_id and caller_run_id and declared_run_id != caller_run_id:
+                    return json.dumps({"error": f"uacp_state_write: bootstrap seed of state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}'"})
 
         _write_uacp_file(target, content)
         return json.dumps(
