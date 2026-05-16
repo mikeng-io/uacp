@@ -192,7 +192,7 @@ checkpoint_review_policy:
 council_model:
   purpose: Map phase-local and composite UACP granularity/risk to default Agent Council
     tier while keeping council tier separate from lifecycle granularity.
-  canonical_doc: docs/orchestration-model.md
+  canonical_doc: docs/lifecycle/orchestration-model.md
   council_modes:
   - plan
   - propose

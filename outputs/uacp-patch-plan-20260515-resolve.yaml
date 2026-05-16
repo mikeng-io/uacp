@@ -6,7 +6,7 @@ title: UACP patch plan — resolution
 purpose: |
   Closes the UACP patch plan run after Phases 0–4 ship with zero residual
   material findings. Phase 5 remains a reserved_slot per the operator's
-  proposal (see docs/phase5-reserved-slot.md).
+  proposal (see docs/plans/phase5-reserved-slot.md).
 
 decision: resolved
 
@@ -37,7 +37,7 @@ deliverables:
     label: Full autonomous mode
     status: reserved_slot
     not_scheduled: true
-    docs: docs/phase5-reserved-slot.md
+    docs: docs/plans/phase5-reserved-slot.md
 
 structured_lessons_artifact: outputs/uacp-patch-plan-20260515-lessons.yaml
 
@@ -85,7 +85,7 @@ authority:
 declared_side_effects:
   - kind: file_write
     paths:
-      - docs/phase5-reserved-slot.md
+      - docs/plans/phase5-reserved-slot.md
       - outputs/uacp-patch-plan-20260515-lessons.yaml
       - outputs/uacp-patch-plan-20260515-resolve.yaml
       - state/current.yaml

@@ -1,7 +1,7 @@
 schema_version: '0.1'
 kind: uacp.guardian_policy
 purpose: 'Machine-readable seed policy for UACP Guardian and Heartgate runtime enforcement.
-  Canonical prose authority remains docs/runtime-enforcement.md and docs/lifecycle-reference.md.'
+  Canonical prose authority remains docs/runtime/runtime-enforcement.md and docs/lifecycle/lifecycle-reference.md.'
 mode: enforce
 protected_categories:
   state.uacp:

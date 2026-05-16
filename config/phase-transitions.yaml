@@ -472,7 +472,7 @@ example_artifact:
   cluster_summary:
   - cluster_id: scope
     state: pass
-    artifact_path: docs/lifecycle-reference.md
+    artifact_path: docs/lifecycle/lifecycle-reference.md
   - cluster_id: verification_strategy
     state: pass
     artifact_path: config/phase-transitions.yaml
@@ -558,7 +558,7 @@ council_synthesis_schema:
       type: list
     findings:
       type: list
-      item_schema: finding schema from docs/orchestration-model.md
+      item_schema: finding schema from docs/lifecycle/orchestration-model.md
     verdict:
       type: enum
       values:

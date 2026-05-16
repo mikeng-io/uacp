@@ -255,7 +255,7 @@ mutation_rules:
     allowed: "closed"
     exit_rule: "Bootstrap direct edits ended when bootstrap_closure_flag became true and governed_mutation_active became true."
     required_evidence:
-      - "docs/index.md decision log"
+      - "docs/INDEX.md decision log"
       - "matching run manifest update"
       - "verification artifact when closing a milestone"
   governed:
@@ -337,7 +337,7 @@ historical_bootstrap_example_run_manifest:
   invariants:
     - id: document_authority
       status: pass
-      evidence: "docs/index.md"
+      evidence: "docs/INDEX.md"
     - id: stage_phase_consistency
       status: pass
       evidence: "current_stage and current_phase both set to plan during bootstrap"
@@ -353,7 +353,7 @@ historical_bootstrap_example_run_manifest:
       artifact: "state/runs/uacp-bootstrap-stage-3-state-binding-transition.yaml"
     - event: git_binding_established
       source: "git commit e7fcb8e"
-      artifact: "docs/index.md"
+      artifact: "docs/INDEX.md"
 
 current_closed_run_example:
   kind: uacp.run_state

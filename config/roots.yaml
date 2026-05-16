@@ -48,12 +48,12 @@ forbidden_in_authority_documents:
 
 examples:
   valid:
-    - "docs/index.md"
+    - "docs/INDEX.md"
     - "config/gate-selection.yaml"
     - "knowledge/scenarios/<scenario-id>.yaml"
     - "HERMES_ROOT/skills/"
     - "PRIVATE_ROOT"
   invalid:
     - "../plans/example.md"
-    - "/absolute/local/deployment/path/uacp/docs/index.md"
-    - "./docs/index.md when ./ means the shell current directory"
+    - "/absolute/local/deployment/path/uacp/docs/INDEX.md"
+    - "./docs/INDEX.md when ./ means the shell current directory"

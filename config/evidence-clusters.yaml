@@ -216,8 +216,8 @@ evidence_domain_registry:
 
     '
   canonical_docs:
-  - docs/lifecycle-reference.md
-  - docs/orchestration-model.md
+  - docs/lifecycle/lifecycle-reference.md
+  - docs/lifecycle/orchestration-model.md
   merge_policy:
     static_domains_are_seed_knowledge: true
     adaptive_cluster_selection_remains_runtime_logic: true

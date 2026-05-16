@@ -127,8 +127,8 @@ lessons:
   - id: l5_mirror_drift_needs_a_detector
     category: governance
     finding: |
-      UACP now has four mirror surfaces: config YAML, docs/skill-enforcement-spec.md,
-      per-skill SKILL.md frontmatter, and docs/lifecycle-trace-table.md.
+      UACP now has four mirror surfaces: config YAML, docs/reference/skill-enforcement-spec.md,
+      per-skill SKILL.md frontmatter, and docs/reference/lifecycle-trace-table.md.
       Phase 3 added the spec; Phase 4 added mode_behavior stubs across 7
       SKILL.md files. Drift has already appeared (uacp_run_registry_update
       missing from spec at Phase 3 R1; trigger ID drift in 7 SKILL.md files
@@ -242,4 +242,4 @@ phase_summary:
     title: "Full autonomous mode"
     status: reserved_slot
     not_scheduled: true
-    docs: docs/phase5-reserved-slot.md
+    docs: docs/plans/phase5-reserved-slot.md

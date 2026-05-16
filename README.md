@@ -180,29 +180,29 @@ uacp/
 ## Where To Start
 
 **As a human reading this for the first time:**
-`README.md` → `docs/constitution.md` → `docs/lifecycle-reference.md` → `docs/orchestration-model.md`
+`README.md` → `docs/policy/constitution.md` → `docs/lifecycle/lifecycle-reference.md` → `docs/lifecycle/orchestration-model.md`
 
 **As an agent executing UACP work:**
-`docs/index.md` is the canonical read order. Start there. It specifies which documents to load in which sequence for a given run type.
+`docs/INDEX.md` is the canonical read order. Start there. It specifies which documents to load in which sequence for a given run type.
 
 **To integrate a new runtime:**
-`docs/runtime-integration-guide.md` — defines the adapter contract, normalization requirements, and Guardian/Heartgate integration points.
+`docs/runtime/runtime-integration-guide.md` — defines the adapter contract, normalization requirements, and Guardian/Heartgate integration points.
 
 **To understand runtime enforcement (Guardian / Heartgate):**
-`docs/runtime-enforcement.md` — covers the enforcement model, event normalization, policy evaluation order, and failure modes.
+`docs/runtime/runtime-enforcement.md` — covers the enforcement model, event normalization, policy evaluation order, and failure modes.
 
 **To understand design history and major decisions:**
-`docs/decision-log.md` — durable record of decisions that shaped the current design, including alternatives considered and why they were rejected.
+`docs/decisions/decision-log.md` — durable record of decisions that shaped the current design, including alternatives considered and why they were rejected.
 
 ---
 
 ## Authority Chain
 
-When a conflict exists between layers, earlier layers win. An explicit entry in `docs/decision-log.md` is the only mechanism to override this order.
+When a conflict exists between layers, earlier layers win. An explicit entry in `docs/decisions/decision-log.md` is the only mechanism to override this order.
 
 | Priority | Layer | Role |
 |---|---|---|
-| 1 | `docs/index.md` | Document registry and canonical read order |
+| 1 | `docs/INDEX.md` | Document registry and canonical read order |
 | 2 | Canonical prose docs (`docs/`) | Intent, principles, lifecycle, and policy |
 | 3 | YAML config (`config/`) | Machine-readable rules derived from docs |
 | 4 | Runtime state (`state/`) | Current lifecycle position and run pointers |
@@ -219,4 +219,4 @@ UACP is designed to be runtime-neutral. The current host runtime is **Hermes**. 
 
 Each runtime requires a thin adapter that translates runtime-specific events into normalized Guardian and Heartgate contracts. The adapter is policy-free: it translates events but does not evaluate them. UACP-owned adapter source lives under `runtime-adapters/<runtime>/`.
 
-See `docs/runtime-integration-guide.md` for the full integration contract, including required event schema, normalization rules, and Heartgate handshake protocol.
+See `docs/runtime/runtime-integration-guide.md` for the full integration contract, including required event schema, normalization rules, and Heartgate handshake protocol.

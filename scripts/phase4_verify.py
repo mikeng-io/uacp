@@ -315,8 +315,8 @@ def main() -> int:
                 "classifications": sorted(classifications),
             })
 
-            # --- Check 19 (R1 GOV-P4-003): docs/index.md inventories Phase 4 surfaces ---
-            idx = (ROOT / "docs/index.md").read_text()
+            # --- Check 19 (R1 GOV-P4-003): docs/INDEX.md inventories Phase 4 surfaces ---
+            idx = (ROOT / "docs/INDEX.md").read_text()
             ok19 = "state/escalations/" in idx and "config/autonomy-policy.yaml" in idx
             report["checks"].append({
                 "name": "r1_gov_p4_003_doc_inventory_covers_phase4",
@@ -325,7 +325,7 @@ def main() -> int:
             })
 
             # --- Check 20 (R1 GOV-P4-003): skill-enforcement-spec lists escalation in every Allowed-tools ---
-            spec = (ROOT / "docs/skill-enforcement-spec.md").read_text()
+            spec = (ROOT / "docs/reference/skill-enforcement-spec.md").read_text()
             allowed_count = spec.count("**Allowed tools**:")
             esc_count = spec.count("uacp_escalation_event")
             # Should appear in every Allowed-tools line (7) plus the Mechanical-enforcement table.
