@@ -41,6 +41,23 @@ deliverables:
 
 structured_lessons_artifact: outputs/uacp-patch-plan-20260515-lessons.yaml
 
+# Global review R1 (GOV-G-002 / GOV-G-003 / SKEP-G-010): bootstrap-posture disclosure.
+# The patch-plan run AUTHORED governed-writer infrastructure (gate-ledger, run-registry,
+# escalations) but did not itself flow through it. No state/gate-ledger/ entries were
+# produced for this run; the lessons artifact's ledger_citations are phase-level
+# review references, not byte-offset ledger entries. The knowledge_path values in
+# lessons.yaml are forward targets — the auto-copy mechanism to knowledge/lessons/
+# was scoped to Phase 2 but landed as schema-only (auto-copy implementation is a
+# Phase 5 propagated constraint, pc_p2_auto_copy). Future runs (Phase 5+) MUST flow
+# through the governed writers and produce real ledger evidence.
+mutation_posture: bootstrap_direct_edit
+mutation_posture_rationale: |
+  Per config/state.yaml#mutation_rules.bootstrap, direct edits were the authorized
+  posture during the period when governed writers were being constructed. The
+  bootstrap boundary will close when the first end-to-end UACP run under
+  uacp_mode=manual or supervised_auto completes successfully (a Phase 5 entry
+  condition).
+
 cross_phase_review_history:
   total_council_passes: 11   # phase0(2) + phase1(2) + phase2(2) + phase3(3) + phase4(2)
   total_material_findings_remediated: 53

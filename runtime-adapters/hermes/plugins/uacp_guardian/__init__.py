@@ -763,6 +763,35 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         run_registry_path = (root / "state" / "run-registry.yaml").resolve()
         if target == run_registry_path:
             return json.dumps({"error": "uacp_state_write may not write state/run-registry.yaml directly; use uacp_run_registry_update via the uacp-state skill"})
+        # Global review R1 (TECH-G-001): state/escalations/ is exclusively
+        # written by uacp_escalation_event (Phase 4.4). Extend the pattern
+        # established by gate-ledger and run-registry so uacp_state_write
+        # cannot clobber JSONL files or skip the trigger/severity/mode
+        # validation done in the narrow writer.
+        escalations_root = (root / "state" / "escalations").resolve()
+        if target == escalations_root or escalations_root in target.parents:
+            return json.dumps({"error": "uacp_state_write may not write under state/escalations/; use uacp_escalation_event"})
+        # Global review R1 (SKEP-G-005): state/current.yaml is the active-run
+        # pointer. Phase 5 will introduce kernel readers for current.yaml's
+        # uacp_mode and active_phase fields; allowing any phase's caller to
+        # rewrite the pointer would let a skill downgrade its own mode or
+        # repoint the active run. Caller-binding mirrors run-registry: writes
+        # are only accepted when the caller's uacp_run_id matches the new
+        # content's active_run_id. Bootstrap-mode writes (no existing pointer)
+        # are permitted to seed the run.
+        current_pointer_path = (root / "state" / "current.yaml").resolve()
+        if target == current_pointer_path:
+            caller_run_id = str(args.get("uacp_run_id") or "")
+            try:
+                import yaml as _yaml
+                parsed = _yaml.safe_load(content) or {}
+            except Exception as exc:
+                return json.dumps({"error": f"uacp_state_write: state/current.yaml content unparseable as YAML: {type(exc).__name__}: {exc}"})
+            if not isinstance(parsed, dict):
+                return json.dumps({"error": "uacp_state_write: state/current.yaml content must be a YAML mapping"})
+            declared_run_id = str(parsed.get("active_run_id") or "")
+            if declared_run_id and caller_run_id and declared_run_id != caller_run_id:
+                return json.dumps({"error": f"uacp_state_write: state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}' — current-pointer mutations must be caller-owned"})
 
         _write_uacp_file(target, content)
         return json.dumps(

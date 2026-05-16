@@ -13,3 +13,6 @@ tools:
 - uacp_heartgate_check
 - uacp_sandbox_check
 - uacp_contained_shell
+- uacp_gate_ledger_append          # Phase 1
+- uacp_run_registry_update         # Phase 3.2
+- uacp_escalation_event            # Phase 4.4

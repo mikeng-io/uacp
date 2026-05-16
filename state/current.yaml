@@ -3,14 +3,21 @@ kind: uacp.current_state
 active_run_id: uacp-patch-plan-20260515
 active_phase: resolve
 active_status: resolved
+mutation_posture: bootstrap_direct_edit
 last_updated_reason: >
-  UACP patch plan complete. Phases 0–4 implemented and merged to
-  origin/main with two-pass (Phase 3 three-pass) Codex council review
-  per phase. Total 53 material findings remediated across 11 council
-  passes. Phase 5 (full autonomous mode) remains a reserved_slot per
-  the original proposal — not scheduled; activation requires operator
-  authorization plus three verified supervised-auto runs (see
-  docs/phase5-reserved-slot.md). Structured lessons recorded at
-  outputs/uacp-patch-plan-20260515-lessons.yaml. 23 propagated
-  constraints (9 pc_p3_* deferred + 14 pc_p4_*) recorded for the
-  future Phase 5 run.
+  UACP patch plan complete (Phases 0–4 + global review remediation).
+  Final global-scope cross-phase Codex council audit returned pass_with_minor
+  across all three reviewers (technical / governance / skeptic), no block.
+  R1 batch landed 10 of 14 high-consensus material findings as code/config
+  changes: uacp_phase enum validation (SKEP-G-001), uacp_state_write refusal
+  for state/escalations/ (TECH-G-001), state/current.yaml caller-binding
+  (SKEP-G-005), PIV per-check pass evidence generalization (SKEP-G-002),
+  plugin.yaml manifest sync (TECH-G-004), scope cross-check coverage for
+  run_registry_update + escalation_event (TECH-G-002), SKILL.md frontmatter
+  mirror sync across 7 skills (GOV-G-001), scripts/ and run-artifact roots
+  in docs/index.md inventory (GOV-G-004), pc_7/pc_8 propagated to Phase 5
+  (TECH-G-003), and bootstrap-posture honest disclosure on lessons +
+  resolve artifacts (TECH-G-005 / GOV-G-002/003 / SKEP-G-003/010). Remaining
+  cross-phase findings deferred to Phase 5 with evidence pointers. All 5
+  phaseN_verify scripts continue to pass. Phase 5 (full autonomous mode)
+  remains reserved_slot; pc_g_* constraints recorded for that run.

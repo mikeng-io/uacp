@@ -216,10 +216,18 @@ def main() -> int:
                 "record": {"result": "pass", "phase": "plan"},
             })
             # And a PIV pass for plan phase.
+            # Global review R1 (SKEP-G-002): PIV ledger records must carry
+            # explicit piv_id coverage with per-check pass evidence.
             plugin._handle_uacp_gate_ledger_append({
                 **_common_args(tmp, phase="plan"),
                 "gate": "PIV",
-                "record": {"phase": "plan", "result": "pass", "piv_attempt": 1, "checks": ["all 5 pass"]},
+                "record": {
+                    "phase": "plan",
+                    "result": "pass",
+                    "piv_attempt": 1,
+                    "checks": ["piv_1", "piv_2", "piv_3", "piv_4", "piv_5"],
+                    "check_results": {"piv_1": "pass", "piv_2": "pass", "piv_3": "pass", "piv_4": "pass", "piv_5": "pass"},
+                },
             })
             # Phase 3.1: PLAN_VALIDATION gate (plan->execute transitions now require this).
             # Phase 3 R1: ledger record must carry all six pv_ids in `checks`.

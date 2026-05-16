@@ -462,6 +462,20 @@ class Guardian:
             # Skeptic F5 remediation: malformed stages config does not crash
             # — Layer B is skipped, Layer A still applies, audit logs the issue.
             return None
+        # Global review SKEP-G-001: reject unknown phase values. Previously
+        # `stages.get(phase) or {}` returned an empty stage for any unknown
+        # phase string, silently collapsing Layer B to a no-op. Any protected
+        # tool call with `uacp_phase: "execute_v2"` (or any typo) bypassed
+        # per-phase admissibility. Now: if stages is populated AND phase is
+        # not in the declared stage set, the call is blocked. When stages is
+        # empty (no phase config loaded, e.g. Phase 0 tests that exercise
+        # Layer A only), this check skips so Layer A still applies.
+        if stages and phase not in stages:
+            return self._block(
+                category,
+                f"unknown uacp_phase value '{phase}' (not in declared stages)",
+                evidence + [f"phase={phase}", "phase_layer=unknown_phase"],
+            )
         stage = stages.get(phase) or {}
         if not isinstance(stage, Mapping):
             return None
@@ -877,6 +891,14 @@ class Heartgate:
         path (reject path-traversal characters and resolve under
         state/gate-ledger/ only). Skeptic F5 remediation: tolerate malformed
         piv_rule fields with explicit blockers instead of crashing.
+
+        Global review R1 (SKEP-G-002): generalize the per-check pass
+        evidence pattern Phase 3 R1 introduced for PLAN_VALIDATION.
+        piv_rule declares `ledger_required_fields: [piv_attempt, result,
+        checks]`; when present, the kernel verifies each declared
+        piv_check_id appears in the ledger record's `checks` list AND
+        has explicit per-check pass evidence (mapping-form or sibling
+        `check_results: {piv_id: pass}`).
         """
         piv_rule = self.config.get("piv_rule") or {}
         if not isinstance(piv_rule, Mapping) or not piv_rule.get("ledger_required"):
@@ -893,8 +915,17 @@ class Heartgate:
             blockers.append(f"piv_rule unmet: no gate ledger at {ledger_path.relative_to(self.uacp_root)}")
             return
         from_phase = str(artifact.get("from_phase") or "")
+        # Precompute declared piv_ids when piv_rule.checks is present.
+        declared_check_ids: set[str] = set()
+        for c in (piv_rule.get("checks") or []):
+            if isinstance(c, Mapping):
+                cid = str(c.get("id") or "").strip()
+                if cid:
+                    declared_check_ids.add(cid)
+        ledger_required_fields = [str(f) for f in (piv_rule.get("ledger_required_fields") or []) if isinstance(f, str)]
         passing_attempts: list[int] = []
         failing_attempts: list[int] = []
+        passing_record_defects: list[str] = []
         try:
             for lineno, raw_line in enumerate(ledger_path.read_text(encoding="utf-8").splitlines(), start=1):
                 line = raw_line.strip()
@@ -917,6 +948,49 @@ class Heartgate:
                     return
                 result = str(rec.get("result") or "")
                 if result == "pass":
+                    # SKEP-G-002: when piv_rule declares checks + required fields,
+                    # this pass record must carry per-check evidence. If it doesn't,
+                    # it's treated as a per-record defect and not counted as
+                    # passing (multi-record DoS resistance mirrors PLAN_VALIDATION).
+                    body: Mapping[str, Any] = rec["record"] if isinstance(rec.get("record"), Mapping) else rec
+                    defect: str | None = None
+                    if ledger_required_fields:
+                        missing = [f for f in ledger_required_fields if f not in body and f not in rec]
+                        if missing:
+                            defect = f"line {lineno}: missing required fields {missing}"
+                    if defect is None and declared_check_ids:
+                        checks_in_rec = body.get("checks") if isinstance(body.get("checks"), list) else rec.get("checks")
+                        if not isinstance(checks_in_rec, list):
+                            defect = f"line {lineno}: 'checks' must be a list (got {type(checks_in_rec).__name__})"
+                        else:
+                            sibling = body.get("check_results") if isinstance(body.get("check_results"), Mapping) else rec.get("check_results")
+                            recorded_ids: set[str] = set()
+                            ids_with_pass: set[str] = set()
+                            for entry in checks_in_rec:
+                                if isinstance(entry, str):
+                                    cid = entry.strip()
+                                    if cid:
+                                        recorded_ids.add(cid)
+                                        if isinstance(sibling, Mapping) and str(sibling.get(cid) or "") == "pass":
+                                            ids_with_pass.add(cid)
+                                elif isinstance(entry, Mapping):
+                                    cid = str(entry.get("id") or "").strip()
+                                    if cid:
+                                        recorded_ids.add(cid)
+                                        if str(entry.get("result") or "") == "pass":
+                                            ids_with_pass.add(cid)
+                            missing_ids = declared_check_ids - recorded_ids
+                            extra_ids = recorded_ids - declared_check_ids
+                            unproven = declared_check_ids - ids_with_pass
+                            if missing_ids:
+                                defect = f"line {lineno}: missing required piv_ids {sorted(missing_ids)}"
+                            elif extra_ids:
+                                defect = f"line {lineno}: unknown piv_ids {sorted(extra_ids)}"
+                            elif unproven:
+                                defect = f"line {lineno}: missing per-check pass evidence for {sorted(unproven)}"
+                    if defect:
+                        passing_record_defects.append(defect)
+                        continue
                     passing_attempts.append(attempt)
                 elif result in {"warn", "block", "fail"}:
                     failing_attempts.append(attempt)
@@ -946,7 +1020,8 @@ class Heartgate:
             )
             return
         if not passing_attempts:
-            blockers.append(f"piv_rule unmet: no PIV pass record in ledger for phase '{from_phase}'")
+            detail = f" (per-record defects: {passing_record_defects})" if passing_record_defects else ""
+            blockers.append(f"piv_rule unmet: no PIV pass record in ledger for phase '{from_phase}'{detail}")
 
     def _glob_matches_any(self, pattern: str) -> bool:
         """Phase 1 remediation (skeptic F3): reject symlinks and out-of-root

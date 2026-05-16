@@ -152,6 +152,8 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `config/artifact-schemas.yaml` | schema_config | generated | Phase-2 structured-artifact schemas (scope, intent, evidence_disposition, lessons) + Phase-3 run_registry schema | Keep aligned with Heartgate enforcement in `runtime-adapters/.../kernel.py` |
 | `config/autonomy-policy.yaml` | schema_config | generated | Phase 4.2 stub — operating modes (manual/semi_auto/supervised_auto/full_auto), escalation trigger registry, canonical_state_paths, advisory_field_convention. Marked `enforcement_status: stub_only_phase_4` (kernel readers land in Phase 5). | Skills consult this file as guidance for mode_behavior; Heartgate readers come in Phase 5. |
 | `runtime-adapters/` | runtime_adapter_source | canonical | UACP-owned runtime adapter/plugin source for Hermes and future runtimes | Source changes require runtime binding verification and rollback evidence |
+| `scripts/` | verification_tooling | canonical | Phase-verify (`phase{0..4}_verify.py`) and live-probe scripts that lock in propagated-constraint remediations as machine-checked invariants (per lesson `l6_phase_verify_scripts_are_load_bearing`) | Add a new `scripts/phaseN_verify.py` per phase; every fail-closed kernel branch must have a paired check |
+| `plans/`, `proposals/`, `executions/`, `verification/`, `outputs/`, `knowledge/` | run_artifact_roots | canonical | Per-run lifecycle artifact directories — written by governed writers (`uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, etc.) at the phase that owns each root | Treat as append-only per-run state; do not overwrite historical run artifacts |
 
 ## Lifecycle Skill Registry
 

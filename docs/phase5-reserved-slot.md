@@ -30,14 +30,16 @@ Closing the patch plan at RESOLVE without entering Phase 5 honors prerequisite #
 - **Structured condition DSL** for `escalation_triggers.triggers[*].condition`, replacing prose.
 - **Retroactive `_advisory` audit** — every YAML field with no kernel reader either gets a reader or gets renamed with the suffix.
 
-## Propagated constraints from Phases 3 & 4 (Phase 5 backlog)
+## Propagated constraints (Phase 5 backlog)
 
 Phase 5, when authorized, must absorb the following propagated constraints recorded in:
 
-- `verification/uacp-patch-plan-20260515-phase3-codex-review.yaml#propagated_constraints.to_phase_4` (17 pc_p3_* items — 8 still deferred after Phase 4)
+- `verification/uacp-patch-plan-20260515-phase3-codex-review.yaml#propagated_constraints.to_phase_4` (17 pc_p3_* items — 9 still deferred after Phase 4)
 - `verification/uacp-patch-plan-20260515-phase4-codex-review.yaml#propagated_constraints.to_phase_5` (14 pc_p4_* items)
+- `verification/uacp-patch-plan-20260515-global-review.yaml#propagated_constraints.to_phase_5` (cross-phase findings, pc_g_* items)
+- **Phase 0 carry-overs** (TECH-G-003): `pc_7` and `pc_8` from `verification/uacp-patch-plan-phase0-codex-review.yaml` — `live_guardian_probe.py` `guardian_blocks_unknown_plugin_mutator` (probe expects `decision: block`, actual is `block_pending_heartgate`) and `uacp_heartgate_check_passes_valid_transition` (probe artifact lacks `heartgate_coherence` block now required by transition policy). These were not in the Phase 3/4 deferred lists but remain visible failures in `scripts/live_guardian_probe.py` today. Phase 5 must either (a) remediate the probe expectations, or (b) explicitly classify them as `DEFERRED_TO_PHASE_5_OR_LATER` with an evidence pointer.
 
-Total: ~22 distinct constraints. See those verification artifacts for the canonical list with rationale and evidence pointers.
+Distinct count across all sources: see the global-review verification artifact for the canonical Phase 5 backlog list with rationale and evidence pointers.
 
 ## Activation procedure
 

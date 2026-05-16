@@ -98,6 +98,7 @@ def main() -> int:
 
             # Seed ledger helper.
             PV_IDS = ["pv_1", "pv_2", "pv_3", "pv_4", "pv_5", "pv_6"]
+            PIV_IDS = ["piv_1", "piv_2", "piv_3", "piv_4", "piv_5"]
             def _append(gate: str, phase: str, result: str = "pass", piv_attempt: int | None = None, run_id_override: str | None = None, checks: list | None = None, check_results: dict | None = None):
                 rid = run_id_override or run_id
                 record = {"gate": gate, "run_id": rid, "phase": phase, "result": result, "ts": int(time.time())}
@@ -106,12 +107,17 @@ def main() -> int:
                 # Phase 3 R1: PLAN_VALIDATION ledger record must carry pv_ids.
                 if gate == "PLAN_VALIDATION" and checks is None:
                     checks = list(PV_IDS)
+                # Global review R1 (SKEP-G-002): PIV ledger records must
+                # also carry per-check evidence (piv_1..piv_5) when seeded
+                # as result=pass.
+                if gate == "PIV" and result == "pass" and checks is None:
+                    checks = list(PIV_IDS)
                 if checks is not None:
                     record["checks"] = checks
                 # Phase 3 R2 (SKEP-R1-003): PLAN_VALIDATION needs per-check
                 # pass evidence — sibling check_results mapping when checks
                 # is a flat list of strings.
-                if gate == "PLAN_VALIDATION" and check_results is None and checks and all(isinstance(c, str) for c in checks):
+                if gate in ("PLAN_VALIDATION", "PIV") and result == "pass" and check_results is None and checks and all(isinstance(c, str) for c in checks):
                     check_results = {c: "pass" for c in checks}
                 if check_results is not None:
                     record["check_results"] = check_results

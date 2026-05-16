@@ -6,6 +6,29 @@ purpose: |
   reserved). Captures cross-phase patterns surfaced by the iterative
   Codex-council review gate.
 
+# --- Bootstrap-posture disclosure (Global review R1: TECH-G-005 / SKEP-G-003 / SKEP-G-010) ---
+#
+# The patch-plan run uacp-patch-plan-20260515 AUTHORED the governed-writer
+# infrastructure (uacp_gate_ledger_append in Phase 1, uacp_run_registry_update
+# in Phase 3, uacp_escalation_event in Phase 4) but did NOT itself flow
+# through that infrastructure. There is no state/gate-ledger/ for this run
+# — the run executed under bootstrap-direct-edit posture per
+# config/state.yaml#mutation_rules.bootstrap because the writers were being
+# constructed during the run.
+#
+# The `ledger_citations` blocks below are therefore PHASE-LEVEL REVIEW
+# REFERENCES, not byte-offset pointers into a live gate ledger. Each cites
+# the codex-review verification artifact and the conceptual review pass_id
+# (r0, r1, r2_confirmation, p4_r0, p4_r1_confirmation) recorded there. They
+# do NOT include `ts` or `byte_offset` because those fields require a live
+# ledger entry that this run does not produce.
+#
+# Future runs (Phase 5 and onwards) MUST flow through the governed writers;
+# their lessons artifacts will produce real (ts, byte_offset) citations
+# referring to actual ledger entries.
+ledger_citations_disposition: bootstrap_posture_phase_level_references
+ledger_citations_advisory: true   # _advisory suffix per Phase 4 R1 convention
+
 lessons:
   - id: l1_two_pass_codex_review_works
     category: process

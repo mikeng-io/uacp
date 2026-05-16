@@ -171,6 +171,15 @@ cross_checks:
         - "outputs/"
         - "knowledge/"
       uacp_gate_ledger_append: ["state/gate-ledger/"]
+      # Global review R1 (TECH-G-002): Phase 3.2's run_registry_update and
+      # Phase 4.4's escalation_event are governed append-only writers that
+      # operate on dedicated state sub-paths. Declare their capabilities so
+      # scope.write_paths can reference these surfaces honestly (in supervised_auto
+      # / full_auto modes scopes may need to declare them as their write
+      # footprint). Pairs with handler_refusals below to keep direct laundering
+      # via uacp_state_write blocked.
+      uacp_run_registry_update: ["state/run-registry.yaml"]
+      uacp_escalation_event: ["state/escalations/"]
     handler_refusals:
       description: >
         Phase 3 R1 (SKEP-008): the prefix-match cross-check above is
@@ -182,6 +191,11 @@ cross_checks:
       uacp_state_write:
         - "state/gate-ledger/"
         - "state/run-registry.yaml"
+        # Global review R1 (TECH-G-001): state/escalations/ is exclusively
+        # written through uacp_escalation_event. uacp_state_write refuses it
+        # at the handler too (see __init__.py); the cross-check refusal here
+        # closes the scope-laundering vector for the same path.
+        - "state/escalations/"
       uacp_gate_ledger_append:
         # The gate-ledger is governed through its own append-only channel; it
         # is NOT part of the scope.write_paths footprint. Any scope entry
