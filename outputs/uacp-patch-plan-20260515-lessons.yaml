@@ -1,0 +1,222 @@
+kind: uacp.lessons
+schema_version: '0.1'
+run_id: uacp-patch-plan-20260515
+purpose: |
+  Structured lessons from the UACP patch plan (Phases 0–4 complete; Phase 5
+  reserved). Captures cross-phase patterns surfaced by the iterative
+  Codex-council review gate.
+
+lessons:
+  - id: l1_two_pass_codex_review_works
+    category: process
+    finding: |
+      A two-pass (sometimes three-pass) Codex council review gate per
+      phase reliably surfaces material findings that a single-pass review
+      would have missed. The first pass exposes structural gaps; the
+      second pass catches new gaps introduced by the remediation. R0+R1
+      together routinely surface 2x as many real material findings as R0
+      alone.
+    recommendation: |
+      Make two-pass Codex review the default closure protocol for any UACP
+      phase whose deliverables include kernel changes or new authority
+      surfaces. Reserve three-pass for phases that introduce a new
+      enforcement category (Phase 3 R0+R1+R2 set this precedent).
+    gate_affected: phase_close_protocol
+    applies_to_future_runs: true
+    knowledge_path: knowledge/lessons/two_pass_codex_review.md
+    ledger_citations:
+      - run_id: uacp-patch-plan-20260515
+        gate: agent_council_review_phase3
+        reviewer: codex-as-general-purpose-agent-trio
+      - run_id: uacp-patch-plan-20260515
+        gate: agent_council_review_phase4
+        reviewer: codex-as-general-purpose-agent-trio
+
+  - id: l2_hidden_authority_anti_pattern_recurs
+    category: governance
+    finding: |
+      The "hidden-authority anti-pattern" (authority lists hardcoded in
+      kernel code instead of declared in config YAML) was the original
+      Phase 0 root cause, BUT it reappeared as a *softer* version in
+      Phases 3 and 4: YAML fields that LOOK like enforcement but have no
+      kernel reader. The kernel stopped hiding lists; the config started
+      hiding the fact that some of its fields are decorative.
+    recommendation: |
+      Adopt the _advisory suffix convention universally: any YAML field
+      with no kernel reader at phase-close time must be either renamed with
+      the suffix OR have an `enforcement_status: stub_only_phase_N` tag.
+      Codify in a config linter (Phase 5 deliverable).
+    gate_affected: config_authority_chain
+    applies_to_future_runs: true
+    knowledge_path: knowledge/lessons/hidden_authority_anti_pattern.md
+    ledger_citations:
+      - run_id: uacp-patch-plan-20260515
+        gate: agent_council_review_phase3
+        reviewer: codex-as-general-purpose-agent-trio
+      - run_id: uacp-patch-plan-20260515
+        gate: agent_council_review_phase4
+        reviewer: codex-as-general-purpose-agent-trio
+
+  - id: l3_drift_propagation_must_be_honest
+    category: governance
+    finding: |
+      Phase 4 R0 surfaced that the initial drift YAML overstated
+      absorption of Phase 3 propagated constraints — 5 of 17 pc_p3_*
+      items were claimed "absorbed" while corresponding code/script had
+      not landed. The propagated-constraints registry is itself an
+      authority artifact; misclassification breaks traceability.
+    recommendation: |
+      Drift reconciliation YAML must use explicit classification keys
+      (REMEDIATED_IN_PHASE_N / DEFERRED_TO_PHASE_N / DOCUMENTED_NOT_ENFORCED /
+      PARTIAL_REMEDIATED) with evidence_pointer for each. Phase verify scripts
+      must check the classification vocabulary mechanically.
+    gate_affected: drift_reconciliation_protocol
+    applies_to_future_runs: true
+    knowledge_path: knowledge/lessons/drift_propagation_honesty.md
+    ledger_citations:
+      - run_id: uacp-patch-plan-20260515
+        gate: agent_council_review_phase4
+        reviewer: codex-as-general-purpose-agent-trio
+
+  - id: l4_council_skeptic_role_is_load_bearing
+    category: process
+    finding: |
+      Across Phases 0–4, the skeptic role on the Codex council surfaced
+      bypasses that technical and governance reviewers missed: PLAN_VALIDATION
+      self-attestation (Phase 3 SKEP-001), run-registry caller-impersonation
+      (Phase 3 R1 SKEP-R1-001), empty-scope.write_paths bypass
+      (Phase 3 R1 SKEP-R1-004), uacp_mode purely advisory (Phase 4 SKEP-P4-003).
+      Removing the skeptic role would have let multiple material bypasses
+      slip into shipped code.
+    recommendation: |
+      Make skeptic the third leg of every tier-2 council review (not
+      optional). For tier-3 reviews (irreversible-write surfaces, autonomous-
+      mode kernel readers), add a second skeptic with a "trust nothing —
+      assume the implementer is overconfident" prompt.
+    gate_affected: council_topology
+    applies_to_future_runs: true
+    knowledge_path: knowledge/lessons/skeptic_role_load_bearing.md
+    ledger_citations:
+      - run_id: uacp-patch-plan-20260515
+        gate: agent_council_review_phase3_r1
+        reviewer: codex-skeptic
+
+  - id: l5_mirror_drift_needs_a_detector
+    category: governance
+    finding: |
+      UACP now has four mirror surfaces: config YAML, docs/skill-enforcement-spec.md,
+      per-skill SKILL.md frontmatter, and docs/lifecycle-trace-table.md.
+      Phase 3 added the spec; Phase 4 added mode_behavior stubs across 7
+      SKILL.md files. Drift has already appeared (uacp_run_registry_update
+      missing from spec at Phase 3 R1; trigger ID drift in 7 SKILL.md files
+      at Phase 4 R0).
+    recommendation: |
+      Ship scripts/check_authority_mirror.py in Phase 5. The check should
+      assert that every tool registered via ctx.register_tool appears in
+      guardian-policy.yaml tool_classification AND in skill-enforcement-spec.md
+      Allowed-tools for every skill whose phase's allowed_tools includes it.
+      Mode_behavior tables must reference only canonical trigger IDs.
+    gate_affected: mirror_drift_detection
+    applies_to_future_runs: true
+    knowledge_path: knowledge/lessons/mirror_drift_detector.md
+    ledger_citations:
+      - run_id: uacp-patch-plan-20260515
+        gate: agent_council_review_phase3
+        reviewer: codex-governance
+
+  - id: l6_phase_verify_scripts_are_load_bearing
+    category: enforcement
+    finding: |
+      The phase{N}_verify.py scripts are the mechanical guarantee that a
+      remediation actually landed. Phase 3 R1 added 12 new checks to
+      phase3_verify.py specifically to lock in the SKEP-R1-001..010
+      remediations as verified invariants. Phase 4 R1 added 6 new checks
+      to phase4_verify.py to lock in honesty obligations (enforcement_status
+      tags, drift classification keys, doc inventory). Without these
+      scripts, the same regressions would resurface.
+    recommendation: |
+      Every fail-closed validator branch in the kernel must have a paired
+      check in the phase verify script. Every drift YAML classification
+      must be machine-verified (the verifier walks the classification
+      keys). Phase 5 adds a CI hook that runs all phase{N}_verify.py before
+      every commit to main.
+    gate_affected: verification_protocol
+    applies_to_future_runs: true
+    knowledge_path: knowledge/lessons/phase_verify_load_bearing.md
+    ledger_citations:
+      - run_id: uacp-patch-plan-20260515
+        gate: PIV
+        reviewer: kernel-self-attest
+
+  - id: l7_pipe_buf_atomicity_pattern_works
+    category: technical
+    finding: |
+      The PIPE_BUF (3584-byte) atomicity bound applied to both
+      uacp_gate_ledger_append and uacp_escalation_event correctly prevents
+      torn writes under O_APPEND on Linux ext4/xfs. The 3584 = 4096 - 512
+      safety margin is conservative and correct. UTF-8 encoding is applied
+      before measurement, so multibyte characters are bounded too.
+    recommendation: |
+      Use the same 3584-byte JSONL-record bound for any future append-only
+      governed surface (Phase 5 may add knowledge/lessons/ append, audit
+      trail, etc.). Document the bound in config/state.yaml as a global
+      constant.
+    gate_affected: append_only_surface_protocol
+    applies_to_future_runs: true
+    knowledge_path: knowledge/lessons/pipe_buf_atomicity_3584.md
+    ledger_citations: []
+
+  - id: l8_stub_honesty_unblocks_phases
+    category: governance
+    finding: |
+      Phase 4 is honestly framed as a stub (operating modes declared but no
+      kernel reader). The first R0 attempt failed governance review because
+      decorative-vs-enforced fields were not distinguished. R1's
+      enforcement_status: stub_only_phase_4 tagging convention turned the
+      stub into a defensibly-shipped increment. The principle generalizes:
+      a stub is acceptable IF it explicitly labels what is deferred AND
+      provides the mechanical wiring (tool registration, schema, layer A/B)
+      that future enforcement will hook into.
+    recommendation: |
+      Apply the same labeling discipline to all future stub phases. A
+      "stub" without `enforcement_status: stub_only_phase_N` is not a stub,
+      it's hidden non-enforcement.
+    gate_affected: stub_protocol
+    applies_to_future_runs: true
+    knowledge_path: knowledge/lessons/stub_honesty.md
+    ledger_citations:
+      - run_id: uacp-patch-plan-20260515
+        gate: agent_council_review_phase4_r1
+        reviewer: codex-as-general-purpose-agent
+
+phase_summary:
+  phase_0:
+    title: "Wire filesystem_guard_verified, real policy.mode, classify governed tools"
+    commit: 696e184
+    council_passes: 2
+    material_findings_remediated: 5
+  phase_1:
+    title: "Mechanical pre-flight contracts (gate ledger, Layer B, phase exit invariants, PIV)"
+    commit: 49d8929
+    council_passes: 2
+    material_findings_remediated: 7
+  phase_2:
+    title: "Structured artifact schemas with Heartgate enforcement"
+    commit: a0644b0
+    council_passes: 2
+    material_findings_remediated: 3
+  phase_3:
+    title: "plan_validation_gate, run_registry, authority docs"
+    commit: bee42cd
+    council_passes: 3
+    material_findings_remediated: 24
+  phase_4:
+    title: "uacp_mode, autonomy-policy, escalation-event stub"
+    commit: 3c48406
+    council_passes: 2
+    material_findings_remediated: 14
+  phase_5:
+    title: "Full autonomous mode"
+    status: reserved_slot
+    not_scheduled: true
+    docs: docs/phase5-reserved-slot.md

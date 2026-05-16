@@ -1,24 +1,16 @@
 schema_version: '0.1'
 kind: uacp.current_state
 active_run_id: uacp-patch-plan-20260515
-active_phase: execute
-active_status: phase_4_complete
+active_phase: resolve
+active_status: resolved
 last_updated_reason: >
-  Phase 4 (autonomous-mode framework stub) complete. Item 4.1: uacp_mode
-  enum field in state schema with default=manual, tagged
-  enforcement_status: stub_only_phase_4 (no kernel reader in Phase 4).
-  Item 4.2: config/autonomy-policy.yaml authority surface declared with 4
-  modes, 7 escalation triggers, canonical_state_paths,
-  advisory_field_convention — every decorative block tagged with
-  enforcement_status. Item 4.3: mode_behavior stubs in all 7 SKILL.md
-  files. Item 4.4: uacp_escalation_event tool stub writes JSONL records to
-  state/escalations/{run_id}.jsonl with full UACP-context enforcement,
-  containment check, embedded-newline refusal, and PIPE_BUF bound.
-  Two-pass Codex council: R0 surfaced 14 material findings clustered on
-  drift-YAML overstating absorption, decorative-vs-enforced fields, mode
-  contract mismatch, and doc-inventory gaps; R1 confirmation pass returned
-  verdict: pass with zero material findings. 14 minor concerns recorded as
-  pc_p4_* propagated_constraints for Phase 5. phase4_verify: 20/20;
-  phase3_verify: 30/30; phase2_verify: 18/18; phase1_verify: 23/23;
-  phase0_verify: 14/14. Drift YAML uses honest classification keys: 4
-  remediated in-phase, 3 earlier, 2 documented-not-enforced, 9 deferred.
+  UACP patch plan complete. Phases 0–4 implemented and merged to
+  origin/main with two-pass (Phase 3 three-pass) Codex council review
+  per phase. Total 53 material findings remediated across 11 council
+  passes. Phase 5 (full autonomous mode) remains a reserved_slot per
+  the original proposal — not scheduled; activation requires operator
+  authorization plus three verified supervised-auto runs (see
+  docs/phase5-reserved-slot.md). Structured lessons recorded at
+  outputs/uacp-patch-plan-20260515-lessons.yaml. 23 propagated
+  constraints (9 pc_p3_* deferred + 14 pc_p4_*) recorded for the
+  future Phase 5 run.

@@ -1,0 +1,77 @@
+kind: uacp.run_resolve
+schema_version: '0.1'
+run_id: uacp-patch-plan-20260515
+phase: resolve
+title: UACP patch plan — resolution
+purpose: |
+  Closes the UACP patch plan run after Phases 0–4 ship with zero residual
+  material findings. Phase 5 remains a reserved_slot per the operator's
+  proposal (see docs/phase5-reserved-slot.md).
+
+decision: resolved
+
+deliverables:
+  - phase: 0
+    label: Wire filesystem_guard_verified, real policy.mode, classify governed tools
+    artifact: executions/uacp-patch-plan-20260515-phase0-execute-checkpoint.yaml
+    commit: 696e184
+  - phase: 1
+    label: Mechanical pre-flight contracts
+    artifact: executions/uacp-patch-plan-20260515-phase1-execute-checkpoint.yaml
+    commit: 49d8929
+  - phase: 2
+    label: Structured artifact schemas with Heartgate enforcement
+    artifact: executions/uacp-patch-plan-20260515-phase2-execute-checkpoint.yaml
+    commit: a0644b0
+  - phase: 3
+    label: plan_validation_gate, run_registry, authority docs
+    artifact: executions/uacp-patch-plan-20260515-phase3-execute-checkpoint.yaml
+    review: verification/uacp-patch-plan-20260515-phase3-codex-review.yaml
+    commit: bee42cd
+  - phase: 4
+    label: uacp_mode, autonomy-policy, escalation-event stub
+    artifact: executions/uacp-patch-plan-20260515-phase4-execute-checkpoint.yaml
+    review: verification/uacp-patch-plan-20260515-phase4-codex-review.yaml
+    commit: 3c48406
+  - phase: 5
+    label: Full autonomous mode
+    status: reserved_slot
+    not_scheduled: true
+    docs: docs/phase5-reserved-slot.md
+
+structured_lessons_artifact: outputs/uacp-patch-plan-20260515-lessons.yaml
+
+cross_phase_review_history:
+  total_council_passes: 11   # phase0(2) + phase1(2) + phase2(2) + phase3(3) + phase4(2)
+  total_material_findings_remediated: 53
+  total_constraints_propagated_to_phase_5: 23  # 9 pc_p3_* still deferred + 14 pc_p4_*
+
+verification_status:
+  phase0_verify: pass
+  phase1_verify: pass
+  phase2_verify: pass
+  phase3_verify: pass
+  phase4_verify: pass
+  live_guardian_probe: 4 pre-existing failures (not regressions)
+
+authority:
+  requested_by: operator
+  authorization_source: |
+    "Enter fully automation mode. Complete each of the phases by yourself.
+    At the end of each phase, make sure the agent council is run to perform
+    the review and audit. Let's go, because I'm going to sleep. Hopefully
+    once I wake up, all phases will be well implemented, commits will all
+    be made, and everything will be clean. Also, don't forget to use Codex
+    to do the external review. Good night."
+  authorization_run_id: uacp-patch-plan-20260515
+
+declared_side_effects:
+  - kind: file_write
+    paths:
+      - docs/phase5-reserved-slot.md
+      - outputs/uacp-patch-plan-20260515-lessons.yaml
+      - outputs/uacp-patch-plan-20260515-resolve.yaml
+      - state/current.yaml
+  - kind: git_commit
+    paths: ["main"]
+    reason: Final patch-plan resolution commit + push to origin/main
