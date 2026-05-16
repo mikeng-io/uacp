@@ -724,6 +724,9 @@ class Heartgate:
         self._validate_scope_artifact(artifact, blockers, warnings)
         self._validate_evidence_dispositions(artifact, blockers)
         self._validate_lessons_artifact(artifact, blockers)
+        # Phase 3: plan-validation gate + run-registry overlap.
+        self._validate_plan_validation_gate(artifact, blockers, warnings)
+        self._validate_run_registry_overlap(artifact, blockers, warnings)
 
         declared_decision = str(artifact.get("decision") or "")
         if declared_decision == "block":
@@ -893,19 +896,25 @@ class Heartgate:
         passing_attempts: list[int] = []
         failing_attempts: list[int] = []
         try:
-            for line in ledger_path.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
+            for lineno, raw_line in enumerate(ledger_path.read_text(encoding="utf-8").splitlines(), start=1):
+                line = raw_line.strip()
                 if not line:
                     continue
                 try:
                     rec = json.loads(line)
-                except Exception:
-                    continue
+                except Exception as exc:
+                    # Phase 3 (pc_p2_minor): fail-closed on corrupted ledger.
+                    blockers.append(f"piv_rule: gate ledger line {lineno} unparseable: {type(exc).__name__}: {exc}")
+                    return
                 if str(rec.get("gate") or "") != "PIV":
                     continue
                 if from_phase and str(rec.get("phase") or "") != from_phase:
                     continue
-                attempt = int(rec.get("piv_attempt") or 0)
+                try:
+                    attempt = int(rec.get("piv_attempt") or 0)
+                except (TypeError, ValueError):
+                    blockers.append(f"piv_rule: gate ledger line {lineno} has non-integer piv_attempt")
+                    return
                 result = str(rec.get("result") or "")
                 if result == "pass":
                     passing_attempts.append(attempt)
@@ -984,10 +993,13 @@ class Heartgate:
                 line = line.strip()
                 if not line:
                     continue
+                # Phase 3 (pc_p2_minor): a corrupted line in the ledger is
+                # treated as fail-closed; callers should re-derive coverage
+                # rather than silently skip suspicious lines.
                 try:
                     rec = json.loads(line)
                 except Exception:
-                    continue
+                    return False
                 if str(rec.get("gate") or "") == gate:
                     return True
         except Exception:
@@ -1020,9 +1032,43 @@ class Heartgate:
         except Exception as exc:
             blockers.append(f"intent doc unreadable: {type(exc).__name__}")
             return
+        # Phase 3 hardening (pc_p2_t5 + SKEP-004): anchored per-line regex;
+        # skip both ``` and ~~~ CommonMark fences AND any leading YAML
+        # frontmatter delimited by `---` at the top of the file.
         required_sections = list(schema.get("required_sections") or [])
+        import re as _re
+        lines = text.splitlines()
+        # Detect leading YAML frontmatter and skip it entirely.
+        skip_until = 0
+        if lines and lines[0].strip() == "---":
+            for idx in range(1, len(lines)):
+                if lines[idx].strip() == "---":
+                    skip_until = idx + 1
+                    break
+        in_fence = False
+        present: set[str] = set()
+        for ln_no, raw_line in enumerate(lines):
+            if ln_no < skip_until:
+                continue
+            line = raw_line.rstrip()
+            stripped = line.lstrip()
+            # CommonMark recognizes both ``` and ~~~ as code fences.
+            if stripped.startswith("```") or stripped.startswith("~~~"):
+                in_fence = not in_fence
+                continue
+            if in_fence:
+                continue
+            m = _re.match(r"^(#{1,2})\s+(.+?)\s*$", line)
+            if not m:
+                continue
+            raw_header = m.group(2).strip()
+            # Accept "Header" and "Header: free text" (split on first colon).
+            header_main = raw_header.split(":", 1)[0].strip()
+            for section in required_sections:
+                if raw_header == section or header_main == section:
+                    present.add(section)
         for section in required_sections:
-            if f"## {section}" not in text and f"# {section}" not in text:
+            if section not in present:
                 blockers.append(f"intent doc missing required section: '{section}'")
 
     def _validate_scope_artifact(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
@@ -1066,17 +1112,44 @@ class Heartgate:
         if not isinstance(write_paths, list):
             blockers.append("scope.write_paths must be a list")
             return
+        # Phase 3 R2 (SKEP-R1-004): empty write_paths is "containment by
+        # absence" — both overlap detection and reachability cross-check
+        # silently no-op on empty lists, allowing a run to declare no writes,
+        # pass governance, then write through governed tools without bound.
+        # Require either at least one write path OR an explicit
+        # no_writes_intended sentinel that the scope author has acknowledged.
+        if len(write_paths) == 0 and not bool(data.get("no_writes_intended")):
+            blockers.append(
+                "scope.write_paths is empty (write authority cannot be inferred from absence; either declare at least one path or set 'no_writes_intended: true')"
+            )
+            return
         execute_stage = (self.stages.get("execute") or {})
         allowed_tools = list((execute_stage or {}).get("allowed_tools") or [])
         tool_path_capabilities = self._tool_path_capabilities()
+        # SKEP-008 remediation: a positive prefix match is not enough — some
+        # handlers refuse sub-paths of an allowed prefix. Honor those refusals
+        # here so a scope can't launder unreachable paths.
+        cross = (self.artifact_schemas.get("cross_checks") or {})
+        scope_block = (cross.get("scope_write_paths_vs_layer_b") or {})
+        handler_refusals = (scope_block.get("handler_refusals") or {})
+        if not isinstance(handler_refusals, Mapping):
+            handler_refusals = {}
         for wp in write_paths:
             wp_str = str(wp)
             reachable = False
             for tool in allowed_tools:
                 prefixes = tool_path_capabilities.get(tool) or []
-                if any(wp_str.startswith(pfx) or wp_str == pfx.rstrip("/") for pfx in prefixes):
-                    reachable = True
-                    break
+                if not any(wp_str.startswith(pfx) or wp_str == pfx.rstrip("/") for pfx in prefixes):
+                    continue
+                # Apply per-tool refusals (e.g. uacp_state_write refuses state/gate-ledger/).
+                refused = handler_refusals.get(tool) or []
+                if isinstance(refused, list) and any(
+                    isinstance(r, str) and r and (wp_str == r.rstrip("/") or wp_str.startswith(r))
+                    for r in refused
+                ):
+                    continue
+                reachable = True
+                break
             if not reachable:
                 blockers.append(
                     f"scope.write_paths cross-check: '{wp_str}' is not reachable by any execute-phase allowed_tool"
@@ -1091,6 +1164,10 @@ class Heartgate:
         deliberately absent — they target the workspace, not UACP_ROOT,
         and do not satisfy UACP-rooted scope.write_paths (F1).
 
+        Phase 3 hardening (pc_p2_n1): drop prefixes that are empty or the
+        literal "*" so a future config-author mistake cannot accidentally
+        wildcard-match every write_path.
+
         Fail-closed default: if the config section is missing or malformed,
         return an empty mapping so every write_path is unreachable.
         """
@@ -1099,14 +1176,25 @@ class Heartgate:
         caps = block.get("tool_path_capabilities") or {}
         if not isinstance(caps, Mapping):
             return {}
+        # SKEP-007 remediation: schema metadata keys (description, purpose, notes,
+        # documentation) must never be loaded as writer tools. Sibling fields are
+        # legitimate metadata, not policy.
+        metadata_keys = {"description", "purpose", "notes", "documentation"}
+        # SKEP-003 / TECH-004 remediation: reject footgun prefixes that would
+        # collapse path-segment boundaries (bare wildcards, root, dot-relative).
+        forbidden_prefixes = {"", "*", "**", "/", ".", "..", "./", "../"}
         result: dict[str, list[str]] = {}
         for tool, prefixes in caps.items():
-            if not isinstance(tool, str):
+            if not isinstance(tool, str) or tool in metadata_keys:
                 continue
             if isinstance(prefixes, list):
-                result[tool] = [str(p) for p in prefixes if isinstance(p, str)]
-            elif isinstance(prefixes, str):
-                result[tool] = [prefixes]
+                cleaned = [str(p) for p in prefixes if isinstance(p, str) and str(p).strip() not in forbidden_prefixes]
+            elif isinstance(prefixes, str) and prefixes.strip() not in forbidden_prefixes:
+                cleaned = [prefixes]
+            else:
+                cleaned = []
+            if cleaned:
+                result[tool] = cleaned
         return result
 
     def _validate_evidence_dispositions(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
@@ -1128,6 +1216,44 @@ class Heartgate:
             return
         cluster_summary = artifact.get("cluster_summary") or []
         if not isinstance(cluster_summary, list):
+            return
+        # Phase 3 (pc_p2_t3): empty cluster_summary at VERIFY->RESOLVE is a block.
+        # If a run truly has no clusters to verify, it must declare that
+        # explicitly elsewhere (handled_findings_chain or accepted_exceptions);
+        # silent zero-cluster passage is not acceptable for traceable state.
+        handled_chain = artifact.get("handled_findings_chain") or []
+        accepted_exc = artifact.get("accepted_exceptions") or []
+        # Phase 3 R2 (SKEP-R1-002): escape-hatch presence is not sufficient;
+        # entries must be non-empty mappings with the documented shape.
+        # Garbage lists ([None, {}, ""]) no longer satisfy the escape hatch.
+        def _valid_handled(c: Any) -> bool:
+            if not isinstance(c, Mapping):
+                return False
+            ofid = c.get("original_finding_id") or c.get("finding_id")
+            klass = c.get("handling_classification") or c.get("classification")
+            return bool(ofid) and bool(klass)
+        def _valid_exception(e: Any) -> bool:
+            if not isinstance(e, Mapping):
+                return False
+            return bool(e.get("artifact_path")) and bool(e.get("owner")) and bool(e.get("rationale"))
+        handled_valid = isinstance(handled_chain, list) and any(_valid_handled(c) for c in handled_chain)
+        exc_valid = isinstance(accepted_exc, list) and any(_valid_exception(e) for e in accepted_exc)
+        has_escape_hatch = handled_valid or exc_valid
+        if len(cluster_summary) == 0:
+            if not has_escape_hatch:
+                blockers.append("evidence_disposition: cluster_summary is empty at VERIFY->RESOLVE (must declare at least one cluster or non-empty handled_findings_chain/accepted_exceptions)")
+            return
+        # Phase 3 R1 (SKEP-006): a run cannot pass VERIFY->RESOLVE by declaring
+        # every cluster as not_applicable/deferred. At least one cluster must
+        # be in a real verification state, OR an escape hatch must be present.
+        non_na_count = 0
+        for c in cluster_summary:
+            if isinstance(c, Mapping):
+                st = str(c.get("state") or "")
+                if st and st not in {"not_applicable", "deferred"}:
+                    non_na_count += 1
+        if non_na_count == 0 and not has_escape_hatch:
+            blockers.append("evidence_disposition: all clusters are not_applicable/deferred and no handled_findings_chain or accepted_exceptions declared (silent skip not allowed)")
             return
         paired = schema.get("paired_paths") or {}
         facts_tmpl = str(paired.get("verified_facts") or "")
@@ -1176,16 +1302,57 @@ class Heartgate:
                     pass
 
     def _check_pending_assumptions(self, text: str, cluster_id: str, blockers: list[str]) -> None:
-        """Parse a simple markdown table looking for `pending` rows with empty
-        owner or empty next_phase_obligation. The expected table shape is:
+        """Parse a markdown table looking for `pending` rows with empty owner
+        or empty next_phase_obligation. The expected table shape is:
             | Assumption | Disposition | Owner | Next-phase obligation |
+
+        Phase 3 R1 hardening (SKEP-005): header detection uses exact column-name
+        match (not substring), with optional leading pipe per CommonMark. After
+        the separator row, every non-blank pipe-bearing line is a data row
+        regardless of substring content.
         """
+        expected_header = ["assumption", "disposition", "owner", "next-phase obligation"]
+        # State machine: 0 = before header, 1 = header seen / awaiting separator, 2 = in data rows
+        state = 0
+        column_count_warned = False
+        saw_pipe_row = False
         for raw_line in text.splitlines():
             line = raw_line.strip()
-            if not line.startswith("|") or "Disposition" in line or "---" in line:
+            # Allow rows without leading pipe — strip pipes uniformly via split.
+            if "|" not in line:
+                continue
+            saw_pipe_row = True
+            # Skip separator-only lines (`---|---|---`).
+            if set(line) <= {"|", "-", " ", ":"}:
+                if state == 1:
+                    state = 2
                 continue
             cells = [c.strip() for c in line.strip("|").split("|")]
-            if len(cells) < 4:
+            cells_lower = [c.lower() for c in cells]
+            if state == 0:
+                if cells_lower == expected_header:
+                    state = 1
+                    continue
+                # State remains 0 — but a malformed table that has rows but no
+                # recognized header is itself a blocker (covers SKEP-005's "no
+                # exact header" silent-skip case AND pc_p2_t4 column-count
+                # detection for tables that omit the canonical header).
+                if len(cells) != 4 and not column_count_warned:
+                    blockers.append(
+                        f"evidence_disposition: cluster '{cluster_id}' assumptions table has unexpected column count ({len(cells)} != 4)"
+                    )
+                    column_count_warned = True
+                continue
+            # state in {1, 2}: data rows (or a stray separator/header repeat)
+            if cells_lower == expected_header:
+                # repeated header; ignore
+                continue
+            if len(cells) != 4:
+                if not column_count_warned:
+                    blockers.append(
+                        f"evidence_disposition: cluster '{cluster_id}' assumptions table has unexpected column count ({len(cells)} != 4)"
+                    )
+                    column_count_warned = True
                 continue
             disposition = cells[1].lower()
             owner = cells[2]
@@ -1194,6 +1361,268 @@ class Heartgate:
                 blockers.append(
                     f"evidence_disposition: cluster '{cluster_id}' has unowned 'pending' assumption: {cells[0][:60]}"
                 )
+        # If the file had table-like rows but no canonical header was ever seen,
+        # the table is structurally malformed for the disposition contract.
+        if saw_pipe_row and state == 0 and not column_count_warned:
+            blockers.append(
+                f"evidence_disposition: cluster '{cluster_id}' assumptions table missing canonical header '| Assumption | Disposition | Owner | Next-phase obligation |'"
+            )
+
+    def _validate_plan_validation_gate(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str] | None = None) -> None:
+        """Phase 3.1: a PLAN_VALIDATION ledger entry with result=pass is
+        required for PLAN->EXECUTE. The entry must be tagged phase=plan and
+        carry a `checks:` list naming every pv_id declared in
+        config/phase-transitions.yaml plan_validation_gate.checks.
+
+        Phase 3 R1 hardening (SKEP-001 / GOV-004): the kernel does not just
+        verify gate presence; it enforces the ledger schema so a single-bit
+        "PLAN_VALIDATION: pass" assertion is no longer enough.
+        """
+        rule = self.config.get("plan_validation_gate") or {}
+        if not isinstance(rule, Mapping):
+            return
+        required_for = str(rule.get("required_ledger_gate_for_transition") or "")
+        if not required_for:
+            return
+        from_phase = str(artifact.get("from_phase") or "")
+        to_phase = str(artifact.get("to_phase") or "")
+        if f"{from_phase}->{to_phase}" != required_for:
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not _is_safe_run_id(run_id):
+            blockers.append("plan_validation_gate: unsafe or missing run_id")
+            return
+        gate_name = str(rule.get("ledger_gate_name") or "PLAN_VALIDATION")
+        # Pre-compute the set of pv_ids the ledger record must cover.
+        declared_check_ids: set[str] = set()
+        for c in (rule.get("checks") or []):
+            if isinstance(c, Mapping):
+                cid = str(c.get("id") or "").strip()
+                if cid:
+                    declared_check_ids.add(cid)
+        # Required-field policy for the ledger record (mirrors piv_rule.ledger_required_fields).
+        ledger_required_fields = [str(f) for f in (rule.get("ledger_required_fields") or ["phase", "checks", "result"]) if isinstance(f, str)]
+        required_phase = str(rule.get("ledger_required_phase") or "plan")
+        ledger_path = self.uacp_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
+        if not ledger_path.exists():
+            blockers.append(f"plan_validation_gate: missing {gate_name} ledger entry (no ledger file at {ledger_path.relative_to(self.uacp_root)})")
+            return
+        try:
+            raw = ledger_path.read_text(encoding="utf-8")
+        except Exception as exc:
+            blockers.append(f"plan_validation_gate: ledger unreadable: {type(exc).__name__}")
+            return
+        # Phase 3 R2 (SKEP-R1-007): scan ALL PLAN_VALIDATION pass records and
+        # accept if ANY satisfies the contract. First-defect-wins semantics
+        # turned the ledger into a DoS surface — any caller could append a
+        # bad PLAN_VALIDATION record to block the gate forever. Per-record
+        # defects now accumulate as warnings on the transition; only the
+        # absence of ANY valid record blocks.
+        candidate_defects: list[str] = []
+        found_pass = False
+        for line_no, line in enumerate(raw.splitlines(), start=1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception as exc:
+                # Corrupt lines still block: ledger integrity is foundational.
+                blockers.append(f"plan_validation_gate: gate ledger line {line_no} unparseable: {type(exc).__name__}: {exc}")
+                return
+            if str(rec.get("gate") or "") != gate_name:
+                continue
+            if str(rec.get("result") or "") != "pass":
+                continue
+            # Reject entries from the wrong phase (must be plan).
+            rec_phase = str(rec.get("phase") or "")
+            if not rec_phase and isinstance(rec.get("record"), Mapping):
+                rec_phase = str(rec["record"].get("phase") or "")
+            if rec_phase != required_phase:
+                candidate_defects.append(f"line {line_no}: phase '{rec_phase}' != required '{required_phase}'")
+                continue
+            body: Mapping[str, Any] = rec["record"] if isinstance(rec.get("record"), Mapping) else rec
+            missing_fields = [f for f in ledger_required_fields if f not in body and f not in rec]
+            if missing_fields:
+                candidate_defects.append(f"line {line_no}: missing required fields {missing_fields}")
+                continue
+            checks_in_rec = body.get("checks") if isinstance(body.get("checks"), list) else rec.get("checks")
+            if not isinstance(checks_in_rec, list):
+                candidate_defects.append(f"line {line_no}: 'checks' must be a list (got {type(checks_in_rec).__name__})")
+                continue
+            sibling_results = body.get("check_results") if isinstance(body.get("check_results"), Mapping) else rec.get("check_results")
+            if sibling_results is not None and not isinstance(sibling_results, Mapping):
+                candidate_defects.append(f"line {line_no}: 'check_results' must be a mapping")
+                continue
+            recorded_ids: set[str] = set()
+            ids_with_pass_evidence: set[str] = set()
+            per_check_defects: list[str] = []
+            for entry in checks_in_rec:
+                if isinstance(entry, str):
+                    cid = entry.strip()
+                    if cid:
+                        recorded_ids.add(cid)
+                        # String-form: per-check pass evidence must come from sibling check_results.
+                        if isinstance(sibling_results, Mapping) and str(sibling_results.get(cid) or "") == "pass":
+                            ids_with_pass_evidence.add(cid)
+                elif isinstance(entry, Mapping):
+                    cid = str(entry.get("id") or "").strip()
+                    if cid:
+                        recorded_ids.add(cid)
+                        per_check_result = str(entry.get("result") or "")
+                        if per_check_result == "pass":
+                            ids_with_pass_evidence.add(cid)
+                        elif per_check_result and per_check_result != "pass":
+                            per_check_defects.append(f"check '{cid}' has non-pass result")
+            if per_check_defects:
+                candidate_defects.append(f"line {line_no}: " + "; ".join(per_check_defects))
+                continue
+            missing_ids = declared_check_ids - recorded_ids
+            if missing_ids:
+                candidate_defects.append(f"line {line_no}: missing required pv_ids {sorted(missing_ids)}")
+                continue
+            # SKEP-R1-006: reject extra/unknown pv_ids.
+            extra_ids = recorded_ids - declared_check_ids
+            if extra_ids:
+                candidate_defects.append(f"line {line_no}: carries unknown pv_ids {sorted(extra_ids)}")
+                continue
+            # SKEP-R1-003: each declared pv_id must have explicit per-check pass evidence.
+            unproven = declared_check_ids - ids_with_pass_evidence
+            if unproven:
+                candidate_defects.append(f"line {line_no}: missing per-check pass evidence for {sorted(unproven)}")
+                continue
+            # This record satisfies the full contract.
+            found_pass = True
+            break
+        if not found_pass:
+            detail = f" (per-record defects: {candidate_defects})" if candidate_defects else ""
+            blockers.append(f"plan_validation_gate: no '{gate_name}' pass record in ledger for run '{run_id}'{detail}")
+        elif candidate_defects and warnings is not None:
+            warnings.append(f"plan_validation_gate: earlier PLAN_VALIDATION records were rejected before a clean one was accepted: {candidate_defects}")
+
+    @staticmethod
+    def _canon_write_path(p: Any) -> str:
+        """SKEP-003 / TECH-002 remediation: canonicalize a write_path entry
+        into a POSIX-segment-normalized form ending with '/'. Strips leading
+        './' and '/', collapses repeated separators, rejects '..' segments.
+        Returns empty string when the entry is unusable.
+        """
+        from pathlib import PurePosixPath
+        s = str(p).strip()
+        if not s:
+            return ""
+        # Reject absolute paths and parent-escape; both are policy violations.
+        if s.startswith("/") or s in {".", ".."}:
+            return ""
+        try:
+            pp = PurePosixPath(s)
+        except Exception:
+            return ""
+        parts = [seg for seg in pp.parts if seg not in (".",)]
+        if any(seg == ".." for seg in parts):
+            return ""
+        norm = "/".join(parts)
+        if not norm:
+            return ""
+        return norm + "/"
+
+    @classmethod
+    def _paths_overlap(cls, a_raw: Any, b_raw: Any) -> bool:
+        """SKEP-003: two write_paths overlap iff one is an ancestor of the
+        other after canonicalization. Bare-prefix tricks ('plans' vs
+        'plans-other') no longer match; './plans/' and 'plans/' canonicalize
+        to the same value.
+        """
+        a = cls._canon_write_path(a_raw)
+        b = cls._canon_write_path(b_raw)
+        if not a or not b:
+            return False
+        return a == b or a.startswith(b) or b.startswith(a)
+
+    def _validate_run_registry_overlap(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
+        """Phase 3.2: detect write-path overlap with other active runs.
+
+        Reads state/run-registry.yaml; for each entry in active_runs whose
+        run_id != this artifact's run_id, compute path intersection. Any
+        overlap with the active scope.write_paths blocks PLAN->EXECUTE.
+
+        Phase 3 R1 hardening: malformed registry entries now block
+        (SKEP-010), path normalization uses PurePosixPath segment match
+        (SKEP-003), and the required transition is read from config
+        (TECH-003).
+        """
+        rule = self.config.get("run_registry_rule") or {}
+        if not isinstance(rule, Mapping):
+            return
+        from_phase = str(artifact.get("from_phase") or "")
+        to_phase = str(artifact.get("to_phase") or "")
+        required_for = str(rule.get("required_for_transition") or "plan->execute")
+        if f"{from_phase}->{to_phase}" != required_for:
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not _is_safe_run_id(run_id):
+            return
+        registry_rel = str(rule.get("registry_path") or "state/run-registry.yaml")
+        registry_path = self.uacp_root / registry_rel
+        if not registry_path.exists():
+            # No registry yet — emit a warning so it is observable but do not
+            # block; runs that pre-date the registry must not be blocked
+            # retroactively. Once at least one run has registered, overlap
+            # detection is active for all subsequent transitions.
+            warnings.append("run_registry: state/run-registry.yaml not yet present")
+            return
+        if yaml is None:
+            blockers.append("run_registry: PyYAML required to validate registry")
+            return
+        try:
+            data = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+        except Exception as exc:
+            blockers.append(f"run_registry: registry unparseable: {type(exc).__name__}")
+            return
+        if not isinstance(data, Mapping):
+            blockers.append("run_registry: top-level value must be a YAML mapping")
+            return
+        active = data.get("active_runs", [])
+        if active is None:
+            active = []
+        if not isinstance(active, list):
+            blockers.append("run_registry: 'active_runs' must be a list")
+            return
+        # Load the active run's scope to extract its write_paths.
+        scope_path = self.uacp_root / "plans" / f"{run_id}-scope.yaml"
+        if not scope_path.exists():
+            return  # scope_artifact validator handles missing-scope blockers
+        try:
+            scope = yaml.safe_load(scope_path.read_text(encoding="utf-8")) or {}
+        except Exception as exc:
+            blockers.append(f"run_registry: scope unparseable for overlap check: {type(exc).__name__}")
+            return
+        my_writes = scope.get("write_paths") or []
+        if not isinstance(my_writes, list):
+            blockers.append("run_registry: scope.write_paths must be a list for overlap check")
+            return
+        for idx, entry in enumerate(active):
+            if not isinstance(entry, Mapping):
+                blockers.append(f"run_registry: active_runs[{idx}] must be a mapping")
+                continue
+            other_id = str(entry.get("run_id") or "")
+            if other_id == run_id:
+                continue
+            if not other_id or not _is_safe_run_id(other_id):
+                blockers.append(f"run_registry: active_runs[{idx}].run_id missing or unsafe")
+                continue
+            other_writes = entry.get("write_paths") or []
+            if not isinstance(other_writes, list):
+                blockers.append(f"run_registry: active_runs[{idx}].write_paths must be a list")
+                continue
+            for a in my_writes:
+                for b in other_writes:
+                    if self._paths_overlap(a, b):
+                        ac = self._canon_write_path(a) or str(a)
+                        bc = self._canon_write_path(b) or str(b)
+                        blockers.append(
+                            f"run_registry: write_paths overlap with active run '{other_id}' on '{ac}' / '{bc}'"
+                        )
 
     def _validate_lessons_artifact(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Phase 2.4: VERIFY->RESOLVE requires outputs/{run_id}-lessons.yaml

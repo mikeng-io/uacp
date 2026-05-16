@@ -1,0 +1,119 @@
+kind: uacp.execution_checkpoint
+checkpoint_id: uacp-patch-plan-20260515-phase3-execute-checkpoint
+run_id: uacp-patch-plan-20260515
+phase: execute
+sub_phase: phase_3
+title: Phase 3 — mechanical governance hardening complete
+purpose: |
+  Records the close of Phase 3 of the UACP patch plan. Phase 3 delivered
+  plan_validation_gate (Item 3.1), run_registry overlap detection
+  (Item 3.2), three canonical authority docs (Item 3.3), and absorbed
+  all Phase 2 propagated constraints (Item 3.4). Both R0 and R1 Codex
+  council reviews surfaced material findings that were remediated
+  in-phase; R2 confirmed all material remediation closed with zero
+  residual material findings.
+
+scope_artifact: plans/uacp-patch-plan-20260515-scope.yaml
+proposal_artifact: proposals/uacp-patch-plan-20260515.yaml
+plan_artifact: plans/uacp-patch-plan-20260515-plan.yaml
+
+deliverables:
+  item_3_1_plan_validation_gate:
+    file: runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    function: _validate_plan_validation_gate
+    config: config/phase-transitions.yaml#plan_validation_gate
+    enforcement: |
+      Heartgate requires a PLAN_VALIDATION ledger record with result=pass,
+      phase=plan, all six pv_ids in checks list, and explicit per-check
+      pass evidence (mapping-form or sibling check_results). Scans ALL
+      pass records for DoS resistance.
+  item_3_2_run_registry:
+    file: runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    functions: [_validate_run_registry_overlap, _canon_write_path, _paths_overlap]
+    handler: runtime-adapters/hermes/plugins/uacp_guardian/__init__.py#_handle_uacp_run_registry_update
+    config: config/phase-transitions.yaml#run_registry_rule + config/artifact-schemas.yaml#run_registry
+    enforcement: |
+      PurePosixPath segment normalization detects overlap. Registry mutation
+      restricted to uacp_run_registry_update tool with caller-binding
+      (entry.run_id == args.uacp_run_id), canonicalize-on-write, and
+      no_writes_intended escape hatch.
+  item_3_3_three_canonical_docs:
+    - docs/skill-enforcement-spec.md
+    - docs/proposal-schema.md
+    - docs/lifecycle-trace-table.md
+  item_3_4_phase_2_propagated_constraints:
+    pc_p2_n1: wildcard sentinels dropped from tool_path_capabilities
+    pc_p2_n2: case-sensitivity note in evidence_disposition schema
+    pc_p2_t3: empty cluster_summary at VERIFY->RESOLVE blocks
+    pc_p2_t4: column-count mismatch in assumptions table blocks
+    pc_p2_t5: anchored intent-doc regex + tilde fence + frontmatter
+    pc_p2_minor: PIPE_BUF (3584-byte) atomicity bound + fail-closed JSONL
+
+phase_exit_invariants:
+  artifact_globs:
+    - "executions/uacp-patch-plan-20260515-phase3-execute-checkpoint.yaml"
+    - "verification/uacp-patch-plan-20260515-phase3-codex-review.yaml"
+  gate_ledger_entries:
+    - "PIV (phase: execute, sub_phase: phase_3, result: pass)"
+    - "agent_council_review_phase3 (result: pass)"
+
+verification:
+  scripts_passing:
+    - scripts/phase0_verify.py    # 14 checks pass — no regression
+    - scripts/phase1_verify.py    # 23 checks pass — no regression
+    - scripts/phase2_verify.py    # 18 checks pass — no regression
+    - scripts/phase3_verify.py    # 30 checks pass — full new coverage
+  live_probe_known_failures:
+    note: |
+      scripts/live_guardian_probe.py reports 4 failing checks. All 4 were
+      confirmed pre-existing at HEAD (commit a0644b0) by stashing R0+R1+R2
+      changes and re-running the probe. None introduced by Phase 3.
+    failing_checks:
+      - loader_reports_enabled_user:thread_title_sync
+      - loader_reports_enabled_user:uacp_guardian
+      - guardian_blocks_unknown_plugin_mutator
+      - uacp_heartgate_check_passes_valid_transition
+
+council_review:
+  artifact: verification/uacp-patch-plan-20260515-phase3-codex-review.yaml
+  passes: 3
+  final_verdict: pass_with_minor
+  material_findings_count: 0
+  minor_findings_count_propagated_to_phase_4: 17
+
+drift_propagation_to_phase_4:
+  see: verification/uacp-patch-plan-20260515-phase3-codex-review.yaml#propagated_constraints.to_phase_4
+  summary: 17 items spanning structural enforcement, mirror drift detection, registry atomicity, and PIV per-check evidence generalization.
+
+authority:
+  requested_by: operator
+  authorization_source: "Phase 3 of UACP patch plan; fully autonomous execution per operator instruction."
+  declared_side_effects:
+    - kind: file_write
+      paths:
+        - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+        - runtime-adapters/hermes/plugins/uacp_guardian/__init__.py
+        - config/phase-transitions.yaml
+        - config/artifact-schemas.yaml
+        - config/guardian-policy.yaml
+        - docs/index.md
+        - docs/runtime-enforcement.md
+        - docs/skill-enforcement-spec.md
+        - docs/proposal-schema.md
+        - docs/lifecycle-trace-table.md
+        - scripts/phase1_verify.py
+        - scripts/phase3_verify.py
+        - executions/uacp-patch-plan-20260515-phase3-drift-reconciliation.yaml
+        - executions/uacp-patch-plan-20260515-phase3-execute-checkpoint.yaml
+        - verification/uacp-patch-plan-20260515-phase3-codex-review.yaml
+    - kind: file_write
+      paths:
+        - HERMES_ROOT/skills/devops/uacp/uacp-plan/SKILL.md
+        - HERMES_ROOT/skills/devops/uacp/uacp-state/SKILL.md
+      note: outside UACP_ROOT; mirror updates for skill discoverability
+    - kind: git_commit
+      paths: ["main"]
+      reason: Atomic Phase 3 commit + push to origin/main
+
+decision: pass
+next_phase: phase_4_autonomous_mode_framework

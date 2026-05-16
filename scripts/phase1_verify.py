@@ -221,6 +221,19 @@ def main() -> int:
                 "gate": "PIV",
                 "record": {"phase": "plan", "result": "pass", "piv_attempt": 1, "checks": ["all 5 pass"]},
             })
+            # Phase 3.1: PLAN_VALIDATION gate (plan->execute transitions now require this).
+            # Phase 3 R1: ledger record must carry all six pv_ids in `checks`.
+            # Phase 3 R2 (SKEP-R1-003): explicit per-check pass evidence via check_results sibling.
+            plugin._handle_uacp_gate_ledger_append({
+                **_common_args(tmp, phase="plan"),
+                "gate": "PLAN_VALIDATION",
+                "record": {
+                    "phase": "plan",
+                    "result": "pass",
+                    "checks": ["pv_1", "pv_2", "pv_3", "pv_4", "pv_5", "pv_6"],
+                    "check_results": {"pv_1": "pass", "pv_2": "pass", "pv_3": "pass", "pv_4": "pass", "pv_5": "pass", "pv_6": "pass"},
+                },
+            })
             d = heartgate.validate_transition(artifact_missing)
             report["checks"].append({
                 "name": "phase_exit_invariants_pass_when_artifact_and_ledger_present",

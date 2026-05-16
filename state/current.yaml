@@ -2,13 +2,19 @@ schema_version: '0.1'
 kind: uacp.current_state
 active_run_id: uacp-patch-plan-20260515
 active_phase: execute
-active_status: phase_2_complete
+active_status: phase_3_complete
 last_updated_reason: >
-  Phase 2 (artifact structure) complete. Heartgate enforces scope artifact,
-  intent doc, evidence-disposition pairs, and structured lessons mechanically.
-  Two-pass Codex review: first pass concerns (3 material — F1 broken wildcard
-  semantics, F2 hidden authority list, F3 empty-file bypass), all remediated;
-  second pass pass. Phase 1 propagated_constraints all closed including
-  pc_p1_gov_2 (which depended on F1 fix). phase2_verify: 18/18; phase1_verify:
-  24/24; phase0_verify: 14/14; live probe: 0 new regressions. Six new
-  propagated_constraints (pc_p2_*) recorded for Phase 3.
+  Phase 3 (mechanical governance hardening) complete. plan_validation_gate
+  (Item 3.1) and run_registry overlap detection (Item 3.2) implemented in
+  kernel; three canonical authority docs (Item 3.3) published; Phase 2
+  propagated constraints (Item 3.4: pc_p2_n1, n2, t3, t4, t5, minor) all
+  absorbed. Three-pass Codex review: R0 surfaced 14 material findings
+  (skeptic returned block), all remediated in-phase; R1 surfaced 10
+  material findings (skeptic returned block) including caller-binding
+  bypass, '..' write-path cloak, flat-string PLAN_VALIDATION bypass,
+  empty-scope bypass; all remediated; R2 confirmation pass returned
+  pass_with_minor with zero material findings. phase3_verify: 30/30;
+  phase2_verify: 18/18; phase1_verify: 23/23; phase0_verify: 14/14.
+  Pre-existing live_guardian_probe.py failures confirmed not regressions
+  via HEAD-stash comparison. 17 minor concerns recorded as
+  pc_p3_* propagated_constraints for Phase 4.

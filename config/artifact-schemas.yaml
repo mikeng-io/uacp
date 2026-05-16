@@ -171,11 +171,55 @@ cross_checks:
         - "outputs/"
         - "knowledge/"
       uacp_gate_ledger_append: ["state/gate-ledger/"]
+    handler_refusals:
+      description: >
+        Phase 3 R1 (SKEP-008): the prefix-match cross-check above is
+        necessary but not sufficient — some tool handlers refuse sub-paths
+        of an allowed prefix. Heartgate honors these refusals so a scope
+        artifact cannot launder unreachable paths through a positive prefix
+        match. Each entry is a list of UACP_ROOT-relative path prefixes the
+        named tool will refuse at runtime.
+      uacp_state_write:
+        - "state/gate-ledger/"
+        - "state/run-registry.yaml"
+      uacp_gate_ledger_append:
+        # The gate-ledger is governed through its own append-only channel; it
+        # is NOT part of the scope.write_paths footprint. Any scope entry
+        # pointing here is a laundering attempt.
+        - "state/gate-ledger/"
 
   evidence_disposition_minimum_content:
     description: >
       Phase 2 remediation (F3): disposition pair files cannot be empty. Each
       file must contain at least the table header line. Heartgate VERIFY->RESOLVE
       blocks when a disposition pair file is present-but-empty.
+      Note (pc_p2_n2): substring match is case-sensitive. Author the documented
+      headers exactly: `| Fact | Source |` and `| Assumption | Disposition | Owner | Next-phase obligation |`.
     verified_facts_required_header_substring: "Fact"
     assumptions_required_header_substring: "Disposition"
+
+# --- Phase 3.2 schema: run registry ---
+
+run_registry:
+  kind: uacp.run_registry
+  path: "state/run-registry.yaml"
+  description: >
+    Heartgate consults this file at PLAN->EXECUTE to detect write-path
+    overlap with other active runs. The exclusive mutator is the uacp-state
+    skill; direct writes through `uacp_state_write` are refused (see
+    handler_refusals above).
+  required_fields:
+  - active_runs
+  fields:
+    schema_version: string
+    active_runs:
+      type: list
+      item_schema:
+        run_id: string
+        phase: string
+        write_paths:
+          type: list
+          item_type: string
+        scope_artifact_path: string
+        started_at: integer
+

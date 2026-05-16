@@ -206,7 +206,9 @@ warnings are surfaced but allow passage if owned.
 | 13 | scope_artifact (Phase 2.1) | `config/artifact-schemas.yaml scope` + `plans/{run_id}-scope.yaml` | PLAN→EXECUTE: missing file / missing required fields / write_paths not reachable by Layer B allowed_tools |
 | 14 | evidence_dispositions (Phase 2.2) | `config/artifact-schemas.yaml evidence_disposition` + `verification/{run_id}-{cluster}-(verified-facts\|assumptions).md` | VERIFY→RESOLVE: missing pair files / unowned `pending` assumption |
 | 15 | lessons_artifact (Phase 2.4) | `config/artifact-schemas.yaml lessons` + `outputs/{run_id}-lessons.yaml` | VERIFY→RESOLVE: missing file / missing required fields / malformed shape |
-| 16 | declared_decision | transition artifact `decision` field | declared `block` |
+| 16 | plan_validation_gate (Phase 3.1) | `config/phase-transitions.yaml plan_validation_gate` + run gate ledger | PLAN→EXECUTE: missing `PLAN_VALIDATION` pass record / wrong `phase` / missing pv_ids in `checks` list / corrupt ledger line |
+| 17 | run_registry_overlap (Phase 3.2) | `config/phase-transitions.yaml run_registry_rule` + `state/run-registry.yaml` + `plans/{run_id}-scope.yaml` | PLAN→EXECUTE: any other active run's `write_paths` overlap this run's (PurePosixPath-segment match) / malformed registry entries |
+| 18 | declared_decision | transition artifact `decision` field | declared `block` |
 
 Heartgate also owns the **transition coherence check**. A phase-local council reviews the phase's own work; Heartgate decides whether the lifecycle boundary is truthful. For medium/high-risk transitions, Heartgate may invoke or require a Heartgate Council whose mandate is cross-artifact coherence and consistency, not duplicate implementation review.
 

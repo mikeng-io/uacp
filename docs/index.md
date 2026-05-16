@@ -126,6 +126,9 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `docs/runtime-enforcement.md` | reference / policy | canonical | Guardian and Heartgate runtime enforcement design | Update before runtime enforcement implementation changes |
 | `docs/runtime-porting-and-version-control.md` | reference / policy | canonical | Runtime adapter ownership, runtime binding, repository/branch/worktree policy, and Hermes local-patch reduction path | Update before changing runtime adapter ownership or binding policy |
 | `docs/orchestration-model.md` | reference | canonical | Agent Council, council modes/tiers, runtime adapters, and downstream orchestration vocabulary | Update before changing multi-agent orchestration semantics or downstream agent-skill extraction |
+| `docs/skill-enforcement-spec.md` | reference / policy | canonical | Per-skill authority record (allowed/forbidden tools, write surfaces, PIV obligation, phase exit invariants) | Update before changing per-skill admissibility; canonical config wins on conflict with skill SKILL.md mirrors |
+| `docs/proposal-schema.md` | reference | canonical | Full reference for the `uacp.propose` artifact (fields, semantics, validation, cross-references) | Update before changing proposal artifact shape or proposal validation rules |
+| `docs/lifecycle-trace-table.md` | reference | canonical | Cross-phase artifact dependency map with Heartgate check coverage per transition | Update before changing phase transition requirements or adding new Heartgate checks |
 | `docs/runtime-integration-guide.md` | reference | canonical | Integration contract for new runtime adapters (Guardian event schema, Heartgate contract, binding sequence, verification checklist) | Update before changing adapter integration requirements |
 | `docs/decision-log.md` | decision_log | canonical | Durable record of major UACP decisions | Append entries when major decisions are made; do not edit past entries |
 | `config/evidence-clusters.yaml` | schema_config | generated | Evidence cluster families and schema | Keep aligned with canonical docs; YAML must parse |
@@ -144,7 +147,8 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `state/kanban.yaml` | runtime_state | canonical | Active Hermes Kanban binding | Update when the board slug or root task ids change |
 | `state/runs/` | runtime_state | canonical | Per-run manifests and checkpoint records | Append new run manifests; do not overwrite historical runs |
 | `state/gate-ledger/` | runtime_state | canonical | Append-only JSONL gate-decision ledger per run | Written exclusively through `uacp_gate_ledger_append`; schema in `config/state.yaml#gate_ledger` |
-| `config/artifact-schemas.yaml` | schema_config | generated | Phase-2 structured-artifact schemas (scope, intent, evidence_disposition, lessons) | Keep aligned with Heartgate enforcement in `runtime-adapters/.../kernel.py` |
+| `state/run-registry.yaml` | runtime_state | canonical | Phase 3.2 active-run registry consulted by Heartgate at PLAN→EXECUTE for write-path overlap detection | Exclusive mutator: `uacp_run_registry_update` (the uacp-state skill); schema in `config/artifact-schemas.yaml#run_registry`. Direct writes via `uacp_state_write` are refused. |
+| `config/artifact-schemas.yaml` | schema_config | generated | Phase-2 structured-artifact schemas (scope, intent, evidence_disposition, lessons) + Phase-3 run_registry schema | Keep aligned with Heartgate enforcement in `runtime-adapters/.../kernel.py` |
 | `runtime-adapters/` | runtime_adapter_source | canonical | UACP-owned runtime adapter/plugin source for Hermes and future runtimes | Source changes require runtime binding verification and rollback evidence |
 
 ## Lifecycle Skill Registry

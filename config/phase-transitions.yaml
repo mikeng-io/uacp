@@ -24,6 +24,7 @@ stages:
     allowed_tools:
     - uacp_artifact_write
     - uacp_state_write
+    - uacp_run_registry_update
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     - uacp_doc_write
@@ -45,6 +46,7 @@ stages:
     allowed_tools:
     - uacp_artifact_write
     - uacp_state_write
+    - uacp_run_registry_update
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     - uacp_doc_write
@@ -67,6 +69,7 @@ stages:
     allowed_tools:
     - uacp_artifact_write
     - uacp_state_write
+    - uacp_run_registry_update
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     forbidden_tools:
@@ -89,6 +92,7 @@ stages:
     - uacp_doc_write
     - uacp_config_write
     - uacp_state_write
+    - uacp_run_registry_update
     - uacp_artifact_write
     - uacp_gate_ledger_append
     - uacp_contained_shell
@@ -111,6 +115,7 @@ stages:
     allowed_tools:
     - uacp_artifact_write
     - uacp_state_write
+    - uacp_run_registry_update
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     - uacp_sandbox_check
@@ -132,6 +137,7 @@ stages:
     allowed_tools:
     - uacp_artifact_write
     - uacp_state_write
+    - uacp_run_registry_update
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     forbidden_tools:
@@ -168,6 +174,63 @@ transition_rule:
   heartgate_council_role: Heartgate may require a transition-boundary council that
     checks lifecycle coherence and cross-artifact consistency. This is distinct from
     phase-local Agent Council review of phase work products.
+
+plan_validation_gate:
+  description: >
+    Phase 3 Item 3.1: a deterministic structural check that runs at PLAN->EXECUTE
+    BEFORE any EXECUTE work begins. Not a council — a pre-flight verification
+    recorded as `gate: PLAN_VALIDATION` in the run's gate ledger. Heartgate
+    treats the PLAN_VALIDATION ledger entry as a required predecessor to
+    PLAN->EXECUTE; the entry must exist with result=pass.
+  required_ledger_gate_for_transition: plan->execute
+  ledger_gate_name: PLAN_VALIDATION
+  # Phase 3 R1 (SKEP-001 / GOV-004): the ledger record must carry these
+  # fields, must be tagged phase==plan, and its `checks` list must include
+  # every pv_id below. The kernel verifies these before accepting the gate.
+  ledger_required_fields: [phase, checks, result]
+  ledger_required_phase: plan
+  checks:
+  - id: pv_1
+    name: scope_artifact_present_and_parses
+    description: plans/{run_id}-scope.yaml exists and parses as valid YAML with all required fields.
+  - id: pv_2
+    name: allowed_tools_registered
+    description: All tools listed in scope.allowed_tools (if present) are registered in the Guardian tool registry.
+  - id: pv_3
+    name: write_paths_within_proposal_side_effects
+    description: scope.write_paths is a subset of the proposal's declared side_effects.paths.
+  - id: pv_4
+    name: blast_radius_human_approval_when_high
+    description: If blast_radius is high or critical, a human-involvement record exists in the triage artifact.
+  - id: pv_5
+    name: rollback_path_declared
+    description: A rollback_path is declared (even if "none--write-only-artifact").
+  - id: pv_6
+    name: cluster_artifacts_referenced
+    description: All required cluster artifacts from PROPOSE->PLAN transition are referenced in plan.
+  enforcement: heartgate blocker on PLAN->EXECUTE if PLAN_VALIDATION ledger entry is absent or its result is not 'pass'
+
+run_registry_rule:
+  description: >
+    Phase 3 Item 3.2: write-path overlap detection across concurrent runs.
+    Heartgate consults state/run-registry.yaml at PLAN->EXECUTE; if another
+    active run declares an overlapping write_paths entry, this transition
+    blocks (enforce) or warns (observe).
+  registry_path: state/run-registry.yaml
+  enforcement: heartgate blocker on overlap with another active_run's write_paths
+  # Phase 3 R1 (TECH-003): the transition this rule guards is read here, not
+  # hardcoded in kernel. Extending overlap detection to other transitions
+  # only requires a config edit.
+  required_for_transition: plan->execute
+  # Phase 3 R2 (GOV-R1-004): the actual mechanical writer for state/run-registry.yaml
+  # is uacp_run_registry_update. uacp_state_write refuses direct writes
+  # (see config/artifact-schemas.yaml#cross_checks.scope_write_paths_vs_layer_b.handler_refusals).
+  writer_tool: uacp_run_registry_update
+  # _advisory suffix marks fields that are documentation-only; the
+  # mechanical enforcement comes from uacp_state_write refusing the path
+  # AND from uacp_run_registry_update enforcing caller-binding (entry.run_id
+  # == caller.uacp_run_id).
+  exclusive_mutator_advisory: uacp-state skill
 
 piv_rule:
   description: >
