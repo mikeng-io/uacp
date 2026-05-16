@@ -25,6 +25,7 @@ stages:
     - uacp_artifact_write
     - uacp_state_write
     - uacp_run_registry_update
+    - uacp_escalation_event
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     - uacp_doc_write
@@ -47,6 +48,7 @@ stages:
     - uacp_artifact_write
     - uacp_state_write
     - uacp_run_registry_update
+    - uacp_escalation_event
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     - uacp_doc_write
@@ -70,6 +72,7 @@ stages:
     - uacp_artifact_write
     - uacp_state_write
     - uacp_run_registry_update
+    - uacp_escalation_event
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     forbidden_tools:
@@ -93,6 +96,7 @@ stages:
     - uacp_config_write
     - uacp_state_write
     - uacp_run_registry_update
+    - uacp_escalation_event
     - uacp_artifact_write
     - uacp_gate_ledger_append
     - uacp_contained_shell
@@ -116,6 +120,7 @@ stages:
     - uacp_artifact_write
     - uacp_state_write
     - uacp_run_registry_update
+    - uacp_escalation_event
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     - uacp_sandbox_check
@@ -138,6 +143,7 @@ stages:
     - uacp_artifact_write
     - uacp_state_write
     - uacp_run_registry_update
+    - uacp_escalation_event
     - uacp_gate_ledger_append
     - uacp_heartgate_check
     forbidden_tools:

@@ -11,6 +11,7 @@ protected_categories:
     - uacp_state_write
     - uacp_gate_ledger_append
     - uacp_run_registry_update
+    - uacp_escalation_event
   docs.uacp:
     description: Canonical UACP Markdown docs under docs/.
     default_decision: block
@@ -75,6 +76,7 @@ tool_classification:
   uacp_heartgate_check: lifecycle.transition
   uacp_gate_ledger_append: state.uacp
   uacp_run_registry_update: state.uacp
+  uacp_escalation_event: state.uacp
   terminal: exec.shell
   execute_code: exec.code_with_tool_proxy
   send_message: external.message
@@ -125,6 +127,7 @@ self_attesting_tools:
   - uacp_contained_shell
   - uacp_gate_ledger_append
   - uacp_run_registry_update
+  - uacp_escalation_event
 runtime_modes:
   observe:
     description: Log decisions but allow unless non-waivable secret/private boundary is crossed.

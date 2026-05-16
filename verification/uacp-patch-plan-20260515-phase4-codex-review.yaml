@@ -1,0 +1,130 @@
+kind: uacp.verification
+verification_id: uacp-patch-plan-20260515-phase4-codex-review
+run_id: uacp-patch-plan-20260515
+phase: execute
+artifact_class: agent_council_review
+title: Phase 4 Codex council review — two passes
+purpose: |
+  Records the two-pass Codex review gate for Phase 4 (autonomous-mode
+  framework stub). Phase 4 is honestly framed as a stub for the Phase 5
+  full autonomous-mode landing; the question for the review was whether
+  the stub honestly represents what is deferred.
+
+review_protocol:
+  council_topology: tier_2_role_diverse
+  perspectives: [technical, governance, skeptic]
+  parallelism: parallel
+  external_reviewer: codex-as-general-purpose-subagent
+  pass_only_threshold: zero_material_findings_unresolved
+
+passes:
+  - pass_id: p4_r0
+    verdict_by_perspective:
+      technical: pass_with_minor
+      governance: pass_with_minor
+      skeptic: pass_with_minor
+    material_findings_count: 14
+    summary: |
+      First pass surfaced 14 material findings concentrated on three
+      themes: drift YAML overstating absorption of Phase 3 pc_p3_*
+      constraints (5 fictitious absorptions), autonomy-policy.yaml
+      decorative fields with no kernel readers, escalation handler
+      mode-field contract mismatch (required by state.yaml, optional
+      in handler/schema), and doc-inventory gaps (escalations,
+      autonomy-policy, uacp_escalation_event missing from canonical docs).
+    findings_keys:
+      - TECH-P4-001 autonomy-policy.yaml zero kernel readers
+      - TECH-P4-002 escalation mode contract mismatch
+      - TECH-P4-005 escalations-dir containment defense-in-depth
+      - TECH-P4-006 uacp_mode declared without kernel reader
+      - TECH-P4-009 escalation handler missing newline refusal
+      - GOV-P4-001 drift YAML overstated absorption
+      - GOV-P4-002 mode-behavior fields lack enforcement_status tags
+      - GOV-P4-003 docs/index, skill-enforcement-spec, lifecycle-trace missing Phase 4 inventory
+      - SKEP-P4-001 pc_p3_tech_r1_007 registry atomicity unabsorbed
+      - SKEP-P4-002 trigger-ID accepted without registry validation
+      - SKEP-P4-003 uacp_mode purely advisory
+      - SKEP-P4-005 check_authority_mirror.py missing
+      - SKEP-P4-006 mode-conditional Heartgate behavior nonexistent
+      - SKEP-P4-007 scope-existence precheck unabsorbed
+      - SKEP-P4-008 canonical_state_paths block has no reader
+
+  - pass_id: p4_r1_confirmation
+    verdict_by_perspective:
+      technical_governance_skeptic_unified: pass
+    material_findings_count: 0
+    summary: |
+      Second pass (single combined reviewer) confirmed every R0 material
+      finding remediated. 4 cosmetic minor findings (drift YAML count typo,
+      hermes_core_seam status-key inconsistency, classification vocabulary
+      growth, SKILL.md trigger coverage) all propagated to Phase 5.
+      Verdict: pass.
+    minor_findings:
+      - MINOR-P4-R1-001 honest_summary count off-by-one (8 vs 9 deferred) [fixed inline]
+      - MINOR-P4-R1-002 hermes_core_seam status: vs enforcement_status: [fixed inline]
+      - MINOR-P4-R1-003 classification vocabulary grew beyond five named keys
+      - MINOR-P4-R1-004 SKILL.md mode_behavior names only 1 of 7 registry triggers
+
+verification_outcome:
+  decision: pass
+  rationale: |
+    Phase 4 R1 stops pretending — every block flagged as
+    "decorative-pretending-to-be-enforced" now carries an explicit
+    enforcement_status: stub_only_phase_4 tag (modes, escalation_triggers,
+    canonical_state_paths, uacp_mode, hermes_core_seam). Drift YAML
+    rewritten with honest classification keys; the 9 deferred items are
+    enumerated with rationale. Escalation handler now correctly requires
+    mode, performs explicit containment check, refuses embedded newlines —
+    full parity with gate-ledger. The pass-only threshold (zero material
+    findings) is satisfied.
+
+propagated_constraints:
+  to_phase_5:
+    - id: pc_p4_tech_001
+      description: Kernel readers for autonomy-policy.yaml (escalations dir, trigger-ID allowlist, per-mode flags).
+    - id: pc_p4_tech_002
+      description: Validate uacp_escalation_event.trigger against autonomy-policy registry.
+    - id: pc_p4_tech_003
+      description: Reconcile escalation record mode contract — REMEDIATED IN R1 (no longer Phase 5 work).
+    - id: pc_p4_tech_004
+      description: Registry mutation atomicity (atomic rename + advisory lock).
+    - id: pc_p4_tech_005
+      description: Promote uacp_mode from documentation-only to kernel-read field.
+    - id: pc_p4_tech_006
+      description: Structured condition DSL for escalation_triggers.
+    - id: pc_p4_gov_001
+      description: scripts/check_authority_mirror.py (re-deferred from Phase 3).
+    - id: pc_p4_gov_002
+      description: Heartgate cross-checks active_runs entries against per-entry schema (mode-aware).
+    - id: pc_p4_skep_001
+      description: Same as tech_004 (registry atomicity).
+    - id: pc_p4_skep_002
+      description: Same as tech_002 (trigger ID validation).
+    - id: pc_p4_skep_003
+      description: Same as tech_005 (uacp_mode kernel reader).
+    - id: pc_p4_skep_004
+      description: Cap escalation records per run; dedup-within-window.
+    - id: pc_p4_skep_007
+      description: _canonical_state_path(name) helper.
+    - id: pc_p4_skep_010
+      description: current.yaml conformance validator.
+    - id: pc_p4_r1_001
+      description: Drift YAML count typo — REMEDIATED IN R1.
+    - id: pc_p4_r1_002
+      description: hermes_core_seam status field naming — REMEDIATED IN R1.
+    - id: pc_p4_r1_003
+      description: Extend phase4_verify check 17 to all decorative blocks.
+    - id: pc_p4_r1_004
+      description: SKILL.md mode_behavior should enumerate applicable trigger IDs per phase.
+    - id: pc_p4_r1_005
+      description: Phase 5 kernel readers for stub_only_phase_4 tags.
+
+authority:
+  requested_by: operator
+  authorization_source: |
+    "Enter fully automation mode. Complete each of the phases by yourself.
+    At the end of each phase, make sure the agent council is run to perform
+    the review and audit ... Also, don't forget to use Codex to do the
+    external review."
+  reviewer_provenance: codex-as-general-purpose-agent-trio
+  artifact_path_self: verification/uacp-patch-plan-20260515-phase4-codex-review.yaml

@@ -107,6 +107,18 @@ RESOLVE                 outputs + structured lessons (outputs/{run_id}-*)
 terminal               state/current.yaml pointer updated
 ```
 
+## Escalation events (Phase 4.4 stub — parallel surface)
+
+The `state/escalations/{run_id}.jsonl` ledger is a parallel, **non-blocking**, append-only surface separate from the gate ledger. Skills emit records via `uacp_escalation_event` when an escalation trigger (declared in `config/autonomy-policy.yaml#escalation_triggers`) fires in the active operating mode (`state/current.yaml#uacp_mode`).
+
+Phase 4 status:
+- `uacp_mode` is a stub field with no kernel reader (`enforcement_status: stub_only_phase_4`).
+- The kernel does NOT yet branch on mode; no transition is mode-gated.
+- Operator engagement is via polling `state/escalations/`. Push-notification is the Hermes core seam deferred to Phase 5.
+- Trigger ID validation against the autonomy-policy registry is also deferred to Phase 5.
+
+Phase 5 promotes mode-aware enforcement to load-bearing: Heartgate will gate transitions on the active mode's `requires_operator_confirmation` list, and the escalation handler will lock down trigger IDs.
+
 ## Adaptive evidence selection
 
 Heartgate does not enforce a fixed cluster set. The `cluster_summary` in the transition artifact is chosen by the meta-gate (TRIAGE) and may be revised at PROPOSE. The 15 cluster families in `config/evidence-clusters.yaml` are templates; concrete cluster IDs are picked per-run.

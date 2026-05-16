@@ -888,6 +888,93 @@ def _handle_uacp_run_registry_update(args: dict, **_: Any) -> str:
         return json.dumps({"error": f"uacp_run_registry_update failed: {type(exc).__name__}: {exc}"})
 
 
+def _handle_uacp_escalation_event(args: dict, **_: Any) -> str:
+    """Phase 4.4 — append an operator-facing escalation record to
+    state/escalations/{run_id}.jsonl.
+
+    Required args (plus standard UACP context):
+      trigger: string id matching an entry in config/autonomy-policy.yaml#escalation_triggers.triggers
+      severity: enum {info, warn, block}
+      reason: string explanation
+      mode: current uacp_mode {manual, semi_auto, supervised_auto, full_auto}
+      details: optional mapping with extra context
+
+    Phase 4 R1 absorbed constraint (pc_p3_tech_r1_001): this handler
+    enforces UACP context fields via _required_uacp_context_missing.
+
+    The handler is intentionally a stub. It writes the JSONL record and
+    returns. The Hermes core seam — push-notify the operator — is
+    Phase 5. In Phase 4 operators poll state/escalations/.
+    """
+    try:
+        missing_context = _required_uacp_context_missing(args)
+        if missing_context:
+            return json.dumps({"error": f"missing UACP context fields: {', '.join(missing_context)}"})
+        policy = _policy()
+        root = policy.uacp_root
+        from uacp_guardian.kernel import _is_safe_run_id as _safe
+        run_id = str(args.get("uacp_run_id") or "")
+        if not _safe(run_id):
+            return json.dumps({"error": "uacp_escalation_event: unsafe or missing uacp_run_id"})
+        trigger = str(args.get("trigger") or "").strip()
+        severity = str(args.get("severity") or "").strip().lower()
+        reason = str(args.get("reason") or "").strip()
+        mode = str(args.get("mode") or "").strip().lower()
+        authority = str(args.get("authority_artifact") or "").strip()
+        if not trigger:
+            return json.dumps({"error": "uacp_escalation_event: 'trigger' is required"})
+        if severity not in {"info", "warn", "block"}:
+            return json.dumps({"error": "uacp_escalation_event: 'severity' must be info|warn|block"})
+        if not reason:
+            return json.dumps({"error": "uacp_escalation_event: 'reason' is required"})
+        # Phase 4 R1 (TECH-P4-002): state.yaml#escalations.record_schema.required_fields
+        # lists `mode` as required. Honor the schema contract — empty mode is
+        # rejected, not silently written as "".
+        if not mode:
+            return json.dumps({"error": "uacp_escalation_event: 'mode' is required (must be manual|semi_auto|supervised_auto|full_auto)"})
+        if mode not in {"manual", "semi_auto", "supervised_auto", "full_auto"}:
+            return json.dumps({"error": "uacp_escalation_event: 'mode' must be manual|semi_auto|supervised_auto|full_auto"})
+        if not authority:
+            return json.dumps({"error": "uacp_escalation_event: 'authority_artifact' is required"})
+        details = args.get("details") or {}
+        if details and not isinstance(details, dict):
+            return json.dumps({"error": "uacp_escalation_event: 'details' must be a mapping when present"})
+        record = {
+            "run_id": run_id,
+            "phase": str(args.get("uacp_phase") or ""),
+            "mode": mode,
+            "trigger": trigger,
+            "severity": severity,
+            "reason": reason,
+            "authority_artifact": authority,
+            "ts": int(time.time()),
+        }
+        if details:
+            record["details"] = details
+        # Append-only JSONL, one record per line. Mirror PIPE_BUF (3584-byte)
+        # atomicity bound from uacp_gate_ledger_append.
+        line = json.dumps(record, sort_keys=True, ensure_ascii=False)
+        if len(line.encode("utf-8")) > 3584:
+            return json.dumps({"error": "record exceeds 3584-byte escalation limit (PIPE_BUF atomicity)"})
+        # Phase 4 R1 (TECH-P4-005): containment check — ensure resolved path
+        # remains under root/state/escalations. Defense-in-depth alongside
+        # _is_safe_run_id (which already prevents traversal).
+        out_path = (root / "state" / "escalations" / f"{run_id}.jsonl").resolve()
+        escalations_root = (root / "state" / "escalations").resolve()
+        if escalations_root not in out_path.parents:
+            return json.dumps({"error": "uacp_escalation_event: resolved path escapes state/escalations/"})
+        # Phase 4 R1 (TECH-P4-009): mirror gate-ledger's explicit embedded-newline
+        # refusal (json.dumps escapes them, but belt-and-braces).
+        if "\n" in line:
+            return json.dumps({"error": "uacp_escalation_event: serialized line must not contain embedded newlines"})
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with out_path.open("a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+        return json.dumps({"ok": True, "path": str(out_path.relative_to(root)), "trigger": trigger, "severity": severity, "run_id": run_id, "authority_artifact": authority}, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_escalation_event failed: {type(exc).__name__}: {exc}"})
+
+
 def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
     try:
         policy = _policy()
@@ -1154,6 +1241,44 @@ def register(ctx) -> None:
         },
         handler=_handle_uacp_run_registry_update,
         description="Phase 3.2 exclusive registry mutator",
+    )
+    ctx.register_tool(
+        name="uacp_escalation_event",
+        toolset="uacp_guardian",
+        schema={
+            "name": "uacp_escalation_event",
+            "description": "Phase 4.4 — emit an operator-facing escalation record to state/escalations/{run_id}.jsonl. Stub for autonomous-mode operator-notify; push-notify is Phase 5.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "trigger": {"type": "string"},
+                    "severity": {"type": "string", "enum": ["info", "warn", "block"]},
+                    "reason": {"type": "string"},
+                    "mode": {"type": "string", "enum": ["manual", "semi_auto", "supervised_auto", "full_auto"], "description": "Required — must match state.yaml#escalations.record_schema"},
+                    "details": {"type": "object"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "trigger",
+                    "severity",
+                    "reason",
+                    "mode",
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+        },
+        handler=_handle_uacp_escalation_event,
+        description="Phase 4.4 escalation-event writer",
     )
     ctx.register_tool(
         name="uacp_artifact_write",

@@ -2,19 +2,23 @@ schema_version: '0.1'
 kind: uacp.current_state
 active_run_id: uacp-patch-plan-20260515
 active_phase: execute
-active_status: phase_3_complete
+active_status: phase_4_complete
 last_updated_reason: >
-  Phase 3 (mechanical governance hardening) complete. plan_validation_gate
-  (Item 3.1) and run_registry overlap detection (Item 3.2) implemented in
-  kernel; three canonical authority docs (Item 3.3) published; Phase 2
-  propagated constraints (Item 3.4: pc_p2_n1, n2, t3, t4, t5, minor) all
-  absorbed. Three-pass Codex review: R0 surfaced 14 material findings
-  (skeptic returned block), all remediated in-phase; R1 surfaced 10
-  material findings (skeptic returned block) including caller-binding
-  bypass, '..' write-path cloak, flat-string PLAN_VALIDATION bypass,
-  empty-scope bypass; all remediated; R2 confirmation pass returned
-  pass_with_minor with zero material findings. phase3_verify: 30/30;
-  phase2_verify: 18/18; phase1_verify: 23/23; phase0_verify: 14/14.
-  Pre-existing live_guardian_probe.py failures confirmed not regressions
-  via HEAD-stash comparison. 17 minor concerns recorded as
-  pc_p3_* propagated_constraints for Phase 4.
+  Phase 4 (autonomous-mode framework stub) complete. Item 4.1: uacp_mode
+  enum field in state schema with default=manual, tagged
+  enforcement_status: stub_only_phase_4 (no kernel reader in Phase 4).
+  Item 4.2: config/autonomy-policy.yaml authority surface declared with 4
+  modes, 7 escalation triggers, canonical_state_paths,
+  advisory_field_convention — every decorative block tagged with
+  enforcement_status. Item 4.3: mode_behavior stubs in all 7 SKILL.md
+  files. Item 4.4: uacp_escalation_event tool stub writes JSONL records to
+  state/escalations/{run_id}.jsonl with full UACP-context enforcement,
+  containment check, embedded-newline refusal, and PIPE_BUF bound.
+  Two-pass Codex council: R0 surfaced 14 material findings clustered on
+  drift-YAML overstating absorption, decorative-vs-enforced fields, mode
+  contract mismatch, and doc-inventory gaps; R1 confirmation pass returned
+  verdict: pass with zero material findings. 14 minor concerns recorded as
+  pc_p4_* propagated_constraints for Phase 5. phase4_verify: 20/20;
+  phase3_verify: 30/30; phase2_verify: 18/18; phase1_verify: 23/23;
+  phase0_verify: 14/14. Drift YAML uses honest classification keys: 4
+  remediated in-phase, 3 earlier, 2 documented-not-enforced, 9 deferred.

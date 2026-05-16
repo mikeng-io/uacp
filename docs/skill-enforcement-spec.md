@@ -22,7 +22,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Purpose**: admission control, scope/granularity calibration, governance routing.
 
-**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`, `uacp_doc_write`, `uacp_config_write`.
+**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`, `uacp_doc_write`, `uacp_config_write`, `uacp_escalation_event`.
 
 **Forbidden tools**: `terminal`, `execute_code`.
 
@@ -36,7 +36,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Purpose**: formalize authority, side effects, viability, proposal artifact.
 
-**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`, `uacp_doc_write`.
+**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`, `uacp_doc_write`, `uacp_escalation_event`.
 
 **Forbidden tools**: `terminal`, `execute_code`.
 
@@ -50,7 +50,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Purpose**: convert proposal into bounded plan + scope artifact.
 
-**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`.
+**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`, `uacp_escalation_event`.
 
 **Forbidden tools**: `terminal`, `execute_code`.
 
@@ -66,7 +66,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Purpose**: perform bounded implementation through the approved plan.
 
-**Allowed tools**: `uacp_doc_write`, `uacp_config_write`, `uacp_state_write`, `uacp_artifact_write`, `uacp_gate_ledger_append`, `uacp_contained_shell`, `uacp_sandbox_check`, `uacp_heartgate_check`, `terminal`, `execute_code`.
+**Allowed tools**: `uacp_doc_write`, `uacp_config_write`, `uacp_state_write`, `uacp_artifact_write`, `uacp_gate_ledger_append`, `uacp_contained_shell`, `uacp_sandbox_check`, `uacp_heartgate_check`, `terminal`, `execute_code`, `uacp_escalation_event`.
 
 **Forbidden tools**: (none — full shell/exec available, but governed by scope.write_paths Layer A cross-check).
 
@@ -80,7 +80,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Purpose**: validate completed work against evidence clusters; emit disposition pairs.
 
-**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`, `uacp_sandbox_check`, `uacp_contained_shell`.
+**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`, `uacp_sandbox_check`, `uacp_contained_shell`, `uacp_escalation_event`.
 
 **Forbidden tools**: `terminal`, `execute_code` (use `uacp_contained_shell` for any shell needs).
 
@@ -96,7 +96,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Purpose**: finalize outputs, emit structured lessons, archive.
 
-**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`.
+**Allowed tools**: `uacp_artifact_write`, `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_heartgate_check`, `uacp_escalation_event`.
 
 **Forbidden tools**: `terminal`, `execute_code`.
 
@@ -112,7 +112,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Purpose**: exclusive mutator of `state/`.
 
-**Allowed tools**: `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_run_registry_update`.
+**Allowed tools**: `uacp_state_write`, `uacp_gate_ledger_append`, `uacp_run_registry_update`, `uacp_escalation_event`.
 
 **Forbidden tools**: `terminal`, `execute_code`.
 
@@ -140,6 +140,8 @@ uacp-state has no Layer B entry of its own (it's `phase: '*'` / cross-phase); ad
 | Run registry mutation | `uacp_run_registry_update` enforces caller-binding + write-path canonicalization; `uacp_state_write` refuses direct writes to `state/run-registry.yaml` (Phase 3 R1/R2) |
 | Scope handler refusals | `Heartgate._validate_scope_artifact` reads `cross_checks.scope_write_paths_vs_layer_b.handler_refusals` so a scope cannot launder paths the handler refuses (Phase 3 R1) |
 | Escape-hatch shape | `Heartgate._validate_evidence_dispositions` validates that `handled_findings_chain` / `accepted_exceptions` entries are non-empty mappings with required fields, not garbage placeholders (Phase 3 R2 SKEP-R1-002) |
+| Escalation events (Phase 4.4 stub) | `_handle_uacp_escalation_event` enforces UACP context, severity/mode enums, required `mode` field, PIPE_BUF size bound, escalation-dir containment check, embedded-newline refusal; writes to `state/escalations/{run_id}.jsonl`. Operator-polling only — push-notify is Phase 5. Trigger-ID validation against `config/autonomy-policy.yaml#escalation_triggers.triggers` is deferred to Phase 5 (no kernel reader yet). |
+| Operating mode (Phase 4.1 stub) | `state/current.yaml#uacp_mode` declared with default=manual. **No kernel reader in Phase 4** — `enforcement_status: stub_only_phase_4`. Skills consult `config/autonomy-policy.yaml` as guidance. Phase 5 adds the first reader. |
 | Scope write_paths | `Heartgate._validate_scope_artifact` reads `config/artifact-schemas.yaml#scope` + `plans/{run_id}-scope.yaml` |
 
 If a skill SKILL.md mirror drifts from this spec or from `config/phase-transitions.yaml`, the canonical config wins. Drift is recoverable through normal commits — there is no audit harness yet (deferred for Phase 4 autonomous-mode verification cycles).

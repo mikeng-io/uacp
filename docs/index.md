@@ -148,7 +148,9 @@ Relative-path risk: plain relative paths can be ambiguous if an agent resolves t
 | `state/runs/` | runtime_state | canonical | Per-run manifests and checkpoint records | Append new run manifests; do not overwrite historical runs |
 | `state/gate-ledger/` | runtime_state | canonical | Append-only JSONL gate-decision ledger per run | Written exclusively through `uacp_gate_ledger_append`; schema in `config/state.yaml#gate_ledger` |
 | `state/run-registry.yaml` | runtime_state | canonical | Phase 3.2 active-run registry consulted by Heartgate at PLAN→EXECUTE for write-path overlap detection | Exclusive mutator: `uacp_run_registry_update` (the uacp-state skill); schema in `config/artifact-schemas.yaml#run_registry`. Direct writes via `uacp_state_write` are refused. |
+| `state/escalations/` | runtime_state | canonical | Phase 4.4 stub — append-only JSONL per run with operator-facing escalation records | Exclusive writer: `uacp_escalation_event`. One file per run_id. Operators poll (push-notify is Phase 5). Schema in `config/state.yaml#escalations.record_schema`. |
 | `config/artifact-schemas.yaml` | schema_config | generated | Phase-2 structured-artifact schemas (scope, intent, evidence_disposition, lessons) + Phase-3 run_registry schema | Keep aligned with Heartgate enforcement in `runtime-adapters/.../kernel.py` |
+| `config/autonomy-policy.yaml` | schema_config | generated | Phase 4.2 stub — operating modes (manual/semi_auto/supervised_auto/full_auto), escalation trigger registry, canonical_state_paths, advisory_field_convention. Marked `enforcement_status: stub_only_phase_4` (kernel readers land in Phase 5). | Skills consult this file as guidance for mode_behavior; Heartgate readers come in Phase 5. |
 | `runtime-adapters/` | runtime_adapter_source | canonical | UACP-owned runtime adapter/plugin source for Hermes and future runtimes | Source changes require runtime binding verification and rollback evidence |
 
 ## Lifecycle Skill Registry

@@ -183,6 +183,8 @@ current_pointer_schema:
     - kanban_board_slug
     - bootstrap_closed
     - governed_mutation_active
+  optional_fields:
+    - uacp_mode      # Phase 4.1 — operating mode for the active run
   fields:
     active_run_id: string
     active_run_manifest: string
@@ -196,9 +198,57 @@ current_pointer_schema:
       type: boolean
     governed_mutation_active:
       type: boolean
+    uacp_mode:
+      type: enum
+      values: [manual, semi_auto, supervised_auto, full_auto]
+      default: manual
+      enforcement_status: stub_only_phase_4
+      description: >
+        Phase 4.1 stub — operating mode for the active run. Determines which
+        skill mode_behavior stubs apply and which escalation triggers
+        (config/autonomy-policy.yaml) fire. manual is the safe default.
+        Phase 4 R1 honesty (SKEP-P4-003 / TECH-P4-006): no kernel reader
+        consumes this field in Phase 4; mode is consumed only by skills as
+        guidance. Phase 5 adds the first kernel reader
+        (Heartgate mode-gating).
     notes:
       type: list
       item_type: string
+
+# --- Phase 4.4: escalation events ledger ---
+escalations:
+  path: state/escalations/
+  description: >
+    Phase 4.4 — append-only ledger of operator-facing escalations emitted
+    by uacp_escalation_event. Each file is JSONL keyed by run_id; one
+    record per escalation. Operators poll this directory (push notification
+    is Phase 5).
+  filename_template: "{run_id}.jsonl"
+  record_schema:
+    required_fields:
+      - run_id
+      - phase
+      - mode
+      - trigger
+      - severity
+      - reason
+      - authority_artifact
+      - ts
+    fields:
+      run_id: string
+      phase: string
+      mode:
+        type: enum
+        values: [manual, semi_auto, supervised_auto, full_auto]
+      trigger: string
+      severity:
+        type: enum
+        values: [info, warn, block]
+      reason: string
+      authority_artifact: string
+      ts: integer
+      details:
+        type: mapping
 
 mutation_rules:
   bootstrap:
