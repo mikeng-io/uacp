@@ -382,8 +382,8 @@ The rollback path must be executable by an operator who has no knowledge of UACP
 
 ## 15. See Also
 
-- `docs/runtime-enforcement.md` — full Guardian and Heartgate design
-- `docs/runtime-porting-and-version-control.md` — adapter ownership and version-control policy
+- `docs/runtime/runtime-enforcement.md` — full Guardian and Heartgate design
+- `docs/runtime/runtime-porting-and-version-control.md` — adapter ownership and version-control policy
 - `config/guardian-policy.yaml` — machine-readable policy seed
 - `runtime-adapters/hermes/plugins/uacp_guardian/` — the Hermes adapter implementation
 - `config/runtime-bindings.yaml` — current binding registry

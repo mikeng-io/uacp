@@ -28,7 +28,7 @@ The kernel reads this dependency model from `config/phase-transitions.yaml`, `co
 
 | Aspect | Detail |
 |---|---|
-| Required inputs | Proposal artifact `proposals/{run_id}.yaml` matching `docs/proposal-schema.md` |
+| Required inputs | Proposal artifact `proposals/{run_id}.yaml` matching `docs/reference/proposal-schema.md` |
 | Required outputs | `plans/{run_id}*` (plan artifacts), `plans/{run_id}-scope.yaml` (Phase 2.1) |
 | Heartgate checks | all Phase 1 checks + phase_exit_invariants + piv_record |
 | Gate ledger | `gate: PROPOSE->PLAN` |
@@ -127,9 +127,9 @@ This trace table describes the **structural** dependency between phases. The **e
 
 ## Authority cross-references
 
-- `docs/skill-enforcement-spec.md` — what each skill may do
-- `docs/proposal-schema.md` — uacp.propose artifact reference
-- `docs/runtime-enforcement.md` — Guardian + Heartgate runtime design (with the full 16-step Heartgate check list)
+- `docs/reference/skill-enforcement-spec.md` — what each skill may do
+- `docs/reference/proposal-schema.md` — uacp.propose artifact reference
+- `docs/runtime/runtime-enforcement.md` — Guardian + Heartgate runtime design (with the full 18-step Heartgate check list — rows 16 and 17 added in Phase 3 for `plan_validation_gate` and `run_registry_overlap`)
 - `config/phase-transitions.yaml` — phase admissibility, exit invariants, piv_rule, plan_validation_gate, run_registry_rule
 - `config/artifact-schemas.yaml` — scope, intent, evidence_disposition, lessons
 - `config/guardian-policy.yaml` — Layer A categories, self_attesting_tools, mode

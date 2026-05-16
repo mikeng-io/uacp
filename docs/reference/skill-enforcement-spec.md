@@ -5,7 +5,7 @@ This is the authoritative authority record for what each UACP skill is allowed t
 ## Authority chain
 
 ```
-docs/skill-enforcement-spec.md (intent)
+docs/reference/skill-enforcement-spec.md (intent)
     │
     └─→ config/phase-transitions.yaml stages.<phase>.allowed_tools / forbidden_tools / phase_exit_invariants
             │

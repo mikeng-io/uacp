@@ -60,6 +60,8 @@ See [`docs/plans/phase5-reserved-slot.md`](docs/plans/phase5-reserved-slot.md) f
 | New to UACP | [README.md](README.md), then [`docs/policy/constitution.md`](docs/policy/constitution.md) |
 | Authoring a UACP change | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Building a runtime adapter | [`docs/runtime/runtime-integration-guide.md`](docs/runtime/runtime-integration-guide.md) |
+| Investigating runtime enforcement | [`docs/runtime/runtime-enforcement.md`](docs/runtime/runtime-enforcement.md) (Guardian + Heartgate full check list) |
+| Looking up UACP doctrine vocabulary | [`docs/policy/first-principles.md`](docs/policy/first-principles.md) + [`docs/reference/skill-enforcement-spec.md`](docs/reference/skill-enforcement-spec.md) (Phase 5 will add `docs/policy/glossary.md`) |
 | Authoring a proposal | [`docs/reference/proposal-schema.md`](docs/reference/proposal-schema.md) |
 | Investigating an architectural decision | [`docs/architecture/INDEX.md`](docs/architecture/INDEX.md) |
 | Running tests / verify scripts | [COMMANDS.md](COMMANDS.md) |

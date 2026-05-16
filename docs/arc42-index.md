@@ -135,7 +135,7 @@ Operational decisions log: [`decisions/decision-log.md`](decisions/decision-log.
 
 ⚠️ Forward debt lives in:
 - [`/ROADMAP.md`](../ROADMAP.md) — Phase 5 backlog organized by theme.
-- `verification/uacp-patch-plan-20260515-{phase{3,4},global}-review.yaml#propagated_constraints_for_phase_5` — canonical evidence-pointer list.
+- `verification/uacp-patch-plan-20260515-phase3-codex-review.yaml#propagated_constraints.to_phase_4`, `verification/uacp-patch-plan-20260515-phase4-codex-review.yaml#propagated_constraints.to_phase_5`, and `verification/uacp-patch-plan-20260515-global-review.yaml#deferred_to_phase_5_with_evidence_pointer` — canonical evidence-pointer lists.
 - [`plans/phase5-reserved-slot.md`](plans/phase5-reserved-slot.md) — Phase 5 prerequisites and activation procedure.
 
 ## §12 — Glossary

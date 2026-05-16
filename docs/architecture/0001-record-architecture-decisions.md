@@ -56,4 +56,4 @@ This ADR is itself the first artifact of the new format. Subsequent ADRs (0002â€
 
 - ADR template: [`0000-template.md`](0000-template.md).
 - Operational log: [`../decisions/decision-log.md`](../decisions/decision-log.md).
-- Inventory entry: [`../../docs/INDEX.md`](../INDEX.md).
+- Inventory entry: [`../INDEX.md`](../INDEX.md).

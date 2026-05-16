@@ -14,7 +14,7 @@ For each phase's deliverables, see the corresponding ADR in [`docs/architecture/
 | 3 | plan_validation_gate, run_registry, authority docs | [ADR-0005](docs/architecture/0005-phase3-plan-validation-gate-and-run-registry.md) | `bee42cd` | 2026-05-15 |
 | 4 | uacp_mode, autonomy-policy, escalation-event stub | [ADR-0006](docs/architecture/0006-phase4-autonomous-mode-stub.md) | `3c48406` | 2026-05-16 |
 | — | Global cross-phase audit + R1/R2 remediation | [ADR-0007](docs/architecture/0007-global-review-cross-phase-remediation.md) | `93dba83` / `da5c15f` | 2026-05-17 |
-| — | Doc subdirectory + ADR restructure | [ADR-0008](docs/architecture/0008-doc-structure-and-adr-adoption.md) | (in-flight) | 2026-05-17 |
+| — | Doc subdirectory + ADR restructure | [ADR-0008](docs/architecture/0008-doc-structure-and-adr-adoption.md) | `d6efc43..fec2c8d` | 2026-05-17 |
 
 ## 🚧 Reserved (not scheduled)
 
@@ -28,10 +28,12 @@ The canonical Phase 5 backlog is composed of constraints propagated from the pri
 
 | Source | Constraints |
 |---|---|
-| Phase 3 review | 8 of 17 pc_p3_* still deferred (`verification/uacp-patch-plan-20260515-phase3-codex-review.yaml#propagated_constraints.to_phase_4`) |
-| Phase 4 review | 14 pc_p4_* (`verification/uacp-patch-plan-20260515-phase4-codex-review.yaml#propagated_constraints.to_phase_5`) |
-| Global review | pc_g_* (`verification/uacp-patch-plan-20260515-global-review.yaml#deferred_to_phase_5_with_evidence_pointer`) |
+| Phase 3 review | 18 pc_p3_* items declared; 9 reclassified DEFERRED_TO_PHASE_5 after Phase 4 (`verification/uacp-patch-plan-20260515-phase3-codex-review.yaml#propagated_constraints.to_phase_4`; deferral classification in `executions/uacp-patch-plan-20260515-phase4-drift-reconciliation.yaml#classification`) |
+| Phase 4 review | 19 pc_p4_* items (`verification/uacp-patch-plan-20260515-phase4-codex-review.yaml#propagated_constraints.to_phase_5`) |
+| Global review | 15 pc_g_* items (`verification/uacp-patch-plan-20260515-global-review.yaml#deferred_to_phase_5_with_evidence_pointer`) |
 | Phase 0 carry-overs | pc_7, pc_8 (live_guardian_probe failures — see [`docs/plans/phase5-reserved-slot.md`](docs/plans/phase5-reserved-slot.md)) |
+
+The YAMLs are the source of truth for the live list and counts; the table above is a snapshot.
 
 #### Phase 5 thematic groupings
 

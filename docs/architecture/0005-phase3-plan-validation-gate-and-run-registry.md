@@ -42,7 +42,7 @@ Chosen option: **Option 1**. Phase 3 ships the four items above; the R0+R1+R2 co
 - `_validate_plan_validation_gate` enforces ledger_required_fields, ledger_required_phase, and per-check pass evidence (the R1 hardening generalized from SKEP-001).
 - `_validate_run_registry_overlap` uses PurePosixPath segment normalization (R1 fix to SKEP-003 bypass).
 - `uacp_run_registry_update` is the exclusive registry mutator with caller-binding (`entry.run_id == caller.uacp_run_id`).
-- `docs/skill-enforcement-spec.md`, `docs/proposal-schema.md`, `docs/lifecycle-trace-table.md` codify the authority chain.
+- `docs/reference/skill-enforcement-spec.md`, `docs/reference/proposal-schema.md`, `docs/reference/lifecycle-trace-table.md` codify the authority chain.
 
 ### Negative Consequences
 

@@ -33,7 +33,7 @@ Evidence inside each phase is adaptive. Gate selection runs before each phase tr
 
 ## Orchestration And Council Routing
 
-UACP phases may invoke Agent Council as a runtime-neutral multi-agent orchestration primitive. The canonical vocabulary for council modes, council tiers, runtime adapters, roles, diversity dimensions, and deep-* compatibility lives in `docs/orchestration-model.md`.
+UACP phases may invoke Agent Council as a runtime-neutral multi-agent orchestration primitive. The canonical vocabulary for council modes, council tiers, runtime adapters, roles, diversity dimensions, and deep-* compatibility lives in `docs/lifecycle/orchestration-model.md`.
 
 Granularity and council tier are separate axes:
 
@@ -256,7 +256,7 @@ Version-control binding:
 
 Boundary definitions:
 
-- Canonical governance: active docs and config listed in `docs/index.md`.
+- Canonical governance: active docs and config listed in `docs/INDEX.md`.
 - Runtime state: current lifecycle position, current pointers, and run manifests under `state/`.
 - Historical audit: proposals, plans, executions, verification artifacts, outputs, lessons, and tombstones.
 - Knowledge artifacts: reusable scenarios, templates, lessons, and indexes under `knowledge/`, later eligible for Knowledge Bank ingestion.
@@ -317,7 +317,7 @@ Lifecycle transition rule:
 Implementation status:
 
 - Lifecycle skill files have been created after checkpoint review.
-- Each skill file must read `docs/index.md` first and follow the canonical lifecycle and path rules.
+- Each skill file must read `docs/INDEX.md` first and follow the canonical lifecycle and path rules.
 - Skill files are implementation artifacts, not new governance sources of truth.
 
 ## Artifact Schemas

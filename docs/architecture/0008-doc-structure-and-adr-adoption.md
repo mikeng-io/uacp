@@ -62,8 +62,9 @@ Plus four new root-level docs (`PROJECT.md`, `ROADMAP.md`, `CONTRIBUTING.md`, `C
 ## Validation
 
 - All 5 `phaseN_verify` scripts continue to pass after the restructure.
-- Every doc moved via `git mv` to preserve history.
-- `docs/INDEX.md` updated as the structural navigation map.
+- 13 of 14 docs moved via pure `git mv` (R100% rename detection). The 14th, `docs/index.md` → `docs/INDEX.md`, was combined with a content rewrite (commit `6c5922c`) because the inventory and navigation needed wholesale restructuring; that file's pre-rename history is reachable via `git log --diff-filter=D` and `git log --follow` from prior tree states. All other moved docs (constitution, first-principles, alignment-spec, lifecycle-reference, orchestration-model, runtime-enforcement, runtime-integration-guide, runtime-porting-and-version-control, proposal-schema, skill-enforcement-spec, lifecycle-trace-table, decision-log, phase5-reserved-slot) have unbroken `--follow` history.
+- `docs/INDEX.md` rewritten as the structural navigation map and the inventory contract.
+- Two follow-up commits (R1 remediation) closed the post-restructure council findings: stale cross-references inside moved docs themselves, README repository-layout tree, INDEX.md inventory completeness, ADR-0005/0001 path corrections, lifecycle-trace-table.md "16-step → 18-step" Heartgate count, YAML-key citation corrections, ROADMAP count reconciliation, "(in-flight)" commit-hash replacement.
 
 ## Related ADRs
 

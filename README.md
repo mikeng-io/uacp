@@ -122,42 +122,74 @@ The Coordination Adapter is intentionally replaceable. Kanban is the current imp
 
 ```
 uacp/
-├── README.md                          ← you are here
+├── README.md                          ← you are here (public-facing overview)
+├── PROJECT.md                         ← project identity (audience-keyed entry points)
+├── ROADMAP.md                         ← completed phases + Phase 5 reserved-slot backlog
+├── CONTRIBUTING.md                    ← authoring contract (how to open a UACP run)
+├── COMMANDS.md                        ← verify scripts, live probe, validator commands
 │
 ├── docs/                              ← canonical prose authority
-│   ├── index.md                       ← document registry and read order (start here as an agent)
-│   ├── constitution.md                ← non-waivable invariants
-│   ├── lifecycle-reference.md         ← phases, granularity, state, skill contracts
-│   ├── orchestration-model.md         ← Agent Council, tiers, roles, execution profiles
-│   ├── runtime-enforcement.md         ← Guardian and Heartgate design
-│   ├── runtime-porting-and-version-control.md  ← adapter ownership and version-control policy
-│   ├── alignment-spec.md              ← artifact root layout and generic alignment conventions
-│   ├── runtime-integration-guide.md   ← how to integrate a new runtime
-│   ├── first-principles.md            ← reasoning principles behind UACP
-│   └── decision-log.md                ← durable record of major decisions
+│   ├── INDEX.md                       ← structural navigation (start here as an agent)
+│   ├── arc42-index.md                 ← partial ARC42 architecture mapping
+│   ├── policy/                        ← foundational doctrine
+│   │   ├── INDEX.md
+│   │   ├── constitution.md            ← non-waivable invariants
+│   │   ├── first-principles.md        ← reasoning principles behind UACP
+│   │   └── alignment-spec.md          ← artifact roots + deployment-specific alignment
+│   ├── lifecycle/                     ← six-phase lifecycle model
+│   │   ├── INDEX.md
+│   │   ├── lifecycle-reference.md     ← phases, granularity, state, skill contracts
+│   │   └── orchestration-model.md     ← Agent Council, tiers, roles, execution profiles
+│   ├── runtime/                       ← Guardian + Heartgate enforcement
+│   │   ├── INDEX.md
+│   │   ├── runtime-enforcement.md
+│   │   ├── runtime-integration-guide.md
+│   │   └── runtime-porting-and-version-control.md
+│   ├── reference/                     ← canonical schemas + per-skill authority
+│   │   ├── INDEX.md
+│   │   ├── proposal-schema.md
+│   │   ├── skill-enforcement-spec.md
+│   │   └── lifecycle-trace-table.md
+│   ├── architecture/                  ← numbered ADRs (status lifecycle)
+│   │   ├── INDEX.md
+│   │   ├── 0000-template.md
+│   │   └── 0001-…0008-*.md
+│   ├── decisions/                     ← operational decision-log (lighter than ADRs)
+│   │   ├── INDEX.md
+│   │   └── decision-log.md
+│   ├── plans/                         ← forward plans + reserved slots
+│   │   ├── INDEX.md
+│   │   └── phase5-reserved-slot.md
+│   └── archived/                      ← superseded docs (currently empty)
+│       └── INDEX.md
 │
 ├── config/                            ← machine-readable policy derived from docs
+│   ├── guardian-policy.yaml
+│   ├── phase-transitions.yaml
+│   ├── artifact-schemas.yaml
+│   ├── state.yaml
+│   ├── autonomy-policy.yaml           ← Phase 4.2 stub: operating modes + escalation triggers
 │   ├── evidence-clusters.yaml
 │   ├── gate-selection.yaml
-│   ├── guardian-policy.yaml
 │   ├── memory-policy.yaml
-│   ├── phase-transitions.yaml
 │   ├── review-routing.yaml
 │   ├── roots.yaml
 │   ├── runtime-bindings.yaml
-│   ├── state.yaml
 │   └── version-control.yaml
 │
-├── state/                             ← mutable runtime state (mutated only through uacp-state)
-│   ├── current.yaml                   ← active run pointer and phase
+├── state/                             ← mutable runtime state (governed writers only)
+│   ├── current.yaml                   ← active-run pointer (caller-bound)
 │   ├── kanban.yaml                    ← coordination adapter state
-│   └── runs/                          ← per-run state records
+│   ├── runs/                          ← per-run state records
+│   ├── gate-ledger/                   ← append-only JSONL (uacp_gate_ledger_append)
+│   ├── run-registry.yaml              ← Phase 3.2 active-run registry
+│   └── escalations/                   ← Phase 4.4 stub: append-only escalations
 │
 ├── proposals/                         ← PROPOSE phase artifacts
-├── plans/                             ← PLAN phase artifacts
+├── plans/                             ← PLAN phase artifacts (including scope artifacts)
 ├── executions/                        ← EXECUTE phase records
 ├── verification/                      ← VERIFY evidence and council synthesis artifacts
-├── outputs/                           ← final outputs and operational dashboards
+├── outputs/                           ← lessons artifacts and resolution outputs
 │
 ├── knowledge/                         ← reusable scenarios, templates, lessons, indexes
 │   ├── gate-templates/
@@ -168,7 +200,12 @@ uacp/
 ├── runtime-adapters/                  ← UACP-owned adapter source per runtime
 │   └── hermes/
 │
-└── scripts/                           ← diagnostic and probe scripts
+└── scripts/                           ← verification and probe scripts
+    ├── phase0_verify.py               ← Phase 0 deterministic checks (14)
+    ├── phase1_verify.py               ← Phase 1 deterministic checks (23)
+    ├── phase2_verify.py               ← Phase 2 deterministic checks (18)
+    ├── phase3_verify.py               ← Phase 3 deterministic checks (30)
+    ├── phase4_verify.py               ← Phase 4 deterministic checks (20)
     ├── live_guardian_probe.py
     └── validate_uacp_artifacts.py
 ```

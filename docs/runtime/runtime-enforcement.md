@@ -15,9 +15,9 @@ Both derive authority from the UACP document chain. Neither may invent policy in
 
 ## Authority Boundary
 
-Runtime enforcement follows the document authority order in `docs/index.md`:
+Runtime enforcement follows the document authority order in `docs/INDEX.md`:
 
-1. `docs/index.md`
+1. `docs/INDEX.md`
 2. canonical prose docs
 3. YAML config
 4. runtime state pointers

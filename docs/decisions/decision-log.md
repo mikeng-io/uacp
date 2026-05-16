@@ -17,7 +17,7 @@ Status: accepted; patch-plan run RESOLVED. Each phase has its own ADR for stable
 Canonical targets:
 
 - **Architectural decisions per phase**: see ADRs [ADR-0002](../architecture/0002-phase0-policy-mode-and-classification.md) through [ADR-0007](../architecture/0007-global-review-cross-phase-remediation.md) for per-phase rationale, decision drivers, options, consequences, and validation pointers.
-- **Phase 5 backlog**: [`/ROADMAP.md`](/ROADMAP.md), [`../plans/phase5-reserved-slot.md`](../plans/phase5-reserved-slot.md), and the `propagated_constraints_for_phase_5` blocks in the three Codex-review verification YAMLs at `verification/uacp-patch-plan-20260515-{phase3,phase4,global}-review.yaml`.
+- **Phase 5 backlog**: [`/ROADMAP.md`](/ROADMAP.md), [`../plans/phase5-reserved-slot.md`](../plans/phase5-reserved-slot.md), and the propagated-constraint blocks in the three Codex-review verification YAMLs — `verification/uacp-patch-plan-20260515-phase3-codex-review.yaml#propagated_constraints.to_phase_4` (18 pc_p3_* items), `verification/uacp-patch-plan-20260515-phase4-codex-review.yaml#propagated_constraints.to_phase_5` (19 pc_p4_* items), and `verification/uacp-patch-plan-20260515-global-review.yaml#deferred_to_phase_5_with_evidence_pointer` (15 items).
 - **Bootstrap-posture honest disclosure**: `outputs/uacp-patch-plan-20260515-{lessons,resolve}.yaml` carry the disclosure that the run authored governed writers without itself flowing through them; ledger_citations are tagged `_advisory`.
 - **Doc restructure** (concurrent with run RESOLVE): subdirectory + ADR adoption per [ADR-0008](../architecture/0008-doc-structure-and-adr-adoption.md).
 

@@ -43,9 +43,9 @@ Distinct count across all sources: see the global-review verification artifact f
 
 ### Skill structure cleanup (out-of-band, identified 2026-05-17)
 
-Hermes/Norty audit flagged the post-restructure SKILL.md files at `HERMES_ROOT/skills/devops/uacp/uacp-*/SKILL.md` as still 11–15 KB each — too large for ACP-style lean conductors. Recommendation: split each phase skill into `SKILL.md` (lean conductor) + `references/` (contract, checklist, pitfalls, mode-behavior) + `schemas/` + `scripts/`. Start with `uacp-verify` as the template since it's both large and authority-sensitive.
+Hermes/Norty audit (full record at [`../../verification/uacp-patch-plan-20260515-skill-structure-audit.yaml`](../../verification/uacp-patch-plan-20260515-skill-structure-audit.yaml)) flagged the post-restructure SKILL.md files at `HERMES_ROOT/skills/devops/uacp/uacp-*/SKILL.md` as still 11–15 KB each — too large for ACP-style lean conductors. Recommendation: split each phase skill into `SKILL.md` (lean conductor; ≤4 KB target) + `references/` (contract, checklist, pitfalls, mode-behavior) + `schemas/` + `scripts/`. Start with `uacp-verify` as the template since it's both large and authority-sensitive.
 
-This is **out-of-band** for the UACP_ROOT-versioned codebase (skills live under `HERMES_ROOT/`, not under UACP_ROOT). Track as `pc_g_skill_structure_cleanup` in the Phase 5 backlog. Sibling concerns flagged by the same audit (root `references/` quarantine status; broken relative links in some `SKILL.md` cross-references; lack of git-tracking provenance for the canonical skill source) are subsumed under the same constraint.
+This is **out-of-band** for the UACP_ROOT-versioned codebase (skills live under `HERMES_ROOT/`, not under UACP_ROOT). Track as `pc_g_skill_structure_cleanup` in the Phase 5 backlog. Sibling concerns flagged by the same audit (root `references/` quarantine status; broken relative links in some `SKILL.md` cross-references; lack of git-tracking provenance for the canonical skill source) are subsumed under the same constraint and itemized in the audit artifact's `related_findings` block.
 
 ## Activation procedure
 

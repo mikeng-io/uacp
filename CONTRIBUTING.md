@@ -38,8 +38,10 @@ Required artifacts:
 - `plans/{run_id}-plan.yaml` and `plans/{run_id}-scope.yaml`.
 - Append a `PLAN_VALIDATION` ledger record via `uacp_gate_ledger_append` covering all six pv_ids (`pv_1`..`pv_6`) with explicit per-check pass evidence (mapping-form OR sibling `check_results`). Heartgate blocks PLAN→EXECUTE otherwise. See [`docs/reference/skill-enforcement-spec.md`](docs/reference/skill-enforcement-spec.md) for the contract.
 
-For `supervised_auto` / `full_auto` mode runs (Phase 5+):
-- Register the run via `uacp_run_registry_update` op=register after PLAN_VALIDATION; deregister at RESOLVE.
+Run-registry registration:
+- `config/phase-transitions.yaml#run_registry_rule.required_for_transition: plan->execute` declares the registry is consulted at every PLAN→EXECUTE in every mode. Any two concurrent runs whose `scope.write_paths` overlap will mutually block unless both register.
+- Manual-mode runs MAY skip registration when operator-driven serialization is the compensating control (no concurrent UACP run is open). Heartgate's overlap check then has nothing to flag.
+- `supervised_auto` / `full_auto` mode runs (Phase 5+) MUST register via `uacp_run_registry_update` op=register after PLAN_VALIDATION and deregister at RESOLVE. `config/autonomy-policy.yaml#modes.{supervised_auto,full_auto}.run_registry_registration_required: true` documents this obligation (kernel reader lands in Phase 5).
 
 ### 4. Execute (`uacp-execute`)
 
@@ -99,10 +101,18 @@ Per-phase reviews are recorded under `verification/{run_id}-phaseN-codex-review.
 
 ## What requires operator authorization (not contributor-self-authorized)
 
-- Opening Phase 5 (or any future reserved_slot phase).
-- Force-pushing to `main`.
-- Modifying `state/current.yaml` outside a governed UACP run.
-- Authoring a proposal with `blast_radius` ∈ {high, critical}.
+The list below distinguishes **mechanically enforced** (kernel refuses; no operator override possible without explicit policy change) from **authoring contract** (no kernel enforcement today; the rule is documentation-only and depends on contributor discipline).
+
+**Mechanically enforced** (kernel rejects):
+- Modifying `state/current.yaml` outside a governed UACP run — `uacp_state_write` caller-binds writes to this path (kernel: `runtime-adapters/hermes/plugins/uacp_guardian/__init__.py#_handle_uacp_state_write`).
+- Writing under `state/gate-ledger/` via anything other than `uacp_gate_ledger_append` — refused at the handler.
+- Writing `state/run-registry.yaml` via anything other than `uacp_run_registry_update` — refused at the handler.
+- Writing under `state/escalations/` via anything other than `uacp_escalation_event` — refused at the handler.
+
+**Authoring contract** (documentation-only; no kernel reader yet):
+- Opening Phase 5 (or any future reserved_slot phase). Phase 5 prerequisites in `docs/plans/phase5-reserved-slot.md` are doc-level — a mechanical pre-check is on the Phase 5 backlog (`pc_g_skep_007`).
+- Force-pushing to `main`. There is no git hook in this repo; the rule is contributor discipline.
+- Authoring a proposal with `blast_radius` ∈ {high, critical}. `config/autonomy-policy.yaml#escalation_triggers.trigger_blast_radius_high` describes the intended trigger, but the kernel reader for this is Phase 5.
 - Decisions that supersede an `accepted` ADR (must propose a new ADR superseding the old one, not edit in place).
 
 ## Cross-references

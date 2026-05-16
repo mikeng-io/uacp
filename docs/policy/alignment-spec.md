@@ -59,7 +59,7 @@ After triage, the meta-gate must:
 
 ## Review Alignment
 
-Review routing is adaptive. UACP may use lightweight local review, Hermes Kanban tasks, delegated analysis, Agent Council tiers from `docs/orchestration-model.md`, or human operator review depending on risk, phase-local/composite granularity, and available tools. Legacy terms map as follows: local council roughly maps to `tier_1_bounded` or `tier_2_role_diverse`; deep council maps to `tier_3_cross_runtime` or `tier_4_deep_council`.
+Review routing is adaptive. UACP may use lightweight local review, Hermes Kanban tasks, delegated analysis, Agent Council tiers from `docs/lifecycle/orchestration-model.md`, or human operator review depending on risk, phase-local/composite granularity, and available tools. Legacy terms map as follows: local council roughly maps to `tier_1_bounded` or `tier_2_role_diverse`; deep council maps to `tier_3_cross_runtime` or `tier_4_deep_council`.
 
 Unavailable review surfaces should be recorded. High-risk missing review support should block or escalate; low-risk missing review support can be noted as a warning.
 

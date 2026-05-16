@@ -77,7 +77,7 @@ UACP is designed to support multiple runtimes. The following runtimes are planne
 | Kimi | `runtime-adapters/kimi/` | Planned |
 | Gemini | `runtime-adapters/gemini/` | Planned |
 
-For the integration contract (Guardian event schema, Heartgate validation, required hooks, required tools, binding sequence, verification checklist), see `docs/runtime-integration-guide.md`.
+For the integration contract (Guardian event schema, Heartgate validation, required hooks, required tools, binding sequence, verification checklist), see `docs/runtime/runtime-integration-guide.md`.
 
 ## Config Boundary
 

@@ -43,11 +43,18 @@ The canonical inventory of UACP-owned files outside `docs/`. Every file here MUS
 | `ROADMAP.md` | entry_point | canonical | Phase status + Phase 5 backlog | Update when phase complete or constraints propagated |
 | `CONTRIBUTING.md` | entry_point | canonical | Authoring contract | Update when contract changes |
 | `COMMANDS.md` | entry_point | canonical | Build/run/test commands | Update when scripts change |
-| `config/guardian-policy.yaml` | schema_config | generated | Guardian policy seed | Update on new tool/category |
-| `config/phase-transitions.yaml` | schema_config | generated | Phase-stage admissibility + Heartgate gates | Update on new phase or transition rule |
-| `config/state.yaml` | schema_config | generated | State pointer schema + escalations schema | Update on new state field |
-| `config/artifact-schemas.yaml` | schema_config | generated | Phase-2 + Phase-3 artifact schemas | Update on new artifact class |
-| `config/autonomy-policy.yaml` | schema_config | generated | Phase 4.2 stub: operating modes + escalation triggers | Update when activating modes |
+| `config/guardian-policy.yaml` | schema_config | generated | Guardian policy seed (Layer A categories, tool_classification, self_attesting_tools) | Update on new tool/category |
+| `config/phase-transitions.yaml` | schema_config | generated | Phase-stage admissibility + Heartgate gates (incl. plan_validation_gate, run_registry_rule, piv_rule) | Update on new phase or transition rule |
+| `config/state.yaml` | schema_config | generated | State pointer schema, gate-ledger schema, escalations schema, run-manifest schema, current-pointer schema | Update on new state field |
+| `config/artifact-schemas.yaml` | schema_config | generated | Phase-2 artifact schemas (scope, intent, evidence_disposition, lessons) + Phase-3 run_registry schema + cross_checks (handler_refusals, tool_path_capabilities) | Update on new artifact class |
+| `config/autonomy-policy.yaml` | schema_config | generated | Phase 4.2 stub: operating modes + escalation triggers + canonical_state_paths + advisory_field_convention | Update when activating modes |
+| `config/evidence-clusters.yaml` | schema_config | canonical | Adaptive evidence-cluster registry (15 cluster families) consulted by TRIAGE/PROPOSE for gate selection | Update when adding cluster families |
+| `config/gate-selection.yaml` | schema_config | canonical | Phase-to-gate / cluster-to-gate mapping; selection routing rules | Update on routing-rule change |
+| `config/memory-policy.yaml` | schema_config | canonical | Memory/knowledge-bank propagation policy (Phase 2 lessons → knowledge/ promotion) | Update on memory-policy change |
+| `config/review-routing.yaml` | schema_config | canonical | Review-routing rules consumed by uacp-triage skill (council tier selection) | Update on routing-rule change |
+| `config/roots.yaml` | schema_config | canonical | Canonical UACP_ROOT-relative path roots + symbolic root declarations | Rarely changes; coordinate with runtime adapters |
+| `config/runtime-bindings.yaml` | schema_config | canonical | Runtime-adapter binding declarations (which adapter handles which Guardian/Heartgate event class) | Update on new runtime-adapter binding |
+| `config/version-control.yaml` | schema_config | canonical | UACP repository, branch/worktree, remote-backup, and commit-boundary policy | Keep aligned with runtime-porting policy and state/version-control docs |
 | `state/` | runtime_state | canonical | Mutable run state layer | Mutate through governed writers only |
 | `state/current.yaml` | runtime_state | canonical | Active-run pointer (caller-bound) | Mutate through `uacp_state_write` with caller binding |
 | `state/kanban.yaml` | runtime_state | canonical | Active coordination-adapter binding | Update when board slug changes |

@@ -6,10 +6,10 @@ This document defines UACP's runtime-neutral multi-agent orchestration vocabular
 
 This document derives from:
 
-- `docs/index.md`
-- `docs/constitution.md`
-- `docs/lifecycle-reference.md`
-- `docs/runtime-enforcement.md`
+- `docs/INDEX.md`
+- `docs/policy/constitution.md`
+- `docs/lifecycle/lifecycle-reference.md`
+- `docs/runtime/runtime-enforcement.md`
 
 It is the downstream source for agent-skill implementations. Skills, runtime adapters, and deep-* compatibility wrappers must implement this document; they must not redefine it.
 
@@ -489,7 +489,7 @@ Mid-phase escalation semantics:
 
 Lifecycle skills implement this document through an explicit execution loop. This loop is mandatory whenever council routing is selected or when the phase consumes prior council findings.
 
-1. **Load routing authority** — read `docs/index.md`, this document, `docs/lifecycle-reference.md`, `config/review-routing.yaml`, and `config/phase-transitions.yaml` before deciding council depth.
+1. **Load routing authority** — read `docs/INDEX.md`, this document, `docs/lifecycle/lifecycle-reference.md`, `config/review-routing.yaml`, and `config/phase-transitions.yaml` before deciding council depth.
 2. **Select council invocation** — declare `mode`, `tier`, roles, dispatch surfaces, retrieval obligations, side-effect boundaries, and expected artifact path. `tier_0_single` is allowed only when no phase boundary depends on multi-perspective validation.
 3. **Dispatch retrieval-led roles** — for governance, runtime, Guardian/Heartgate, artifact schema, protected-state, profile-boundary, or skill-behavior claims, prompts must require direct inspection of named files/config/scripts/artifacts.
 4. **Persist synthesis** — write `kind: uacp.council_synthesis` under `verification/` with verdict, roles, `inspected_paths`, findings, and evidence paths/lines.
@@ -522,7 +522,7 @@ Each phase may invoke Agent Council when useful:
 - `VERIFY`: run finding-driven review, validation, audit, and synthesis.
 - `RESOLVE`: extract lessons, update downstream skills, and decide residual risk.
 
-Council outputs are evidence artifacts, not authority by themselves. Authority still flows through `docs/index.md`, canonical prose docs, config, runtime state, skills/runtime behavior, and execution artifacts in that order.
+Council outputs are evidence artifacts, not authority by themselves. Authority still flows through `docs/INDEX.md`, canonical prose docs, config, runtime state, skills/runtime behavior, and execution artifacts in that order.
 
 ## Finding-Driven Pattern
 
