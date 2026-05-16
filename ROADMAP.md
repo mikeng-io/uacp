@@ -14,7 +14,7 @@ For each phase's deliverables, see the corresponding ADR in [`docs/architecture/
 | 3 | plan_validation_gate, run_registry, authority docs | [ADR-0005](docs/architecture/0005-phase3-plan-validation-gate-and-run-registry.md) | `bee42cd` | 2026-05-15 |
 | 4 | uacp_mode, autonomy-policy, escalation-event stub | [ADR-0006](docs/architecture/0006-phase4-autonomous-mode-stub.md) | `3c48406` | 2026-05-16 |
 | — | Global cross-phase audit + R1/R2 remediation | [ADR-0007](docs/architecture/0007-global-review-cross-phase-remediation.md) | `93dba83` / `da5c15f` | 2026-05-17 |
-| — | Doc subdirectory + ADR restructure | [ADR-0008](docs/architecture/0008-doc-structure-and-adr-adoption.md) | `d6efc43..fec2c8d` | 2026-05-17 |
+| — | Doc subdirectory + ADR restructure | [ADR-0008](docs/architecture/0008-doc-structure-and-adr-adoption.md) | 8 commits: `d6efc43` through `fec2c8d` inclusive | 2026-05-17 |
 
 ## 🚧 Reserved (not scheduled)
 

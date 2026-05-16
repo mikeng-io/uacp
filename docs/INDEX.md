@@ -6,17 +6,17 @@ status: living-document
 
 # UACP Documentation Index
 
-Structural navigation map for `docs/`. For project overview, see [`/PROJECT.md`](/PROJECT.md). For ARC42 mapping, see [`arc42-index.md`](arc42-index.md). For roadmap and Phase 5 backlog, see [`/ROADMAP.md`](/ROADMAP.md).
+Structural navigation map for `docs/`. For project overview, see [`/PROJECT.md`](../PROJECT.md). For ARC42 mapping, see [`arc42-index.md`](arc42-index.md). For roadmap and Phase 5 backlog, see [`/ROADMAP.md`](../ROADMAP.md).
 
 ## Root-level entry points
 
 | File | Purpose |
 |---|---|
-| [`/README.md`](/README.md) | Public-facing overview (lifecycle + cognitive-plane diagrams). |
-| [`/PROJECT.md`](/PROJECT.md) | Project identity, current state, audience-keyed entry points. |
-| [`/ROADMAP.md`](/ROADMAP.md) | Completed phases (ADRs + commit hashes), Phase 5 reserved-slot backlog, speculative items. |
-| [`/CONTRIBUTING.md`](/CONTRIBUTING.md) | Authoring contract: how to open / propose / plan / execute / verify / resolve a run. |
-| [`/COMMANDS.md`](/COMMANDS.md) | Verify scripts, live probe, validator, Heartgate one-off check. |
+| [`/README.md`](../README.md) | Public-facing overview (lifecycle + cognitive-plane diagrams). |
+| [`/PROJECT.md`](../PROJECT.md) | Project identity, current state, audience-keyed entry points. |
+| [`/ROADMAP.md`](../ROADMAP.md) | Completed phases (ADRs + commit hashes), Phase 5 reserved-slot backlog, speculative items. |
+| [`/CONTRIBUTING.md`](../CONTRIBUTING.md) | Authoring contract: how to open / propose / plan / execute / verify / resolve a run. |
+| [`/COMMANDS.md`](../COMMANDS.md) | Verify scripts, live probe, validator, Heartgate one-off check. |
 
 ## Documentation subdirectories
 
@@ -70,7 +70,7 @@ The canonical inventory of UACP-owned files outside `docs/`. Every file here MUS
 
 When approaching UACP cold, this order minimizes back-tracking:
 
-1. [`/PROJECT.md`](/PROJECT.md) — what UACP is.
+1. [`/PROJECT.md`](../PROJECT.md) — what UACP is.
 2. [`policy/constitution.md`](policy/constitution.md) + [`policy/first-principles.md`](policy/first-principles.md) — non-negotiables.
 3. [`lifecycle/lifecycle-reference.md`](lifecycle/lifecycle-reference.md) — phase semantics.
 4. [`reference/proposal-schema.md`](reference/proposal-schema.md) + [`reference/skill-enforcement-spec.md`](reference/skill-enforcement-spec.md) + [`reference/lifecycle-trace-table.md`](reference/lifecycle-trace-table.md) — canonical schemas.
@@ -79,7 +79,7 @@ When approaching UACP cold, this order minimizes back-tracking:
 
 For runtime adapter authors, add: [`runtime/runtime-integration-guide.md`](runtime/runtime-integration-guide.md), [`runtime/runtime-porting-and-version-control.md`](runtime/runtime-porting-and-version-control.md).
 
-For Phase 5 planners, add: [`plans/phase5-reserved-slot.md`](plans/phase5-reserved-slot.md), [`/ROADMAP.md`](/ROADMAP.md).
+For Phase 5 planners, add: [`plans/phase5-reserved-slot.md`](plans/phase5-reserved-slot.md), [`/ROADMAP.md`](../ROADMAP.md).
 
 ## Document hygiene rules
 

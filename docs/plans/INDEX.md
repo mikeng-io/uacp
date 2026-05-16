@@ -16,6 +16,6 @@ Forward-looking documents: phase plans not yet authorized, reserved slots, desig
 
 ## Related
 
-- Project-level roadmap: [`/ROADMAP.md`](/ROADMAP.md).
+- Project-level roadmap: [`/ROADMAP.md`](../../ROADMAP.md).
 - Past phase execution checkpoints: `executions/uacp-patch-plan-*-execute-checkpoint.yaml`.
 - Phase Codex review records: `verification/uacp-patch-plan-*-codex-review.yaml`.
