@@ -430,6 +430,50 @@ def _artifact_exists(root: Path, artifact: Any) -> bool:
         return False
 
 
+def _read_artifact_text(root: Path | None, artifact: Any) -> str | None:
+    if root is None or artifact in (None, ""):
+        return None
+    candidate = Path(str(artifact))
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        resolved = candidate.resolve()
+        root_resolved = root.resolve()
+        if not (resolved == root_resolved or root_resolved in resolved.parents):
+            return None
+        if not resolved.exists() or not resolved.is_file():
+            return None
+        return resolved.read_text(encoding="utf-8")
+    except Exception:
+        return None
+
+
+def _validate_semantic_markdown(path: Path, field: str, artifact: Any, text: str | None, issues: list[str], required_terms: list[str]) -> None:
+    """Validate that package artifacts are semantic context, not placeholders.
+
+    UACP package Markdown is not optional decoration. It is the semantic substrate
+    future agents use to reconstruct why the run exists, how it works, the
+    rational intent, and the decision boundary. YAML remains the lifecycle
+    envelope; Markdown must carry recoverable meaning.
+    """
+    artifact_s = str(artifact or "")
+    if not artifact_s.endswith(".md"):
+        issues.append(f"BLOCK {path}: {field} artifact must be Markdown semantic context, got {artifact_s}")
+        return
+    if text is None:
+        issues.append(f"BLOCK {path}: {field} artifact unreadable: {artifact_s}")
+        return
+    stripped = text.strip()
+    if len(stripped) < 240:
+        issues.append(f"BLOCK {path}: {field} artifact too thin for semantic recovery: {artifact_s}")
+    if "#" not in stripped[:200]:
+        issues.append(f"BLOCK {path}: {field} artifact lacks Markdown heading structure: {artifact_s}")
+    lowered = stripped.lower()
+    missing = [term for term in required_terms if term not in lowered]
+    if missing:
+        issues.append(f"BLOCK {path}: {field} artifact lacks semantic term(s) {missing}: {artifact_s}")
+
+
 def validate_proposal_package_selection(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
     if obj.get("phase") != "propose":
         issues.append(f"BLOCK {path}: package selection phase must be 'propose'")
@@ -452,6 +496,18 @@ def validate_proposal_package_selection(path: Path, obj: dict, issues: list[str]
                 issues.append(f"BLOCK {path}: universal_core.{key} missing artifact")
             elif root is not None and not _artifact_exists(root, artifact):
                 issues.append(f"BLOCK {path}: universal_core.{key} artifact not found: {artifact}")
+            elif root is not None:
+                proposal_terms = {
+                    "intent": ["why", "intent", "decision"],
+                    "authority": ["authority"],
+                    "scope": ["scope"],
+                    "containment": ["contain"],
+                    "risk": ["risk"],
+                    "verification": ["verification"],
+                    "transition": ["transition"],
+                    "artifact_map": ["artifact"],
+                }
+                _validate_semantic_markdown(path, f"universal_core.{key}", artifact, _read_artifact_text(root, artifact), issues, proposal_terms.get(str(key), []))
         elif status == "not_applicable":
             _validate_na_item(path, f"universal_core.{key}", item, issues)
         else:
@@ -523,6 +579,19 @@ def validate_plan_package_selection(path: Path, obj: dict, issues: list[str], *,
                 issues.append(f"BLOCK {path}: universal_core.{key} missing artifact")
             elif root is not None and not _artifact_exists(root, artifact):
                 issues.append(f"BLOCK {path}: universal_core.{key} artifact not found: {artifact}")
+            elif root is not None:
+                plan_terms = {
+                    "work_breakdown": ["work"],
+                    "dependencies": ["dependencies"],
+                    "authority_and_side_effects": ["authority", "side effect"],
+                    "tool_runtime_selection": ["tool", "runtime"],
+                    "artifact_write_surfaces": ["artifact", "write"],
+                    "verification_strategy": ["verification"],
+                    "rollback_recovery": ["rollback"],
+                    "council_review_topology": ["review"],
+                    "transition_readiness": ["transition"],
+                }
+                _validate_semantic_markdown(path, f"universal_core.{key}", artifact, _read_artifact_text(root, artifact), issues, plan_terms.get(str(key), []))
         elif status == "not_applicable":
             _validate_na_item(path, f"universal_core.{key}", item, issues)
         else:
