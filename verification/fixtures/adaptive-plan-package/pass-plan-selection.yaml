@@ -4,19 +4,19 @@ run_id: fixture-plan-pass
 work_heart:
   primary: lifecycle_semantics
 universal_core:
-  work_breakdown: {status: covered, artifact: verification/fixtures/adaptive-plan-package/pass-work.md}
-  dependencies: {status: covered, artifact: verification/fixtures/adaptive-plan-package/pass-work.md}
-  authority_and_side_effects: {status: covered, artifact: verification/fixtures/adaptive-plan-package/pass-work.md}
-  tool_runtime_selection: {status: covered, artifact: verification/fixtures/adaptive-plan-package/pass-work.md}
-  artifact_write_surfaces: {status: covered, artifact: verification/fixtures/adaptive-plan-package/pass-work.md}
-  verification_strategy: {status: covered, artifact: verification/fixtures/adaptive-plan-package/pass-work.md}
-  rollback_recovery: {status: covered, artifact: verification/fixtures/adaptive-plan-package/pass-work.md}
-  council_review_topology: {status: covered, artifact: verification/fixtures/adaptive-plan-package/pass-work.md}
-  transition_readiness: {status: covered, artifact: verification/fixtures/adaptive-plan-package/pass-work.md}
+  work_breakdown: {status: covered, artifact: plans/fixture-plan-pass/pass-work.md}
+  dependencies: {status: covered, artifact: plans/fixture-plan-pass/pass-work.md}
+  authority_and_side_effects: {status: covered, artifact: plans/fixture-plan-pass/pass-work.md}
+  tool_runtime_selection: {status: covered, artifact: plans/fixture-plan-pass/pass-work.md}
+  artifact_write_surfaces: {status: covered, artifact: plans/fixture-plan-pass/pass-work.md}
+  verification_strategy: {status: covered, artifact: plans/fixture-plan-pass/pass-work.md}
+  rollback_recovery: {status: covered, artifact: plans/fixture-plan-pass/pass-work.md}
+  council_review_topology: {status: covered, artifact: plans/fixture-plan-pass/pass-work.md}
+  transition_readiness: {status: covered, artifact: plans/fixture-plan-pass/pass-work.md}
 selected_modules:
   validator_enforcement:
     reason: Fixture proves selected module artifact exists.
-    artifact: verification/fixtures/adaptive-plan-package/pass-work.md
+    artifact: plans/fixture-plan-pass/pass-work.md
 not_applicable:
   migration_plan:
     reason: Fixture does not mutate data or state schemas.

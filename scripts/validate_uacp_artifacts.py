@@ -474,6 +474,38 @@ def _validate_semantic_markdown(path: Path, field: str, artifact: Any, text: str
         issues.append(f"BLOCK {path}: {field} artifact lacks semantic term(s) {missing}: {artifact_s}")
 
 
+def _validate_package_directory(root: Path | None, path: Path, phase: str, run_id: Any, issues: list[str]) -> Path | None:
+    """Require canonical semantic package directory and index for selected packages."""
+    if root is None or not run_id:
+        return None
+    root_name = "proposals" if phase == "propose" else "plans"
+    package_rel = Path(root_name) / str(run_id)
+    package_dir = root / package_rel
+    if not package_dir.is_dir():
+        issues.append(f"BLOCK {path}: {phase} package directory not found: {package_rel}/")
+        return None
+    index = package_dir / "00-index.md"
+    if not index.exists():
+        issues.append(f"BLOCK {path}: {phase} package index not found: {package_rel}/00-index.md")
+    else:
+        _validate_semantic_markdown(path, f"{phase}_package_index", str(package_rel / "00-index.md"), index.read_text(encoding="utf-8"), issues, ["why", "how"] if phase == "propose" else ["plan", "how"])
+    return package_dir
+
+
+def _artifact_under_package(root: Path | None, package_dir: Path | None, artifact: Any) -> bool:
+    if root is None or package_dir is None or artifact in (None, ""):
+        return False
+    candidate = Path(str(artifact))
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        resolved = candidate.resolve()
+        package_resolved = package_dir.resolve()
+        return resolved == package_resolved or package_resolved in resolved.parents
+    except Exception:
+        return False
+
+
 def validate_proposal_package_selection(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
     if obj.get("phase") != "propose":
         issues.append(f"BLOCK {path}: package selection phase must be 'propose'")
@@ -481,6 +513,7 @@ def validate_proposal_package_selection(path: Path, obj: dict, issues: list[str]
         issues.append(f"BLOCK {path}: package selection missing run_id")
     if not isinstance(obj.get("work_heart"), dict):
         issues.append(f"BLOCK {path}: package selection requires work_heart mapping")
+    package_dir = _validate_package_directory(root, path, "propose", obj.get("run_id"), issues)
     required_core = ["intent", "authority", "scope", "containment", "risk", "verification", "transition", "artifact_map"]
     raw_core = obj.get("universal_core")
     core = raw_core if isinstance(raw_core, dict) else {}
@@ -508,6 +541,8 @@ def validate_proposal_package_selection(path: Path, obj: dict, issues: list[str]
                     "artifact_map": ["artifact"],
                 }
                 _validate_semantic_markdown(path, f"universal_core.{key}", artifact, _read_artifact_text(root, artifact), issues, proposal_terms.get(str(key), []))
+                if not _artifact_under_package(root, package_dir, artifact):
+                    issues.append(f"BLOCK {path}: universal_core.{key} artifact must live under proposals/{obj.get('run_id')}/: {artifact}")
         elif status == "not_applicable":
             _validate_na_item(path, f"universal_core.{key}", item, issues)
         else:
@@ -515,7 +550,7 @@ def validate_proposal_package_selection(path: Path, obj: dict, issues: list[str]
     raw_modules = obj.get("selected_modules")
     modules = raw_modules if isinstance(raw_modules, dict) else {}
     if not modules:
-        issues.append(f"WARN {path}: package selection has no selected_modules")
+        issues.append(f"BLOCK {path}: package selection selected_modules must not be empty")
     for name, item in modules.items():
         if not isinstance(item, dict):
             issues.append(f"BLOCK {path}: selected_modules.{name} must be a mapping")
@@ -527,6 +562,8 @@ def validate_proposal_package_selection(path: Path, obj: dict, issues: list[str]
             issues.append(f"BLOCK {path}: selected_modules.{name} missing artifact")
         elif root is not None and not _artifact_exists(root, artifact):
             issues.append(f"BLOCK {path}: selected_modules.{name} artifact not found: {artifact}")
+        elif root is not None and not _artifact_under_package(root, package_dir, artifact):
+            issues.append(f"BLOCK {path}: selected_modules.{name} artifact must live under proposals/{obj.get('run_id')}/: {artifact}")
     raw_na = obj.get("not_applicable")
     na = raw_na if isinstance(raw_na, dict) else {}
     for name, item in na.items():
@@ -547,10 +584,8 @@ def validate_plan_package_selection(path: Path, obj: dict, issues: list[str], *,
     run_id = obj.get("run_id")
     if not isinstance(obj.get("work_heart"), dict):
         issues.append(f"BLOCK {path}: plan package selection requires work_heart mapping")
+    package_dir = _validate_package_directory(root, path, "plan", run_id, issues)
     if root is not None and run_id:
-        package_dir = root / "plans" / str(run_id)
-        if not package_dir.is_dir():
-            issues.append(f"BLOCK {path}: plan package directory not found: plans/{run_id}/")
         scope_artifact = root / "plans" / f"{run_id}-scope.yaml"
         if not scope_artifact.exists():
             issues.append(f"BLOCK {path}: plan scope artifact not found: plans/{run_id}-scope.yaml")
@@ -592,6 +627,8 @@ def validate_plan_package_selection(path: Path, obj: dict, issues: list[str], *,
                     "transition_readiness": ["transition"],
                 }
                 _validate_semantic_markdown(path, f"universal_core.{key}", artifact, _read_artifact_text(root, artifact), issues, plan_terms.get(str(key), []))
+                if not _artifact_under_package(root, package_dir, artifact):
+                    issues.append(f"BLOCK {path}: universal_core.{key} artifact must live under plans/{run_id}/: {artifact}")
         elif status == "not_applicable":
             _validate_na_item(path, f"universal_core.{key}", item, issues)
         else:
@@ -599,7 +636,7 @@ def validate_plan_package_selection(path: Path, obj: dict, issues: list[str], *,
     raw_modules = obj.get("selected_modules")
     modules = raw_modules if isinstance(raw_modules, dict) else {}
     if not modules:
-        issues.append(f"WARN {path}: plan package selection has no selected_modules")
+        issues.append(f"BLOCK {path}: plan package selection selected_modules must not be empty")
     for name, item in modules.items():
         if not isinstance(item, dict):
             issues.append(f"BLOCK {path}: selected_modules.{name} must be a mapping")
@@ -611,6 +648,8 @@ def validate_plan_package_selection(path: Path, obj: dict, issues: list[str], *,
             issues.append(f"BLOCK {path}: selected_modules.{name} missing artifact")
         elif root is not None and not _artifact_exists(root, artifact):
             issues.append(f"BLOCK {path}: selected_modules.{name} artifact not found: {artifact}")
+        elif root is not None and not _artifact_under_package(root, package_dir, artifact):
+            issues.append(f"BLOCK {path}: selected_modules.{name} artifact must live under plans/{run_id}/: {artifact}")
     raw_na = obj.get("not_applicable")
     na = raw_na if isinstance(raw_na, dict) else {}
     for name, item in na.items():

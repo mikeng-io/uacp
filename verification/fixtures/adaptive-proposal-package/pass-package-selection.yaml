@@ -8,32 +8,32 @@ work_heart:
 universal_core:
   intent:
     status: covered
-    artifact: verification/fixtures/adaptive-proposal-package/fixture-intent.md
+    artifact: proposals/fixture-adaptive-pass/fixture-intent.md
   authority:
     status: covered
-    artifact: verification/fixtures/adaptive-proposal-package/fixture-authority.md
+    artifact: proposals/fixture-adaptive-pass/fixture-authority.md
   scope:
     status: covered
-    artifact: verification/fixtures/adaptive-proposal-package/fixture-scope.md
+    artifact: proposals/fixture-adaptive-pass/fixture-scope.md
   containment:
     status: covered
-    artifact: verification/fixtures/adaptive-proposal-package/fixture-containment.md
+    artifact: proposals/fixture-adaptive-pass/fixture-containment.md
   risk:
     status: covered
-    artifact: verification/fixtures/adaptive-proposal-package/fixture-risk.md
+    artifact: proposals/fixture-adaptive-pass/fixture-risk.md
   verification:
     status: covered
-    artifact: verification/fixtures/adaptive-proposal-package/fixture-verification.md
+    artifact: proposals/fixture-adaptive-pass/fixture-verification.md
   transition:
     status: covered
-    artifact: verification/fixtures/adaptive-proposal-package/fixture-transition.md
+    artifact: proposals/fixture-adaptive-pass/fixture-transition.md
   artifact_map:
     status: covered
-    artifact: verification/fixtures/adaptive-proposal-package/fixture-artifacts.md
+    artifact: proposals/fixture-adaptive-pass/fixture-artifacts.md
 selected_modules:
   adaptive_documentation_model:
     reason: Fixture selected module.
-    artifact: verification/fixtures/adaptive-proposal-package/fixture-module.md
+    artifact: proposals/fixture-adaptive-pass/fixture-module.md
 not_applicable:
   deployment_runbook:
     reason: Fixture has no deployment surface.
