@@ -1,0 +1,93 @@
+phase: propose
+run_id: uacp-adaptive-propose-docs-20260518
+kind: uacp.proposal_package_selection
+plan_readiness:
+  status: ready_for_plan_with_conditions
+  reason: >-
+    Follow-up council confirmed N/A/schema drift, weak omission, phase-collapse,
+    and artifact-drift concerns are remediated. Remaining enforcement work is
+    properly deferred to PLAN as explicit patch tranches.
+  conditions:
+    - PLAN must include phase-transitions package-readiness patch tranche.
+    - PLAN must include validator package-selection checks.
+    - PLAN must include Heartgate transition-readiness expectation.
+    - PLAN must include Guardian artifact containment clarification if needed.
+granularity:
+  level: high
+  rationale: >-
+    Changes UACP PROPOSE semantics and PROPOSE→PLAN transition readiness.
+work_heart:
+  primary: lifecycle_semantics
+  secondary:
+    - adaptive_documentation
+    - proposal_package_composition
+    - validator_enforcement
+    - heartgate_transition_policy
+    - guardian_artifact_containment
+universal_core:
+  intent:
+    status: covered
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/proposal.md
+    required_for_plan: true
+  authority:
+    status: covered
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/authority-scope-containment.md
+    required_for_plan: true
+  scope:
+    status: covered
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/authority-scope-containment.md
+    required_for_plan: true
+  containment:
+    status: covered
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/authority-scope-containment.md
+    required_for_plan: true
+  risk:
+    status: covered
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/risks-and-verification.md
+    required_for_plan: true
+  verification:
+    status: covered
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/risks-and-verification.md
+    required_for_plan: true
+  transition:
+    status: covered
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/00-index.md
+    required_for_plan: true
+  artifact_map:
+    status: covered
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/artifacts.md
+    required_for_plan: true
+selected_modules:
+  doctrine_delta:
+    reason: This patch changes UACP PROPOSE semantics.
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/doctrine-delta.md
+    required_for_plan: true
+  adaptive_documentation_model:
+    reason: The core fix is context-driven documentation selection.
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/adaptive-documentation-model.md
+    required_for_plan: true
+  package_selection_schema:
+    reason: Validator and Heartgate need machine-readable selected concerns.
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/package-selection-schema.md
+    required_for_plan: true
+  enforcement_surfaces:
+    reason: Skill prose alone is insufficient; config, validator, Heartgate, and Guardian must enforce.
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/enforcement-surfaces.md
+    required_for_plan: true
+  decision_journal:
+    reason: Operator corrections materially changed doctrine direction.
+    artifact: proposals/uacp-adaptive-propose-docs-20260518/decision-journal.md
+    required_for_plan: true
+not_applicable:
+  deployment_runbook:
+    reason: This PROPOSE patch changes governance docs/config/validator semantics, not a deployed runtime service.
+    accepted_by: mike
+    owner: Norty
+    residual_risk: If runtime Heartgate code changes later, PLAN must add deployment and rollback runbook.
+    revisit_phase: plan
+  training_adoption:
+    reason: This patch changes internal UACP proposal semantics for Norty/UACP operators only; no separate user training/adoption lane is required before PLAN.
+    accepted_by: mike
+    owner: Norty
+    residual_risk: If this becomes public/user-facing UACP documentation, RESOLVE must create an adoption or migration note.
+    revisit_phase: resolve

@@ -1,0 +1,56 @@
+phase: plan
+plan_id: uacp-adaptive-propose-docs-20260518-plan-001
+run_id: uacp-adaptive-propose-docs-20260518
+proposal_artifact: proposals/uacp-adaptive-propose-docs-20260518-proposal.yaml
+package_selection_artifact: proposals/uacp-adaptive-propose-docs-20260518-package-selection.yaml
+followup_council_artifact: verification/uacp-adaptive-propose-docs-20260518-followup-council.yaml
+objective: >-
+  Implement adaptive proposal documentation enforcement for UACP PROPOSE without
+  importing fixed OpenSpec-style document quotas.
+work_packages:
+  - id: T1
+    name: skill_doctrine_alignment
+    target:
+      - skills/devops/uacp/uacp-propose/SKILL.md
+      - skills/devops/uacp/uacp-propose/references/modular-proposal-package.md
+    action: ensure wording says adaptive/context-driven concern selection, not fixed filenames
+    verification: read files and confirm no fixed mandatory OpenSpec file quota remains
+  - id: T2
+    name: phase_transition_gate
+    target:
+      - config/phase-transitions.yaml
+    action: add adaptive proposal package gate metadata for PROPOSE→PLAN
+    verification: config parses and required package-selection artifact is represented
+  - id: T3
+    name: validator_package_selection
+    target:
+      - scripts/validate_uacp_artifacts.py
+    action: add package-selection validation functions and fixture checks
+    verification: YAML-only serious proposal blocks; adaptive package with selected concerns passes
+  - id: T4
+    name: guardian_policy_clarification
+    target:
+      - config/guardian-policy.yaml
+    action: clarify proposal package artifacts are governed UACP artifact writes
+    verification: policy parses and artifact.uacp covers package paths
+  - id: T5
+    name: fixtures
+    target:
+      - verification/fixtures/adaptive-proposal-package/
+    action: add pass/block fixtures for package-selection validation
+    verification: validator outputs expected pass/block results
+  - id: T6
+    name: lexa_regression_later
+    target:
+      - uacp-lexa-proposal-20260518
+    action: do not execute now; use only after UACP patch verifies
+    verification: LEXA remains paused
+constraints:
+  - Do not resume LEXA PLAN or implementation.
+  - Do not alter protected state outside governed UACP tools.
+  - Do not require fixed document names where concerns are covered.
+  - Do not collapse PROPOSE into PLAN.
+plan_exit_conditions:
+  - scope artifact exists
+  - PLAN_VALIDATION can be run before EXECUTE
+  - work packages are bounded and reversible

@@ -1,0 +1,28 @@
+kind: uacp.council_synthesis
+council_id: uacp-self-patch-write-authority-20260518-verify-council
+mode: verify
+tier: tier_1_bounded
+phase: verify
+roles:
+  - Safety / Runtime Auditor
+inspected_paths:
+  - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+  - plans/uacp-adaptive-plan-docs-20260518-scope.yaml
+findings:
+  - id: narrowness
+    severity: info
+    summary: Self-patch escape hatch is narrow and requires explicit authority fields and hardcoded safe prefixes.
+    disposition: accepted
+  - id: no-broad-bypass
+    severity: info
+    summary: Patch does not add terminal/patch as generic governed writer and does not accept arbitrary prefixes.
+    disposition: accepted
+  - id: live-runtime-stale
+    severity: warn
+    summary: Live plugin may still be using cached old code; local source import passes but uacp_heartgate_check remains blocked until reload.
+    disposition: deferred
+    owner: runtime reload / next session
+    residual_risk: Runtime tool may not reflect source patch until plugin reload.
+verdict: pass_with_runtime_reload_caveat
+artifact_paths:
+  - verification/uacp-self-patch-write-authority-20260518-verify-council.yaml

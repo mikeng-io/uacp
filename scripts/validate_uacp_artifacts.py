@@ -407,6 +407,154 @@ def validate_evidence_registry(root: Path, issues: list[str]) -> None:
             issues.append(f"WARN {path}: evidence_domain_registry lacks verification_rule")
 
 
+def _validate_na_item(path: Path, label: str, item: Any, issues: list[str]) -> None:
+    if not isinstance(item, dict):
+        issues.append(f"BLOCK {path}: {label} must be a mapping")
+        return
+    for field in ("reason", "accepted_by", "owner", "residual_risk", "revisit_phase"):
+        if item.get(field) in (None, ""):
+            issues.append(f"BLOCK {path}: {label} missing {field}")
+
+
+def _artifact_exists(root: Path, artifact: Any) -> bool:
+    if artifact in (None, ""):
+        return False
+    candidate = Path(str(artifact))
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        resolved = candidate.resolve()
+        root_resolved = root.resolve()
+        return (resolved == root_resolved or root_resolved in resolved.parents) and resolved.exists()
+    except Exception:
+        return False
+
+
+def validate_proposal_package_selection(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    if obj.get("phase") != "propose":
+        issues.append(f"BLOCK {path}: package selection phase must be 'propose'")
+    if not obj.get("run_id"):
+        issues.append(f"BLOCK {path}: package selection missing run_id")
+    if not isinstance(obj.get("work_heart"), dict):
+        issues.append(f"BLOCK {path}: package selection requires work_heart mapping")
+    required_core = ["intent", "authority", "scope", "containment", "risk", "verification", "transition", "artifact_map"]
+    raw_core = obj.get("universal_core")
+    core = raw_core if isinstance(raw_core, dict) else {}
+    for key in required_core:
+        item = core.get(key)
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: universal_core.{key} missing or not a mapping")
+            continue
+        status = item.get("status")
+        if status == "covered":
+            artifact = item.get("artifact")
+            if not artifact:
+                issues.append(f"BLOCK {path}: universal_core.{key} missing artifact")
+            elif root is not None and not _artifact_exists(root, artifact):
+                issues.append(f"BLOCK {path}: universal_core.{key} artifact not found: {artifact}")
+        elif status == "not_applicable":
+            _validate_na_item(path, f"universal_core.{key}", item, issues)
+        else:
+            issues.append(f"BLOCK {path}: universal_core.{key} status must be covered|not_applicable")
+    raw_modules = obj.get("selected_modules")
+    modules = raw_modules if isinstance(raw_modules, dict) else {}
+    if not modules:
+        issues.append(f"WARN {path}: package selection has no selected_modules")
+    for name, item in modules.items():
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: selected_modules.{name} must be a mapping")
+            continue
+        if not item.get("reason"):
+            issues.append(f"BLOCK {path}: selected_modules.{name} missing reason")
+        artifact = item.get("artifact")
+        if not artifact:
+            issues.append(f"BLOCK {path}: selected_modules.{name} missing artifact")
+        elif root is not None and not _artifact_exists(root, artifact):
+            issues.append(f"BLOCK {path}: selected_modules.{name} artifact not found: {artifact}")
+    raw_na = obj.get("not_applicable")
+    na = raw_na if isinstance(raw_na, dict) else {}
+    for name, item in na.items():
+        _validate_na_item(path, f"not_applicable.{name}", item, issues)
+    readiness = obj.get("plan_readiness")
+    if readiness is not None:
+        if not isinstance(readiness, dict):
+            issues.append(f"BLOCK {path}: plan_readiness must be a mapping")
+        elif readiness.get("status") not in {"ready_for_plan", "ready_for_plan_with_conditions", "blocked", "blocked_until_council_pass"}:
+            issues.append(f"BLOCK {path}: plan_readiness.status is invalid")
+
+
+def validate_plan_package_selection(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    if obj.get("phase") != "plan":
+        issues.append(f"BLOCK {path}: plan package selection phase must be 'plan'")
+    if not obj.get("run_id"):
+        issues.append(f"BLOCK {path}: plan package selection missing run_id")
+    run_id = obj.get("run_id")
+    if not isinstance(obj.get("work_heart"), dict):
+        issues.append(f"BLOCK {path}: plan package selection requires work_heart mapping")
+    if root is not None and run_id:
+        package_dir = root / "plans" / str(run_id)
+        if not package_dir.is_dir():
+            issues.append(f"BLOCK {path}: plan package directory not found: plans/{run_id}/")
+        scope_artifact = root / "plans" / f"{run_id}-scope.yaml"
+        if not scope_artifact.exists():
+            issues.append(f"BLOCK {path}: plan scope artifact not found: plans/{run_id}-scope.yaml")
+    required_core = [
+        "work_breakdown",
+        "dependencies",
+        "authority_and_side_effects",
+        "tool_runtime_selection",
+        "artifact_write_surfaces",
+        "verification_strategy",
+        "rollback_recovery",
+        "council_review_topology",
+        "transition_readiness",
+    ]
+    raw_core = obj.get("universal_core")
+    core = raw_core if isinstance(raw_core, dict) else {}
+    for key in required_core:
+        item = core.get(key)
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: universal_core.{key} missing or not a mapping")
+            continue
+        status = item.get("status")
+        if status == "covered":
+            artifact = item.get("artifact")
+            if not artifact:
+                issues.append(f"BLOCK {path}: universal_core.{key} missing artifact")
+            elif root is not None and not _artifact_exists(root, artifact):
+                issues.append(f"BLOCK {path}: universal_core.{key} artifact not found: {artifact}")
+        elif status == "not_applicable":
+            _validate_na_item(path, f"universal_core.{key}", item, issues)
+        else:
+            issues.append(f"BLOCK {path}: universal_core.{key} status must be covered|not_applicable")
+    raw_modules = obj.get("selected_modules")
+    modules = raw_modules if isinstance(raw_modules, dict) else {}
+    if not modules:
+        issues.append(f"WARN {path}: plan package selection has no selected_modules")
+    for name, item in modules.items():
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: selected_modules.{name} must be a mapping")
+            continue
+        if not item.get("reason"):
+            issues.append(f"BLOCK {path}: selected_modules.{name} missing reason")
+        artifact = item.get("artifact")
+        if not artifact:
+            issues.append(f"BLOCK {path}: selected_modules.{name} missing artifact")
+        elif root is not None and not _artifact_exists(root, artifact):
+            issues.append(f"BLOCK {path}: selected_modules.{name} artifact not found: {artifact}")
+    raw_na = obj.get("not_applicable")
+    na = raw_na if isinstance(raw_na, dict) else {}
+    for name, item in na.items():
+        _validate_na_item(path, f"not_applicable.{name}", item, issues)
+        if isinstance(item, dict) and item.get("revisit_trigger") in (None, ""):
+            issues.append(f"BLOCK {path}: not_applicable.{name} missing revisit_trigger")
+    readiness = obj.get("transition_readiness")
+    if not isinstance(readiness, dict):
+        issues.append(f"BLOCK {path}: transition_readiness must be a mapping")
+    elif readiness.get("status") not in {"ready_for_execute", "ready_with_conditions", "blocked"}:
+        issues.append(f"BLOCK {path}: transition_readiness.status is invalid")
+
+
 def validate_configs(root: Path, issues: list[str]) -> dict:
     configs = {}
     for rel in [
@@ -467,6 +615,10 @@ def main() -> int:
                 validate_triage(path, obj, issues)
             elif kind == "uacp.proposal":
                 validate_proposal(path, obj, issues)
+            elif kind == "uacp.proposal_package_selection":
+                validate_proposal_package_selection(path, obj, issues, root=root)
+            elif kind == "uacp.plan_package_selection":
+                validate_plan_package_selection(path, obj, issues, root=root)
             elif kind == "uacp.execute_task":
                 validate_execute_task(path, obj, issues)
             elif kind == "uacp.evidence_cluster":

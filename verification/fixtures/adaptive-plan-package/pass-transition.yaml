@@ -1,0 +1,18 @@
+kind: uacp.phase_transition
+transition_id: fixture-plan-pass-plan-execute
+run_id: fixture-plan-pass
+from_phase: plan
+to_phase: execute
+decision: pass
+invariant_summary: []
+cluster_summary: []
+blockers: []
+warnings: []
+deferred_items: []
+authority: {requested_by: fixture, authorization_source: fixture}
+artifact_paths:
+  - plans/fixture-plan-pass-scope.yaml
+  - verification/fixtures/adaptive-plan-package/pass-plan-selection.yaml
+phase_local_granularity: {phase: plan, entry_estimate: 8, exit_actual: 8, delta_reason: fixture}
+composite_granularity: 8
+human_involvement: {required: false, reason: fixture, authority_needed: none, decision_owner: none}

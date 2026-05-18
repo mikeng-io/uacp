@@ -1,0 +1,25 @@
+phase: execute
+run_id: uacp-adaptive-propose-docs-20260518
+execution_id: uacp-adaptive-propose-docs-20260518-execute-003
+completed_work:
+  - id: T1
+    name: skill_doctrine_alignment
+    status: complete
+    files:
+      - /home/norty/.hermes/skills/devops/uacp/uacp-propose/SKILL.md
+      - /home/norty/.hermes/skills/devops/uacp/uacp-propose/references/modular-proposal-package.md
+      - /home/norty/.hermes/skills/devops/uacp/uacp-propose/references/adaptive-proposal-documentation-lifecycle.md
+    verification:
+      method: content search
+      findings:
+        - skill states adaptive proposal package required for medium/high consequence work
+        - skill states single proposal YAML/gate-selection/council synthesis is not sufficient for serious work
+        - skill states OpenSpec/Trustless ACP are pattern evidence only
+        - reference states granularity informs rigor but does not determine fixed documents
+        - reference rejects fixed OpenSpec-style document quotas and granularity-only document selection
+remaining_work:
+  - Heartgate dry-run expectation / transition artifact check
+  - final verify council or focused verify review
+constraints_preserved:
+  - no LEXA progression
+  - no runtime wiring

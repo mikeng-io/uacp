@@ -1,0 +1,10 @@
+kind: uacp.plan
+phase: plan
+run_id: uacp-self-patch-write-authority-20260518
+proposal_artifact: proposals/uacp-self-patch-write-authority-20260518-proposal.yaml
+objective: Patch Heartgate self-patch write-authority exception and verify adaptive PLAN transition.
+work_packages:
+  - kernel_scope_authority_patch
+  - adaptive_plan_scope_authority_patch
+  - heartgate_verification
+rollback_path: targeted patch revert

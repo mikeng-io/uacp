@@ -1,0 +1,18 @@
+kind: uacp.resolution
+run_id: uacp-self-patch-write-authority-20260518
+phase: resolve
+status: resolved_with_runtime_reload_caveat
+summary: >-
+  Added narrow Heartgate self_patch_write_authority support so UACP self-repair scopes can authorize skill/script/runtime-adapter paths without adding a broad terminal/patch governed writer.
+accepted_results:
+  - Heartgate source now accepts explicit self-patch authority for safe prefixes.
+  - Adaptive PLAN scope now declares self_patch_write_authority.
+  - Local source-level Heartgate check for adaptive PLAN transition returns warn/no blockers.
+  - Verify council returned pass_with_runtime_reload_caveat.
+residual_risks:
+  - Live uacp_heartgate_check remains stale/blocked until Hermes plugin/runtime reload.
+  - Guardian hard interception remains policy/source-level unless live runtime is reloaded and tested.
+next_steps:
+  - Reload/restart Hermes UACP Guardian plugin/runtime.
+  - Rerun uacp_heartgate_check on plans/uacp-adaptive-plan-docs-20260518-plan-execute-transition.yaml.
+  - If live check passes/warns with no blockers, close adaptive PLAN run cleanly.

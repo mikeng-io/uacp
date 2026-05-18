@@ -1,0 +1,92 @@
+kind: uacp.proposal_package_selection
+phase: propose
+run_id: uacp-adaptive-plan-docs-20260518
+work_heart:
+  primary: lifecycle_semantics
+  secondary:
+    - plan_composition
+    - validator_enforcement
+    - heartgate_transition
+    - guardian_policy
+  rationale: >-
+    The work changes how UACP PLAN artifacts are composed and validated before
+    EXECUTE. The heart is lifecycle semantics plus runtime enforcement, not
+    application implementation.
+universal_core:
+  intent:
+    status: covered
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/proposal.md
+  authority:
+    status: covered
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/authority-scope-containment.md
+  scope:
+    status: covered
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/authority-scope-containment.md
+  containment:
+    status: covered
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/authority-scope-containment.md
+  risk:
+    status: covered
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/risks-and-verification.md
+  verification:
+    status: covered
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/risks-and-verification.md
+  transition:
+    status: covered
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/enforcement-surfaces.md
+  artifact_map:
+    status: covered
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/artifacts.md
+selected_modules:
+  doctrine_delta:
+    reason: PLAN phase doctrine changes from YAML-first to adaptive package-first.
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/doctrine-delta.md
+    required_for_plan: true
+  adaptive_plan_package_model:
+    reason: PLAN needs phase-specific universal core and context-selected modules.
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/adaptive-plan-package-model.md
+    required_for_plan: true
+  plan_selection_schema:
+    reason: Validator and Heartgate need a machine bridge for PLAN package completeness.
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/plan-selection-schema.md
+    required_for_plan: true
+  enforcement_surfaces:
+    reason: Change must be wired into validator, Heartgate, Guardian, and fixtures.
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/enforcement-surfaces.md
+    required_for_plan: true
+  pattern_distillation:
+    reason: OpenSpec and Trustless ACP are reference evidence but must not be copied.
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/trustless-openspec-distillation.md
+    required_for_plan: true
+  decision_journal:
+    reason: Lifecycle semantic work needs traceable decision history.
+    artifact: proposals/uacp-adaptive-plan-docs-20260518/decision-journal.md
+    required_for_plan: true
+not_applicable:
+  requirements_spec_delta:
+    reason: This run changes governance semantics, not product behavior requirements.
+    accepted_by: PROPOSE
+    owner: main_session
+    residual_risk: If docs/lifecycle references require behavioral spec language, add an alignment doc in PLAN.
+    revisit_phase: plan
+    revisit_trigger: "Surface inventory finds lifecycle docs requiring behavior/spec-delta wording."
+  migration_plan:
+    reason: No data/schema migration is proposed.
+    accepted_by: PROPOSE
+    owner: main_session
+    residual_risk: If runtime state schema changes are discovered, stop and replan with state_transition_plan selected.
+    revisit_phase: plan
+    revisit_trigger: "Surface inventory finds changes to state schema, registry layout, or persisted runtime data."
+  public_communication_plan:
+    reason: No public-facing communication or external commitment is in scope.
+    accepted_by: PROPOSE
+    owner: main_session
+    residual_risk: If this becomes a repo/public release, communication becomes selected.
+    revisit_phase: resolve
+    revisit_trigger: "Run output is prepared for public repo release, external PR, or operator-facing migration notice."
+plan_readiness:
+  status: ready_for_plan_with_conditions
+  conditions:
+    - Run proposal council and patch material concerns before PROPOSE->PLAN.
+    - Create PLAN package with PLAN-specific package selection, not copied PROPOSE schema.
+    - Keep LEXA and downstream phase refactors paused until this run resolves.

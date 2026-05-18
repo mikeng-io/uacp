@@ -55,6 +55,18 @@ Validates UACP artifacts against their declared schemas:
 python3 scripts/validate_uacp_artifacts.py --root /home/norty/.hermes/uacp
 ```
 
+For adaptive PROPOSE/PLAN package work, validate positive package-selection
+fixtures explicitly. Do not bulk-validate the intentional `block-*` fixtures
+unless the expected result is `RESULT BLOCK`; those files are negative evidence
+that missing rationale, missing universal-core coverage, and missing artifact
+paths fail closed.
+
+```bash
+python3 scripts/validate_uacp_artifacts.py --root /home/norty/.hermes/uacp \
+  verification/fixtures/adaptive-proposal-package/pass-package-selection.yaml \
+  verification/fixtures/adaptive-plan-package/pass-plan-selection.yaml
+```
+
 ## Heartgate transition check (one-off)
 
 To validate a specific transition artifact:

@@ -1,0 +1,28 @@
+selection_id: uacp-adaptive-propose-docs-20260518-gate-selection-001
+run_id: uacp-adaptive-propose-docs-20260518
+phase: propose
+domains:
+  - uacp_lifecycle
+  - documentation_governance
+  - validator_enforcement
+  - heartgate_transition
+  - guardian_policy
+risk_level: high
+required_clusters:
+  - authority_scope_containment
+  - adaptive_documentation_selection
+  - package_selection_schema
+  - validator_heartgate_enforcement
+  - council_followthrough
+selected_council:
+  required: true
+  roles:
+    - devil_advocate
+    - integration_checker
+    - uacp_doctrine_reviewer
+blockers_before_plan:
+  - missing_package_selection_artifact
+  - missing_universal_core_concern
+  - missing_selected_module_artifact
+  - weak_not_applicable_rationale
+  - council_findings_unhandled

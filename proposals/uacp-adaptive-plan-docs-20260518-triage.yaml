@@ -1,0 +1,52 @@
+kind: uacp.triage
+triage_id: uacp-adaptive-plan-docs-20260518-triage
+run_id: uacp-adaptive-plan-docs-20260518
+request_summary: >-
+  Patch UACP PLAN composition so serious PLAN work becomes adaptive package-first
+  rather than compressed into a single YAML envelope. Wire the pattern into
+  validator, Heartgate, Guardian policy, and fixtures before using it for later
+  EXECUTE/VERIFY/RESOLVE or LEXA proving work.
+authority:
+  status: pass
+  source: "Mike explicit current instruction: Go"
+factor_scores:
+  impact: 9
+  reversibility: 5
+  domain_count: 8
+  runtime_count: 4
+  verification_difficulty: 8
+  notes:
+    - Touches UACP lifecycle semantics, PLAN phase doctrine, validators, Heartgate, and Guardian policy.
+    - Must avoid copying OpenSpec or Trustless ACP fixed structures.
+phase_local_granularity:
+  phase: triage
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: "Governance-core lifecycle semantics with runtime enforcement implications."
+  downstream_projection:
+    propose: 8
+    plan: 8
+    execute: 8
+    verify: 8
+    resolve: 6
+composite_granularity: 8
+routing_outcome: standard_uacp
+rationale:
+  - PLAN package structure controls future EXECUTE determinism.
+  - Runtime enforcement and protected artifact recognition must be explicit.
+  - The prior PROPOSE patch is pattern evidence, not a template to copy blindly.
+artifact_policy: standard
+council:
+  required: true
+  reason: "Lifecycle semantics and enforcement surfaces require doctrine/runtime/compression review."
+human_involvement:
+  required: false
+  reason: "Mike explicitly authorized proceeding; no external/destructive action proposed."
+  authority_needed: none
+  decision_owner: Mike
+blocked_targets:
+  - LEXA PLAN regeneration
+  - EXECUTE package refactor
+  - VERIFY package refactor
+  - RESOLVE package refactor
+next_step: "Create adaptive PROPOSE package for PLAN package doctrine and run proposal council."

@@ -1,0 +1,43 @@
+phase: propose
+run_id: fixture-adaptive-pass
+kind: uacp.proposal_package_selection
+plan_readiness:
+  status: ready_for_plan
+work_heart:
+  primary: validator_fixture
+universal_core:
+  intent:
+    status: covered
+    artifact: verification/fixtures/adaptive-proposal-package/fixture-intent.md
+  authority:
+    status: covered
+    artifact: verification/fixtures/adaptive-proposal-package/fixture-authority.md
+  scope:
+    status: covered
+    artifact: verification/fixtures/adaptive-proposal-package/fixture-scope.md
+  containment:
+    status: covered
+    artifact: verification/fixtures/adaptive-proposal-package/fixture-containment.md
+  risk:
+    status: covered
+    artifact: verification/fixtures/adaptive-proposal-package/fixture-risk.md
+  verification:
+    status: covered
+    artifact: verification/fixtures/adaptive-proposal-package/fixture-verification.md
+  transition:
+    status: covered
+    artifact: verification/fixtures/adaptive-proposal-package/fixture-transition.md
+  artifact_map:
+    status: covered
+    artifact: verification/fixtures/adaptive-proposal-package/fixture-artifacts.md
+selected_modules:
+  adaptive_documentation_model:
+    reason: Fixture selected module.
+    artifact: verification/fixtures/adaptive-proposal-package/fixture-module.md
+not_applicable:
+  deployment_runbook:
+    reason: Fixture has no deployment surface.
+    accepted_by: test
+    owner: test
+    residual_risk: none
+    revisit_phase: resolve

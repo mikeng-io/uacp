@@ -1,0 +1,43 @@
+kind: uacp.triage
+triage_id: uacp-self-patch-write-authority-20260518-triage
+run_id: uacp-self-patch-write-authority-20260518
+request_summary: >-
+  Repair the UACP Heartgate scope/write-authority gap exposed by adaptive PLAN package work:
+  skill/script/runtime-adapter code paths are not reachable by any execute-phase allowed_tool.
+authority:
+  status: pass
+  source: "Mike current Telegram instruction: go"
+factor_scores:
+  impact: 9
+  reversibility: 6
+  domain_count: 7
+  runtime_count: 6
+  verification_difficulty: 8
+  notes:
+    - Touches Heartgate scope validation, tool authority, and UACP self-patch governance.
+phase_local_granularity:
+  phase: triage
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: High impact lifecycle/runtime authority repair.
+  downstream_projection:
+    propose: 8
+    plan: 8
+    execute: 8
+    verify: 8
+    resolve: 6
+composite_granularity: 8
+routing_outcome: standard_uacp
+rationale:
+  - UACP governance/runtime semantics change.
+  - Required before clean adaptive PLAN closure.
+artifact_policy: standard
+council:
+  required: true
+  reason: Use council at verify after concrete patch; bounded enough for main-session proposal/plan.
+human_involvement:
+  required: false
+  reason: Mike explicitly authorized local governed repair with "go".
+  authority_needed: none
+  decision_owner: Mike
+next_step: PROPOSE adaptive self-patch write-authority repair.

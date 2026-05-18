@@ -1,0 +1,27 @@
+kind: uacp.plan_scope
+phase: plan
+run_id: uacp-self-patch-write-authority-20260518
+blast_radius: high
+allowed_tools:
+  - patch
+  - terminal
+  - uacp_artifact_write
+  - uacp_gate_ledger_append
+  - uacp_heartgate_check
+write_paths:
+  - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+  - plans/uacp-adaptive-plan-docs-20260518-scope.yaml
+  - executions/uacp-self-patch-write-authority-20260518-*.yaml
+  - verification/uacp-self-patch-write-authority-20260518-*.yaml
+rollback_path: targeted patch revert
+self_patch_write_authority:
+  enabled: true
+  reason: Repair UACP self-patch write authority gap exposed by Heartgate.
+  authority_artifact: proposals/uacp-self-patch-write-authority-20260518-proposal.yaml
+  owner: main_session
+  rollback_path: targeted patch revert
+  allowed_prefixes:
+    - runtime-adapters/
+  verification_obligations:
+    - AST parse kernel.py
+    - Heartgate check adaptive PLAN transition

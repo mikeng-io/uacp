@@ -1,0 +1,38 @@
+kind: uacp.proposal
+phase: propose
+proposal_id: uacp-adaptive-propose-docs-20260518-proposal-001
+run_id: uacp-adaptive-propose-docs-20260518
+title: Adaptive PROPOSE Documentation Composition
+triage_artifact: proposals/uacp-adaptive-propose-docs-20260518-triage.yaml
+human_review_package: proposals/uacp-adaptive-propose-docs-20260518/
+package_selection_artifact: proposals/uacp-adaptive-propose-docs-20260518-package-selection.yaml
+objective: >-
+  Establish adaptive, context-driven proposal documentation selection for UACP
+  PROPOSE and enforce it before PROPOSE→PLAN for selected medium/high consequence work.
+role_of_this_yaml: >-
+  Machine lifecycle envelope only. This YAML is not the whole proposal and must
+  not be treated as the human-reviewable proposal document.
+scope:
+  in_scope:
+    - uacp-propose skill doctrine
+    - adaptive documentation package reference
+    - package-selection artifact shape
+    - phase-transition package readiness requirement
+    - validator and Heartgate enforcement plan
+    - Guardian artifact containment clarification
+  out_of_scope:
+    - LEXA implementation
+    - fixed OpenSpec document quotas
+    - broad UACP lifecycle redesign outside PROPOSE package composition
+    - production/runtime service wiring
+declared_side_effects:
+  summary: Docs/config/validator patch proposal only during PROPOSE.
+  paths:
+    - proposals/uacp-adaptive-propose-docs-20260518/**
+    - proposals/uacp-adaptive-propose-docs-20260518-*.yaml
+authority:
+  status: pass
+  source: Mike explicit current-session instruction
+human_involvement:
+  required: true
+  reason: UACP lifecycle semantics patch

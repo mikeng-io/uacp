@@ -1,0 +1,27 @@
+kind: uacp.proposal
+phase: propose
+run_id: uacp-self-patch-write-authority-20260518
+triage_artifact: proposals/uacp-self-patch-write-authority-20260518-triage.yaml
+objective: Define narrow self-patch write authority for UACP skill/script/runtime-adapter repair paths.
+scope:
+  in_scope:
+    - Heartgate scope validation semantics for explicit self_patch_write_authority.
+    - Existing adaptive PLAN scope artifact.
+    - Verification via Heartgate check.
+  out_of_scope:
+    - Broad terminal/patch capability as governed writer.
+    - External pushes or production changes.
+declared_side_effects:
+  paths:
+    - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    - plans/uacp-adaptive-plan-docs-20260518-scope.yaml
+    - proposals/uacp-self-patch-write-authority-20260518/
+    - plans/uacp-self-patch-write-authority-20260518*
+    - executions/uacp-self-patch-write-authority-20260518*
+    - verification/uacp-self-patch-write-authority-20260518*
+authority:
+  status: pass
+  source: Mike current Telegram instruction go
+human_involvement:
+  required: false
+  reason: Current explicit local repair authorization.

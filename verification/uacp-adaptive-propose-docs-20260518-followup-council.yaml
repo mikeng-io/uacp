@@ -1,0 +1,37 @@
+council_id: uacp-adaptive-propose-docs-20260518-propose-followup-001
+mode: delegate_task
+phase: propose
+run_id: uacp-adaptive-propose-docs-20260518
+verdict: ready_for_plan_with_conditions
+roles:
+  - focused_devil_advocate
+  - focused_integration_checker
+findings:
+  - id: DA-001
+    prior_title: not_applicable schema drift
+    result: resolved
+    evidence: proposals/uacp-adaptive-propose-docs-20260518/package-selection-schema.md
+  - id: DA-002
+    prior_title: weak training_adoption omission
+    result: resolved
+    evidence: proposals/uacp-adaptive-propose-docs-20260518-package-selection.yaml
+  - id: DA-003
+    prior_title: PROPOSE/PLAN phase collapse risk
+    result: resolved
+    evidence: proposals/uacp-adaptive-propose-docs-20260518/enforcement-surfaces.md
+  - id: DOC-001
+    prior_title: package-local/top-level artifact drift
+    result: resolved
+    evidence: proposals/uacp-adaptive-propose-docs-20260518/artifacts.md
+  - id: INT-001
+    prior_title: phase-transition and validator enforcement not implemented
+    result: deferred_to_plan_with_owner
+    owner: Norty
+    residual_risk: PLAN must create explicit config/validator/Heartgate patch tranches before EXECUTE.
+    next_phase_obligation: Include enforcement tranches in PLAN.
+followup_required: false
+plan_entry_conditions:
+  - Add phase-transition package-readiness patch tranche.
+  - Add validator package-selection checks tranche.
+  - Add Heartgate transition-readiness tranche.
+  - Add Guardian artifact containment clarification tranche if needed.

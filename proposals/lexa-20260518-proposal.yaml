@@ -1,0 +1,57 @@
+phase: propose
+proposal_id: lexa-20260518-proposal-001
+run_id: lexa-20260518
+triage_artifact: proposals/lexa-20260518-triage.yaml
+objective: >-
+  Establish a governed LEXA implementation track that turns the staged LEXA
+  architecture/planning artifacts into a bounded, verifiable plan without
+  prematurely wiring runtime services or leaking private context.
+authority:
+  status: pass
+  source: >-
+    Mike explicitly authorized UACP kickoff with "Yes let go" after identifying
+    the LEXA files as UACP proposal/planning artifacts rather than Vault drafts.
+human_involvement:
+  required: false
+  reason: PROPOSE artifact creation is local/reversible; PLAN/EXECUTE may require renewed authority depending on side effects.
+scope:
+  in_scope:
+    - adopt staged LEXA artifacts as PROPOSE inputs
+    - preserve SEF and SGRN as LEXA internal semantic capabilities
+    - define implementation planning boundaries for source registry, schemas, packet validation, examples, and runtime boundary
+    - specify that Nora/Cortex live wiring is out of scope until PLAN/EXECUTE explicitly authorize it
+    - route artifacts out of Vault and into UACP/project paths
+  out_of_scope:
+    - running a LEXA daemon
+    - live wiring Nora to LEXA
+    - live wiring Cortex to LEXA
+    - ingesting private memory into shared indexes
+    - creating standalone SEF or SGRN services
+    - making LEXA the canonical owner of Layer 0 sources
+declared_side_effects:
+  - local UACP staging artifacts under /home/norty/uacp-lexa-proposal-20260518
+  - no runtime implementation
+  - no external network or production side effects
+staged_artifacts:
+  root: /home/norty/uacp-lexa-proposal-20260518
+  lexa_artifacts: artifacts/lexa
+  decision_artifacts: artifacts/decisions
+  source_manifest: manifest.json
+initial_risks:
+  - hidden monolith risk if LEXA internal modules are not kept explicit
+  - private/public context leakage if workspace/scope enforcement is weak
+  - schema drift if draft schemas become implicit implementation contracts without tests
+  - UACP/proposal artifacts may still need migration to canonical UACP_ROOT once available
+viability:
+  status: viable_for_plan
+  rationale:
+    - conceptual council passed
+    - draft schemas and examples exist
+    - source registry and runtime non-actions are explicit
+    - implementation can be split into validation-first tranches
+next_phase_obligations:
+  - identify canonical UACP_ROOT/project path before PLAN finalization
+  - run focused proposal council or consume existing council synthesis with explicit finding disposition
+  - produce PLAN artifact with validation-first implementation tranches
+  - define formal schema validation tests before any runtime wiring
+  - keep Vault copies as pointers/historical only

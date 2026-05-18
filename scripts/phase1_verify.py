@@ -209,6 +209,47 @@ def main() -> int:
 
             # --- Check 7: phase_exit_invariants — artifact present + ledger present passes ---
             (tmp / "plans/phase1-verify-plan.yaml").write_text("a: 1\n")
+            # Adaptive PLAN package invariant: PLAN->EXECUTE transitions now
+            # require an explicit plan-selection bridge plus a human-reviewable
+            # package directory and scope artifact. This keeps the historical
+            # phase-exit invariant test aligned with the rational intent of the
+            # new gate: a YAML plan envelope alone is not enough evidence for a
+            # transition when the configured adaptive package gate applies.
+            (tmp / "plans/phase1-verify").mkdir(parents=True, exist_ok=True)
+            (tmp / "plans/phase1-verify/work-packages.md").write_text("# Work packages\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify/dependencies.md").write_text("# Dependencies\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify/authority-and-side-effects.md").write_text("# Authority and side effects\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify/tool-and-runtime-selection.md").write_text("# Tool and runtime selection\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify/artifact-write-surfaces.md").write_text("# Artifact write surfaces\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify/verification-strategy.md").write_text("# Verification strategy\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify/rollback-and-recovery.md").write_text("# Rollback and recovery\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify/council-and-review-topology.md").write_text("# Council and review topology\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify/transition-readiness.md").write_text("# Transition readiness\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify-scope.yaml").write_text("kind: uacp.scope\nrun_id: phase1-verify\n", encoding="utf-8")
+            (tmp / "plans/phase1-verify-plan-selection.yaml").write_text("""
+kind: uacp.plan_package_selection
+run_id: phase1-verify
+phase: plan
+work_heart:
+  summary: Phase 1 verification fixture for adaptive PLAN package gate.
+universal_core:
+  work_breakdown: {status: covered, artifact: plans/phase1-verify/work-packages.md}
+  dependencies: {status: covered, artifact: plans/phase1-verify/dependencies.md}
+  authority_and_side_effects: {status: covered, artifact: plans/phase1-verify/authority-and-side-effects.md}
+  tool_runtime_selection: {status: covered, artifact: plans/phase1-verify/tool-and-runtime-selection.md}
+  artifact_write_surfaces: {status: covered, artifact: plans/phase1-verify/artifact-write-surfaces.md}
+  verification_strategy: {status: covered, artifact: plans/phase1-verify/verification-strategy.md}
+  rollback_recovery: {status: covered, artifact: plans/phase1-verify/rollback-and-recovery.md}
+  council_review_topology: {status: covered, artifact: plans/phase1-verify/council-and-review-topology.md}
+  transition_readiness: {status: covered, artifact: plans/phase1-verify/transition-readiness.md}
+selected_modules:
+  invariant_fixture:
+    reason: Exercises the adaptive PLAN package gate inside the phase-exit invariant pass lane.
+    artifact: plans/phase1-verify/work-packages.md
+not_applicable: {}
+transition_readiness:
+  status: ready_for_execute
+""".lstrip(), encoding="utf-8")
             # Inject the required gate-ledger entry.
             plugin._handle_uacp_gate_ledger_append({
                 **_common_args(tmp, phase="plan"),

@@ -60,6 +60,14 @@ stages:
       required: true
     - artifact_glob: "proposals/{run_id}*-gate-selection.yaml"
       required: false
+    - artifact_glob: "proposals/{run_id}*-package-selection.yaml"
+      required: false
+      applies_when: adaptive_proposal_package_selected
+      description: Machine bridge for adaptive proposal documentation selection; required for selected medium/high consequence work before PROPOSE->PLAN.
+    - package_directory: "proposals/{run_id}/"
+      required: false
+      applies_when: adaptive_proposal_package_selected
+      description: Human-reviewable proposal package; YAML proposal artifacts are lifecycle envelopes, not the complete proposal.
     - gate_ledger_entry: "TRIAGE->PROPOSE"
       required: true
   plan:
@@ -180,6 +188,105 @@ transition_rule:
   heartgate_council_role: Heartgate may require a transition-boundary council that
     checks lifecycle coherence and cross-artifact consistency. This is distinct from
     phase-local Agent Council review of phase work products.
+
+adaptive_proposal_package_gate:
+  description: >
+    PROPOSE documentation selection is adaptive and context-driven. Granularity
+    scales rigor, evidence depth, and review pressure; it does not impose a
+    fixed OpenSpec-style document list. For selected medium/high consequence
+    work, the proposal is the human-reviewable package directory and the YAML
+    proposal artifact is only a lifecycle envelope.
+  applies_to_transition: propose->plan
+  selected_when_any:
+    routing_outcomes: [standard_uacp, full_governance]
+    risk_levels: [high, critical]
+    domains:
+      - governance
+      - runtime
+      - schema_contracts
+      - public_private_boundary
+      - agent_lifecycle
+      - validator_enforcement
+      - heartgate_transition
+      - guardian_policy
+  required_artifacts:
+    - proposals/{run_id}-package-selection.yaml
+    - proposals/{run_id}/
+  required_universal_core:
+    - intent
+    - authority
+    - scope
+    - containment
+    - risk
+    - verification
+    - transition
+    - artifact_map
+  not_applicable_required_fields:
+    - reason
+    - accepted_by
+    - owner
+    - residual_risk
+    - revisit_phase
+  block_when:
+    - yaml_only_proposal_for_selected_medium_high_consequence_work
+    - missing_package_selection_artifact
+    - missing_universal_core_concern
+    - missing_selected_module_artifact
+    - selected_module_artifact_missing_on_disk
+    - weak_not_applicable_rationale
+    - unresolved_material_council_findings
+
+adaptive_plan_package_gate:
+  description: >
+    PLAN documentation/execution topology selection is adaptive and context-driven.
+    Granularity scales rigor, evidence depth, and review pressure; it does not
+    impose a fixed OpenSpec-style PLAN file list. For selected medium/high
+    consequence work, the PLAN is the human-reviewable package directory and
+    the YAML plan artifact is only a lifecycle envelope.
+  applies_to_transition: plan->execute
+  selected_when_any:
+    routing_outcomes: [standard_uacp, full_governance]
+    risk_levels: [high, critical]
+    domains:
+      - governance
+      - runtime
+      - schema_contracts
+      - public_private_boundary
+      - agent_lifecycle
+      - validator_enforcement
+      - heartgate_transition
+      - guardian_policy
+  required_artifacts:
+    - plans/{run_id}-plan-selection.yaml
+    - plans/{run_id}/
+    - plans/{run_id}-scope.yaml
+  required_universal_core:
+    - work_breakdown
+    - dependencies
+    - authority_and_side_effects
+    - tool_runtime_selection
+    - artifact_write_surfaces
+    - verification_strategy
+    - rollback_recovery
+    - council_review_topology
+    - transition_readiness
+  not_applicable_required_fields:
+    - reason
+    - accepted_by
+    - owner
+    - residual_risk
+    - revisit_phase
+    - revisit_trigger
+  block_when:
+    - yaml_only_plan_for_selected_medium_high_consequence_work
+    - missing_plan_selection_artifact
+    - missing_plan_package_directory
+    - missing_plan_scope_artifact
+    - missing_universal_core_concern
+    - missing_selected_module_artifact
+    - selected_module_artifact_missing_on_disk
+    - weak_not_applicable_rationale
+    - unresolved_material_council_findings
 
 plan_validation_gate:
   description: >

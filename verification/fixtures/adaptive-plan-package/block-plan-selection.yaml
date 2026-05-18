@@ -1,0 +1,16 @@
+kind: uacp.plan_package_selection
+phase: plan
+run_id: fixture-plan-block
+work_heart: {}
+universal_core:
+  work_breakdown: {status: covered, artifact: verification/fixtures/adaptive-plan-package/missing.md}
+selected_modules:
+  validator_enforcement:
+    reason: ""
+    artifact: verification/fixtures/adaptive-plan-package/missing.md
+not_applicable:
+  migration_plan:
+    reason: "No migration."
+    accepted_by: PLAN
+transition_readiness:
+  status: invalid_status

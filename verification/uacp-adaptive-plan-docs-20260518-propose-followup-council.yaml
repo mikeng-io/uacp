@@ -1,0 +1,49 @@
+kind: uacp.council_synthesis
+council_id: uacp-adaptive-plan-docs-20260518-propose-followup-council-001
+mode: propose
+tier: tier_1_bounded
+phase: propose
+phase_local_granularity:
+  phase: propose
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: Focused remediation confirmed compression/N/A fixes; runtime reviewer still requires PLAN implementation evidence, which is a PLAN/EXECUTE obligation rather than a PROPOSE blocker after overclaim wording was patched.
+roles:
+  - Runtime / Enforcement Reviewer
+  - Devil's Advocate / Compression Auditor
+dispatch_surfaces:
+  - delegate_task
+inspected_paths:
+  - proposals/uacp-adaptive-plan-docs-20260518/enforcement-surfaces.md
+  - proposals/uacp-adaptive-plan-docs-20260518/plan-selection-schema.md
+  - proposals/uacp-adaptive-plan-docs-20260518/risks-and-verification.md
+  - proposals/uacp-adaptive-plan-docs-20260518-package-selection.yaml
+  - verification/uacp-adaptive-plan-docs-20260518-propose-council-synthesis.yaml
+findings:
+  - id: enforcement-overclaim-remediated
+    severity: warn
+    source_role: Runtime / Enforcement Reviewer
+    summary: Prose now clearly frames validator/Heartgate/Guardian changes as required future outcomes, not existing enforcement.
+    disposition: remediated
+    owner: main_session
+    residual_risk: PLAN must not claim runtime enforcement until EXECUTE/VERIFY prove it.
+  - id: downstream-proof-required
+    severity: warn
+    source_role: Runtime / Enforcement Reviewer
+    summary: Runtime reviewer withheld clean PASS because downstream PLAN implementation and live runtime proof do not exist yet.
+    disposition: deferred
+    owner: PLAN
+    residual_risk: This becomes a blocker only if PLAN/EXECUTE fail to implement and verify enforcement.
+    next_phase_acceptance: PLAN must carry explicit validator, Heartgate, Guardian, fixture, and reload-proof tranches.
+  - id: compression-remediated
+    severity: info
+    source_role: Devil's Advocate / Compression Auditor
+    summary: No YAML-only regression; PLAN/EXECUTE boundary and falsifiable N/A requirements are sufficient for PROPOSE->PLAN.
+    disposition: remediated
+verdict: ready_for_plan_with_conditions
+artifact_paths:
+  - verification/uacp-adaptive-plan-docs-20260518-propose-followup-council.yaml
+next_phase_obligations:
+  - Create PLAN package with explicit implementation tranches and surface inventory.
+  - Keep enforcement claims as unproven until validator/Heartgate/Guardian tests pass.
+  - Include reload/runtime-proof caveat in PLAN and VERIFY.

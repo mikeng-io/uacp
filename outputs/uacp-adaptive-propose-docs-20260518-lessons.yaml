@@ -1,0 +1,15 @@
+kind: uacp.lessons
+run_id: uacp-adaptive-propose-docs-20260518
+phase: resolve
+lessons:
+  - id: adaptive_docs_core_rule
+    lesson: "Granularity scales rigor; context/work-heart selects documentation modules."
+  - id: proposal_package_not_yaml
+    lesson: "A serious UACP proposal is a human-reviewable package; proposal YAML is only a machine lifecycle envelope."
+  - id: package_selection_bridge
+    lesson: "package-selection.yaml is the bridge between Markdown package and Heartgate/validator enforcement."
+  - id: runtime_reload_note
+    lesson: "Kernel-level patches require plugin/runtime reload before relying on live tool enforcement in future sessions."
+  - id: self_patch_tooling
+    lesson: "UACP self-patches should prefer governed writers for canonical docs/config, but bootstrap/self-modification lanes may need local patching with explicit verification and residual-risk notes."
+lexa_next_step: "Regenerate LEXA PROPOSE package only after this UACP patch is accepted/resolved."

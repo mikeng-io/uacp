@@ -732,6 +732,8 @@ class Heartgate:
         self._validate_heartgate_coherence(artifact, blockers, warnings)
         self._validate_heartgate_coherence_requirement(artifact, blockers)
         self._validate_phase_exit_invariants(artifact, blockers)
+        self._validate_adaptive_proposal_package_gate(artifact, blockers)
+        self._validate_adaptive_plan_package_gate(artifact, blockers)
         self._validate_piv_record(artifact, blockers)
         # Phase 2: per-transition artifact-structure checks.
         self._validate_intent_doc(artifact, blockers)
@@ -882,6 +884,176 @@ class Heartgate:
                     blockers.append(f"phase_exit_invariant unmet: run_id required to verify ledger entry '{ledger_gate}'")
                 elif not self._ledger_contains_gate(run_id, ledger_gate):
                     blockers.append(f"phase_exit_invariant unmet: gate ledger missing entry '{ledger_gate}'")
+
+    def _validate_adaptive_proposal_package_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Enforce adaptive proposal package selection for PROPOSE->PLAN.
+
+        The config declares the policy. The kernel enforces the hard minimum:
+        when a transition moves from PROPOSE to PLAN and the adaptive gate is
+        configured, a package-selection artifact must exist, parse, and cover
+        universal core concerns plus selected module artifact references. This
+        keeps YAML proposal envelopes from being treated as the whole proposal.
+        """
+        if str(artifact.get("from_phase") or "") != "propose" or str(artifact.get("to_phase") or "") != "plan":
+            return
+        gate = self.config.get("adaptive_proposal_package_gate") or {}
+        if not isinstance(gate, Mapping):
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not run_id:
+            blockers.append("adaptive_proposal_package_gate requires run_id")
+            return
+        selection_rel = f"proposals/{run_id}-package-selection.yaml"
+        package_rel = f"proposals/{run_id}"
+        selection_path = self.uacp_root / selection_rel
+        package_path = self.uacp_root / package_rel
+        if not selection_path.exists():
+            blockers.append(f"adaptive_proposal_package_gate: missing {selection_rel}")
+            return
+        if not package_path.exists() or not package_path.is_dir():
+            blockers.append(f"adaptive_proposal_package_gate: missing package directory {package_rel}/")
+        if yaml is None:
+            blockers.append("adaptive_proposal_package_gate requires PyYAML")
+            return
+        try:
+            selection = yaml.safe_load(selection_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            blockers.append(f"adaptive_proposal_package_gate: failed to parse {selection_rel}: {exc}")
+            return
+        if not isinstance(selection, Mapping):
+            blockers.append(f"adaptive_proposal_package_gate: {selection_rel} must be a mapping")
+            return
+        if selection.get("kind") != "uacp.proposal_package_selection":
+            blockers.append("adaptive_proposal_package_gate: package-selection kind must be uacp.proposal_package_selection")
+        required_core = list(gate.get("required_universal_core") or []) or [
+            "intent", "authority", "scope", "containment", "risk", "verification", "transition", "artifact_map"
+        ]
+        core = selection.get("universal_core") if isinstance(selection.get("universal_core"), Mapping) else {}
+        for key in required_core:
+            item = core.get(str(key)) if isinstance(core, Mapping) else None
+            if not isinstance(item, Mapping):
+                blockers.append(f"adaptive_proposal_package_gate: universal_core.{key} missing")
+                continue
+            status = str(item.get("status") or "")
+            if status == "covered":
+                artifact_path = str(item.get("artifact") or "")
+                if not artifact_path or not self._artifact_path_exists(artifact_path):
+                    blockers.append(f"adaptive_proposal_package_gate: universal_core.{key} artifact missing")
+            elif status == "not_applicable":
+                self._validate_package_na(selection_rel, f"universal_core.{key}", item, blockers)
+            else:
+                blockers.append(f"adaptive_proposal_package_gate: universal_core.{key} status must be covered|not_applicable")
+        modules = selection.get("selected_modules") if isinstance(selection.get("selected_modules"), Mapping) else {}
+        if not modules:
+            blockers.append("adaptive_proposal_package_gate: selected_modules must not be empty")
+        for name, item in modules.items() if isinstance(modules, Mapping) else []:
+            if not isinstance(item, Mapping):
+                blockers.append(f"adaptive_proposal_package_gate: selected_modules.{name} must be a mapping")
+                continue
+            if not item.get("reason"):
+                blockers.append(f"adaptive_proposal_package_gate: selected_modules.{name} missing reason")
+            artifact_path = str(item.get("artifact") or "")
+            if not artifact_path or not self._artifact_path_exists(artifact_path):
+                blockers.append(f"adaptive_proposal_package_gate: selected_modules.{name} artifact missing")
+        na = selection.get("not_applicable") if isinstance(selection.get("not_applicable"), Mapping) else {}
+        for name, item in na.items() if isinstance(na, Mapping) else []:
+            self._validate_package_na(selection_rel, f"not_applicable.{name}", item, blockers)
+
+    def _validate_adaptive_plan_package_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Enforce adaptive PLAN package selection for PLAN->EXECUTE."""
+        if str(artifact.get("from_phase") or "") != "plan" or str(artifact.get("to_phase") or "") != "execute":
+            return
+        gate = self.config.get("adaptive_plan_package_gate") or {}
+        if not isinstance(gate, Mapping):
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not run_id:
+            blockers.append("adaptive_plan_package_gate requires run_id")
+            return
+        selection_rel = f"plans/{run_id}-plan-selection.yaml"
+        package_rel = f"plans/{run_id}"
+        scope_rel = f"plans/{run_id}-scope.yaml"
+        selection_path = self.uacp_root / selection_rel
+        package_path = self.uacp_root / package_rel
+        scope_path = self.uacp_root / scope_rel
+        if not selection_path.exists():
+            blockers.append(f"adaptive_plan_package_gate: missing {selection_rel}")
+            return
+        if not package_path.exists() or not package_path.is_dir():
+            blockers.append(f"adaptive_plan_package_gate: missing plan package directory {package_rel}/")
+        if not scope_path.exists():
+            blockers.append(f"adaptive_plan_package_gate: missing scope artifact {scope_rel}")
+        if yaml is None:
+            blockers.append("adaptive_plan_package_gate requires PyYAML")
+            return
+        try:
+            selection = yaml.safe_load(selection_path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            blockers.append(f"adaptive_plan_package_gate: failed to parse {selection_rel}: {exc}")
+            return
+        if not isinstance(selection, Mapping):
+            blockers.append(f"adaptive_plan_package_gate: {selection_rel} must be a mapping")
+            return
+        if selection.get("kind") != "uacp.plan_package_selection":
+            blockers.append("adaptive_plan_package_gate: plan-selection kind must be uacp.plan_package_selection")
+        if selection.get("phase") != "plan":
+            blockers.append("adaptive_plan_package_gate: plan-selection phase must be plan")
+        required_core = list(gate.get("required_universal_core") or []) or [
+            "work_breakdown", "dependencies", "authority_and_side_effects", "tool_runtime_selection",
+            "artifact_write_surfaces", "verification_strategy", "rollback_recovery",
+            "council_review_topology", "transition_readiness",
+        ]
+        core = selection.get("universal_core") if isinstance(selection.get("universal_core"), Mapping) else {}
+        for key in required_core:
+            item = core.get(str(key)) if isinstance(core, Mapping) else None
+            if not isinstance(item, Mapping):
+                blockers.append(f"adaptive_plan_package_gate: universal_core.{key} missing")
+                continue
+            status = str(item.get("status") or "")
+            if status == "covered":
+                artifact_path = str(item.get("artifact") or "")
+                if not artifact_path or not self._artifact_path_exists(artifact_path):
+                    blockers.append(f"adaptive_plan_package_gate: universal_core.{key} artifact missing")
+            elif status == "not_applicable":
+                self._validate_plan_na(selection_rel, f"universal_core.{key}", item, blockers)
+            else:
+                blockers.append(f"adaptive_plan_package_gate: universal_core.{key} status must be covered|not_applicable")
+        modules = selection.get("selected_modules") if isinstance(selection.get("selected_modules"), Mapping) else {}
+        if not modules:
+            blockers.append("adaptive_plan_package_gate: selected_modules must not be empty")
+        for name, item in modules.items() if isinstance(modules, Mapping) else []:
+            if not isinstance(item, Mapping):
+                blockers.append(f"adaptive_plan_package_gate: selected_modules.{name} must be a mapping")
+                continue
+            if not item.get("reason"):
+                blockers.append(f"adaptive_plan_package_gate: selected_modules.{name} missing reason")
+            artifact_path = str(item.get("artifact") or "")
+            if not artifact_path or not self._artifact_path_exists(artifact_path):
+                blockers.append(f"adaptive_plan_package_gate: selected_modules.{name} artifact missing")
+        na = selection.get("not_applicable") if isinstance(selection.get("not_applicable"), Mapping) else {}
+        for name, item in na.items() if isinstance(na, Mapping) else []:
+            self._validate_plan_na(selection_rel, f"not_applicable.{name}", item, blockers)
+        readiness = selection.get("transition_readiness")
+        if not isinstance(readiness, Mapping):
+            blockers.append("adaptive_plan_package_gate: transition_readiness must be a mapping")
+        elif readiness.get("status") not in {"ready_for_execute", "ready_with_conditions", "blocked"}:
+            blockers.append("adaptive_plan_package_gate: transition_readiness.status is invalid")
+
+    def _validate_plan_na(self, artifact: str, label: str, item: Any, blockers: list[str]) -> None:
+        if not isinstance(item, Mapping):
+            blockers.append(f"adaptive_plan_package_gate: {label} in {artifact} must be a mapping")
+            return
+        for field_name in ("reason", "accepted_by", "owner", "residual_risk", "revisit_phase", "revisit_trigger"):
+            if item.get(field_name) in (None, ""):
+                blockers.append(f"adaptive_plan_package_gate: {label} missing {field_name}")
+
+    def _validate_package_na(self, artifact: str, label: str, item: Any, blockers: list[str]) -> None:
+        if not isinstance(item, Mapping):
+            blockers.append(f"adaptive_proposal_package_gate: {label} in {artifact} must be a mapping")
+            return
+        for field_name in ("reason", "accepted_by", "owner", "residual_risk", "revisit_phase"):
+            if item.get(field_name) in (None, ""):
+                blockers.append(f"adaptive_proposal_package_gate: {label} missing {field_name}")
 
     def _validate_piv_record(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Phase 1 / Item 1.4: require a PIV pass record in the ledger before
@@ -1225,10 +1397,41 @@ class Heartgate:
                     continue
                 reachable = True
                 break
+            if not reachable and self._self_patch_authorizes_path(data, wp_str, blockers):
+                reachable = True
             if not reachable:
                 blockers.append(
                     f"scope.write_paths cross-check: '{wp_str}' is not reachable by any execute-phase allowed_tool"
                 )
+
+    def _self_patch_authorizes_path(self, scope: Mapping[str, Any], write_path: str, blockers: list[str]) -> bool:
+        """Narrow bootstrap escape hatch for UACP self-repair paths.
+
+        This does not make terminal/patch a general governed writer. It only lets
+        Heartgate accept specific UACP self-patch paths when the scope carries an
+        explicit authority block with owner, rollback, and verification duties.
+        """
+        auth = scope.get("self_patch_write_authority")
+        if not isinstance(auth, Mapping) or not bool(auth.get("enabled")):
+            return False
+        for field_name in ("reason", "authority_artifact", "owner", "rollback_path", "verification_obligations"):
+            if auth.get(field_name) in (None, "", []):
+                blockers.append(f"self_patch_write_authority missing {field_name}")
+                return False
+        obligations = auth.get("verification_obligations")
+        if not isinstance(obligations, list) or not all(isinstance(item, str) and item.strip() for item in obligations):
+            blockers.append("self_patch_write_authority.verification_obligations must be a non-empty list of strings")
+            return False
+        allowed = auth.get("allowed_prefixes") or ["skills/devops/uacp/", "scripts/", "runtime-adapters/"]
+        if not isinstance(allowed, list):
+            blockers.append("self_patch_write_authority.allowed_prefixes must be a list")
+            return False
+        safe_prefixes = {"skills/devops/uacp/", "scripts/", "runtime-adapters/"}
+        cleaned = [str(prefix) for prefix in allowed if isinstance(prefix, str) and prefix in safe_prefixes]
+        if not cleaned:
+            blockers.append("self_patch_write_authority has no safe allowed_prefixes")
+            return False
+        return any(write_path.startswith(prefix) for prefix in cleaned)
 
     def _tool_path_capabilities(self) -> dict[str, list[str]]:
         """Path prefixes each governed writer tool can reach.

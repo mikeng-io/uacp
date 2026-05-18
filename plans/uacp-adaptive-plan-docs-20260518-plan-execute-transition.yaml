@@ -1,0 +1,49 @@
+kind: uacp.phase_transition
+transition_id: uacp-adaptive-plan-docs-20260518-plan-execute
+run_id: uacp-adaptive-plan-docs-20260518
+from_phase: plan
+to_phase: execute
+decision: pass
+invariant_summary:
+  - id: plan_package_exists
+    status: pass
+    evidence: plans/uacp-adaptive-plan-docs-20260518/
+cluster_summary:
+  - cluster_id: adaptive_plan_package
+    state: pass
+    artifact_path: plans/uacp-adaptive-plan-docs-20260518-plan-selection.yaml
+blockers: []
+warnings:
+  - owner: VERIFY
+    residual_risk: Live long-running Hermes plugin reload not proven by source-level dry-run.
+    next_phase_acceptance: EXECUTE/VERIFY must separate source-level and live-runtime claims.
+deferred_items: []
+authority:
+  requested_by: Mike
+  authorization_source: current Telegram instruction Go
+artifact_paths:
+  - plans/uacp-adaptive-plan-docs-20260518-plan.yaml
+  - plans/uacp-adaptive-plan-docs-20260518-scope.yaml
+  - plans/uacp-adaptive-plan-docs-20260518-plan-selection.yaml
+  - plans/uacp-adaptive-plan-docs-20260518/
+phase_local_granularity:
+  phase: plan
+  entry_estimate: 8
+  exit_actual: 8
+  delta_reason: Adaptive PLAN package enforcement run.
+composite_granularity: 8
+human_involvement:
+  required: false
+  reason: Mike authorized local governed patch run.
+  authority_needed: none
+  decision_owner: Mike
+heartgate_coherence:
+  status: warn
+  artifact_path: verification/uacp-adaptive-plan-docs-20260518-propose-followup-council.yaml
+  lenses:
+    - doctrine_coherence
+    - cross_artifact_consistency
+    - runtime_state_alignment
+    - warning_and_deferred_item_honesty
+    - authority_plane_integrity
+    - next_phase_readiness

@@ -1,0 +1,40 @@
+kind: uacp.proposal
+phase: propose
+run_id: uacp-adaptive-plan-docs-20260518
+triage_artifact: proposals/uacp-adaptive-plan-docs-20260518-triage.yaml
+role_of_this_yaml: >-
+  Machine lifecycle envelope only. This YAML is not the whole proposal and must
+  not be treated as the human-reviewable proposal document.
+human_review_package: proposals/uacp-adaptive-plan-docs-20260518/
+package_selection_artifact: proposals/uacp-adaptive-plan-docs-20260518-package-selection.yaml
+objective: >-
+  Patch UACP PLAN composition so selected serious PLAN work is represented as an
+  adaptive human-reviewable package plus machine envelopes, with validator,
+  Heartgate, Guardian policy, and fixtures aligned.
+scope:
+  in_scope:
+    - uacp-plan skill doctrine
+    - phase transition adaptive PLAN package gate
+    - validator support for uacp.plan_package_selection
+    - Heartgate PLAN->EXECUTE adaptive package gate
+    - Guardian artifact policy recognition for PLAN packages
+    - positive and negative fixtures
+  out_of_scope:
+    - LEXA implementation or PLAN regeneration
+    - EXECUTE/VERIFY/RESOLVE package refactors
+    - external pushes, PRs, production changes
+declared_side_effects:
+  paths:
+    - skills/devops/uacp/uacp-plan/SKILL.md
+    - config/phase-transitions.yaml
+    - scripts/validate_uacp_artifacts.py
+    - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    - config/guardian-policy.yaml
+    - verification/fixtures/adaptive-plan-package/
+  external: []
+authority:
+  status: pass
+  source: "Mike current Telegram instruction: Go"
+human_involvement:
+  required: false
+  reason: Explicit operator authorization already given for local governed patch run.

@@ -1,0 +1,25 @@
+kind: uacp.execution_evidence
+run_id: uacp-self-patch-write-authority-20260518
+phase: execute
+status: complete_with_runtime_reload_caveat
+patches:
+  - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py: added _self_patch_authorizes_path and wired it into scope.write_paths cross-check.
+  - plans/uacp-adaptive-plan-docs-20260518-scope.yaml: added explicit self_patch_write_authority block.
+checks:
+  - name: AST parse kernel.py
+    result: pass
+  - name: validate adaptive PLAN plan-selection
+    result: pass
+  - name: validate adaptive PLAN pass fixture
+    result: pass
+  - name: validate adaptive PLAN block fixture
+    result: block_expected
+  - name: local source Heartgate import on adaptive PLAN transition
+    result: warn_no_blockers
+    details: "decision warn; blockers []; warnings: transition owned warnings, coherence warnings, run_registry absent"
+  - name: live uacp_heartgate_check
+    result: block_stale_runtime
+    details: Live plugin still appears cached and reports old unreachable-path blockers.
+residual_risks:
+  - Long-lived Hermes UACP Guardian plugin/runtime must reload before uacp_heartgate_check reflects patched source.
+  - This is a narrow self-patch exception, not a general terminal/patch governed writer.

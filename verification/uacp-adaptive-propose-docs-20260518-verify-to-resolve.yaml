@@ -1,0 +1,79 @@
+kind: uacp.phase_transition
+transition_id: uacp-adaptive-propose-docs-20260518-verify-to-resolve
+run_id: uacp-adaptive-propose-docs-20260518
+from_phase: verify
+to_phase: resolve
+decision: warn
+routing_outcome: standard_uacp
+terminal_kind: none
+invariant_summary:
+  - id: verification.artifact_present
+    status: pass
+    evidence: verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+  - id: piv.verify_pass
+    status: pass
+    evidence: state/gate-ledger/uacp-adaptive-propose-docs-20260518.jsonl gate=PIV phase=verify result=pass
+cluster_summary:
+  - cluster_id: validator_fixtures
+    state: pass
+    artifact_path: verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+  - cluster_id: heartgate_checks
+    state: warn
+    artifact_path: verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+blockers: []
+warnings:
+  - id: runtime_plugin_reload
+    owner: Norty
+    residual_risk: Direct local kernel import verifies adaptive gate enforcement, but current live plugin tool may require reload to consume kernel.py edits.
+    next_phase_acceptance: RESOLVE must record reload/deployment note.
+deferred_items: []
+authority:
+  requested_by: Mike
+  authorization_source: current Telegram session
+artifact_paths:
+  - verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+council_synthesis_artifact: verification/uacp-adaptive-propose-docs-20260518-followup-council.yaml
+verification_artifact: verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+accepted_exceptions:
+  - artifact_path: verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+    rationale: Runtime plugin reload is acceptable as a resolve-time operational note because local kernel import verified the enforcement code path.
+    owner: Norty
+phase_local_granularity:
+  phase: verify
+  entry_estimate: 8
+  exit_actual: 7
+  delta_reason: Verification passed with owned reload/config warnings.
+  downstream_projection:
+    resolve: 6
+composite_granularity: 7
+human_involvement:
+  required: true
+  reason: UACP lifecycle semantics patch.
+  authority_needed: Mike current-session approval.
+  decision_owner: Mike
+  accepted_risk_artifact: verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+source_negative_findings_present: true
+handled_findings_chain:
+  - original_finding_id: runtime-heartgate-integration-depth
+    original_artifact_path: verification/uacp-adaptive-propose-docs-20260518-execute-to-verify.yaml
+    finding_classification: material_warning
+    handling_classification: accepted_warning
+    handling_artifact_path: verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+    followup_council_synthesis_artifact: null
+    followup_required: false
+    followup_depth: 0
+    accepted_exception_artifact: verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+    owner: Norty
+    residual_risk: Runtime reload required before live tool enforcement relies on patched kernel.
+    next_phase_obligation: RESOLVE records reload/deployment note.
+    heartgate_validation: warn
+heartgate_coherence:
+  status: warn
+  artifact_path: verification/uacp-adaptive-propose-docs-20260518-verify-001.yaml
+  lenses:
+    - doctrine_coherence
+    - cross_artifact_consistency
+    - runtime_state_alignment
+    - warning_and_deferred_item_honesty
+    - authority_plane_integrity
+    - next_phase_readiness

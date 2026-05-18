@@ -1,0 +1,29 @@
+phase: resolve
+run_id: uacp-adaptive-propose-docs-20260518
+resolution_id: uacp-adaptive-propose-docs-20260518-resolution-001
+verdict: resolved_with_owned_warnings
+summary: >-
+  UACP PROPOSE composition was patched from YAML-only/fixed-document behavior
+  toward adaptive, context-selected proposal documentation packages. Validator,
+  config, Guardian policy, and kernel-level Heartgate enforcement now recognize
+  package-selection artifacts and proposal package directories.
+completed_changes:
+  - uacp-propose skill and references already state adaptive package doctrine.
+  - phase-transitions.yaml now declares adaptive_proposal_package_gate.
+  - guardian-policy.yaml clarifies proposal packages/envelopes are artifact.uacp.
+  - validate_uacp_artifacts.py validates uacp.proposal_package_selection.
+  - kernel.py enforces adaptive_proposal_package_gate for PROPOSE->PLAN.
+  - fixtures verify pass/block behavior.
+  - Heartgate dry-runs pass positive PROPOSE->PLAN and block negative missing-package transition under local kernel import.
+residual_warnings:
+  - id: runtime_plugin_reload
+    owner: Norty
+    residual_risk: Running plugin process may require reload before live uacp_heartgate_check uses edited kernel.py.
+    next_action: Reload/restart Hermes plugin/runtime before relying on live Heartgate enforcement in future sessions.
+  - id: self_patch_tooling
+    owner: Norty
+    residual_risk: Some config edits were applied with local patch tooling in a self-modification lane.
+    next_action: Prefer uacp_config_write for future canonical config self-patches where practical.
+lexa_status:
+  current: paused
+  next_allowed_step: Regenerate LEXA PROPOSE as adaptive package using package-selection after runtime reload note is accepted.

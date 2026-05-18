@@ -1,0 +1,32 @@
+kind: uacp.execution_evidence
+run_id: uacp-adaptive-plan-docs-20260518
+phase: execute
+status: partial_with_heartgate_blocker
+completed_tranches:
+  - T1_skill_doctrine: not_yet_patched
+  - T2_phase_transition_config: patched
+  - T3_validator: patched_and_tested
+  - T4_heartgate_kernel: patched_source
+  - T5_guardian_policy: patched
+  - T6_fixtures: created_and_validator_tested
+  - T7_verification_council: pending
+commands:
+  - command: PYTHONDONTWRITEBYTECODE=1 AST parse validator/kernel
+    result: pass
+  - command: validate current plan-selection
+    result: pass
+  - command: validate pass fixture
+    result: pass
+  - command: validate block fixture
+    result: block_expected
+heartgate:
+  transition_artifact: plans/uacp-adaptive-plan-docs-20260518-plan-execute-transition.yaml
+  result: block
+  blockers:
+    - code/skill write paths are not reachable by any execute-phase allowed_tool under current Heartgate scope cross-check
+  interpretation: >-
+    Adaptive PLAN gate source has been added, but full PLAN->EXECUTE Heartgate still blocks because UACP currently lacks an allowed write surface for skill/script/runtime-adapter code paths in scope cross-check. This must be resolved before claiming clean governed transition.
+residual_risks:
+  - Runtime plugin reload not proven.
+  - Guardian hard-interception not proven.
+  - Code/skill patching used normal patch tooling as a bootstrapping exception.
