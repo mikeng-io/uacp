@@ -1,0 +1,38 @@
+kind: uacp.scope
+phase: plan
+run_id: nora-identity-registry-plugin-20260518-203428
+scope_id: nora-identity-registry-plugin-20260518-203428-scope
+allowed_tools:
+  - read_file
+  - search_files
+  - write_file
+  - patch
+  - terminal
+  - delegate_task
+write_paths:
+  - "/home/norty/.hermes/profiles/nora/plugins/identity_registry/plugin.yaml"
+  - "/home/norty/.hermes/profiles/nora/plugins/identity_registry/__init__.py"
+  - "/home/norty/.hermes/profiles/nora/plugins/identity_registry/tests/"
+  - "/home/norty/.hermes/profiles/nora/config.yaml"
+read_paths:
+  - "/home/norty/.hermes/operator-data/nora/identity-registry/identity_registry.py"
+  - "/home/norty/.hermes/operator-data/nora/identity-registry/identity_registry.runtime.json"
+  - "/home/norty/.hermes/profiles/nora/"
+forbidden_paths:
+  - "/private/"
+  - "/home/norty/.hermes/operator-data/nora/identity-registry/identity_registry.source.yaml"
+write_constraints:
+  - "Do not write identity_registry.source.yaml."
+  - "Do not restart gateway in EXECUTE."
+  - "Do not enable outbound dispatch or live sends."
+  - "Config write limited to enabling plugin after tests pass; if uncertainty, defer enablement."
+rollback_path: >-
+  Remove profile-local plugin directory and remove identity-registry from Nora plugins.enabled;
+  if gateway was not restarted, no live rollback required. If gateway restart is later approved,
+  restart again after config/plugin rollback.
+blast_radius: medium_high
+human_involvement:
+  required: true
+  boundary: "Nora gateway restart or live outbound dispatch."
+cluster_artifacts:
+  - proposals/nora-identity-registry-plugin-20260518-203428-gate-selection.yaml

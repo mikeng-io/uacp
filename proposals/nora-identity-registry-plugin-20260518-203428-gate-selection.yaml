@@ -1,0 +1,61 @@
+kind: uacp.gate_selection
+selection_id: nora-identity-registry-plugin-20260518-203428-gate-selection
+run_id: nora-identity-registry-plugin-20260518-203428
+phase: propose
+domains:
+  - hermes_profile_plugin
+  - public_profile_identity_boundary
+  - runtime_context_injection
+  - identity_registry
+artifact_types:
+  - proposal
+  - plugin_source
+  - synthetic_test
+  - leak_check
+risk_level: medium_high
+granularity_level: 6
+invariant_checks:
+  - id: no_operator_only_leak
+    status: pass
+    reason: "Selected as non-waivable verification invariant; must pass in VERIFY before restart."
+  - id: current_sender_only
+    status: pass
+    reason: "Plugin must use only current MessageEvent source for lookup."
+  - id: no_live_dispatch
+    status: pass
+    reason: "Outbound dispatch explicitly out of scope for this run."
+  - id: no_gateway_restart_without_authority
+    status: pass
+    reason: "Restart is declared next authority boundary."
+selected_clusters:
+  required:
+    - id: privacy_boundary
+      reason: "Registry contains private/operator data in source; runtime injection must be sanitized."
+    - id: runtime_integration
+      reason: "Hook/plugin seam must be verified under Nora HERMES_HOME."
+    - id: rollback
+      reason: "Profile plugin must be disable/removable without core changes."
+    - id: focused_audit
+      reason: "Post-implementation checker required for privacy/runtime boundary."
+  optional:
+    - id: council_preimplementation
+      reason: "Not selected unless PLAN discovers hook ambiguity."
+  generated: []
+not_applicable:
+  - id: production_database_migration
+    reason: "No database migration in scope."
+  - id: public_post_or_third_party_message
+    reason: "No live outbound dispatch in scope."
+transition_requirements:
+  propose_to_plan:
+    - "Proposal artifact exists and bounds side effects."
+    - "Gate selection identifies non-waivable privacy/runtime invariants."
+  plan_to_execute:
+    - "PLAN names exact files, rollback path, and tests."
+  execute_to_verify:
+    - "Plugin files written and deterministic tests runnable."
+  verify_to_resolve:
+    - "Focused audit PASS/no material concerns or recorded remediation loop."
+reasoning:
+  - "UACP owns granularity; this route is standard_uacp because the work crosses public/private profile identity boundaries."
+  - "Full governance/council before implementation is not selected because no core enforcement, protected UACP state, or live dispatch is changed in tranche 1."

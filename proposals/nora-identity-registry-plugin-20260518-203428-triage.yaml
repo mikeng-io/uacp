@@ -1,0 +1,56 @@
+kind: uacp.triage
+triage_id: nora-identity-registry-plugin-20260518-203428-001
+request_summary: >-
+  Implement Nora identity-registry runtime integration through UACP lifecycle, starting
+  with inbound reverse lookup and sanitized safe-card injection for current sender only.
+authority:
+  status: pass
+  source: "Mike explicitly selected UACP rather than non-UACP; docs/INDEX.md identifies lifecycle artifact roots and governance contract."
+factor_scores:
+  impact: 6
+  reversibility: 7
+  domain_count: 5
+  runtime_count: 5
+  verification_difficulty: 6
+  notes:
+    - "Touches Nora public-profile runtime context injection and Norty/Nora authority boundary."
+    - "Does not initially send outbound messages, edit Hermes core, mutate secrets, or enable memory."
+    - "Profile-local plugin is reversible by disabling/removing plugin and restarting Nora gateway."
+phase_local_granularity:
+  phase: triage
+  entry_estimate: 6
+  exit_actual: 6
+  delta_reason: "Scope is bounded but privacy-sensitive; UACP applies."
+  downstream_projection:
+    propose: 6
+    plan: 6
+    execute: 6
+    verify: 7
+    resolve: 5
+composite_granularity: 6
+routing_outcome: standard_uacp
+rationale:
+  - "Public/private identity boundary and runtime prompt injection require lifecycle governance."
+  - "Granularity does not justify full governance before implementation because core/runtime enforcement is not being modified in tranche 1."
+  - "UACP, not an informal Lite mode, owns this routing outcome."
+artifact_policy: standard
+council:
+  required: true
+  reason: "Post-implementation verification should include focused privacy/runtime/audit council before live gateway restart. Pre-implementation council is optional because hook design is straightforward."
+human_involvement:
+  required: true
+  reason: "Live Nora gateway restart and any live outbound dispatch are external/runtime side effects."
+  authority_needed: "Approval before gateway restart or live messaging capability."
+  decision_owner: Mike
+scope:
+  in:
+    - "Nora profile-local plugin for inbound identity lookup."
+    - "Import/wrap existing identity_registry.py engine."
+    - "Inject sanitized current-sender safe card into ephemeral channel/system context."
+    - "Synthetic tests, leak checks, and focused audit."
+  out:
+    - "Outbound live dispatch."
+    - "Hermes core changes unless plugin seam proves insufficient."
+    - "Memory writes or session-search enablement."
+    - "Reading/exposing raw operator_only identity data to Nora."
+next_step: "Route to PROPOSE with bounded proposal for profile-local plugin and verification gates."
