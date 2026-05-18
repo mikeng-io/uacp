@@ -29,6 +29,7 @@ The template is at [0000-template.md](0000-template.md). Numbering is sequential
 | [0007](0007-global-review-cross-phase-remediation.md) | Global review — cross-phase audit and R1/R2 remediation | accepted | 2026-05-17 |
 | [0008](0008-doc-structure-and-adr-adoption.md) | Adopt subdirectory + ADR documentation structure | accepted | 2026-05-17 |
 | [0009](0009-adaptive-proposal-and-plan-packages.md) | Adaptive PROPOSE and PLAN documentation packages | accepted | 2026-05-18 |
+| [0010](0010-operator-phase-return-presentation.md) | Separate operator phase returns from raw evidence | accepted | 2026-05-19 |
 
 ## Related
 

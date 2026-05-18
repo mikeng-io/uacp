@@ -15,6 +15,7 @@ Canonical schemas and per-skill authority records. These are the machine-readabl
 | [proposal-schema.md](proposal-schema.md) | Canonical reference for the `uacp.propose` artifact (fields, semantics, validation rules, routing-outcome examples). |
 | [skill-enforcement-spec.md](skill-enforcement-spec.md) | Per-skill authority record: allowed_tools, forbidden_tools, write surfaces, PIV obligations, mechanical-enforcement table. |
 | [lifecycle-trace-table.md](lifecycle-trace-table.md) | Per-transition table (TRIAGE→…→RESOLVE) listing required inputs, required outputs, Heartgate checks, gate-ledger entry. Cross-phase dependency graph. |
+| [operator-phase-return-schema.md](operator-phase-return-schema.md) | Presentation contract for Telegram/Discord phase returns: conclusion-first summaries with evidence pointers, not raw data dumps. |
 
 ## Related
 
