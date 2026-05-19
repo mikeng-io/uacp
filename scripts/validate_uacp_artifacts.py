@@ -214,6 +214,77 @@ def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[
     validate_handled_findings_chain(path, obj, issues)
     validate_heartgate_coherence(path, obj, issues, root=root)
     validate_heartgate_coherence_requirement(path, obj, config, issues)
+    validate_adaptive_transition_linked_artifacts(path, obj, issues, root=root)
+    accepted_pairs: set[tuple[str, str]] = set()
+    for idx, item in enumerate(obj.get("accepted_exceptions") if isinstance(obj.get("accepted_exceptions"), list) else []):
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: accepted_exceptions[{idx}] must be a mapping")
+            continue
+        for field in ("id", "cluster_id", "artifact_path", "rationale", "owner", "accepted_by", "next_phase_acceptance"):
+            if item.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: accepted_exceptions[{idx}] missing {field}")
+        if item.get("artifact_path") and item.get("cluster_id"):
+            accepted_pairs.add((str(item.get("artifact_path")), str(item.get("cluster_id"))))
+        artifact_path = str(item.get("artifact_path") or "")
+        if artifact_path and not artifact_path.startswith(("verification/", "outputs/")):
+            issues.append(f"BLOCK {path}: accepted_exceptions[{idx}] artifact_path must be verification/ or outputs/ evidence")
+        if artifact_path and obj.get("run_id") and not _artifact_run_bound(artifact_path, str(obj.get("run_id"))):
+            issues.append(f"BLOCK {path}: accepted_exceptions[{idx}] artifact_path must be run-bound: {artifact_path}")
+        if root is not None and item.get("artifact_path") and not _artifact_exists(root, item.get("artifact_path")):
+            issues.append(f"BLOCK {path}: accepted_exceptions[{idx}] artifact_path not found")
+    for idx, cluster in enumerate(obj.get("cluster_summary") if isinstance(obj.get("cluster_summary"), list) else []):
+        if isinstance(cluster, dict) and cluster.get("state") == "warn":
+            pair = (str(cluster.get("artifact_path") or ""), str(cluster.get("cluster_id") or ""))
+            if pair not in accepted_pairs:
+                issues.append(f"BLOCK {path}: cluster_summary[{idx}] warns without matching accepted_exception artifact_path+cluster_id")
+
+
+def validate_adaptive_transition_linked_artifacts(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    if root is None:
+        return
+    run_id = str(obj.get("run_id") or "")
+    if not run_id:
+        return
+    from_phase = str(obj.get("from_phase") or "")
+    to_phase = str(obj.get("to_phase") or "")
+    if from_phase == "execute" and to_phase == "verify":
+        for rel, validator in [
+            (f"plans/{run_id}-piv.yaml", validate_piv_contract),
+            (f"executions/{run_id}-checkpoint-001.yaml", validate_execution_checkpoint),
+        ]:
+            artifact = _load_yaml_artifact(root, rel)
+            if artifact is None:
+                issues.append(f"BLOCK {path}: linked EXECUTE gate artifact missing or unreadable: {rel}")
+            else:
+                validator(root / rel, artifact, issues, root=root)
+    if from_phase == "verify" and to_phase == "resolve":
+        for rel, validator in [
+            (f"verification/{run_id}-verify-selection.yaml", validate_verify_package_selection),
+            (f"verification/{run_id}-resolve-readiness.yaml", validate_verify_resolve_readiness),
+        ]:
+            artifact = _load_yaml_artifact(root, rel)
+            if artifact is None:
+                issues.append(f"BLOCK {path}: linked VERIFY gate artifact missing or unreadable: {rel}")
+            else:
+                validator(root / rel, artifact, issues, root=root)
+        piv_rel = f"verification/{run_id}-piv-assessment.yaml"
+        if (root / f"plans/{run_id}-piv.yaml").exists() or (root / piv_rel).exists():
+            artifact = _load_yaml_artifact(root, piv_rel)
+            if artifact is None:
+                issues.append(f"BLOCK {path}: linked VERIFY PIV assessment missing or unreadable: {piv_rel}")
+            else:
+                validate_piv_assessment(root / piv_rel, artifact, issues, root=root)
+    if from_phase == "resolve":
+        for rel, validator in [
+            (f"verification/{run_id}-resolve-readiness.yaml", validate_verify_resolve_readiness),
+            (f"outputs/{run_id}-resolve-selection.yaml", validate_resolve_package_selection),
+            (f"outputs/{run_id}-closure.yaml", validate_resolve_closure),
+        ]:
+            artifact = _load_yaml_artifact(root, rel)
+            if artifact is None:
+                issues.append(f"BLOCK {path}: linked RESOLVE gate artifact missing or unreadable: {rel}")
+            else:
+                validator(root / rel, artifact, issues, root=root)
 
 
 def validate_heartgate_coherence_requirement(path: Path, obj: dict, config: dict, issues: list[str]) -> None:
@@ -432,6 +503,19 @@ def _artifact_exists(root: Path, artifact: Any) -> bool:
         return (resolved == root_resolved or root_resolved in resolved.parents) and resolved.exists()
     except Exception:
         return False
+
+
+def _artifact_run_bound(artifact: str, run_id: str) -> bool:
+    if not artifact or not run_id:
+        return False
+    prefixes = (
+        f"proposals/{run_id}",
+        f"plans/{run_id}",
+        f"executions/{run_id}",
+        f"verification/{run_id}",
+        f"outputs/{run_id}",
+    )
+    return artifact.startswith(prefixes)
 
 
 def _read_artifact_text(root: Path | None, artifact: Any) -> str | None:
@@ -803,8 +887,15 @@ def validate_execution_checkpoint(path: Path, obj: dict, issues: list[str], *, r
                         issues.append(f"BLOCK {path}: evidence[{idx}] result={item.get('result')} for required obligation requires {field}")
         if item.get("result") not in {"pass", "warn", "block", "deferred"}:
             issues.append(f"BLOCK {path}: evidence[{idx}].result must be pass|warn|block|deferred")
-        if item.get("result") == "pass" and item.get("artifact") in (None, ""):
-            issues.append(f"BLOCK {path}: evidence[{idx}] result=pass requires artifact")
+        if item.get("result") == "pass":
+            artifact = item.get("artifact")
+            if artifact in (None, ""):
+                issues.append(f"BLOCK {path}: evidence[{idx}] result=pass requires artifact")
+            elif root is not None:
+                if not _artifact_exists(root, artifact):
+                    issues.append(f"BLOCK {path}: evidence[{idx}] artifact not found: {artifact}")
+                elif obj.get("run_id") and not _artifact_run_bound(str(artifact), str(obj.get("run_id"))):
+                    issues.append(f"BLOCK {path}: evidence[{idx}] artifact must be run-bound: {artifact}")
         if item.get("summary") in (None, ""):
             issues.append(f"BLOCK {path}: evidence[{idx}] missing summary")
     readiness = obj.get("next_phase_readiness") if isinstance(obj.get("next_phase_readiness"), dict) else {}
@@ -1030,6 +1121,8 @@ def validate_verify_resolve_readiness(path: Path, obj: dict, issues: list[str], 
         issues.append(f"BLOCK {path}: piv_summary.artifact must be {expected_piv}")
     if piv_summary.get("status") not in {"pass", "warn", "block", "deferred", "not_applicable"}:
         issues.append(f"BLOCK {path}: piv_summary.status is invalid")
+    if root is not None and expected_piv and (root / f"plans/{obj.get('run_id')}-piv.yaml").exists() and not _artifact_exists(root, expected_piv):
+        issues.append(f"BLOCK {path}: PIV assessment required when plan PIV exists: {expected_piv}")
     if root is not None and piv_summary.get("artifact") and _artifact_exists(root, piv_summary.get("artifact")):
         try:
             pa = yaml.safe_load((root / str(piv_summary.get("artifact"))).read_text())
@@ -1245,6 +1338,12 @@ def validate_resolve_closure(path: Path, obj: dict, issues: list[str], *, root: 
         issues.append(f"BLOCK {path}: verify_resolve_readiness unreadable or missing")
     elif readiness.get("ready_for_resolve") is not True:
         issues.append(f"BLOCK {path}: cannot close when VERIFY readiness not ready")
+    elif root is not None:
+        nested: list[str] = []
+        validate_verify_resolve_readiness(path, readiness, nested, root=root)
+        for issue in nested:
+            if str(issue).startswith("BLOCK"):
+                issues.append(f"BLOCK {path}: verify_resolve_readiness invalid for closure: {issue}")
     decision = obj.get("final_decision") if isinstance(obj.get("final_decision"), dict) else {}
     if decision.get("status") not in {"resolved", "resolved_with_warnings", "blocked"}:
         issues.append(f"BLOCK {path}: final_decision.status invalid")
@@ -1261,9 +1360,58 @@ def validate_resolve_closure(path: Path, obj: dict, issues: list[str], *, root: 
         issues.append(f"BLOCK {path}: state_disposition.run_status invalid")
     if state.get("memory_action") not in {"none", "memory_added", "skill_updated", "docs_updated", "knowledge_recorded"}:
         issues.append(f"BLOCK {path}: state_disposition.memory_action invalid")
+    sources = []
+    if isinstance(readiness, dict):
+        sources.append(("VERIFY readiness", readiness))
+    if isinstance(pkg, dict):
+        sources.append(("resolve package", pkg))
+    closure_risks = {str(r.get("risk_id") or r.get("id") or r.get("description")) for r in (obj.get("residual_risks") or []) if isinstance(r, dict)}
+    closure_deferred = {str(d.get("item_id") or d.get("id") or d.get("description")) for d in (obj.get("deferred_items") or []) if isinstance(d, dict)}
+    for label, source in sources:
+        source_risks = {str(r.get("risk_id") or r.get("id") or r.get("description")) for r in (source.get("residual_risks") or []) if isinstance(r, dict)}
+        missing = sorted(x for x in source_risks if x and x not in closure_risks)
+        if missing:
+            issues.append(f"BLOCK {path}: residual risks from {label} not carried into closure: {missing}")
+        source_deferred = {str(d.get("item_id") or d.get("id") or d.get("description")) for d in (source.get("deferred_items") or []) if isinstance(d, dict)}
+        missing_d = sorted(x for x in source_deferred if x and x not in closure_deferred)
+        if missing_d:
+            issues.append(f"BLOCK {path}: deferred items from {label} not carried into closure: {missing_d}")
     handoff = obj.get("operator_handoff") if isinstance(obj.get("operator_handoff"), dict) else {}
     if handoff.get("raw_inventory") is True:
         issues.append(f"BLOCK {path}: operator_handoff must not be raw inventory")
+
+
+
+
+def _path_bound_to_run_id(rel: object, run_id: str) -> bool:
+    if not rel or not run_id:
+        return False
+    parts = Path(str(rel)).parts
+    stem = Path(str(rel)).name
+    candidates = {part for part in parts} | {stem}
+    return any(part == run_id or part.startswith(run_id + "-") for part in candidates)
+
+
+def validate_current_state(root: Path, issues: list[str]) -> None:
+    path = root / "state/current.yaml"
+    obj = require_map(load_yaml(path), path)
+    required = ["kind", "active_run_id", "active_run_manifest", "mutation_policy", "current_transition_artifact", "kanban_binding_artifact", "kanban_board_slug", "bootstrap_closed", "governed_mutation_active"]
+    check_required(str(path), obj, required, issues)
+    if obj.get("kind") != "uacp.current_state":
+        issues.append(f"BLOCK {path}: kind must be uacp.current_state")
+    if obj.get("mutation_policy") != "uacp_state_required":
+        issues.append(f"BLOCK {path}: mutation_policy must be uacp_state_required after bootstrap closure")
+    if obj.get("bootstrap_closed") is not True:
+        issues.append(f"BLOCK {path}: bootstrap_closed must be true")
+    if obj.get("governed_mutation_active") is not True:
+        issues.append(f"BLOCK {path}: governed_mutation_active must be true")
+    active_run_id = str(obj.get("active_run_id") or "")
+    for field in ("active_run_manifest", "current_transition_artifact", "kanban_binding_artifact"):
+        rel = obj.get(field)
+        if rel and not _artifact_exists(root, rel):
+            issues.append(f"BLOCK {path}: {field} not found: {rel}")
+        if active_run_id and rel and not _path_bound_to_run_id(rel, active_run_id):
+            issues.append(f"BLOCK {path}: {field} must be bound to active_run_id {active_run_id}: {rel}")
 
 def validate_configs(root: Path, issues: list[str]) -> dict:
     configs = {}
@@ -1277,6 +1425,7 @@ def validate_configs(root: Path, issues: list[str]) -> dict:
         path = root / rel
         configs[rel] = require_map(load_yaml(path), path)
     validate_evidence_registry(root, issues)
+    validate_current_state(root, issues)
     return configs
 
 
@@ -1347,6 +1496,8 @@ def main() -> int:
                 validate_resolve_closure(path, obj, issues, root=root)
             elif kind == "uacp.evidence_cluster":
                 validate_evidence_cluster(path, obj, issues)
+            elif isinstance(kind, str) and kind.startswith("uacp."):
+                issues.append(f"BLOCK {path}: unknown UACP artifact kind: {kind}")
     except Exception as exc:
         print(f"BLOCK {exc}")
         return 2

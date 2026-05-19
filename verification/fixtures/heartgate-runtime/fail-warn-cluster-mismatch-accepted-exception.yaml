@@ -5,14 +5,17 @@ composite_granularity: 5
 invariant_summary:
 - id: fixture
   status: pass
-cluster_summary: []
+cluster_summary:
+- cluster_id: c1
+  state: warn
+  artifact_path: verification/fixture-execute-pass/accepted-exception-evidence.md
 blockers: []
 warnings: []
 deferred_items: []
 run_id: fixture-execute-pass
 from_phase: execute
 to_phase: verify
-transition_id: pass-execute-transition
+transition_id: fail-warn-cluster-mismatch-accepted-exception.yaml
 authority:
   status: pass
   source: runtime fixture
@@ -29,3 +32,11 @@ heartgate_coherence:
   - warning_and_deferred_item_honesty
   - authority_plane_integrity
   - next_phase_readiness
+accepted_exceptions:
+- id: ex1
+  cluster_id: c2
+  artifact_path: verification/fixture-execute-pass/accepted-exception-evidence.md
+  owner: fixture
+  accepted_by: fixture-reviewer
+  rationale: wrong cluster must not accept c1 warning
+  next_phase_acceptance: verify accepts fixture warning

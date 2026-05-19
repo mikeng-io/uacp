@@ -1,21 +1,20 @@
-schema_version: '0.1'
+schema_version: '0.2'
 kind: uacp.current_state
 active_run_id: uacp-patch-plan-20260515
+active_run_manifest: state/runs/uacp-patch-plan-20260515-triage.yaml
 active_phase: resolve
 active_status: resolved
-mutation_posture: bootstrap_direct_edit
+mutation_policy: uacp_state_required
+current_transition_artifact: outputs/uacp-patch-plan-20260515-resolve.yaml
+kanban_binding_artifact: state/runs/uacp-patch-plan-20260515-triage.yaml
+kanban_board_slug: uacp
+bootstrap_closed: true
+governed_mutation_active: true
 last_updated_reason: >
-  UACP patch plan complete (Phases 0–4 + global review + doc restructure).
-  Doc structure adopted subdirectory + ADR pattern per ADR-0008
-  (architecture/, decisions/, lifecycle/, plans/, policy/, reference/,
-  runtime/, archived/) with 8 ADRs covering Phases 0–4, global review,
-  and the restructure itself. Four root-level entry-point docs added
-  (PROJECT.md, ROADMAP.md, CONTRIBUTING.md, COMMANDS.md). ARC42 partial
-  mapping authored at docs/arc42-index.md. Three stale-content items
-  refreshed: docs/INDEX.md rewritten as structural navigation map;
-  runtime-enforcement.md PIV row + skill-enforcement-spec.md
-  Mechanical-enforcement PIV row updated to reflect SKEP-G-002
-  per-check pass evidence requirement; decision-log.md entry added
-  pointing readers at the per-phase ADRs. All 5 phaseN_verify scripts
-  pass. Hermes-audit finding (skill SKILL.md bloat at HERMES_ROOT) recorded
-  as pc_g_skill_structure_cleanup in phase5-reserved-slot.md.
+  Reconciled current pointer with config/state.yaml after full-lineage
+  lifecycle audit. Bootstrap direct-edit posture is closed; future UACP
+  runtime-state mutation must use the governed state boundary.
+state_history:
+  - event: bootstrap_closed
+    source: full-lineage audit remediation
+    artifact: docs/lifecycle/lifecycle-reference.md

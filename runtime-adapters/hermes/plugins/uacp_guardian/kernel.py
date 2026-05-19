@@ -510,25 +510,35 @@ class Guardian:
     def _extract_paths(self, event: GuardianEvent) -> list[str]:
         args = event.tool_args or {}
         paths: list[str] = []
-        for key in ("path", "file_path", "target_path", "workdir", "cwd"):
-            value = args.get(key)
+        context_paths: list[Path] = []
+        for key in ("path", "file_path", "target_path", "workdir", "cwd", "workspace"):
+            value = args.get(key) or (event.workspace if key == "workspace" else "")
             if isinstance(value, str) and value:
                 paths.append(value)
+                if key in {"workdir", "cwd", "workspace"}:
+                    try:
+                        context_paths.append(Path(value).expanduser().resolve())
+                    except Exception:
+                        pass
+        root_path = self.policy.uacp_root.resolve()
+        root = str(root_path)
+        uacp_env = os.getenv("UACP_ROOT") or root
         # Shell/code tools often carry filesystem targets only inside a command
-        # string. Treat explicit UACP-root references in command text as UACP-bound
-        # so protected actions cannot bypass Guardian by omitting path metadata.
+        # string. Treat explicit or context-relative UACP-root references in
+        # command text as UACP-bound so protected actions cannot bypass Guardian
+        # by omitting direct path metadata.
         for key in ("command", "code", "script", "args"):
             value = args.get(key)
             text = value if isinstance(value, str) else " ".join(str(v) for v in value) if isinstance(value, list) else ""
             if not text:
                 continue
-            root = str(self.policy.uacp_root.resolve())
-            expanded = text.replace("$HOME", str(Path.home())).replace("${HOME}", str(Path.home()))
+            expanded = (
+                text.replace("$HOME", str(Path.home()))
+                .replace("${HOME}", str(Path.home()))
+                .replace("$UACP_ROOT", uacp_env)
+                .replace("${UACP_ROOT}", uacp_env)
+            )
             compact = expanded.replace("\\ ", " ")
-            # Conservative textual detection for shell/code surfaces. This is
-            # not a full shell parser; it intentionally over-binds commands
-            # mentioning the UACP root, ~/.hermes/uacp, $HOME/.hermes/uacp, or
-            # both '.hermes' and 'uacp' in the same command string.
             if (
                 root in compact
                 or ".hermes/uacp" in compact
@@ -536,6 +546,23 @@ class Guardian:
                 or (".hermes" in compact and "uacp" in compact)
             ):
                 paths.append(root)
+                continue
+            # Conservative context-relative binding for common shell path forms.
+            # This is not a full shell parser; it intentionally catches obvious
+            # relative UACP writes such as `touch state/x` from workspace=UACP_ROOT
+            # or `touch uacp/state/x` from cwd=$HERMES_HOME.
+            for token in __import__("re").split(r"[\s;|&<>]+", compact):
+                token = token.strip('"\'')
+                if not token or token.startswith("-"):
+                    continue
+                if token.startswith(("./", "../", "state/", "config/", "docs/", "proposals/", "plans/", "executions/", "verification/", "outputs/", "uacp/")):
+                    for base in context_paths or [root_path]:
+                        try:
+                            candidate = (base / token).resolve()
+                            if candidate == root_path or root_path in candidate.parents:
+                                paths.append(str(candidate))
+                        except Exception:
+                            continue
         return paths
 
     def _path_is_under_state(self, raw_path: str) -> bool:
@@ -711,7 +738,7 @@ class Heartgate:
             if status != "pass":
                 blockers.append(f"invariant {invariant_id} is {status or 'missing'}")
 
-        accepted = self._accepted_exception_paths(artifact)
+        accepted = self._accepted_exceptions_by_path(artifact)
         for cluster in artifact.get("cluster_summary") or []:
             cluster_id = str((cluster or {}).get("cluster_id") or "unknown")
             state = str((cluster or {}).get("state") or "")
@@ -719,7 +746,7 @@ class Heartgate:
             if state == "block":
                 blockers.append(f"cluster {cluster_id} blocks transition")
             elif state == "warn":
-                if artifact_path and artifact_path in accepted:
+                if artifact_path and cluster_id in accepted.get(artifact_path, set()):
                     warnings.append(f"cluster {cluster_id} accepted as warn")
                 else:
                     blockers.append(f"cluster {cluster_id} warns without accepted exception")
@@ -1276,7 +1303,7 @@ class Heartgate:
         readiness = self._load_yaml_under_root(readiness_rel, blockers, "adaptive_resolve_closure_gate")
         if readiness is not None and readiness.get("ready_for_resolve") is not True:
             blockers.append("adaptive_resolve_closure_gate: VERIFY readiness is not ready")
-        self._offline_validate_artifacts([selection_rel, closure_rel], blockers, "adaptive_resolve_closure_gate")
+        self._offline_validate_artifacts([readiness_rel, selection_rel, closure_rel], blockers, "adaptive_resolve_closure_gate")
         if not self._dir_under_root_exists(package_rel):
             blockers.append(f"adaptive_resolve_closure_gate: missing resolve package directory {package_rel}/")
 
@@ -2170,20 +2197,26 @@ class Heartgate:
         exits = stage.get("exits_to") or []
         return to_phase in exits
 
-    def _accepted_exception_paths(self, artifact: Mapping[str, Any]) -> set[str]:
-        paths = set()
+    def _accepted_exceptions_by_path(self, artifact: Mapping[str, Any]) -> dict[str, set[str]]:
+        accepted: dict[str, set[str]] = {}
         for item in artifact.get("accepted_exceptions") or []:
             if not isinstance(item, Mapping):
                 continue
             artifact_path = str(item.get("artifact_path") or "")
-            if not artifact_path:
+            cluster_id = str(item.get("cluster_id") or "")
+            if not artifact_path or not cluster_id:
                 continue
-            if not (item.get("id") and item.get("cluster_id") and item.get("owner") and item.get("rationale") and item.get("next_phase_acceptance")):
+            if not (item.get("id") and item.get("accepted_by") and item.get("owner") and item.get("rationale") and item.get("next_phase_acceptance")):
+                continue
+            run_id = str(artifact.get("run_id") or "")
+            if not artifact_path.startswith(("verification/", "outputs/")):
+                continue
+            if run_id and not artifact_path.startswith((f"verification/{run_id}", f"outputs/{run_id}")):
                 continue
             if not self._artifact_path_exists(artifact_path):
                 continue
-            paths.add(artifact_path)
-        return paths
+            accepted.setdefault(artifact_path, set()).add(cluster_id)
+        return accepted
 
     def _deferred_accepted(self, artifact: Mapping[str, Any], cluster_id: str) -> bool:
         for item in artifact.get("deferred_items") or []:

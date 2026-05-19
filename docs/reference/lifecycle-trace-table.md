@@ -107,7 +107,7 @@ Heartgate does not require a fixed evidence cluster set. TRIAGE/PROPOSE select e
 
 ## Authority cross-references
 
-- `docs/architecture/0011-semantic-markdown-package-enforcement.md`
+- `docs/architecture/0011-semantic-package-artifacts.md`
 - `docs/architecture/0012-phase-intent-verification.md`
 - `docs/architecture/0013-adaptive-verify-evidence.md`
 - `docs/architecture/0014-adaptive-resolve-closure.md`

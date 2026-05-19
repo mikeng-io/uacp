@@ -589,9 +589,13 @@ artifact_schema:
       type: list
       item_type: map
       fields:
+        id: string
+        cluster_id: string
         artifact_path: string
         rationale: string
         owner: string
+        accepted_by: string
+        next_phase_acceptance: string
     phase_local_granularity:
       type: map
       description: Phase-local granularity reassessment for the transition phase.

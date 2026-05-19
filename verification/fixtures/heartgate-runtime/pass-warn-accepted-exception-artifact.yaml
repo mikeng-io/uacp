@@ -8,7 +8,7 @@ invariant_summary:
 cluster_summary:
 - cluster_id: c1
   state: warn
-  artifact_path: verification/fixtures/heartgate-runtime/accepted-exception-evidence.md
+  artifact_path: verification/fixture-execute-pass/accepted-exception-evidence.md
 blockers: []
 warnings: []
 deferred_items: []
@@ -24,7 +24,7 @@ phase_local_granularity: 5
 human_involvement: fixture
 heartgate_coherence:
   status: pass
-  artifact_path: verification/fixture-resolve-pass-heartgate-coherence.yaml
+  artifact_path: verification/fixture-execute-pass-heartgate-coherence.yaml
   lenses:
   - doctrine_coherence
   - cross_artifact_consistency
@@ -35,7 +35,8 @@ heartgate_coherence:
 accepted_exceptions:
 - id: ex1
   cluster_id: c1
-  artifact_path: verification/fixtures/heartgate-runtime/accepted-exception-evidence.md
+  artifact_path: verification/fixture-execute-pass/accepted-exception-evidence.md
   owner: fixture
+  accepted_by: fixture-reviewer
   rationale: prove accepted exception containment
   next_phase_acceptance: verify accepts fixture warning
