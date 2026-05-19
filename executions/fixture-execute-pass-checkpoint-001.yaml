@@ -1,0 +1,33 @@
+kind: uacp.execution_checkpoint
+phase: execute
+run_id: fixture-execute-pass
+checkpoint_id: fixture-execute-pass-checkpoint-001
+piv_contract: plans/fixture-execute-pass-piv.yaml
+checkpoint_type: pre_verify_handoff
+work_unit_id: wu-1
+work_performed:
+  summary: Produced the fixture semantic execution evidence package for VERIFY handoff.
+  produced_outputs:
+  - executions/fixture-execute-pass/00-index.md
+  - executions/fixture-execute-pass/evidence-map.md
+decisions:
+- id: dec-1
+  decision: Use Phase Intent Verification terminology and work units.
+  rationale: Avoid implementation-only bias while preserving proof obligations.
+evidence:
+- obligation_id: ev-1
+  artifact: executions/fixture-execute-pass/evidence-map.md
+  result: pass
+  summary: Required semantic package modules exist and map evidence to VERIFY readiness.
+intent_drift:
+  detected: false
+  deviations: []
+invariants:
+  authority_preserved: true
+  write_boundary_preserved: true
+  rollback_preserved: true
+  privacy_boundary_preserved: true
+next_phase_readiness:
+  target_phase: verify
+  status: ready
+  missing_evidence: []

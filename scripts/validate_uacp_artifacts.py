@@ -21,6 +21,10 @@ VALID_FINDING_STATES = {"open", "resolved", "accepted_risk", "not_applicable", "
 VALID_TRANSITION_DECISIONS = {"pass", "warn", "block"}
 VALID_COUNCIL_VERDICTS = {"pass", "warn", "concerns", "fail", "pass_with_deferred_items", "pass_with_concerns", "proceed_to_plan_with_conditions", "completed_with_mixed_validity", "PASS", "WARN", "CONCERNS", "FAIL"}
 VALID_CLUSTER_STATES = {"pass", "warn", "block", "not_applicable", "deferred"}
+VALID_CHECKPOINT_TYPES = {"before_side_effect", "after_work_unit", "pre_verify_handoff", "deviation", "remediation"}
+VALID_NEXT_PHASE_READINESS = {"ready", "ready_with_deferred_items", "blocked"}
+VALID_PIV_CHECKPOINTS = {"before_first_side_effect", "after_each_work_unit", "before_verify_handoff"}
+
 VALID_EXECUTE_RUNTIME_SURFACES = {
     "hermes_profile_worker",
     "delegate_task",
@@ -478,7 +482,7 @@ def _validate_package_directory(root: Path | None, path: Path, phase: str, run_i
     """Require canonical semantic package directory and index for selected packages."""
     if root is None or not run_id:
         return None
-    root_name = "proposals" if phase == "propose" else "plans"
+    root_name = {"propose": "proposals", "plan": "plans", "execute": "executions"}.get(phase, f"{phase}s")
     package_rel = Path(root_name) / str(run_id)
     package_dir = root / package_rel
     if not package_dir.is_dir():
@@ -488,7 +492,8 @@ def _validate_package_directory(root: Path | None, path: Path, phase: str, run_i
     if not index.exists():
         issues.append(f"BLOCK {path}: {phase} package index not found: {package_rel}/00-index.md")
     else:
-        _validate_semantic_markdown(path, f"{phase}_package_index", str(package_rel / "00-index.md"), index.read_text(encoding="utf-8"), issues, ["why", "how"] if phase == "propose" else ["plan", "how"])
+        index_terms = {"propose": ["why", "how"], "plan": ["plan", "how"], "execute": ["intent", "evidence"]}.get(phase, ["intent", "evidence"])
+        _validate_semantic_markdown(path, f"{phase}_package_index", str(package_rel / "00-index.md"), index.read_text(encoding="utf-8"), issues, index_terms)
     return package_dir
 
 
@@ -663,6 +668,181 @@ def validate_plan_package_selection(path: Path, obj: dict, issues: list[str], *,
         issues.append(f"BLOCK {path}: transition_readiness.status is invalid")
 
 
+
+def validate_piv_contract(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    required = ["kind", "phase", "run_id", "applies_to_phase", "phase_intent", "work_units", "evidence_obligations", "checkpoint_policy", "intent_drift_conditions", "next_phase_handoff"]
+    check_required(str(path), obj, required, issues)
+    if obj.get("phase") != "plan":
+        issues.append(f"BLOCK {path}: PIV contract phase must be 'plan'")
+    if obj.get("applies_to_phase") != "execute":
+        issues.append(f"BLOCK {path}: PIV contract applies_to_phase must be 'execute'")
+    if not isinstance(obj.get("phase_intent"), dict) or not obj.get("phase_intent", {}).get("summary"):
+        issues.append(f"BLOCK {path}: PIV contract requires phase_intent.summary")
+    work_units = obj.get("work_units") if isinstance(obj.get("work_units"), list) else []
+    if not work_units:
+        issues.append(f"BLOCK {path}: PIV contract requires non-empty work_units")
+    unit_ids: set[str] = set()
+    for idx, unit in enumerate(work_units):
+        if not isinstance(unit, dict):
+            issues.append(f"BLOCK {path}: work_units[{idx}] must be a mapping")
+            continue
+        unit_id = str(unit.get("id") or "")
+        if not unit_id:
+            issues.append(f"BLOCK {path}: work_units[{idx}] missing id")
+        else:
+            unit_ids.add(unit_id)
+        for field in ("intent", "expected_outputs"):
+            if unit.get(field) in (None, "", []):
+                issues.append(f"BLOCK {path}: work_units[{idx}] missing {field}")
+    obligations = obj.get("evidence_obligations") if isinstance(obj.get("evidence_obligations"), list) else []
+    if not obligations:
+        issues.append(f"BLOCK {path}: PIV contract requires non-empty evidence_obligations")
+    obligation_ids: set[str] = set()
+    for idx, obligation in enumerate(obligations):
+        if not isinstance(obligation, dict):
+            issues.append(f"BLOCK {path}: evidence_obligations[{idx}] must be a mapping")
+            continue
+        oid = str(obligation.get("id") or "")
+        if not oid:
+            issues.append(f"BLOCK {path}: evidence_obligations[{idx}] missing id")
+        else:
+            obligation_ids.add(oid)
+        unit_id = str(obligation.get("work_unit_id") or "")
+        if unit_id and unit_id not in unit_ids:
+            issues.append(f"BLOCK {path}: evidence_obligations[{idx}] references unknown work_unit_id {unit_id!r}")
+        for field in ("evidence_type", "required", "sufficiency"):
+            if field not in obligation or obligation.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: evidence_obligations[{idx}] missing {field}")
+    checkpoint_policy = obj.get("checkpoint_policy") if isinstance(obj.get("checkpoint_policy"), dict) else {}
+    required_checkpoints = checkpoint_policy.get("required_checkpoints") if isinstance(checkpoint_policy.get("required_checkpoints"), list) else []
+    if not required_checkpoints:
+        issues.append(f"BLOCK {path}: PIV contract checkpoint_policy.required_checkpoints must not be empty")
+    for item in required_checkpoints:
+        if str(item) not in VALID_PIV_CHECKPOINTS:
+            issues.append(f"BLOCK {path}: PIV contract checkpoint_policy contains invalid checkpoint {item!r}")
+    if "max_uncheckpointed_units" in checkpoint_policy:
+        try:
+            if int(checkpoint_policy.get("max_uncheckpointed_units")) < 0:
+                issues.append(f"BLOCK {path}: PIV contract checkpoint_policy.max_uncheckpointed_units must be >= 0")
+        except Exception:
+            issues.append(f"BLOCK {path}: PIV contract checkpoint_policy.max_uncheckpointed_units must be an integer")
+    handoff = obj.get("next_phase_handoff") if isinstance(obj.get("next_phase_handoff"), dict) else {}
+    if not handoff.get("required_artifacts") or not handoff.get("pass_condition"):
+        issues.append(f"BLOCK {path}: PIV contract next_phase_handoff requires required_artifacts and pass_condition")
+
+
+def _load_piv_contract(root: Path | None, artifact: Any) -> dict | None:
+    if root is None or artifact in (None, ""):
+        return None
+    candidate = Path(str(artifact))
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        resolved = candidate.resolve()
+        root_resolved = root.resolve()
+        if not (resolved == root_resolved or root_resolved in resolved.parents) or not resolved.exists():
+            return None
+        data = yaml.safe_load(resolved.read_text())
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def validate_execution_checkpoint(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    required = ["kind", "phase", "run_id", "checkpoint_id", "piv_contract", "checkpoint_type", "work_unit_id", "work_performed", "decisions", "evidence", "intent_drift", "invariants", "next_phase_readiness"]
+    check_required(str(path), obj, required, issues)
+    if obj.get("phase") != "execute":
+        issues.append(f"BLOCK {path}: execution checkpoint phase must be 'execute'")
+    run_id = obj.get("run_id")
+    package_dir = _validate_package_directory(root, path, "execute", run_id, issues)
+    piv_ref = obj.get("piv_contract")
+    if root is not None and not _artifact_exists(root, piv_ref):
+        issues.append(f"BLOCK {path}: execution checkpoint piv_contract not found: {piv_ref}")
+    piv = _load_piv_contract(root, piv_ref)
+    work_unit_ids: set[str] = set()
+    required_obligations: set[str] = set()
+    all_obligations: set[str] = set()
+    if piv is None:
+        issues.append(f"BLOCK {path}: piv_contract is unreadable or malformed: {piv_ref}")
+    else:
+        if piv.get("kind") != "uacp.phase_intent_verification_contract":
+            issues.append(f"BLOCK {path}: piv_contract kind must be uacp.phase_intent_verification_contract")
+        work_unit_ids = {str(unit.get("id")) for unit in (piv.get("work_units") or []) if isinstance(unit, dict) and unit.get("id")}
+        all_obligations = {str(item.get("id")) for item in (piv.get("evidence_obligations") or []) if isinstance(item, dict) and item.get("id")}
+        required_obligations = {str(item.get("id")) for item in (piv.get("evidence_obligations") or []) if isinstance(item, dict) and item.get("required") is True and item.get("id")}
+    checkpoint_type = str(obj.get("checkpoint_type") or "")
+    if checkpoint_type not in VALID_CHECKPOINT_TYPES:
+        issues.append(f"BLOCK {path}: checkpoint_type {checkpoint_type!r} is invalid")
+    work_unit_id = str(obj.get("work_unit_id") or "")
+    if work_unit_ids and work_unit_id not in work_unit_ids:
+        issues.append(f"BLOCK {path}: checkpoint work_unit_id {work_unit_id!r} is not declared in PIV")
+    work = obj.get("work_performed") if isinstance(obj.get("work_performed"), dict) else {}
+    if not work.get("summary") or not work.get("produced_outputs"):
+        issues.append(f"BLOCK {path}: work_performed requires summary and produced_outputs")
+    evidence = obj.get("evidence") if isinstance(obj.get("evidence"), list) else []
+    if not evidence:
+        issues.append(f"BLOCK {path}: execution checkpoint evidence must not be empty")
+    seen_required: set[str] = set()
+    for idx, item in enumerate(evidence):
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: evidence[{idx}] must be a mapping")
+            continue
+        oid = str(item.get("obligation_id") or "")
+        if all_obligations and oid and oid not in all_obligations:
+            issues.append(f"BLOCK {path}: evidence[{idx}] references unknown PIV obligation_id {oid!r}")
+        if oid in required_obligations and item.get("result") in {"pass", "warn", "deferred"}:
+            seen_required.add(oid)
+        if item.get("result") not in {"pass", "warn", "block", "deferred"}:
+            issues.append(f"BLOCK {path}: evidence[{idx}].result must be pass|warn|block|deferred")
+        if item.get("result") == "pass" and item.get("artifact") in (None, ""):
+            issues.append(f"BLOCK {path}: evidence[{idx}] result=pass requires artifact")
+        if item.get("summary") in (None, ""):
+            issues.append(f"BLOCK {path}: evidence[{idx}] missing summary")
+    readiness = obj.get("next_phase_readiness") if isinstance(obj.get("next_phase_readiness"), dict) else {}
+    readiness_status = readiness.get("status")
+    if readiness_status not in VALID_NEXT_PHASE_READINESS:
+        issues.append(f"BLOCK {path}: next_phase_readiness.status must be one of {sorted(VALID_NEXT_PHASE_READINESS)}")
+    if readiness.get("target_phase") != "verify":
+        issues.append(f"BLOCK {path}: next_phase_readiness.target_phase must be 'verify'")
+    missing = sorted(required_obligations - seen_required)
+    if readiness_status == "ready" and missing:
+        issues.append(f"BLOCK {path}: next_phase_readiness=ready but required PIV evidence obligations are missing: {missing}")
+    drift = obj.get("intent_drift") if isinstance(obj.get("intent_drift"), dict) else {}
+    deviations = drift.get("deviations") if isinstance(drift.get("deviations"), list) else []
+    detected = drift.get("detected")
+    if not isinstance(detected, bool):
+        issues.append(f"BLOCK {path}: intent_drift.detected must be boolean")
+    if detected is False and deviations:
+        issues.append(f"BLOCK {path}: intent_drift.detected=false conflicts with non-empty deviations")
+    if detected is True:
+        if not deviations:
+            issues.append(f"BLOCK {path}: intent_drift.detected=true requires deviations")
+        for idx, deviation in enumerate(deviations):
+            if not isinstance(deviation, dict):
+                issues.append(f"BLOCK {path}: intent_drift.deviations[{idx}] must be a mapping")
+                continue
+            if deviation.get("disposition") not in {"accepted", "replanned", "blocked", "deferred"}:
+                issues.append(f"BLOCK {path}: intent_drift.deviations[{idx}] requires disposition accepted|replanned|blocked|deferred")
+            for field in ("id", "description", "owner"):
+                if deviation.get(field) in (None, ""):
+                    issues.append(f"BLOCK {path}: intent_drift.deviations[{idx}] missing {field}")
+    invariants = obj.get("invariants") if isinstance(obj.get("invariants"), dict) else {}
+    for field in ("authority_preserved", "write_boundary_preserved", "rollback_preserved", "privacy_boundary_preserved"):
+        if field not in invariants:
+            issues.append(f"BLOCK {path}: invariants missing {field}")
+    if package_dir is not None:
+        semantic_artifacts = {
+            "work_narrative": ("work-narrative.md", ["intent", "work", "why"]),
+            "decision_log": ("decision-log.md", ["decision", "rationale"]),
+            "evidence_map": ("evidence-map.md", ["evidence", "verification"]),
+            "intent_drift_and_deviations": ("intent-drift-and-deviations.md", ["intent", "drift", "disposition"]),
+            "verify_handoff": ("verify-handoff.md", ["verify", "handoff", "readiness"]),
+        }
+        for label, (name, terms) in semantic_artifacts.items():
+            rel = Path("executions") / str(run_id) / name
+            artifact = package_dir / name
+            _validate_semantic_markdown(path, label, str(rel), artifact.read_text(encoding="utf-8") if artifact.exists() else None, issues, terms)
+
 def validate_configs(root: Path, issues: list[str]) -> dict:
     configs = {}
     for rel in [
@@ -729,6 +909,10 @@ def main() -> int:
                 validate_plan_package_selection(path, obj, issues, root=root)
             elif kind == "uacp.execute_task":
                 validate_execute_task(path, obj, issues)
+            elif kind == "uacp.phase_intent_verification_contract":
+                validate_piv_contract(path, obj, issues, root=root)
+            elif kind == "uacp.execution_checkpoint":
+                validate_execution_checkpoint(path, obj, issues, root=root)
             elif kind == "uacp.evidence_cluster":
                 validate_evidence_cluster(path, obj, issues)
     except Exception as exc:

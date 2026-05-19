@@ -1,0 +1,44 @@
+kind: uacp.phase_intent_verification_contract
+phase: plan
+run_id: fixture-execute-pass
+applies_to_phase: execute
+phase_intent:
+  summary: Produce a semantic execution evidence package for the fixture run so VERIFY
+    can assess intent satisfaction without chat history.
+  source_plan_ref: plans/fixture-plan-pass/pass-work.md
+work_units:
+- id: wu-1
+  intent: Generate durable execution evidence artifacts for a documentation/governance
+    fixture, not code implementation.
+  expected_outputs:
+  - executions/fixture-execute-pass/00-index.md
+  - executions/fixture-execute-pass/evidence-map.md
+  allowed_surfaces:
+  - executions/fixture-execute-pass/
+  forbidden_side_effects:
+  - production mutation
+  - private data access
+evidence_obligations:
+- id: ev-1
+  work_unit_id: wu-1
+  evidence_type: artifact
+  required: true
+  sufficiency: Semantic execution package exists with narrative, decision, evidence,
+    drift, and VERIFY handoff modules.
+checkpoint_policy:
+  required_checkpoints:
+  - before_first_side_effect
+  - after_each_work_unit
+  - before_verify_handoff
+  max_uncheckpointed_units: 1
+intent_drift_conditions:
+- id: drift-1
+  condition: Fixture work changes from artifact generation to runtime mutation.
+  action: replan
+next_phase_handoff:
+  required_artifacts:
+  - executions/fixture-execute-pass/00-index.md
+  - executions/fixture-execute-pass/evidence-map.md
+  - executions/fixture-execute-pass/verify-handoff.md
+  pass_condition: All required PIV evidence obligations are pass or explicitly deferred
+    with owner and residual risk.

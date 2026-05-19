@@ -288,6 +288,50 @@ adaptive_plan_package_gate:
     - weak_not_applicable_rationale
     - unresolved_material_council_findings
 
+adaptive_execute_evidence_gate:
+  description: >
+    EXECUTE evidence selection is adaptive and context-driven. For selected
+    non-trivial work, PLAN authors a Phase Intent Verification (PIV) contract;
+    EXECUTE records checkpoints and semantic evidence against that contract;
+    VERIFY consumes the evidence before accepting EXECUTE->VERIFY readiness.
+    PIV verifies phase intent, not only software implementation. Low-risk/direct work is not forced into this gate unless PLAN explicitly creates a PIV contract or another selection predicate applies.
+  applies_to_transition: execute->verify
+  selected_when_any:
+    plan_has_piv_contract: true
+    routing_outcomes: [standard_uacp, full_governance]
+    risk_levels: [high, critical]
+    domains:
+      - governance
+      - runtime
+      - schema_contracts
+      - public_private_boundary
+      - agent_lifecycle
+      - validator_enforcement
+      - heartgate_transition
+      - guardian_policy
+      - multi_agent_execution
+      - profile_plugin_boundary
+  required_artifacts:
+    - plans/{run_id}-piv.yaml
+    - executions/{run_id}-checkpoint-*.yaml
+    - executions/{run_id}/
+  required_semantic_concerns:
+    - work_narrative
+    - decision_log
+    - evidence_map
+    - intent_drift_and_deviations
+    - verify_handoff
+  block_when:
+    - yaml_only_execute_checkpoint_for_selected_work
+    - missing_piv_contract
+    - missing_execution_package_directory
+    - missing_execution_package_index
+    - checkpoint_not_bound_to_piv_contract
+    - checkpoint_work_unit_not_declared_in_piv
+    - required_evidence_obligation_missing_or_unhandled
+    - intent_drift_without_disposition
+    - verify_handoff_claimed_ready_with_missing_required_evidence
+
 plan_validation_gate:
   description: >
     Phase 3 Item 3.1: a deterministic structural check that runs at PLAN->EXECUTE
