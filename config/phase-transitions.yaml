@@ -332,6 +332,53 @@ adaptive_execute_evidence_gate:
     - intent_drift_without_disposition
     - verify_handoff_claimed_ready_with_missing_required_evidence
 
+adaptive_verify_evidence_gate:
+  description: >
+    VERIFY evidence selection is adaptive and context-driven. For selected
+    governed/non-trivial work, VERIFY must produce a semantic verification
+    package plus machine artifacts for PIV assessment and resolve readiness.
+    VERIFY judges truth and cannot pass on artifact existence, unsupported
+    facts, unowned assumptions, unresolved findings, or self-remediation.
+  applies_to_transition: verify->resolve
+  selected_when_any:
+    execute_used_piv_contract: true
+    routing_outcomes: [standard_uacp, full_governance]
+    risk_levels: [high, critical]
+    domains:
+      - governance
+      - runtime
+      - schema_contracts
+      - public_private_boundary
+      - agent_lifecycle
+      - validator_enforcement
+      - heartgate_transition
+      - guardian_policy
+      - multi_agent_execution
+      - profile_plugin_boundary
+  required_artifacts:
+    - verification/{run_id}-verify-selection.yaml
+    - verification/{run_id}/
+    - verification/{run_id}-resolve-readiness.yaml
+  required_when_execute_used_piv:
+    - verification/{run_id}-piv-assessment.yaml
+  required_semantic_concerns:
+    - piv_assessment
+    - verified_facts
+    - assumptions_and_deferred_items
+    - findings_and_dispositions
+    - council_review
+    - resolve_readiness
+  block_when:
+    - missing_verification_package_directory
+    - missing_verification_package_index
+    - piv_used_but_missing_piv_assessment
+    - verified_facts_without_source_evidence
+    - assumptions_or_deferred_items_without_owner_or_next_phase_obligation
+    - pass_with_open_blocker
+    - council_concerns_without_disposition
+    - verify_self_remediation_without_upstream_repair_or_independent_reverification
+    - resolve_readiness_without_required_heartgate_coherence
+
 plan_validation_gate:
   description: >
     Phase 3 Item 3.1: a deterministic structural check that runs at PLAN->EXECUTE

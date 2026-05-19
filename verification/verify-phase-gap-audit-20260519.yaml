@@ -1,0 +1,116 @@
+kind: uacp.verify_phase_gap_audit
+run_id: uacp-adaptive-verify-evidence-20260519
+phase: verify
+created_at: '2026-05-19T18:20:00+08:00'
+mode: retrieval_led_gap_audit
+inspected_paths:
+  - config/phase-transitions.yaml
+  - config/artifact-schemas.yaml
+  - scripts/validate_uacp_artifacts.py
+  - docs/architecture/0009-adaptive-proposal-and-plan-packages.md
+  - docs/architecture/0010-operator-phase-return-presentation.md
+  - docs/architecture/0011-semantic-package-artifacts.md
+  - docs/architecture/0012-phase-intent-verification.md
+  - docs/reference/operator-phase-return-schema.md
+  - /home/norty/.hermes/skills/devops/uacp/uacp-verify/SKILL.md
+  - verification/nora-identity-registry-plugin-20260518-203428-artifact-gap-audit-001.yaml
+  - verification/nora-identity-registry-plugin-20260518-203428-retrieval-led-gap-audit-002.yaml
+  - verification/uacp-phase5-verify-20260514.yaml
+  - verification/uacp-phase6-agent-council-verify-20260515.yaml
+conclusion:
+  status: block_until_verify_gate_designed
+  summary: >-
+    VERIFY remains the thinnest high-impact phase: config only requires a
+    verification artifact glob and EXECUTE->VERIFY ledger entry, while the
+    validator lacks a first-class verification package/PIV assessment/resolve
+    readiness schema. Existing docs mention verified facts, assumptions,
+    Heartgate coherence, and self-approval concerns, but enforcement is not
+    unified into an adaptive VERIFY evidence gate.
+current_ground_truth:
+  phase_config:
+    verify_exit_invariants:
+      - artifact_glob: verification/{run_id}*
+      - gate_ledger_entry: EXECUTE->VERIFY
+    missing:
+      - adaptive_verify_evidence_gate
+      - verification_package_directory requirement
+      - VERIFY->RESOLVE resolve_readiness package requirement
+      - PIV assessment requirement when EXECUTE used PIV
+  validator:
+    present:
+      - phase_transition validation
+      - council_synthesis validation
+      - proposal_package_selection validation
+      - plan_package_selection validation
+      - phase_intent_verification_contract validation
+      - execution_checkpoint validation
+    missing:
+      - uacp.verification_package validation
+      - uacp.piv_assessment validation
+      - uacp.verified_facts validation
+      - uacp.assumptions validation
+      - uacp.verify_resolve_readiness validation
+      - self_approval_guard validation
+      - fact/assumption separation enforcement for adaptive verify packages
+  existing_doctrine:
+    artifact_schemas_yaml: >-
+      Defines verified-facts and assumptions pair concepts for clusters, but
+      current validator path does not validate adaptive VERIFY packages as a
+      cohesive phase output.
+    uacp_verify_skill: >-
+      Requires retrieval-led verification, PIV assessment, phase-end council,
+      self-approval guard, and operator summary returns, but these are skill/SOP
+      obligations rather than validator-backed package gates.
+identified_gaps:
+  - id: verify_package_missing
+    severity: block
+    evidence: config/phase-transitions.yaml lines 121-143
+    summary: VERIFY accepts any verification/{run_id}* artifact and lacks a canonical semantic package directory.
+    required_design_constraint: >-
+      Add adaptive VERIFY evidence package with verification/{run_id}/00-index.md
+      plus semantic modules for PIV assessment, verified facts, assumptions,
+      findings/dispositions, council review, and resolve readiness.
+  - id: piv_assessment_missing
+    severity: block
+    evidence: scripts/validate_uacp_artifacts.py validates PIV contracts and execution checkpoints but no VERIFY-side PIV assessment kind.
+    summary: EXECUTE can produce PIV evidence, but VERIFY has no machine schema to judge PIV satisfaction.
+    required_design_constraint: >-
+      Add a verification artifact that maps each PIV evidence obligation to
+      pass/warn/block/deferred and blocks resolve readiness on missing required
+      evidence unless explicitly accepted with owner/condition.
+  - id: fact_assumption_disposition_not_unified
+    severity: block
+    evidence: config/artifact-schemas.yaml lines 72-83 and 206-213 describe pair files, but validator has no adaptive verify package validation.
+    summary: Verified facts and assumptions exist as older schema concepts but are not enforced as a phase-level VERIFY package contract.
+    required_design_constraint: >-
+      Separate facts from assumptions; assumptions/deferred items require owner,
+      disposition, accepted_by, residual risk, and next-phase obligation.
+  - id: self_approval_guard_not_validator_backed
+    severity: block
+    evidence: uacp-verify skill has self-approval guard; validator lacks corresponding checks.
+    summary: VERIFY must not remediate material findings and self-certify closure without EXECUTE/repair evidence.
+    required_design_constraint: >-
+      Add fields and checks for remediation_source_phase, self_remediation flag,
+      and return_to_execute/return_to_plan dispositions for material findings.
+  - id: resolve_readiness_too_thin
+    severity: block
+    evidence: resolve phase requires outputs/{run_id}* and VERIFY->RESOLVE ledger only.
+    summary: VERIFY does not yet produce validator-backed resolve readiness that proves residual risks, deferred items, and Heartgate coherence are acceptable.
+    required_design_constraint: >-
+      Add verify_resolve_readiness artifact/package module and require Heartgate
+      coherence for governed/high-risk VERIFY->RESOLVE claims.
+  - id: operator_summary_rule_present_but_not_verify_specific
+    severity: warn
+    evidence: docs/reference/operator-phase-return-schema.md and uacp-verify skill.
+    summary: Operator-summary presentation exists, but VERIFY-specific outputs still need evidence pointer and pass/warn/block semantics tied to verified facts and assumptions.
+    required_design_constraint: >-
+      VERIFY operator returns should state decision, verified facts summary,
+      assumptions/deferred items, blockers, residual risks, and next action without raw evidence dumps.
+pre_design_questions:
+  - What minimum artifacts prove VERIFY judged actual truth rather than artifact existence?
+  - What is the canonical distinction between verified fact, assumption, deferred item, warning, and blocker?
+  - When may VERIFY pass with deferred items, and who accepts the residual risk?
+  - How does VERIFY return work to EXECUTE or PLAN when PIV/ evidence fails?
+  - What shape prevents VERIFY self-remediation/self-certification?
+  - What must Heartgate see before VERIFY->RESOLVE?
+recommended_next_step: pre_design_agent_council

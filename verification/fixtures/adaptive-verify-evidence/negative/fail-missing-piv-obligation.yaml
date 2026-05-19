@@ -1,0 +1,6 @@
+kind: uacp.piv_assessment
+phase: verify
+run_id: fixture-verify-pass
+piv_contract: plans/fixture-verify-pass-piv.yaml
+overall_status: pass
+assessments: []

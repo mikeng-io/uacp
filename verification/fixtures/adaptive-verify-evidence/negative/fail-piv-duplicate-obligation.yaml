@@ -1,0 +1,16 @@
+kind: uacp.piv_assessment
+phase: verify
+run_id: fixture-verify-pass
+piv_contract: plans/fixture-verify-pass-piv.yaml
+overall_status: pass
+assessments:
+- &id001
+  obligation_id: ev-1
+  state: pass
+  evidence_refs:
+  - verification/fixture-verify-pass/verified-facts.md
+  result_reason: Required verification evidence package is present and semantically
+    recoverable.
+  owner: fixture
+  next_action: resolve
+- *id001

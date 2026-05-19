@@ -482,7 +482,7 @@ def _validate_package_directory(root: Path | None, path: Path, phase: str, run_i
     """Require canonical semantic package directory and index for selected packages."""
     if root is None or not run_id:
         return None
-    root_name = {"propose": "proposals", "plan": "plans", "execute": "executions"}.get(phase, f"{phase}s")
+    root_name = {"propose": "proposals", "plan": "plans", "execute": "executions", "verify": "verification"}.get(phase, f"{phase}s")
     package_rel = Path(root_name) / str(run_id)
     package_dir = root / package_rel
     if not package_dir.is_dir():
@@ -843,6 +843,240 @@ def validate_execution_checkpoint(path: Path, obj: dict, issues: list[str], *, r
             artifact = package_dir / name
             _validate_semantic_markdown(path, label, str(rel), artifact.read_text(encoding="utf-8") if artifact.exists() else None, issues, terms)
 
+
+def validate_piv_assessment(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    required = ["kind", "phase", "run_id", "piv_contract", "assessments", "overall_status"]
+    check_required(str(path), obj, required, issues)
+    if obj.get("phase") != "verify":
+        issues.append(f"BLOCK {path}: PIV assessment phase must be 'verify'")
+    piv = _load_piv_contract(root, obj.get("piv_contract"))
+    if piv is None:
+        issues.append(f"BLOCK {path}: PIV assessment piv_contract unreadable or missing")
+        required_obligations: set[str] = set()
+    else:
+        required_obligations = {str(item.get("id")) for item in (piv.get("evidence_obligations") or []) if isinstance(item, dict) and item.get("id")}
+    assessments = obj.get("assessments") if isinstance(obj.get("assessments"), list) else []
+    seen: set[str] = set()
+    if not assessments:
+        issues.append(f"BLOCK {path}: PIV assessment requires non-empty assessments")
+    for idx, item in enumerate(assessments):
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: assessments[{idx}] must be a mapping")
+            continue
+        oid = str(item.get("obligation_id") or "")
+        if oid:
+            if oid in seen:
+                issues.append(f"BLOCK {path}: duplicate PIV obligation assessment {oid!r}")
+            seen.add(oid)
+        if required_obligations and oid not in required_obligations:
+            issues.append(f"BLOCK {path}: assessments[{idx}] unknown obligation_id {oid!r}")
+        if item.get("state") not in {"pass", "warn", "block", "deferred"}:
+            issues.append(f"BLOCK {path}: assessments[{idx}].state must be pass|warn|block|deferred")
+        if not item.get("evidence_refs"):
+            issues.append(f"BLOCK {path}: assessments[{idx}] missing evidence_refs")
+        if item.get("state") in {"warn", "block", "deferred"}:
+            for field in ("owner", "next_action", "result_reason"):
+                if item.get(field) in (None, ""):
+                    issues.append(f"BLOCK {path}: assessments[{idx}] state={item.get('state')} missing {field}")
+    missing = sorted(required_obligations - seen)
+    if missing:
+        issues.append(f"BLOCK {path}: PIV assessment missing obligation(s): {missing}")
+    if obj.get("overall_status") == "pass" and any(isinstance(i, dict) and i.get("state") == "block" for i in assessments):
+        issues.append(f"BLOCK {path}: PIV assessment overall_status=pass with blocked obligation")
+
+
+def validate_verify_package_selection(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    required = ["kind", "phase", "run_id", "verified_facts", "assumptions", "deferred_items", "warnings", "blockers", "findings_dispositions", "resolve_readiness", "semantic_package"]
+    check_required(str(path), obj, required, issues)
+    if obj.get("phase") != "verify":
+        issues.append(f"BLOCK {path}: verify package phase must be 'verify'")
+    run_id = obj.get("run_id")
+    package_dir = _validate_package_directory(root, path, "verify", run_id, issues)
+    sem = obj.get("semantic_package") if isinstance(obj.get("semantic_package"), dict) else {}
+    concerns = {
+        "piv_assessment": ("piv-assessment.md", ["piv", "assessment"]),
+        "verified_facts": ("verified-facts.md", ["fact", "evidence"]),
+        "assumptions_and_deferred_items": ("assumptions-and-deferred-items.md", ["assumption", "deferred", "owner"]),
+        "findings_and_dispositions": ("findings-and-dispositions.md", ["finding", "disposition"]),
+        "council_review": ("council-review.md", ["council", "review"]),
+        "resolve_readiness": ("resolve-readiness.md", ["resolve", "readiness"]),
+    }
+    for label, (default_name, terms) in concerns.items():
+        artifact = sem.get(label) or (str(Path("verification") / str(run_id) / default_name) if run_id else "")
+        _validate_semantic_markdown(path, label, artifact, _read_artifact_text(root, artifact), issues, terms)
+        if package_dir is not None and not _artifact_under_package(root, package_dir, artifact):
+            issues.append(f"BLOCK {path}: {label} artifact must live under verification/{run_id}/: {artifact}")
+    facts = obj.get("verified_facts") if isinstance(obj.get("verified_facts"), list) else []
+    if not facts:
+        issues.append(f"BLOCK {path}: verified_facts must not be empty")
+    for idx, fact in enumerate(facts):
+        if not isinstance(fact, dict):
+            issues.append(f"BLOCK {path}: verified_facts[{idx}] must be a mapping")
+            continue
+        for field in ("fact_id", "claim", "source_evidence", "source_path", "source_locator", "validation_method", "owner", "review_status"):
+            if fact.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: verified_facts[{idx}] missing {field}")
+        if root is not None and fact.get("source_path") and not _artifact_exists(root, fact.get("source_path")):
+            issues.append(f"BLOCK {path}: verified_facts[{idx}] source_path not found: {fact.get('source_path')}")
+    assumptions = obj.get("assumptions") if isinstance(obj.get("assumptions"), list) else []
+    for idx, assumption in enumerate(assumptions):
+        if not isinstance(assumption, dict):
+            issues.append(f"BLOCK {path}: assumptions[{idx}] must be a mapping")
+            continue
+        if assumption.get("disposition") not in {"accepted_risk", "deferred", "pending", "not_applicable"}:
+            issues.append(f"BLOCK {path}: assumptions[{idx}].disposition is invalid")
+        for field in ("assumption_id", "claim", "owner", "accepted_by", "residual_risk", "next_phase_obligation"):
+            if assumption.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: assumptions[{idx}] missing {field}")
+    deferred = obj.get("deferred_items") if isinstance(obj.get("deferred_items"), list) else []
+    for idx, item in enumerate(deferred):
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: deferred_items[{idx}] must be a mapping")
+            continue
+        for field in ("item_id", "description", "reason_deferred", "owner", "revisit_trigger", "next_phase_obligation", "target_phase", "accepted_by"):
+            if item.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: deferred_items[{idx}] missing {field}")
+    blockers = obj.get("blockers") if isinstance(obj.get("blockers"), list) else []
+    for idx, blocker in enumerate(blockers):
+        if not isinstance(blocker, dict):
+            issues.append(f"BLOCK {path}: blockers[{idx}] must be a mapping")
+            continue
+        if blocker.get("state") not in {"open", "resolved", "accepted_risk", "deferred"}:
+            issues.append(f"BLOCK {path}: blockers[{idx}].state is invalid")
+        for field in ("blocker_id", "message", "owner", "resolution_path"):
+            if blocker.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: blockers[{idx}] missing {field}")
+        if blocker.get("state") in {"accepted_risk", "deferred"}:
+            for field in ("accepted_by", "residual_risk", "next_phase_obligation"):
+                if blocker.get(field) in (None, ""):
+                    issues.append(f"BLOCK {path}: blockers[{idx}] state={blocker.get('state')} missing {field}")
+        if blocker.get("state") == "open" and obj.get("resolve_readiness", {}).get("ready_for_resolve") is True:
+            issues.append(f"BLOCK {path}: ready_for_resolve=true with open blocker {blocker.get('blocker_id')}")
+    for idx, finding in enumerate(obj.get("findings_dispositions") if isinstance(obj.get("findings_dispositions"), list) else []):
+        if not isinstance(finding, dict):
+            issues.append(f"BLOCK {path}: findings_dispositions[{idx}] must be a mapping")
+            continue
+        for field in ("finding_id", "classification", "disposition", "owner", "evidence_ref"):
+            if finding.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: findings_dispositions[{idx}] missing {field}")
+
+
+def validate_verify_resolve_readiness(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    required = ["kind", "phase", "run_id", "ready_for_resolve", "overall_status", "verification_package", "verified_facts_summary", "piv_summary", "evidence_cluster_summary", "residual_risks", "open_assumptions", "deferred_items", "blockers", "heartgate_coherence_status", "self_approval_guard", "decision_rationale", "accepted_by"]
+    check_required(str(path), obj, required, issues)
+    if obj.get("phase") != "verify":
+        issues.append(f"BLOCK {path}: verify resolve readiness phase must be 'verify'")
+    expected_pkg = f"verification/{obj.get('run_id')}-verify-selection.yaml" if obj.get("run_id") else None
+    if expected_pkg and obj.get("verification_package") != expected_pkg:
+        issues.append(f"BLOCK {path}: verification_package must be {expected_pkg}")
+    package_obj = None
+    if root is not None and not _artifact_exists(root, obj.get("verification_package")):
+        issues.append(f"BLOCK {path}: verification_package not found: {obj.get('verification_package')}")
+    elif root is not None and obj.get("verification_package"):
+        try:
+            pkg_path = root / str(obj.get("verification_package"))
+            package_obj = yaml.safe_load(pkg_path.read_text())
+            if not isinstance(package_obj, dict) or package_obj.get("kind") != "uacp.verification_package":
+                issues.append(f"BLOCK {path}: verification_package must be kind uacp.verification_package")
+            elif package_obj.get("run_id") != obj.get("run_id"):
+                issues.append(f"BLOCK {path}: verification_package run_id does not match readiness run_id")
+        except Exception as exc:
+            issues.append(f"BLOCK {path}: verification_package unreadable: {exc}")
+    blockers = obj.get("blockers") if isinstance(obj.get("blockers"), list) else []
+    open_blockers = [b for b in blockers if isinstance(b, dict) and b.get("state") == "open"]
+    if obj.get("ready_for_resolve") is True and open_blockers:
+        issues.append(f"BLOCK {path}: ready_for_resolve=true with open blockers")
+    if obj.get("overall_status") == "pass" and open_blockers:
+        issues.append(f"BLOCK {path}: overall_status=pass with open blockers")
+    clusters = obj.get("evidence_cluster_summary") if isinstance(obj.get("evidence_cluster_summary"), list) else []
+    if obj.get("ready_for_resolve") is True and not any(isinstance(c, dict) and c.get("state") in {"pass", "warn"} for c in clusters):
+        issues.append(f"BLOCK {path}: ready_for_resolve=true requires at least one evidence_cluster_summary item with state pass|warn")
+    for idx, cluster in enumerate(clusters):
+        if not isinstance(cluster, dict):
+            issues.append(f"BLOCK {path}: evidence_cluster_summary[{idx}] must be a mapping")
+            continue
+        if cluster.get("state") not in VALID_CLUSTER_STATES:
+            issues.append(f"BLOCK {path}: evidence_cluster_summary[{idx}].state is invalid")
+        artifact_path = cluster.get("artifact_path")
+        if artifact_path in (None, ""):
+            issues.append(f"BLOCK {path}: evidence_cluster_summary[{idx}] missing artifact_path")
+        elif root is not None and not _artifact_exists(root, artifact_path):
+            issues.append(f"BLOCK {path}: evidence_cluster_summary[{idx}] artifact_path not found")
+        elif obj.get("run_id") and not str(artifact_path).startswith(f"verification/{obj.get('run_id')}"):
+            issues.append(f"BLOCK {path}: evidence_cluster_summary[{idx}] artifact_path must be bound to run_id")
+    if package_obj and isinstance(package_obj, dict):
+        fact_ids = {str(f.get("fact_id")) for f in (package_obj.get("verified_facts") or []) if isinstance(f, dict) and f.get("fact_id")}
+        for idx, fact_id in enumerate(obj.get("verified_facts_summary") if isinstance(obj.get("verified_facts_summary"), list) else []):
+            if str(fact_id) not in fact_ids:
+                issues.append(f"BLOCK {path}: verified_facts_summary[{idx}] not found in verification package: {fact_id}")
+    piv_summary = obj.get("piv_summary") if isinstance(obj.get("piv_summary"), dict) else {}
+    expected_piv = f"verification/{obj.get('run_id')}-piv-assessment.yaml" if obj.get("run_id") else None
+    if expected_piv and piv_summary.get("artifact") != expected_piv:
+        issues.append(f"BLOCK {path}: piv_summary.artifact must be {expected_piv}")
+    if piv_summary.get("status") not in {"pass", "warn", "block", "deferred", "not_applicable"}:
+        issues.append(f"BLOCK {path}: piv_summary.status is invalid")
+    if root is not None and piv_summary.get("artifact") and _artifact_exists(root, piv_summary.get("artifact")):
+        try:
+            pa = yaml.safe_load((root / str(piv_summary.get("artifact"))).read_text())
+            if not isinstance(pa, dict) or pa.get("kind") != "uacp.piv_assessment":
+                issues.append(f"BLOCK {path}: piv_summary.artifact must be kind uacp.piv_assessment")
+            elif pa.get("run_id") != obj.get("run_id"):
+                issues.append(f"BLOCK {path}: piv_summary artifact run_id does not match readiness run_id")
+        except Exception as exc:
+            issues.append(f"BLOCK {path}: piv_summary artifact unreadable: {exc}")
+    for idx, blocker in enumerate(blockers):
+        if not isinstance(blocker, dict):
+            issues.append(f"BLOCK {path}: blockers[{idx}] must be a mapping")
+            continue
+        if blocker.get("state") not in {"open", "resolved", "accepted_risk", "deferred"}:
+            issues.append(f"BLOCK {path}: blockers[{idx}].state is invalid")
+        if blocker.get("state") in {"accepted_risk", "deferred"}:
+            for field in ("accepted_by", "residual_risk", "next_phase_obligation", "owner"):
+                if blocker.get(field) in (None, ""):
+                    issues.append(f"BLOCK {path}: blockers[{idx}] state={blocker.get('state')} missing {field}")
+    for idx, assumption in enumerate(obj.get("open_assumptions") if isinstance(obj.get("open_assumptions"), list) else []):
+        if not isinstance(assumption, dict):
+            issues.append(f"BLOCK {path}: open_assumptions[{idx}] must be a mapping")
+            continue
+        for field in ("assumption_id", "owner", "accepted_by", "next_phase_obligation", "residual_risk"):
+            if assumption.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: open_assumptions[{idx}] missing {field}")
+    for idx, item in enumerate(obj.get("deferred_items") if isinstance(obj.get("deferred_items"), list) else []):
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: deferred_items[{idx}] must be a mapping")
+            continue
+        for field in ("item_id", "owner", "accepted_by", "next_phase_obligation", "revisit_trigger"):
+            if item.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: deferred_items[{idx}] missing {field}")
+    coherence = obj.get("heartgate_coherence_status") if isinstance(obj.get("heartgate_coherence_status"), dict) else {}
+    if coherence.get("required") is True:
+        if coherence.get("status") not in {"pass", "warn"}:
+            issues.append(f"BLOCK {path}: required heartgate coherence must be pass|warn")
+        if root is not None and not _artifact_exists(root, coherence.get("artifact_path")):
+            issues.append(f"BLOCK {path}: required heartgate coherence artifact not found")
+        elif root is not None and coherence.get("artifact_path"):
+            candidate = Path(str(coherence.get("artifact_path")))
+            if not candidate.is_absolute():
+                candidate = root / candidate
+            try:
+                data = yaml.safe_load(candidate.read_text())
+                if isinstance(data, dict) and data.get("run_id") != obj.get("run_id"):
+                    issues.append(f"BLOCK {path}: heartgate coherence artifact run_id does not match readiness run_id")
+                lenses = set(data.get("lenses") or []) if isinstance(data, dict) else set()
+                required_lenses = {"doctrine_coherence", "cross_artifact_consistency", "runtime_state_alignment", "warning_and_deferred_item_honesty", "authority_plane_integrity", "next_phase_readiness"}
+                missing_lenses = sorted(required_lenses - lenses)
+                if missing_lenses:
+                    issues.append(f"BLOCK {path}: heartgate coherence artifact missing lens(es): {missing_lenses}")
+            except Exception as exc:
+                issues.append(f"BLOCK {path}: heartgate coherence artifact unreadable: {exc}")
+    guard = obj.get("self_approval_guard") if isinstance(obj.get("self_approval_guard"), dict) else {}
+    if guard.get("status") not in {"pass", "block"}:
+        issues.append(f"BLOCK {path}: self_approval_guard.status must be pass|block")
+    if guard.get("verify_self_remediated_material_findings") is True and guard.get("independent_reverification") is not True:
+        issues.append(f"BLOCK {path}: VERIFY self-remediation requires independent_reverification=true")
+    if obj.get("ready_for_resolve") is True and guard.get("status") != "pass":
+        issues.append(f"BLOCK {path}: ready_for_resolve=true requires self_approval_guard.status=pass")
+
 def validate_configs(root: Path, issues: list[str]) -> dict:
     configs = {}
     for rel in [
@@ -913,6 +1147,12 @@ def main() -> int:
                 validate_piv_contract(path, obj, issues, root=root)
             elif kind == "uacp.execution_checkpoint":
                 validate_execution_checkpoint(path, obj, issues, root=root)
+            elif kind == "uacp.piv_assessment":
+                validate_piv_assessment(path, obj, issues, root=root)
+            elif kind == "uacp.verification_package":
+                validate_verify_package_selection(path, obj, issues, root=root)
+            elif kind == "uacp.verify_resolve_readiness":
+                validate_verify_resolve_readiness(path, obj, issues, root=root)
             elif kind == "uacp.evidence_cluster":
                 validate_evidence_cluster(path, obj, issues)
     except Exception as exc:

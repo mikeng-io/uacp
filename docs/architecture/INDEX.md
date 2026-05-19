@@ -32,6 +32,7 @@ The template is at [0000-template.md](0000-template.md). Numbering is sequential
 | [0010](0010-operator-phase-return-presentation.md) | Separate operator phase returns from raw evidence | accepted | 2026-05-19 |
 | [0011](0011-semantic-package-artifacts.md) | Treat UACP package Markdown as semantic substrate | accepted | 2026-05-19 |
 | [0012](0012-phase-intent-verification.md) | Phase Intent Verification | accepted | 2026-05-19 |
+| [0013](0013-adaptive-verify-evidence.md) | Adaptive VERIFY evidence gate | accepted | 2026-05-19 |
 
 ## Related
 

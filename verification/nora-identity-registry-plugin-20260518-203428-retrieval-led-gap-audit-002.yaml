@@ -1,0 +1,92 @@
+phase: verify
+kind: uacp.retrieval_led_gap_audit
+run_id: nora-identity-registry-plugin-20260518-203428
+audit_id: nora-identity-registry-plugin-20260518-203428-retrieval-led-gap-audit-002
+basis:
+  skills_reread:
+    - uacp-propose
+    - uacp-plan
+    - uacp-execute
+    - uacp-verify
+  references_reread:
+    - uacp-verify/references/retrieval-led-phase-verify.md
+    - uacp-verify/references/piv-execution-evidence-contract.md
+    - uacp-plan/references/piv-execution-evidence-contract.md
+    - uacp-execute/references/phase-intent-verification-execute-evidence-20260519.md
+  ground_truth_method: "Inspected actual filesystem artifacts under /home/norty/.hermes/uacp for the run_id; did not rely on chat summary."
+findings:
+  proposal_markdown_package:
+    status: present_after_backfill
+    evidence:
+      - proposals/nora-identity-registry-plugin-20260518-203428/00-index.md
+      - proposals/nora-identity-registry-plugin-20260518-203428/proposal.md
+      - proposals/nora-identity-registry-plugin-20260518-203428/authority-scope-containment.md
+      - proposals/nora-identity-registry-plugin-20260518-203428/risks-and-verification.md
+      - proposals/nora-identity-registry-plugin-20260518-203428/artifacts.md
+      - proposals/nora-identity-registry-plugin-20260518-203428-package-selection.yaml
+    residual: "Backfilled after PLAN/EXECUTE, so transition history must record this as repair rather than original compliance."
+  plan_markdown_package:
+    status: present_after_backfill
+    evidence:
+      - plans/nora-identity-registry-plugin-20260518-203428/00-index.md
+      - plans/nora-identity-registry-plugin-20260518-203428/plan.md
+      - plans/nora-identity-registry-plugin-20260518-203428/work-packages.md
+      - plans/nora-identity-registry-plugin-20260518-203428/authority-and-side-effects.md
+      - plans/nora-identity-registry-plugin-20260518-203428/verification-strategy.md
+      - plans/nora-identity-registry-plugin-20260518-203428/rollback-and-transition.md
+      - plans/nora-identity-registry-plugin-20260518-203428-plan-selection.yaml
+    residual: "Backfilled after EXECUTE, so PLAN->EXECUTE transition must not be treated as originally clean."
+  piv_contract:
+    status: missing_blocker_for_strict_execute_evidence
+    required_by:
+      - uacp-plan Phase Intent Verification contract
+      - uacp-execute PLAN-authored PIV / execution evidence contract
+      - uacp-verify Phase Intent Verification assessment
+    missing:
+      - plans/nora-identity-registry-plugin-20260518-203428-piv.yaml
+      - plans/nora-identity-registry-plugin-20260518-203428/piv-contract.md
+    consequence: "EXECUTE checkpoint is ad hoc relative to current doctrine; VERIFY cannot judge Phase Intent Verification satisfaction against a predeclared contract."
+  semantic_execute_package:
+    status: missing_blocker_for_strict_execute_evidence
+    missing:
+      - executions/nora-identity-registry-plugin-20260518-203428/00-index.md
+      - executions/nora-identity-registry-plugin-20260518-203428/work-narrative.md
+      - executions/nora-identity-registry-plugin-20260518-203428/decision-log.md
+      - executions/nora-identity-registry-plugin-20260518-203428/evidence-map.md
+      - executions/nora-identity-registry-plugin-20260518-203428/intent-drift-and-deviations.md
+      - executions/nora-identity-registry-plugin-20260518-203428/verify-handoff.md
+    existing:
+      - executions/nora-identity-registry-plugin-20260518-203428-execute-checkpoint-001.yaml
+    consequence: "Current EXECUTE evidence has a machine checkpoint but lacks semantic recovery artifacts mapping work to intent, decisions, invariants, drift, and VERIFY handoff."
+  retrieval_led_verify:
+    status: not_complete
+    missing:
+      - explicit artifact-list validator invocation recorded as evidence
+      - council synthesis with kind uacp.council_synthesis and inspected_paths
+      - handled findings chain for privacy/runtime/policy audit findings
+      - final verification artifact consuming proposal, plan, PIV, execute evidence, tests, council, handled findings
+      - Heartgate coherence artifact or transition-boundary coherence evidence if moving VERIFY->RESOLVE
+    consequence: "Cannot honestly claim VERIFY closure or RESOLVE readiness."
+  ledger_and_transitions:
+    status: incomplete
+    present_gates:
+      - TRIAGE_COMPLETE
+      - TRIAGE->PROPOSE
+      - PLAN_VALIDATION
+      - PROPOSE->PLAN
+      - PLAN->EXECUTE
+    missing_gates:
+      - PIV phase-intent verification records or equivalent ledger evidence
+      - EXECUTE->VERIFY
+      - VERIFY->RESOLVE
+    missing_transition_artifacts:
+      - formal prior transition artifacts for historical phases, or explicit backfill repair record
+      - transitions/nora-identity-registry-plugin-20260518-203428-execute-to-verify.yaml
+repair_order:
+  - "Backfill PLAN-owned PIV contract from existing plan/scope/proposal, clearly marked as backfill."
+  - "Backfill semantic EXECUTE package mapping actual implementation/test/audit evidence to PIV obligations."
+  - "Create canonical council synthesis with inspected_paths and classify findings."
+  - "Create handled-findings chain; privacy leak finding must be marked remediated with evidence, invalid wrong-path BLOCK rejected with reason, restart warning deferred/owned."
+  - "Run/record explicit retrieval-led deterministic validation against the relevant artifact list."
+  - "Only then create final verification artifact and EXECUTE->VERIFY transition."
+result: block_strict_verify_until_piv_execute_evidence_and_council_followthrough_are_backfilled

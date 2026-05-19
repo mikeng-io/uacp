@@ -1,0 +1,30 @@
+kind: uacp.phase_intent_verification_contract
+phase: plan
+run_id: fixture-verify-pass
+applies_to_phase: execute
+phase_intent:
+  summary: Fixture verifies that VERIFY can assess phase intent evidence before RESOLVE.
+work_units:
+- id: wu-1
+  intent: Produce verifiable fixture evidence for VERIFY gate.
+  expected_outputs:
+  - verification/fixture-verify-pass/00-index.md
+evidence_obligations:
+- id: ev-1
+  work_unit_id: wu-1
+  evidence_type: artifact
+  required: true
+  sufficiency: Verification package contains facts, assumptions, findings disposition,
+    and resolve readiness.
+checkpoint_policy:
+  required_checkpoints:
+  - before_verify_handoff
+  max_uncheckpointed_units: 1
+intent_drift_conditions:
+- id: drift-1
+  condition: Fixture expands beyond verification evidence.
+  action: replan
+next_phase_handoff:
+  required_artifacts:
+  - verification/fixture-verify-pass/resolve-readiness.md
+  pass_condition: Verification facts and assumptions are dispositioned.
