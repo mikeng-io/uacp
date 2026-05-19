@@ -1,0 +1,61 @@
+kind: uacp.external_audit_remediation
+run_id: uacp-codex-audit-remediation-20260519
+phase: execute_verify_resolve_runtime_hardening
+audit_source: codex_full_external_audit
+source_report: /tmp/uacp-codex-full-audit-report.md
+source_verdict: fail
+remediation_verdict: pass
+findings:
+  - id: UACP-AUD-001
+    severity: blocker
+    summary: Adaptive EXECUTE/VERIFY/RESOLVE gates existed offline but were not Heartgate-enforced.
+    remediation:
+      - runtime-adapters/hermes/plugins/uacp_guardian/kernel.py now invokes adaptive execute, verify, and resolve gates during Heartgate validation.
+      - Added root-confined runtime YAML artifact loader.
+      - Added runtime transition fixtures under verification/fixtures/heartgate-runtime/.
+    status: resolved
+  - id: UACP-AUD-002
+    severity: high
+    summary: Required PIV evidence warn/deferred could pass with next_phase_readiness.status=ready.
+    remediation:
+      - scripts/validate_uacp_artifacts.py now requires required PIV obligations to be result=pass when readiness status is ready.
+      - warn/deferred required evidence requires owner, residual_risk, next_action, and ready_with_deferred_items requires deferred_items.
+      - Added fail-deferred-required-evidence-ready and fail-warn-required-evidence-ready fixtures.
+    status: resolved
+  - id: UACP-AUD-003
+    severity: high
+    summary: Legacy Post-Phase Verification and Phase Intent Verification used the same PIV acronym ambiguously.
+    remediation:
+      - config/phase-transitions.yaml now labels piv_rule as legacy Post-Phase Verification ledger rule and distinguishes it from Phase Intent Verification contracts.
+    status: resolved
+  - id: UACP-AUD-004
+    severity: medium
+    summary: Active skill-store validator was stale and outside git.
+    remediation:
+      - Copied repo validator to /home/norty/.hermes/skills/devops/uacp/scripts/validate_uacp_artifacts.py and py_compile verified it.
+      - This local skill-store update is not committed because the skill store is not a git repo.
+    status: resolved_local_runtime
+  - id: UACP-AUD-005
+    severity: medium
+    summary: RESOLVE helper loaded YAML paths without root confinement.
+    remediation:
+      - _load_yaml_artifact now resolves inside UACP root and returns None on absolute/relative path escape.
+      - Added absolute and relative path-escape negative fixtures.
+    status: resolved
+additional_hardening:
+  - id: guardian-path-fail-open
+    summary: Follow-up adversarial review found _path_is_under_root/_path_is_under_state returned true on exceptions.
+    remediation: Both functions now fail closed on exceptions; _path_is_under_root resolves policy root before comparison.
+    status: resolved
+validation:
+  deterministic:
+    - python -m py_compile scripts/validate_uacp_artifacts.py runtime-adapters/hermes/plugins/uacp_guardian/kernel.py
+    - python scripts/validate_uacp_artifacts.py --root .
+    - expected-fail sweep for adaptive-execute and adaptive-resolve negative fixtures
+    - Heartgate runtime smoke for pass execute/verify/resolve transitions plus missing execute gate block
+  council_followup:
+    - focused remediation review: PASS
+    - final adversarial review: PASS
+residual_risks:
+  - Kimi Code full audit remains blocked by local CLI membership verification 402.
+  - Runtime gates enforce artifact presence and minimum binding; deep semantic prose quality remains handled through council/Heartgate/external audit rather than deterministic parsing alone.

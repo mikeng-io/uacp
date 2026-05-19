@@ -438,9 +438,13 @@ run_registry_rule:
 
 piv_rule:
   description: >
-    Post-Phase Verification (PIV) is a deterministic 5-check self-evaluation run at
-    the end of every phase BEFORE Heartgate is invoked. Result is recorded in the
-    gate ledger as `gate: PIV`. PIV may be retried at most once; a second failure
+    Legacy Post-Phase Verification ledger rule. This is distinct from the newer
+    Phase Intent Verification contract (`uacp.phase_intent_verification_contract`)
+    used for PLAN-authored EXECUTE evidence. To avoid acronym collision in new
+    artifacts, refer to this rule as the post_phase_verification_ledger rule; it
+    remains recorded in the gate ledger as `gate: PIV` for backward compatibility.
+    It is a deterministic 5-check self-evaluation run at the end of every phase
+    BEFORE Heartgate is invoked. It may be retried at most once; a second failure
     blocks the transition unconditionally regardless of mode.
   checks:
   - id: piv_1

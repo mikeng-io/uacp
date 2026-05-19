@@ -521,15 +521,15 @@ class Guardian:
             state_root = (self.policy.uacp_root / "state").resolve()
             return path == state_root or state_root in path.parents
         except Exception:
-            return True
+            return False
 
     def _path_is_under_root(self, raw_path: str) -> bool:
         try:
             path = self._resolve_path(raw_path)
-            root = self.policy.uacp_root
+            root = self.policy.uacp_root.resolve()
             return path == root or root in path.parents
         except Exception:
-            return True
+            return False
 
     def _resolve_path(self, raw_path: str) -> Path:
         path = Path(raw_path).expanduser()
@@ -734,6 +734,9 @@ class Heartgate:
         self._validate_phase_exit_invariants(artifact, blockers)
         self._validate_adaptive_proposal_package_gate(artifact, blockers)
         self._validate_adaptive_plan_package_gate(artifact, blockers)
+        self._validate_adaptive_execute_evidence_gate(artifact, blockers)
+        self._validate_adaptive_verify_evidence_gate(artifact, blockers)
+        self._validate_adaptive_resolve_closure_gate(artifact, blockers)
         self._validate_piv_record(artifact, blockers)
         # Phase 2: per-transition artifact-structure checks.
         self._validate_intent_doc(artifact, blockers)
@@ -1054,6 +1057,143 @@ class Heartgate:
         for field_name in ("reason", "accepted_by", "owner", "residual_risk", "revisit_phase"):
             if item.get(field_name) in (None, ""):
                 blockers.append(f"adaptive_proposal_package_gate: {label} missing {field_name}")
+
+
+    def _load_yaml_under_root(self, rel_path: str, blockers: list[str], label: str) -> Mapping[str, Any] | None:
+        if yaml is None:
+            blockers.append(f"{label} requires PyYAML")
+            return None
+        try:
+            candidate = Path(rel_path)
+            if candidate.is_absolute():
+                resolved = candidate.resolve()
+            else:
+                resolved = (self.uacp_root / candidate).resolve()
+            root = self.uacp_root.resolve()
+            if resolved != root and root not in resolved.parents:
+                blockers.append(f"{label}: artifact path escapes UACP root: {rel_path}")
+                return None
+            if not resolved.exists() or not resolved.is_file():
+                blockers.append(f"{label}: artifact not found: {rel_path}")
+                return None
+            data = yaml.safe_load(resolved.read_text(encoding="utf-8"))
+        except Exception as exc:
+            blockers.append(f"{label}: failed to parse {rel_path}: {exc}")
+            return None
+        if not isinstance(data, Mapping):
+            blockers.append(f"{label}: {rel_path} must be a YAML mapping")
+            return None
+        return data
+
+    def _dir_under_root_exists(self, rel_path: str) -> bool:
+        try:
+            p = (self.uacp_root / rel_path).resolve()
+            root = self.uacp_root.resolve()
+            return p.is_dir() and (p == root or root in p.parents)
+        except Exception:
+            return False
+
+    def _validate_adaptive_execute_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        if str(artifact.get("from_phase") or "") != "execute" or str(artifact.get("to_phase") or "") != "verify":
+            return
+        if not isinstance(self.config.get("adaptive_execute_evidence_gate"), Mapping):
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not run_id:
+            blockers.append("adaptive_execute_evidence_gate requires run_id")
+            return
+        piv_rel = f"plans/{run_id}-piv.yaml"
+        checkpoint_rel = f"executions/{run_id}-checkpoint-001.yaml"
+        package_rel = f"executions/{run_id}"
+        piv = self._load_yaml_under_root(piv_rel, blockers, "adaptive_execute_evidence_gate")
+        if piv is not None:
+            if piv.get("kind") != "uacp.phase_intent_verification_contract":
+                blockers.append("adaptive_execute_evidence_gate: PIV contract kind must be uacp.phase_intent_verification_contract")
+            if piv.get("run_id") != run_id:
+                blockers.append("adaptive_execute_evidence_gate: PIV contract run_id mismatch")
+        checkpoint = self._load_yaml_under_root(checkpoint_rel, blockers, "adaptive_execute_evidence_gate")
+        if checkpoint is not None:
+            if checkpoint.get("kind") != "uacp.execution_checkpoint":
+                blockers.append("adaptive_execute_evidence_gate: checkpoint kind must be uacp.execution_checkpoint")
+            readiness = checkpoint.get("next_phase_readiness") if isinstance(checkpoint.get("next_phase_readiness"), Mapping) else {}
+            if readiness.get("target_phase") != "verify":
+                blockers.append("adaptive_execute_evidence_gate: checkpoint target_phase must be verify")
+            if readiness.get("status") not in {"ready", "ready_with_deferred_items"}:
+                blockers.append("adaptive_execute_evidence_gate: checkpoint is not ready for verify")
+        if not self._dir_under_root_exists(package_rel):
+            blockers.append(f"adaptive_execute_evidence_gate: missing execution package directory {package_rel}/")
+
+    def _validate_adaptive_verify_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        if str(artifact.get("from_phase") or "") != "verify" or str(artifact.get("to_phase") or "") != "resolve":
+            return
+        if not isinstance(self.config.get("adaptive_verify_evidence_gate"), Mapping):
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not run_id:
+            blockers.append("adaptive_verify_evidence_gate requires run_id")
+            return
+        selection_rel = f"verification/{run_id}-verify-selection.yaml"
+        readiness_rel = f"verification/{run_id}-resolve-readiness.yaml"
+        package_rel = f"verification/{run_id}"
+        selection = self._load_yaml_under_root(selection_rel, blockers, "adaptive_verify_evidence_gate")
+        if selection is not None:
+            if selection.get("kind") != "uacp.verification_package":
+                blockers.append("adaptive_verify_evidence_gate: verify-selection kind must be uacp.verification_package")
+            if selection.get("run_id") != run_id:
+                blockers.append("adaptive_verify_evidence_gate: verify-selection run_id mismatch")
+        readiness = self._load_yaml_under_root(readiness_rel, blockers, "adaptive_verify_evidence_gate")
+        if readiness is not None:
+            if readiness.get("kind") != "uacp.verify_resolve_readiness":
+                blockers.append("adaptive_verify_evidence_gate: resolve-readiness kind must be uacp.verify_resolve_readiness")
+            if readiness.get("run_id") != run_id:
+                blockers.append("adaptive_verify_evidence_gate: resolve-readiness run_id mismatch")
+            if readiness.get("ready_for_resolve") is not True:
+                blockers.append("adaptive_verify_evidence_gate: ready_for_resolve must be true")
+            if readiness.get("verification_package") != selection_rel:
+                blockers.append("adaptive_verify_evidence_gate: readiness must bind to verify-selection artifact")
+            for blocker in readiness.get("blockers") or []:
+                if isinstance(blocker, Mapping) and blocker.get("state") == "open":
+                    blockers.append("adaptive_verify_evidence_gate: open blocker in resolve readiness")
+        if not self._dir_under_root_exists(package_rel):
+            blockers.append(f"adaptive_verify_evidence_gate: missing verification package directory {package_rel}/")
+
+    def _validate_adaptive_resolve_closure_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        if str(artifact.get("from_phase") or "") != "resolve":
+            return
+        if not isinstance(self.config.get("adaptive_resolve_closure_gate"), Mapping):
+            return
+        run_id = str(artifact.get("run_id") or "")
+        if not run_id:
+            blockers.append("adaptive_resolve_closure_gate requires run_id")
+            return
+        selection_rel = f"outputs/{run_id}-resolve-selection.yaml"
+        closure_rel = f"outputs/{run_id}-closure.yaml"
+        readiness_rel = f"verification/{run_id}-resolve-readiness.yaml"
+        package_rel = f"outputs/{run_id}"
+        selection = self._load_yaml_under_root(selection_rel, blockers, "adaptive_resolve_closure_gate")
+        if selection is not None:
+            if selection.get("kind") != "uacp.resolve_package":
+                blockers.append("adaptive_resolve_closure_gate: resolve-selection kind must be uacp.resolve_package")
+            if selection.get("run_id") != run_id:
+                blockers.append("adaptive_resolve_closure_gate: resolve-selection run_id mismatch")
+            if selection.get("verify_resolve_readiness") != readiness_rel:
+                blockers.append("adaptive_resolve_closure_gate: resolve-selection must bind run readiness")
+        closure = self._load_yaml_under_root(closure_rel, blockers, "adaptive_resolve_closure_gate")
+        if closure is not None:
+            if closure.get("kind") != "uacp.resolve_closure":
+                blockers.append("adaptive_resolve_closure_gate: closure kind must be uacp.resolve_closure")
+            if closure.get("run_id") != run_id:
+                blockers.append("adaptive_resolve_closure_gate: closure run_id mismatch")
+            if closure.get("resolve_package") != selection_rel:
+                blockers.append("adaptive_resolve_closure_gate: closure must bind resolve package")
+            decision = closure.get("final_decision") if isinstance(closure.get("final_decision"), Mapping) else {}
+            if decision.get("status") not in {"resolved", "resolved_with_warnings"}:
+                blockers.append("adaptive_resolve_closure_gate: closure final_decision is not resolved")
+        readiness = self._load_yaml_under_root(readiness_rel, blockers, "adaptive_resolve_closure_gate")
+        if readiness is not None and readiness.get("ready_for_resolve") is not True:
+            blockers.append("adaptive_resolve_closure_gate: VERIFY readiness is not ready")
+        if not self._dir_under_root_exists(package_rel):
+            blockers.append(f"adaptive_resolve_closure_gate: missing resolve package directory {package_rel}/")
 
     def _validate_piv_record(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Phase 1 / Item 1.4: require a PIV pass record in the ledger before

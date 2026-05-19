@@ -1,0 +1,7 @@
+kind: uacp.lessons
+run_id: fixture-verify-pass
+phase: verify
+lessons:
+- id: none
+  classification: no_action
+  rationale: runtime fixture

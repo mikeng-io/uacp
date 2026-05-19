@@ -783,6 +783,8 @@ def validate_execution_checkpoint(path: Path, obj: dict, issues: list[str], *, r
     if not evidence:
         issues.append(f"BLOCK {path}: execution checkpoint evidence must not be empty")
     seen_required: set[str] = set()
+    required_pass: set[str] = set()
+    required_warn_or_deferred: set[str] = set()
     for idx, item in enumerate(evidence):
         if not isinstance(item, dict):
             issues.append(f"BLOCK {path}: evidence[{idx}] must be a mapping")
@@ -792,6 +794,13 @@ def validate_execution_checkpoint(path: Path, obj: dict, issues: list[str], *, r
             issues.append(f"BLOCK {path}: evidence[{idx}] references unknown PIV obligation_id {oid!r}")
         if oid in required_obligations and item.get("result") in {"pass", "warn", "deferred"}:
             seen_required.add(oid)
+            if item.get("result") == "pass":
+                required_pass.add(oid)
+            elif item.get("result") in {"warn", "deferred"}:
+                required_warn_or_deferred.add(oid)
+                for field in ("owner", "residual_risk", "next_action"):
+                    if item.get(field) in (None, ""):
+                        issues.append(f"BLOCK {path}: evidence[{idx}] result={item.get('result')} for required obligation requires {field}")
         if item.get("result") not in {"pass", "warn", "block", "deferred"}:
             issues.append(f"BLOCK {path}: evidence[{idx}].result must be pass|warn|block|deferred")
         if item.get("result") == "pass" and item.get("artifact") in (None, ""):
@@ -807,6 +816,12 @@ def validate_execution_checkpoint(path: Path, obj: dict, issues: list[str], *, r
     missing = sorted(required_obligations - seen_required)
     if readiness_status == "ready" and missing:
         issues.append(f"BLOCK {path}: next_phase_readiness=ready but required PIV evidence obligations are missing: {missing}")
+    if readiness_status == "ready":
+        not_pass = sorted(required_obligations - required_pass)
+        if not_pass:
+            issues.append(f"BLOCK {path}: next_phase_readiness=ready requires required PIV evidence result=pass: {not_pass}")
+    if readiness_status == "ready_with_deferred_items" and required_warn_or_deferred and not readiness.get("deferred_items"):
+        issues.append(f"BLOCK {path}: ready_with_deferred_items requires next_phase_readiness.deferred_items for warn/deferred required evidence")
     drift = obj.get("intent_drift") if isinstance(obj.get("intent_drift"), dict) else {}
     deviations = drift.get("deviations") if isinstance(drift.get("deviations"), list) else []
     detected = drift.get("detected")
@@ -1081,11 +1096,18 @@ def validate_verify_resolve_readiness(path: Path, obj: dict, issues: list[str], 
 def _load_yaml_artifact(root: Path | None, artifact: object) -> dict | None:
     if root is None or not artifact:
         return None
-    p = Path(str(artifact))
-    if not p.is_absolute():
-        p = root / p
+    candidate = Path(str(artifact))
     try:
-        data = yaml.safe_load(p.read_text())
+        if candidate.is_absolute():
+            resolved = candidate.resolve()
+        else:
+            resolved = (root / candidate).resolve()
+        root_resolved = root.resolve()
+        if resolved != root_resolved and root_resolved not in resolved.parents:
+            return None
+        if not resolved.exists() or not resolved.is_file():
+            return None
+        data = yaml.safe_load(resolved.read_text(encoding="utf-8"))
         return data if isinstance(data, dict) else None
     except Exception:
         return None
