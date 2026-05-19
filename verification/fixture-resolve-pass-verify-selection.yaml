@@ -1,0 +1,25 @@
+kind: uacp.verification_package
+phase: verify
+run_id: fixture-resolve-pass
+semantic_package: {}
+verified_facts:
+- fact_id: vf-1
+  claim: Resolve fixture is ready.
+  source_evidence: fixture readiness source
+  source_path: outputs/fixture-resolve-pass/00-index.md
+  source_locator: file:1
+  validation_method: fixture
+  owner: fixture
+  review_status: reviewed
+assumptions: []
+deferred_items: []
+warnings: []
+blockers: []
+findings_dispositions:
+- finding_id: none
+  classification: not_applicable
+  disposition: not_applicable
+  owner: fixture
+  evidence_ref: outputs/fixture-resolve-pass/closure-summary.md
+resolve_readiness:
+  ready_for_resolve: true

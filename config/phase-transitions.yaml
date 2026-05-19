@@ -807,3 +807,47 @@ heartgate_coherence_required_when:
   - warning_and_deferred_item_honesty
   - authority_plane_integrity
   - next_phase_readiness
+
+adaptive_resolve_closure_gate:
+  description: >
+    RESOLVE closure selection is adaptive and context-driven. For selected
+    governed/non-trivial work, RESOLVE must consume run-bound VERIFY readiness,
+    preserve residual risks/deferred items, classify lessons, and produce a
+    semantic closure package plus final closure artifact.
+  applies_to_phase: resolve
+  selected_when_any:
+    verify_readiness_present: true
+    routing_outcomes: [standard_uacp, full_governance]
+    risk_levels: [high, critical]
+    domains:
+      - governance
+      - runtime
+      - schema_contracts
+      - public_private_boundary
+      - agent_lifecycle
+      - validator_enforcement
+      - heartgate_transition
+      - guardian_policy
+      - multi_agent_execution
+      - profile_plugin_boundary
+  required_artifacts:
+    - outputs/{run_id}-resolve-selection.yaml
+    - outputs/{run_id}/
+    - outputs/{run_id}-closure.yaml
+  required_semantic_concerns:
+    - closure_summary
+    - final_decision
+    - residual_risks
+    - lessons_and_dispositions
+    - state_and_memory_disposition
+    - operator_handoff
+  block_when:
+    - missing_resolve_package_directory
+    - missing_resolve_package_index
+    - missing_or_unbound_verify_resolve_readiness
+    - verify_readiness_not_ready
+    - open_blockers_carried_to_closure
+    - residual_risk_or_deferred_item_dropped
+    - lesson_disposition_missing_or_ambiguous
+    - final_decision_missing
+    - raw_inventory_operator_handoff

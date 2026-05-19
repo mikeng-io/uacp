@@ -1,0 +1,60 @@
+kind: uacp.council_synthesis
+council_id: resolve-closure-gate-council-20260519
+mode: post_implementation_review
+phase: resolve
+tier: focused
+phase_local_granularity: 5
+dispatch_surfaces:
+  - delegate_task
+inspected_paths:
+  - docs/architecture/0014-adaptive-resolve-closure.md
+  - config/phase-transitions.yaml
+  - scripts/validate_uacp_artifacts.py
+  - outputs/fixture-resolve-pass-resolve-selection.yaml
+  - outputs/fixture-resolve-pass-closure.yaml
+  - verification/fixture-resolve-pass-resolve-readiness.yaml
+  - verification/fixtures/adaptive-resolve-closure/
+  - /home/norty/.hermes/skills/devops/uacp/uacp-resolve/SKILL.md
+verdict: pass
+roles:
+  - resolve_semantics_reviewer
+  - validator_compatibility_auditor
+  - closure_adversary
+  - scope_binding_adversary
+findings:
+  - id: resolve-impl-001
+    severity: concern
+    summary: Initial validator coverage lacked state disposition and closure scope semantics.
+    remediation: Added run_status/memory_action enum checks, non-empty artifact-bound closed_scope mappings, and negative fixtures.
+    status: resolved
+  - id: resolve-impl-002
+    severity: concern
+    summary: Lessons could be shape-valid but semantically under-dispositioned.
+    remediation: Added disposition_basis requirement and target_artifact requirement for memory/skill/docs/knowledge classifications.
+    status: resolved
+  - id: resolve-impl-003
+    severity: concern
+    summary: Closure scope could be overstated or unrelated to evidence.
+    remediation: Closed scope entries now require scope_id, description, source_artifact, evidence_ref, UACP path binding, and existing source artifact.
+    status: resolved
+  - id: resolve-impl-004
+    severity: residual
+    summary: Semantic prose can still be low-quality if it satisfies structural checks.
+    remediation: Accepted as non-blocking residual; council/Heartgate and future external audit remain higher-order semantic quality layers.
+    status: accepted_risk
+validation:
+  deterministic:
+    - command: python -m py_compile scripts/validate_uacp_artifacts.py
+      result: pass
+    - command: python scripts/validate_uacp_artifacts.py --root .
+      result: pass
+    - command: targeted positive RESOLVE artifacts
+      result: pass
+    - command: all verification/fixtures/adaptive-resolve-closure/negative/*.yaml expected-fail sweep
+      result: pass_all_blocked
+  followup_council:
+    result: pass
+    material_findings_remaining: 0
+residual_risks:
+  - External Kimi Code full audit remains deferred until Kimi auth/membership is fixed.
+  - Deep semantic prose quality remains a council/external-audit concern beyond deterministic schema validation.

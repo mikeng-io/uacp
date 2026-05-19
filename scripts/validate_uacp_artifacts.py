@@ -482,7 +482,7 @@ def _validate_package_directory(root: Path | None, path: Path, phase: str, run_i
     """Require canonical semantic package directory and index for selected packages."""
     if root is None or not run_id:
         return None
-    root_name = {"propose": "proposals", "plan": "plans", "execute": "executions", "verify": "verification"}.get(phase, f"{phase}s")
+    root_name = {"propose": "proposals", "plan": "plans", "execute": "executions", "verify": "verification", "resolve": "outputs"}.get(phase, f"{phase}s")
     package_rel = Path(root_name) / str(run_id)
     package_dir = root / package_rel
     if not package_dir.is_dir():
@@ -1077,6 +1077,172 @@ def validate_verify_resolve_readiness(path: Path, obj: dict, issues: list[str], 
     if obj.get("ready_for_resolve") is True and guard.get("status") != "pass":
         issues.append(f"BLOCK {path}: ready_for_resolve=true requires self_approval_guard.status=pass")
 
+
+def _load_yaml_artifact(root: Path | None, artifact: object) -> dict | None:
+    if root is None or not artifact:
+        return None
+    p = Path(str(artifact))
+    if not p.is_absolute():
+        p = root / p
+    try:
+        data = yaml.safe_load(p.read_text())
+        return data if isinstance(data, dict) else None
+    except Exception:
+        return None
+
+
+def validate_resolve_package_selection(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    required = ["kind", "phase", "run_id", "verify_resolve_readiness", "semantic_package", "final_decision", "residual_risks", "deferred_items", "lesson_dispositions", "operator_handoff"]
+    check_required(str(path), obj, required, issues)
+    if obj.get("phase") != "resolve":
+        issues.append(f"BLOCK {path}: resolve package phase must be 'resolve'")
+    run_id = obj.get("run_id")
+    package_dir = _validate_package_directory(root, path, "resolve", run_id, issues)
+    expected_readiness = f"verification/{run_id}-resolve-readiness.yaml" if run_id else None
+    if expected_readiness and obj.get("verify_resolve_readiness") != expected_readiness:
+        issues.append(f"BLOCK {path}: verify_resolve_readiness must be {expected_readiness}")
+    readiness = _load_yaml_artifact(root, obj.get("verify_resolve_readiness"))
+    if readiness is None:
+        issues.append(f"BLOCK {path}: verify_resolve_readiness unreadable or missing")
+    else:
+        if readiness.get("kind") != "uacp.verify_resolve_readiness":
+            issues.append(f"BLOCK {path}: verify_resolve_readiness must be kind uacp.verify_resolve_readiness")
+        if readiness.get("run_id") != run_id:
+            issues.append(f"BLOCK {path}: verify_resolve_readiness run_id mismatch")
+        if readiness.get("ready_for_resolve") is not True:
+            issues.append(f"BLOCK {path}: VERIFY readiness is not ready_for_resolve=true")
+        if any(isinstance(b, dict) and b.get("state") == "open" for b in readiness.get("blockers") or []):
+            issues.append(f"BLOCK {path}: VERIFY readiness carries open blocker")
+    sem = obj.get("semantic_package") if isinstance(obj.get("semantic_package"), dict) else {}
+    concerns = {
+        "closure_summary": ("closure-summary.md", ["closure", "summary"]),
+        "final_decision": ("final-decision.md", ["final", "decision"]),
+        "residual_risks": ("residual-risks.md", ["residual", "risk"]),
+        "lessons_and_dispositions": ("lessons-and-dispositions.md", ["lesson", "disposition"]),
+        "state_and_memory_disposition": ("state-and-memory-disposition.md", ["state", "memory", "skill"]),
+        "operator_handoff": ("operator-handoff.md", ["conclusion", "risk", "next"]),
+    }
+    for label, (default_name, terms) in concerns.items():
+        artifact = sem.get(label) or (str(Path("outputs") / str(run_id) / default_name) if run_id else "")
+        _validate_semantic_markdown(path, label, artifact, _read_artifact_text(root, artifact), issues, terms)
+        if package_dir is not None and not _artifact_under_package(root, package_dir, artifact):
+            issues.append(f"BLOCK {path}: {label} artifact must live under outputs/{run_id}/: {artifact}")
+    decision = obj.get("final_decision") if isinstance(obj.get("final_decision"), dict) else {}
+    if decision.get("status") not in {"resolved", "resolved_with_warnings", "blocked"}:
+        issues.append(f"BLOCK {path}: final_decision.status must be resolved|resolved_with_warnings|blocked")
+    for field in ("decision", "rationale", "accepted_by", "evidence_pointer"):
+        if decision.get(field) in (None, ""):
+            issues.append(f"BLOCK {path}: final_decision missing {field}")
+    if decision.get("status") in {"resolved", "resolved_with_warnings"} and readiness and readiness.get("ready_for_resolve") is not True:
+        issues.append(f"BLOCK {path}: cannot resolve when VERIFY readiness is not ready")
+    for idx, risk in enumerate(obj.get("residual_risks") if isinstance(obj.get("residual_risks"), list) else []):
+        if not isinstance(risk, dict):
+            issues.append(f"BLOCK {path}: residual_risks[{idx}] must be a mapping")
+            continue
+        for field in ("risk_id", "description", "owner", "accepted_by", "condition", "source"):
+            if risk.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: residual_risks[{idx}] missing {field}")
+    for idx, item in enumerate(obj.get("deferred_items") if isinstance(obj.get("deferred_items"), list) else []):
+        if not isinstance(item, dict):
+            issues.append(f"BLOCK {path}: deferred_items[{idx}] must be a mapping")
+            continue
+        for field in ("item_id", "description", "owner", "accepted_by", "condition", "next_phase_obligation", "source"):
+            if item.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: deferred_items[{idx}] missing {field}")
+    # If readiness had risks/deferred items, resolve must carry at least same identifiers or explicit none assertion is invalid.
+    if readiness:
+        ready_risks = {str(r.get("risk_id") or r.get("id") or r.get("description")) for r in (readiness.get("residual_risks") or []) if isinstance(r, dict)}
+        carried_risks = {str(r.get("risk_id") or r.get("id") or r.get("description")) for r in (obj.get("residual_risks") or []) if isinstance(r, dict)}
+        missing = sorted(x for x in ready_risks if x and x not in carried_risks)
+        if missing:
+            issues.append(f"BLOCK {path}: residual risks from VERIFY readiness not carried forward: {missing}")
+        ready_deferred = {str(d.get("item_id") or d.get("id") or d.get("description")) for d in (readiness.get("deferred_items") or []) if isinstance(d, dict)}
+        carried_deferred = {str(d.get("item_id") or d.get("id") or d.get("description")) for d in (obj.get("deferred_items") or []) if isinstance(d, dict)}
+        missing_d = sorted(x for x in ready_deferred if x and x not in carried_deferred)
+        if missing_d:
+            issues.append(f"BLOCK {path}: deferred items from VERIFY readiness not carried forward: {missing_d}")
+    lessons = obj.get("lesson_dispositions") if isinstance(obj.get("lesson_dispositions"), list) else []
+    if not lessons:
+        issues.append(f"BLOCK {path}: lesson_dispositions must not be empty; use no_action with rationale if none")
+    for idx, lesson in enumerate(lessons):
+        if not isinstance(lesson, dict):
+            issues.append(f"BLOCK {path}: lesson_dispositions[{idx}] must be a mapping")
+            continue
+        if lesson.get("classification") not in {"memory", "skill", "docs", "knowledge", "no_action"}:
+            issues.append(f"BLOCK {path}: lesson_dispositions[{idx}].classification is invalid")
+        for field in ("lesson_id", "source_artifact", "rationale", "owner", "durability", "risk_if_persisted", "accepted_by", "disposition_basis"):
+            if lesson.get(field) in (None, ""):
+                issues.append(f"BLOCK {path}: lesson_dispositions[{idx}] missing {field}")
+        if lesson.get("classification") in {"memory", "skill", "docs", "knowledge"} and lesson.get("target_artifact") in (None, ""):
+            issues.append(f"BLOCK {path}: lesson_dispositions[{idx}] classification={lesson.get('classification')} missing target_artifact")
+    handoff = obj.get("operator_handoff") if isinstance(obj.get("operator_handoff"), dict) else {}
+    for field in ("conclusion", "decision", "risks", "next", "not_next", "evidence_pointer"):
+        if handoff.get(field) in (None, ""):
+            issues.append(f"BLOCK {path}: operator_handoff missing {field}")
+    if handoff.get("raw_inventory") is True:
+        issues.append(f"BLOCK {path}: operator_handoff must not be raw inventory")
+
+
+def validate_resolve_closure(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
+    required = ["kind", "phase", "run_id", "resolve_package", "verify_resolve_readiness", "final_decision", "closed_scope", "residual_risks", "deferred_items", "lesson_dispositions", "operator_handoff", "state_disposition"]
+    check_required(str(path), obj, required, issues)
+    if obj.get("phase") != "resolve":
+        issues.append(f"BLOCK {path}: resolve closure phase must be 'resolve'")
+    closed_scope = obj.get("closed_scope")
+    if not isinstance(closed_scope, list) or not closed_scope:
+        issues.append(f"BLOCK {path}: closed_scope must be a non-empty list")
+    else:
+        for idx, scope in enumerate(closed_scope):
+            if not isinstance(scope, dict):
+                issues.append(f"BLOCK {path}: closed_scope[{idx}] must be a mapping")
+                continue
+            for field in ("scope_id", "description", "source_artifact", "evidence_ref"):
+                if scope.get(field) in (None, ""):
+                    issues.append(f"BLOCK {path}: closed_scope[{idx}] missing {field}")
+            if obj.get("run_id") and str(scope.get("source_artifact", "")).split("/")[0] not in {"verification", "outputs", "plans", "proposals"}:
+                issues.append(f"BLOCK {path}: closed_scope[{idx}] source_artifact must be a UACP artifact path")
+            if root is not None and scope.get("source_artifact") and not _artifact_exists(root, scope.get("source_artifact")):
+                issues.append(f"BLOCK {path}: closed_scope[{idx}] source_artifact not found")
+    run_id = obj.get("run_id")
+    expected_pkg = f"outputs/{run_id}-resolve-selection.yaml" if run_id else None
+    if expected_pkg and obj.get("resolve_package") != expected_pkg:
+        issues.append(f"BLOCK {path}: resolve_package must be {expected_pkg}")
+    pkg = _load_yaml_artifact(root, obj.get("resolve_package"))
+    if pkg is None:
+        issues.append(f"BLOCK {path}: resolve_package unreadable or missing")
+    else:
+        if pkg.get("kind") != "uacp.resolve_package":
+            issues.append(f"BLOCK {path}: resolve_package must be kind uacp.resolve_package")
+        if pkg.get("run_id") != run_id:
+            issues.append(f"BLOCK {path}: resolve_package run_id mismatch")
+    expected_readiness = f"verification/{run_id}-resolve-readiness.yaml" if run_id else None
+    if expected_readiness and obj.get("verify_resolve_readiness") != expected_readiness:
+        issues.append(f"BLOCK {path}: verify_resolve_readiness must be {expected_readiness}")
+    readiness = _load_yaml_artifact(root, obj.get("verify_resolve_readiness"))
+    if readiness is None:
+        issues.append(f"BLOCK {path}: verify_resolve_readiness unreadable or missing")
+    elif readiness.get("ready_for_resolve") is not True:
+        issues.append(f"BLOCK {path}: cannot close when VERIFY readiness not ready")
+    decision = obj.get("final_decision") if isinstance(obj.get("final_decision"), dict) else {}
+    if decision.get("status") not in {"resolved", "resolved_with_warnings", "blocked"}:
+        issues.append(f"BLOCK {path}: final_decision.status invalid")
+    if decision.get("status") == "blocked" and obj.get("state_disposition", {}).get("run_status") == "resolved":
+        issues.append(f"BLOCK {path}: blocked closure cannot set run_status resolved")
+    for field in ("decision", "rationale", "accepted_by", "evidence_pointer"):
+        if decision.get(field) in (None, ""):
+            issues.append(f"BLOCK {path}: final_decision missing {field}")
+    state = obj.get("state_disposition") if isinstance(obj.get("state_disposition"), dict) else {}
+    for field in ("run_status", "state_update", "registry_update", "memory_action"):
+        if state.get(field) in (None, ""):
+            issues.append(f"BLOCK {path}: state_disposition missing {field}")
+    if state.get("run_status") not in {"resolved", "resolved_with_warnings", "blocked", "deferred"}:
+        issues.append(f"BLOCK {path}: state_disposition.run_status invalid")
+    if state.get("memory_action") not in {"none", "memory_added", "skill_updated", "docs_updated", "knowledge_recorded"}:
+        issues.append(f"BLOCK {path}: state_disposition.memory_action invalid")
+    handoff = obj.get("operator_handoff") if isinstance(obj.get("operator_handoff"), dict) else {}
+    if handoff.get("raw_inventory") is True:
+        issues.append(f"BLOCK {path}: operator_handoff must not be raw inventory")
+
 def validate_configs(root: Path, issues: list[str]) -> dict:
     configs = {}
     for rel in [
@@ -1153,6 +1319,10 @@ def main() -> int:
                 validate_verify_package_selection(path, obj, issues, root=root)
             elif kind == "uacp.verify_resolve_readiness":
                 validate_verify_resolve_readiness(path, obj, issues, root=root)
+            elif kind == "uacp.resolve_package":
+                validate_resolve_package_selection(path, obj, issues, root=root)
+            elif kind == "uacp.resolve_closure":
+                validate_resolve_closure(path, obj, issues, root=root)
             elif kind == "uacp.evidence_cluster":
                 validate_evidence_cluster(path, obj, issues)
     except Exception as exc:
