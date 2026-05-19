@@ -1,0 +1,40 @@
+kind: uacp.verify_resolve_readiness
+phase: verify
+run_id: fixture-runtime-resolve-dropped-risk
+ready_for_resolve: true
+overall_status: pass
+verification_package: verification/fixture-runtime-resolve-dropped-risk-verify-selection.yaml
+verified_facts_summary:
+- vf-1
+piv_summary:
+  status: not_applicable
+  artifact: verification/fixture-resolve-pass-piv-assessment.yaml
+evidence_cluster_summary:
+- cluster_id: resolve_fixture
+  state: pass
+  artifact_path: verification/fixture-resolve-pass-verify-selection.yaml
+residual_risks:
+- risk_id: risk-1
+  summary: must carry
+  owner: fixture
+  accepted_by: fixture
+  condition: track later
+open_assumptions: []
+deferred_items:
+- item_id: di-1
+  description: External Kimi audit remains auth-blocked.
+  owner: Mike
+  accepted_by: Mike
+  next_phase_obligation: rerun when auth fixed
+  revisit_trigger: Kimi auth available
+blockers: []
+heartgate_coherence_status:
+  required: true
+  status: pass
+  artifact_path: verification/fixture-resolve-pass-heartgate-coherence.yaml
+self_approval_guard:
+  status: pass
+  verify_self_remediated_material_findings: false
+  independent_reverification: false
+decision_rationale: Fixture is ready for resolve closure.
+accepted_by: fixture

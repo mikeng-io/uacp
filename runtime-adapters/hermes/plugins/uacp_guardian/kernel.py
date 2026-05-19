@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import importlib.util
 import os
 import time
 from dataclasses import dataclass, field
@@ -513,6 +514,28 @@ class Guardian:
             value = args.get(key)
             if isinstance(value, str) and value:
                 paths.append(value)
+        # Shell/code tools often carry filesystem targets only inside a command
+        # string. Treat explicit UACP-root references in command text as UACP-bound
+        # so protected actions cannot bypass Guardian by omitting path metadata.
+        for key in ("command", "code", "script", "args"):
+            value = args.get(key)
+            text = value if isinstance(value, str) else " ".join(str(v) for v in value) if isinstance(value, list) else ""
+            if not text:
+                continue
+            root = str(self.policy.uacp_root.resolve())
+            expanded = text.replace("$HOME", str(Path.home())).replace("${HOME}", str(Path.home()))
+            compact = expanded.replace("\\ ", " ")
+            # Conservative textual detection for shell/code surfaces. This is
+            # not a full shell parser; it intentionally over-binds commands
+            # mentioning the UACP root, ~/.hermes/uacp, $HOME/.hermes/uacp, or
+            # both '.hermes' and 'uacp' in the same command string.
+            if (
+                root in compact
+                or ".hermes/uacp" in compact
+                or "~/.hermes/uacp" in compact
+                or (".hermes" in compact and "uacp" in compact)
+            ):
+                paths.append(root)
         return paths
 
     def _path_is_under_state(self, raw_path: str) -> bool:
@@ -1093,6 +1116,61 @@ class Heartgate:
         except Exception:
             return False
 
+
+    def _offline_validate_artifacts(self, rel_paths: list[str], blockers: list[str], label: str) -> None:
+        """Run the canonical artifact validator in-process for runtime gates.
+
+        Heartgate performs transition-time checks; the offline validator owns the
+        deeper artifact semantics. Importing and calling it here prevents drift
+        where Heartgate only checks artifact presence while validator catches the
+        real semantic false-pass.
+        """
+        validator_path = self.uacp_root / "scripts" / "validate_uacp_artifacts.py"
+        if not validator_path.exists():
+            blockers.append(f"{label}: validator script missing: scripts/validate_uacp_artifacts.py")
+            return
+        try:
+            spec = importlib.util.spec_from_file_location("uacp_validate_runtime", validator_path)
+            if spec is None or spec.loader is None:
+                blockers.append(f"{label}: unable to load validator module")
+                return
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            issues: list[str] = []
+            configs = module.validate_configs(self.uacp_root, issues)
+            module.validate_transition_config_consistency(configs, issues)
+            phase_config = configs.get("config/phase-transitions.yaml") or {}
+            for rel in rel_paths:
+                path = (self.uacp_root / rel).resolve()
+                root = self.uacp_root.resolve()
+                if path != root and root not in path.parents:
+                    issues.append(f"BLOCK {label}: artifact path escapes UACP root: {rel}")
+                    continue
+                obj = module.require_map(module.load_yaml(path), path)
+                kind = obj.get("kind", "")
+                module.validate_finding_states(path, obj, issues)
+                if kind == "uacp.phase_transition":
+                    module.validate_phase_transition(path, obj, phase_config, issues, root=self.uacp_root)
+                elif kind == "uacp.phase_intent_verification_contract":
+                    module.validate_piv_contract(path, obj, issues, root=self.uacp_root)
+                elif kind == "uacp.execution_checkpoint":
+                    module.validate_execution_checkpoint(path, obj, issues, root=self.uacp_root)
+                elif kind == "uacp.piv_assessment":
+                    module.validate_piv_assessment(path, obj, issues, root=self.uacp_root)
+                elif kind == "uacp.verification_package":
+                    module.validate_verify_package_selection(path, obj, issues, root=self.uacp_root)
+                elif kind == "uacp.verify_resolve_readiness":
+                    module.validate_verify_resolve_readiness(path, obj, issues, root=self.uacp_root)
+                elif kind == "uacp.resolve_package":
+                    module.validate_resolve_package_selection(path, obj, issues, root=self.uacp_root)
+                elif kind == "uacp.resolve_closure":
+                    module.validate_resolve_closure(path, obj, issues, root=self.uacp_root)
+            for issue in issues:
+                if str(issue).startswith("BLOCK"):
+                    blockers.append(f"{label}: {issue}")
+        except Exception as exc:
+            blockers.append(f"{label}: validator execution failed: {type(exc).__name__}: {exc}")
+
     def _validate_adaptive_execute_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         if str(artifact.get("from_phase") or "") != "execute" or str(artifact.get("to_phase") or "") != "verify":
             return
@@ -1120,6 +1198,7 @@ class Heartgate:
                 blockers.append("adaptive_execute_evidence_gate: checkpoint target_phase must be verify")
             if readiness.get("status") not in {"ready", "ready_with_deferred_items"}:
                 blockers.append("adaptive_execute_evidence_gate: checkpoint is not ready for verify")
+        self._offline_validate_artifacts([piv_rel, checkpoint_rel], blockers, "adaptive_execute_evidence_gate")
         if not self._dir_under_root_exists(package_rel):
             blockers.append(f"adaptive_execute_evidence_gate: missing execution package directory {package_rel}/")
 
@@ -1154,6 +1233,11 @@ class Heartgate:
             for blocker in readiness.get("blockers") or []:
                 if isinstance(blocker, Mapping) and blocker.get("state") == "open":
                     blockers.append("adaptive_verify_evidence_gate: open blocker in resolve readiness")
+        piv_assessment_rel = f"verification/{run_id}-piv-assessment.yaml"
+        artifacts = [selection_rel, readiness_rel]
+        if (self.uacp_root / piv_assessment_rel).exists():
+            artifacts.append(piv_assessment_rel)
+        self._offline_validate_artifacts(artifacts, blockers, "adaptive_verify_evidence_gate")
         if not self._dir_under_root_exists(package_rel):
             blockers.append(f"adaptive_verify_evidence_gate: missing verification package directory {package_rel}/")
 
@@ -1192,6 +1276,7 @@ class Heartgate:
         readiness = self._load_yaml_under_root(readiness_rel, blockers, "adaptive_resolve_closure_gate")
         if readiness is not None and readiness.get("ready_for_resolve") is not True:
             blockers.append("adaptive_resolve_closure_gate: VERIFY readiness is not ready")
+        self._offline_validate_artifacts([selection_rel, closure_rel], blockers, "adaptive_resolve_closure_gate")
         if not self._dir_under_root_exists(package_rel):
             blockers.append(f"adaptive_resolve_closure_gate: missing resolve package directory {package_rel}/")
 
@@ -2088,8 +2173,16 @@ class Heartgate:
     def _accepted_exception_paths(self, artifact: Mapping[str, Any]) -> set[str]:
         paths = set()
         for item in artifact.get("accepted_exceptions") or []:
-            if isinstance(item, Mapping) and item.get("artifact_path") and item.get("owner") and item.get("rationale"):
-                paths.add(str(item["artifact_path"]))
+            if not isinstance(item, Mapping):
+                continue
+            artifact_path = str(item.get("artifact_path") or "")
+            if not artifact_path:
+                continue
+            if not (item.get("id") and item.get("cluster_id") and item.get("owner") and item.get("rationale") and item.get("next_phase_acceptance")):
+                continue
+            if not self._artifact_path_exists(artifact_path):
+                continue
+            paths.add(artifact_path)
         return paths
 
     def _deferred_accepted(self, artifact: Mapping[str, Any], cluster_id: str) -> bool:
@@ -2105,7 +2198,7 @@ class Heartgate:
     def _deferred_item_accepted(self, item: Any) -> bool:
         if not isinstance(item, Mapping):
             return False
-        return bool(item.get("owner") and item.get("condition") and item.get("accepted_by"))
+        return bool(item.get("id") and item.get("cluster_id") and item.get("owner") and item.get("condition") and item.get("accepted_by") and item.get("next_phase_acceptance"))
 
     def _warnings_owned(self, warnings: Any) -> bool:
         for item in warnings:

@@ -8,128 +8,112 @@ The kernel reads this dependency model from `config/phase-transitions.yaml`, `co
 
 ### `none → TRIAGE` (run start)
 
-| Aspect | Detail |
-|---|---|
-| Required inputs | A request from the operator (chat, ticket, scheduled trigger) |
-| Required outputs | `proposals/{run_id}-triage.yaml`, `state/runs/{run_id}-triage.yaml`, `state/current.yaml` updated |
-| Heartgate checks | none (TRIAGE is the entry point) |
-| Gate ledger | `gate: TRIAGE_COMPLETE` (optional; recorded by uacp-triage at end of phase) |
+- Required inputs: operator request from chat, ticket, scheduled trigger, or governed runtime surface.
+- Required outputs: `proposals/{run_id}-triage.yaml`, `state/runs/{run_id}-triage.yaml`, `state/current.yaml` updated.
+- Heartgate checks: none; TRIAGE is the entry point.
+- Gate ledger: `gate: TRIAGE_COMPLETE` optional.
 
 ### `TRIAGE → PROPOSE`
 
-| Aspect | Detail |
-|---|---|
-| Required inputs | Triage artifact at `proposals/{run_id}-triage*.yaml` |
-| Required outputs | `proposals/{run_id}*.yaml` (the proposal), `proposals/{run_id}-intent.md` (Phase 2.3) |
-| Heartgate checks | required_fields, transition_allowed, invariant_summary, cluster_summary, blockers, warnings, deferred_items, heartgate_coherence (when required), phase_exit_invariants, piv_record, **intent_doc** |
-| Gate ledger | `gate: TRIAGE->PROPOSE` |
+- Required inputs: triage artifact at `proposals/{run_id}-triage*.yaml`.
+- Required outputs: proposal artifact, `proposals/{run_id}-intent.md`, and when adaptive packages are selected, `proposals/{run_id}-package-selection.yaml` plus `proposals/{run_id}/00-index.md` and selected semantic proposal package documents.
+- Heartgate checks: required fields, transition allowance, invariant summary, cluster summary, blockers/warnings/deferred items, Heartgate coherence when required, phase exit invariants, legacy Post-Phase Verification ledger rule, intent doc, adaptive proposal package gate.
+- Gate ledger: `gate: TRIAGE->PROPOSE`.
 
 ### `PROPOSE → PLAN`
 
-| Aspect | Detail |
-|---|---|
-| Required inputs | Proposal artifact `proposals/{run_id}.yaml` matching `docs/reference/proposal-schema.md` |
-| Required outputs | `plans/{run_id}*` (plan artifacts), `plans/{run_id}-scope.yaml` (Phase 2.1) |
-| Heartgate checks | all Phase 1 checks + phase_exit_invariants + piv_record |
-| Gate ledger | `gate: PROPOSE->PLAN` |
+- Required inputs: proposal artifact and adaptive proposal package when selected.
+- Required outputs: plan artifacts, `plans/{run_id}-scope.yaml`, `plans/{run_id}-plan-selection.yaml`, `plans/{run_id}/00-index.md`, selected semantic plan package documents, and `plans/{run_id}-piv.yaml` when PLAN authorizes non-trivial EXECUTE work.
+- Heartgate checks: phase exit invariants, legacy Post-Phase Verification ledger rule, adaptive plan package gate, scope artifact checks, plan validation gate, run-registry overlap.
+- Gate ledger: `gate: PROPOSE->PLAN`; `gate: PLAN_VALIDATION` before execution when required.
 
-### `PLAN → EXECUTE` (highest-cardinality enforcement boundary)
+### `PLAN → EXECUTE`
 
-| Aspect | Detail |
-|---|---|
-| Required inputs | Plan artifacts + `plans/{run_id}-scope.yaml` |
-| Required outputs | `executions/{run_id}*` (execute checkpoints) |
-| Heartgate checks | all Phase 1 + phase_exit_invariants + piv_record + **scope_artifact** (Phase 2.1) + **plan_validation_gate** (Phase 3.1) + **run_registry_overlap** (Phase 3.2) |
-| Gate ledger | `gate: PLAN_VALIDATION` (pre-execute), then `gate: PLAN->EXECUTE` (transition) |
-
-**Scope artifact contract**: every entry in `scope.write_paths` must be reachable by at least one tool in `config/phase-transitions.yaml stages.execute.allowed_tools` per the `tool_path_capabilities` map. Unreachable write_paths block.
-
-**Run registry contract**: `state/run-registry.yaml#active_runs[*]` lists in-progress runs. Heartgate blocks if any other active run's `write_paths` overlap this run's.
+- Required inputs: plan package, scope artifact, selected runtime/tool policy, and Phase Intent Verification contract when required.
+- Required outputs: bounded execution authorization and gate ledger entry; EXECUTE will later produce checkpoints and semantic evidence.
+- Heartgate checks: scope artifact contract, plan validation, run registry overlap, phase tool admissibility.
+- Gate ledger: `gate: PLAN->EXECUTE`.
 
 ### `EXECUTE → VERIFY`
 
-| Aspect | Detail |
-|---|---|
-| Required inputs | `executions/{run_id}*` checkpoints |
-| Required outputs | `verification/{run_id}*` artifacts, including disposition pairs |
-| Heartgate checks | all prior checks + phase_exit_invariants + piv_record |
-| Gate ledger | `gate: EXECUTE->VERIFY` |
+- Required inputs: `executions/{run_id}-checkpoint-001.yaml` or selected checkpoint set, `executions/{run_id}/00-index.md`, semantic EXECUTE package documents, and the PLAN-authored Phase Intent Verification contract at `plans/{run_id}-piv.yaml` when selected.
+- Required outputs: VERIFY intake artifacts under `verification/{run_id}*`.
+- Heartgate checks: phase exit invariants, legacy Post-Phase Verification ledger rule, adaptive execute evidence gate, and runtime delegation to the canonical artifact validator for PIV/checkpoint semantics.
+- Gate ledger: `gate: EXECUTE->VERIFY`.
+
+**Phase Intent Verification contract**: PLAN declares work units, evidence obligations, checkpoint policy, intent drift conditions, and VERIFY handoff. EXECUTE checkpoints must prove required obligations. `next_phase_readiness.status: ready` requires required obligation evidence to be `pass`; `warn` or `deferred` required evidence requires owner, residual risk, next action, and a deferred-ready status.
 
 ### `VERIFY → RESOLVE`
 
-| Aspect | Detail |
-|---|---|
-| Required inputs | `verification/{run_id}*` artifacts |
-| Required outputs | `outputs/{run_id}*` (resolution artifacts), `outputs/{run_id}-lessons.yaml` (Phase 2.4) |
-| Heartgate checks | all prior checks + **evidence_dispositions** (Phase 2.2) + **lessons_artifact** (Phase 2.4) |
-| Gate ledger | `gate: VERIFY->RESOLVE` |
+- Required inputs: VERIFY package selection at `verification/{run_id}-verify-selection.yaml`, semantic verification package `verification/{run_id}/`, PIV assessment at `verification/{run_id}-piv-assessment.yaml` when EXECUTE used PIV, and resolve readiness at `verification/{run_id}-resolve-readiness.yaml`.
+- Required outputs: RESOLVE artifacts under `outputs/{run_id}*`, including `outputs/{run_id}-lessons.yaml` where the lessons schema applies.
+- Heartgate checks: evidence disposition pairs, lessons artifact, adaptive verify evidence gate, and runtime delegation to the canonical artifact validator for verified facts, assumptions, blockers, PIV assessment, self-approval guard, Heartgate coherence, and resolve readiness.
+- Gate ledger: `gate: VERIFY->RESOLVE`.
 
-**Evidence disposition contract**: for each cluster in `cluster_summary` with state not in `{deferred, not_applicable}`:
-- `verification/{run_id}-{cluster}-verified-facts.md` must exist and contain the documented header substring `"Fact"`.
-- `verification/{run_id}-{cluster}-assumptions.md` must exist and contain `"Disposition"`.
-- No row in the assumptions table may have `pending` disposition without a non-empty Owner AND non-empty Next-phase obligation.
-- `cluster_summary` must not be empty (Phase 3 pc_p2_t3).
-
-**Lessons contract**: `outputs/{run_id}-lessons.yaml` must be a YAML mapping with `run_id` (string) and `lessons` (list).
+**Verification package contract**: VERIFY separates verified facts from assumptions/deferred items, binds facts to source evidence, records blocker/warning dispositions, evaluates PIV satisfaction, guards against self-remediation/self-certification, and produces `verify_resolve_readiness` only when closure can safely proceed.
 
 ### `RESOLVE → terminal` (run complete)
 
-| Aspect | Detail |
-|---|---|
-| Required inputs | All RESOLVE outputs landed and committed |
-| Required outputs | `state/current.yaml` updated to mark run resolved |
-| Heartgate checks | all prior checks |
-| Gate ledger | (none required; run-state pointer carries the final disposition) |
+- Required inputs: VERIFY resolve readiness, resolve package selection at `outputs/{run_id}-resolve-selection.yaml`, semantic RESOLVE package `outputs/{run_id}/`, and closure artifact `outputs/{run_id}-closure.yaml`.
+- Required outputs: final operator handoff, closure decision, residual-risk/deferred-item carry-forward, lessons/state/memory/skill disposition, and run state/registry updates through governed state surfaces.
+- Heartgate checks: adaptive resolve closure gate and runtime delegation to the canonical artifact validator for readiness binding, residual-risk carry-forward, deferred-item preservation, final decision, closed scope, lesson dispositions, state/memory action, and concise operator handoff.
+- Gate ledger: no new terminal gate required by default; `VERIFY->RESOLVE` plus RESOLVE closure artifacts carry final disposition.
+
+**Resolve closure contract**: RESOLVE does not re-verify truth. It closes the governed run by preserving VERIFY readiness, carrying forward residual risks/deferred obligations, recording what was and was not closed, and emitting a concise operator handoff rather than raw inventories.
 
 ## Cross-phase dependency graph
 
-```
-TRIAGE                  triage artifact (proposals/{run_id}-triage*.yaml)
-  │  intent doc        (proposals/{run_id}-intent.md)        ◄── Heartgate 2.3
-  ▼
-PROPOSE                 proposal artifact (proposals/{run_id}.yaml)
-  │
-  ▼
-PLAN                    plan artifacts (plans/{run_id}/*)
-  │  scope artifact    (plans/{run_id}-scope.yaml)            ◄── Heartgate 2.1
-  │  PLAN_VALIDATION   (ledger entry)                          ◄── Heartgate 3.1
-  ▼
-EXECUTE                 execute checkpoints (executions/{run_id}*)
-  │  guarded writes governed by scope.write_paths             ◄── Layer A + Layer B
-  │  run_registry overlap check                                ◄── Heartgate 3.2
-  ▼
-VERIFY                  evidence + disposition pairs (verification/{run_id}-*)
-  │  disposition pairs per non-NA non-deferred cluster        ◄── Heartgate 2.2
-  ▼
-RESOLVE                 outputs + structured lessons (outputs/{run_id}-*)
-  │  lessons artifact with ledger_citations                   ◄── Heartgate 2.4
-  ▼
-terminal               state/current.yaml pointer updated
+```text
+TRIAGE
+  └─ proposals/{run_id}-triage.yaml
+PROPOSE
+  ├─ proposals/{run_id}.yaml
+  ├─ proposals/{run_id}-package-selection.yaml
+  └─ proposals/{run_id}/00-index.md + selected semantic docs
+PLAN
+  ├─ plans/{run_id}-scope.yaml
+  ├─ plans/{run_id}-plan-selection.yaml
+  ├─ plans/{run_id}/00-index.md + selected semantic docs
+  └─ plans/{run_id}-piv.yaml        # Phase Intent Verification contract when required
+EXECUTE
+  ├─ executions/{run_id}-checkpoint-*.yaml
+  └─ executions/{run_id}/00-index.md + work/evidence/drift/handoff docs
+VERIFY
+  ├─ verification/{run_id}-verify-selection.yaml
+  ├─ verification/{run_id}-piv-assessment.yaml
+  ├─ verification/{run_id}-resolve-readiness.yaml
+  └─ verification/{run_id}/00-index.md + facts/assumptions/findings/readiness docs
+RESOLVE
+  ├─ outputs/{run_id}-resolve-selection.yaml
+  ├─ outputs/{run_id}-closure.yaml
+  └─ outputs/{run_id}/00-index.md + closure/risk/lesson/state/handoff docs
+terminal
+  └─ governed state/registry disposition
 ```
 
 ## Escalation events (Phase 4.4 stub — parallel surface)
 
-The `state/escalations/{run_id}.jsonl` ledger is a parallel, **non-blocking**, append-only surface separate from the gate ledger. Skills emit records via `uacp_escalation_event` when an escalation trigger (declared in `config/autonomy-policy.yaml#escalation_triggers`) fires in the active operating mode (`state/current.yaml#uacp_mode`).
+The `state/escalations/{run_id}.jsonl` ledger is a parallel, **non-blocking**, append-only surface separate from the gate ledger. Skills emit records via `uacp_escalation_event` when an escalation trigger in `config/autonomy-policy.yaml#escalation_triggers` fires in the active operating mode.
 
 Phase 4 status:
-- `uacp_mode` is a stub field with no kernel reader (`enforcement_status: stub_only_phase_4`).
-- The kernel does NOT yet branch on mode; no transition is mode-gated.
-- Operator engagement is via polling `state/escalations/`. Push-notification is the Hermes core seam deferred to Phase 5.
-- Trigger ID validation against the autonomy-policy registry is also deferred to Phase 5.
-
-Phase 5 promotes mode-aware enforcement to load-bearing: Heartgate will gate transitions on the active mode's `requires_operator_confirmation` list, and the escalation handler will lock down trigger IDs.
+- `uacp_mode` remains a stub field with no full kernel reader.
+- The kernel does not yet fully branch on mode.
+- Operator engagement is via polling `state/escalations/`; push-notification is deferred.
+- Trigger ID validation against the autonomy-policy registry is deferred.
 
 ## Adaptive evidence selection
 
-Heartgate does not enforce a fixed cluster set. The `cluster_summary` in the transition artifact is chosen by the meta-gate (TRIAGE) and may be revised at PROPOSE. The 15 cluster families in `config/evidence-clusters.yaml` are templates; concrete cluster IDs are picked per-run.
-
-This trace table describes the **structural** dependency between phases. The **evidence** model is per-run.
+Heartgate does not require a fixed evidence cluster set. TRIAGE/PROPOSE select evidence topology per run. The adaptive gates enforce that selected packages, semantic artifacts, and closure/readiness contracts are present and internally consistent. Deep artifact semantics are shared with `scripts/validate_uacp_artifacts.py` to avoid runtime/offline drift.
 
 ## Authority cross-references
 
-- `docs/reference/skill-enforcement-spec.md` — what each skill may do
-- `docs/reference/proposal-schema.md` — uacp.propose artifact reference
-- `docs/runtime/runtime-enforcement.md` — Guardian + Heartgate runtime design (with the full 18-step Heartgate check list — rows 16 and 17 added in Phase 3 for `plan_validation_gate` and `run_registry_overlap`)
-- `config/phase-transitions.yaml` — phase admissibility, exit invariants, piv_rule, plan_validation_gate, run_registry_rule
-- `config/artifact-schemas.yaml` — scope, intent, evidence_disposition, lessons
-- `config/guardian-policy.yaml` — Layer A categories, self_attesting_tools, mode
+- `docs/architecture/0011-semantic-markdown-package-enforcement.md`
+- `docs/architecture/0012-phase-intent-verification.md`
+- `docs/architecture/0013-adaptive-verify-evidence.md`
+- `docs/architecture/0014-adaptive-resolve-closure.md`
+- `docs/reference/skill-enforcement-spec.md`
+- `docs/reference/proposal-schema.md`
+- `docs/runtime/runtime-enforcement.md`
+- `config/phase-transitions.yaml`
+- `config/artifact-schemas.yaml`
+- `config/guardian-policy.yaml`
