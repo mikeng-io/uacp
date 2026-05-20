@@ -25,6 +25,7 @@ Structural navigation map for `docs/`. For project overview, see [`/PROJECT.md`]
 | [`policy/`](policy/INDEX.md) | [INDEX.md](policy/INDEX.md) | Foundational doctrine — constitution, first-principles, alignment-spec. |
 | [`lifecycle/`](lifecycle/INDEX.md) | [INDEX.md](lifecycle/INDEX.md) | Six-phase lifecycle model + orchestration. |
 | [`runtime/`](runtime/INDEX.md) | [INDEX.md](runtime/INDEX.md) | Guardian + Heartgate enforcement; runtime adapter integration; porting. |
+| [`guides/`](guides/INDEX.md) | [INDEX.md](guides/INDEX.md) | Curated human/agent reading paths that explain how canonical docs, config, runtime, validator, skills, and fixtures fit together. |
 | [`reference/`](reference/INDEX.md) | [INDEX.md](reference/INDEX.md) | Schemas + per-skill authority records (proposal-schema, skill-enforcement-spec, lifecycle-trace-table). |
 | [`architecture/`](architecture/INDEX.md) | [INDEX.md](architecture/INDEX.md) | ADRs (numbered, with template + status lifecycle). |
 | [`decisions/`](decisions/INDEX.md) | [INDEX.md](decisions/INDEX.md) | Operational decision-log (lighter than ADRs). |
@@ -60,6 +61,7 @@ The canonical inventory of UACP-owned files outside `docs/`. Every file here MUS
 | `state/kanban.yaml` | runtime_state | canonical | Active coordination-adapter binding | Update when board slug changes |
 | `state/runs/` | runtime_state | canonical | Per-run manifests + checkpoint records | Append-only; do not overwrite |
 | `state/gate-ledger/` | runtime_state | canonical | Append-only JSONL ledger per run | Written exclusively through `uacp_gate_ledger_append` |
+| `docs/guides/` | documentation | explanatory | Human/agent reading paths for cross-cutting topics | Guides explain and route; they do not own canonical rules |
 | `state/run-registry.yaml` | runtime_state | canonical | Phase 3.2 active-run registry | Exclusive mutator: `uacp_run_registry_update` |
 | `state/escalations/` | runtime_state | canonical | Phase 4.4 stub: append-only JSONL per run | Exclusive writer: `uacp_escalation_event`. Operator-polls; push-notify is Phase 5. |
 | `runtime-adapters/` | runtime_adapter_source | canonical | UACP-owned runtime adapter / plugin source | Source changes require binding verification + rollback evidence |
@@ -75,7 +77,8 @@ When approaching UACP cold, this order minimizes back-tracking:
 3. [`lifecycle/lifecycle-reference.md`](lifecycle/lifecycle-reference.md) — phase semantics.
 4. [`reference/proposal-schema.md`](reference/proposal-schema.md) + [`reference/skill-enforcement-spec.md`](reference/skill-enforcement-spec.md) + [`reference/lifecycle-trace-table.md`](reference/lifecycle-trace-table.md) — canonical schemas.
 5. [`runtime/runtime-enforcement.md`](runtime/runtime-enforcement.md) — how Guardian + Heartgate enforce.
-6. [`architecture/INDEX.md`](architecture/INDEX.md) — historical decisions.
+6. [`guides/lifecycle-hardening/00-index.md`](guides/lifecycle-hardening/00-index.md) — readable guide to semantic packages, PIV, VERIFY/RESOLVE, runtime parity, and full-lineage audit remediation.
+7. [`architecture/INDEX.md`](architecture/INDEX.md) — historical decisions.
 
 For runtime adapter authors, add: [`runtime/runtime-integration-guide.md`](runtime/runtime-integration-guide.md), [`runtime/runtime-porting-and-version-control.md`](runtime/runtime-porting-and-version-control.md).
 

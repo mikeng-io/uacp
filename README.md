@@ -32,6 +32,8 @@ The UACP lifecycle has six phases: **TRIAGE → PROPOSE → PLAN → EXECUTE →
 
 The `lightweight`, `standard_uacp`, and `full_governance` routes all enter PROPOSE and continue through the linear chain. Evidence inside each phase is adaptive — selected by context — not a fixed checklist applied uniformly.
 
+For the human-readable guide to the semantic package, PIV, VERIFY/RESOLVE, Guardian/Heartgate, and audit-remediation hardening series, see [`docs/guides/lifecycle-hardening/00-index.md`](docs/guides/lifecycle-hardening/00-index.md).
+
 ```mermaid
 flowchart TD
     TRIAGE([TRIAGE])
@@ -145,6 +147,14 @@ uacp/
 │   │   ├── runtime-enforcement.md
 │   │   ├── runtime-integration-guide.md
 │   │   └── runtime-porting-and-version-control.md
+│   ├── guides/                        ← curated human/agent reading paths
+│   │   ├── INDEX.md
+│   │   └── lifecycle-hardening/
+│   │       ├── 00-index.md
+│   │       ├── 01-human-overview.md
+│   │       ├── 02-agent-operating-guide.md
+│   │       ├── 03-artifact-and-gate-map.md
+│   │       └── 04-audit-and-remediation-history.md
 │   ├── reference/                     ← canonical schemas + per-skill authority
 │   │   ├── INDEX.md
 │   │   ├── proposal-schema.md
