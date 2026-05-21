@@ -1,0 +1,45 @@
+run_id: lexa-executable-contract-bootstrap-20260521
+phase: PROPOSE
+package_dir: proposals/lexa-executable-contract-bootstrap-20260521
+concerns:
+  intent:
+    status: covered
+    artifacts:
+      - proposals/lexa-executable-contract-bootstrap-20260521/00-index.md
+  authority:
+    status: covered
+    artifacts:
+      - proposals/lexa-executable-contract-bootstrap-20260521-proposal.yaml
+      - proposals/lexa-executable-contract-bootstrap-20260521/00-index.md
+  scope:
+    status: covered
+    artifacts:
+      - proposals/lexa-executable-contract-bootstrap-20260521-proposal.yaml
+      - proposals/lexa-executable-contract-bootstrap-20260521/00-index.md
+  containment:
+    status: covered
+    artifacts:
+      - proposals/lexa-executable-contract-bootstrap-20260521/00-index.md
+  risk:
+    status: covered
+    artifacts:
+      - proposals/lexa-executable-contract-bootstrap-20260521-proposal.yaml
+  verification:
+    status: covered
+    artifacts:
+      - proposals/lexa-executable-contract-bootstrap-20260521-proposal.yaml
+      - proposals/lexa-executable-contract-bootstrap-20260521/00-index.md
+  transition:
+    status: covered
+    artifacts:
+      - proposals/lexa-executable-contract-bootstrap-20260521-gate-selection.yaml
+      - proposals/lexa-executable-contract-bootstrap-20260521/00-index.md
+  artifact_map:
+    status: covered
+    artifacts:
+      - proposals/lexa-executable-contract-bootstrap-20260521/00-index.md
+not_applicable:
+  production_deployment:
+    reason: Runtime deployment is out of scope for this proposal.
+  database_migration:
+    reason: No production database/state migration is authorized.

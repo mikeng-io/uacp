@@ -1,0 +1,60 @@
+selection_id: lexa-executable-contract-bootstrap-20260521-gate-selection
+run_id: lexa-executable-contract-bootstrap-20260521
+phase: PROPOSE
+domains:
+  - architecture
+  - schemas
+  - validation
+  - public_private_boundary
+  - source_registry
+  - local_reference_code
+artifact_types:
+  - proposal_yaml
+  - proposal_markdown_package
+  - plan_artifacts_later
+  - schemas_later
+  - fixtures_later
+  - validator_code_later
+risk_level: medium_high
+granularity_level: 8
+invariant_checks:
+  - id: no_runtime_integration
+    status: pass
+    reason: Proposal explicitly excludes daemon/API/live Nora/Cortex integration.
+  - id: no_private_memory_ingestion
+    status: pass
+    reason: Proposal explicitly excludes private memory ingestion and shared private-memory index.
+  - id: source_owned_state_preserved
+    status: pass
+    reason: Proposal requires source registry and derived-state fixture checks.
+  - id: executable_evidence_required
+    status: pass
+    reason: Proposal requires schemas, fixtures, validator, and optional reference builder evidence.
+  - id: operator_authority_for_external_side_effects
+    status: pass
+    reason: Proposal declares no commits/pushes/external publication without explicit authorization.
+selected_clusters:
+  required:
+    - authority_scope_containment
+    - artifact_map
+    - security_privacy_boundary
+    - verification_plan
+    - implementation_non_goals
+  optional:
+    - council_review
+  generated:
+    - executable_contract_bootstrap_package
+not_applicable:
+  - cluster_id: production_deployment
+    reason: Runtime deployment is out of scope.
+  - cluster_id: database_migration
+    reason: No production or persistent source registry state is authorized.
+transition_requirements:
+  propose_to_plan:
+    - Proposal package must exist and map intent, scope, containment, risks, verification, and artifact strategy.
+    - PLAN must decide exact surface and work packages before any implementation.
+reasoning: >-
+  This is a standard UACP bootstrap because the work spans architecture, schemas,
+  fixtures, validator code, public/private leakage boundaries, and source-owned
+  state semantics. It does not require full governance yet because live runtime
+  integrations and private memory ingestion are explicitly out of scope.
