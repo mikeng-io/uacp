@@ -12,7 +12,7 @@ Scope: preserve and execute the UACP Agent-Council integration context without r
 1. Load the `uacp` skill.
 2. Read `UACP_ROOT/docs/index.md`.
 3. Read this package index: `plans/uacp-agent-council-followthrough/00-index.md`.
-4. Read current handoff: `outputs/agent-skills-integration-current-handoff.md`.
+4. Read current handoff: `.outputs/agent-skills-integration-current-handoff.md`.
 5. Read verification baseline: `verification/uacp-skills-validator-alignment-verify.yaml`.
 6. If Kanban tasks exist, use the board/task graph as coordination memory.
 7. If Kanban tasks do not exist, create/import from `kanban-import.yaml`.

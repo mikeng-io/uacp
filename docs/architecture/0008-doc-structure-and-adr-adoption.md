@@ -74,4 +74,4 @@ Plus four new root-level docs (`PROJECT.md`, `ROADMAP.md`, `CONTRIBUTING.md`, `C
 ## References
 
 - Restructure commits: this commit and the ones that follow (multi-commit per operator request).
-- Cross-reference scan: `git grep -n "docs/" config/ scripts/ runtime-adapters/ outputs/ executions/ verification/`.
+- Cross-reference scan: `git grep -n "docs/" config/ scripts/ runtime-adapters/ .outputs/ executions/ verification/`.

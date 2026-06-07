@@ -214,7 +214,7 @@ Canonical docs should use symbolic roots without shell dollar signs:
 
 ```text
 UACP_ROOT/verification/
-UACP_ROOT/outputs/
+UACP_ROOT/.outputs/
 UACP_ROOT/state/runs/
 ```
 
@@ -560,7 +560,7 @@ After UACP doctrine is patched and verified:
 5. Deprecate deep-* wrappers as compatibility aliases.
 6. Make artifact paths configurable through symbolic roots:
    - `UACP_ROOT/verification/`
-   - `UACP_ROOT/outputs/`
+   - `UACP_ROOT/.outputs/`
    - `ARTIFACT_ROOT/`
    - runtime-specific fallback roots only when configured.
 7. Keep runtime adapters as downstream implementation, not UACP canonical docs.

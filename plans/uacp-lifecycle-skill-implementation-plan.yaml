@@ -67,7 +67,7 @@ skill_contract:
     uacp-plan: "plans/"
     uacp-execute: "executions/"
     uacp-verify: "verification/"
-    uacp-resolve: "outputs/ and knowledge/"
+    uacp-resolve: ".outputs/ and knowledge/"
   global_rules:
     - "Do not hardcode physical paths inside canonical skill docs."
     - "Do not hardcode model names."

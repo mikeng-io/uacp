@@ -863,8 +863,8 @@ def _handle_uacp_run_registry_update(args: dict, **_: Any) -> str:
         if not isinstance(entry, dict):
             return json.dumps({"error": "uacp_run_registry_update: 'entry' must be a mapping"})
         run_id = str(entry.get("run_id") or "")
-        from uacp_guardian.kernel import _is_safe_run_id as _safe
-        from uacp_guardian.kernel import Heartgate as _HG
+        from .kernel import _is_safe_run_id as _safe
+        from .kernel import Heartgate as _HG
         if not _safe(run_id):
             return json.dumps({"error": "uacp_run_registry_update: entry.run_id unsafe or missing"})
         # SKEP-R1-001 — caller-binding: entry.run_id MUST equal caller uacp_run_id.
@@ -957,7 +957,7 @@ def _handle_uacp_escalation_event(args: dict, **_: Any) -> str:
             return json.dumps({"error": f"missing UACP context fields: {', '.join(missing_context)}"})
         policy = _policy()
         root = policy.uacp_root
-        from uacp_guardian.kernel import _is_safe_run_id as _safe
+        from .kernel import _is_safe_run_id as _safe
         run_id = str(args.get("uacp_run_id") or "")
         if not _safe(run_id):
             return json.dumps({"error": "uacp_escalation_event: unsafe or missing uacp_run_id"})
@@ -1040,7 +1040,7 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
             return json.dumps({"error": f"uacp_artifact_write may not write under {top}/"})
         if top not in allowed_roots:
             return json.dumps(
-                {"error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, outputs/, or knowledge/"}
+                {"error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, .outputs/, or knowledge/"}
             )
         if target.name in {"", ".", ".."}:
             return json.dumps({"error": "target_path must point to a file"})

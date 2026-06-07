@@ -55,7 +55,7 @@ proposal_decision: >-
   co-evolve docs, schemas, fixtures, validator, and bounded reference code, with
   VERIFY checking convergence.
 artifact_strategy:
-  initial_surface: outputs/lexa-executable-contract-bootstrap-20260521/
+  initial_surface: .outputs/lexa-executable-contract-bootstrap-20260521/
   rationale: >-
     Use governed UACP staging first so the bootstrap can be audited before a
     dedicated LEXA repo/project surface is created. PLAN may revise this if Mike

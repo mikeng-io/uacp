@@ -1,0 +1,76 @@
+phase: plan
+kind: uacp.phase_intent_verification_contract
+piv_id: nora-doctrine-remediation-20260605-170000-piv
+run_id: nora-doctrine-remediation-20260605-170000
+phase_intent: "Execute 6 remediation tracks (RT-1 through RT-6) to address 3 CRITICAL + 7 HIGH findings from agent council review, ensuring doctrine consistency, safe card security, and operator-visible health."
+work_units:
+  - id: wu1_inventory
+    description: "Verify target files exist; record git HEAD; read all 5 doctrine files and plugin/registry code"
+    obligations:
+      - "Git HEAD recorded for all 8 target files"
+      - "All 5 doctrine files read and analyzed"
+      - "Plugin __init__.py and identity_registry.py read"
+    evidence_type: "file_read + git_log"
+  - id: wu2_safe_card
+    description: "Tighten safe card: drop trust_tier, drop identity_id, gate address_as, add null fallback, remove username fallback"
+    obligations:
+      - "Plugin __init__.py modified with _safe_card changes"
+      - "Compile check passes"
+      - "Leak scan: safe card no longer contains trust_tier or identity_id"
+    evidence_type: "file_patch + python_compile + grep"
+  - id: wu3_schema
+    description: "Add deny-by-default schema validation; move service_access/facts/names out of runtime JSON"
+    obligations:
+      - "identity_registry.py has schema validation function"
+      - "compile_identity produces only schema-allowed fields"
+      - "Runtime JSON regenerated, new schema"
+    evidence_type: "file_patch + python_compile + regenerate_json"
+  - id: wu4_doctrine
+    description: "Add doctrinal grant to SECURITY.md, IDENTITY.md, KERNEL.md, SOUL.md; add trust_tier veto"
+    obligations:
+      - "SECURITY.md has identity-registry authority tier"
+      - "IDENTITY.md has identity-registry carve-out"
+      - "KERNEL.md authorizes controlled mechanism"
+      - "SOUL.md updates 'must not reveal' rule"
+      - "grep for 'identity-registry' shows 4+ doctrine files"
+    evidence_type: "file_patch + grep"
+  - id: wu5_health
+    description: "Add health check, staleness check, operator-visible logging, ERROR-level on silent fail"
+    obligations:
+      - "Plugin __init__.py has health_check() function"
+      - "Silent fail now logs ERROR with traceback"
+      - "Compile check passes"
+    evidence_type: "file_patch + python_compile"
+  - id: wu6_hook
+    description: "Document pre_gateway_dispatch event mutation in plugin comment"
+    obligations:
+      - "Plugin __init__.py has hook contract comment"
+    evidence_type: "file_patch"
+  - id: wu7_lang
+    description: "Add language/tone precedence to PERSONALITY.md"
+    obligations:
+      - "PERSONALITY.md has language precedence rule"
+      - "PERSONALITY.md has tone hint-not-directive rule"
+    evidence_type: "file_patch + grep"
+  - id: wu8_verify
+    description: "Static verification: compile, leak scan, doctrine consistency, plugin import"
+    obligations:
+      - "All .py files compile"
+      - "Safe card leak scan passes"
+      - "Doctrine grep shows identity-registry in 4+ files"
+      - "Plugin imports successfully under HERMES_HOME"
+    evidence_type: "terminal_commands"
+checkpoint_policy:
+  cadence: "after each work unit"
+  evidence_format: "executions/nora-doctrine-remediation-20260605-170000-checkpoint-*.yaml"
+intent_drift_conditions:
+  - "If operator changes scope mid-flight, pause and re-triage"
+  - "If safe card tightening reveals additional data leak vectors, add to RT-3"
+  - "If doctrine files cannot be made consistent, escalate to council"
+next_phase_handoff:
+  criteria:
+    - "All 8 work units complete"
+    - "Static verification passes (wu8)"
+    - "No unresolved material findings"
+    - "Operator approves gateway restart (separate boundary)"
+  evidence_artifact: "verification/nora-doctrine-remediation-20260605-170000-verify.yaml"

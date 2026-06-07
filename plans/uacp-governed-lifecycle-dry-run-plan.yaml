@@ -55,7 +55,7 @@ work_units:
   - id: resolve.package
     title: "Prepare learning and resolution artifacts"
     outputs:
-      - "outputs/uacp-governed-lifecycle-dry-run-summary.yaml"
+      - ".outputs/uacp-governed-lifecycle-dry-run-summary.yaml"
       - "knowledge/lessons/uacp-governed-lifecycle-dry-run.yaml"
 write_boundary: "UACP_ROOT"
 notes:

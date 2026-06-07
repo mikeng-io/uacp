@@ -5,7 +5,7 @@ active_run_manifest: state/runs/uacp-patch-plan-20260515-triage.yaml
 active_phase: resolve
 active_status: resolved
 mutation_policy: uacp_state_required
-current_transition_artifact: outputs/uacp-patch-plan-20260515-resolve.yaml
+current_transition_artifact: .outputs/uacp-patch-plan-20260515-resolve.yaml
 kanban_binding_artifact: state/runs/uacp-patch-plan-20260515-triage.yaml
 kanban_board_slug: uacp
 bootstrap_closed: true

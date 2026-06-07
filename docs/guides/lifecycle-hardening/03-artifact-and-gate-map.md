@@ -17,7 +17,7 @@ This map shows where meaning and enforcement live after the lifecycle hardening 
 | PLAN | plan/package-selection YAML and PIV contract | `plans/{run_id}/` | plan package validator + PIV contract validator |
 | EXECUTE | execution checkpoint YAML | `executions/{run_id}/` | PIV obligation validation + Heartgate EXECUTE gate |
 | VERIFY | verify-selection, PIV assessment, resolve-readiness YAML | `verification/{run_id}/` | verification package validator + self-approval guard |
-| RESOLVE | resolve-selection and closure YAML | `outputs/{run_id}/` | readiness/closure carry-forward validator + Heartgate RESOLVE gate |
+| RESOLVE | resolve-selection and closure YAML | `.outputs/{run_id}/` | readiness/closure carry-forward validator + Heartgate RESOLVE gate |
 
 ## Key enforcement files
 

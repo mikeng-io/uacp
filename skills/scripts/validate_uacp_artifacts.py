@@ -272,8 +272,8 @@ def validate_adaptive_transition_linked_artifacts(path: Path, obj: dict, issues:
     if from_phase == "resolve":
         for rel, validator in [
             (f"verification/{run_id}-resolve-readiness.yaml", validate_verify_resolve_readiness),
-            (f"outputs/{run_id}-resolve-selection.yaml", validate_resolve_package_selection),
-            (f"outputs/{run_id}-closure.yaml", validate_resolve_closure),
+            (f"..outputs/{run_id}-resolve-selection.yaml", validate_resolve_package_selection),
+            (f"..outputs/{run_id}-closure.yaml", validate_resolve_closure),
         ]:
             artifact = _load_yaml_artifact(root, rel)
             if artifact is None:
@@ -508,7 +508,7 @@ def _artifact_run_bound(artifact: str, run_id: str) -> bool:
         f"plans/{run_id}",
         f"executions/{run_id}",
         f"verification/{run_id}",
-        f"outputs/{run_id}",
+        f"..outputs/{run_id}",
     )
     return artifact.startswith(prefixes)
 
@@ -1236,7 +1236,7 @@ def validate_resolve_package_selection(path: Path, obj: dict, issues: list[str],
         artifact = sem.get(label) or (str(Path("outputs") / str(run_id) / default_name) if run_id else "")
         _validate_semantic_markdown(path, label, artifact, _read_artifact_text(root, artifact), issues, terms)
         if package_dir is not None and not _artifact_under_package(root, package_dir, artifact):
-            issues.append(f"BLOCK {path}: {label} artifact must live under outputs/{run_id}/: {artifact}")
+            issues.append(f"BLOCK {path}: {label} artifact must live under ..outputs/{run_id}/: {artifact}")
     decision = obj.get("final_decision") if isinstance(obj.get("final_decision"), dict) else {}
     if decision.get("status") not in {"resolved", "resolved_with_warnings", "blocked"}:
         issues.append(f"BLOCK {path}: final_decision.status must be resolved|resolved_with_warnings|blocked")
@@ -1314,7 +1314,7 @@ def validate_resolve_closure(path: Path, obj: dict, issues: list[str], *, root: 
             if root is not None and scope.get("source_artifact") and not _artifact_exists(root, scope.get("source_artifact")):
                 issues.append(f"BLOCK {path}: closed_scope[{idx}] source_artifact not found")
     run_id = obj.get("run_id")
-    expected_pkg = f"outputs/{run_id}-resolve-selection.yaml" if run_id else None
+    expected_pkg = f"..outputs/{run_id}-resolve-selection.yaml" if run_id else None
     if expected_pkg and obj.get("resolve_package") != expected_pkg:
         issues.append(f"BLOCK {path}: resolve_package must be {expected_pkg}")
     pkg = _load_yaml_artifact(root, obj.get("resolve_package"))

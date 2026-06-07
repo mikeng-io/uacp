@@ -6,7 +6,7 @@ verified_facts:
 - fact_id: vf-1
   claim: Resolve fixture is ready.
   source_evidence: fixture readiness source
-  source_path: outputs/fixture-resolve-pass/00-index.md
+  source_path: .outputs/fixture-resolve-pass/00-index.md
   source_locator: file:1
   validation_method: fixture
   owner: fixture
@@ -20,6 +20,6 @@ findings_dispositions:
   classification: not_applicable
   disposition: not_applicable
   owner: fixture
-  evidence_ref: outputs/fixture-resolve-pass/closure-summary.md
+  evidence_ref: .outputs/fixture-resolve-pass/closure-summary.md
 resolve_readiness:
   ready_for_resolve: true

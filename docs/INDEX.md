@@ -66,7 +66,7 @@ The canonical inventory of UACP-owned files outside `docs/`. Every file here MUS
 | `state/escalations/` | runtime_state | canonical | Phase 4.4 stub: append-only JSONL per run | Exclusive writer: `uacp_escalation_event`. Operator-polls; push-notify is Phase 5. |
 | `runtime-adapters/` | runtime_adapter_source | canonical | UACP-owned runtime adapter / plugin source | Source changes require binding verification + rollback evidence |
 | `scripts/` | verification_tooling | canonical | Phase verify (`phase{0..4}_verify.py`) + live probe scripts that lock in propagated-constraint remediations as machine-checked invariants | Every fail-closed kernel branch needs a paired check |
-| `plans/`, `proposals/`, `executions/`, `verification/`, `outputs/`, `knowledge/` | run_artifact_roots | canonical | Per-run lifecycle artifact directories | Append-only per-run state; do not overwrite historical |
+| `plans/`, `proposals/`, `executions/`, `verification/`, `.outputs/`, `knowledge/` | run_artifact_roots | canonical | Per-run lifecycle artifact directories | Append-only per-run state; do not overwrite historical |
 
 ## Read-order for most work
 

@@ -1,0 +1,294 @@
+# UACP Control Plane Configuration
+# Central TOML configuration for the Universal Agent Control Plane.
+# Override any section by creating a `uacp.local.toml` (gitignored) —
+# local settings take precedence over this file.
+
+schema_version = "0.2.0"
+kind = "uacp.control_plane_config"
+status = "active"
+
+# =============================================================================
+# PATHS
+# =============================================================================
+# All paths are relative to UACP_ROOT unless absolute.
+
+[paths]
+output = ".outputs"           # Runtime output artifacts
+state = "state"               # Runtime state (current.yaml, runs/, gate-ledger/)
+executions = "executions"     # Execution checkpoints
+verification = "verification" # Verification artifacts (fixtures kept in git)
+proposals = "proposals"       # Proposal artifacts
+plans = "plans"               # Plan artifacts
+knowledge = "knowledge"       # Knowledge base (scenarios, lessons, indexes)
+docs = "docs"                 # Canonical documentation
+config = "config"             # Configuration directory
+
+[paths.bridge_artifacts]
+root = ".outputs/bridges"     # Bridge execution artifacts (JSONL + Markdown)
+
+[paths.council_artifacts]
+root = ".outputs/councils"    # Council session artifacts
+
+# =============================================================================
+# MODELS & TIER SYSTEM
+# =============================================================================
+# The tier system is the canonical way to match task complexity to model
+# capability. Tiers are abstract (0–4). Each bridge maps tiers to its own
+# provider-specific models and reasoning levels.
+#
+# Assignment flow:
+#   1. Council assesses task → assigns tier (0–4) in bridge_input
+#   2. Bridge reads tier → resolves model + reasoning from its tier mapping
+#   3. If tier is absent, bridge derives it from task_type + intensity
+#
+# Model identifiers here are UACP aliases — bridges resolve them to actual
+# API model IDs at runtime. When a new model is released, update ONLY this
+# file (or uacp.local.toml) — no bridge code changes required.
+
+[models.tiers.0]
+name = "minimal"
+description = "Very simple tasks — doc formatting, light editing, trivial refactors"
+example = "Fix a typo, reformat markdown, update a comment"
+
+[models.tiers.1]
+name = "standard"
+description = "Simple tasks — routine review, small edits, basic analysis"
+example = "Review a single function, write a test case, explain an error"
+
+[models.tiers.2]
+name = "complex"
+description = "Complex tasks — multi-file review, architecture decisions, debugging"
+example = "Refactor across 5 files, design a new component, trace a bug"
+
+[models.tiers.3]
+name = "critical"
+description = "Critical tasks — security audit, compliance, deep architecture"
+example = "Security vulnerability analysis, API compatibility audit, cross-service design"
+
+[models.tiers.4]
+name = "maximum"
+description = "Maximum capability — novel problems, cross-domain synthesis, highest stakes"
+example = "Novel algorithm design, zero-day analysis, multi-system integration"
+
+# Derivation rules when tier is not explicitly assigned
+[models.tier_derivation]
+# task_type → base tier
+review = 1
+analysis = 1
+research = 2
+planning = 2
+implementation = 2
+audit = 3
+
+# intensity modifier (added to base tier, capped at 4)
+quick = 0
+standard = 1
+thorough = 2
+
+# =============================================================================
+# BRIDGE TIER MAPPINGS
+# =============================================================================
+# Each bridge defines how abstract tiers map to provider-specific models.
+# Format per entry: model_alias + reasoning_level.
+# When a provider releases a new model, change the alias here.
+
+# --- Claude (Anthropic) ---
+[bridges.claude.tiers]
+0 = { model = "haiku-4-6", reasoning = "medium" }
+1 = { model = "sonnet-4-6", reasoning = "medium" }
+2 = { model = "sonnet-4-6", reasoning = "high" }
+3 = { model = "opus-4-8", reasoning = "high" }
+4 = { model = "opus-4-8", reasoning = "xhigh" }
+
+# Claude-specific model aliases (resolved by bridge-claude at runtime)
+[bridges.claude.model_aliases]
+haiku-4-6 = "claude-3-5-haiku-latest"
+sonnet-4-6 = "claude-sonnet-4-6"       # bridge resolves to latest exact ID
+opus-4-8 = "claude-opus-4-8"
+
+# Claude-specific settings
+[bridges.claude]
+enabled = true
+connection_preference = ["native-dispatch", "cli", "api"]
+timeout_multiplier = 1.0
+agent_teams_env = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"
+# Workflow support: Claude Code /workflows, /deep-research, ultracode keyword
+workflows_enabled = true
+deep_research_enabled = true
+
+# --- Codex (OpenAI) ---
+[bridges.codex.tiers]
+0 = { model = "gpt-4o-mini", reasoning = "medium" }
+1 = { model = "gpt-4o", reasoning = "medium" }
+2 = { model = "gpt-4o", reasoning = "high" }
+3 = { model = "o3", reasoning = "high" }
+4 = { model = "o3", reasoning = "xhigh" }
+
+[bridges.codex.model_aliases]
+gpt-4o-mini = "gpt-4o-mini"
+gpt-4o = "gpt-4o"
+o3 = "o3"
+
+[bridges.codex]
+enabled = true
+connection_preference = ["native-dispatch", "mcp", "cli"]
+timeout_multiplier = 1.2
+multi_agent_enabled = false
+
+# --- Gemini (Google) ---
+[bridges.gemini.tiers]
+0 = { model = "gemini-flash", reasoning = "medium" }
+1 = { model = "gemini-flash", reasoning = "medium" }
+2 = { model = "gemini-pro", reasoning = "high" }
+3 = { model = "gemini-pro", reasoning = "high" }
+4 = { model = "gemini-ultra", reasoning = "xhigh" }
+
+[bridges.gemini.model_aliases]
+gemini-flash = "gemini-2.5-flash"
+gemini-pro = "gemini-2.5-pro"
+gemini-ultra = "gemini-2.5-ultra"
+
+[bridges.gemini]
+enabled = true
+connection_preference = ["native-dispatch", "cli"]
+timeout_multiplier = 1.0
+subagent_mode = false
+
+# --- Kimi (Moonshot) ---
+[bridges.kimi.tiers]
+0 = { model = "kimi-default", reasoning = "thinking" }
+1 = { model = "kimi-default", reasoning = "thinking" }
+2 = { model = "kimi-default", reasoning = "thinking" }
+3 = { model = "kimi-default", reasoning = "thinking" }
+4 = { model = "kimi-default", reasoning = "thinking" }
+
+[bridges.kimi.model_aliases]
+kimi-default = "kimi-for-coding"   # Kimi K2.6 Thinking — currently only model
+
+[bridges.kimi]
+enabled = true
+connection_preference = ["cli", "acp-server"]
+timeout_multiplier = 1.0
+path = "auto"
+model = "default"
+reasoning_mode = "thinking"
+
+# --- OpenCode (multi-provider) ---
+[bridges.opencode.tiers]
+0 = { model = "glm-4-flash", reasoning = "medium" }
+1 = { model = "glm-4-7", reasoning = "medium" }
+2 = { model = "kimi-moonshot", reasoning = "high" }
+3 = { model = "qwen-plus", reasoning = "high" }
+4 = { model = "qwen-max", reasoning = "xhigh" }
+
+[bridges.opencode.model_aliases]
+glm-4-flash = "glm/glm-4-flash"
+glm-4-7 = "glm/glm-4-7"
+kimi-moonshot = "kimi/moonshot-v1-8k"
+qwen-plus = "qwen/qwen-plus"
+qwen-max = "qwen/qwen-max"
+
+[bridges.opencode]
+enabled = true
+connection_preference = ["native-dispatch", "http-api", "cli"]
+timeout_multiplier = 1.5
+models = []
+
+# =============================================================================
+# BRIDGE DEFAULTS
+# =============================================================================
+
+[bridges.defaults]
+enabled = true
+timeout_multiplier = 1.0
+reasoning_level = "medium"    # quick | medium | high | xhigh
+
+# =============================================================================
+# COUNCIL
+# =============================================================================
+# Agent Council bedrock configuration.
+
+[council]
+enabled = true
+mode = "adaptive"             # adaptive | fixed | quick
+
+[council.roles]
+devils_advocate = true
+integration_checker = true
+domain_expert = true
+
+[council.debate]
+max_rounds_quick = 0          # Consolidation only
+max_rounds_standard = 1       # 1 challenge + 1 response
+max_rounds_thorough = 3       # Up to 3 rounds until convergence
+convergence_threshold = 0     # No new findings or revisions vs previous round
+
+[council.output]
+prefix_claude = "C"
+prefix_gemini = "G"
+prefix_codex = "X"
+prefix_opencode = "O"
+prefix_kimi = "K"
+
+# =============================================================================
+# PHASES
+# =============================================================================
+# Lifecycle phase defaults. Per-phase tool allowlists and invariants
+# remain in config/phase-transitions.yaml — this section controls
+# phase-wide behavior and defaults.
+
+[phases.defaults]
+auto_execute_bounded = true   # Full autonomy for documented, bounded work
+council_at_start = true       # Require council PASS before entering phase
+council_at_end = true         # Require council PASS before phase exit
+
+[phases.triage]
+council_mode = "research"
+[phases.propose]
+council_mode = "design"
+[phases.plan]
+council_mode = "plan"
+[phases.execute]
+council_mode = "implement"
+[phases.verify]
+council_mode = "audit"
+[phases.resolve]
+council_mode = "resolve"
+
+# =============================================================================
+# GUARDIAN & HEARTGATE
+# =============================================================================
+# Runtime enforcement configuration.
+
+[guardian]
+mode = "enforce"              # enforce | audit | permissive
+self_attesting_tools = ["uacp_doc_write", "uacp_config_write", "uacp_state_write"]
+
+[heartgate]
+enabled = true
+coherence_check_on_transition = true
+required_lenses = ["authority", "side_effects", "evidence", "rollback"]
+
+# =============================================================================
+# OUTPUT
+# =============================================================================
+# Output formatting and artifact generation.
+
+[output]
+format = "yaml_frontmatter"   # yaml_frontmatter | json | markdown
+include_timestamp = true
+include_run_id = true
+
+[output.bridge]
+jsonl_enabled = true
+markdown_summary_enabled = true
+max_prompt_size_chars = 32000
+
+# =============================================================================
+# TELEMETRY
+# =============================================================================
+# Optional telemetry and observability.
+
+[telemetry]
+enabled = false
+level = "minimal"             # minimal | standard | verbose

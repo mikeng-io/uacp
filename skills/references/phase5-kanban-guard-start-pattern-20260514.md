@@ -10,7 +10,7 @@ Phase 5 began after Phase 4B resolved and pushed cleanly. The objective was a Ka
 
 1. Ground truth current UACP state before starting:
    - `state/current.yaml`
-   - `outputs/uacp-current-status.yaml`
+   - `..outputs/uacp-current-status.yaml`
    - `git status`, HEAD, and ahead/behind against private remote.
 2. TRIAGE as standard UACP when completion/evidence semantics are affected.
 3. PROPOSE with explicit non-goals:

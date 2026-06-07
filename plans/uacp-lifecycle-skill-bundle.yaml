@@ -61,7 +61,7 @@ shared_contracts:
     uacp-plan: "plans/"
     uacp-execute: "executions/"
     uacp-verify: "verification/"
-    uacp-resolve: "outputs/ and knowledge/"
+    uacp-resolve: ".outputs/ and knowledge/"
 implementation_notes:
   - "The external skill tree should mirror the contract in UACP_ROOT/docs/lifecycle-reference.md."
   - "The first external file should be SKILL.md, then uacp-state."

@@ -7,7 +7,7 @@ root_task:
   authority_artifacts:
   - plans/uacp-agent-council-followthrough/00-index.md
   - plans/uacp-skills-and-validator-alignment-phased-plan.md
-  - outputs/agent-skills-integration-current-handoff.md
+  - .outputs/agent-skills-integration-current-handoff.md
   - verification/uacp-skills-validator-alignment-verify.yaml
   description: Durable coordination graph for remaining UACP Agent-Council runtime/validator
     follow-through.
@@ -104,7 +104,7 @@ tasks:
   - T6
   allowed_files:
   - verification/**
-  - outputs/**
+  - .outputs/**
   - knowledge/**
   - plans/**
   deliverable: final council report and resolve artifact

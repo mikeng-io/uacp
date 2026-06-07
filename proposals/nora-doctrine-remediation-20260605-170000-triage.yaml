@@ -1,0 +1,105 @@
+kind: uacp.triage
+triage_id: nora-doctrine-remediation-20260605-170000-triage-001
+run_id: nora-doctrine-remediation-20260605-170000
+request_summary: >
+  Remediate 3 CRITICAL + 7 HIGH findings from agent council review
+  (agent-council-20260605-170000) of Nora's doctrine files (KERNEL, SECURITY,
+  SOUL, IDENTITY, PERSONALITY) and identity-registry plugin. The council found
+  that the trust root has migrated from the system prompt to operator-authored
+  YAML, and no doctrine file acknowledges this. The plugin's safe card injection
+  contradicts blanket bans in all 5 doctrine files.
+authority:
+  status: pass
+  source: "Mike explicitly chose 'C' — UACP-governed run for Nora doctrine remediation."
+  decision_owner: Mike
+council_evidence:
+  review_id: agent-council-20260605-170000
+  verdict: FAIL
+  critical_count: 3
+  high_count: 7
+  medium_count: 7
+  low_count: 4
+  info_count: 3
+  multi_expert_confirmed: 7 themes
+  synthesis_artifact: /home/norty/.hermes/profiles/nora/EXPERTS_COUNCIL_SYNTHESIS.json
+  report_artifact: /home/norty/.hermes/profiles/nora/COUNCIL_REPORT.md
+factor_scores:
+  impact: 8
+  notes:
+    - "Changes affect Nora's entire identity model and security posture"
+    - "High impact on public-facing behavior and private data handling"
+  reversibility: 7
+  notes:
+    - "Doctrine file changes are reversible (git)"
+    - "Plugin code changes are reversible"
+    - "Behavioral changes may have irreversible social effects if data leaks before fix"
+  domain_count: 5
+  notes:
+    - "Security, identity/persona, integration, governance, doctrine"
+  runtime_count: 3
+  notes:
+    - "Nora profile, identity-registry plugin, gateway runtime"
+  verification_difficulty: 7
+  notes:
+    - "Need to verify LLM behavior changes via live testing"
+    - "Cannot fully verify with static analysis alone"
+phase_local_granularity:
+  phase: triage
+  entry_estimate: 3
+  exit_actual: 3
+  delta_reason: "Council already performed comprehensive analysis; triage is recording only"
+  downstream_projection:
+    propose: 5
+    plan: 6
+    execute: 7
+    verify: 8
+    resolve: 3
+composite_granularity: 7
+routing_outcome: standard_uacp
+rationale:
+  - "Work is significant enough to warrant full UACP lifecycle"
+  - "Council already provided strong evidence (3 CRITICAL + 7 HIGH)"
+  - "Not so complex as to need full_governance"
+  - "Involves doctrine files, plugin code, and security policy"
+  - "Requires proper verification of LLM behavior changes"
+artifact_policy: standard
+council:
+  required: false
+  reason: "Council already completed (agent-council-20260605-170000). Synthesis is TRIAGE council evidence."
+human_involvement:
+  required: true
+  reason: "Doctrine file changes (KERNEL, SECURITY, SOUL, IDENTITY, PERSONALITY) are high-impact identity changes. Plugin code changes need operator approval before deployment. Gateway restart is operator approval boundary."
+  authority_needed: "Approval for doctrine changes, plugin code changes, and gateway restart"
+  decision_owner: Mike
+remediation_track:
+  - id: RT-1
+    name: Doctrinal grant
+    description: "Add to SECURITY.md and IDENTITY.md: define runtime-injected channel_prompt as new authority tier, scoped to 'addressing current sender only', explicitly subordinate to user-safety rules"
+    severity: CRITICAL
+    findings: [SYN-CR1, SYN-CR3]
+  - id: RT-2
+    name: Tighten safe card
+    description: "Drop relationship.trust_tier and operator-acknowledgeable facts in public/group channels, or move behind explicit operator-only runtime mode"
+    severity: CRITICAL
+    findings: [SYN-CR2, SYN-H6]
+  - id: RT-3
+    name: Schema validation
+    description: "Deny-by-default validation against allowlist on every YAML→runtime→plugin emission"
+    severity: HIGH
+    findings: [SYN-H2]
+  - id: RT-4
+    name: Health/observability
+    description: "Operator-visible lookup success/fail, secret age, last refresh"
+    severity: HIGH
+    findings: [SYN-H4, SYN-M5]
+  - id: RT-5
+    name: Hook contract
+    description: "Document pre_gateway_dispatch event mutation; add mutex for channel_prompt"
+    severity: HIGH
+    findings: [SYN-H1, SYN-H5]
+  - id: RT-6
+    name: Language/tone precedence
+    description: "Define precedence between PERSONALITY.md and the card"
+    severity: MEDIUM
+    findings: [SYN-M1, SYN-M2]
+next_step: "PROPOSE — design the remediation approach based on council findings"

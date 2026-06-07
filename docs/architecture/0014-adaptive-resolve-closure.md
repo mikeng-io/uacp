@@ -11,7 +11,7 @@ tags: [uacp, resolve, closure, lessons, operator-handoff]
 
 UACP adds an adaptive RESOLVE closure gate for governed or non-trivial runs. RESOLVE is a closure phase, not a second VERIFY: it consumes VERIFY's run-bound readiness decision, preserves unresolved items, emits final closure, and records lesson/memory/skill/doc dispositions.
 
-For selected work, RESOLVE produces a semantic closure package under `outputs/{run_id}/` plus machine artifacts for resolve package selection and final closure.
+For selected work, RESOLVE produces a semantic closure package under `.outputs/{run_id}/` plus machine artifacts for resolve package selection and final closure.
 
 ## Rationale
 
@@ -28,9 +28,9 @@ RESOLVE consumes:
 
 RESOLVE produces:
 
-- `outputs/{run_id}-resolve-selection.yaml`,
-- `outputs/{run_id}-closure.yaml`,
-- semantic package `outputs/{run_id}/` with `00-index.md`, `closure-summary.md`, `final-decision.md`, `residual-risks.md`, `lessons-and-dispositions.md`, `state-and-memory-disposition.md`, and `operator-handoff.md`.
+- `.outputs/{run_id}-resolve-selection.yaml`,
+- `.outputs/{run_id}-closure.yaml`,
+- semantic package `.outputs/{run_id}/` with `00-index.md`, `closure-summary.md`, `final-decision.md`, `residual-risks.md`, `lessons-and-dispositions.md`, `state-and-memory-disposition.md`, and `operator-handoff.md`.
 
 ## Consequences
 

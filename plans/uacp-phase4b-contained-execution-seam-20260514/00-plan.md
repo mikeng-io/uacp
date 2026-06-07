@@ -45,7 +45,7 @@ The proposal-review council passed with plan-scoped concerns. The plan must now 
 
 ## Reference status and traceability
 
-- Phase 4 resolution artifact: `outputs/uacp-phase4-resolution-20260514.yaml`
+- Phase 4 resolution artifact: `.outputs/uacp-phase4-resolution-20260514.yaml`
 - Phase 4 resolution run: `uacp-phase4-filesystem-containment-20260513-215531`
 - Proposal council artifact: `verification/uacp-phase4b-contained-execution-seam-proposal-council-synthesis-20260514.yaml`
 
@@ -67,7 +67,7 @@ The proposal-review council passed with plan-scoped concerns. The plan must now 
   - Add stale-attestation and rollback verification.
 - `verification/*phase4b*`
   - Record implementation, live proof, council review, and resolution artifacts.
-- `outputs/uacp-current-status.yaml` and `outputs/uacp-operational-dashboard.yaml`
+- `.outputs/uacp-current-status.yaml` and `.outputs/uacp-operational-dashboard.yaml`
   - Update only after proof exists.
 
 ### Containment evidence contract

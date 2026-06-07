@@ -145,7 +145,7 @@ Canonical docs should use symbolic roots without shell dollar signs:
 
 ```text
 UACP_ROOT/verification/
-UACP_ROOT/outputs/
+UACP_ROOT/.outputs/
 UACP_ROOT/state/runs/
 ```
 

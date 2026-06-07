@@ -1,4 +1,0 @@
-{"artifact": "proposals/uacp-self-patch-write-authority-20260518-triage.yaml", "authority": "Mike current Telegram instruction: go", "gate": "TRIAGE_COMPLETE", "phase": "triage", "result": "pass", "routing_outcome": "standard_uacp", "run_id": "uacp-self-patch-write-authority-20260518", "ts": 1779132847}
-{"artifact": "proposals/uacp-self-patch-write-authority-20260518-proposal.yaml", "gate": "TRIAGE->PROPOSE", "phase": "propose", "result": "pass", "run_id": "uacp-self-patch-write-authority-20260518", "ts": 1779132934}
-{"artifact": "plans/uacp-self-patch-write-authority-20260518-plan.yaml", "gate": "PROPOSE->PLAN", "phase": "plan", "result": "pass", "run_id": "uacp-self-patch-write-authority-20260518", "ts": 1779132962}
-{"gate": "VERIFY->RESOLVE", "phase": "resolve", "result": "pass_with_runtime_reload_caveat", "run_id": "uacp-self-patch-write-authority-20260518", "ts": 1779133122}

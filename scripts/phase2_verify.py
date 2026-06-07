@@ -121,7 +121,7 @@ def main() -> int:
             # --- Check 2: scope artifact present with correct fields + reachable write_paths passes ---
             (tmp / f"plans/{run_id}-scope.yaml").write_text(_yaml.safe_dump({
                 "run_id": run_id,
-                "write_paths": ["plans/", "executions/", "outputs/"],
+                "write_paths": ["plans/", "executions/", "..outputs/"],
                 "blast_radius": "low",
                 "rollback_path": "git revert",
             }))
@@ -198,7 +198,7 @@ def main() -> int:
             _seed_ledger("verify", "EXECUTE->VERIFY")
             (tmp / f"verification/{run_id}-v.yaml").write_text("a: 1\n")
             # Lessons file pre-create for this check (so we isolate disposition blocker).
-            (tmp / f"outputs/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({"run_id": run_id, "lessons": []}))
+            (tmp / f"..outputs/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({"run_id": run_id, "lessons": []}))
             artifact = _full_artifact(run_id, "verify", "resolve",
                 clusters=[{"cluster_id": "scope", "state": "pass", "artifact_path": ""}])
             d = heartgate.validate_transition(artifact)
@@ -236,7 +236,7 @@ def main() -> int:
             })
 
             # --- Check 11: lessons artifact missing blocks VERIFY->RESOLVE ---
-            (tmp / f"outputs/{run_id}-lessons.yaml").unlink()
+            (tmp / f"..outputs/{run_id}-lessons.yaml").unlink()
             # Restore valid disposition for isolation.
             (tmp / f"verification/{run_id}-scope-assumptions.md").write_text(
                 "# Assumptions\n\n| Assumption | Disposition | Owner | Next-phase obligation |\n|---|---|---|---|\n| x | accepted_risk | mike | none |\n"
@@ -249,7 +249,7 @@ def main() -> int:
             })
 
             # --- Check 12: lessons artifact malformed (lessons key not a list) blocks ---
-            (tmp / f"outputs/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({"run_id": run_id, "lessons": "not-a-list"}))
+            (tmp / f"..outputs/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({"run_id": run_id, "lessons": "not-a-list"}))
             d = heartgate.validate_transition(artifact)
             report["checks"].append({
                 "name": "lessons_malformed_blocks",
@@ -258,7 +258,7 @@ def main() -> int:
             })
 
             # --- Check 13: well-formed lessons with ledger_citations passes ---
-            (tmp / f"outputs/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({
+            (tmp / f"..outputs/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({
                 "run_id": run_id,
                 "lessons": [
                     {

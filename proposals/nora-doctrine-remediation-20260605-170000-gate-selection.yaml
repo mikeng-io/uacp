@@ -1,0 +1,61 @@
+kind: uacp.gate_selection
+selection_id: nora-doctrine-remediation-20260605-170000-gate-selection
+run_id: nora-doctrine-remediation-20260605-170000
+phase: propose
+domains:
+  - security-governance
+  - identity-persona
+  - integration
+  - doctrine
+artifact_types:
+  - doctrine_file
+  - plugin_code
+  - security_policy
+  - runtime_config
+risk_level: high
+granularity_level: 7
+invariant_checks:
+  - id: authority_granted
+    status: pass
+    reason: "Mike explicitly authorized UACP-governed run via 'C' choice"
+  - id: council_complete
+    status: pass
+    reason: "Agent council completed with FAIL verdict; synthesis artifact exists"
+  - id: triage_complete
+    status: pass
+    reason: "Triage artifact created; TRIAGE_COMPLETE gate recorded"
+  - id: scope_bounded
+    status: pass
+    reason: "Scope explicitly defined; out-of-scope items listed"
+  - id: side_effects_declared
+    status: pass
+    reason: "All side effects declared in proposal"
+selected_clusters:
+  required:
+    - cluster_id: security_policy
+      reason: "Changes affect access control and data handling"
+    - cluster_id: doctrine_consistency
+      reason: "Changes affect Nora's identity model and behavior"
+    - cluster_id: plugin_code
+      reason: "Changes affect runtime behavior and safe card injection"
+  optional:
+    - cluster_id: observability
+      reason: "Health/observability additions are nice-to-have but not critical for remediation"
+  generated:
+    - cluster_id: council_synthesis
+      artifact_path: /home/norty/.hermes/profiles/nora/EXPERTS_COUNCIL_SYNTHESIS.json
+      reason: "Council synthesis is evidence for the proposal"
+not_applicable:
+  - cluster_id: honcho_integration
+    reason: "Honcho doesn't fit multi-person design; out of scope"
+  - cluster_id: persistent_memory
+    reason: "Separate UACP run; out of scope"
+transition_requirements:
+  - "Proposal must be viable before PLAN"
+  - "Gate-selection must be complete before PLAN"
+  - "Council synthesis must be referenced in proposal"
+reasoning: >
+  This is high-consequence work touching doctrine files, plugin code, and security policy.
+  The council found 3 CRITICAL + 7 HIGH findings. The work requires proper governance
+  to ensure changes are consistent, secure, and verifiable. The adaptive proposal package
+  is required for medium/high consequence work per UACP doctrine.

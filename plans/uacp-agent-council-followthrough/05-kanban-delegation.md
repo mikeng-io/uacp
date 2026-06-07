@@ -19,7 +19,7 @@ Description should link:
 
 - `plans/uacp-agent-council-followthrough/00-index.md`
 - `plans/uacp-skills-and-validator-alignment-phased-plan.md`
-- `outputs/agent-skills-integration-current-handoff.md`
+- `.outputs/agent-skills-integration-current-handoff.md`
 - `verification/uacp-skills-validator-alignment-verify.yaml`
 
 ## Child task dependency graph

@@ -12,7 +12,7 @@ Session reviewed current UACP containment posture after Phase 2 governed writers
 - Fresh session tool schema reload verified: all 5 UACP tools visible in new Hermes session
 - Duplicate Hermes Agent plugin source removed
 
-## Open Blockers (from `outputs/uacp-operational-dashboard.yaml`)
+## Open Blockers (from `..outputs/uacp-operational-dashboard.yaml`)
 | ID | Severity | Summary |
 |---|---|---|
 | filesystem-containment | **high** | UACP-bound shell/code execution remains blocked until verified containment exists |
@@ -90,10 +90,10 @@ Satisfies `config/guardian-policy.yaml` accepted mechanisms:
 3. Add `uacp_sandbox_check` tool to manifest
 4. Update live probe (`scripts/live_guardian_probe.py`) to test allowed/blocked shell scenarios
 5. Record verification artifact under `verification/`
-6. Update `outputs/uacp-current-status.yaml`
+6. Update `..outputs/uacp-current-status.yaml`
 
 ## Authority
 - `docs/runtime-enforcement.md` — runtime enforcement design
 - `config/guardian-policy.yaml` — policy seed (lines 295–308)
 - `verification/containment-fail-closed-20260514.yaml` — fail-closed proof
-- `outputs/uacp-operational-dashboard.yaml` — open blockers
+- `..outputs/uacp-operational-dashboard.yaml` — open blockers

@@ -199,7 +199,7 @@ uacp/
 ├── plans/                             ← PLAN phase artifacts (including scope artifacts)
 ├── executions/                        ← EXECUTE phase records
 ├── verification/                      ← VERIFY evidence and council synthesis artifacts
-├── outputs/                           ← lessons artifacts and resolution outputs
+├── .outputs/                           ← lessons artifacts and resolution outputs
 │
 ├── knowledge/                         ← reusable scenarios, templates, lessons, indexes
 │   ├── gate-templates/

@@ -10,9 +10,9 @@ RESOLVE is the closure phase. It is not a second VERIFY. It consumes `verificati
 
 For governed/non-trivial work, expect:
 
-- `outputs/{run_id}-resolve-selection.yaml`
-- `outputs/{run_id}-closure.yaml`
-- `outputs/{run_id}/00-index.md`
+- `..outputs/{run_id}-resolve-selection.yaml`
+- `..outputs/{run_id}-closure.yaml`
+- `..outputs/{run_id}/00-index.md`
 - `closure-summary.md`
 - `final-decision.md`
 - `residual-risks.md`

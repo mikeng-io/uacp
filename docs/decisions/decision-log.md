@@ -18,7 +18,7 @@ Canonical targets:
 
 - **Architectural decisions per phase**: see ADRs [ADR-0002](../architecture/0002-phase0-policy-mode-and-classification.md) through [ADR-0007](../architecture/0007-global-review-cross-phase-remediation.md) for per-phase rationale, decision drivers, options, consequences, and validation pointers.
 - **Phase 5 backlog**: [`/ROADMAP.md`](../../ROADMAP.md), [`../plans/phase5-reserved-slot.md`](../plans/phase5-reserved-slot.md), and the propagated-constraint blocks in the three Codex-review verification YAMLs — `verification/uacp-patch-plan-20260515-phase3-codex-review.yaml#propagated_constraints.to_phase_4` (18 pc_p3_* items), `verification/uacp-patch-plan-20260515-phase4-codex-review.yaml#propagated_constraints.to_phase_5` (19 pc_p4_* items), and `verification/uacp-patch-plan-20260515-global-review.yaml#deferred_to_phase_5_with_evidence_pointer` (15 items).
-- **Bootstrap-posture honest disclosure**: `outputs/uacp-patch-plan-20260515-{lessons,resolve}.yaml` carry the disclosure that the run authored governed writers without itself flowing through them; ledger_citations are tagged `_advisory`.
+- **Bootstrap-posture honest disclosure**: `.outputs/uacp-patch-plan-20260515-{lessons,resolve}.yaml` carry the disclosure that the run authored governed writers without itself flowing through them; ledger_citations are tagged `_advisory`.
 - **Doc restructure** (concurrent with run RESOLVE): subdirectory + ADR adoption per [ADR-0008](../architecture/0008-doc-structure-and-adr-adoption.md).
 
 ### 2026-05-15 — Documentation Hardening: Runtime-Neutral Framing And Human-Readable Entry Points
@@ -43,7 +43,7 @@ Canonical targets:
 - `docs/index.md` (inventory updated, decision log content replaced with pointer)
 - `config/phase-transitions.yaml` (Hermes Kanban reference neutralized)
 
-Follow-up: update `outputs/uacp-current-status.yaml` to reflect this documentation milestone; keep `docs/runtime-integration-guide.md` aligned when the Guardian event schema or Heartgate contract changes.
+Follow-up: update `.outputs/uacp-current-status.yaml` to reflect this documentation milestone; keep `docs/runtime-integration-guide.md` aligned when the Guardian event schema or Heartgate contract changes.
 
 ### 2026-05-14 — Harden Canonical Writers And Expose Heartgate Check Tool
 
@@ -76,8 +76,8 @@ Canonical targets:
 
 - `runtime-adapters/hermes/plugins/uacp_guardian/`
 - `config/guardian-policy.yaml`
-- `outputs/uacp-current-status.yaml`
-- `outputs/uacp-operational-dashboard.yaml`
+- `.outputs/uacp-current-status.yaml`
+- `.outputs/uacp-operational-dashboard.yaml`
 - `verification/live-guardian-proof-20260514-phase2-writers.yaml`
 
 Follow-up: writer hardening is complete and `uacp_heartgate_check` is implemented. Remaining work is lifecycle-skill adoption plus fresh-session/runtime reload verification.
@@ -95,7 +95,7 @@ Canonical targets:
 - `docs/index.md`
 - `config/runtime-bindings.yaml`
 - `config/state.yaml`
-- `outputs/uacp-current-status.yaml`
+- `.outputs/uacp-current-status.yaml`
 - `runtime-adapters/hermes/plugins/`
 - `verification/runtime-porting-20260514-cleanup-doc-sync.yaml`
 
@@ -254,7 +254,7 @@ Canonical targets:
 
 - `docs/index.md`
 - `docs/runtime-enforcement.md`
-- `outputs/uacp-current-status.yaml`
+- `.outputs/uacp-current-status.yaml`
 - `verification/uacp-runtime-guardian-implementation-checkpoint-1.yaml`
 
 Implementation references:
@@ -279,7 +279,7 @@ Changed surfaces:
 - `HERMES_ROOT/workspace/AGENTS.md`
 - `HERMES_ROOT/routing/dispatch-workspaces.yaml`
 - `HERMES_ROOT/config.yaml`
-- `outputs/uacp-current-status.yaml`
+- `.outputs/uacp-current-status.yaml`
 
 Follow-up: restart/reload Hermes and run a live UACP-bound dispatch test.
 
@@ -451,7 +451,7 @@ Status: accepted.
 Canonical targets:
 
 - `docs/runtime-enforcement.md`
-- `outputs/uacp-current-status.yaml`
-- `outputs/uacp-operational-dashboard.yaml`
+- `.outputs/uacp-current-status.yaml`
+- `.outputs/uacp-operational-dashboard.yaml`
 
 Follow-up: containment design should proceed from this boundary: UACP declares required execution posture, Guardian verifies runtime-provided evidence, and shell/code remains fail-closed when the host/runtime cannot prove containment.

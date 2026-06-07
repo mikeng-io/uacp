@@ -27,7 +27,7 @@ proposals/
 plans/
 executions/
 verification/
-outputs/
+.outputs/
 knowledge/
 config/
 docs/

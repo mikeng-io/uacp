@@ -28,7 +28,7 @@ It exists because a single mega-document cannot preserve the full reasoning cont
 
 - `plans/agent-skills-branch-integration/00-index.md`
 - `plans/uacp-skills-and-validator-alignment-phased-plan.md`
-- `outputs/agent-skills-integration-current-handoff.md`
+- `.outputs/agent-skills-integration-current-handoff.md`
 - `verification/agent-skills-branch-integration-agent-council-review.yaml`
 - `verification/agent-skills-branch-integration-cleanup-verify.yaml`
 - `verification/uacp-skills-validator-alignment-verify.yaml`

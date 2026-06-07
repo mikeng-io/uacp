@@ -1,0 +1,60 @@
+kind: uacp.package_selection
+selection_id: nora-doctrine-remediation-20260605-170000-package-selection
+run_id: nora-doctrine-remediation-20260605-170000
+phase: propose
+concerns:
+  universal_core:
+    - concern: intent
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/proposal.md
+      status: covered
+      reason: "Proposal document covers what is changing, why, and how"
+    - concern: authority
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/authority-scope-containment.md
+      status: covered
+      reason: "Authority document covers Mike's explicit authorization"
+    - concern: scope
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/authority-scope-containment.md
+      status: covered
+      reason: "Scope is explicitly defined with in-scope and out-of-scope items"
+    - concern: containment
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/authority-scope-containment.md
+      status: covered
+      reason: "Containment is scoped to Nora's profile"
+    - concern: risk
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/risks-and-verification.md
+      status: covered
+      reason: "Risks are identified with mitigations"
+    - concern: verification
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/risks-and-verification.md
+      status: covered
+      reason: "Verification criteria are defined"
+    - concern: transition
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/artifacts.md
+      status: covered
+      reason: "Transition meaning is defined"
+    - concern: artifact_map
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/artifacts.md
+      status: covered
+      reason: "Artifact map is complete"
+  domain_selected:
+    - concern: security_policy
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/risks-and-verification.md
+      status: covered
+      reason: "Security policy changes are covered in risks and verification"
+    - concern: doctrine_consistency
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/proposal.md
+      status: covered
+      reason: "Doctrine consistency is covered in proposal"
+    - concern: plugin_code
+      artifact_path: proposals/nora-doctrine-remediation-20260605-170000/proposal.md
+      status: covered
+      reason: "Plugin code changes are covered in proposal"
+  not_applicable:
+    - concern: honcho_integration
+      reason: "Honcho doesn't fit multi-person design; out of scope"
+    - concern: persistent_memory
+      reason: "Separate UACP run; out of scope"
+selection_reasoning: >
+  All universal core concerns are covered by the proposal package documents.
+  Domain-selected concerns are covered by the proposal and risks/verification documents.
+  Not-applicable concerns are explicitly excluded with rationale.

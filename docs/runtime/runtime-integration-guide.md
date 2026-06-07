@@ -212,7 +212,7 @@ The adapter must register the following tools in the runtime's tool schema so th
 | `uacp_state_write` | Governed state mutation — the only approved mutator for `state/` | `state/` |
 | `uacp_doc_write` | Governed canonical doc mutation | `docs/` |
 | `uacp_config_write` | Governed canonical config mutation | `config/` |
-| `uacp_artifact_write` | Governed artifact write for evidence and output directories | `verification/`, `executions/`, `outputs/`, `knowledge/` |
+| `uacp_artifact_write` | Governed artifact write for evidence and output directories | `verification/`, `executions/`, `.outputs/`, `knowledge/` |
 | `uacp_heartgate_check` | Heartgate transition validation callable | read-only |
 
 ### 7.2 Optional but recommended tools

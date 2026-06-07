@@ -26,7 +26,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Forbidden tools**: `terminal`, `execute_code`.
 
-**Write surfaces (Layer A)**: `state/`, `plans/`, `proposals/`, `executions/`, `verification/`, `outputs/`, `knowledge/`, `docs/`, `config/`. (Triage is permitted to update governance docs/configs.)
+**Write surfaces (Layer A)**: `state/`, `plans/`, `proposals/`, `executions/`, `verification/`, `.outputs/`, `knowledge/`, `docs/`, `config/`. (Triage is permitted to update governance docs/configs.)
 
 **PIV obligation**: run PIV at end of TRIAGE; append `gate: PIV, phase: triage, result: pass|fail` to the gate ledger.
 
@@ -100,13 +100,13 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Forbidden tools**: `terminal`, `execute_code`.
 
-**Write surfaces**: `outputs/`, `knowledge/`, `state/`, plus other artifact roots.
+**Write surfaces**: `.outputs/`, `knowledge/`, `state/`, plus other artifact roots.
 
 **PIV obligation**: required.
 
-**Phase exit invariants**: `outputs/{run_id}*`, ledger entry `VERIFY->RESOLVE`.
+**Phase exit invariants**: `.outputs/{run_id}*`, ledger entry `VERIFY->RESOLVE`.
 
-**Phase 2 obligation**: emit `outputs/{run_id}-lessons.yaml` matching `config/artifact-schemas.yaml#lessons`, including `ledger_citations` for non-trivial lessons.
+**Phase 2 obligation**: emit `.outputs/{run_id}-lessons.yaml` matching `config/artifact-schemas.yaml#lessons`, including `ledger_citations` for non-trivial lessons.
 
 ### `uacp-state` (cross-phase)
 

@@ -10,7 +10,7 @@ Use this reference when moving UACP Guardian/Heartgate work from planning into H
 - Remove hardcoded UACP fallback logic from generic core plugin plumbing. A function like `_uacp_builtin_guardian_block_message()` inside `hermes_cli/plugins.py` is UACP leakage; plugin-disabled behavior should not silently contain UACP doctrine.
 - Add guarded writers through the plugin boundary:
   - `uacp_state_write` remains the only state writer and is restricted to `state/`.
-  - `uacp_artifact_write` may write approved artifact roots: `plans/`, `proposals/`, `executions/`, `verification/`, `outputs/`, `knowledge/`.
+  - `uacp_artifact_write` may write approved artifact roots: `plans/`, `proposals/`, `executions/`, `verification/`, `..outputs/`, `knowledge/`.
   - `uacp_artifact_write` must reject `state/`, `docs/`, `config/`, absolute paths, and traversal.
 - Generalize Kanban context at the API boundary before attempting a DB migration. Prefer `governance_context` with `policy_family: uacp`, preserve legacy `uacp_context`, and project to existing `UACP_*` env vars at dispatch.
 - Defer physical DB table rename (`task_uacp_context` -> `task_governance_context`) unless the migration is explicitly in scope; wrappers can provide the generalized API first.

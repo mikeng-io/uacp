@@ -205,7 +205,7 @@ warnings are surfaced but allow passage if owned.
 | 12 | intent_doc (Phase 2.3) | `config/artifact-schemas.yaml intent` + `proposals/{run_id}-intent.md` | TRIAGE→PROPOSE: missing file or missing required section |
 | 13 | scope_artifact (Phase 2.1) | `config/artifact-schemas.yaml scope` + `plans/{run_id}-scope.yaml` | PLAN→EXECUTE: missing file / missing required fields / write_paths not reachable by Layer B allowed_tools |
 | 14 | evidence_dispositions (Phase 2.2) | `config/artifact-schemas.yaml evidence_disposition` + `verification/{run_id}-{cluster}-(verified-facts\|assumptions).md` | VERIFY→RESOLVE: missing pair files / unowned `pending` assumption |
-| 15 | lessons_artifact (Phase 2.4) | `config/artifact-schemas.yaml lessons` + `outputs/{run_id}-lessons.yaml` | VERIFY→RESOLVE: missing file / missing required fields / malformed shape |
+| 15 | lessons_artifact (Phase 2.4) | `config/artifact-schemas.yaml lessons` + `.outputs/{run_id}-lessons.yaml` | VERIFY→RESOLVE: missing file / missing required fields / malformed shape |
 | 16 | plan_validation_gate (Phase 3.1) | `config/phase-transitions.yaml plan_validation_gate` + run gate ledger | PLAN→EXECUTE: missing `PLAN_VALIDATION` pass record / wrong `phase` / missing pv_ids in `checks` list / corrupt ledger line |
 | 17 | run_registry_overlap (Phase 3.2) | `config/phase-transitions.yaml run_registry_rule` + `state/run-registry.yaml` + `plans/{run_id}-scope.yaml` | PLAN→EXECUTE: any other active run's `write_paths` overlap this run's (PurePosixPath-segment match) / malformed registry entries |
 | 18 | declared_decision | transition artifact `decision` field | declared `block` |
@@ -315,7 +315,7 @@ The state mutation path must validate:
 Runtime audit has two layers:
 
 - ephemeral runtime logs under `HERMES_ROOT/logs/uacp/`;
-- durable UACP artifacts under `verification/`, `executions/`, `state/runs/`, `outputs/`, or `knowledge/` when a checkpoint or phase decision needs evidence.
+- durable UACP artifacts under `verification/`, `executions/`, `state/runs/`, `.outputs/`, or `knowledge/` when a checkpoint or phase decision needs evidence.
 
 Audit records are evidence, not authority. They must not create unmanaged canonical documents.
 

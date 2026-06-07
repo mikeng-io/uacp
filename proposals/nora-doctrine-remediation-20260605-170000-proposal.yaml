@@ -1,0 +1,67 @@
+phase: propose
+kind: uacp.proposal
+proposal_id: nora-doctrine-remediation-20260605-170000-proposal
+run_id: nora-doctrine-remediation-20260605-170000
+triage_artifact: proposals/nora-doctrine-remediation-20260605-170000-triage.yaml
+originating_triage_artifact: proposals/nora-doctrine-remediation-20260605-170000-triage.yaml
+objective: >
+  Remediate 3 CRITICAL + 7 HIGH findings from agent council review
+  (agent-council-20260605-170000) of Nora's doctrine files and identity-registry
+  plugin. The council found that the trust root has migrated from the system prompt
+  to operator-authored YAML, and no doctrine file acknowledges this. The plugin's
+  safe card injection contradicts blanket bans in all 5 doctrine files.
+authority:
+  status: pass
+  authorization_source: "Mike explicitly chose 'C' — UACP-governed run for Nora doctrine remediation."
+  decision_owner: Mike
+scope:
+  in_scope:
+    - "Add doctrinal grant to SECURITY.md and IDENTITY.md defining runtime-injected channel_prompt as new authority tier"
+    - "Update KERNEL.md, SOUL.md, PERSONALITY.md to carve out identity-registry context from blanket bans"
+    - "Tighten safe card: drop relationship.trust_tier in public/group channels"
+    - "Add schema validation: deny-by-default on YAML→runtime→plugin emission"
+    - "Add health/observability: operator-visible lookup success/fail, secret age, last refresh"
+    - "Document hook contract for pre_gateway_dispatch event mutation"
+    - "Define language/tone precedence between PERSONALITY.md and the card"
+    - "Add defense-in-depth: strip operator-only data from runtime JSON"
+  out_of_scope:
+    - "Gateway restart (separate operator approval boundary)"
+    - "Honcho integration (peerName fixed, doesn't fit multi-person design)"
+    - "Persistent memory design (separate UACP run)"
+    - "Changes to Norty's profile or doctrine files"
+    - "Changes to other plugins or skills"
+declared_side_effects:
+  - "Doctrine file changes (KERNEL, SECURITY, SOUL, IDENTITY, PERSONALITY) affect Nora's behavior"
+  - "Plugin code changes affect runtime behavior"
+  - "Security policy changes affect access control"
+  - "Gateway restart required for plugin changes to take effect (operator approval boundary)"
+  - "Behavioral changes may have irreversible social effects if data leaks before fix"
+risks:
+  - id: behavioral_change
+    level: high
+    mitigation: "Test changes in isolation before deploying to live Nora instance"
+  - id: data_leak
+    level: high
+    mitigation: "Tighten safe card before doctrine changes; verify no operator-only data in model context"
+  - id: llm_misinterpretation
+    level: medium
+    mitigation: "Live testing with identity questions in both DM and group contexts"
+  - id: gateway_restart
+    level: medium
+    mitigation: "Separate operator approval boundary; do not restart without explicit approval"
+human_involvement:
+  required: true
+  reason: "Doctrine file changes are high-impact identity changes. Plugin code changes need operator approval before deployment. Gateway restart is operator approval boundary."
+  authority_needed: "Approval for doctrine changes, plugin code changes, and gateway restart"
+  decision_owner: Mike
+proposal_viability: viable
+next_phase_obligations:
+  - "PLAN must define exact file changes, test commands, rollback path, and audit roles"
+  - "EXECUTE must not restart gateway unless Mike explicitly approves after VERIFY"
+council_evidence:
+  review_id: agent-council-20260605-170000
+  verdict: FAIL
+  critical_count: 3
+  high_count: 7
+  synthesis_artifact: /home/norty/.hermes/profiles/nora/EXPERTS_COUNCIL_SYNTHESIS.json
+  report_artifact: /home/norty/.hermes/profiles/nora/COUNCIL_REPORT.md

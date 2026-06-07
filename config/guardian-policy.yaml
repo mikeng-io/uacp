@@ -37,7 +37,7 @@ protected_categories:
     allowed_tools:
     - uacp_contained_shell
   artifact.uacp:
-    description: Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, outputs/, knowledge/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml.
+    description: Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, ..outputs/, knowledge/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml.
     default_decision: block
     allowed_tools:
     - uacp_artifact_write
@@ -67,6 +67,15 @@ protected_categories:
     description: Local non-private file reads.
     default_decision: allow
 tool_classification:
+  read_file: read.local
+  search_files: read.local
+  skill_view: read.local
+  session_search: read.local
+  vision_analyze: read.local
+  browser_snapshot: read.local
+  browser_vision: read.local
+  browser_console: read.local
+  browser_get_images: read.local
   uacp_state_write: state.uacp
   uacp_doc_write: docs.uacp
   uacp_config_write: config.uacp

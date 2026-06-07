@@ -14,7 +14,7 @@ Use this when UACP-owned Hermes adapters have been symlink-bound from `UACP_ROOT
 3. Patch UACP status/config docs before or alongside cleanup:
    - `config/runtime-bindings.yaml`: mark real adapters `live_bound_user_plugin` and keep verification artifact pointers.
    - `docs/index.md`: update old follow-up language from “bind after review” to “bindings active; remaining cleanup/hardening”.
-   - `outputs/uacp-current-status.yaml`: distinguish live adapter activation from production-complete enforcement.
+   - `..outputs/uacp-current-status.yaml`: distinguish live adapter activation from production-complete enforcement.
    - `config/state.yaml`: say Guardian adapter is live-bound/partial, not merely “not implemented”.
 4. Remove temporary probe adapter after real adapters prove discovery/loading:
    - `runtime-adapters/hermes/plugins/uacp_symlink_probe/`.
@@ -49,7 +49,7 @@ When resuming after a handoff that says local plugin-copy reduction and probe cl
    - `UACP_ROOT/runtime-adapters/hermes/plugins/uacp_symlink_probe`
    - `HERMES_ROOT/plugins/uacp_symlink_probe`
 3. If duplicates/probes are already absent, do not perform a destructive cleanup. Resolve the stale cleanup/gate item as already completed by evidence.
-4. Synchronize `outputs/uacp-operational-dashboard.yaml` and `outputs/uacp-current-status.yaml` through governed writer surfaces when they still say cleanup is in progress or tool schemas require reload.
+4. Synchronize `..outputs/uacp-operational-dashboard.yaml` and `..outputs/uacp-current-status.yaml` through governed writer surfaces when they still say cleanup is in progress or tool schemas require reload.
 5. Record status accurately: live bindings active, duplicate Hermes Agent plugin source absent, temp probe source absent, active schema includes the current Guardian tools if verified.
 6. Commit locally if artifacts changed, but do not push unless the operator has granted the current push authority.
 

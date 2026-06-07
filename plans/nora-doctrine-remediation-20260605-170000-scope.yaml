@@ -1,0 +1,37 @@
+phase: plan
+kind: uacp.scope
+scope_id: nora-doctrine-remediation-20260605-170000-scope
+run_id: nora-doctrine-remediation-20260605-170000
+blast_radius: high
+human_involvement_required: true
+write_paths:
+  - /home/norty/.hermes/profiles/nora/SECURITY.md
+  - /home/norty/.hermes/profiles/nora/IDENTITY.md
+  - /home/norty/.hermes/profiles/nora/KERNEL.md
+  - /home/norty/.hermes/profiles/nora/SOUL.md
+  - /home/norty/.hermes/profiles/nora/PERSONALITY.md
+  - /home/norty/.hermes/profiles/nora/plugins/identity_registry/__init__.py
+  - /home/norty/.hermes/operator-data/nora/identity-registry/identity_registry.py
+  - /home/norty/.hermes/operator-data/nora/identity-registry/identity_registry.runtime.json
+allowed_tools:
+  - file
+  - terminal
+  - patch
+  - write_file
+  - search_files
+  - read_file
+forbidden_tools:
+  - send_message
+  - cronjob
+  - browser_*
+  - web_*
+rollback_path: "git revert for all modified files; restart of gateway is separate operator boundary"
+verification_path: "python -m py_compile on .py files; grep for identity-registry mentions across doctrine files; live testing deferred to operator"
+authority:
+  authorization_source: "Mike chose C (UACP-governed run) on 2026-06-05"
+  decision_owner: Mike
+  human_involvement_record: "Mike approved C choice; doctrine file changes and plugin code changes require operator approval before deployment; gateway restart is separate boundary"
+  risks_declared:
+    - "Behavioral changes may have irreversible social effects"
+    - "LLM behavior verification requires live testing"
+    - "Gateway restart is operator approval boundary"

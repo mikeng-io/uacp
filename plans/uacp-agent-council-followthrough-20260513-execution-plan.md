@@ -39,7 +39,7 @@ Allowed:
 - `plans/uacp-agent-council-followthrough-20260513-execution-plan.md`
 - `executions/uacp-agent-council-followthrough-20260513.yaml`
 - `verification/uacp-agent-council-followthrough-20260513*.yaml`
-- `outputs/uacp-agent-council-followthrough-20260513*.yaml`
+- `.outputs/uacp-agent-council-followthrough-20260513*.yaml`
 - `knowledge/lessons/uacp-agent-council-followthrough-20260513.yaml`
 - `state/runs/uacp-agent-council-followthrough-20260513*.yaml`
 

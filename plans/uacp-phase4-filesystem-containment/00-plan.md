@@ -62,7 +62,7 @@ All applicable evidence-checker requirements were satisfied. The positive allow-
   - Added positive and negative containment evidence checks.
 - `verification/*phase4*`
   - Recorded implementation, live proof, council review, and resolve readiness evidence.
-- `outputs/uacp-current-status.yaml` and `outputs/uacp-operational-dashboard.yaml`
+- `.outputs/uacp-current-status.yaml` and `.outputs/uacp-operational-dashboard.yaml`
   - Synchronized after proof and cleanup verification.
 
 ## Containment evidence contract

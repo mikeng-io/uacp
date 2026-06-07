@@ -62,7 +62,7 @@ Read these files first:
 - UACP_ROOT/state/current.yaml
 - UACP_ROOT/state/kanban.yaml
 - UACP_ROOT/state/runs/uacp-governed-lifecycle-dry-run.yaml
-- UACP_ROOT/outputs/uacp-governed-lifecycle-dry-run-summary.yaml
+- UACP_ROOT/.outputs/uacp-governed-lifecycle-dry-run-summary.yaml
 - HERMES_ROOT/skills/devops/uacp/uacp-state/SKILL.md
 - HERMES_ROOT/skills/devops/uacp/uacp-triage/SKILL.md
 - HERMES_ROOT/skills/devops/uacp/uacp-propose/SKILL.md
@@ -72,7 +72,7 @@ Read these files first:
 - HERMES_ROOT/skills/devops/uacp/uacp-resolve/SKILL.md
 
 Path rules:
-- UACP_ROOT is the artifact root containing docs/, config/, state/, proposals/, plans/, executions/, verification/, outputs/, and knowledge/.
+- UACP_ROOT is the artifact root containing docs/, config/, state/, proposals/, plans/, executions/, verification/, .outputs/, and knowledge/.
 - HERMES_ROOT is the parent Hermes workspace.
 - Use UACP_ROOT-relative paths inside UACP authority docs/config/state.
 - Do not hardcode physical deployment paths inside canonical docs/config/state.

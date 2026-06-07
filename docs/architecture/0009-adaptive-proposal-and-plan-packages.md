@@ -45,7 +45,7 @@ The following invariants are intentional and must be preserved:
 9. Negative fixtures are allowed to fail validation when intentionally passed to the validator; they exist to prove the validator catches missing package-selection semantics.
 10. Artifact writes remain non-state writes unless they target governed state paths. Runtime state is still owned by the governed state mutation boundary.
 11. The active Hermes skill export and canonical UACP repo remain separate surfaces. A repo validation pass does not prove live skill exports have been refreshed.
-12. LEXA/SEF/SGRN documents in `outputs/semantic-event-fabric-2026-05-17/` are design-output artifacts, not UACP runtime state and not a claim that those systems have been implemented.
+12. LEXA/SEF/SGRN documents in `.outputs/semantic-event-fabric-2026-05-17/` are design-output artifacts, not UACP runtime state and not a claim that those systems have been implemented.
 
 ## Enforcement details
 

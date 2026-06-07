@@ -49,7 +49,7 @@ Out of scope:
 Initial staging target:
 
 ```text
-/home/norty/.hermes/uacp/outputs/lexa-executable-contract-bootstrap-20260521/
+/home/norty/.hermes/uacp/.outputs/lexa-executable-contract-bootstrap-20260521/
 ```
 
 Input evidence:

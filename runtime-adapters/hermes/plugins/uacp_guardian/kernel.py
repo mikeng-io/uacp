@@ -555,7 +555,7 @@ class Guardian:
                 token = token.strip('"\'')
                 if not token or token.startswith("-"):
                     continue
-                if token.startswith(("./", "../", "state/", "config/", "docs/", "proposals/", "plans/", "executions/", "verification/", "outputs/", "uacp/")):
+                if token.startswith(("./", "../", "state/", "config/", "docs/", "proposals/", "plans/", "executions/", "verification/", ".outputs/", "uacp/")):
                     for base in context_paths or [root_path]:
                         try:
                             candidate = (base / token).resolve()
@@ -1277,10 +1277,10 @@ class Heartgate:
         if not run_id:
             blockers.append("adaptive_resolve_closure_gate requires run_id")
             return
-        selection_rel = f"outputs/{run_id}-resolve-selection.yaml"
-        closure_rel = f"outputs/{run_id}-closure.yaml"
+        selection_rel = f".outputs/{run_id}-resolve-selection.yaml"
+        closure_rel = f".outputs/{run_id}-closure.yaml"
         readiness_rel = f"verification/{run_id}-resolve-readiness.yaml"
-        package_rel = f"outputs/{run_id}"
+        package_rel = f".outputs/{run_id}"
         selection = self._load_yaml_under_root(selection_rel, blockers, "adaptive_resolve_closure_gate")
         if selection is not None:
             if selection.get("kind") != "uacp.resolve_package":
@@ -2155,7 +2155,7 @@ class Heartgate:
                         )
 
     def _validate_lessons_artifact(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
-        """Phase 2.4: VERIFY->RESOLVE requires outputs/{run_id}-lessons.yaml
+        """Phase 2.4: VERIFY->RESOLVE requires .outputs/{run_id}-lessons.yaml
         with structured schema (run_id + lessons list).
         """
         schema = (self.artifact_schemas.get("lessons") or {})
@@ -2170,7 +2170,7 @@ class Heartgate:
         if not _is_safe_run_id(run_id):
             blockers.append("lessons: unsafe or missing run_id")
             return
-        template = str(schema.get("path_template") or "outputs/{run_id}-lessons.yaml")
+        template = str(schema.get("path_template") or ".outputs/{run_id}-lessons.yaml")
         path = self.uacp_root / template.replace("{run_id}", run_id)
         if not path.exists():
             blockers.append(f"lessons artifact missing: {path.relative_to(self.uacp_root)}")
@@ -2209,9 +2209,9 @@ class Heartgate:
             if not (item.get("id") and item.get("accepted_by") and item.get("owner") and item.get("rationale") and item.get("next_phase_acceptance")):
                 continue
             run_id = str(artifact.get("run_id") or "")
-            if not artifact_path.startswith(("verification/", "outputs/")):
+            if not artifact_path.startswith(("verification/", ".outputs/")):
                 continue
-            if run_id and not artifact_path.startswith((f"verification/{run_id}", f"outputs/{run_id}")):
+            if run_id and not artifact_path.startswith((f"verification/{run_id}", f".outputs/{run_id}")):
                 continue
             if not self._artifact_path_exists(artifact_path):
                 continue

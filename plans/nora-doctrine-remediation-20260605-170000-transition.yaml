@@ -1,0 +1,111 @@
+phase: plan
+kind: uacp.phase_transition
+transition_id: nora-doctrine-remediation-20260605-170000-plan-to-execute
+run_id: nora-doctrine-remediation-20260605-170000
+from_phase: plan
+to_phase: execute
+routing_outcome: standard_uacp
+granularity_level: 7
+triage_artifact: proposals/nora-doctrine-remediation-20260605-170000-triage.yaml
+decision: pass
+invariant_summary:
+  - id: authority.explicit
+    status: pass
+    evidence: "Mike chose C (UACP-governed run); decision owner recorded in proposal and scope"
+  - id: scope.bounded
+    status: pass
+    evidence: "8 target files declared; out-of-scope items explicit in proposal and plan"
+  - id: writes.contained
+    status: pass
+    evidence: "All planned writes are under Nora profile; no cross-profile leakage"
+  - id: rollback.declared
+    status: pass
+    evidence: "git revert with reverse-order specification in rollback-and-transition.md"
+  - id: piv.contract_present
+    status: pass
+    evidence: "plans/nora-doctrine-remediation-20260605-170000-piv.yaml exists with 8 work units"
+  - id: plan_validation.pass
+    status: pass
+    evidence: "PLAN_VALIDATION ledger entry with all 6 pv checks pass"
+cluster_summary:
+  - cluster_id: plan_package
+    state: pass
+    artifact_path: plans/nora-doctrine-remediation-20260605-170000/
+  - cluster_id: scope_artifact
+    state: pass
+    artifact_path: plans/nora-doctrine-remediation-20260605-170000-scope.yaml
+  - cluster_id: piv_contract
+    state: pass
+    artifact_path: plans/nora-doctrine-remediation-20260605-170000-piv.yaml
+  - cluster_id: council_synthesis
+    state: pass
+    artifact_path: verification/nora-doctrine-remediation-20260605-170000-council-synthesis.yaml
+  - cluster_id: heartgate_coherence
+    state: pass
+    artifact_path: verification/nora-doctrine-remediation-20260605-170000-heartgate-coherence.yaml
+  - cluster_id: proposal_package
+    state: pass
+    artifact_path: proposals/nora-doctrine-remediation-20260605-170000/
+blockers: []
+warnings:
+  - warning: "Plugin code changes require gateway restart (operator boundary)"
+    owner: Mike
+    residual_risk: "Plugin changes don't take effect until restart; risk is low since code is valid and loadable"
+  - warning: "Live testing deferred to operator"
+    owner: Mike
+    residual_risk: "Cannot verify LLM behavior without live test; static verification is partial"
+deferred_items:
+  - item: SYN-M4 prompt-injection policy
+    forward_pointer: "Separate UACP run for SECURITY.md §4 expansion"
+    owner: Mike
+    condition: "When SECURITY.md §4 needs expansion"
+    accepted_by: Mike
+  - item: SYN-I1 SYN-I2 SYN-I3
+    forward_pointer: "Deferred, not security-relevant"
+    owner: Mike
+    condition: "Not security-relevant; revisit only if other findings escalate"
+    accepted_by: Mike
+authority:
+  requested_by: Mike
+  authorization_source: "Mike chose C (UACP-governed run) on 2026-06-05"
+  decision_owner: Mike
+  human_involvement: required
+artifact_paths:
+  - plans/nora-doctrine-remediation-20260605-170000-plan.yaml
+  - plans/nora-doctrine-remediation-20260605-170000-scope.yaml
+  - plans/nora-doctrine-remediation-20260605-170000-plan-selection.yaml
+  - plans/nora-doctrine-remediation-20260605-170000-piv.yaml
+  - plans/nora-doctrine-remediation-20260605-170000/00-index.md
+  - plans/nora-doctrine-remediation-20260605-170000/work-packages.md
+  - plans/nora-doctrine-remediation-20260605-170000/authority-and-side-effects.md
+  - plans/nora-doctrine-remediation-20260605-170000/verification-strategy.md
+  - plans/nora-doctrine-remediation-20260605-170000/rollback-and-transition.md
+  - verification/nora-doctrine-remediation-20260605-170000-council-synthesis.yaml
+  - verification/nora-doctrine-remediation-20260605-170000-heartgate-coherence.yaml
+council_synthesis_artifact: verification/nora-doctrine-remediation-20260605-170000-council-synthesis.yaml
+verification_artifact: ''
+accepted_exceptions: []
+phase_local_granularity:
+  phase: plan
+  entry_estimate: 6
+  exit_actual: 6
+  delta_reason: "Plan decomposed into 8 work packages across 6 tracks"
+  downstream_projection:
+    execute: 6
+    verify: 7
+composite_granularity: 7
+human_involvement:
+  required: true
+  reason: "Doctrine file changes and plugin code changes require operator approval; gateway restart is separate boundary"
+  authority_needed: "Approval for doctrine changes, plugin code changes, and gateway restart"
+  decision_owner: Mike
+heartgate_coherence:
+  artifact_path: verification/nora-doctrine-remediation-20260605-170000-heartgate-coherence.yaml
+  verdict: pass
+  lenses:
+    doctrine_coherence: pass
+    cross_artifact_consistency: pass
+    runtime_state_alignment: pass
+    warning_and_deferred_item_honesty: pass
+    authority_plane_integrity: pass
+    next_phase_readiness: pass

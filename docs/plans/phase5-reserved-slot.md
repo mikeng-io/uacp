@@ -64,7 +64,7 @@ When the operator decides to schedule Phase 5:
 
 - Cross-runtime adapters (OpenCode, Codex, Gemini Code Assist). Those are independent UACP work.
 - Operator UI / dashboard. UACP is runtime-neutral.
-- Knowledge Bank promotion beyond `outputs/{run_id}-lessons.yaml#applies_to_future_runs`. That is a separate roadmap.
+- Knowledge Bank promotion beyond `.outputs/{run_id}-lessons.yaml#applies_to_future_runs`. That is a separate roadmap.
 
 ## Provenance
 

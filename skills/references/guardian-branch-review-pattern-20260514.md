@@ -67,4 +67,4 @@ When reviewing a UACP feature branch before integration:
 - `docs/runtime-enforcement.md` — runtime enforcement design
 - `config/guardian-policy.yaml` — policy seed
 - `verification/containment-fail-closed-20260514.yaml` — fail-closed proof
-- `outputs/uacp-operational-dashboard.yaml` — open blockers
+- `..outputs/uacp-operational-dashboard.yaml` — open blockers

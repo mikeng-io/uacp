@@ -29,7 +29,7 @@ For clearer, lower-risk gaps such as EXECUTE PIV binding, implementation before 
 - **PROPOSE / PLAN**: semantic package directory and `00-index.md`; non-empty selected modules; artifacts under canonical package directory.
 - **EXECUTE**: PLAN-authored Phase Intent Verification contract; checkpoints bind to work units and evidence obligations; semantic execution package; drift/deviation disposition.
 - **VERIFY**: verification package, PIV assessment when applicable, verified facts with source evidence, assumptions/deferred items with owner/acceptance/condition, self-approval guard, Heartgate coherence when required, run-bound resolve readiness.
-- **RESOLVE**: closure package under `outputs/{run_id}/`, final decision, residual-risk/deferred-item preservation, lesson disposition (`memory|skill|docs|knowledge|no_action`), state/memory disposition, concise operator handoff, artifact-bound closed scope.
+- **RESOLVE**: closure package under `..outputs/{run_id}/`, final decision, residual-risk/deferred-item preservation, lesson disposition (`memory|skill|docs|knowledge|no_action`), state/memory disposition, concise operator handoff, artifact-bound closed scope.
 
 ## Fixture discipline
 

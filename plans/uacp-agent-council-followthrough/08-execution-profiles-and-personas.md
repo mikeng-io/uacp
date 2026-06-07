@@ -614,7 +614,7 @@ In full automation mode:
 phase controller task
   -> selects profile/runtime/council form
   -> creates bounded phase work units if needed
-  -> monitors outputs/timeouts/reruns
+  -> monitors .outputs/timeouts/reruns
   -> writes phase artifact
   -> requests/executes phase transition
 ```

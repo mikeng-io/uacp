@@ -20,7 +20,7 @@ This skill closes the run, captures lessons, decides what belongs in memory, and
 - Use `knowledge/` for durable run learning.
 
 ## Typical outputs
-- outputs/
+- ..outputs/
 - knowledge/
 - lesson artifact or run summary
 
