@@ -63,12 +63,21 @@ class StateHistoryEntry(BaseModel):
     artifact: str | None = None
 
 
+class Workspace(BaseModel):
+    kind: str = "worktree"
+    path: str | None = None
+    branch: str | None = None
+    created_at: str = Field(default_factory=lambda: _iso_now())
+    validated_at: str | None = None
+
+
 class RunManifest(BaseModel):
     run_id: str
     status: Status = Status.active
     current_phase: str = "triage"
     created_at: str = Field(default_factory=lambda: _iso_now())
     authority: Authority
+    workspace: Workspace = Field(default_factory=Workspace)
     artifacts: dict[str, str] = Field(default_factory=dict)
     state_history: list[StateHistoryEntry] = Field(default_factory=list)
     finalized_at: str | None = None
@@ -121,6 +130,7 @@ def handle_init(args: dict[str, Any]) -> str:
       source: authority source (e.g. "operator-request")
     Optional args:
       scope, granularity, risk, domains — stored in authority metadata
+      workspace_kind, workspace_path, workspace_branch — workspace declaration
     """
     try:
         workspace = Path(str(args.get("workspace") or ".")).resolve()
@@ -141,14 +151,17 @@ def handle_init(args: dict[str, Any]) -> str:
         for key in ("scope", "granularity", "risk", "domains"):
             value = args.get(key)
             if value is not None:
-                # Pydantic model fields are frozen after creation in v2,
-                # so we attach metadata as extra dict keys on authority.
-                # For simplicity, store them in a metadata sub-dict.
                 if not hasattr(authority, "_metadata"):
                     authority._metadata = {}
                 authority._metadata[key] = value
 
-        manifest = RunManifest(run_id=run_id, authority=authority)
+        # Workspace declaration (optional at init, required by PROPOSE)
+        ws_kind = str(args.get("workspace_kind") or "worktree").strip()
+        ws_path = str(args.get("workspace_path") or "").strip() or None
+        ws_branch = str(args.get("workspace_branch") or "").strip() or None
+        workspace_obj = Workspace(kind=ws_kind, path=ws_path, branch=ws_branch)
+
+        manifest = RunManifest(run_id=run_id, authority=authority, workspace=workspace_obj)
         _save_manifest(workspace, manifest)
 
         # Create current.yaml pointer if none exists
@@ -280,6 +293,46 @@ def handle_register_artifact(args: dict[str, Any]) -> str:
         return json.dumps({"error": f"register-artifact failed: {exc}"})
     except Exception as exc:
         return json.dumps({"error": f"register-artifact failed: {type(exc).__name__}: {exc}"})
+
+
+def handle_workspace(args: dict[str, Any]) -> str:
+    """Update or validate workspace metadata in the run manifest.
+
+    Required args:
+      workspace: UACP_ROOT path
+      run_id: unique run identifier
+    Optional args:
+      kind, path, branch, validated_at — update workspace fields
+    """
+    try:
+        workspace = Path(str(args.get("workspace") or ".")).resolve()
+        run_id = str(args.get("run_id") or "").strip()
+
+        if not run_id:
+            return json.dumps({"error": "run_id is required"})
+
+        manifest = _load_manifest(workspace, run_id)
+
+        # Update workspace fields if provided
+        for key in ("kind", "path", "branch"):
+            value = args.get(f"workspace_{key}")
+            if value is not None:
+                setattr(manifest.workspace, key, str(value))
+
+        validated_at = args.get("workspace_validated_at")
+        if validated_at is not None:
+            manifest.workspace.validated_at = str(validated_at)
+
+        _save_manifest(workspace, manifest)
+        return json.dumps({
+            "ok": True,
+            "run_id": run_id,
+            "workspace": manifest.workspace.model_dump(mode="json"),
+        }, ensure_ascii=False)
+    except FileNotFoundError as exc:
+        return json.dumps({"error": f"workspace update failed: {exc}"})
+    except Exception as exc:
+        return json.dumps({"error": f"workspace update failed: {type(exc).__name__}: {exc}"})
 
 
 def handle_finalize(args: dict[str, Any]) -> str:

@@ -5,4 +5,7 @@ __pycache__/
 # UACP runtime artifacts — generated during execution, not source of truth
 .outputs/*
 
-.DS_Stores
+# Worktree isolation — active runs live here, never commit
+.worktrees/*
+
+.DS_Store

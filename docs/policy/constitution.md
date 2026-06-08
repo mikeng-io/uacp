@@ -65,6 +65,7 @@ This constitution defines the inviolable invariants of the Universal Agent Contr
 16. Implementation work must be contained to the workspace designated by the active PLAN artifact.
 17. No component may write outside `UACP_ROOT` or the declared execution workspace without explicit operator authorization.
 18. Symlinks, bind mounts, and path resolution must be verified before write — escape attempts are prohibited.
+19. `main` (or `master`) is the stable reviewed authority state. Active UACP runs must not write directly to it. Each run must create or designate an isolated workspace — branch, worktree, or scratch directory — before EXECUTE begins.
 
 **Derives from**: First Principles — Explicitness, Domain Sovereignty.
 

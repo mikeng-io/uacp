@@ -253,6 +253,7 @@ Version-control binding:
 - `HERMES_ROOT` may bind and host UACP, but should not be the implicit source of truth for UACP history unless explicitly chosen.
 - Tombstone `git_commit` should point to the commit that deleted the legacy file and added or updated the tombstone. Agents can retrieve the deleted content from that commit's parent at the `deleted_path`.
 - When no repository exists, tombstones use `unavailable-no-git-worktree` and must be updated after versioning is established.
+- **Worktree isolation**: active runs must not write directly to `main`. See `docs/lifecycle/worktree-protocol.md` for phase-by-phase workspace creation, validation, and merge rules.
 
 Boundary definitions:
 
