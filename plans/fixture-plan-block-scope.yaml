@@ -1,7 +1,0 @@
-kind: uacp.plan_scope
-phase: plan
-run_id: fixture-plan-block
-blast_radius: low
-allowed_tools: []
-write_paths: []
-rollback_path: fixture

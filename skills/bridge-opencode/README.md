@@ -90,5 +90,5 @@ Intensity: quick=0.5×, standard=1.0×, thorough=1.5×
 
 ## Part of
 
-- Deep Skills Suite
-- Consumed by: any orchestrating skill (e.g., `deep-council`, `deep-review`, `deep-audit`, or custom skills)
+- UACP Bridge Adapter Suite
+- Consumed by: any orchestrating skill (e.g., `agent-council`, lifecycle skills, or custom skills)

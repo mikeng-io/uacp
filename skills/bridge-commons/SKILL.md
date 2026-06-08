@@ -14,7 +14,7 @@ This document defines the shared contract that all bridge adapters implement. Ev
 Bridges are reference adapters — they define how to dispatch tasks to specific AI runtimes (Claude Code sub-agents, Gemini CLI, Codex CLI, OpenCode). Each bridge:
 
 - Is a **reference document**, not a runnable skill
-- Is **read by orchestrating skills** (e.g., deep-council) via the `Read` tool
+- Is **read by orchestrating skills** (e.g., agent-council, lifecycle skills) via the `Read` tool
 - Has its **instructions embedded** into Task agent prompts — not invoked separately
 - Returns a **structured report** conforming to this contract
 - Is **non-blocking** — unavailability produces `SKIPPED`, not a failure
@@ -32,7 +32,7 @@ Every bridge executes these checks in order before dispatching. Deviate only whe
 3. **Tertiary connection** — API fallback (if applicable to this bridge)
 4. **Authentication** — verify credentials for the selected path
 5. **Multi-agent capability** — detect and record; degrade gracefully if absent
-6. **Tier resolution** — read `bridge_input.tier` or derive from task_type + intensity; resolve model + reasoning from `config/uacp.toml`
+6. **Tier resolution** — read `bridge_input.tier` or derive from task_type + intensity; resolve model alias + reasoning from `UACP_ROOT/config/model-registry.yaml`
 7. **Timeout estimation** — calculate from scope + intensity + resolved model
 
 If none of steps 1–3 succeed → return `status: SKIPPED` immediately. Never block the calling orchestrator.
@@ -52,7 +52,7 @@ If none of steps 1–3 succeed → return `status: SKIPPED` immediately. Never b
 
 ## Tier System
 
-UACP uses an abstract **tier** (0–4) to match task complexity to model capability. Tiers are assigned by the council or derived automatically. Model versions are **never hardcoded in bridge code** — they live in `config/uacp.toml` and are resolved at runtime.
+UACP uses an abstract **tier** (0–4) to match task complexity to model capability. Tiers are assigned by the council or derived automatically. Model versions are **never hardcoded in bridge code** — they live in `config/model-registry.yaml` in `UACP_ROOT` and are resolved at runtime.
 
 ### Tier Definitions
 
@@ -89,26 +89,20 @@ Example: `task_type = implementation` (base 2) + `intensity = thorough` (offset 
 
 ### Tier Resolution
 
-Once the tier is known, the bridge resolves the actual model from `config/uacp.toml`:
+Once the tier is known, the bridge resolves the actual model from `config/model-registry.yaml` — the **single source of truth** for all tier-to-model mappings. No bridge skill hardcodes these mappings.
 
-```
-[bridges.{bridge_name}.tiers.{tier}]
-model = "alias"        # e.g. "sonnet-4-6"
-reasoning = "medium"   # e.g. "high", "xhigh"
-
-[bridges.{bridge_name}.model_aliases]
-sonnet-4-6 = "claude-sonnet-4-6"   # resolved to provider's actual model ID
-```
-
-Bridges MUST:
+**Resolution protocol:**
 1. Accept `tier` in `bridge_input` (optional integer 0–4)
 2. Derive tier when absent using the rules above
-3. Look up `bridges.{name}.tiers.{tier}` from `config/uacp.toml`
-4. Resolve the model alias via `bridges.{name}.model_aliases`
-5. Apply the reasoning level to the invocation (e.g., `--effort` for Claude, `--reasoning-effort` for Codex)
-6. Record `resolved_tier`, `resolved_model`, and `resolved_reasoning` in the bridge output
+3. Read `UACP_ROOT/config/model-registry.yaml`
+4. Look up `tier_mappings.{bridge_name}.{tier}` to get `alias` and `reasoning`
+5. Look up `providers.{provider}.models.{alias}.concrete_id` to get the provider model ID
+6. Apply the reasoning level to the invocation (e.g., `--effort` for Claude, `--config reasoning-effort` for Codex)
+7. Record `resolved_tier`, `resolved_model`, and `resolved_reasoning` in the bridge output
 
 **Model validation:** During availability checks, if a resolved model alias cannot be mapped to a provider-known model ID, emit a warning and continue with the provider's default model. Record the warning in `model_validation_warnings`.
+
+**OpenCode exception:** OpenCode is multi-provider and user-configured. It is intentionally absent from `config/model-registry.yaml`. OpenCode discovers its own model from local config (`opencode config get model`, `opencode auth list`). UACP does not select or validate OpenCode models.
 
 ---
 
@@ -329,7 +323,7 @@ Apply only when `task_type` is `review`, `analysis`, or `audit`. Set `null` for 
   "task_type": "review | planning | implementation | analysis | research",
   "capability_profile": "inspect | modify",
   "tier": 2,
-  "resolved_model": "claude-sonnet-4-6",
+  "resolved_model": "<resolved from registry>",
   "resolved_reasoning": "high",
   "status": "COMPLETED | SKIPPED | HALTED | ABORTED",
   "skip_reason": "...",
@@ -413,7 +407,7 @@ For Claude with Agent Teams, this entire section is superseded by the full `deba
 
 ### Roles
 
-Domain experts are determined by the orchestrating skill (deep-council, deep-review, etc.) before the bridge is called — the bridge receives them via `bridge_input.domains` and executes. Bridges do not perform domain selection.
+Domain experts are determined by the orchestrating skill (agent-council, lifecycle skills, etc.) before the bridge is called — the bridge receives them via `bridge_input.domains` and executes. Bridges do not perform domain selection.
 
 Spawn these roles in parallel at the start of each round:
 
@@ -433,7 +427,7 @@ The initial domain list is not fixed for the lifetime of a session. During each 
 
 All roles run simultaneously with no inter-agent communication. Each produces independent findings using the Agent Prompt Template above.
 
-The orchestrator (bridge dispatcher or deep-council) collects all Round 1 outputs and moves to the between-rounds step.
+The orchestrator (bridge dispatcher or agent-council) collects all Round 1 outputs and moves to the between-rounds step.
 
 ---
 
@@ -685,10 +679,10 @@ Invalid or unparseable output → attempt to extract structured content; if unre
 
 ## Two-Layer Debate Architecture
 
-The full deep-council execution involves two distinct debate layers. Understanding the distinction prevents confusing the intra-bridge analysis with the cross-bridge synthesis.
+The full agent-council execution involves two distinct debate layers. Understanding the distinction prevents confusing the intra-bridge analysis with the cross-bridge synthesis.
 
 ```
-deep-council
+agent-council
 │
 ├── Layer 2: Intra-Bridge Analysis (runs inside each bridge, before returning to council)
 │   │
@@ -714,7 +708,7 @@ deep-council
 │         Multi-model:   N parallel model invocations → mini-synthesis within bridge
 │                        → becomes its own mini-council before reporting to Layer 1
 │
-└── Layer 1: Cross-Bridge Synthesis Debate (deep-council Step 6 Stage B)
+└── Layer 1: Cross-Bridge Synthesis Debate (agent-council Step 6 Stage B)
       Debate Coordinator Task agent challenges aggregated findings from ALL bridges
       DA asks: "Did all bridges agree because they're all right, or shared bias/prompting?"
       IC checks cross-bridge integration implications
@@ -748,21 +742,7 @@ timeout_multiplier = 1.5
 models = []  # empty = single-model default; 2+ entries = multi-model dispatch
 ```
 
-**Tier model mappings** are the canonical way bridges select models. See the Tier System section above. Example:
-
-```toml
-[bridges.claude.tiers]
-0 = { model = "haiku-4-6", reasoning = "medium" }
-1 = { model = "sonnet-4-6", reasoning = "medium" }
-2 = { model = "sonnet-4-6", reasoning = "high" }
-3 = { model = "opus-4-8", reasoning = "high" }
-4 = { model = "opus-4-8", reasoning = "xhigh" }
-
-[bridges.claude.model_aliases]
-haiku-4-6 = "claude-3-5-haiku-latest"
-sonnet-4-6 = "claude-sonnet-4-6"
-opus-4-8 = "claude-opus-4-8"
-```
+**Tier model mappings** are the canonical way bridges select models. The **single source of truth** is `UACP_ROOT/config/model-registry.yaml` — bridge skills do not hardcode these mappings. Each bridge reads its own `tier_mappings.{bridge}` and `providers.{provider}.models` sections from the registry at runtime.
 
 **`bridges.opencode.models` array** — controls multi-model dispatch for bridge-opencode:
 
@@ -776,7 +756,7 @@ Models must use `provider/model` format as required by OpenCode (e.g., `glm/glm-
 
 **Local overrides:** Create `uacp.local.toml` (gitignored) to override any setting without modifying the canonical config.
 
-**Model identifier validation:** During bridge availability checks, if a model identifier is specified in `config/uacp.toml`, bridges SHOULD perform a lightweight validation probe (e.g., `codex models list`, `opencode auth list`) to confirm the identifier is resolvable. If a model cannot be resolved:
+**Model identifier validation:** During bridge availability checks, if a model identifier is resolved from `config/model-registry.yaml`, bridges SHOULD perform a lightweight validation probe (e.g., `codex models list`, `opencode auth list`) to confirm the identifier is resolvable. If a model cannot be resolved:
 - Emit a **warning** in the bridge output (not SKIPPED — the bridge itself may still work with the provider's default model)
 - Record: `"model_validation_warnings": [{"model": "...", "reason": "not found in provider model list"}]`
 - Continue execution with the provider's default model if the specified model is invalid
@@ -795,7 +775,7 @@ This prevents silent capability reduction when committed model identifiers becom
 
 ### Input Field Aliases (Deprecated)
 
-`session_id` and `scope` are the canonical bridge-commons field names. The following aliases exist in deep-council Step 4 for backward compatibility and will be removed in a future version:
+`session_id` and `scope` are the canonical bridge-commons field names. The following aliases exist in agent-council Step 4 for backward compatibility and will be removed in a future version:
 
 | Alias | Canonical name | Removal target |
 |-------|---------------|----------------|

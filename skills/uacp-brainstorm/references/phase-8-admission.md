@@ -46,4 +46,15 @@ python3 skills/uacp-guardian/scripts/guardian.py heartgate \
 - `COHERENT` → proceed to TRIAGE
 - `INCOHERENT` → surface findings to user; trim scope further or accept as recorded risk before entering TRIAGE
 
+### 8.3 Record admission result in manifest.yaml
+
+```yaml
+admission:
+  guardian_status: pass | warn | block
+  guardian_findings: []
+  heartgate_status: coherent | incoherent | skipped
+  heartgate_findings: []
+  final_decision: proceed_to_triage | stop | refine_scope
+```
+
 **Note:** Brainstorm artifacts themselves are NOT registered in `uacp-state`. Only official lifecycle artifacts (starting from TRIAGE) are state-persistent.

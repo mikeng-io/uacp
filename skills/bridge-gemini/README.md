@@ -43,5 +43,5 @@ Never blocks or throws — always returns a report.
 
 ## Part of
 
-- Deep Skills Suite
-- Consumed by: any orchestrating skill (e.g., `deep-council`, `deep-review`, `deep-audit`, or custom skills)
+- UACP Bridge Adapter Suite
+- Consumed by: any orchestrating skill (e.g., `agent-council`, lifecycle skills, or custom skills)

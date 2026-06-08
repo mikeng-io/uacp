@@ -16,13 +16,13 @@ The neutral kernel owns policy evaluation and decision shape. Hermes owns only t
 
 The `agent-skills` repository has prior extraction work on branch `codex/guardian-agent-council-uacp` with this useful pattern:
 
-- `skills/guardian/guardian.py` — neutral CLI/kernel with no runtime imports
-- `skills/guardian/adapters/claude.py`
-- `skills/guardian/adapters/opencode.py`
-- `skills/guardian/adapters/kimi.py`
-- `skills/guardian/hooks/guard-council.py`
-- `skills/guardian/hooks/guard-output.py`
-- `skills/guardian/references/preflight-pattern.md`
+- `skills/uacp-guardian/scripts/guardian.py` — neutral CLI/kernel with no runtime imports
+- `skills/uacp-guardian/adapters/claude.py`
+- `skills/uacp-guardian/adapters/opencode.py`
+- `skills/uacp-guardian/adapters/kimi.py`
+- `skills/uacp-guardian/hooks/guard-council.py`
+- `skills/uacp-guardian/hooks/guard-output.py`
+- `skills/uacp-guardian/references/preflight-pattern.md`
 
 Treat that branch as pattern evidence, not UACP authority. Canonical UACP docs/config/state remain authoritative.
 

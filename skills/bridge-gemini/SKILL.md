@@ -1,6 +1,6 @@
 ---
 name: bridge-gemini
-description: Reference adapter for Gemini CLI. Read by any orchestrating skill via the Read tool. Defines how to invoke Gemini CLI in non-interactive mode, timeout estimation, and fallback behavior. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Gemini-based review.
+description: Reference adapter for Gemini CLI. Read by any orchestrating skill via the Read tool. Defines how to invoke Gemini CLI in non-interactive mode, timeout estimation, and fallback behavior. Usable by agent-council, lifecycle skills, or any custom skill that needs Gemini-based review.
 location: managed
 context: reference
 dependencies:
@@ -28,21 +28,31 @@ connection_preference:
 
 ---
 
+## Configuration Reference
+
+Parameters this bridge reads from `config/uacp.toml` at runtime:
+
+| Parameter | Section | Type | Default | Description |
+|-----------|---------|------|---------|-------------|
+| `enabled` | `[bridges.gemini]` | boolean | `true` | Whether this bridge is active. If `false`, the orchestrator skips it. |
+| `timeout_multiplier` | `[bridges.gemini]` | float | `1.0` | Multiplier applied to the bridge-commons base timeout estimate. |
+
+**Not read from TOML** (intrinsic to bridge implementation):
+- `connection_preference` — defined in this SKILL.md only
+- `subagent_mode` — auto-detected via `.gemini/settings.json` (`experimental.enableAgents`)
+
+---
+
 ## Tier Resolution
 
-Gemini bridge resolves the model from `config/uacp.toml` using the bridge-commons tier system.
+Gemini bridge resolves the model alias from `config/model-registry.yaml` in `UACP_ROOT`. The tier mapping lives **only** in the registry — this skill does not hardcode it.
 
-### Default tier mapping (from `config/uacp.toml`)
+**Resolution protocol:**
+1. Read `UACP_ROOT/config/model-registry.yaml`
+2. Look up `tier_mappings.gemini.{tier}` → get `alias` + `reasoning`
+3. Look up `providers.google.models.{alias}.concrete_id` → get resolved model ID
 
-| Tier | Model alias | Gemini CLI equivalent |
-|------|-------------|----------------------|
-| 0 | gemini-flash | `--model gemini-2.5-flash` |
-| 1 | gemini-flash | `--model gemini-2.5-flash` |
-| 2 | gemini-pro | `--model gemini-2.5-pro` |
-| 3 | gemini-pro | `--model gemini-2.5-pro` |
-| 4 | gemini-ultra | `--model gemini-2.5-ultra` |
-
-**Model alias resolution:** Look up `bridges.gemini.model_aliases` in `config/uacp.toml` to translate the alias to the provider's actual model identifier.
+The alias is stable; the `concrete_id` is updated in the registry when Google releases new models. No bridge skill changes required.
 
 **Override via `bridge_input.tier`:** If the council assigns a specific tier, use it directly. If absent, derive from `task_type` + `intensity` per bridge-commons rules.
 
@@ -126,10 +136,11 @@ Build the prompt using the Agent Prompt Template from bridge-commons, adapting t
 
 Resolve tier and model before invocation:
 ```bash
-# Determine tier (from bridge_input.tier or derive from task_type + intensity)
-# Look up model alias from bridges.gemini.tiers.{tier} in config/uacp.toml
-# Resolve to actual model ID via bridges.gemini.model_aliases
-# Set RESOLVED_MODEL
+# 1. Determine tier (from bridge_input.tier or derive from task_type + intensity)
+# 2. Read UACP_ROOT/config/model-registry.yaml
+# 3. Look up tier_mappings.gemini.{tier} → get alias + reasoning
+# 4. Look up providers.google.models.{alias}.concrete_id → get resolved model ID
+# 5. Set RESOLVED_MODEL
 ```
 
 ```bash
@@ -180,6 +191,22 @@ cat .gemini/settings.json 2>/dev/null | python3 -c \
 - If `false` or missing → run standard single Gemini call covering all domains (valid fallback)
 
 Subagent mode is a progressive enhancement. Record `subagent_mode: true/false` in output.
+
+---
+
+## CLI Reference
+
+**Last verified:** 2026-06-07
+
+### Key flags
+
+| Flag | Description |
+|------|-------------|
+| `-p "prompt"` | Prompt string — non-interactive mode |
+| `--model <model>` | Model to use (resolved from tier mapping) |
+| `--approval-mode plan` | Read-only mode (safe for review/audit) |
+| `--approval-mode auto_edit` | Auto-approve file edits (implementation tasks only) |
+| `--output-format json` | Structured JSON output for parsing |
 
 ---
 

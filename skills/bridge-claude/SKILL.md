@@ -30,23 +30,35 @@ connection_preference:
 
 ---
 
+## Configuration Reference
+
+Parameters this bridge reads from `config/uacp.toml` at runtime:
+
+| Parameter | Section | Type | Default | Description |
+|-----------|---------|------|---------|-------------|
+| `enabled` | `[bridges.claude]` | boolean | `true` | Whether this bridge is active. If `false`, the orchestrator skips it. |
+| `timeout_multiplier` | `[bridges.claude]` | float | `1.0` | Multiplier applied to the bridge-commons base timeout estimate. |
+| `workflows_enabled` | `[bridges.claude]` | boolean | `true` | Enable dynamic workflow dispatch (`/workflows`, `/deep-research`, `ultracode`). |
+
+**Not read from TOML** (intrinsic to bridge implementation):
+- `connection_preference` — defined in this SKILL.md only
+- `agent_teams_env` — hardcoded as `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`
+
+---
+
 ## Tier Resolution
 
-Claude bridge resolves the model and reasoning level from `config/uacp.toml` using the bridge-commons tier system.
+Claude bridge resolves the model alias and reasoning level from `config/model-registry.yaml` in `UACP_ROOT`. The tier mapping lives **only** in the registry — this skill does not hardcode it.
 
-### Default tier mapping (from `config/uacp.toml`)
+**Resolution protocol:**
+1. Read `UACP_ROOT/config/model-registry.yaml`
+2. Look up `tier_mappings.claude.{tier}` → get `alias` + `reasoning`
+3. Look up `providers.anthropic.models.{alias}.concrete_id` → get resolved model ID
+4. Apply reasoning level to `--effort`
 
-| Tier | Model alias | Reasoning | Claude CLI equivalent |
-|------|-------------|-----------|----------------------|
-| 0 | haiku-4-6 | medium | `--model claude-3-5-haiku-latest --effort medium` |
-| 1 | sonnet-4-6 | medium | `--model claude-sonnet-4-6 --effort medium` |
-| 2 | sonnet-4-6 | high | `--model claude-sonnet-4-6 --effort high` |
-| 3 | opus-4-8 | high | `--model claude-opus-4-8 --effort high` |
-| 4 | opus-4-8 | xhigh | `--model claude-opus-4-8 --effort max` |
+The alias is stable; the `concrete_id` is updated in the registry when Anthropic releases new models. No bridge skill changes required.
 
-**Model alias resolution:** Look up `bridges.claude.model_aliases` in `config/uacp.toml` to translate the alias to the provider's actual model identifier. The alias is what UACP skills reference; the resolved identifier is what the CLI/API consumes.
-
-**Effort mapping:**
+**Effort mapping (bridge-specific):**
 - `quick` / `medium` → `--effort medium`
 - `high` → `--effort high`
 - `xhigh` → `--effort max` (Claude Code's maximum reasoning effort)
@@ -379,6 +391,8 @@ timeout {final_timeout} claude -p "ultracode: {task_description}" \
 
 `--dangerously-skip-permissions` is required for implementation tasks — without it, Write and Bash write operations are blocked in non-interactive `-p` mode because there is no user present to approve them.
 
+**Last verified:** 2026-06-07
+
 **Key flags:**
 
 | Flag | Purpose |
@@ -430,7 +444,7 @@ See bridge-commons Output Schema. Bridge-specific fields:
   "connection_used": "native-dispatch | cli | api",
   "dispatch_mode": "workflows | agent-teams | task-tool",
   "tier": 2,
-  "resolved_model": "claude-sonnet-4-6",
+  "resolved_model": "<resolved from registry>",
   "resolved_reasoning": "high",
   "agents_spawned": 4,
   "workflow_used": null

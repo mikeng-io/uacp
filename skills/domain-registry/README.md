@@ -1,6 +1,6 @@
 # Domain Registry
 
-Reference library of domain definitions used by deep-\* skills to select appropriate expert agents for a given artifact type.
+Reference library of domain definitions used by UACP lifecycle skills and bridge adapters to select appropriate expert agents for a given artifact type.
 
 **This is a REFERENCE LIBRARY.** Skills read it via the `Read` tool to determine which domain experts to spawn. It is never invoked directly.
 
@@ -127,11 +127,12 @@ Skills using domain-registry should:
 | Skill           | Usage                                        |
 | --------------- | -------------------------------------------- |
 | `agent-council` | Select expert roles for local role-diverse council |
-| `deep-council`  | Select expert roles/domains for council-of-councils |
-| `deep-review`   | Select domain experts for deep review        |
-| `deep-audit`    | Select domain experts for audit              |
-| `deep-verify`   | Select domain experts for verification       |
-| `deep-research` | Select domain experts for research           |
+| `uacp-triage`   | Domain detection for intake classification   |
+| `uacp-propose`  | Domain experts for proposal critique         |
+| `uacp-plan`     | Domain experts for plan review               |
+| `uacp-execute`  | Domain experts for implementation council    |
+| `uacp-verify`   | Domain experts for verification audit        |
+| `uacp-resolve`  | Domain experts for closure synthesis         |
 | `context`       | Domain detection for context building        |
 
 ---

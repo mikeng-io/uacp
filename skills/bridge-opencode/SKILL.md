@@ -1,6 +1,6 @@
 ---
 name: bridge-opencode
-description: Reference adapter for OpenCode — model-agnostic multi-provider bridge. Read by any orchestrating skill via the Read tool. Covers pre-flight checks with interactive advisory, HTTP API server path (preferred), CLI run path as fallback, correct flags and model format embedded. Usable by deep-council, deep-review, deep-audit, or any future skill that needs multi-model review.
+description: Reference adapter for OpenCode — model-agnostic multi-provider bridge. Read by any orchestrating skill via the Read tool. Covers pre-flight checks with interactive advisory, HTTP API server path (preferred), CLI run path as fallback, correct flags and model format embedded. Usable by agent-council, lifecycle skills, or any custom skill that needs multi-model review.
 location: managed
 context: reference
 dependencies:
@@ -27,6 +27,24 @@ connection_preference:
   4: halt             # None available — surface advisory, offer setup
 ```
 
+---
+
+## Configuration Reference
+
+Parameters this bridge reads from `config/uacp.toml` at runtime:
+
+| Parameter | Section | Type | Default | Description |
+|-----------|---------|------|---------|-------------|
+| `enabled` | `[bridges.opencode]` | boolean | `true` | Whether this bridge is active. If `false`, the orchestrator skips it. |
+| `timeout_multiplier` | `[bridges.opencode]` | float | `1.5` | Multiplier applied to the bridge-commons base timeout estimate. |
+| `models` | `[bridges.opencode]` | array of strings | `[]` | Multi-model dispatch list (`["provider/model", ...]`). Empty = single-model default. |
+
+**Not read from TOML** (intrinsic to bridge implementation):
+- `connection_preference` — defined in this SKILL.md only
+- Model selection — delegated to OpenCode's own config (`opencode config get model`)
+
+---
+
 ## Why OpenCode?
 
 OpenCode is provider-agnostic — it routes to whichever AI providers are configured (Anthropic, OpenAI, Google, GLM, Qwen, etc.). Running it as a bridge lets the calling skill get a second opinion from a different model family than the one currently executing the skill.
@@ -37,23 +55,43 @@ OpenCode is provider-agnostic — it routes to whichever AI providers are config
 
 ## Tier Resolution
 
-OpenCode bridge resolves the model and reasoning level from `config/uacp.toml` using the bridge-commons tier system.
+OpenCode bridge does **not** resolve models from `config/model-registry.yaml`. OpenCode is a user-configured multi-provider gateway — the user selects providers, authenticates them, and sets a default model in OpenCode's own configuration. UACP never overrides OpenCode's model selection unless `bridge_input` explicitly requests it.
 
-### Default tier mapping (from `config/uacp.toml`)
+### What tier means for OpenCode
 
-| Tier | Model alias | OpenCode equivalent |
-|------|-------------|---------------------|
-| 0 | glm-4-flash | `--model glm/glm-4-flash` |
-| 1 | glm-4-7 | `--model glm/glm-4-7` |
-| 2 | kimi-moonshot | `--model kimi/moonshot-v1-8k` |
-| 3 | qwen-plus | `--model qwen/qwen-plus` |
-| 4 | qwen-max | `--model qwen/qwen-max` |
+| Tier | Effect on OpenCode dispatch |
+|------|----------------------------|
+| 0–4 | **No model selection.** Tier drives `task framing`, `intensity`, and `timeout estimation` only. |
 
-**Model alias resolution:** Look up `bridges.opencode.model_aliases` in `config/uacp.toml` to translate the alias to the `provider/model` format OpenCode requires.
+OpenCode uses whatever model the user has configured as default. The bridge discovers this at pre-flight.
 
-**Override via `bridge_input.tier`:** If the council assigns a specific tier, use it directly. If absent, derive from `task_type` + `intensity` per bridge-commons rules.
+### Model discovery protocol (pre-flight step)
 
-**Multi-model dispatch:** When `bridges.opencode.models` in `config/uacp.toml` has 2+ entries, OpenCode runs its own mini-council — one invocation per configured model in parallel. This is independent of tier resolution; tier selects the default model, but multi-model config overrides for breadth.
+```bash
+# 1. Check if OpenCode has a default model configured
+opencode config get model 2>/dev/null || echo "no_default"
+
+# 2. If no default, list authenticated providers
+opencode auth list
+```
+
+- **Default model present** → record `resolved_model: "<provider/model>"` (informational only)
+- **No default, but providers authenticated** → OpenCode will prompt or use its internal heuristic; record `resolved_model: "opencode-default"`
+- **No providers authenticated** → HALT with advisory to run `opencode auth login`
+
+### When UACP passes `--model`
+
+Only when `bridge_input` explicitly contains `model_override: "provider/model"`:
+
+```bash
+opencode run "{prompt}" --model "{model_override}"
+```
+
+Normal tier resolution **never** adds `--model`.
+
+### Multi-model dispatch
+
+When `bridges.opencode.models` in `config/uacp.toml` has 2+ entries, OpenCode runs its own mini-council — one invocation per configured model in parallel. This is independent of tier resolution. The `models` array is user-configured and opaque to UACP.
 
 ---
 
@@ -99,15 +137,18 @@ If not found → **no connection available — go to Step 2 (Advisory)**.
 
 ---
 
-### Check D: Provider Authenticated? (CLI path only)
+### Check D: Model Discovery (CLI path only)
 
 ```bash
+# Discover what OpenCode has configured
+opencode config get model 2>/dev/null || echo "no_default"
 opencode auth list
 ```
 
-If output shows at least one authenticated provider → proceed to CLI path.
-
-If no providers configured → **go to Step 2 (Advisory)** with `reason: no_provider_configured`.
+**Outcomes:**
+- Default model configured + providers authenticated → proceed to CLI path, record `resolved_model`
+- No default, but providers authenticated → proceed to CLI path, `resolved_model: "opencode-default"`
+- No providers configured → **go to Step 2 (Advisory)** with `reason: no_provider_configured`
 
 ---
 
@@ -261,14 +302,14 @@ If any model invocation times out or errors → mark it as `skipped` in `instanc
 
 **Post-dispatch: Mini-Synthesis within bridge-opencode**
 
-After all model invocations complete, run a mini-synthesis before returning to deep-council:
+After all model invocations complete, run a mini-synthesis before returning to the orchestrator:
 
 1. **Deduplication**: Findings with >70% description overlap across models → merge (inherit highest severity, list contributing models as `confirmed_by_models`)
 2. **Model-confirmed**: Merged findings are elevated (`intra-bridge_multi_model_confirmed: true`)
 3. **Single-model findings**: Retained with model attribution
 4. **Verdict**: Apply bridge-commons verdict logic to the merged finding set
 
-This mini-synthesis is the intra-bridge equivalent of deep-council's cross-bridge Stage B — but lighter (no full DA challenge round, just deduplication and model-agreement detection).
+This mini-synthesis is the intra-bridge equivalent of the cross-bridge synthesis stage — but lighter (no full DA challenge round, just deduplication and model-agreement detection).
 
 ---
 
@@ -277,10 +318,13 @@ This mini-synthesis is the intra-bridge equivalent of deep-council's cross-bridg
 Resolve tier first, then use the tier-mapped model (or the single configured model, or OpenCode's default if none specified).
 
 ```bash
-# Determine tier (from bridge_input.tier or derive from task_type + intensity)
-# Look up bridges.opencode.tiers.{tier} in config/uacp.toml
-# Resolve model alias via bridges.opencode.model_aliases
-# Set RESOLVED_MODEL in provider/model format
+# 1. Determine tier (from bridge_input.tier or derive from task_type + intensity)
+#    Tier drives task framing, intensity, and timeout only.
+# 2. Model selection is delegated to OpenCode:
+#    - If bridge_input.model_override is set → use that (provider/model format)
+#    - Else if bridges.opencode.models has 1 entry → use that
+#    - Else → omit --model, let OpenCode use its configured default
+# 3. Set RESOLVED_MODEL (informational only)
 ```
 
 Proceed to Step 3A or 3B with the resolved model.
@@ -338,9 +382,9 @@ Models must use `provider/model` format:
 ```yaml
 model_format: "provider/model"
 examples:
-  - "anthropic/claude-sonnet-4-20250514"
-  - "openai/gpt-4o"
-  - "google/gemini-2.0-flash"
+  - "anthropic/claude-sonnet-4-6"
+  - "openai/gpt-5.4"
+  - "google/gemini-3.5-flash"
   - "glm/glm-4-flash"
   - "qwen/qwen-plus"
 
@@ -397,6 +441,30 @@ For the Post-Analysis Protocol via CLI, use separate `opencode run` calls per ro
 
 ---
 
+## CLI Reference
+
+**Last verified:** 2026-06-07
+
+### Key commands
+
+| Command | Purpose |
+|---------|---------|
+| `opencode run "<prompt>"` | Non-interactive execution (always use this, not bare `opencode`) |
+| `opencode run "<prompt>" --model <provider/model>` | Run with specific model |
+| `opencode serve --port 4096` | Start HTTP API server |
+| `opencode config get model` | Discover default model |
+| `opencode auth list` | List authenticated providers |
+| `opencode auth login` | Authenticate a provider |
+
+### HTTP API endpoints
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /session` | Create a session |
+| `POST /session/{id}/message` | Send a message |
+
+---
+
 ## Output
 
 See bridge-commons Output Schema. Bridge-specific fields:
@@ -431,7 +499,7 @@ Output ID prefix: `O` (e.g., `O001`, `O002`). In multi-model mode, prefix per mo
 
 - **HTTP API is preferred** — use it when `opencode serve` is already running (lower overhead, session continuity)
 - **`opencode run` ≠ `opencode`** — bare `opencode` opens the interactive TUI; always use `opencode run "..."` for scripted use
-- **Model format is `provider/model`** — e.g., `anthropic/claude-sonnet-4-20250514`, not just `claude`
+- **Model format is `provider/model`** — e.g., `anthropic/claude-sonnet-4-6`, not just `claude`
 - **`plan` agent** is the safe choice for review tasks (read-only mode)
 - **1.5× timeout multiplier** always applies (provider routing overhead)
 - **HALTED ≠ SKIPPED** — HALTED requires user input before the review can proceed

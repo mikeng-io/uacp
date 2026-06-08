@@ -24,6 +24,29 @@ approach:
     - resolve
 ```
 
+### 4.1 Record in manifest.yaml
+
+After sketching, update `manifest.yaml`:
+
+```yaml
+approaches_sketched:
+  - id: "A1"
+    title: "Minimal fix"
+    complexity: low
+    risk: low
+    selected: false
+  - id: "A2"
+    title: "Medium refactor"
+    complexity: medium
+    risk: medium
+    selected: false
+  - id: "A3"
+    title: "Full redesign"
+    complexity: high
+    risk: high
+    selected: false
+```
+
 Present them conversationally. The user does not need to pick one yet — Phase 5 is about trimming together.
 
-**Output of this phase:** 2–3 approach sketches in conversation. Do not write to the vault yet.
+**Output of this phase:** 2–3 approach sketches in conversation, plus `manifest.yaml` updated.

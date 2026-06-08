@@ -1,6 +1,6 @@
 ---
 name: bridge-codex
-description: Reference adapter for Codex multi-agent review. Read by any orchestrating skill via the Read tool. MCP server path (preferred) with auto-setup option, CLI path as fallback, interactive pre-flight advisory when not configured, correct flags embedded. Usable by deep-council, deep-review, deep-audit, or any future skill that needs Codex-based review.
+description: Reference adapter for Codex multi-agent review. Read by any orchestrating skill via the Read tool. Native dispatch (preferred when executor is Codex), MCP server path, CLI fallback. Interactive pre-flight advisory when not configured, correct flags embedded. Usable by agent-council, lifecycle skills, or any custom skill that needs Codex-based review.
 location: managed
 context: reference
 dependencies:
@@ -29,23 +29,34 @@ connection_preference:
 
 ---
 
+## Configuration Reference
+
+Parameters this bridge reads from `config/uacp.toml` at runtime:
+
+| Parameter | Section | Type | Default | Description |
+|-----------|---------|------|---------|-------------|
+| `enabled` | `[bridges.codex]` | boolean | `true` | Whether this bridge is active. If `false`, the orchestrator skips it. |
+| `timeout_multiplier` | `[bridges.codex]` | float | `1.2` | Multiplier applied to the bridge-commons base timeout estimate. |
+
+**Not read from TOML** (intrinsic to bridge implementation):
+- `connection_preference` — defined in this SKILL.md only
+- `multi_agent_enabled` — auto-detected via `codex features list`; recorded in output for transparency
+
+---
+
 ## Tier Resolution
 
-Codex bridge resolves the model and reasoning level from `config/uacp.toml` using the bridge-commons tier system.
+Codex bridge resolves the model alias and reasoning level from `config/model-registry.yaml` in `UACP_ROOT`. The tier mapping lives **only** in the registry — this skill does not hardcode it.
 
-### Default tier mapping (from `config/uacp.toml`)
+**Resolution protocol:**
+1. Read `UACP_ROOT/config/model-registry.yaml`
+2. Look up `tier_mappings.codex.{tier}` → get `alias` + `reasoning`
+3. Look up `providers.openai.models.{alias}.concrete_id` → get resolved model ID
+4. Apply reasoning level to `--config reasoning-effort`
 
-| Tier | Model alias | Reasoning | Codex equivalent |
-|------|-------------|-----------|------------------|
-| 0 | gpt-4o-mini | medium | `--model gpt-4o-mini --config reasoning-effort=medium` |
-| 1 | gpt-4o | medium | `--model gpt-4o --config reasoning-effort=medium` |
-| 2 | gpt-4o | high | `--model gpt-4o --config reasoning-effort=high` |
-| 3 | o3 | high | `--model o3 --config reasoning-effort=high` |
-| 4 | o3 | xhigh | `--model o3 --config reasoning-effort=xhigh` |
+The alias is stable; the `concrete_id` is updated in the registry when OpenAI releases new models. No bridge skill changes required.
 
-**Model alias resolution:** Look up `bridges.codex.model_aliases` in `config/uacp.toml` to translate the alias to the provider's actual model identifier.
-
-**Reasoning mapping:**
+**Reasoning mapping (bridge-specific):**
 - `medium` → `--config reasoning-effort=medium`
 - `high` → `--config reasoning-effort=high`
 - `xhigh` → `--config reasoning-effort=xhigh`
@@ -290,9 +301,10 @@ Before calling either MCP or CLI, resolve the model from the tier:
 
 ```bash
 # 1. Determine tier (from bridge_input.tier or derive from task_type + intensity)
-# 2. Look up bridges.codex.tiers.{tier} in config/uacp.toml
-# 3. Resolve model alias via bridges.codex.model_aliases
-# 4. Set RESOLVED_MODEL and RESOLVED_REASONING
+# 2. Read UACP_ROOT/config/model-registry.yaml
+# 3. Look up tier_mappings.codex.{tier} → get alias + reasoning
+# 4. Look up providers.openai.models.{alias}.concrete_id → get resolved model ID
+# 5. Set RESOLVED_MODEL and RESOLVED_REASONING
 ```
 
 Do NOT hardcode a model name. If model discovery fails, omit the `model` parameter and let the server select its default.
@@ -374,6 +386,33 @@ For the Post-Analysis Protocol via CLI, use separate `codex exec` calls per roun
 
 ---
 
+## CLI Reference
+
+**Last verified:** 2026-06-07
+
+### Key flags
+
+| Flag | Purpose |
+|------|---------|
+| `codex exec` | Non-interactive execution (always use this, not bare `codex`) |
+| `--model <model>` | Model to use (resolved from tier mapping) |
+| `--config reasoning-effort=<level>` | Reasoning effort: medium, high, xhigh |
+| `--sandbox read-only` | Analysis-only mode (no file writes) |
+| `--ask-for-approval never` | No interactive approval prompts |
+| `--json` | Structured JSON output |
+| `--output-last-message <path>` | Write final message to file for parsing |
+| `--ephemeral` | Discard session after execution |
+| `--skip-git-repo-check` | Skip git repository validation |
+
+### MCP tools
+
+| Tool | Purpose |
+|------|---------|
+| `mcp__codex__codex` | Start a session (returns threadId) |
+| `mcp__codex__codex-reply` | Continue session with threadId |
+
+---
+
 ## Output
 
 See bridge-commons Output Schema. Bridge-specific fields:
@@ -385,7 +424,7 @@ See bridge-commons Output Schema. Bridge-specific fields:
   "connection_used": "native-dispatch | mcp | cli",
   "multi_agent_enabled": true,
   "tier": 2,
-  "resolved_model": "gpt-4o",
+  "resolved_model": "<resolved from registry>",
   "resolved_reasoning": "high"
 }
 ```
@@ -396,7 +435,8 @@ Output ID prefix: `X` (e.g., `X001`, `X002`).
 
 ## Notes
 
-- **MCP server is preferred** — no CLI install needed, auth handled internally, persistent sessions via `codex-reply`
+- **Native dispatch is preferred when executor is Codex** — spawn parallel Codex agents directly
+- **MCP server is preferred for non-Codex executors** — no CLI install needed, auth handled internally, persistent sessions via `codex-reply`
 - **Auto-setup option** — orchestrator can write `.mcp.json` to enable MCP server without user installing anything
 - **`codex exec` ≠ `codex`** — bare `codex` opens an interactive session; always use `codex exec` for programmatic use
 - **`--sandbox read-only` + `--ask-for-approval never`** are required for analysis-only mode

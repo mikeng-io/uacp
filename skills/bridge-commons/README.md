@@ -32,6 +32,6 @@ bridge-opencode ←  implements it: HTTP API → opencode run → SKIPPED
 
 ## Part of
 
-- Deep Skills Suite
-- Consumed by: all bridge adapters, `deep-council`
+- UACP Bridge Adapter Suite
+- Consumed by: all bridge adapters, agent-council, and lifecycle skills
 - Depends on: nothing (this is the base layer)

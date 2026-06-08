@@ -44,10 +44,10 @@ skill_index:
   layout: modular_class_dirs
   index_file: INDEX.md
   entries:
-    - path: lifecycle/SKILL.md
-    - path: guardian/SKILL.md
-    - path: heartgate/SKILL.md
-    - path: state/SKILL.md
+    - path: uacp-lifecycle/SKILL.md
+    - path: uacp-guardian/SKILL.md
+    - path: uacp-heartgate/SKILL.md
+    - path: uacp-state/SKILL.md
 
 # Original intent preserved:
 # - Sessions without declared authority: still blocked.

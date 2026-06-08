@@ -8,7 +8,9 @@ If `uacp-context` is available, invoke it:
 Skill("uacp-context")
 ```
 
-If `uacp-context` is not available, perform inline signal extraction:
+If `uacp-context` is not available, perform inline signal extraction.
+
+### 1.1 Extract signals
 
 ```yaml
 brainstorm_signals:
@@ -24,4 +26,16 @@ brainstorm_signals:
 
 Record ambiguity_level honestly. Brainstorm exists specifically because ambiguity is high. If it is already low, the user may not need this skill at all — route directly to TRIAGE.
 
-**Output of this phase:** a `brainstorm_signals` block. Do not write it to the vault yet.
+### 1.2 Record evidence of context gathering
+
+Every file read to understand context must be logged:
+
+```yaml
+# In manifest.yaml → exploration.files_read
+- path: "docs/policy/constitution.md"
+  purpose: "Understand current authority chain"
+  phase: 1
+  timestamp: "{ISO-8601}"
+```
+
+**Output of this phase:** a `brainstorm_signals` block and the first entries in `manifest.yaml`.

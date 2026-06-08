@@ -56,4 +56,22 @@ risks:
 
 If `selected_scope.enter_uacp == false`, skip this phase and stop.
 
-**Output of this phase:** `07-scope-package.yaml` ready for TRIAGE admission.
+### 7.1 Update manifest.yaml with selection
+
+```yaml
+selected_scope:
+  title: "..."
+  approach_id: "A1"
+  enter_uacp: true | false
+  rationale: "Why this scope was selected"
+```
+
+Also mark the selected approach in `approaches_sketched`:
+
+```yaml
+approaches_sketched:
+  - id: "A1"
+    selected: true
+```
+
+**Output of this phase:** `07-scope-package.yaml` ready for TRIAGE admission, and `manifest.yaml` updated with final selection.

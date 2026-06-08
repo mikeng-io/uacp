@@ -3,14 +3,6 @@ __pycache__/
 *$py.class
 
 # UACP runtime artifacts — generated during execution, not source of truth
-executions/
-.outputs/
-state/gate-ledger/
-state/runs/
+.outputs/*
 
-# Verification runtime artifacts — keep fixtures only
-verification/
-!verification/fixtures/
-!verification/fixture-*/
-!verification/fixture-*.yaml
-!verification/fixture-*.md
+.DS_Stores

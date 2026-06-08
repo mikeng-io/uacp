@@ -77,3 +77,4 @@ BRAINSTORM → TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE
 - **Explore alternatives** — always sketch 2-3 approaches before settling
 - **The vault is disposable** — it is raw thinking material, not canonical state
 - **Only selected scope enters TRIAGE** — Guardian checks the admission boundary
+- **Anti-collapse** — one phase = one markdown file. Never merge phases. Every search and file read must be recorded in `manifest.yaml` and `references/`. The vault is both human narrative (markdown) and machine-readable evidence (YAML).

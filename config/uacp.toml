@@ -13,21 +13,35 @@ status = "active"
 # All paths are relative to UACP_ROOT unless absolute.
 
 [paths]
-output = ".outputs"           # Runtime output artifacts
-state = "state"               # Runtime state (current.yaml, runs/, gate-ledger/)
-executions = "executions"     # Execution checkpoints
-verification = "verification" # Verification artifacts (fixtures kept in git)
-proposals = "proposals"       # Proposal artifacts
-plans = "plans"               # Plan artifacts
-knowledge = "knowledge"       # Knowledge base (scenarios, lessons, indexes)
-docs = "docs"                 # Canonical documentation
-config = "config"             # Configuration directory
+output = ".outputs"                     # Central runtime output directory
+state = ".outputs/state"                # Runtime state (current.yaml, runs/, gate-ledger/)
+executions = ".outputs/executions"      # Execution checkpoints
+verification = ".outputs/verification"  # Verification artifacts (fixtures kept in git)
+proposals = ".outputs/proposals"           # Proposal artifacts
+plans = ".outputs/plans"                   # Plan artifacts
+knowledge = "knowledge"                 # Knowledge base (scenarios, lessons, indexes)
+docs = "docs"                           # Canonical documentation
+config = "config"                       # Configuration directory
 
 [paths.bridge_artifacts]
-root = ".outputs/bridges"     # Bridge execution artifacts (JSONL + Markdown)
+root = ".outputs/bridges"               # Bridge execution artifacts (JSONL + Markdown)
 
 [paths.council_artifacts]
-root = ".outputs/councils"    # Council session artifacts
+root = ".outputs/councils"              # Council session artifacts
+
+# =============================================================================
+# MODEL REGISTRY
+# =============================================================================
+# Model alias → concrete provider model IDs live in config/model-registry.yaml.
+# That file is the canonical upstream source. Bridges and skills fetch it from
+# GitHub raw content at runtime. This TOML only keeps bridge behavioural
+# settings (timeouts, feature flags, connection preferences).
+#
+# Raw URL:
+#   https://raw.githubusercontent.com/nortrix-labs/uacp/main/config/model-registry.yaml
+#
+# When a provider releases a new model, update ONLY model-registry.yaml —
+# no bridge skill code changes are required.
 
 # =============================================================================
 # MODELS & TIER SYSTEM
@@ -38,12 +52,9 @@ root = ".outputs/councils"    # Council session artifacts
 #
 # Assignment flow:
 #   1. Council assesses task → assigns tier (0–4) in bridge_input
-#   2. Bridge reads tier → resolves model + reasoning from its tier mapping
-#   3. If tier is absent, bridge derives it from task_type + intensity
-#
-# Model identifiers here are UACP aliases — bridges resolve them to actual
-# API model IDs at runtime. When a new model is released, update ONLY this
-# file (or uacp.local.toml) — no bridge code changes required.
+#   2. Bridge reads tier → resolves model alias + reasoning from model-registry.yaml
+#   3. Bridge resolves alias → concrete provider model ID from model-registry.yaml
+#   4. If tier is absent, bridge derives it from task_type + intensity
 
 [models.tiers.0]
 name = "minimal"
@@ -86,111 +97,44 @@ standard = 1
 thorough = 2
 
 # =============================================================================
-# BRIDGE TIER MAPPINGS
+# BRIDGE RUNTIME SETTINGS
 # =============================================================================
-# Each bridge defines how abstract tiers map to provider-specific models.
-# Format per entry: model_alias + reasoning_level.
-# When a provider releases a new model, change the alias here.
+# Connection preference, tier-to-alias mappings, and model identifiers are
+# defined in each bridge's SKILL.md and in config/model-registry.yaml.
+# This section contains only runtime-configurable parameters that skills
+# actively read from config/uacp.toml.
+#
+# To see the full list of parameters a bridge reads, check its
+# "Configuration Reference" section in skills/bridge-<name>/SKILL.md.
 
 # --- Claude (Anthropic) ---
-[bridges.claude.tiers]
-0 = { model = "haiku-4-6", reasoning = "medium" }
-1 = { model = "sonnet-4-6", reasoning = "medium" }
-2 = { model = "sonnet-4-6", reasoning = "high" }
-3 = { model = "opus-4-8", reasoning = "high" }
-4 = { model = "opus-4-8", reasoning = "xhigh" }
-
-# Claude-specific model aliases (resolved by bridge-claude at runtime)
-[bridges.claude.model_aliases]
-haiku-4-6 = "claude-3-5-haiku-latest"
-sonnet-4-6 = "claude-sonnet-4-6"       # bridge resolves to latest exact ID
-opus-4-8 = "claude-opus-4-8"
-
-# Claude-specific settings
 [bridges.claude]
 enabled = true
-connection_preference = ["native-dispatch", "cli", "api"]
 timeout_multiplier = 1.0
-agent_teams_env = "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"
-# Workflow support: Claude Code /workflows, /deep-research, ultracode keyword
 workflows_enabled = true
-deep_research_enabled = true
 
 # --- Codex (OpenAI) ---
-[bridges.codex.tiers]
-0 = { model = "gpt-4o-mini", reasoning = "medium" }
-1 = { model = "gpt-4o", reasoning = "medium" }
-2 = { model = "gpt-4o", reasoning = "high" }
-3 = { model = "o3", reasoning = "high" }
-4 = { model = "o3", reasoning = "xhigh" }
-
-[bridges.codex.model_aliases]
-gpt-4o-mini = "gpt-4o-mini"
-gpt-4o = "gpt-4o"
-o3 = "o3"
-
 [bridges.codex]
 enabled = true
-connection_preference = ["native-dispatch", "mcp", "cli"]
 timeout_multiplier = 1.2
-multi_agent_enabled = false
 
 # --- Gemini (Google) ---
-[bridges.gemini.tiers]
-0 = { model = "gemini-flash", reasoning = "medium" }
-1 = { model = "gemini-flash", reasoning = "medium" }
-2 = { model = "gemini-pro", reasoning = "high" }
-3 = { model = "gemini-pro", reasoning = "high" }
-4 = { model = "gemini-ultra", reasoning = "xhigh" }
-
-[bridges.gemini.model_aliases]
-gemini-flash = "gemini-2.5-flash"
-gemini-pro = "gemini-2.5-pro"
-gemini-ultra = "gemini-2.5-ultra"
-
 [bridges.gemini]
 enabled = true
-connection_preference = ["native-dispatch", "cli"]
 timeout_multiplier = 1.0
-subagent_mode = false
 
 # --- Kimi (Moonshot) ---
-[bridges.kimi.tiers]
-0 = { model = "kimi-default", reasoning = "thinking" }
-1 = { model = "kimi-default", reasoning = "thinking" }
-2 = { model = "kimi-default", reasoning = "thinking" }
-3 = { model = "kimi-default", reasoning = "thinking" }
-4 = { model = "kimi-default", reasoning = "thinking" }
-
-[bridges.kimi.model_aliases]
-kimi-default = "kimi-for-coding"   # Kimi K2.6 Thinking — currently only model
-
 [bridges.kimi]
 enabled = true
-connection_preference = ["cli", "acp-server"]
 timeout_multiplier = 1.0
 path = "auto"
-model = "default"
-reasoning_mode = "thinking"
 
 # --- OpenCode (multi-provider) ---
-[bridges.opencode.tiers]
-0 = { model = "glm-4-flash", reasoning = "medium" }
-1 = { model = "glm-4-7", reasoning = "medium" }
-2 = { model = "kimi-moonshot", reasoning = "high" }
-3 = { model = "qwen-plus", reasoning = "high" }
-4 = { model = "qwen-max", reasoning = "xhigh" }
-
-[bridges.opencode.model_aliases]
-glm-4-flash = "glm/glm-4-flash"
-glm-4-7 = "glm/glm-4-7"
-kimi-moonshot = "kimi/moonshot-v1-8k"
-qwen-plus = "qwen/qwen-plus"
-qwen-max = "qwen/qwen-max"
-
+# OpenCode is an exception: it is not bound to a specific model and uses
+# provider/model format natively.  These settings control OpenCode behaviour
+# only; model selection is delegated to the OpenCode runtime.
 [bridges.opencode]
 enabled = true
-connection_preference = ["native-dispatch", "http-api", "cli"]
 timeout_multiplier = 1.5
 models = []
 

@@ -1,6 +1,6 @@
 ---
 name: domain-registry
-description: Reference library of domain definitions used by deep-* skills to select appropriate expert agents. Not invocable standalone — read via the Read tool by context, deep-audit, deep-verify, deep-review, deep-research, deep-explorer, and deep-council.
+description: Reference library of domain definitions used by UACP lifecycle skills and bridge adapters to select appropriate expert agents. Not invocable standalone — read via the Read tool by context, agent-council, and all bridge adapters.
 location: managed
 context: reference
 ---

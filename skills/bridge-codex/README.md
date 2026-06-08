@@ -75,4 +75,4 @@ Unlike other bridges, Codex uses four statuses: `COMPLETED`, `SKIPPED`, `HALTED`
 
 ## Consumed by
 
-Any orchestrating skill (e.g., `deep-council`, `deep-review`, `deep-audit`, or custom skills)
+Any orchestrating skill (e.g., `agent-council`, lifecycle skills, or custom skills)

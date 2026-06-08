@@ -21,30 +21,42 @@ bridge: kimi
 model_family: moonshot/kimi
 availability: conditional
 connection_preference:
-  1: cli
-  2: acp-server   # Agent Client Protocol over stdio
-  3: skip
+  1: native-dispatch  # Executor is Kimi Code — Agent tool sub-agents
+  2: cli              # Any other executor — kimi -p
+  3: acp-server       # Agent Client Protocol over stdio
+  4: skip
 ```
+
+---
+
+## Configuration Reference
+
+Parameters this bridge reads from `config/uacp.toml` at runtime:
+
+| Parameter | Section | Type | Default | Description |
+|-----------|---------|------|---------|-------------|
+| `enabled` | `[bridges.kimi]` | boolean | `true` | Whether this bridge is active. If `false`, the orchestrator skips it. |
+| `timeout_multiplier` | `[bridges.kimi]` | float | `1.0` | Multiplier applied to the bridge-commons base timeout estimate. |
+| `path` | `[bridges.kimi]` | string | `"auto"` | Path to the `kimi` binary. `"auto"` resolves via `$PATH` and common locations. |
+
+**Not read from TOML** (intrinsic to bridge implementation):
+- `connection_preference` — defined in this SKILL.md only
+- Model selection — resolved from `config/model-registry.yaml`, not TOML
 
 ---
 
 ## Tier Resolution
 
-Kimi bridge resolves the model from `config/uacp.toml` using the bridge-commons tier system.
+Kimi bridge resolves the model alias from `config/model-registry.yaml` in `UACP_ROOT`. The tier mapping lives **only** in the registry — this skill does not hardcode it.
 
-### Default tier mapping (from `config/uacp.toml`)
+**Resolution protocol:**
+1. Read `UACP_ROOT/config/model-registry.yaml`
+2. Look up `tier_mappings.kimi.{tier}` → get `alias` + `reasoning`
+3. Look up `providers.moonshot.models.{alias}.concrete_id` → get resolved model ID
 
-| Tier | Model alias | Kimi CLI equivalent |
-|------|-------------|---------------------|
-| 0 | kimi-default | `-m kimi-for-coding` (or omit, uses default) |
-| 1 | kimi-default | `-m kimi-for-coding` |
-| 2 | kimi-default | `-m kimi-for-coding` |
-| 3 | kimi-default | `-m kimi-for-coding` |
-| 4 | kimi-default | `-m kimi-for-coding` |
+The alias is stable; the `concrete_id` is updated in the registry when Moonshot releases new models. No bridge skill changes required.
 
-**Current limitation:** Kimi Code currently offers one primary model (`kimi-for-coding` — Kimi K2.6 Thinking). All tiers map to the same model. The tier system is still enforced for consistency and future-proofing — when Moonshot releases additional models, update `config/uacp.toml` only.
-
-**Model alias resolution:** Look up `bridges.kimi.model_aliases` in `config/uacp.toml`.
+**Current limitation:** Kimi Code currently offers one primary model (`kimi-k2.6`). All tiers map to the same alias in the registry. When Moonshot releases additional models, update `config/model-registry.yaml` only.
 
 **Override via `bridge_input.tier`:** If the council assigns a specific tier, use it directly. If absent, derive from `task_type` + `intensity` per bridge-commons rules.
 
@@ -52,7 +64,22 @@ Kimi bridge resolves the model from `config/uacp.toml` using the bridge-commons 
 
 ## Pre-Flight
 
-### 1. Resolve Kimi binary path
+### Check A: Native Dispatch?
+
+If the executor is Kimi Code with Agent tool access, this is the preferred path — spawn parallel Kimi sub-agents rather than shelling out to the CLI.
+
+```bash
+# Check if running inside a Kimi Code session
+echo ${KIMI_CODE_SESSION_ID:+found}
+```
+
+If in a Kimi Code session → **use native dispatch** (Agent tool path in Native Dispatch section).
+
+If executor is not Kimi Code → proceed to Check B.
+
+---
+
+### Check B: Resolve Kimi binary path
 
 Check in priority order:
 
@@ -64,7 +91,7 @@ Check in priority order:
    - `$HOME/.local/bin/kimi`
    - `/usr/local/bin/kimi`
 
-### 2. CLI availability check
+### Check C: CLI availability check
 
 ```bash
 test -x "<resolved-kimi-path>" && "<resolved-kimi-path>" --version
@@ -72,21 +99,22 @@ test -x "<resolved-kimi-path>" && "<resolved-kimi-path>" --version
 
 If unavailable, return `SKIPPED` with `skip_reason: "kimi CLI not available"`.
 
-### 3. Model resolution
+### Check D: Model resolution
 
 ```yaml
 priority:
-  1: UACP config → config/uacp.toml → bridges.kimi.model_aliases
+  1: UACP model registry → UACP_ROOT/config/model-registry.yaml → tier_mappings.kimi.{tier}
   2: Environment → KIMI_CODE_MODEL
   3: CLI default → omit --model flag (uses config.toml default_model)
 ```
 
-Resolve tier first, then look up the model alias:
+Resolve tier first, then look up the model alias from the registry:
 ```bash
-# Determine tier (from bridge_input.tier or derive from task_type + intensity)
-# Look up bridges.kimi.tiers.{tier} in config/uacp.toml
-# Resolve model alias via bridges.kimi.model_aliases
-# Set RESOLVED_MODEL
+# 1. Determine tier (from bridge_input.tier or derive from task_type + intensity)
+# 2. Read UACP_ROOT/config/model-registry.yaml
+# 3. Look up tier_mappings.kimi.{tier} → get alias + reasoning
+# 4. Look up providers.moonshot.models.{alias}.concrete_id → get resolved model ID
+# 5. Set RESOLVED_MODEL
 ```
 
 Valid model aliases depend on the Kimi Code version. Check available models via:
@@ -94,7 +122,7 @@ Valid model aliases depend on the Kimi Code version. Check available models via:
 kimi provider list
 ```
 
-### 4. Auth check
+### Check E: Auth check
 
 Kimi Code uses OAuth device-code flow. Check login status:
 ```bash
@@ -102,6 +130,26 @@ kimi login status 2>/dev/null || echo "not_logged_in"
 ```
 
 If not authenticated → return `HALTED` with advisory to run `kimi login`.
+
+---
+
+## Native Dispatch (preferred when executor is Kimi Code)
+
+When running inside Kimi Code, use the Agent tool to spawn parallel sub-agents — one per domain from `bridge_input.domains`. Build prompts using the Agent Prompt Template from bridge-commons.
+
+```
+Agent 1: {domain_1} expert — focus: {focus_areas}, scope: {scope}
+Agent 2: {domain_2} expert — focus: {focus_areas}, scope: {scope}
+...
+Agent N:   Devil's Advocate — challenge assumptions, find failure modes (domain: "cross-domain")
+Agent N+1: Integration Checker — cross-component impacts, implicit contracts (domain: "integration")
+```
+
+All agents run in parallel. After all complete, run the bridge-commons Post-Analysis Protocol. For subsequent rounds, spawn new agents with the context packet embedded in their prompts — the parent agent holds all state between rounds.
+
+**Key advantage:** No external process spawn overhead; sub-agents reuse the parent's auth, model config, and working directory.
+
+**Fallback:** If Agent tool is unavailable (e.g., nested execution depth limit) → fall back to CLI path.
 
 ---
 
@@ -159,6 +207,8 @@ kimi -S "$SESSION_ID" -p "$PROMPT" --output-format json
 
 ## CLI Reference
 
+**Last verified:** 2026-06-07
+
 ### Global options
 
 | Flag | Description |
@@ -203,9 +253,9 @@ Return bridge-commons output with:
 ```json
 {
   "bridge": "kimi",
-  "connection_used": "cli",
+  "connection_used": "native-dispatch | cli | acp-server",
   "model_family": "moonshot/kimi",
   "tier": 2,
-  "resolved_model": "kimi-for-coding"
+  "resolved_model": "<resolved from registry>"
 }
 ```
