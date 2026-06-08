@@ -34,6 +34,7 @@ The template is at [0000-template.md](0000-template.md). Numbering is sequential
 | [0012](0012-phase-intent-verification.md) | Phase Intent Verification | accepted | 2026-05-19 |
 | [0013](0013-adaptive-verify-evidence.md) | Adaptive VERIFY evidence gate | accepted | 2026-05-19 |
 | [0014](0014-adaptive-resolve-closure.md) | Adaptive RESOLVE closure gate | accepted | 2026-05-19 |
+| [0015](0015-web-backends-separate-from-bridge-adapters.md) | Web backends remain separate from bridge-* runtime adapters | accepted | 2026-06-08 |
 
 ## Related
 

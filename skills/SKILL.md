@@ -17,6 +17,12 @@ metadata:
       - uacp-verify
       - uacp-resolve
       - uacp-state
+      - uacp-context
+      - uacp-brainstorm
+      - uacp-council
+      - uacp-debate
+      - uacp-council-taxonomy
+      - uacp-parallel
 ---
 
 # Universal Agent Control Plane — Router
