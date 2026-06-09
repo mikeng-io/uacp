@@ -14,7 +14,9 @@ When layers conflict, earlier layers win. An explicit entry in `docs/decisions/d
 | 2 | `docs/` | Intent, principles, lifecycle, policy |
 | 3 | `config/` | Machine-readable rules derived from docs |
 | 4 | `state/` | Current lifecycle position and run pointers |
-| 5 | Skills and runtime behavior | Implement the documented rules |
+| 5 | `skills/` (esp. `skills/state/` for state mutation contracts) | Implement the documented rules |
+
+> **Note:** `state/` is runtime-created — it does not exist in a fresh clone. An agent bootstrapping cold should treat a missing `state/` as "no active run" rather than an error.
 
 **Start here as an agent:** `docs/INDEX.md`
 
@@ -48,6 +50,7 @@ These rules are non-negotiable. Violations are Heartgate blockers or Guardian bl
    - `uacp_gate_ledger_append` — gate ledger (`state/gate-ledger/`)
    - `uacp_run_registry_update` — run registry (`state/run-registry.yaml`)
    - `uacp_escalation_event` — escalations (`state/escalations/`)
+   - `uacp_kanban_write` — coordination adapter state (`state/kanban.yaml`)
 4. **Council gate** — Any change to kernel code, policy YAML, or canonical docs requires council review before PLAN exits. Zero material findings unresolved.
 5. **Evidence must be produced** — "Done" without a backing artifact and ledger entry is a Heartgate blocker. No self-attesting closures.
 
@@ -65,12 +68,13 @@ These rules are non-negotiable. Violations are Heartgate blockers or Guardian bl
 | RESOLVE | `uacp-resolve` | Lessons, closure, state release |
 | Guardian | `uacp-guardian` | Pre-tool-call policy enforcement |
 | Council | `uacp-council` | Multi-agent deliberation (any phase) |
+| Heartgate | `uacp-heartgate` | Phase-transition validation |
 
 ---
 
 ## Cognitive Planes
 
-UACP enforces strict separation between five planes. Mixing planes causes category errors — do not use Agent Council as a state database, do not let worker runtimes silently mutate UACP phase state, do not use a Coordination Adapter to decide policy.
+UACP enforces strict separation between six planes. Mixing planes causes category errors — do not use Agent Council as a state database, do not let worker runtimes silently mutate UACP phase state, do not use a Coordination Adapter to decide policy.
 
 | Plane | Role |
 |---|---|
@@ -107,8 +111,8 @@ Auto-setup: write to `.mcp.json`:
 timeout <n> codex exec "<prompt>" \
   --sandbox read-only \
   --ask-for-approval never \
-  --json \
-  --output-last-message /tmp/codex-out.json \
+  --json \                                   # structured JSON output for parsing
+  --output-last-message /tmp/codex-bridge-$(date +%s).json \
   --ephemeral \
   --skip-git-repo-check
 ```
