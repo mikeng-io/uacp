@@ -13,15 +13,18 @@ status = "active"
 # All paths are relative to UACP_ROOT unless absolute.
 
 [paths]
-output = ".outputs"                     # Central runtime output directory
-state = ".outputs/state"                # Runtime state (current.yaml, runs/, gate-ledger/)
-executions = ".outputs/executions"      # Execution checkpoints
-verification = ".outputs/verification"  # Verification artifacts (fixtures kept in git)
-proposals = ".outputs/proposals"           # Proposal artifacts
-plans = ".outputs/plans"                   # Plan artifacts
-knowledge = "knowledge"                 # Knowledge base (scenarios, lessons, indexes)
-docs = "docs"                           # Canonical documentation
-config = "config"                       # Configuration directory
+# Subdirectory names under the governed namespace root (`base`). Consumed by the
+# config resolver in skills/uacp-core/scripts/config.py. Values are name segments
+# resolved as `<base>/<segment>` under UACP_ROOT — not pre-prefixed paths.
+base = ".uacp"
+state = "state"
+proposals = "proposals"
+plans = "plans"
+executions = "executions"
+verification = "verification"
+resolutions = "resolutions"   # replaces the old .outputs/
+knowledge = "knowledge"
+config = "config.toml"
 
 [paths.bridge_artifacts]
 root = ".outputs/bridges"               # Bridge execution artifacts (JSONL + Markdown)
