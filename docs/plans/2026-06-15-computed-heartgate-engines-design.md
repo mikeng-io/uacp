@@ -121,6 +121,19 @@ genuinely fails an engine, that's a real finding — keep the check correct, xfa
 positive assertion with a precise reason, and report it (it may reveal a kernel bug like
 F-T3-01).
 
+## Status: DELIVERED (2026-06-15)
+
+All five engines built, independently teeth-verified, wired into
+`Heartgate.validate_closure` as RESOLVE blockers (decoupled — not auto-called in
+`handle_finalize`). F-EV-01 fixed config-wide. Self-attested coherence flag superseded.
+321 tests pass; engines/ ruff-clean. See decision-log 2026-06-15.
+
+**Non-blocking follow-ups:** (a) dedupe `C2`/`LI` ledger-malformed overlap at the
+reporting layer (one finding per corrupt line, as done for SC/C6); (b) review the
+`bridge-commons` three-dot `...outputs` token; (c) the Claude Code **plugin** (MCP server
+exposing governed writers + `uacp_validate_closure` as tools + PreToolUse Guardian hook)
+is the next effort — the real "Claude Code adapter."
+
 ## Success criteria
 
 - One `engines/` package, one `Violation` type, one `ENGINES` registry.

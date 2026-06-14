@@ -6,6 +6,37 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-06-15 — Computed Heartgate Engines Supersede Self-Attested Coherence
+
+Decision: Run coherence and adjacent run-integrity checks as **deterministic computed engines** that Heartgate executes at RESOLVE (`Heartgate.validate_closure`), turning `block`-severity findings into real Heartgate blockers. The self-attested `heartgate_coherence.status` flag (`core.py:_validate_heartgate_coherence`) is **superseded** and advisory only — the computed `coherence` engine is authoritative. Five engines ship: `coherence`, `ledger_integrity`, `scope_conformance`, `evidence_completeness`, `deferral_completeness`, organized as a hexagonal-lite package (`engines/{base,domain,io,<engine>}`) with one shared `Violation` type and one `ENGINES` registry.
+
+Rationale: the prior coherence "lens" trusted an agent-supplied `status: pass/block` and only checked that lens *names* were listed — self-attestation, violating "no self-attesting closures." The engines compute each dimension (ids/ledger/history/artifacts/scope/evidence/deferrals actually agree) instead of trusting a flag. `validate_closure` is decoupled (NOT auto-called in `state_machine.handle_finalize`); the RESOLVE flow / future MCP `uacp_validate_closure` tool invokes it. It expects a finalized run (terminal checks require the closed state). Architecture is hexagonal-lite + DDD vocabulary; tooling adds ruff (strict on `engines/`) and Pydantic domain models.
+
+Status: accepted.
+
+Canonical targets:
+
+- `skills/uacp-core/scripts/engines/**` (the five engines + base/domain/io)
+- `skills/uacp-core/scripts/core.py` (`Heartgate.validate_closure`; `_validate_heartgate_coherence` marked superseded)
+- `config/phase-transitions.yaml` and config layer (F-EV-01 fix, below)
+- `docs/plans/2026-06-15-computed-heartgate-engines-design.md`
+
+Follow-up: (1) deliver the engines into Claude Code as a plugin (MCP server exposing governed writers + `uacp_validate_closure` as tools, PreToolUse Guardian hook) — the "Claude Code adapter." (2) Dedupe the `C2`/`LI` ledger-malformed overlap at the reporting layer (one finding per corrupt line), as done for `SC`/`C6`. (3) Phase 2: apply the F-T3-01 fail-closed normalization when gate grammar moves to Python.
+
+### 2026-06-15 — F-EV-01: Config-Wide `..outputs` Typo Corrected to `.outputs`
+
+Decision: The config layer referenced `..outputs/` (a non-existent directory) in ~6 files while the executable kernel writes and reads `.outputs/`. Corrected all `..outputs` → `.outputs` (57 occurrences across 25 config/script/skill files) so governance points at the directory the kernel actually uses. Source of truth = the executable kernel.
+
+Rationale: surfaced by `evidence_completeness` — the resolve-phase exit invariant glob `..outputs/{run_id}*` would never match, so the computed gate would have false-blocked **every** real resolved run. A latent, scattered inconsistency invisible until something computed against those paths. The three-dot `...outputs` token in `bridge-commons` is a separate construct, left untouched.
+
+Status: accepted.
+
+Canonical targets:
+
+- `config/phase-transitions.yaml`, `config/state.yaml`, `config/roots.yaml`, `config/guardian-policy.yaml`, `config/artifact-schemas.yaml`, and affected `scripts/`/`skills/`.
+
+Follow-up: review the `bridge-commons` three-dot `...outputs` token separately.
+
 ### 2026-06-15 — Adaptive Gates Are Fail-Closed on Absent Config (F-T3-01)
 
 Decision: When an adaptive gate's configuration key is absent, the gate MUST enforce (demand its evidence), not silently self-disable. This fail-closed default is the canonical behavior. The kernel change is deferred to the Phase 2 config collapse (which moves gate grammar from YAML into Python), rather than patched into the current YAML-loading code that Phase 2 will replace.
