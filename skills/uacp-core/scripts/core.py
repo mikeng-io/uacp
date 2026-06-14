@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+from config import base_dir
+
 try:
     import yaml
 except ImportError:  # pragma: no cover - Hermes ships with PyYAML in normal use.
@@ -553,7 +555,7 @@ class Guardian:
                 token = token.strip('"\'')
                 if not token or token.startswith("-"):
                     continue
-                if token.startswith(("./", "../", "state/", "config/", "docs/", "proposals/", "plans/", "executions/", "verification/", ".outputs/", "uacp/")):
+                if token.startswith(("./", "../", ".uacp/", "state/", "config/", "docs/", "proposals/", "plans/", "executions/", "verification/", "resolutions/", "knowledge/", "uacp/")):
                     for base in context_paths or [root_path]:
                         try:
                             candidate = (base / token).resolve()
@@ -566,7 +568,7 @@ class Guardian:
     def _path_is_under_state(self, raw_path: str) -> bool:
         try:
             path = self._resolve_path(raw_path)
-            state_root = (self.policy.uacp_root / "state").resolve()
+            state_root = (base_dir(self.policy.uacp_root) / "state").resolve()
             return path == state_root or state_root in path.parents
         except Exception:
             return False
