@@ -188,3 +188,40 @@ def load_scope(workspace: Path, rel: str) -> Loaded[Scope]:
     if loaded.error is not None or loaded.value is None:
         return Loaded(error=loaded.error or "scope artifact is not a mapping")
     return Loaded(value=Scope.model_validate(loaded.value))
+
+
+def load_phase_transitions(workspace: Path) -> Loaded[dict[str, Any]]:
+    """Load ``config/phase-transitions.yaml`` as a parsed mapping.
+
+    Used by the evidence-completeness engine to read each phase's declared
+    ``phase_exit_invariants``. ``value`` is the parsed mapping; ``error`` is set
+    when the file is missing, garbled, or is not a mapping. Never raises.
+    """
+    path = workspace / "config" / "phase-transitions.yaml"
+    raw, err = _safe_load_yaml(path)
+    if err is not None:
+        return Loaded(error=err)
+    if not isinstance(raw, dict):
+        return Loaded(error="config/phase-transitions.yaml is not a YAML mapping")
+    return Loaded(value=raw)
+
+
+def glob_in_workspace(workspace: Path, pattern: str) -> list[Path]:
+    """Glob a workspace-relative pattern, returning only matches inside the root.
+
+    Defensive: never raises. Patterns whose literal prefix escapes the workspace,
+    or that cannot be globbed, yield ``[]``. Matches that resolve outside the
+    workspace (e.g. via symlinks) are dropped.
+    """
+    try:
+        root = workspace.resolve()
+        matches: list[Path] = []
+        for m in root.glob(pattern):
+            try:
+                m.resolve().relative_to(root)
+            except Exception:
+                continue
+            matches.append(m)
+        return matches
+    except Exception:
+        return []
