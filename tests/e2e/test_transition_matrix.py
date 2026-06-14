@@ -2,8 +2,11 @@
 
 This is a deliberate bug-shaking matrix: 30 cells (6 phases x 6, minus the
 diagonal). It pins the kernel's `Heartgate.validate_transition` against the legal
-transition graph declared in `config/phase-transitions.yaml`
-(triage -> propose -> plan -> execute -> verify -> resolved).
+transition graph written by the `temp_uacp_root` fixture in `tests/conftest.py`
+(triage -> propose -> plan -> execute -> verify -> resolved, with `resolved`
+terminal). NOTE: this is the fixture's SYNTHETIC graph, not the production
+`config/phase-transitions.yaml`, which uses different phase names (e.g. `resolve`
+and the exit target `terminal`).
 
 TWO LAYERS, KEPT SEPARATE
 -------------------------
@@ -48,8 +51,9 @@ from core import Heartgate
 
 PHASES = ["triage", "propose", "plan", "execute", "verify", "resolved"]
 
-# The legal transition graph, mirroring config/phase-transitions.yaml's
-# stages.<phase>.exits_to. This is the ground truth the matrix asserts against.
+# The legal transition graph, mirroring the fixture's synthetic
+# stages.<phase>.exits_to (tests/conftest.py temp_uacp_root) — NOT the production
+# config/phase-transitions.yaml. This is the ground truth the matrix asserts against.
 ALLOWED = {
     ("triage", "propose"),
     ("propose", "plan"),
