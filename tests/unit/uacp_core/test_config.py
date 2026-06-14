@@ -107,3 +107,13 @@ def test_dir_for_rejects_unknown_key(tmp_path):
     from config import dir_for
     with pytest.raises(ValueError):
         dir_for(tmp_path, "nope")
+
+
+def test_base_dir_rejects_escaping_base(tmp_path):
+    from config import base_dir, clear_config_cache
+    clear_config_cache()
+    (tmp_path / ".uacp").mkdir()
+    (tmp_path / ".uacp" / "config.toml").write_text('[paths]\nbase = "../escape"\n')
+    with pytest.raises(ValueError):
+        base_dir(tmp_path)
+    clear_config_cache()

@@ -128,7 +128,9 @@ def _cached_config(root_str: str) -> UacpConfig:
 
 
 def clear_config_cache() -> None:
-    """Drop the per-root config cache (test hygiene; see conftest autouse)."""
+    """Drop the per-root config cache. Call between tests that mutate a
+    project's ``.uacp/config.toml`` after a prior read (a conftest autouse
+    fixture wires this up suite-wide once Slice 2's conftest change lands)."""
     _cached_config.cache_clear()
 
 
@@ -143,19 +145,35 @@ def get_config(root: Path) -> UacpConfig:
 
 
 def base_dir(root: Path) -> Path:
-    """The governed namespace root: ``<root>/<paths.base>`` (default ``.uacp``)."""
+    """The governed namespace root: ``<root>/<paths.base>`` (default ``.uacp``).
+
+    ``paths.base`` is config-controlled (``.uacp/config.toml`` may override it),
+    so containment is enforced: the resolved base must stay under ``root``. A
+    base that escapes (e.g. ``"../foo"``) raises ``ValueError`` — fail closed,
+    matching :meth:`UacpConfig.resolve`'s traversal semantics.
+    """
     cfg = get_config(root)
-    return Path(root).resolve() / cfg.paths.base
+    root_resolved = Path(root).resolve()
+    candidate = (root_resolved / cfg.paths.base).resolve()
+    if candidate != root_resolved and root_resolved not in candidate.parents:
+        raise ValueError(f"paths.base {cfg.paths.base!r} escapes root {root_resolved}")
+    return candidate
 
 
 def dir_for(root: Path, path_key: str) -> Path:
     """Resolve a declared ``[paths]`` subdir under the governed base.
 
-    Plain join (no traversal check — ``path_key`` is a kernel constant, not user
-    input); raises ``ValueError`` for an unknown key so typos fail loud.
+    ``path_key`` must be a declared field (unknown key raises ``ValueError`` so
+    typos fail loud). The subdir *value* is config-controlled, so containment is
+    enforced: the result must stay under the governed base — a traversing value
+    raises ``ValueError`` (fail closed).
     """
     cfg = get_config(root)
     if path_key not in type(cfg.paths).model_fields:
         known = ", ".join(sorted(type(cfg.paths).model_fields))
         raise ValueError(f"unknown paths key {path_key!r}; expected one of: {known}")
-    return base_dir(root) / getattr(cfg.paths, path_key)
+    base = base_dir(root)
+    candidate = (base / getattr(cfg.paths, path_key)).resolve()
+    if candidate != base and base not in candidate.parents:
+        raise ValueError(f"paths.{path_key} {getattr(cfg.paths, path_key)!r} escapes base {base}")
+    return candidate
