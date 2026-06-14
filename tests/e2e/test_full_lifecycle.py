@@ -68,10 +68,10 @@ def _na_block(*, with_trigger: bool = False) -> dict:
 
 def _seed_proposal_package(root: Path, run_id: str) -> None:
     """Create the proposal package + selection the propose->plan gate requires."""
-    pkg_dir = root / "proposals" / run_id
+    pkg_dir = root / ".uacp" / "proposals" / run_id
     pkg_dir.mkdir(parents=True, exist_ok=True)
     module_artifact = f"proposals/{run_id}/module-core.yaml"
-    (root / module_artifact).write_text("kind: uacp.proposal_module\nbody: stub\n")
+    (root / ".uacp" / module_artifact).write_text("kind: uacp.proposal_module\nbody: stub\n")
     selection = {
         "kind": "uacp.proposal_package_selection",
         "run_id": run_id,
@@ -80,23 +80,23 @@ def _seed_proposal_package(root: Path, run_id: str) -> None:
             "core": {"reason": "minimal e2e module", "artifact": module_artifact},
         },
     }
-    (root / "proposals" / f"{run_id}-package-selection.yaml").write_text(
+    (root / ".uacp" / "proposals" / f"{run_id}-package-selection.yaml").write_text(
         yaml.safe_dump(selection, sort_keys=False)
     )
 
 
 def _seed_plan_package(root: Path, run_id: str) -> None:
     """Create the plan package + selection + scope the plan->execute gate requires."""
-    pkg_dir = root / "plans" / run_id
+    pkg_dir = root / ".uacp" / "plans" / run_id
     pkg_dir.mkdir(parents=True, exist_ok=True)
     module_artifact = f"plans/{run_id}/module-core.yaml"
-    (root / module_artifact).write_text("kind: uacp.plan_module\nbody: stub\n")
-    (root / "plans" / f"{run_id}-scope.yaml").write_text(
+    (root / ".uacp" / module_artifact).write_text("kind: uacp.plan_module\nbody: stub\n")
+    (root / ".uacp" / "plans" / f"{run_id}-scope.yaml").write_text(
         "kind: uacp.scope\nwrite_paths: []\nbody: stub\n"
     )
     # The run_registry_rule fires on plan->execute and warns when the registry
     # is absent. Seed it (empty active set) so this is a clean pass, not a warn.
-    (root / "state" / "run-registry.yaml").write_text(
+    (root / ".uacp" / "state" / "run-registry.yaml").write_text(
         yaml.safe_dump({"active_runs": []}, sort_keys=False)
     )
     selection = {
@@ -109,7 +109,7 @@ def _seed_plan_package(root: Path, run_id: str) -> None:
         },
         "transition_readiness": {"status": "ready_for_execute"},
     }
-    (root / "plans" / f"{run_id}-plan-selection.yaml").write_text(
+    (root / ".uacp" / "plans" / f"{run_id}-plan-selection.yaml").write_text(
         yaml.safe_dump(selection, sort_keys=False)
     )
 
@@ -200,7 +200,7 @@ def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str
 
     # Assert on the emitted TRAJECTORY, not file paths / config contents.
     manifest = yaml.safe_load(
-        (temp_uacp_root / "state" / "runs" / f"{valid_run_id}.yaml").read_text()
+        (temp_uacp_root / ".uacp" / "state" / "runs" / f"{valid_run_id}.yaml").read_text()
     )
     assert manifest["status"] == "resolved"
     assert manifest["current_phase"] == "resolved"
@@ -209,7 +209,7 @@ def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str
     assert [(h["from_phase"], h["to_phase"]) for h in transitions] == PHASES
 
     ledger_lines = (
-        (temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl")
+        (temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl")
         .read_text()
         .strip()
         .split("\n")

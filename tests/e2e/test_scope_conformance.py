@@ -31,7 +31,7 @@ def _codes(violations) -> set[str]:
 
 
 def _scope_path(root: Path, run_id: str) -> Path:
-    return root / "plans" / f"{run_id}-scope.yaml"
+    return root / ".uacp" / "plans" / f"{run_id}-scope.yaml"
 
 
 def _load_scope(root: Path, run_id: str) -> dict:
@@ -43,7 +43,7 @@ def _write_scope(root: Path, run_id: str, data: dict) -> None:
 
 
 def _registry_path(root: Path) -> Path:
-    return root / "state" / "run-registry.yaml"
+    return root / ".uacp" / "state" / "run-registry.yaml"
 
 
 def _load_registry(root: Path) -> dict:
@@ -104,7 +104,7 @@ def test_sc_artifact_out_of_scope(temp_uacp_root: Path, valid_run_id: str):
     (temp_uacp_root / "docs").mkdir(parents=True, exist_ok=True)
     (temp_uacp_root / out_rel).write_text("kind: stray\n")
 
-    manifest_path = temp_uacp_root / "state" / "runs" / f"{valid_run_id}.yaml"
+    manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / f"{valid_run_id}.yaml"
     data = yaml.safe_load(manifest_path.read_text())
     data.setdefault("artifacts", {})["stray"] = out_rel
     manifest_path.write_text(yaml.safe_dump(data, sort_keys=False))
@@ -129,7 +129,7 @@ def test_sc_artifact_in_declared_write_path_is_ok(temp_uacp_root: Path, valid_ru
     in_rel = "docs/in-scope-product.yaml"
     (temp_uacp_root / "docs").mkdir(parents=True, exist_ok=True)
     (temp_uacp_root / in_rel).write_text("kind: in-scope\n")
-    manifest_path = temp_uacp_root / "state" / "runs" / f"{valid_run_id}.yaml"
+    manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / f"{valid_run_id}.yaml"
     data = yaml.safe_load(manifest_path.read_text())
     data.setdefault("artifacts", {})["product"] = in_rel
     manifest_path.write_text(yaml.safe_dump(data, sort_keys=False))
@@ -194,7 +194,7 @@ def test_never_raises_on_missing_run(temp_uacp_root: Path):
 def test_never_raises_on_missing_scope(temp_uacp_root: Path, another_run_id: str):
     # A run that has not declared a scope: write a bare manifest with no scope
     # artifact reference -> no-op, no exception.
-    manifest_path = temp_uacp_root / "state" / "runs" / f"{another_run_id}.yaml"
+    manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / f"{another_run_id}.yaml"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(yaml.safe_dump({"run_id": another_run_id, "artifacts": {}}))
     out = validate(temp_uacp_root, another_run_id)
@@ -205,7 +205,7 @@ def test_never_raises_on_missing_registry(temp_uacp_root: Path, valid_run_id: st
     # Scope declared but registry absent -> scope/registry check is a no-op; the
     # other (registry-independent) checks still run without raising.
     seed_coherent_run(temp_uacp_root, valid_run_id)
-    (temp_uacp_root / "state" / "run-registry.yaml").unlink()
+    (temp_uacp_root / ".uacp" / "state" / "run-registry.yaml").unlink()
     out = validate(temp_uacp_root, valid_run_id)
     assert isinstance(out, list)
     assert "SC_SCOPE_REGISTRY_DISAGREE" not in _codes(out)

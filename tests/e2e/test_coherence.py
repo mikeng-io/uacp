@@ -114,9 +114,9 @@ def seed_coherent_run(root: Path, run_id: str) -> None:
     _register_artifact(root, run_id, "scope", scope_rel)
 
     # Author + register the lessons (closure) artifact for the resolved run.
-    lessons_rel = f".outputs/{run_id}-lessons.yaml"
-    (root / ".outputs").mkdir(parents=True, exist_ok=True)
-    (root / lessons_rel).write_text(
+    lessons_rel = f"resolutions/{run_id}-lessons.yaml"
+    (root / ".uacp" / "resolutions").mkdir(parents=True, exist_ok=True)
+    (root / ".uacp" / lessons_rel).write_text(
         yaml.safe_dump(
             {
                 "kind": "uacp.lessons",
@@ -138,7 +138,7 @@ def seed_coherent_run(root: Path, run_id: str) -> None:
 
     # Align the run-registry write_paths with scope.write_paths ([]) so C6 is a
     # clean pass. The plan seeder leaves active_runs == []; register this run.
-    registry_path = root / "state" / "run-registry.yaml"
+    registry_path = root / ".uacp" / "state" / "run-registry.yaml"
     registry_path.write_text(
         yaml.safe_dump(
             {
@@ -159,7 +159,7 @@ def seed_coherent_run(root: Path, run_id: str) -> None:
 
 
 def _manifest_path(root: Path, run_id: str) -> Path:
-    return root / "state" / "runs" / f"{run_id}.yaml"
+    return root / ".uacp" / "state" / "runs" / f"{run_id}.yaml"
 
 
 def _load_manifest_raw(root: Path, run_id: str) -> dict:
@@ -203,7 +203,7 @@ def test_c1_run_id_mismatch_in_artifact(temp_uacp_root: Path, valid_run_id: str)
     assert "C1_RUN_ID_MISMATCH" not in _codes(validate_run_coherence(temp_uacp_root, valid_run_id))
 
     # Corrupt the run_id inside the lessons artifact only.
-    lessons_path = temp_uacp_root / ".outputs" / f"{valid_run_id}-lessons.yaml"
+    lessons_path = temp_uacp_root / ".uacp" / "resolutions" / f"{valid_run_id}-lessons.yaml"
     body = yaml.safe_load(lessons_path.read_text())
     body["run_id"] = "some-other-run"
     lessons_path.write_text(yaml.safe_dump(body, sort_keys=False))
@@ -223,7 +223,7 @@ def test_c2_deleted_ledger_line_orphans_history(temp_uacp_root: Path, valid_run_
         }
     )
 
-    ledger_path = temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
+    ledger_path = temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
     lines = ledger_path.read_text().strip().splitlines()
     ledger_path.write_text("\n".join(lines[:-1]) + "\n")  # drop one gate
 
@@ -233,7 +233,7 @@ def test_c2_deleted_ledger_line_orphans_history(temp_uacp_root: Path, valid_run_
 
 def test_c2_spurious_ledger_line_orphans_ledger(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)
-    ledger_path = temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
+    ledger_path = temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
     # Append a phase-transition gate that has no matching history edge.
     spurious = json.dumps(
         {"gate": "VERIFY->RESOLVED", "run_id": valid_run_id, "ts": 0, "result": "pass"}
@@ -286,7 +286,7 @@ def test_c4_resolved_but_finalized_at_blank(temp_uacp_root: Path, valid_run_id: 
 def test_c4_resolved_but_closure_artifact_removed(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)
     # Remove the lessons artifact from disk.
-    (temp_uacp_root / ".outputs" / f"{valid_run_id}-lessons.yaml").unlink()
+    (temp_uacp_root / ".uacp" / "resolutions" / f"{valid_run_id}-lessons.yaml").unlink()
 
     codes = _codes(validate_run_coherence(temp_uacp_root, valid_run_id))
     assert "C4_CLOSURE_ARTIFACT_MISSING" in codes, codes
@@ -313,7 +313,7 @@ def test_c6_scope_and_registry_write_paths_disagree(temp_uacp_root: Path, valid_
     )
 
     # Mutate the scope artifact's write_paths so it no longer matches the registry.
-    scope_path = temp_uacp_root / "plans" / f"{valid_run_id}-scope.yaml"
+    scope_path = temp_uacp_root / ".uacp" / "plans" / f"{valid_run_id}-scope.yaml"
     body = yaml.safe_load(scope_path.read_text())
     body["write_paths"] = ["docs/something-else/"]
     scope_path.write_text(yaml.safe_dump(body, sort_keys=False))

@@ -33,7 +33,7 @@ class TestGateLedgerAppend:
         assert result["run_id"] == valid_run_id
 
         # Verify file was created and contains the record
-        ledger_path = temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
+        ledger_path = temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
         assert ledger_path.exists()
         lines = ledger_path.read_text().strip().split("\n")
         assert len(lines) == 1
@@ -168,7 +168,7 @@ class TestStateWrite:
             "authority_artifact": "plans/test-plan.yaml",
         }))
         assert result["ok"] is True
-        assert (temp_uacp_root / "state" / "test-file.yaml").read_text() == "hello: world"
+        assert (temp_uacp_root / ".uacp" / "state" / "test-file.yaml").read_text() == "hello: world"
 
     def test_rejects_write_outside_state(self, temp_uacp_root: Path, valid_run_id: str):
         result = json.loads(_handle_uacp_state_write({

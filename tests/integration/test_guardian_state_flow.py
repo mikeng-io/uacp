@@ -127,7 +127,7 @@ class TestGateLedgerWithGuardian:
         }))
         assert result2["ok"] is True
 
-        ledger_path = temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
+        ledger_path = temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
         lines = ledger_path.read_text().strip().split("\n")
         assert len(lines) == 2
         records = [json.loads(line) for line in lines]

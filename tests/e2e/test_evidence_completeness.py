@@ -16,7 +16,7 @@ The invariants below are deliberately a subset/shape-faithful mirror of the REAL
 config/phase-transitions.yaml (artifact_glob / gate_ledger_entry / required), with
 globs/gates chosen to line up with what the happy-path run from test_coherence
 actually emits (ledger gates TRIAGE->PROPOSE ... VERIFY->RESOLVED; seeded
-proposal/plan packages; lessons under ``.outputs``). We additionally seed an
+proposal/plan packages; lessons under ``resolutions``). We additionally seed an
 ``executions/`` and ``verification/`` artifact so the execute/verify phases have a
 single, cleanly-removable required artifact for the teeth tests.
 """
@@ -76,7 +76,7 @@ stages:
   resolve:
     exits_to: [terminal]
     phase_exit_invariants:
-    - artifact_glob: ".outputs/{run_id}*"
+    - artifact_glob: "resolutions/{run_id}*"
       required: true
   resolved:
     exits_to: []
@@ -91,12 +91,12 @@ def _seed_evidence(root: Path, run_id: str) -> None:
     """Seed the execute/verify exit artifacts that _EVIDENCE_CONFIG requires but
     the base happy-path run does not create (it only seeds proposal/plan packages
     + lessons)."""
-    (root / "executions").mkdir(parents=True, exist_ok=True)
-    (root / "verification").mkdir(parents=True, exist_ok=True)
-    (root / "executions" / f"{run_id}-execution.yaml").write_text(
+    (root / ".uacp" / "executions").mkdir(parents=True, exist_ok=True)
+    (root / ".uacp" / "verification").mkdir(parents=True, exist_ok=True)
+    (root / ".uacp" / "executions" / f"{run_id}-execution.yaml").write_text(
         "kind: uacp.execution\nbody: stub\n"
     )
-    (root / "verification" / f"{run_id}-verification.yaml").write_text(
+    (root / ".uacp" / "verification" / f"{run_id}-verification.yaml").write_text(
         "kind: uacp.verification\nbody: stub\n"
     )
 
@@ -149,7 +149,7 @@ def test_missing_exit_artifact_fires(temp_uacp_root: Path, valid_run_id: str):
     )
 
     # Remove the execute phase's required exit artifact (executions/{run_id}*).
-    (temp_uacp_root / "executions" / f"{valid_run_id}-execution.yaml").unlink()
+    (temp_uacp_root / ".uacp" / "executions" / f"{valid_run_id}-execution.yaml").unlink()
 
     codes = _codes(validate_evidence_completeness(temp_uacp_root, valid_run_id))
     assert "EV_PHASE_EXIT_ARTIFACT_MISSING" in codes, codes
@@ -163,7 +163,7 @@ def test_missing_exit_ledger_entry_fires(temp_uacp_root: Path, valid_run_id: str
     )
 
     # Drop the EXECUTE->VERIFY gate line from the ledger (execute's required gate).
-    ledger_path = temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
+    ledger_path = temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
     kept = [
         ln
         for ln in ledger_path.read_text().splitlines()
@@ -183,8 +183,8 @@ def test_resolved_without_closure_evidence_fires(temp_uacp_root: Path, valid_run
     )
 
     # status is 'resolved'; remove the resolve-phase required exit artifact
-    # (.outputs/{run_id}* -> the lessons file) so the closure is self-attesting.
-    (temp_uacp_root / ".outputs" / f"{valid_run_id}-lessons.yaml").unlink()
+    # (resolutions/{run_id}* -> the lessons file) so the closure is self-attesting.
+    (temp_uacp_root / ".uacp" / "resolutions" / f"{valid_run_id}-lessons.yaml").unlink()
 
     codes = _codes(validate_evidence_completeness(temp_uacp_root, valid_run_id))
     assert "EV_RESOLVED_WITHOUT_EVIDENCE" in codes, codes
@@ -209,7 +209,7 @@ def test_never_raises_on_missing_run(temp_uacp_root: Path):
 
 
 def test_never_raises_on_garbled_manifest(temp_uacp_root: Path, valid_run_id: str):
-    mpath = temp_uacp_root / "state" / "runs" / f"{valid_run_id}.yaml"
+    mpath = temp_uacp_root / ".uacp" / "state" / "runs" / f"{valid_run_id}.yaml"
     mpath.parent.mkdir(parents=True, exist_ok=True)
     mpath.write_text("this: : : not valid yaml: [")
     out = validate_evidence_completeness(temp_uacp_root, valid_run_id)
