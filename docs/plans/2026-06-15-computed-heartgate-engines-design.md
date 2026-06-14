@@ -21,6 +21,31 @@ registry — not scattered.
 only checks the lens *names* are listed. That violates the "no self-attesting closures"
 invariant. The engines below compute each dimension instead of trusting a flag.
 
+## Architecture (locked — operator decisions 2026-06-15)
+
+- **Hexagonal-lite + DDD vocabulary** (not full CA, not full DDD). Dependencies point
+  inward: `domain ← engines ← io ← adapters`. No documented CA/DDD precedent existed in
+  the repo; the closest is `runtime-adapters/` + the Cognitive Planes model (hexagonal
+  bones). We formalize that lightly, reusing UACP's existing ubiquitous language
+  (Run, Manifest, Gate, Lens, Violation, Phase, Scope, DeferredItem).
+- **Tooling:** adopt **ruff** (lint + format) in `pyproject` + a CI lint step; engines
+  parse manifest/artifacts through **Pydantic domain models**, not `yaml.safe_load` +
+  dict access. ruff is strict on `engines/`; lenient/gradual on the legacy 2,240-line
+  `core.py` (its god-module split is Phase 2, under the harness).
+
+Package layout `skills/uacp-core/scripts/engines/`:
+```
+engines/
+  base.py        # Violation, Engine type, ENGINES registry, run_all_engines (done)
+  domain/        # Pydantic models — pure data + invariants, NO I/O
+                 #   manifest.py (reuse/import RunManifest), ledger.py (LedgerEntry),
+                 #   scope.py (Scope), deferral.py (DeferredItem), artifacts.py
+  io/            # the ONLY filesystem layer — load manifest/ledger/artifacts/current.yaml
+                 #   -> return domain models (never raises; missing/garbled -> typed result)
+  coherence.py   scope_conformance.py  evidence_completeness.py
+  ledger_integrity.py  deferral_completeness.py   # use-case engines: read domain, return Violations
+```
+
 ## The common contract (locked — every engine conforms)
 
 A new package `skills/uacp-core/scripts/engines/`:
@@ -72,16 +97,22 @@ A new package `skills/uacp-core/scripts/engines/`:
 
 ## Build sequence
 
-1. **Foundation** — `engines/base.py` (Violation + registry); move/refactor `coherence.py`
-   into the package; harness + coherence tests stay green.
-2. **Four engines in parallel** (independent files): scope, evidence, ledger, deferral —
-   each = module + positive test (good run → 0 violations) + per-rule teeth tests
-   (corrupt one thing → specific code). Each grounds in real schemas and flags
+0. **base.py + move coherence** — ✅ done (commit a92015b): shared `Violation`, registry,
+   `run_all_engines`, coherence moved into the package.
+1. **ruff** — add `[tool.ruff]` to `pyproject` + dev dep + CI lint step. Strict on
+   `engines/`; lenient on legacy `core.py` (per-file ignores) so legacy noise doesn't
+   drown CI. Fix engine-package lint.
+2. **domain/ + io/ + refactor coherence** — Pydantic domain models + the single io
+   loading layer; refactor `engines/coherence.py` to parse via them (behavior-preserving;
+   its 12 tests stay green). This proves the layering before the 4 new engines copy it.
+3. **Four engines in parallel** (independent files): scope, evidence, ledger, deferral —
+   each = module (uses domain + io) + positive test (good run → 0 violations) + per-rule
+   teeth tests (corrupt one thing → specific code). Each grounds in real schemas and flags
    un-computable parts honestly.
-3. **Wire** the registry into Heartgate at RESOLVE (handle the finalize-timing rule);
+4. **Wire** the registry into Heartgate at RESOLVE (handle the finalize-timing rule);
    add a test that a good run passes all engines AND a deliberately-bad run is **blocked**
    by Heartgate.
-4. **Update** the design/decision records; supersede the self-attested coherence flag.
+5. **Update** the design/decision records; supersede the self-attested coherence flag.
 
 ## Failure policy
 
