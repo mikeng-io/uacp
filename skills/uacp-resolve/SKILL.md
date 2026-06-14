@@ -14,7 +14,7 @@ forbidden_tools:
 - terminal
 - execute_code
 phase_exit_invariants:
-- artifact_glob: .outputs/{run_id}*
+- artifact_glob: resolutions/{run_id}*
   required: true
 - gate_ledger_entry: VERIFY->RESOLVE
   required: true
@@ -37,7 +37,7 @@ This skill closes the run, captures lessons, decides what belongs in memory, and
 - Use `knowledge/` for durable run learning.
 
 ## Typical outputs
-- .outputs/
+- resolutions/
 - knowledge/
 - lesson artifact or run summary
 
@@ -163,12 +163,12 @@ For governed/non-trivial RESOLVE work, RESOLVE must produce validator-backed clo
 
 Required machine artifacts when selected:
 
-- `.outputs/{run_id}-resolve-selection.yaml` with `kind: uacp.resolve_package`
-- `.outputs/{run_id}-closure.yaml` with `kind: uacp.resolve_closure`
+- `resolutions/{run_id}-resolve-selection.yaml` with `kind: uacp.resolve_package`
+- `resolutions/{run_id}-closure.yaml` with `kind: uacp.resolve_closure`
 
 Required semantic package:
 
-- `.outputs/{run_id}/00-index.md`
+- `resolutions/{run_id}/00-index.md`
 - `closure-summary.md`
 - `final-decision.md`
 - `residual-risks.md`

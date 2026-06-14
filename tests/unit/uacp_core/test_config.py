@@ -67,12 +67,12 @@ def test_nested_path_subtables_preserved():
     # Accessed via the extra-data accessor (these are `extra` on Paths, not
     # declared fields). Both model_extra and model_dump() expose them.
     assert cfg.paths.model_extra is not None
-    assert cfg.paths.model_extra["bridge_artifacts"] == {"root": ".outputs/bridges"}
-    assert cfg.paths.model_extra["council_artifacts"] == {"root": ".outputs/councils"}
+    assert cfg.paths.model_extra["bridge_artifacts"] == {"root": "bridges"}
+    assert cfg.paths.model_extra["council_artifacts"] == {"root": "councils"}
 
     dumped = cfg.paths.model_dump()
-    assert dumped["bridge_artifacts"] == {"root": ".outputs/bridges"}
-    assert dumped["council_artifacts"] == {"root": ".outputs/councils"}
+    assert dumped["bridge_artifacts"] == {"root": "bridges"}
+    assert dumped["council_artifacts"] == {"root": "councils"}
 
 
 def test_resolve_rejects_unknown_path_key(tmp_path):
