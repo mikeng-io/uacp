@@ -12,6 +12,7 @@ the E2E lifecycle test fails loudly rather than silently degrading.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 
 from core import (
@@ -60,7 +61,7 @@ class Driver:
         self.run_id = run_id
         self.guardian = Guardian(GuardianPolicy.load(str(root)))
 
-    def call(self, tool_name: str, handler, args: dict, *, phase: str) -> dict:
+    def call(self, tool_name: str, handler: Callable[[dict], str], args: dict, *, phase: str) -> dict:
         """Evaluate ``tool_name`` via the real Guardian, then run ``handler(args)``.
 
         Raises AssertionError if Guardian returns a non-allow decision (F1
@@ -70,6 +71,6 @@ class Driver:
         decision = self.guardian.evaluate(event)
         assert decision.decision in _ALLOW, (
             f"Guardian FALSE-BLOCKED legit call {tool_name} in {phase}: "
-            f"{decision.decision} / {getattr(decision, 'blockers', None)}"
+            f"{decision.decision} / {decision.reason} / {decision.evidence}"
         )
         return json.loads(handler(args))
