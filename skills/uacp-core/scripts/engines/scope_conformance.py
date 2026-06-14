@@ -81,10 +81,11 @@ from engines.io.loaders import ManifestDoc
 
 # UACP output / state surfaces an in-scope run product may legitimately land in
 # even when not explicitly enumerated in write_paths: governed-writer outputs
-# (.outputs/), the run's own state (state/), and verification evidence. These are
-# system-owned write surfaces, not free-form EXECUTE writes, so a referenced
-# artifact under one of them is treated as in-scope.
-_ALLOWED_OUTPUT_PREFIXES = (".outputs", "state", "verification")
+# (resolutions/), the run's own state (state/), and verification evidence. These
+# are system-owned write surfaces, not free-form EXECUTE writes, so a referenced
+# artifact under one of them is treated as in-scope. Strings are base-relative
+# (resolved under .uacp/), so `resolutions` replaces the old `.outputs`.
+_ALLOWED_OUTPUT_PREFIXES = ("resolutions", "state", "verification")
 
 # Conservative fallback if config/artifact-schemas.yaml cannot be read. Kept in
 # sync with the schema's documented enum; the loader prefers the live schema.
@@ -326,7 +327,7 @@ def _check_artifact_containment(
 ) -> list[Violation]:
     """SC_ARTIFACT_OUT_OF_SCOPE — every artifact path the manifest references must
     fall UNDER a declared write_path OR a permitted UACP output surface
-    (.outputs/, state/, verification/). An artifact the manifest records as
+    (resolutions/, state/, verification/). An artifact the manifest records as
     living outside every declared boundary is an out-of-scope write the system
     CAN see.
 
