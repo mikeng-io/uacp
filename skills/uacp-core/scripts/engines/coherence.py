@@ -7,11 +7,12 @@ run is internally COHERENT end-to-end.
 
 This module never mutates anything and NEVER raises on a malformed or missing
 run: every failure mode (absent file, garbled YAML, broken JSONL line, schema
-drift) is converted into a :class:`CoherenceViolation` rather than an
+drift) is converted into a :class:`~engines.base.Violation` rather than an
 exception. An empty result list means "coherent".
 
-It lives next to the engine ``core.py`` deliberately — one home for the kernel
-and its read-only validators — but imports only public-ish helpers and re-reads
+It is the first of the computed Heartgate engines: it imports the shared
+``Violation`` from :mod:`engines.base` and registers itself in that module's
+``ENGINES`` registry. It imports only public-ish kernel helpers and re-reads
 files from disk; it does not depend on kernel internals beyond path resolution
 and the state-machine's transition graph / terminal-phase set.
 """
@@ -20,15 +21,16 @@ from __future__ import annotations
 
 import json
 import sys
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-# Make sibling kernel modules and the uacp-state state_machine importable
-# regardless of how this file is invoked.
-_CORE_DIR = Path(__file__).resolve().parent
+# This module lives at skills/uacp-core/scripts/engines/coherence.py. Make the
+# sibling kernel modules (skills/uacp-core/scripts) and the uacp-state
+# state_machine importable regardless of how this file is invoked.
+_ENGINES_DIR = Path(__file__).resolve().parent
+_CORE_DIR = _ENGINES_DIR.parent
 if str(_CORE_DIR) not in sys.path:
     sys.path.insert(0, str(_CORE_DIR))
 _STATE_DIR = _CORE_DIR.parents[1] / "uacp-state" / "scripts"
@@ -41,29 +43,18 @@ from filesystem import _resolve_uacp_path  # noqa: E402
 # legal phase graph. Import them rather than re-declaring (no field invention).
 from state_machine import TERMINAL_PHASES, VALID_TRANSITIONS  # noqa: E402
 
+# The shared violation type + engine registry. Every engine reports the same
+# Violation; coherence registers itself in ENGINES at the bottom of this module.
+from engines.base import ENGINES, Violation  # noqa: E402
+
 # Artifact types (manifest.artifacts keys) and/or filename conventions whose
 # file body carries a top-level ``run_id`` we can cross-check (C1). Grounded in
 # config/artifact-schemas.yaml: scope, lessons, run_registry all declare run_id.
 _RUN_ID_BEARING_KEYS = {"scope", "lessons"}
 
 
-@dataclass(frozen=True)
-class CoherenceViolation:
-    """A single coherence failure.
-
-    code     — stable identifier (e.g. "C1_RUN_ID_MISMATCH").
-    severity — "block" (run is incoherent) or "warn" (suspicious, not fatal).
-    message  — human-readable, names exactly what disagreed.
-    """
-
-    code: str
-    severity: str
-    message: str
-    detail: dict[str, Any] = field(default_factory=dict)
-
-
-def _v(code: str, message: str, severity: str = "block", **detail: Any) -> CoherenceViolation:
-    return CoherenceViolation(code=code, severity=severity, message=message, detail=detail)
+def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Violation:
+    return Violation(code=code, severity=severity, message=message, detail=detail)
 
 
 def _safe_load_yaml(path: Path) -> tuple[Any, str | None]:
@@ -93,13 +84,13 @@ def _parse_gate_edge(gate: str) -> tuple[str, str] | None:
     return left, right
 
 
-def _read_ledger(path: Path) -> tuple[list[dict[str, Any]], list[CoherenceViolation]]:
+def _read_ledger(path: Path) -> tuple[list[dict[str, Any]], list[Violation]]:
     """Read the gate-ledger JSONL. Returns (records, violations).
 
     Each malformed line becomes a violation rather than an exception.
     """
     records: list[dict[str, Any]] = []
-    violations: list[CoherenceViolation] = []
+    violations: list[Violation] = []
     if not path.exists():
         # Absence is reported by the caller against the manifest's expectations;
         # here we simply return empty so callers can decide if that's a problem.
@@ -128,12 +119,12 @@ def _read_ledger(path: Path) -> tuple[list[dict[str, Any]], list[CoherenceViolat
     return records, violations
 
 
-def validate_run_coherence(workspace: str | Path, run_id: str) -> list[CoherenceViolation]:
+def validate_run_coherence(workspace: str | Path, run_id: str) -> list[Violation]:
     """Validate that a UACP run is internally coherent end-to-end.
 
-    Returns a list of CoherenceViolation. Empty == coherent. Never raises.
+    Returns a list of Violation. Empty == coherent. Never raises.
     """
-    violations: list[CoherenceViolation] = []
+    violations: list[Violation] = []
     try:
         root = Path(str(workspace)).resolve()
     except Exception as exc:
@@ -198,12 +189,12 @@ def _check_c1_run_id(
     m_run_id: Any,
     ledger_records: list[dict[str, Any]],
     artifacts: dict[str, Any],
-) -> list[CoherenceViolation]:
+) -> list[Violation]:
     """manifest.run_id must equal: the requested run_id, current.yaml's
     active_run_id (only when current.yaml points at THIS run), every ledger
     record's run_id, and the run_id inside every referenced run-id-bearing
     artifact."""
-    out: list[CoherenceViolation] = []
+    out: list[Violation] = []
 
     if m_run_id != run_id:
         out.append(
@@ -278,7 +269,7 @@ def _check_c2_ledger_history(
     history_edges: list[tuple[str, str]],
     ledger_records: list[dict[str, Any]],
     ledger_path: Path,
-) -> list[CoherenceViolation]:
+) -> list[Violation]:
     """The phase transitions in state_history must correspond 1:1 to
     phase-transition gates in the ledger.
 
@@ -288,7 +279,7 @@ def _check_c2_ledger_history(
     must equal the multiset of phase-transition gate edges in the ledger.
     Orphans in either direction are violations.
     """
-    out: list[CoherenceViolation] = []
+    out: list[Violation] = []
 
     ledger_edges: list[tuple[str, str]] = []
     for rec in ledger_records:
@@ -334,12 +325,12 @@ def _check_c2_ledger_history(
 
 
 # --------------------------------------------------------------------------- C3
-def _check_c3_phase_path(history_edges: list[tuple[str, str]]) -> list[CoherenceViolation]:
+def _check_c3_phase_path(history_edges: list[tuple[str, str]]) -> list[Violation]:
     """The sequence of (from,to) edges must be a contiguous legal walk through
     VALID_TRANSITIONS, starting at 'triage', with each edge legal, each step
     continuing from the previous step's destination, and no repeated phase
     (no cycles)."""
-    out: list[CoherenceViolation] = []
+    out: list[Violation] = []
     if not history_edges:
         return out  # a run with no transitions yet is vacuously path-coherent
 
@@ -394,14 +385,14 @@ def _check_c4_terminal(
     current_phase: Any,
     finalized_at: Any,
     artifacts: dict[str, Any],
-) -> list[CoherenceViolation]:
+) -> list[Violation]:
     """Terminal coherence.
 
     If status == 'resolved': current_phase must be in TERMINAL_PHASES, finalized_at
     must be set, and a closure/lessons artifact must be referenced AND exist.
     If status != 'resolved': finalized_at must be unset.
     """
-    out: list[CoherenceViolation] = []
+    out: list[Violation] = []
 
     is_resolved = status == "resolved"
     if is_resolved:
@@ -451,10 +442,10 @@ def _check_c4_terminal(
 
 
 # --------------------------------------------------------------------------- C5
-def _check_c5_artifacts(root: Path, artifacts: dict[str, Any]) -> list[CoherenceViolation]:
+def _check_c5_artifacts(root: Path, artifacts: dict[str, Any]) -> list[Violation]:
     """Every referenced artifact path must exist on disk and resolve INSIDE the
     workspace (no traversal / escape)."""
-    out: list[CoherenceViolation] = []
+    out: list[Violation] = []
     for key, rel in artifacts.items():
         if not isinstance(rel, str) or not rel:
             out.append(
@@ -483,7 +474,7 @@ def _check_c5_artifacts(root: Path, artifacts: dict[str, Any]) -> list[Coherence
 # --------------------------------------------------------------------------- C6
 def _check_c6_scope_registry(
     root: Path, run_id: str, artifacts: dict[str, Any]
-) -> list[CoherenceViolation]:
+) -> list[Violation]:
     """scope.write_paths and the run-registry's active_runs entry for this run
     must declare the same write_paths.
 
@@ -491,7 +482,7 @@ def _check_c6_scope_registry(
     the run appears in state/run-registry.yaml. If either is absent this check is
     a no-op (there is no durable write-log to compare against — see report).
     """
-    out: list[CoherenceViolation] = []
+    out: list[Violation] = []
 
     scope_rel = artifacts.get("scope")
     if not isinstance(scope_rel, str) or not scope_rel:
@@ -548,3 +539,9 @@ def _safe_resolve(root: Path, rel: str) -> Path | None:
         return resolved
     except Exception:
         return None
+
+
+# Register this engine. Guard against double-registration if the module is
+# imported under more than one name (e.g. "coherence" and "engines.coherence").
+if not any(name == "coherence" for name, _ in ENGINES):
+    ENGINES.append(("coherence", validate_run_coherence))

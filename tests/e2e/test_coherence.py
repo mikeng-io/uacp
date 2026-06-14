@@ -16,7 +16,8 @@ from pathlib import Path
 import yaml
 
 import state_machine
-from coherence import validate_run_coherence
+from engines.base import Violation
+from engines.coherence import validate_run_coherence
 from core import Heartgate
 from state import _handle_uacp_gate_ledger_append
 from tests.e2e.driver import Driver
@@ -172,6 +173,8 @@ def test_coherent_run_has_zero_violations(temp_uacp_root: Path, valid_run_id: st
     seed_coherent_run(temp_uacp_root, valid_run_id)
     violations = validate_run_coherence(temp_uacp_root, valid_run_id)
     assert violations == [], f"expected zero violations, got: {[ (v.code, v.message) for v in violations]}"
+    # Engine reports the shared Violation type, not a private dataclass.
+    assert all(isinstance(v, Violation) for v in violations)
 
 
 # ------------------------------------------------------------------- C1 (teeth)
