@@ -22,6 +22,9 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+# Config helper — resolves governed dirs (e.g. .uacp/state) under the workspace.
+from config import dir_for
+
 # The shared violation type + engine registry. Every engine reports the same
 # Violation; coherence registers itself in ENGINES at the bottom of this module.
 from engines.base import ENGINES, Violation
@@ -115,7 +118,7 @@ def validate_run_coherence(workspace: str | Path, run_id: str) -> list[Violation
             history_edges.append((frm.strip().lower(), to.strip().lower()))
 
     # Read the gate ledger once (shared by C1 + C2).
-    ledger_path = root / "state" / "gate-ledger" / f"{run_id}.jsonl"
+    ledger_path = dir_for(root, "state") / "gate-ledger" / f"{run_id}.jsonl"
     ledger_entries, ledger_errors = load_ledger(root, run_id)
     for msg in ledger_errors:
         if msg.startswith("gate ledger unreadable"):
@@ -156,7 +159,7 @@ def _check_c1_run_id(
         )
 
     # current.yaml — only cross-check when it points at this run.
-    current_path = root / "state" / "current.yaml"
+    current_path = dir_for(root, "state") / "current.yaml"
     current = load_current(root)
     if current.value is not None:
         active = current.value.active_run_id
