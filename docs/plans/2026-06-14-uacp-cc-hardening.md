@@ -227,47 +227,84 @@ git commit -m "test: E2E happy-path full-lifecycle harness (TRIAGE->RESOLVED)"
 
 ---
 
-## Task 4: Negative-path tests (clear refusal, not a stack trace)
+## Task 4: Full transition matrix (every from×to cell)
+
+> **Premise (operator):** *each phase and transition will have lots of bugs.* The harness's
+> job is to **surface** them in pytest, not to prove a single happy path. Every red test
+> here is a bug found cheaply instead of mid-work. **Do not paper over a failure — open a
+> fix-commit for it (Task 4b).**
 
 **Files:**
-- Modify: `tests/e2e/test_full_lifecycle.py` (append)
+- Create: `tests/e2e/test_transition_matrix.py`
 
-**Step 1: Write the failing tests.** Cover F2 (Heartgate blocks bad transition with a
-reason) and the state machine's own refusal (skipping a phase returns a clean error).
+**Step 1: Write the parametrized matrix.** For every ordered pair of phases, assert the
+state machine + Heartgate agree: allowed pairs pass, every other pair is refused **cleanly
+with a reason** (structured error / `block` + non-empty `blockers`), never a stack trace.
 
 ```python
-def test_skipping_a_phase_is_refused_cleanly(temp_uacp_root: Path, valid_run_id: str):
-    """F2/F3: an illegal transition returns a structured error, never raises."""
-    d = Driver(temp_uacp_root, valid_run_id)
+import json, pytest, state_machine
+from core import Heartgate
+from tests.e2e.driver import Driver
+
+PHASES = ["triage", "propose", "plan", "execute", "verify", "resolved"]
+ALLOWED = {("triage","propose"),("propose","plan"),("plan","execute"),
+           ("execute","verify"),("verify","resolved")}
+PAIRS = [(f, t) for f in PHASES for t in PHASES if f != t]
+
+@pytest.mark.parametrize("frm,to", PAIRS)
+def test_transition_cell(temp_uacp_root, valid_run_id, frm, to):
+    """Every from->to cell: state machine + Heartgate must agree and never raise."""
     state_machine.handle_init({"workspace": str(temp_uacp_root), "run_id": valid_run_id,
                                "source": "operator-request"})
-    res = d.call("uacp_state_write", lambda a: state_machine.handle_transition(a),
-                 {"workspace": str(temp_uacp_root), "run_id": valid_run_id,
-                  "from_phase": "triage", "to_phase": "execute"}, phase="triage")
-    assert "error" in res
-    assert "not allowed" in res["error"]
-
-
-def test_heartgate_blocks_with_reason(temp_uacp_root: Path, valid_run_id: str):
+    # Fast-forward the manifest to `frm` only via legal steps; skip cells whose `frm`
+    # is unreachable as a no-op (the matrix still covers them from the Heartgate side).
     hg = Heartgate.load(str(temp_uacp_root)).validate_transition(
-        {"from_phase": "verify", "to_phase": "triage", "run_id": valid_run_id,
+        {"from_phase": frm, "to_phase": to, "run_id": valid_run_id,
          "artifact_path": "plans/test.yaml"})
-    assert hg.decision == "block"
-    assert hg.blockers and all(isinstance(b, str) for b in hg.blockers)
+    if (frm, to) in ALLOWED:
+        assert hg.decision == "pass", f"{frm}->{to} should pass: {hg.blockers}"
+    else:
+        assert hg.decision == "block", f"{frm}->{to} should block, got {hg.decision}"
+        assert hg.blockers, f"{frm}->{to} blocked without a reason"
 ```
 
-**Step 2: Run**
+**Step 2: Run** — `pytest tests/e2e/test_transition_matrix.py -v`. Expected: most cells
+PASS; **any unexpected pass/block is a real bug** — record it for Task 4b.
 
-Run: `pytest tests/e2e/test_full_lifecycle.py -v`
-Expected: PASS (these exercise existing behavior; if they fail it's a real finding —
-log it, do not paper over it).
+**Step 3: Commit** — `test: E2E full transition matrix (every from x to cell)`.
 
-**Step 3: Commit**
+---
 
-```bash
-git add tests/e2e/test_full_lifecycle.py
-git commit -m "test: E2E negative paths (clean refusal, no stack traces)"
-```
+## Task 4b: Per-phase gate + tool-allowlist matrix
+
+**Files:**
+- Create: `tests/e2e/test_phase_gates.py`
+
+For each phase, drive these through the real Guardian + Heartgate and assert clean
+behavior (this is where most per-phase bugs live):
+
+1. **Tool allowlist** — a tool *allowed* in that phase is permitted; a tool *forbidden*
+   in that phase (e.g. `terminal`/`execute_code` outside `execute`) is blocked with a
+   reason. Parametrize over (phase, tool).
+2. **Exit invariant** — transition out of the phase with the required artifact/ledger
+   entry **missing** → Heartgate blocks with a reason; with it **present** → passes.
+3. **Malformed artifact** — register an artifact for the phase missing a required field
+   (per `config/artifact-schemas.yaml`) → clean refusal, never a raise.
+
+**Step 1:** Write the parametrized tests (one matrix per concern above).
+**Step 2:** Run `pytest tests/e2e/test_phase_gates.py -v`. **Expect failures here** — log
+each as a finding. **Step 3:** Commit `test: E2E per-phase gate + tool-allowlist matrix`.
+
+---
+
+## Task 4c: Triage and fix the surfaced bugs (loop until green)
+
+For each failing cell from Tasks 4/4b: (a) confirm it's a real bug vs. a wrong test
+expectation; (b) if a kernel bug, write the minimal fix in `core.py` / `state_machine.py`
+/ `state.py`; (c) re-run; (d) commit one fix per bug: `fix(kernel): <phase/transition> —
+<bug>`. If it's a test-expectation error, fix the test and say so in the message. Keep
+looping until `pytest tests/e2e -v` is fully green. **Track the count of real bugs found**
+— that number is the value Phase 1 delivered.
 
 ---
 
@@ -302,10 +339,15 @@ the branch and confirm the run goes green on GitHub.
 
 ## Phase 1 done-when
 
-- `pytest tests/e2e -v` drives a full lifecycle to `resolved`, green, in seconds.
-- Guardian allowed every legit call; Heartgate passed every legit transition;
-  illegal transitions returned clean errors.
-- CI runs the suite on every push/PR.
+- `pytest tests/e2e -v` is fully green: happy path reaches `resolved`, **and** the full
+  transition matrix (Task 4) + per-phase gate/tool matrix (Task 4b) all pass.
+- Every bug the matrices surfaced is either fixed (one `fix(kernel): ...` commit each) or
+  consciously deferred with a logged reason — **none silently papered over**.
+- No governed call raises; every illegal transition / missing-artifact / forbidden-tool
+  case is refused with a human-readable reason, not a stack trace.
+- CI runs the whole suite on every push/PR.
+- **Deliverable metric:** the count of real per-phase/per-transition bugs found and fixed
+  — the harness exists to make that number large now (in pytest) instead of later (mid-work).
 
 ---
 
