@@ -1,6 +1,6 @@
 # UACP Control Plane Configuration
 # Central TOML configuration for the Universal Agent Control Plane.
-# Override any section by creating a `uacp.local.toml` (gitignored) —
+# Override any section by creating a per-project `.uacp/config.toml` (gitignored) —
 # local settings take precedence over this file.
 
 schema_version = "0.2.0"
