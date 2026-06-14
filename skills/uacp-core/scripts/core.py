@@ -816,8 +816,99 @@ class Heartgate:
             return HeartgateDecision("block", "transition artifact must be a YAML mapping", ["invalid artifact"])
         return self.validate_transition(artifact)
 
+    def validate_closure(self, run_id: str) -> HeartgateDecision:
+        """Run the computed engines as the RESOLVE / closure gate for a run.
+
+        This is the operator-facing closure check: it sweeps all five computed
+        engines (coherence, ledger_integrity, scope_conformance,
+        evidence_completeness, deferral_completeness) over the run's emitted
+        state and maps their violations onto a :class:`HeartgateDecision` — any
+        ``severity == "block"`` violation becomes a blocker, ``"warn"`` becomes a
+        warning. Decision is ``"block"`` if any blockers, else ``"warn"`` if any
+        warnings, else ``"pass"``.
+
+        Contract / preconditions: ``validate_closure`` expects a FINALIZED run —
+        ``finalized_at`` set on the manifest and the closure/lessons artifact
+        registered. The engines' terminal checks (coherence C4, evidence
+        ``EV_RESOLVED_WITHOUT_EVIDENCE``, deferral ``DF_DEFERRAL_DROPPED_AT_RESOLVE``)
+        assume the closed/resolved state; calling it on a run that has not yet
+        been finalized would false-positive. It is invoked by the RESOLVE flow /
+        runtime (and exposed by the future MCP ``uacp_validate_closure`` tool) —
+        it is NOT auto-called inside ``state_machine.handle_finalize`` to keep
+        the state machine decoupled from the kernel.
+
+        Never raises: the engines themselves never raise, and the whole sweep is
+        wrapped defensively so a closure check can never crash the kernel — an
+        unexpected failure is surfaced as a single block decision.
+        """
+        try:
+            # Lazy import: keeps core.py's module load free of the engines
+            # package (which bootstraps sys.path on import) for adapters that
+            # never run a closure check. No import cycle — engines depend on
+            # state_machine, never on core.
+            from engines.base import run_all_engines
+
+            violations = run_all_engines(self.uacp_root, run_id)
+            violations = self._dedupe_scope_registry_disagreement(violations)
+
+            blockers: list[str] = []
+            warnings: list[str] = []
+            for v in violations:
+                line = f"{v.code}: {v.message}"
+                if v.severity == "block":
+                    blockers.append(line)
+                else:
+                    warnings.append(line)
+
+            if blockers:
+                return HeartgateDecision("block", "closure blocked by computed engines", blockers, warnings)
+            if warnings:
+                return HeartgateDecision("warn", "closure passes with engine warnings", [], warnings)
+            return HeartgateDecision("pass", "closure passes all computed engines", [], [])
+        except Exception as exc:  # defensive: a closure check must never crash the kernel
+            return HeartgateDecision(
+                "block",
+                "closure check failed unexpectedly",
+                [f"VALIDATE_CLOSURE_CRASHED: {type(exc).__name__}: {exc}"],
+                [],
+            )
+
+    @staticmethod
+    def _dedupe_scope_registry_disagreement(violations: list) -> list:
+        """Collapse the documented overlap between scope_conformance's
+        ``SC_SCOPE_REGISTRY_DISAGREE`` and coherence's ``C6_WRITE_PATHS_DISAGREE``.
+
+        Both engines fire on the same scope-vs-registry write_paths divergence.
+        When a coherence C6 finding is present we drop the SC findings that are
+        about the SAME write_paths divergence (prefer the coherence C6 line),
+        so the operator sees ONE finding for one problem. SC findings about a
+        distinct concern (e.g. ``scope_artifact_path`` mismatch) are preserved.
+        """
+        has_c6 = any(v.code == "C6_WRITE_PATHS_DISAGREE" for v in violations)
+        if not has_c6:
+            return violations
+        kept: list = []
+        for v in violations:
+            if v.code == "SC_SCOPE_REGISTRY_DISAGREE" and "write_paths" in v.message:
+                continue  # collapsed into the C6 finding
+            kept.append(v)
+        return kept
+
     def _validate_heartgate_coherence(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
-        """Validate optional Heartgate transition-coherence evidence."""
+        """Validate optional Heartgate transition-coherence evidence.
+
+        SUPERSEDED: this is the original SELF-ATTESTED coherence check — it
+        trusts an agent-supplied ``heartgate_coherence.status`` flag. The
+        authoritative coherence judgement is now produced by the COMPUTED
+        ``coherence`` engine run via :meth:`validate_closure`, which inspects the
+        run's emitted state directly rather than trusting a declared status.
+
+        This method is retained for back-compat (existing transition artifacts
+        may still carry a ``heartgate_coherence`` block), but the self-attested
+        ``status`` field is advisory only; the computed engine is the source of
+        truth for coherence at closure. Do not extend this self-attested path —
+        add coherence checks to the computed engine instead.
+        """
         coherence = artifact.get("heartgate_coherence")
         if coherence in (None, ""):
             return
