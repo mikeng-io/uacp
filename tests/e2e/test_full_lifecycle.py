@@ -101,9 +101,14 @@ def _seed_plan_package(root: Path, run_id: str) -> None:
     )
 
 
-# Per-(from,to) artifact seeding required by the kernel's always-on adaptive gates.
-# Only propose->plan and plan->execute enforce when their config key is absent;
-# the execute/verify/resolve gates self-disable without config, so they need none.
+# Per-(from,to) real-evidence seeding the kernel's adaptive gates REQUIRE — not
+# optional. The propose->plan and plan->execute gates read config via
+# `self.config.get(key) or {}`: an absent key becomes `{}`, still a Mapping, so
+# the gate fires and demands its artifacts regardless of config. Drop these
+# seeders and the happy path fails (e.g. "adaptive_proposal_package_gate: missing
+# proposals/<run>-package-selection.yaml"). By contrast the execute/verify/resolve
+# gates guard with `if not isinstance(self.config.get(key), Mapping): return`, so
+# they self-disable on absent config — hence nothing is seeded for them.
 _SEEDERS = {
     ("propose", "plan"): _seed_proposal_package,
     ("plan", "execute"): _seed_plan_package,
