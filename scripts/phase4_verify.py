@@ -48,8 +48,8 @@ def main() -> int:
             tmp = Path(d).resolve()
             os.environ["UACP_ROOT"] = str(tmp)
             (tmp / "config").mkdir()
-            (tmp / "state").mkdir()
-            (tmp / "state/escalations").mkdir()
+            (tmp / ".uacp/state").mkdir(parents=True)
+            (tmp / ".uacp/state/escalations").mkdir()
             for f in ["phase-transitions.yaml", "artifact-schemas.yaml", "guardian-policy.yaml", "state.yaml", "autonomy-policy.yaml"]:
                 src = ROOT / "config" / f
                 (tmp / "config" / f).write_text(src.read_text())
@@ -187,7 +187,7 @@ def main() -> int:
                 "mode": "supervised_auto",
                 "details": {"foo": "bar"},
             }))
-            jsonl_file = tmp / "state/escalations/phase4-verify.jsonl"
+            jsonl_file = tmp / ".uacp/state/escalations/phase4-verify.jsonl"
             lines = jsonl_file.read_text().splitlines() if jsonl_file.exists() else []
             ok10 = (
                 ok_event.get("ok") is True

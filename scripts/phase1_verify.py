@@ -31,8 +31,9 @@ def _import_plugin():
 
 def _prepare_root(tmp: Path) -> None:
     here = Path(__file__).resolve().parent.parent
-    for sub in ("config", "docs", "state/runs", "state/gate-ledger",
-                "plans", "proposals", "executions", "verification", "outputs", "knowledge"):
+    for sub in ("config", "docs", ".uacp/state/runs", ".uacp/state/gate-ledger",
+                ".uacp/plans", ".uacp/proposals", ".uacp/executions", ".uacp/verification",
+                ".uacp/resolutions", ".uacp/knowledge"):
         (tmp / sub).mkdir(parents=True, exist_ok=True)
     shutil.copy2(here / "config/guardian-policy.yaml", tmp / "config/guardian-policy.yaml")
     shutil.copy2(here / "config/phase-transitions.yaml", tmp / "config/phase-transitions.yaml")
@@ -90,7 +91,7 @@ def main() -> int:
                 "gate": "PHASE1_VERIFY_PROBE",
                 "record": {"result": "pass", "phase": "execute"},
             }))
-            ledger_path = tmp / "state/gate-ledger/phase1-verify.jsonl"
+            ledger_path = tmp / ".uacp/state/gate-ledger/phase1-verify.jsonl"
             report["checks"].append({
                 "name": "gate_ledger_append_writes_record",
                 "status": "pass" if (result.get("ok") and ledger_path.exists()) else "fail",
@@ -208,25 +209,25 @@ def main() -> int:
             })
 
             # --- Check 7: phase_exit_invariants — artifact present + ledger present passes ---
-            (tmp / "plans/phase1-verify-plan.yaml").write_text("a: 1\n")
+            (tmp / ".uacp/plans/phase1-verify-plan.yaml").write_text("a: 1\n")
             # Adaptive PLAN package invariant: PLAN->EXECUTE transitions now
             # require an explicit plan-selection bridge plus a human-reviewable
             # package directory and scope artifact. This keeps the historical
             # phase-exit invariant test aligned with the rational intent of the
             # new gate: a YAML plan envelope alone is not enough evidence for a
             # transition when the configured adaptive package gate applies.
-            (tmp / "plans/phase1-verify").mkdir(parents=True, exist_ok=True)
-            (tmp / "plans/phase1-verify/work-packages.md").write_text("# Work packages\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify/dependencies.md").write_text("# Dependencies\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify/authority-and-side-effects.md").write_text("# Authority and side effects\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify/tool-and-runtime-selection.md").write_text("# Tool and runtime selection\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify/artifact-write-surfaces.md").write_text("# Artifact write surfaces\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify/verification-strategy.md").write_text("# Verification strategy\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify/rollback-and-recovery.md").write_text("# Rollback and recovery\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify/council-and-review-topology.md").write_text("# Council and review topology\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify/transition-readiness.md").write_text("# Transition readiness\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify-scope.yaml").write_text("kind: uacp.scope\nrun_id: phase1-verify\n", encoding="utf-8")
-            (tmp / "plans/phase1-verify-plan-selection.yaml").write_text("""
+            (tmp / ".uacp/plans/phase1-verify").mkdir(parents=True, exist_ok=True)
+            (tmp / ".uacp/plans/phase1-verify/work-packages.md").write_text("# Work packages\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify/dependencies.md").write_text("# Dependencies\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify/authority-and-side-effects.md").write_text("# Authority and side effects\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify/tool-and-runtime-selection.md").write_text("# Tool and runtime selection\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify/artifact-write-surfaces.md").write_text("# Artifact write surfaces\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify/verification-strategy.md").write_text("# Verification strategy\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify/rollback-and-recovery.md").write_text("# Rollback and recovery\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify/council-and-review-topology.md").write_text("# Council and review topology\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify/transition-readiness.md").write_text("# Transition readiness\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify-scope.yaml").write_text("kind: uacp.scope\nrun_id: phase1-verify\n", encoding="utf-8")
+            (tmp / ".uacp/plans/phase1-verify-plan-selection.yaml").write_text("""
 kind: uacp.plan_package_selection
 run_id: phase1-verify
 phase: plan
@@ -294,7 +295,7 @@ transition_readiness:
             # --- Check 8: PIV double-failure unconditional block ---
             # Append 2 failing PIV attempts for execute phase, then check
             # plan→execute? No — PIV is checked for from_phase. Use execute→verify.
-            (tmp / "executions/phase1-verify-exec.yaml").write_text("a: 1\n")
+            (tmp / ".uacp/executions/phase1-verify-exec.yaml").write_text("a: 1\n")
             plugin._handle_uacp_gate_ledger_append({
                 **_common_args(tmp, phase="execute"),
                 "gate": "PLAN->EXECUTE",
@@ -416,7 +417,7 @@ transition_readiness:
             # --- Remediation R3 (skeptic F3): _glob_matches_any rejects out-of-root symlinks ---
             outside = tmp.parent / "outside-target.yaml"
             outside.write_text("a: 1\n")
-            link = tmp / "plans/symlink-leak.yaml"
+            link = tmp / ".uacp/plans/symlink-leak.yaml"
             try:
                 link.symlink_to(outside)
                 heartgate = Heartgate.load(tmp)
