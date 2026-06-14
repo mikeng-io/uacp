@@ -143,6 +143,43 @@ Each is large and depends on the prior slice's exact shape; expand into bite-siz
 when its predecessor is green. All are **harness-guarded** — `pytest tests/ -q` green after
 every step.
 
+## Council audit — MANDATORY hardening for Slices 2–5 (2026-06-15)
+
+A lite Sonnet council (audit/validate/devil's-advocate) reviewed Slice 1 and flagged that
+the implicit assumption *"`config.py` propagates paths automatically"* is **structurally
+false** — paths are hardcoded across multiple files that do NOT read `config.py`. These are
+required before/within the named slices:
+
+- **C-1 (Slice 2, HIGH — Guardian containment bypass if missed):** build a **path-reference
+  inventory** and flip every hardcoded path atomically. Known sites (grep for more): Guardian
+  state-containment `core.py:569` and shell token scanner `core.py:556`; engine loaders
+  `loaders.py:96,117,147,158` (`workspace / "state" / ...`); governed writer `state.py:143`
+  (`root / "state"`). Add tests asserting the **old** locations no longer resolve AND Guardian
+  containment is checked against the new `.uacp/state/` path. A behavioral-only test can pass
+  with split-brain paths — assert on path construction explicitly.
+- **C-2 (Slice 2 migrate script, MED):** the script must **rewrite relative artifact-path
+  strings inside already-emitted YAML** (gate-ledger `artifact_path`, scope/proposal/closure
+  references like `proposals/run-1-intent.md`) — not just move directories — or in-flight runs
+  become unresolvable and gate checks turn into blockers.
+- **C-3 (Slice 4, MED-HIGH):** when `phase-transitions.yaml` → code, update the **9 SKILL.md
+  `authority_source:` references** (uacp-triage/propose/plan/execute/verify/resolve/state) and
+  **`scripts/validate_uacp_artifacts.py`** (loads it ~line 1401), and provide a code-backed
+  `load_phase_transitions()` shim in `engines/io/loaders.py` (else `evidence_completeness`
+  degrades to a no-op warning every run). Document which gate knobs stay operator-tunable in
+  `uacp.toml` vs which freeze in code.
+- **C-4 (Slice 5 / plugin, MED):** `_default_toml_path()` uses `parents[3]` — correct in-repo,
+  **breaks when bundled in a plugin** (different depth). Replace with `importlib.resources`
+  (package data) or a `UACP_DEFAULT_CONFIG` env var, with a clear error if the default is
+  absent (today it `FileNotFoundError`s with no fallback). Belongs with the plugin effort.
+- **C-5 (LOW, optional):** `extra="allow"` makes a typo'd `[path]`/override key silent. Consider
+  a warn-on-unrecognized-key, or revisit `extra` once Slice 3 fixes the knob schema.
+- **`validate_uacp_artifacts.py`** (~25 hardcoded path refs) must be in the Slice 5 update
+  checklist — the council noted it's currently unlisted.
+
+**Council verdict:** PROCEED-WITH-CHANGES. Slice 1 is safe to merge (after the `Paths`
+`extra=allow` fix, now done); the design is sound; Slices 2–4's contract was underspecified
+for path-scatter and is now hardened above.
+
 ### Slice 2 — Relocate runtime dirs under `.uacp/` (hard cut)
 - Repoint the kernel + engines from `state/`, `.outputs/`, `proposals/…` to
   `cfg.resolve(...)` under `.uacp/`. RESOLVE artifacts go to `.uacp/resolutions/` (the
