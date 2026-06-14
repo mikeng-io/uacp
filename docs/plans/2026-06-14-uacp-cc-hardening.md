@@ -364,6 +364,9 @@ plan for each when its predecessor is green.
 - Move grammar to Python: `phase-transitions.yaml` (859 lines) and `artifact-schemas.yaml`
   become Pydantic models + constants beside `VALID_TRANSITIONS`. Port **one stage at a
   time, harness green after each**.
+- **F-T3-01 fix (decision-log 2026-06-15):** normalize ALL adaptive gates to
+  **fail-closed** — absent config key = enforce. Add a regression test asserting an
+  absent gate key enforces (kills the "advisory-in-disguise" F4 risk).
 - Delete the prose-tier YAMLs; fold residual guidance into owning skills.
 - Update `Guardian`/`Heartgate` load paths to read via `config.py`.
 - **Gate:** `pytest tests/` stays 100% green throughout.
@@ -396,13 +399,15 @@ testing · LLM-as-judge · crypto/Fabric/ZK.
 
 ## Findings log (discovered during execution)
 
-- **F-T3-01 (kernel inconsistency, → Task 4c):** `core.py` uses two different
+- **F-T3-01 (kernel inconsistency, → Phase 2):** `core.py` uses two different
   absent-config idioms. `~line 950` (`self.config.get(key) or {}`) makes the
   proposal/plan adaptive gates **enforce** when their config key is absent; `~line 1202`
   (`if not isinstance(self.config.get(key), Mapping): return`) makes the
   execute/verify/resolve gates **self-disable** when absent. Result: under a minimal
   `phase-transitions.yaml`, proposal/plan gates fire but execute/verify/resolve gates
-  silently don't. Decide the intended behavior and make it consistent.
+  silently don't. **DECISION (2026-06-15, decision-log):** defer the kernel change to
+  Phase 2 (which rewrites this grammar into Python); normalized behavior is
+  **fail-closed** — absent config = enforce. Not a Task 4c item.
 - **F-T3-02 (fidelity gap, → new follow-up task):** the happy-path lifecycle test only
   exercises ~2 of 5 adaptive gates with real evidence; the other 3 self-disable under the
   minimal conftest fixture. Add a follow-up E2E that runs against the real 859-line

@@ -6,6 +6,21 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-06-15 — Adaptive Gates Are Fail-Closed on Absent Config (F-T3-01)
+
+Decision: When an adaptive gate's configuration key is absent, the gate MUST enforce (demand its evidence), not silently self-disable. This fail-closed default is the canonical behavior. The kernel change is deferred to the Phase 2 config collapse (which moves gate grammar from YAML into Python), rather than patched into the current YAML-loading code that Phase 2 will replace.
+
+Rationale: The E2E transition + per-phase matrices (`tests/e2e/`) surfaced that `core.py` handles a missing gate-config key two ways — proposal/plan gates enforce on absent config (`self.config.get(key) or {}`, ~line 950) while execute/verify/resolve gates self-disable (`if not isinstance(self.config.get(key), Mapping): return`, ~line 1202). An adaptive gate that silently does nothing when its config is missing is the "advisory-in-disguise" failure (F4): governance that looks enforced but isn't. Fail-closed is the only default consistent with the no-silent-skip invariant. Fixing the idiom now would be throwaway work since Phase 2 rewrites this code; the durable move is to lock the principle and apply it during the rewrite.
+
+Status: accepted.
+
+Canonical targets:
+
+- `skills/uacp-core/scripts/core.py` (Phase 2: normalize both gate families to enforce-on-absent)
+- `docs/plans/2026-06-14-uacp-cc-hardening.md` (Phase 2 section + findings log F-T3-01)
+
+Follow-up: Phase 2 implementation must make all adaptive gates enforce-on-absent-config and add a regression test asserting an absent gate key enforces. Until then, the inconsistency stands but is harmless in practice because the production `config/phase-transitions.yaml` defines all gate keys explicitly.
+
 ### 2026-05-17 — UACP Patch Plan Run uacp-patch-plan-20260515: Phases 0–4 + Global Review
 
 Decision: A 5-phase UACP patch plan (`proposals/uacp-patch-plan-20260515.yaml`) was authored, council-reviewed, and merged in 7 commits between 2026-05-15 and 2026-05-17, mechanically hardening the governance plane against the original Phase 0 audit findings and propagating constraints forward through each phase. A final cross-phase global review surfaced 14 high-consensus material findings; 10 batched as in-scope R1 remediation, 4+minor propagated to Phase 5.
