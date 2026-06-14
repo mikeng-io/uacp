@@ -391,3 +391,23 @@ plan for each when its predecessor is green.
 ### Deferred (gap ledger)
 bwrap/contained-shell · multi-run concurrency E2E · adaptive-gate selection-predicate
 testing · LLM-as-judge · crypto/Fabric/ZK.
+
+---
+
+## Findings log (discovered during execution)
+
+- **F-T3-01 (kernel inconsistency, → Task 4c):** `core.py` uses two different
+  absent-config idioms. `~line 950` (`self.config.get(key) or {}`) makes the
+  proposal/plan adaptive gates **enforce** when their config key is absent; `~line 1202`
+  (`if not isinstance(self.config.get(key), Mapping): return`) makes the
+  execute/verify/resolve gates **self-disable** when absent. Result: under a minimal
+  `phase-transitions.yaml`, proposal/plan gates fire but execute/verify/resolve gates
+  silently don't. Decide the intended behavior and make it consistent.
+- **F-T3-02 (fidelity gap, → new follow-up task):** the happy-path lifecycle test only
+  exercises ~2 of 5 adaptive gates with real evidence; the other 3 self-disable under the
+  minimal conftest fixture. Add a follow-up E2E that runs against the real 859-line
+  `config/phase-transitions.yaml` (or a fixture enabling all five adaptive gates) so
+  execute/verify/resolve evidence gates are actually enforced.
+- **F-T3-03 (environment, → Task 6 CI):** the default `python` on this machine is
+  anaconda 3.8, which cannot parse the codebase's PEP-604 `X | None` syntax. Tests require
+  Python 3.13+ (3.14 confirmed). CI must pin an appropriate interpreter.
