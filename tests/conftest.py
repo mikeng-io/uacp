@@ -69,7 +69,9 @@ stages:
   triage:
     allowed_tools:
       - read_file
+      - write_file
       - uacp_state_write
+      - uacp_gate_ledger_append
     exits_to:
       - propose
   propose:
@@ -77,20 +79,40 @@ stages:
       - read_file
       - write_file
       - uacp_state_write
+      - uacp_gate_ledger_append
+    exits_to:
+      - plan
+  plan:
+    allowed_tools:
+      - read_file
+      - write_file
+      - uacp_state_write
+      - uacp_gate_ledger_append
     exits_to:
       - execute
   execute:
     allowed_tools:
       - read_file
+      - write_file
       - uacp_state_write
+      - uacp_gate_ledger_append
     exits_to:
       - verify
   verify:
     allowed_tools:
       - read_file
+      - write_file
       - uacp_state_write
+      - uacp_gate_ledger_append
     exits_to:
-      - resolve
+      - resolved
+  resolved:
+    allowed_tools:
+      - read_file
+      - write_file
+      - uacp_state_write
+      - uacp_gate_ledger_append
+    exits_to: []
 """)
 
     os.chdir(test_dir)
