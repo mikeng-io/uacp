@@ -5,6 +5,30 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    name: ruff (engines + e2e)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install ruff
+        run: pip install ruff
+
+      # Scoped to the paths kept clean under the full ruleset. The legacy
+      # modules predate ruff and are intentionally NOT linted here (they are
+      # relaxed to pyflakes-only via per-file-ignores in pyproject.toml).
+      - name: Ruff lint
+        run: ruff check skills/uacp-core/scripts/engines/ tests/e2e/
+
+      - name: Ruff format check
+        run: ruff format --check skills/uacp-core/scripts/engines/ tests/e2e/
+
   test:
     name: pytest (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest

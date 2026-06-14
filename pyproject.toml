@@ -17,6 +17,7 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
     "pytest-xdist",
+    "ruff>=0.15",
 ]
 
 [tool.pytest.ini_options]
@@ -40,3 +41,40 @@ exclude_lines = [
     "raise NotImplementedError",
     "if __name__ == .__main__.:",
 ]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 100
+
+[tool.ruff.lint]
+# Sensible default ruleset: pyflakes (F), pycodestyle errors (E),
+# isort (I), pyupgrade (UP), flake8-bugbear (B).
+select = ["E", "F", "I", "UP", "B"]
+
+# Strict-vs-lenient strategy
+# -------------------------
+# The full ruleset is enforced on the new engines package and the e2e tests
+# (both kept clean). Legacy modules predate ruff adoption and carry hundreds of
+# pre-existing findings; mass-fixing them is out of scope and behaviourally
+# risky, so they are relaxed to pyflakes-only (F) via per-file-ignores rather
+# than excluded outright — this keeps them visible to `ruff check .` (so real
+# bugs like undefined names / unused imports still surface) without drowning in
+# stylistic, import-order, modernization, and bugbear noise. They can be
+# tightened incrementally later. CI scopes `ruff check` to the clean paths only,
+# so legacy findings never gate the build.
+[tool.ruff.lint.per-file-ignores]
+# Legacy kernel + adapter modules: pyflakes (F) only; silence E/I/UP/B.
+"skills/uacp-core/scripts/core.py" = ["E", "I", "UP", "B"]
+"skills/uacp-core/scripts/filesystem.py" = ["E", "I", "UP", "B"]
+"skills/uacp-state/scripts/state_machine.py" = ["E", "I", "UP", "B"]
+"skills/uacp-state/scripts/state.py" = ["E", "I", "UP", "B"]
+"skills/uacp-web/scripts/web_backend.py" = ["E", "I", "UP", "B"]
+"skills/scripts/**" = ["E", "I", "UP", "B"]
+# Legacy hermes runtime adapter + repo maintenance scripts.
+"runtime-adapters/**" = ["E", "I", "UP", "B"]
+"scripts/**" = ["E", "I", "UP", "B"]
+# Existing (non-e2e) test suites predate ruff; relax the same way.
+"tests/unit/**" = ["E", "I", "UP", "B"]
+"tests/integration/**" = ["E", "I", "UP", "B"]
+"tests/security/**" = ["E", "I", "UP", "B"]
+"tests/conftest.py" = ["E", "I", "UP", "B"]

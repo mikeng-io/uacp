@@ -98,7 +98,9 @@ def _read_ledger(path: Path) -> tuple[list[dict[str, Any]], list[Violation]]:
     try:
         text = path.read_text(encoding="utf-8")
     except Exception as exc:
-        violations.append(_v("C2_LEDGER_UNREADABLE", f"gate ledger unreadable: {type(exc).__name__}: {exc}"))
+        violations.append(
+            _v("C2_LEDGER_UNREADABLE", f"gate ledger unreadable: {type(exc).__name__}: {exc}")
+        )
         return records, violations
     for lineno, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
@@ -107,7 +109,10 @@ def _read_ledger(path: Path) -> tuple[list[dict[str, Any]], list[Violation]]:
             rec = json.loads(line)
         except Exception as exc:
             violations.append(
-                _v("C2_LEDGER_LINE_MALFORMED", f"gate ledger line {lineno} is not valid JSON: {exc}")
+                _v(
+                    "C2_LEDGER_LINE_MALFORMED",
+                    f"gate ledger line {lineno} is not valid JSON: {exc}",
+                )
             )
             continue
         if not isinstance(rec, dict):
@@ -173,9 +178,7 @@ def validate_run_coherence(workspace: str | Path, run_id: str) -> list[Violation
     violations.extend(_check_c1_run_id(root, run_id, m_run_id, ledger_records, artifacts))
     violations.extend(_check_c2_ledger_history(history_edges, ledger_records, ledger_path))
     violations.extend(_check_c3_phase_path(history_edges))
-    violations.extend(
-        _check_c4_terminal(root, status, current_phase, finalized_at, artifacts)
-    )
+    violations.extend(_check_c4_terminal(root, status, current_phase, finalized_at, artifacts))
     violations.extend(_check_c5_artifacts(root, artifacts))
     violations.extend(_check_c6_scope_registry(root, run_id, artifacts))
 
@@ -215,11 +218,14 @@ def _check_c1_run_id(
                 out.append(
                     _v(
                         "C1_RUN_ID_MISMATCH",
-                        f"current.yaml active_run_id '{active}' disagrees with manifest.run_id '{m_run_id}'",
+                        f"current.yaml active_run_id '{active}' disagrees with "
+                        f"manifest.run_id '{m_run_id}'",
                     )
                 )
     elif err is not None and current_path.exists():
-        out.append(_v("C1_CURRENT_UNREADABLE", f"state/current.yaml unreadable: {err}", severity="warn"))
+        out.append(
+            _v("C1_CURRENT_UNREADABLE", f"state/current.yaml unreadable: {err}", severity="warn")
+        )
 
     # Every gate-ledger record must carry this run's id.
     for idx, rec in enumerate(ledger_records, start=1):
@@ -291,8 +297,8 @@ def _check_c2_ledger_history(
         out.append(
             _v(
                 "C2_LEDGER_MISSING",
-                f"manifest records {len(history_edges)} phase transition(s) but no gate ledger exists at "
-                f"{ledger_path}",
+                f"manifest records {len(history_edges)} phase transition(s) but no "
+                f"gate ledger exists at {ledger_path}",
             )
         )
         return out
@@ -307,8 +313,8 @@ def _check_c2_ledger_history(
         out.append(
             _v(
                 "C2_HISTORY_WITHOUT_LEDGER",
-                f"state_history has {n} unmatched transition(s) {edge[0]}->{edge[1]} with no corresponding "
-                f"gate-ledger entry",
+                f"state_history has {n} unmatched transition(s) {edge[0]}->{edge[1]} "
+                f"with no corresponding gate-ledger entry",
             )
         )
     # Ledger gates without a matching history edge.
@@ -316,8 +322,9 @@ def _check_c2_ledger_history(
         out.append(
             _v(
                 "C2_LEDGER_WITHOUT_HISTORY",
-                f"gate ledger has {n} phase-transition gate(s) {edge[0].upper()}->{edge[1].upper()} with no "
-                f"corresponding state_history transition",
+                f"gate ledger has {n} phase-transition gate(s) "
+                f"{edge[0].upper()}->{edge[1].upper()} with no corresponding "
+                f"state_history transition",
             )
         )
 
@@ -351,8 +358,8 @@ def _check_c3_phase_path(history_edges: list[tuple[str, str]]) -> list[Violation
             out.append(
                 _v(
                     "C3_PHASE_PATH_GAP",
-                    f"non-contiguous phase path: transition '{frm}->{to}' does not continue from previous "
-                    f"phase '{prev_to}'",
+                    f"non-contiguous phase path: transition '{frm}->{to}' does not "
+                    f"continue from previous phase '{prev_to}'",
                 )
             )
         # legality: edge must exist in VALID_TRANSITIONS
@@ -361,7 +368,8 @@ def _check_c3_phase_path(history_edges: list[tuple[str, str]]) -> list[Violation
             out.append(
                 _v(
                     "C3_PHASE_PATH_ILLEGAL_EDGE",
-                    f"illegal phase transition '{frm}->{to}' (allowed from '{frm}': {sorted(allowed)})",
+                    f"illegal phase transition '{frm}->{to}' "
+                    f"(allowed from '{frm}': {sorted(allowed)})",
                 )
             )
         # no cycles: destination must not have been visited already
@@ -426,7 +434,8 @@ def _check_c4_terminal(
                 out.append(
                     _v(
                         "C4_CLOSURE_ARTIFACT_MISSING",
-                        f"resolved run references lessons artifact '{lessons_rel}' but it does not exist on disk",
+                        f"resolved run references lessons artifact '{lessons_rel}' "
+                        f"but it does not exist on disk",
                     )
                 )
     else:
@@ -434,7 +443,8 @@ def _check_c4_terminal(
             out.append(
                 _v(
                     "C4_FINALIZED_AT_SET_WHILE_UNRESOLVED",
-                    f"status is '{status}' (not resolved) but finalized_at is set to '{finalized_at}'",
+                    f"status is '{status}' (not resolved) but finalized_at is set "
+                    f"to '{finalized_at}'",
                 )
             )
 
@@ -449,7 +459,10 @@ def _check_c5_artifacts(root: Path, artifacts: dict[str, Any]) -> list[Violation
     for key, rel in artifacts.items():
         if not isinstance(rel, str) or not rel:
             out.append(
-                _v("C5_ARTIFACT_PATH_INVALID", f"artifact '{key}' has a non-string/empty path: {rel!r}")
+                _v(
+                    "C5_ARTIFACT_PATH_INVALID",
+                    f"artifact '{key}' has a non-string/empty path: {rel!r}",
+                )
             )
             continue
         apath = _safe_resolve(root, rel)
@@ -472,9 +485,7 @@ def _check_c5_artifacts(root: Path, artifacts: dict[str, Any]) -> list[Violation
 
 
 # --------------------------------------------------------------------------- C6
-def _check_c6_scope_registry(
-    root: Path, run_id: str, artifacts: dict[str, Any]
-) -> list[Violation]:
+def _check_c6_scope_registry(root: Path, run_id: str, artifacts: dict[str, Any]) -> list[Violation]:
     """scope.write_paths and the run-registry's active_runs entry for this run
     must declare the same write_paths.
 
@@ -498,7 +509,11 @@ def _check_c6_scope_registry(
     scope_wps = scope_body.get("write_paths") or []
     if not isinstance(scope_wps, list):
         out.append(
-            _v("C6_SCOPE_WRITE_PATHS_MALFORMED", f"scope.write_paths is not a list ({scope_rel})", severity="warn")
+            _v(
+                "C6_SCOPE_WRITE_PATHS_MALFORMED",
+                f"scope.write_paths is not a list ({scope_rel})",
+                severity="warn",
+            )
         )
         return out
 
@@ -509,9 +524,7 @@ def _check_c6_scope_registry(
     active = registry.get("active_runs") or []
     if not isinstance(active, list):
         return out
-    entry = next(
-        (e for e in active if isinstance(e, dict) and e.get("run_id") == run_id), None
-    )
+    entry = next((e for e in active if isinstance(e, dict) and e.get("run_id") == run_id), None)
     if entry is None:
         return out  # run not registered (e.g. deregistered at RESOLVE) — nothing to compare
     reg_wps = entry.get("write_paths") or []
@@ -522,8 +535,9 @@ def _check_c6_scope_registry(
         out.append(
             _v(
                 "C6_WRITE_PATHS_DISAGREE",
-                f"scope.write_paths {sorted(map(str, scope_wps))} disagree with run-registry write_paths "
-                f"{sorted(map(str, reg_wps))} for run '{run_id}'",
+                f"scope.write_paths {sorted(map(str, scope_wps))} disagree with "
+                f"run-registry write_paths {sorted(map(str, reg_wps))} "
+                f"for run '{run_id}'",
             )
         )
     return out

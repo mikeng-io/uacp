@@ -8,20 +8,21 @@ lessons) the validator cross-checks. Each teeth test starts from that good run,
 corrupts EXACTLY one thing, and asserts the specific violation code fires while
 the good run did NOT fire it.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-import yaml
-
 import state_machine
+import yaml
+from core import Heartgate
 from engines.base import Violation
 from engines.coherence import validate_run_coherence
-from core import Heartgate
 from state import _handle_uacp_gate_ledger_append
+
 from tests.e2e.driver import Driver
-from tests.e2e.test_full_lifecycle import PHASES, _SEEDERS
+from tests.e2e.test_full_lifecycle import _SEEDERS, PHASES
 
 
 def drive_happy_path(root: Path, run_id: str) -> None:
@@ -65,7 +66,12 @@ def drive_happy_path(root: Path, run_id: str) -> None:
             seeder(root, run_id)
 
         hg = heartgate.validate_transition(
-            {"from_phase": frm, "to_phase": to, "run_id": run_id, "artifact_path": "plans/test.yaml"}
+            {
+                "from_phase": frm,
+                "to_phase": to,
+                "run_id": run_id,
+                "artifact_path": "plans/test.yaml",
+            }
         )
         assert hg.decision == "pass", f"Heartgate blocked legit {frm}->{to}: {hg.blockers}"
 
@@ -172,7 +178,9 @@ def _codes(violations) -> set[str]:
 def test_coherent_run_has_zero_violations(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)
     violations = validate_run_coherence(temp_uacp_root, valid_run_id)
-    assert violations == [], f"expected zero violations, got: {[ (v.code, v.message) for v in violations]}"
+    assert violations == [], (
+        f"expected zero violations, got: {[(v.code, v.message) for v in violations]}"
+    )
     # Engine reports the shared Violation type, not a private dataclass.
     assert all(isinstance(v, Violation) for v in violations)
 
@@ -207,10 +215,13 @@ def test_c1_run_id_mismatch_in_artifact(temp_uacp_root: Path, valid_run_id: str)
 # ------------------------------------------------------------------- C2 (teeth)
 def test_c2_deleted_ledger_line_orphans_history(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)
-    assert not (_codes(validate_run_coherence(temp_uacp_root, valid_run_id)) & {
-        "C2_HISTORY_WITHOUT_LEDGER",
-        "C2_LEDGER_WITHOUT_HISTORY",
-    })
+    assert not (
+        _codes(validate_run_coherence(temp_uacp_root, valid_run_id))
+        & {
+            "C2_HISTORY_WITHOUT_LEDGER",
+            "C2_LEDGER_WITHOUT_HISTORY",
+        }
+    )
 
     ledger_path = temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
     lines = ledger_path.read_text().strip().splitlines()
@@ -224,7 +235,9 @@ def test_c2_spurious_ledger_line_orphans_ledger(temp_uacp_root: Path, valid_run_
     seed_coherent_run(temp_uacp_root, valid_run_id)
     ledger_path = temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
     # Append a phase-transition gate that has no matching history edge.
-    spurious = json.dumps({"gate": "VERIFY->RESOLVED", "run_id": valid_run_id, "ts": 0, "result": "pass"})
+    spurious = json.dumps(
+        {"gate": "VERIFY->RESOLVED", "run_id": valid_run_id, "ts": 0, "result": "pass"}
+    )
     with ledger_path.open("a", encoding="utf-8") as fh:
         fh.write(spurious + "\n")
 
@@ -235,10 +248,13 @@ def test_c2_spurious_ledger_line_orphans_ledger(temp_uacp_root: Path, valid_run_
 # ------------------------------------------------------------------- C3 (teeth)
 def test_c3_illegal_edge_in_history(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)
-    assert not (_codes(validate_run_coherence(temp_uacp_root, valid_run_id)) & {
-        "C3_PHASE_PATH_ILLEGAL_EDGE",
-        "C3_PHASE_PATH_GAP",
-    })
+    assert not (
+        _codes(validate_run_coherence(temp_uacp_root, valid_run_id))
+        & {
+            "C3_PHASE_PATH_ILLEGAL_EDGE",
+            "C3_PHASE_PATH_GAP",
+        }
+    )
 
     data = _load_manifest_raw(temp_uacp_root, valid_run_id)
     # Replace the first transition's destination with an illegal jump.
@@ -255,7 +271,9 @@ def test_c3_illegal_edge_in_history(temp_uacp_root: Path, valid_run_id: str):
 # ------------------------------------------------------------------- C4 (teeth)
 def test_c4_resolved_but_finalized_at_blank(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)
-    assert "C4_FINALIZED_AT_MISSING" not in _codes(validate_run_coherence(temp_uacp_root, valid_run_id))
+    assert "C4_FINALIZED_AT_MISSING" not in _codes(
+        validate_run_coherence(temp_uacp_root, valid_run_id)
+    )
 
     data = _load_manifest_raw(temp_uacp_root, valid_run_id)
     data["finalized_at"] = None  # resolved but not finalized
@@ -290,7 +308,9 @@ def test_c5_artifact_points_at_nonexistent_path(temp_uacp_root: Path, valid_run_
 # ------------------------------------------------------------------- C6 (teeth)
 def test_c6_scope_and_registry_write_paths_disagree(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)
-    assert "C6_WRITE_PATHS_DISAGREE" not in _codes(validate_run_coherence(temp_uacp_root, valid_run_id))
+    assert "C6_WRITE_PATHS_DISAGREE" not in _codes(
+        validate_run_coherence(temp_uacp_root, valid_run_id)
+    )
 
     # Mutate the scope artifact's write_paths so it no longer matches the registry.
     scope_path = temp_uacp_root / "plans" / f"{valid_run_id}-scope.yaml"

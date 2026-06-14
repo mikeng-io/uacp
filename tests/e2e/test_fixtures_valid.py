@@ -7,6 +7,7 @@ not YAML mappings, so they are checked against their schema-declared
 `required_sections` / required-header substrings instead. See fixtures/README.md
 for the filename->kind mapping.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

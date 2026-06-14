@@ -58,7 +58,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
 from core import (
     DECISION_ALLOW,
     DECISION_ALLOW_WITH_AUDIT,
@@ -151,17 +150,9 @@ for _st in _STAGES.values():
 _ALL_ALLOWED_WRITERS -= _RAW_EXEC
 
 # Cell lists, derived from config:
-_ADMIT_CELLS = [
-    (phase, tool)
-    for phase in _STAGES
-    for tool in sorted(_allowed(phase) - _RAW_EXEC)
-]
+_ADMIT_CELLS = [(phase, tool) for phase in _STAGES for tool in sorted(_allowed(phase) - _RAW_EXEC)]
 
-_FORBIDDEN_CELLS = [
-    (phase, tool)
-    for phase in _STAGES
-    for tool in sorted(_forbidden(phase))
-]
+_FORBIDDEN_CELLS = [(phase, tool) for phase in _STAGES for tool in sorted(_forbidden(phase))]
 
 # Allowlist-miss: a governed writer that IS allowlisted somewhere but is
 # neither in this phase's allowed_tools nor its forbidden_tools.
@@ -201,7 +192,9 @@ def test_allowed_tool_is_admitted(guardian_layer_b: Guardian, phase: str, tool: 
 # --------------------------------------------------------------------------
 # 2. FORBIDDEN: every forbidden tool is blocked, and the block is Layer-B's.
 # --------------------------------------------------------------------------
-@pytest.mark.parametrize("phase,tool", _FORBIDDEN_CELLS, ids=[_cell_id(c) for c in _FORBIDDEN_CELLS])
+@pytest.mark.parametrize(
+    "phase,tool", _FORBIDDEN_CELLS, ids=[_cell_id(c) for c in _FORBIDDEN_CELLS]
+)
 def test_forbidden_tool_is_blocked_by_layer_b(guardian_layer_b: Guardian, phase: str, tool: str):
     decision = guardian_layer_b.evaluate(_make_event(tool, phase))
     assert decision.decision == DECISION_BLOCK, (

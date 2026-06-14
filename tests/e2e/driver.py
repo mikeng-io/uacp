@@ -61,7 +61,9 @@ class Driver:
         self.run_id = run_id
         self.guardian = Guardian(GuardianPolicy.load(str(root)))
 
-    def call(self, tool_name: str, handler: Callable[[dict], str], args: dict, *, phase: str) -> dict:
+    def call(
+        self, tool_name: str, handler: Callable[[dict], str], args: dict, *, phase: str
+    ) -> dict:
         """Evaluate ``tool_name`` via the real Guardian, then run ``handler(args)``.
 
         Raises AssertionError if Guardian returns a non-allow decision (F1

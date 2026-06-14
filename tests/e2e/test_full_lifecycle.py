@@ -6,15 +6,16 @@ emitted trajectory (run manifest state_history/status/finalized_at + gate-ledger
 line count) rather than on file paths or config contents, so the test survives a
 later config refactor.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
 
-import yaml
-
 import state_machine
+import yaml
 from core import Heartgate
 from state import _handle_uacp_gate_ledger_append
+
 from tests.e2e.driver import Driver
 
 PHASES = [
@@ -29,13 +30,25 @@ PHASES = [
 # each "not_applicable" with full justification so no per-key artifact file is
 # needed — the gate still verifies the package envelope exists and is coherent.
 _PROPOSAL_CORE = [
-    "intent", "authority", "scope", "containment",
-    "risk", "verification", "transition", "artifact_map",
+    "intent",
+    "authority",
+    "scope",
+    "containment",
+    "risk",
+    "verification",
+    "transition",
+    "artifact_map",
 ]
 _PLAN_CORE = [
-    "work_breakdown", "dependencies", "authority_and_side_effects",
-    "tool_runtime_selection", "artifact_write_surfaces", "verification_strategy",
-    "rollback_recovery", "council_review_topology", "transition_readiness",
+    "work_breakdown",
+    "dependencies",
+    "authority_and_side_effects",
+    "tool_runtime_selection",
+    "artifact_write_surfaces",
+    "verification_strategy",
+    "rollback_recovery",
+    "council_review_topology",
+    "transition_readiness",
 ]
 
 

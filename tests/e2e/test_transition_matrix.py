@@ -43,10 +43,10 @@ that reveals a genuine kernel bug is marked xfail with a precise reason rather
 than having its assertion weakened. As of authoring, the kernel passes all 30
 cells cleanly (probed), so there are no xfails.
 """
+
 from __future__ import annotations
 
 import pytest
-
 from core import Heartgate
 
 PHASES = ["triage", "propose", "plan", "execute", "verify", "resolved"]
@@ -94,16 +94,14 @@ def test_transition_cell(temp_uacp_root, valid_run_id, frm, to):
         # plan->execute) — that is not a graph bug, so we only assert the
         # absence of a graph blocker here, not decision == "pass".
         assert not _graph_blocked(decision), (
-            f"{frm}->{to} is a LEGAL transition but was graph-blocked: "
-            f"{decision.blockers}"
+            f"{frm}->{to} is a LEGAL transition but was graph-blocked: {decision.blockers}"
         )
     else:
         # Every illegal pair must block, with a non-empty human-readable reason,
         # and that reason must include the graph rejection (not merely an
         # evidence gate that happened to fire).
         assert decision.decision == "block", (
-            f"{frm}->{to} is ILLEGAL but decision was "
-            f"{decision.decision!r}: {decision.blockers}"
+            f"{frm}->{to} is ILLEGAL but decision was {decision.decision!r}: {decision.blockers}"
         )
         assert decision.blockers, f"{frm}->{to} blocked without a reason"
         assert _graph_blocked(decision), (
