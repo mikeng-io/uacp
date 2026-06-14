@@ -12,6 +12,7 @@ slices build on.
 from __future__ import annotations
 
 import tomllib
+from functools import lru_cache
 from pathlib import Path
 
 from filesystem import _resolve_uacp_path
@@ -119,3 +120,42 @@ def load_config(project_root: Path | None = None) -> UacpConfig:
             merged = _deep_merge(merged, override)
 
     return UacpConfig(**merged)
+
+
+@lru_cache(maxsize=256)
+def _cached_config(root_str: str) -> UacpConfig:
+    return load_config(Path(root_str))
+
+
+def clear_config_cache() -> None:
+    """Drop the per-root config cache (test hygiene; see conftest autouse)."""
+    _cached_config.cache_clear()
+
+
+def get_config(root: Path) -> UacpConfig:
+    """Config for ``root``, deep-merging ``<root>/.uacp/config.toml`` if present.
+
+    Cached per resolved root so kernel readers do not re-parse TOML on every
+    path lookup. Use :func:`clear_config_cache` between tests that mutate the
+    override after a prior read.
+    """
+    return _cached_config(str(Path(root).resolve()))
+
+
+def base_dir(root: Path) -> Path:
+    """The governed namespace root: ``<root>/<paths.base>`` (default ``.uacp``)."""
+    cfg = get_config(root)
+    return Path(root).resolve() / cfg.paths.base
+
+
+def dir_for(root: Path, path_key: str) -> Path:
+    """Resolve a declared ``[paths]`` subdir under the governed base.
+
+    Plain join (no traversal check — ``path_key`` is a kernel constant, not user
+    input); raises ``ValueError`` for an unknown key so typos fail loud.
+    """
+    cfg = get_config(root)
+    if path_key not in type(cfg.paths).model_fields:
+        known = ", ".join(sorted(type(cfg.paths).model_fields))
+        raise ValueError(f"unknown paths key {path_key!r}; expected one of: {known}")
+    return base_dir(root) / getattr(cfg.paths, path_key)

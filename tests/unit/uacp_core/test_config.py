@@ -81,3 +81,29 @@ def test_resolve_rejects_unknown_path_key(tmp_path):
     cfg = load_config(project_root=tmp_path)
     with pytest.raises(ValueError):
         cfg.resolve(tmp_path, "not_a_real_key", "x")
+
+
+def test_base_dir_injects_namespace(tmp_path):
+    from config import base_dir
+    assert base_dir(tmp_path) == tmp_path.resolve() / ".uacp"
+
+
+def test_dir_for_resolves_subdir(tmp_path):
+    from config import dir_for
+    assert dir_for(tmp_path, "state") == tmp_path.resolve() / ".uacp" / "state"
+    assert dir_for(tmp_path, "resolutions") == tmp_path.resolve() / ".uacp" / "resolutions"
+
+
+def test_dir_for_honors_base_override(tmp_path):
+    from config import clear_config_cache, dir_for
+    clear_config_cache()
+    (tmp_path / ".uacp").mkdir()
+    (tmp_path / ".uacp" / "config.toml").write_text('[paths]\nbase = ".governed"\n')
+    assert dir_for(tmp_path, "state") == tmp_path.resolve() / ".governed" / "state"
+    clear_config_cache()
+
+
+def test_dir_for_rejects_unknown_key(tmp_path):
+    from config import dir_for
+    with pytest.raises(ValueError):
+        dir_for(tmp_path, "nope")
