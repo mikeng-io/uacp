@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from state import (
     _handle_uacp_gate_ledger_append,

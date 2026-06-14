@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from core import DECISION_ALLOW_WITH_AUDIT, Guardian, GuardianEvent, GuardianPolicy, Heartgate
 from state import (

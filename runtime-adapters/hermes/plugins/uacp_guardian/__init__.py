@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import time
@@ -162,7 +161,7 @@ def on_pre_tool_call(
         )
         decision = _decision_for_event(event)
         if decision.audit_required:
-            audit_path = write_audit_record(decision.to_audit_record(event))
+            write_audit_record(decision.to_audit_record(event))
             decision = GuardianDecision(
                 decision.decision,
                 decision.category,
