@@ -14,6 +14,7 @@ from __future__ import annotations
 from . import (
     coherence,  # noqa: F401
     ledger_integrity,  # noqa: F401
+    scope_conformance,  # noqa: F401
 )
 from .base import ENGINES, Engine, Violation, run_all_engines
 
