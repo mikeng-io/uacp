@@ -11,7 +11,10 @@ Importing this package registers all bundled engines into ``ENGINES`` so that
 from __future__ import annotations
 
 # Importing the engine modules registers them into ENGINES as a side effect.
-from . import coherence  # noqa: F401
+from . import (
+    coherence,  # noqa: F401
+    ledger_integrity,  # noqa: F401
+)
 from .base import ENGINES, Engine, Violation, run_all_engines
 
 __all__ = ["ENGINES", "Engine", "Violation", "run_all_engines"]
