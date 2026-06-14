@@ -415,4 +415,20 @@ testing · LLM-as-judge · crypto/Fabric/ZK.
   execute/verify/resolve evidence gates are actually enforced.
 - **F-T3-03 (environment, → Task 6 CI):** the default `python` on this machine is
   anaconda 3.8, which cannot parse the codebase's PEP-604 `X | None` syntax. Tests require
-  Python 3.13+ (3.14 confirmed). CI must pin an appropriate interpreter.
+  Python 3.13+ (3.14 confirmed). CI must pin an appropriate interpreter. **[done — CI
+  pins 3.13/3.14]**
+
+### Final-review follow-ups (non-blocking, → Phase 2 / polish)
+
+- **F-FR-01:** the happy-path lifecycle test reaches `resolved` while the
+  execute/verify/resolve adaptive evidence gates self-disable under the minimal fixture —
+  so it does NOT exercise them. Add a consequence-level note in the test, and (with
+  F-T3-02) an E2E against the real config that enforces all five gates.
+- **F-FR-02:** the transition matrix pins the **fixture's synthetic** graph (`resolved`),
+  not the **production** graph (`resolve`→`terminal`). The production transition graph
+  currently has zero E2E legality coverage. Add a production-graph matrix in Phase 2.
+- **F-FR-03 (polish):** the `GuardianEvent` builder is duplicated (`driver.make_event` vs
+  `test_phase_gates._make_event`, differing only by `filesystem_guard_verified`). Factor
+  into `driver.make_event(..., filesystem_guard_verified=False)`.
+- **F-FR-04 (polish):** CI — `pytest -q` conflicts with `addopts = -v` (cosmetic); add
+  path filters + `concurrency` cancellation so doc-only pushes don't burn minutes.
