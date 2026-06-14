@@ -30,6 +30,8 @@ if str(_CORE_DIR) not in sys.path:
 
 from filesystem import _resolve_uacp_path  # noqa: E402
 
+from config import dir_for  # noqa: E402
+
 # Importing the domain package also bootstraps state_machine onto sys.path and
 # reuses RunManifest (it is not re-declared here).
 from engines.domain import (  # noqa: E402
@@ -93,7 +95,7 @@ def load_manifest(workspace: Path, run_id: str) -> Loaded[ManifestDoc]:
     is a :class:`ManifestDoc` whose ``raw`` is the mapping and whose ``model`` is
     the validated :class:`RunManifest` when it validates, else None.
     """
-    path = workspace / "state" / "runs" / f"{run_id}.yaml"
+    path = dir_for(workspace, "state") / "runs" / f"{run_id}.yaml"
     raw, err = _safe_load_yaml(path)
     if err is not None:
         return Loaded(error=err)
@@ -114,7 +116,7 @@ def load_ledger(workspace: Path, run_id: str) -> tuple[list[LedgerEntry], list[s
     unreadable file or malformed line (the engine maps each to a violation).
     A missing ledger yields ``([], [])`` — its absence is the caller's concern.
     """
-    path = workspace / "state" / "gate-ledger" / f"{run_id}.jsonl"
+    path = dir_for(workspace, "state") / "gate-ledger" / f"{run_id}.jsonl"
     entries: list[LedgerEntry] = []
     errors: list[str] = []
     if not path.exists():
@@ -144,7 +146,7 @@ def load_current(workspace: Path) -> Loaded[CurrentPointer]:
     A missing file is reported via ``error`` (callers may treat it as benign).
     ``value`` is None when the body is missing, garbled, or not a mapping.
     """
-    path = workspace / "state" / "current.yaml"
+    path = dir_for(workspace, "state") / "current.yaml"
     raw, err = _safe_load_yaml(path)
     if err is not None:
         return Loaded(error=err)
@@ -155,7 +157,7 @@ def load_current(workspace: Path) -> Loaded[CurrentPointer]:
 
 def load_registry(workspace: Path) -> Loaded[RunRegistry]:
     """Load ``state/run-registry.yaml``. ``value`` None on missing/garbled/non-mapping."""
-    path = workspace / "state" / "run-registry.yaml"
+    path = dir_for(workspace, "state") / "run-registry.yaml"
     raw, err = _safe_load_yaml(path)
     if err is not None:
         return Loaded(error=err)
