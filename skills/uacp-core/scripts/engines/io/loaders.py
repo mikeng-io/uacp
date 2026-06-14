@@ -30,7 +30,7 @@ if str(_CORE_DIR) not in sys.path:
 
 from filesystem import _resolve_uacp_path  # noqa: E402
 
-from config import dir_for  # noqa: E402
+from config import base_dir, dir_for  # noqa: E402
 
 # Importing the domain package also bootstraps state_machine onto sys.path and
 # reuses RunManifest (it is not re-declared here).
@@ -66,11 +66,17 @@ class ManifestDoc:
 
 
 def resolve_in_workspace(root: Path, rel: str) -> Path | None:
-    """Resolve a UACP-root-relative path defensively, or None if it escapes /
-    is unresolvable. Never raises."""
+    """Resolve a governed-namespace-relative path defensively, or None if it
+    escapes / is unresolvable. Never raises.
+
+    ``rel`` is a base-relative artifact/state reference (e.g. ``proposals/x.md``,
+    ``resolutions/x.yaml``, ``state/...``) stored by writers under ``.uacp/``, so
+    it resolves under ``base_dir(root)`` and is contained there.
+    """
     try:
-        resolved = _resolve_uacp_path(rel, root)
-        resolved.relative_to(root)
+        base = base_dir(root)
+        resolved = _resolve_uacp_path(rel, base)
+        resolved.relative_to(base)
         return resolved
     except Exception:
         return None
@@ -213,10 +219,13 @@ def glob_in_workspace(workspace: Path, pattern: str) -> list[Path]:
 
     Defensive: never raises. Patterns whose literal prefix escapes the workspace,
     or that cannot be globbed, yield ``[]``. Matches that resolve outside the
-    workspace (e.g. via symlinks) are dropped.
+    governed namespace (e.g. via symlinks) are dropped.
+
+    ``pattern`` is base-relative (e.g. ``proposals/{run_id}*``), so it globs under
+    ``base_dir(workspace)`` (``.uacp/``) — where the writers place artifacts.
     """
     try:
-        root = workspace.resolve()
+        root = base_dir(workspace)
         matches: list[Path] = []
         for m in root.glob(pattern):
             try:

@@ -100,7 +100,7 @@ def test_missing_phase_exit_artifact_blocks_with_ev(temp_uacp_root: Path, valid_
     seed_coherent_run(temp_uacp_root, valid_run_id)
     _add_plan_exit_invariant(temp_uacp_root)
     # With the required plan-exit artifact present, closure is still clean.
-    assert (temp_uacp_root / "plans" / f"{valid_run_id}-plan-selection.yaml").exists()
+    assert (temp_uacp_root / ".uacp" / "plans" / f"{valid_run_id}-plan-selection.yaml").exists()
     assert _closure(temp_uacp_root, valid_run_id).decision == "pass"
 
     # Remove ONLY the required plan-phase exit artifact (leave scope etc. intact so

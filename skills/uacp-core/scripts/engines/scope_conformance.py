@@ -65,6 +65,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from config import base_dir
+
 # The shared violation type + engine registry. Every engine reports the same
 # Violation; this engine registers itself in ENGINES at the bottom of the module.
 from engines.base import ENGINES, Violation
@@ -345,8 +347,11 @@ def _check_artifact_containment(
         resolved = resolve_in_workspace(root, probe)
         if resolved is not None:
             allowed_roots.append(resolved)
+    # Permitted output surfaces are base-relative dirs under the governed
+    # namespace (.uacp/), matching where writers place artifacts and where
+    # resolve_in_workspace resolves the artifact refs below.
     for surface in _ALLOWED_OUTPUT_PREFIXES:
-        allowed_roots.append((root / surface).resolve())
+        allowed_roots.append((base_dir(root) / surface).resolve())
 
     scope_resolved = resolve_in_workspace(root, scope_rel)
 
