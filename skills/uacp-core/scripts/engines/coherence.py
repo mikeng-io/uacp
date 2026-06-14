@@ -10,42 +10,36 @@ run: every failure mode (absent file, garbled YAML, broken JSONL line, schema
 drift) is converted into a :class:`~engines.base.Violation` rather than an
 exception. An empty result list means "coherent".
 
-It is the first of the computed Heartgate engines: it imports the shared
-``Violation`` from :mod:`engines.base` and registers itself in that module's
-``ENGINES`` registry. It imports only public-ish kernel helpers and re-reads
-files from disk; it does not depend on kernel internals beyond path resolution
-and the state-machine's transition graph / terminal-phase set.
+Architecture (hexagonal-lite): this engine is PURE of filesystem I/O. All disk
+reads go through :mod:`engines.io`, which returns typed :mod:`engines.domain`
+read-models; the checks below operate on those models. The phase graph
+(``VALID_TRANSITIONS`` / ``TERMINAL_PHASES``) is reused from the kernel via the
+domain package, and the manifest read-model reuses the kernel's ``RunManifest``.
 """
 
 from __future__ import annotations
 
-import json
-import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
-
-# This module lives at skills/uacp-core/scripts/engines/coherence.py. Make the
-# sibling kernel modules (skills/uacp-core/scripts) and the uacp-state
-# state_machine importable regardless of how this file is invoked.
-_ENGINES_DIR = Path(__file__).resolve().parent
-_CORE_DIR = _ENGINES_DIR.parent
-if str(_CORE_DIR) not in sys.path:
-    sys.path.insert(0, str(_CORE_DIR))
-_STATE_DIR = _CORE_DIR.parents[1] / "uacp-state" / "scripts"
-if str(_STATE_DIR) not in sys.path:
-    sys.path.insert(0, str(_STATE_DIR))
-
-from filesystem import _resolve_uacp_path  # noqa: E402
-
-# VALID_TRANSITIONS / TERMINAL_PHASES are the single source of truth for the
-# legal phase graph. Import them rather than re-declaring (no field invention).
-from state_machine import TERMINAL_PHASES, VALID_TRANSITIONS  # noqa: E402
-
 # The shared violation type + engine registry. Every engine reports the same
 # Violation; coherence registers itself in ENGINES at the bottom of this module.
-from engines.base import ENGINES, Violation  # noqa: E402
+from engines.base import ENGINES, Violation
+
+# Domain read-models + the kernel phase graph (reused, not re-declared).
+from engines.domain import TERMINAL_PHASES, VALID_TRANSITIONS
+
+# All filesystem access is delegated to the io layer.
+from engines.io import (
+    load_artifact,
+    load_current,
+    load_ledger,
+    load_manifest,
+    load_registry,
+    load_scope,
+    resolve_in_workspace,
+)
+from engines.io.loaders import ManifestDoc
 
 # Artifact types (manifest.artifacts keys) and/or filename conventions whose
 # file body carries a top-level ``run_id`` we can cross-check (C1). Grounded in
@@ -57,18 +51,7 @@ def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Viola
     return Violation(code=code, severity=severity, message=message, detail=detail)
 
 
-def _safe_load_yaml(path: Path) -> tuple[Any, str | None]:
-    """Return (parsed, error). error is a human string when the load failed."""
-    try:
-        if not path.exists():
-            return None, f"file not found: {path}"
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-        return raw, None
-    except Exception as exc:  # defensive: garbled YAML must not raise
-        return None, f"{type(exc).__name__}: {exc}"
-
-
-def _parse_gate_edge(gate: str) -> tuple[str, str] | None:
+def _parse_gate_edge(gate: Any) -> tuple[str, str] | None:
     """Parse a ledger ``gate`` like 'TRIAGE->PROPOSE' into (from, to) lowercased.
 
     Returns None for gates that are not phase-transition gates (so non-transition
@@ -82,46 +65,6 @@ def _parse_gate_edge(gate: str) -> tuple[str, str] | None:
     if not left or not right:
         return None
     return left, right
-
-
-def _read_ledger(path: Path) -> tuple[list[dict[str, Any]], list[Violation]]:
-    """Read the gate-ledger JSONL. Returns (records, violations).
-
-    Each malformed line becomes a violation rather than an exception.
-    """
-    records: list[dict[str, Any]] = []
-    violations: list[Violation] = []
-    if not path.exists():
-        # Absence is reported by the caller against the manifest's expectations;
-        # here we simply return empty so callers can decide if that's a problem.
-        return records, violations
-    try:
-        text = path.read_text(encoding="utf-8")
-    except Exception as exc:
-        violations.append(
-            _v("C2_LEDGER_UNREADABLE", f"gate ledger unreadable: {type(exc).__name__}: {exc}")
-        )
-        return records, violations
-    for lineno, line in enumerate(text.splitlines(), start=1):
-        if not line.strip():
-            continue
-        try:
-            rec = json.loads(line)
-        except Exception as exc:
-            violations.append(
-                _v(
-                    "C2_LEDGER_LINE_MALFORMED",
-                    f"gate ledger line {lineno} is not valid JSON: {exc}",
-                )
-            )
-            continue
-        if not isinstance(rec, dict):
-            violations.append(
-                _v("C2_LEDGER_LINE_MALFORMED", f"gate ledger line {lineno} is not a JSON object")
-            )
-            continue
-        records.append(rec)
-    return records, violations
 
 
 def validate_run_coherence(workspace: str | Path, run_id: str) -> list[Violation]:
@@ -138,12 +81,13 @@ def validate_run_coherence(workspace: str | Path, run_id: str) -> list[Violation
     if not run_id or not isinstance(run_id, str):
         return [_v("C0_RUN_ID_INVALID", f"run_id invalid: {run_id!r}")]
 
-    manifest_path = root / "state" / "runs" / f"{run_id}.yaml"
-    manifest, err = _safe_load_yaml(manifest_path)
-    if err is not None:
-        return [_v("C0_MANIFEST_MISSING", f"run manifest could not be loaded: {err}")]
-    if not isinstance(manifest, dict):
-        return [_v("C0_MANIFEST_MALFORMED", "run manifest is not a YAML mapping")]
+    loaded = load_manifest(root, run_id)
+    if loaded.error is not None:
+        if loaded.value is None and loaded.error == "run manifest is not a YAML mapping":
+            return [_v("C0_MANIFEST_MALFORMED", "run manifest is not a YAML mapping")]
+        return [_v("C0_MANIFEST_MISSING", f"run manifest could not be loaded: {loaded.error}")]
+    doc: ManifestDoc = loaded.value
+    manifest = doc.raw
 
     m_run_id = manifest.get("run_id")
     status = manifest.get("status")
@@ -172,11 +116,15 @@ def validate_run_coherence(workspace: str | Path, run_id: str) -> list[Violation
 
     # Read the gate ledger once (shared by C1 + C2).
     ledger_path = root / "state" / "gate-ledger" / f"{run_id}.jsonl"
-    ledger_records, ledger_read_violations = _read_ledger(ledger_path)
-    violations.extend(ledger_read_violations)
+    ledger_entries, ledger_errors = load_ledger(root, run_id)
+    for msg in ledger_errors:
+        if msg.startswith("gate ledger unreadable"):
+            violations.append(_v("C2_LEDGER_UNREADABLE", msg))
+        else:
+            violations.append(_v("C2_LEDGER_LINE_MALFORMED", msg))
 
-    violations.extend(_check_c1_run_id(root, run_id, m_run_id, ledger_records, artifacts))
-    violations.extend(_check_c2_ledger_history(history_edges, ledger_records, ledger_path))
+    violations.extend(_check_c1_run_id(root, run_id, m_run_id, ledger_entries, artifacts))
+    violations.extend(_check_c2_ledger_history(history_edges, ledger_entries, ledger_path))
     violations.extend(_check_c3_phase_path(history_edges))
     violations.extend(_check_c4_terminal(root, status, current_phase, finalized_at, artifacts))
     violations.extend(_check_c5_artifacts(root, artifacts))
@@ -190,7 +138,7 @@ def _check_c1_run_id(
     root: Path,
     run_id: str,
     m_run_id: Any,
-    ledger_records: list[dict[str, Any]],
+    ledger_entries: list[Any],
     artifacts: dict[str, Any],
 ) -> list[Violation]:
     """manifest.run_id must equal: the requested run_id, current.yaml's
@@ -209,9 +157,9 @@ def _check_c1_run_id(
 
     # current.yaml — only cross-check when it points at this run.
     current_path = root / "state" / "current.yaml"
-    current, err = _safe_load_yaml(current_path)
-    if err is None and isinstance(current, dict):
-        active = current.get("active_run_id")
+    current = load_current(root)
+    if current.value is not None:
+        active = current.value.active_run_id
         # If the pointer names this run, its id must agree with the manifest.
         if active == run_id or active == m_run_id:
             if active != m_run_id:
@@ -222,19 +170,23 @@ def _check_c1_run_id(
                         f"manifest.run_id '{m_run_id}'",
                     )
                 )
-    elif err is not None and current_path.exists():
+    elif current.error is not None and current_path.exists():
         out.append(
-            _v("C1_CURRENT_UNREADABLE", f"state/current.yaml unreadable: {err}", severity="warn")
+            _v(
+                "C1_CURRENT_UNREADABLE",
+                f"state/current.yaml unreadable: {current.error}",
+                severity="warn",
+            )
         )
 
     # Every gate-ledger record must carry this run's id.
-    for idx, rec in enumerate(ledger_records, start=1):
-        rid = rec.get("run_id")
+    for idx, rec in enumerate(ledger_entries, start=1):
+        rid = rec.run_id
         if rid != m_run_id:
             out.append(
                 _v(
                     "C1_RUN_ID_MISMATCH",
-                    f"gate-ledger record #{idx} (gate {rec.get('gate')!r}) run_id '{rid}' "
+                    f"gate-ledger record #{idx} (gate {rec.gate!r}) run_id '{rid}' "
                     f"!= manifest.run_id '{m_run_id}'",
                 )
             )
@@ -244,21 +196,21 @@ def _check_c1_run_id(
         rel = artifacts.get(key)
         if not isinstance(rel, str) or not rel:
             continue
-        apath = _safe_resolve(root, rel)
+        apath = resolve_in_workspace(root, rel)
         if apath is None or not apath.exists():
             # Existence is C5's job; skip the run_id check on a missing file.
             continue
-        body, aerr = _safe_load_yaml(apath)
-        if aerr is not None or not isinstance(body, dict):
+        body = load_artifact(root, rel)
+        if body.error is not None or body.value is None:
             out.append(
                 _v(
                     "C1_ARTIFACT_UNREADABLE",
-                    f"artifact '{key}' ({rel}) could not be parsed for run_id check: {aerr}",
+                    f"artifact '{key}' ({rel}) could not be parsed for run_id check: {body.error}",
                     severity="warn",
                 )
             )
             continue
-        body_rid = body.get("run_id")
+        body_rid = body.value.get("run_id")
         if body_rid is not None and body_rid != m_run_id:
             out.append(
                 _v(
@@ -273,7 +225,7 @@ def _check_c1_run_id(
 # --------------------------------------------------------------------------- C2
 def _check_c2_ledger_history(
     history_edges: list[tuple[str, str]],
-    ledger_records: list[dict[str, Any]],
+    ledger_entries: list[Any],
     ledger_path: Path,
 ) -> list[Violation]:
     """The phase transitions in state_history must correspond 1:1 to
@@ -288,8 +240,8 @@ def _check_c2_ledger_history(
     out: list[Violation] = []
 
     ledger_edges: list[tuple[str, str]] = []
-    for rec in ledger_records:
-        edge = _parse_gate_edge(rec.get("gate", ""))
+    for rec in ledger_entries:
+        edge = _parse_gate_edge(rec.gate)
         if edge is not None:
             ledger_edges.append(edge)
 
@@ -429,7 +381,7 @@ def _check_c4_terminal(
                 )
             )
         else:
-            apath = _safe_resolve(root, lessons_rel)
+            apath = resolve_in_workspace(root, lessons_rel)
             if apath is None or not apath.exists():
                 out.append(
                     _v(
@@ -465,7 +417,7 @@ def _check_c5_artifacts(root: Path, artifacts: dict[str, Any]) -> list[Violation
                 )
             )
             continue
-        apath = _safe_resolve(root, rel)
+        apath = resolve_in_workspace(root, rel)
         if apath is None:
             out.append(
                 _v(
@@ -498,15 +450,18 @@ def _check_c6_scope_registry(root: Path, run_id: str, artifacts: dict[str, Any])
     scope_rel = artifacts.get("scope")
     if not isinstance(scope_rel, str) or not scope_rel:
         return out
-    scope_path = _safe_resolve(root, scope_rel)
+    scope_path = resolve_in_workspace(root, scope_rel)
     if scope_path is None or not scope_path.exists():
         return out  # existence handled by C5
-    scope_body, serr = _safe_load_yaml(scope_path)
-    if serr is not None or not isinstance(scope_body, dict):
+    scope_loaded = load_scope(root, scope_rel)
+    if scope_loaded.error is not None or scope_loaded.value is None:
         return out
-    if "write_paths" not in scope_body:
+    scope = scope_loaded.value
+    # Mirror the original "write_paths not in body" no-op: only compare when the
+    # artifact actually declared the key (presence, not just a non-None value).
+    if "write_paths" not in scope.model_fields_set:
         return out
-    scope_wps = scope_body.get("write_paths") or []
+    scope_wps = scope.write_paths or []
     if not isinstance(scope_wps, list):
         out.append(
             _v(
@@ -517,17 +472,14 @@ def _check_c6_scope_registry(root: Path, run_id: str, artifacts: dict[str, Any])
         )
         return out
 
-    registry_path = root / "state" / "run-registry.yaml"
-    registry, rerr = _safe_load_yaml(registry_path)
-    if rerr is not None or not isinstance(registry, dict):
+    registry = load_registry(root)
+    if registry.value is None:
         return out  # no durable registry to compare against
-    active = registry.get("active_runs") or []
-    if not isinstance(active, list):
-        return out
-    entry = next((e for e in active if isinstance(e, dict) and e.get("run_id") == run_id), None)
+    active = registry.value.active_runs
+    entry = next((e for e in active if e.run_id == run_id), None)
     if entry is None:
         return out  # run not registered (e.g. deregistered at RESOLVE) — nothing to compare
-    reg_wps = entry.get("write_paths") or []
+    reg_wps = entry.write_paths or []
     if not isinstance(reg_wps, list):
         return out
 
@@ -541,18 +493,6 @@ def _check_c6_scope_registry(root: Path, run_id: str, artifacts: dict[str, Any])
             )
         )
     return out
-
-
-# --------------------------------------------------------------------------- util
-def _safe_resolve(root: Path, rel: str) -> Path | None:
-    """Resolve a UACP-root-relative path defensively. Returns None if it escapes
-    the workspace or is otherwise unresolvable (never raises)."""
-    try:
-        resolved = _resolve_uacp_path(rel, root)
-        resolved.relative_to(root)
-        return resolved
-    except Exception:
-        return None
 
 
 # Register this engine. Guard against double-registration if the module is
