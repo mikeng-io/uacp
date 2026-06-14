@@ -12,7 +12,6 @@ from state_machine import (
     Authority,
     RunManifest,
     Status,
-    VALID_TRANSITIONS,
     handle_finalize,
     handle_init,
     handle_read,
@@ -90,8 +89,10 @@ class TestStateMachineInit:
         assert result["ok"] is True
         assert result["run_id"] == "uacp-test-001"
 
-        manifest_path = temp_uacp_root / "state" / "runs" / "uacp-test-001.yaml"
+        manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-test-001.yaml"
         assert manifest_path.exists()
+        # C-1: manifest lands under .uacp/, never the flat root.
+        assert not (temp_uacp_root / "state" / "runs" / "uacp-test-001.yaml").exists()
         data = yaml.safe_load(manifest_path.read_text())
         assert data["run_id"] == "uacp-test-001"
         assert data["status"] == "active"
@@ -119,10 +120,14 @@ class TestStateMachineInit:
             "run_id": "uacp-test-001",
             "source": "operator-request",
         })
-        current_path = temp_uacp_root / "state" / "current.yaml"
+        current_path = temp_uacp_root / ".uacp" / "state" / "current.yaml"
         assert current_path.exists()
+        # C-1: pointer lands under .uacp/, never the flat root.
+        assert not (temp_uacp_root / "state" / "current.yaml").exists()
         data = yaml.safe_load(current_path.read_text())
         assert data["active_run_id"] == "uacp-test-001"
+        # Base-relative manifest ref (resolved under .uacp/), not .uacp/-prefixed.
+        assert data["active_run_manifest"] == "state/runs/uacp-test-001.yaml"
 
     def test_does_not_overwrite_current_pointer(self, temp_uacp_root: Path):
         handle_init({
@@ -135,7 +140,7 @@ class TestStateMachineInit:
             "run_id": "uacp-test-002",
             "source": "operator-request",
         })
-        current_path = temp_uacp_root / "state" / "current.yaml"
+        current_path = temp_uacp_root / ".uacp" / "state" / "current.yaml"
         data = yaml.safe_load(current_path.read_text())
         # First run stays active
         assert data["active_run_id"] == "uacp-test-001"
@@ -185,7 +190,7 @@ class TestStateMachineTransition:
         assert result["from_phase"] == "triage"
         assert result["to_phase"] == "propose"
 
-        manifest_path = temp_uacp_root / "state" / "runs" / "uacp-test-001.yaml"
+        manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-test-001.yaml"
         data = yaml.safe_load(manifest_path.read_text())
         assert data["current_phase"] == "propose"
         assert len(data["state_history"]) == 1
@@ -228,7 +233,7 @@ class TestStateMachineTransition:
             "source": "operator-request",
         })
         # Mark as resolved
-        manifest_path = temp_uacp_root / "state" / "runs" / "uacp-test-001.yaml"
+        manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-test-001.yaml"
         data = yaml.safe_load(manifest_path.read_text())
         data["status"] = "resolved"
         data["current_phase"] = "resolved"
@@ -261,7 +266,7 @@ class TestStateMachineRegisterArtifact:
         }))
         assert result["ok"] is True
 
-        manifest_path = temp_uacp_root / "state" / "runs" / "uacp-test-001.yaml"
+        manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-test-001.yaml"
         data = yaml.safe_load(manifest_path.read_text())
         assert data["artifacts"]["triage"] == "proposals/uacp-test-001-triage.yaml"
 
@@ -339,7 +344,7 @@ class TestStateMachineFinalize:
         assert result["ok"] is True
         assert result["status"] == "resolved"
 
-        manifest_path = temp_uacp_root / "state" / "runs" / "uacp-test-001.yaml"
+        manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-test-001.yaml"
         data = yaml.safe_load(manifest_path.read_text())
         assert data["status"] == "resolved"
         assert data["finalized_at"] is not None
