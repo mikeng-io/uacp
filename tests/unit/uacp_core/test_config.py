@@ -53,3 +53,31 @@ def test_resolve_rejects_traversal(tmp_path):
     cfg = load_config(project_root=tmp_path)
     with pytest.raises(ValueError):
         cfg.resolve(tmp_path, "state", "../../etc/passwd")
+
+
+def test_nested_path_subtables_preserved():
+    # The default config/uacp.toml [paths] table has nested subtables
+    # [paths.bridge_artifacts] and [paths.council_artifacts] with no declared
+    # field on the Paths model. Without `extra="allow"` on Paths, Pydantic v2
+    # silently DROPS them on validation — data loss, since bridge/council skills
+    # reference those paths. This test asserts they survive. It FAILS if Paths
+    # lacks `extra="allow"` (model_extra is None, subtables absent from dump).
+    cfg = load_config(project_root=None)
+
+    # Accessed via the extra-data accessor (these are `extra` on Paths, not
+    # declared fields). Both model_extra and model_dump() expose them.
+    assert cfg.paths.model_extra is not None
+    assert cfg.paths.model_extra["bridge_artifacts"] == {"root": ".outputs/bridges"}
+    assert cfg.paths.model_extra["council_artifacts"] == {"root": ".outputs/councils"}
+
+    dumped = cfg.paths.model_dump()
+    assert dumped["bridge_artifacts"] == {"root": ".outputs/bridges"}
+    assert dumped["council_artifacts"] == {"root": ".outputs/councils"}
+
+
+def test_resolve_rejects_unknown_path_key(tmp_path):
+    # The resolver guards against unknown [paths] keys (config.py raises
+    # ValueError before composing the path). This guard was previously untested.
+    cfg = load_config(project_root=tmp_path)
+    with pytest.raises(ValueError):
+        cfg.resolve(tmp_path, "not_a_real_key", "x")

@@ -24,7 +24,14 @@ class Paths(BaseModel):
     Every field carries an inline default matching ``config/uacp.toml`` so a
     *partial* project override (e.g. only ``base``) still validates and leaves
     sibling fields at their defaults.
+
+    ``extra="allow"`` preserves nested path subtables (e.g.
+    ``[paths.bridge_artifacts]``, ``[paths.council_artifacts]``) that have no
+    declared field above. Without it Pydantic v2 silently drops them — that is
+    data loss, since bridge/council skills reference those paths.
     """
+
+    model_config = ConfigDict(extra="allow")
 
     base: str = ".uacp"
     state: str = "state"
