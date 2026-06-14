@@ -1,0 +1,9 @@
+# Golden fixture: uacp.scope (PLAN->EXECUTE artifact)
+# Minimal VALID instance per config/artifact-schemas.yaml `scope.required_fields`:
+#   run_id, write_paths, blast_radius, rollback_path
+kind: uacp.scope
+run_id: uacp-fixture-001
+write_paths:
+  - "docs/"
+blast_radius: low
+rollback_path: none--write-only-artifact

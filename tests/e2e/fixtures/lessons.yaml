@@ -1,0 +1,11 @@
+# Golden fixture: uacp.lessons (VERIFY->RESOLVE artifact)
+# Minimal VALID instance per config/artifact-schemas.yaml `lessons.required_fields`:
+#   run_id, lessons
+kind: uacp.lessons
+run_id: uacp-fixture-001
+lessons:
+  - id: L1
+    category: process
+    finding: Minimal lifecycle run completed without findings.
+    recommendation: None.
+    applies_to_future_runs: false

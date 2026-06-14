@@ -1,0 +1,5 @@
+# Golden fixture: uacp.run_registry (state/run-registry.yaml)
+# Minimal VALID instance per config/artifact-schemas.yaml `run_registry.required_fields`:
+#   active_runs
+kind: uacp.run_registry
+active_runs: []
