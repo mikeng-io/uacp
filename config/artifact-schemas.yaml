@@ -111,7 +111,7 @@ intent:
 lessons:
   kind: uacp.lessons
   required_for_transition: verify->resolve
-  path_template: "..outputs/{run_id}-lessons.yaml"
+  path_template: ".outputs/{run_id}-lessons.yaml"
   description: >
     Structured lessons emitted at RESOLVE. Entries with
     applies_to_future_runs=true are auto-copied to knowledge/lessons/ (the
@@ -168,7 +168,7 @@ cross_checks:
         - "proposals/"
         - "executions/"
         - "verification/"
-        - "..outputs/"
+        - ".outputs/"
         - "knowledge/"
       uacp_gate_ledger_append: ["state/gate-ledger/"]
       # Global review R1 (TECH-G-002): Phase 3.2's run_registry_update and

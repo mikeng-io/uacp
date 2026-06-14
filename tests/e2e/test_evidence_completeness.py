@@ -183,7 +183,7 @@ def test_resolved_without_closure_evidence_fires(temp_uacp_root: Path, valid_run
     )
 
     # status is 'resolved'; remove the resolve-phase required exit artifact
-    # (..outputs/{run_id}* -> the lessons file) so the closure is self-attesting.
+    # (.outputs/{run_id}* -> the lessons file) so the closure is self-attesting.
     (temp_uacp_root / ".outputs" / f"{valid_run_id}-lessons.yaml").unlink()
 
     codes = _codes(validate_evidence_completeness(temp_uacp_root, valid_run_id))

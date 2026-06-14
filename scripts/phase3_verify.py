@@ -187,7 +187,7 @@ def main() -> int:
             _append("EXECUTE->VERIFY", "verify")
             _append("PIV", "verify", piv_attempt=1)
             (tmp / f"verification/{run_id}-v.yaml").write_text("a: 1\n")
-            (tmp / f"..outputs/{run_id}-lessons.yaml").write_text(_y.safe_dump({"run_id": run_id, "lessons": []}))
+            (tmp / f".outputs/{run_id}-lessons.yaml").write_text(_y.safe_dump({"run_id": run_id, "lessons": []}))
             d = heartgate.validate_transition(_full_artifact(run_id, "verify", "resolve"))
             empty_cluster_blockers = [b for b in d.blockers if "cluster_summary is empty" in b]
             report["checks"].append({
@@ -352,7 +352,7 @@ def main() -> int:
             sk6_run = run_id + "-sk6"
             _append("EXECUTE->VERIFY", "verify", run_id_override=sk6_run)
             _append("PIV", "verify", piv_attempt=1, run_id_override=sk6_run)
-            (tmp / f"..outputs/{sk6_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk6_run, "lessons": []}))
+            (tmp / f".outputs/{sk6_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk6_run, "lessons": []}))
             artifact_sk6 = {
                 **_full_artifact(sk6_run, "verify", "resolve"),
                 "cluster_summary": [
@@ -497,7 +497,7 @@ def main() -> int:
             sk2_run = run_id + "-sk2"
             _append("EXECUTE->VERIFY", "verify", run_id_override=sk2_run)
             _append("PIV", "verify", piv_attempt=1, run_id_override=sk2_run)
-            (tmp / f"..outputs/{sk2_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk2_run, "lessons": []}))
+            (tmp / f".outputs/{sk2_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk2_run, "lessons": []}))
             artifact_sk2 = {
                 **_full_artifact(sk2_run, "verify", "resolve"),
                 "cluster_summary": [{"cluster_id": "a", "state": "not_applicable"}],

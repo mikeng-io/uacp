@@ -6,7 +6,7 @@ Use this note when UACP has live runtime adapter bindings and the next session n
 
 After runtime binding or cleanup work, create two durable surfaces:
 
-1. `UACP_ROOT/..outputs/uacp-operational-dashboard.yaml`
+1. `UACP_ROOT/.outputs/uacp-operational-dashboard.yaml`
    - current UACP operational status,
    - live adapter bindings and source/binding paths,
    - open blockers with severity,
@@ -36,7 +36,7 @@ Avoid mutating config, state, remotes, or protected paths from the safe probe.
 
 For the live Hermes UACP adapter checkpoint, the useful artifacts were:
 
-- `..outputs/uacp-operational-dashboard.yaml`
+- `.outputs/uacp-operational-dashboard.yaml`
 - `scripts/live_guardian_probe.py`
 - `verification/live-guardian-proof-20260514.yaml`
 

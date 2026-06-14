@@ -56,7 +56,7 @@ A safe live proof harness should test both positive and negative behavior, prefe
 - unknown plugin mutator still blocked as `runtime.extension`;
 - live user-plugin symlink and loader behavior still valid after adapter edits.
 
-Record the result under `verification/` and update `..outputs/uacp-operational-dashboard.yaml` / `..outputs/uacp-current-status.yaml` through governed writers when available.
+Record the result under `verification/` and update `.outputs/uacp-operational-dashboard.yaml` / `.outputs/uacp-current-status.yaml` through governed writers when available.
 
 ## Pitfall
 

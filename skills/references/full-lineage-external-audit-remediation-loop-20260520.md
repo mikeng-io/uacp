@@ -53,7 +53,7 @@ Then run internal adversarial follow-up. If it returns CONCERNS/FAIL, patch agai
 - Guardian path binding must account for `workspace`, `cwd`, `workdir`, `$UACP_ROOT`, `$HOME`, and relative shell paths like `touch state/x` or `touch uacp/state/x`.
 - For protected shell checks, assert `Guardian.evaluate()` blocks, not merely that `is_uacp_bound()` returns true.
 - Heartgate accepted warning exceptions must bind by both `artifact_path` and `cluster_id`; require `accepted_by`, owner, rationale, next-phase acceptance, and an existing **run-bound** evidence path.
-- Do not allow accepted exceptions to cite arbitrary existing `verification/` or `..outputs/` files from another run.
+- Do not allow accepted exceptions to cite arbitrary existing `verification/` or `.outputs/` files from another run.
 - Offline `uacp.phase_transition` validation should invoke the same linked adaptive artifact checks that Heartgate relies on; otherwise agents can claim "validator passed" for a transition Heartgate would block.
 - RESOLVE closure must deep-validate VERIFY readiness and carry forward residual risks/deferred items from readiness and resolve package.
 - PIV pass evidence must reference existing, run-bound artifacts; if a plan PIV exists, VERIFY must provide the PIV assessment.

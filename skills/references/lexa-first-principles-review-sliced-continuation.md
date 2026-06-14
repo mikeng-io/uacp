@@ -63,7 +63,7 @@ For each reviewed slice:
 After each slice, write a compact UACP checkpoint under:
 
 ```text
-UACP_ROOT/..outputs/<run_id>/slice-N-<topic>-checkpoint.md
+UACP_ROOT/.outputs/<run_id>/slice-N-<topic>-checkpoint.md
 ```
 
 Each checkpoint should state:

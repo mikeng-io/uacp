@@ -34,6 +34,6 @@ When Mike says a proposed solution feels “fuzzy,” “chaotic,” or like it 
 The boundary correction was recorded in UACP commit `d968a64`:
 - `docs/runtime-enforcement.md`
 - `docs/index.md`
-- `..outputs/uacp-current-status.yaml`
-- `..outputs/uacp-operational-dashboard.yaml`
+- `.outputs/uacp-current-status.yaml`
+- `.outputs/uacp-operational-dashboard.yaml`
 - `verification/runtime-trust-boundary-correction-20260514.yaml`

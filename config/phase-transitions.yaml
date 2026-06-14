@@ -156,7 +156,7 @@ stages:
     - terminal
     - execute_code
     phase_exit_invariants:
-    - artifact_glob: "..outputs/{run_id}*"
+    - artifact_glob: ".outputs/{run_id}*"
       required: true
     - gate_ledger_entry: "VERIFY->RESOLVE"
       required: true
@@ -837,9 +837,9 @@ adaptive_resolve_closure_gate:
       - multi_agent_execution
       - profile_plugin_boundary
   required_artifacts:
-    - ..outputs/{run_id}-resolve-selection.yaml
-    - ..outputs/{run_id}/
-    - ..outputs/{run_id}-closure.yaml
+    - .outputs/{run_id}-resolve-selection.yaml
+    - .outputs/{run_id}/
+    - .outputs/{run_id}-closure.yaml
   required_semantic_concerns:
     - closure_summary
     - final_decision

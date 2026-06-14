@@ -337,7 +337,7 @@ def main():
     yaml_paths = [
         "config/runtime-bindings.yaml",
         "config/state.yaml",
-        "..outputs/uacp-current-status.yaml",
+        ".outputs/uacp-current-status.yaml",
         "verification/runtime-porting-20260514-cleanup-doc-sync.yaml",
     ]
     for rel in yaml_paths:

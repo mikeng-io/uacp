@@ -16,7 +16,7 @@ roots:
       - plans/
       - executions/
       - verification/
-      - ..outputs/
+      - .outputs/
       - knowledge/
       - state/
     binding_policy: "Bound by the runtime or operator environment before execution."

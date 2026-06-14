@@ -73,7 +73,7 @@ Task:
 Produce and implement Stage 1 and Stage 2 only.
 
 Stage 1:
-Create `UACP_ROOT` with `proposals/`, `plans/`, `executions/`, `verification/`, `..outputs/`, `knowledge/{scenarios,gate-templates,lessons,indexes}`, `config/`, and `docs/`.
+Create `UACP_ROOT` with `proposals/`, `plans/`, `executions/`, `verification/`, `.outputs/`, `knowledge/{scenarios,gate-templates,lessons,indexes}`, `config/`, and `docs/`.
 
 Stage 2:
 Create config/docs files for evidence clusters, gate selection, phase transitions, review routing, memory policy, constitution, first principles, alignment spec, and lifecycle reference.
