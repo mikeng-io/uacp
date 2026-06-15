@@ -55,7 +55,7 @@ OpenCode is provider-agnostic — it routes to whichever AI providers are config
 
 ## Tier Resolution
 
-OpenCode bridge does **not** resolve models from `config/model-registry.yaml`. OpenCode is a user-configured multi-provider gateway — the user selects providers, authenticates them, and sets a default model in OpenCode's own configuration. UACP never overrides OpenCode's model selection unless `bridge_input` explicitly requests it.
+OpenCode bridge does **not** resolve models from `config/uacp.toml` `[models]`. OpenCode is a user-configured multi-provider gateway — the user selects providers, authenticates them, and sets a default model in OpenCode's own configuration. UACP never overrides OpenCode's model selection unless `bridge_input` explicitly requests it.
 
 ### What tier means for OpenCode
 

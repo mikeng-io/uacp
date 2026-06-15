@@ -32,7 +32,7 @@ Every bridge executes these checks in order before dispatching. Deviate only whe
 3. **Tertiary connection** — API fallback (if applicable to this bridge)
 4. **Authentication** — verify credentials for the selected path
 5. **Multi-agent capability** — detect and record; degrade gracefully if absent
-6. **Tier resolution** — read `bridge_input.tier` or derive from task_type + intensity; resolve model alias + reasoning from `UACP_ROOT/config/model-registry.yaml`
+6. **Tier resolution** — read `bridge_input.tier` or derive from task_type + intensity; resolve model alias + reasoning from `config/uacp.toml` `[models]`
 7. **Timeout estimation** — calculate from scope + intensity + resolved model
 
 If none of steps 1–3 succeed → return `status: SKIPPED` immediately. Never block the calling orchestrator.
@@ -52,7 +52,7 @@ If none of steps 1–3 succeed → return `status: SKIPPED` immediately. Never b
 
 ## Tier System
 
-UACP uses an abstract **tier** (0–4) to match task complexity to model capability. Tiers are assigned by the council or derived automatically. Model versions are **never hardcoded in bridge code** — they live in `config/model-registry.yaml` in `UACP_ROOT` and are resolved at runtime.
+UACP uses an abstract **tier** (0–4) to match task complexity to model capability. Tiers are assigned by the council or derived automatically. Model versions are **never hardcoded in bridge code** — they live in `config/uacp.toml` `[models]` and are resolved at runtime.
 
 ### Tier Definitions
 
@@ -89,20 +89,20 @@ Example: `task_type = implementation` (base 2) + `intensity = thorough` (offset 
 
 ### Tier Resolution
 
-Once the tier is known, the bridge resolves the actual model from `config/model-registry.yaml` — the **single source of truth** for all tier-to-model mappings. No bridge skill hardcodes these mappings.
+Once the tier is known, the bridge resolves the actual model from `config/uacp.toml` `[models]` — the **single source of truth** for all tier-to-model mappings. No bridge skill hardcodes these mappings.
 
 **Resolution protocol:**
 1. Accept `tier` in `bridge_input` (optional integer 0–4)
 2. Derive tier when absent using the rules above
-3. Read `UACP_ROOT/config/model-registry.yaml`
-4. Look up `tier_mappings.{bridge_name}.{tier}` to get `alias` and `reasoning`
-5. Look up `providers.{provider}.models.{alias}.concrete_id` to get the provider model ID
+3. Read `UACP_ROOT/config/uacp.toml` `[models]` section
+4. Look up `[models.tier_mappings.{bridge_name}]` at key `{tier}` to get `alias` and `reasoning`
+5. Look up `[models.providers.{provider}.models.{alias}]` → `concrete_id` to get the provider model ID
 6. Apply the reasoning level to the invocation (e.g., `--effort` for Claude, `--config reasoning-effort` for Codex)
 7. Record `resolved_tier`, `resolved_model`, and `resolved_reasoning` in the bridge output
 
 **Model validation:** During availability checks, if a resolved model alias cannot be mapped to a provider-known model ID, emit a warning and continue with the provider's default model. Record the warning in `model_validation_warnings`.
 
-**OpenCode exception:** OpenCode is multi-provider and user-configured. It is intentionally absent from `config/model-registry.yaml`. OpenCode discovers its own model from local config (`opencode config get model`, `opencode auth list`). UACP does not select or validate OpenCode models.
+**OpenCode exception:** OpenCode is multi-provider and user-configured. It is intentionally absent from `config/uacp.toml` `[models]`. OpenCode discovers its own model from local config (`opencode config get model`, `opencode auth list`). UACP does not select or validate OpenCode models.
 
 ---
 
@@ -742,7 +742,7 @@ timeout_multiplier = 1.5
 models = []  # empty = single-model default; 2+ entries = multi-model dispatch
 ```
 
-**Tier model mappings** are the canonical way bridges select models. The **single source of truth** is `UACP_ROOT/config/model-registry.yaml` — bridge skills do not hardcode these mappings. Each bridge reads its own `tier_mappings.{bridge}` and `providers.{provider}.models` sections from the registry at runtime.
+**Tier model mappings** are the canonical way bridges select models. The **single source of truth** is `UACP_ROOT/config/uacp.toml` `[models]` — bridge skills do not hardcode these mappings. Each bridge reads its own `[models.tier_mappings.{bridge}]` and `[models.providers.{provider}.models]` sections from `config/uacp.toml` at runtime.
 
 **`bridges.opencode.models` array** — controls multi-model dispatch for bridge-opencode:
 
@@ -756,7 +756,7 @@ Models must use `provider/model` format as required by OpenCode (e.g., `glm/glm-
 
 **Local overrides:** Create `uacp.local.toml` (gitignored) to override any setting without modifying the canonical config.
 
-**Model identifier validation:** During bridge availability checks, if a model identifier is resolved from `config/model-registry.yaml`, bridges SHOULD perform a lightweight validation probe (e.g., `codex models list`, `opencode auth list`) to confirm the identifier is resolvable. If a model cannot be resolved:
+**Model identifier validation:** During bridge availability checks, if a model identifier is resolved from `config/uacp.toml` `[models]`, bridges SHOULD perform a lightweight validation probe (e.g., `codex models list`, `opencode auth list`) to confirm the identifier is resolvable. If a model cannot be resolved:
 - Emit a **warning** in the bridge output (not SKIPPED — the bridge itself may still work with the provider's default model)
 - Record: `"model_validation_warnings": [{"model": "...", "reason": "not found in provider model list"}]`
 - Continue execution with the provider's default model if the specified model is invalid

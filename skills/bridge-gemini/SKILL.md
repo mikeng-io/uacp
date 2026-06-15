@@ -45,12 +45,12 @@ Parameters this bridge reads from `config/uacp.toml` at runtime:
 
 ## Tier Resolution
 
-Gemini bridge resolves the model alias from `config/model-registry.yaml` in `UACP_ROOT`. The tier mapping lives **only** in the registry — this skill does not hardcode it.
+Gemini bridge resolves the model alias from `config/uacp.toml` `[models]` in `UACP_ROOT`. The tier mapping lives **only** in `uacp.toml` — this skill does not hardcode it.
 
 **Resolution protocol:**
-1. Read `UACP_ROOT/config/model-registry.yaml`
-2. Look up `tier_mappings.gemini.{tier}` → get `alias` + `reasoning`
-3. Look up `providers.google.models.{alias}.concrete_id` → get resolved model ID
+1. Read `UACP_ROOT/config/uacp.toml` `[models]` section
+2. Look up `[models.tier_mappings.gemini.{tier}]` → get `alias` + `reasoning`
+3. Look up `[models.providers.google.models.{alias}]` → `concrete_id` → get resolved model ID
 
 The alias is stable; the `concrete_id` is updated in the registry when Google releases new models. No bridge skill changes required.
 
@@ -137,9 +137,9 @@ Build the prompt using the Agent Prompt Template from bridge-commons, adapting t
 Resolve tier and model before invocation:
 ```bash
 # 1. Determine tier (from bridge_input.tier or derive from task_type + intensity)
-# 2. Read UACP_ROOT/config/model-registry.yaml
-# 3. Look up tier_mappings.gemini.{tier} → get alias + reasoning
-# 4. Look up providers.google.models.{alias}.concrete_id → get resolved model ID
+# 2. Read UACP_ROOT/config/uacp.toml [models] section
+# 3. Look up [models.tier_mappings.gemini.{tier}] → get alias + reasoning
+# 4. Look up [models.providers.google.models.{alias}].concrete_id → get resolved model ID
 # 5. Set RESOLVED_MODEL
 ```
 
