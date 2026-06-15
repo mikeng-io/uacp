@@ -1259,8 +1259,13 @@ class Heartgate:
             configs = module.validate_configs(self.uacp_root, issues)
             module.validate_transition_config_consistency(configs, issues)
             phase_config = configs.get("config/phase-transitions.yaml") or {}
-            # Slice 2: Heartgate resolves artifacts under governed_root; the offline
-            # validator (validate_uacp_artifacts.py) is repointed in Slice 5.
+            # The offline validator (validate_uacp_artifacts.py) is now .uacp/-aware:
+            # it reads config flat under the project root but resolves state/artifact
+            # paths under base_dir(root). So the artifact `path` Heartgate loads here
+            # resolves under governed_root, while validate_configs + the validate_*
+            # kwargs keep passing the project root (self.uacp_root) — the validator
+            # base_dir's internally. (Council C-A: keeps the in-process path correct
+            # on a migrated repo instead of fail-closed BLOCKing real transitions.)
             for rel in rel_paths:
                 path = (self.governed_root / rel).resolve()
                 root = self.governed_root.resolve()
