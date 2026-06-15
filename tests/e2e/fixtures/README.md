@@ -3,7 +3,8 @@
 Minimal **valid** instances of each UACP structured-artifact kind. They double as
 templates a real run would produce, and as inputs for later E2E tasks.
 
-The authoritative schema is [`config/artifact-schemas.yaml`](../../../config/artifact-schemas.yaml).
+The authoritative schema is [`skills/uacp-core/scripts/engines/domain/artifact_schema.py`](../../../skills/uacp-core/scripts/engines/domain/artifact_schema.py)
+(codified in Slice 4a; accessed at runtime via `artifact_schemas_dict()`).
 Each fixture mirrors only the fields that schema declares — required fields plus the
 bare minimum to be a valid instance (YAGNI). No invented fields.
 
@@ -11,8 +12,9 @@ bare minimum to be a valid instance (YAGNI). No invented fields.
 
 The Task-5 brief suggested filenames `proposal / plan / checkpoint / verification /
 closure`. Those are *lifecycle-phase* names, not the schema's artifact-**kind** names.
-`config/artifact-schemas.yaml` defines five kinds, and the YAML fixtures are named for
-the schema's real kinds so the validation test can be schema-derived. The mapping:
+`artifact_schema.py` (via `artifact_schemas_dict()`) defines five kinds, and the YAML
+fixtures are named for the schema's real kinds so the validation test can be schema-derived.
+The mapping:
 
 | Brief term      | Schema kind               | Fixture file          | Format | Validation basis            |
 | --------------- | ------------------------- | --------------------- | ------ | --------------------------- |
@@ -46,9 +48,9 @@ templates instead.
 `../test_fixtures_valid.py`:
 
 - For the three YAML kinds, reads the `required_fields` list **from
-  `config/artifact-schemas.yaml`** and asserts each fixture parses as a YAML mapping
-  containing every required key. Schema-derived, so it stays correct if the schema
-  evolves.
+  `engines.domain.artifact_schema.artifact_schemas_dict()`** (codified in Slice 4a)
+  and asserts each fixture parses as a YAML mapping containing every required key.
+  Schema-derived, so it stays correct if the schema evolves.
 - For the two Markdown kinds, asserts each file contains the schema-declared
   `required_sections` headings (intent) or the required header substring from
   `evidence_disposition_minimum_content` (verified-facts / assumptions).

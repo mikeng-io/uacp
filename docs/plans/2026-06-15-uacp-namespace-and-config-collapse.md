@@ -1,5 +1,7 @@
 # `.uacp/` Namespace + Config Collapse — Implementation Plan
 
+> **STATUS: CONFIG-COLLAPSE COMPLETE (2026-06-16).** All five slices shipped. `config/phase-transitions.yaml` holds only LLM-read adaptive-gate doctrine + unconsumed schema-doctrine remnants. All consumed grammar is codified in `skills/uacp-core/scripts/engines/domain/` (`phase_graph.py`, `phase_transitions.py`, `gate_rules.py`, `artifact_schema.py`). Operator knobs in `config/uacp.toml [heartgate.*]`. `config/roots.yaml` and `config/artifact-schemas.yaml` deleted. One canonical validator at `scripts/validate_uacp_artifacts.py`. Suite: 513 passed, 2 skipped.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans (or subagent-driven-development) to implement this plan task-by-task.
 
 **Goal:** Collapse UACP's 13 config YAMLs into one `uacp.toml` (knobs, incl. a `[paths]`
@@ -201,10 +203,8 @@ for path-scatter and is now hardened above.
   **one stage at a time**, repointing Guardian/Heartgate/engines. Apply **F-T3-01
   fail-closed** + its regression test. This is the riskiest slice — smallest steps.
 
-### Slice 5 — Finalize
-- Delete remaining `config/*.yaml` (incl. `roots.yaml`); finish migrate script; update
-  `AGENTS.md`, `CLAUDE.md`, `docs/INDEX.md`, and skill path references. Confirm no
-  `config/*.yaml` and no root-level `state/`/`.outputs/`/phase dirs remain; suite green.
+### Slice 5 — Finalize ✅ COMPLETE (2026-06-16)
+- Deleted `config/roots.yaml` + `config/artifact-schemas.yaml` (inert, all grammar codified). Removed orphaned validator copy at `skills/scripts/validate_uacp_artifacts.py` (`scripts/` is canonical). Codified deferred T4d-2 schema grammar (`artifact_schema`/`council_synthesis_schema` required_fields + `terminal_kind` enum) into `engines/domain/artifact_schema.py`. Finalized `AGENTS.md`, `CLAUDE.md`, `docs/INDEX.md`, and `tests/e2e/fixtures/README.md` (repointed `artifact-schemas.yaml` authority to `engines/domain/artifact_schema.py`; updated `phase-transitions.yaml` row to reflect doctrine-only retention). Suite: 513 passed, 2 skipped. Branch: `feat/config-collapse-slice5`.
 
 ### Out of scope (sequenced after)
 Plugin packaging · Honcho `[memory]` adapter · prompt caching.
