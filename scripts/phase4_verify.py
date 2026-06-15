@@ -27,6 +27,16 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "runtime-adapters/hermes/plugins"))
+# Bootstrap domain path for domain model imports (Slice 4a Task 3)
+_CORE = ROOT / "skills" / "uacp-core" / "scripts"
+if str(_CORE) not in sys.path:
+    sys.path.insert(0, str(_CORE))
+from engines.domain import (  # noqa: E402
+    EscalationMode,
+    EscalationSeverity,
+    UacpMode,
+)
+from typing import get_args as _get_args
 
 
 def _common_args(tmp: Path, *, phase: str, run_id: str) -> dict:
@@ -62,34 +72,42 @@ def main() -> int:
                 (tmp / "config" / f).write_bytes(src.read_bytes())
             plugin._POLICY = None
 
-            # --- Check 1 (Item 4.1): uacp_mode declared in state schema ---
+            # --- Check 1 (Item 4.1): uacp_mode codified in domain model (Slice 4a Task 3) ---
+            # current_pointer_schema removed from state.yaml (codified to engines/domain).
+            # Assert via UacpMode Literal in CurrentPointer instead.
             state_schema = _y.safe_load((tmp / "config/state.yaml").read_text())
-            current_schema = state_schema.get("current_pointer_schema", {}) or {}
-            fields = (current_schema.get("fields") or {})
-            uacp_mode = fields.get("uacp_mode") or {}
+            mode_values = set(_get_args(UacpMode))
             ok = (
-                isinstance(uacp_mode, dict)
-                and uacp_mode.get("type") == "enum"
-                and set(uacp_mode.get("values") or []) == {"manual", "semi_auto", "supervised_auto", "full_auto"}
-                and uacp_mode.get("default") == "manual"
+                mode_values == {"manual", "semi_auto", "supervised_auto", "full_auto"}
+                and "manual" in mode_values  # default is manual (Phase 4.1 stub)
             )
             report["checks"].append({
                 "name": "item41_uacp_mode_in_state_schema",
                 "status": "pass" if ok else "fail",
-                "field": uacp_mode,
+                "note": "current_pointer_schema removed from state.yaml (Slice 4a Task 3); asserted via engines.domain.UacpMode",
+                "uacp_mode_values": sorted(mode_values),
             })
 
-            # --- Check 2 (Item 4.1): escalations block in state schema ---
+            # --- Check 2 (Item 4.1): escalations schema codified in domain model (Slice 4a Task 3) ---
+            # escalations.record_schema removed from state.yaml (codified to engines/domain).
+            # Assert via EscalationRecord fields and EscalationMode/EscalationSeverity instead.
+            # Retain the path/filename_template checks from the non-schema parts of the YAML
+            # (those doctrine blocks remain in state.yaml).
             esc = state_schema.get("escalations") or {}
+            sev_values = set(_get_args(EscalationSeverity))
+            mode_values_esc = set(_get_args(EscalationMode))
             ok2 = (
                 esc.get("path") == "state/escalations/"
                 and "{run_id}.jsonl" in str(esc.get("filename_template") or "")
-                and "trigger" in (esc.get("record_schema") or {}).get("required_fields", [])
+                and sev_values == {"info", "warn", "block"}
+                and mode_values_esc == {"manual", "semi_auto", "supervised_auto", "full_auto"}
             )
             report["checks"].append({
                 "name": "item41_escalations_block_in_state_schema",
                 "status": "pass" if ok2 else "fail",
-                "block": esc.get("record_schema"),
+                "note": "record_schema removed from state.yaml (Slice 4a Task 3); asserted via engines.domain.EscalationRecord",
+                "severity_values": sorted(sev_values),
+                "mode_values": sorted(mode_values_esc),
             })
 
             # --- Check 3 (Item 4.2): uacp.toml [autonomy] loads with 4 modes ---

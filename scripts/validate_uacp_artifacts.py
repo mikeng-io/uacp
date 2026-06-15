@@ -24,7 +24,7 @@ _CORE = _P(__file__).resolve().parents[1] / "skills" / "uacp-core" / "scripts"
 if str(_CORE) not in _sys.path:
     _sys.path.insert(0, str(_CORE))
 from config import base_dir  # noqa: E402
-from engines.domain import ClusterState, EvidenceCluster  # noqa: E402
+from engines.domain import CURRENT_POINTER_REQUIRED_FIELDS, ClusterState, EvidenceCluster  # noqa: E402
 from pydantic import ValidationError as _ValidationError  # noqa: E402
 
 try:
@@ -1432,7 +1432,7 @@ def _path_bound_to_run_id(rel: object, run_id: str) -> bool:
 def validate_current_state(root: Path, issues: list[str]) -> None:
     path = base_dir(root) / "state/current.yaml"
     obj = require_map(load_yaml(path), path)
-    required = ["kind", "active_run_id", "active_run_manifest", "mutation_policy", "current_transition_artifact", "kanban_binding_artifact", "kanban_board_slug", "bootstrap_closed", "governed_mutation_active"]
+    required = ["kind", *CURRENT_POINTER_REQUIRED_FIELDS]
     check_required(str(path), obj, required, issues)
     if obj.get("kind") != "uacp.current_state":
         issues.append(f"BLOCK {path}: kind must be uacp.current_state")

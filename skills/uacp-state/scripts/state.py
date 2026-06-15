@@ -19,6 +19,8 @@ if str(_CORE_DIR) not in sys.path:
 from config import base_dir
 from core import GuardianPolicy, Heartgate, _is_safe_run_id
 from filesystem import _resolve_uacp_path, _write_uacp_file
+from engines.domain import EscalationMode, EscalationSeverity
+from typing import get_args as _get_args
 
 
 def _required_uacp_context_missing(args: Mapping[str, Any]) -> list[str]:
@@ -366,7 +368,8 @@ def _handle_uacp_escalation_event(args: dict, **_: Any) -> str:
         authority = str(args.get("authority_artifact") or "").strip()
         if not trigger:
             return json.dumps({"error": "uacp_escalation_event: 'trigger' is required"})
-        if severity not in {"info", "warn", "block"}:
+        _VALID_SEVERITY = set(_get_args(EscalationSeverity))
+        if severity not in _VALID_SEVERITY:
             return json.dumps({"error": "uacp_escalation_event: 'severity' must be info|warn|block"})
         if not reason:
             return json.dumps({"error": "uacp_escalation_event: 'reason' is required"})
@@ -375,7 +378,8 @@ def _handle_uacp_escalation_event(args: dict, **_: Any) -> str:
         # rejected, not silently written as "".
         if not mode:
             return json.dumps({"error": "uacp_escalation_event: 'mode' is required (must be manual|semi_auto|supervised_auto|full_auto)"})
-        if mode not in {"manual", "semi_auto", "supervised_auto", "full_auto"}:
+        _VALID_MODE = set(_get_args(EscalationMode))
+        if mode not in _VALID_MODE:
             return json.dumps({"error": "uacp_escalation_event: 'mode' must be manual|semi_auto|supervised_auto|full_auto"})
         if not authority:
             return json.dumps({"error": "uacp_escalation_event: 'authority_artifact' is required"})
