@@ -207,14 +207,185 @@ council_mode = "resolve"
 # =============================================================================
 # Runtime enforcement configuration.
 
+# Faithful translation of config/guardian-policy.yaml (kind: uacp.guardian_policy).
+# Canonical prose authority remains docs/runtime/runtime-enforcement.md and
+# docs/lifecycle/lifecycle-reference.md. The YAML is the source of truth for
+# structure; GuardianPolicy.__init__ is structure-driven (data.get(...)), so the
+# top-level key shape under [guardian] mirrors the YAML exactly.
 [guardian]
-mode = "enforce"              # enforce | audit | permissive
-self_attesting_tools = ["uacp_doc_write", "uacp_config_write", "uacp_state_write"]
+mode = "enforce"              # enforce | observe
+schema_version = "0.1"
+
+# --- Protected categories (decision surface) -------------------------------
+# Each category: description, default_decision, optional allowed_tools.
+[guardian.protected_categories."state.uacp"]
+description = "Runtime lifecycle state under state/."
+default_decision = "block"
+allowed_tools = ["uacp_state_write", "uacp_gate_ledger_append", "uacp_run_registry_update", "uacp_escalation_event"]
+
+[guardian.protected_categories."docs.uacp"]
+description = "Canonical UACP Markdown docs under docs/."
+default_decision = "block"
+allowed_tools = ["uacp_doc_write"]
+
+[guardian.protected_categories."config.uacp"]
+description = "Canonical UACP YAML config under config/."
+default_decision = "block"
+allowed_tools = ["uacp_config_write"]
+
+[guardian.protected_categories."file.write"]
+description = "Local filesystem write outside explicit UACP state/config/doc boundaries."
+default_decision = "require_approval"
+
+[guardian.protected_categories."exec.shell"]
+description = "Shell command execution."
+default_decision = "block_pending_heartgate"
+
+[guardian.protected_categories."exec.code_with_tool_proxy"]
+description = "Code execution that can call filesystem or terminal tools."
+default_decision = "block_pending_heartgate"
+
+[guardian.protected_categories."exec.shell.contained"]
+description = "bwrap-contained shell execution surface used to mint filesystem-containment attestations."
+default_decision = "block"
+allowed_tools = ["uacp_contained_shell"]
+
+[guardian.protected_categories."artifact.uacp"]
+description = "Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml."
+default_decision = "block"
+allowed_tools = ["uacp_artifact_write"]
+
+[guardian.protected_categories."evidence.containment"]
+description = "Read-only filesystem-containment evidence checks."
+default_decision = "allow_with_audit"
+allowed_tools = ["uacp_sandbox_check"]
+
+[guardian.protected_categories."lifecycle.transition"]
+description = "Heartgate phase-transition artifact validation (read-only)."
+default_decision = "allow_with_audit"
+allowed_tools = ["uacp_heartgate_check"]
+
+[guardian.protected_categories."external.message"]
+description = "Sending messages or commitments outside origin conversation."
+default_decision = "require_approval"
+
+[guardian.protected_categories."external.network_write"]
+description = "Network mutation including APIs, posts, issues, PRs, pushes, deploys."
+default_decision = "require_approval"
+
+[guardian.protected_categories."external.network_read"]
+description = "Network read or web retrieval."
+default_decision = "allow_with_audit"
+
+[guardian.protected_categories."runtime.extension"]
+description = "Plugin or MCP-provided tool whose provenance must be classified before protected use."
+default_decision = "block_pending_heartgate"
+
+[guardian.protected_categories."read.local"]
+description = "Local non-private file reads."
+default_decision = "allow"
+
+# --- Tool classification (tool name -> category) ---------------------------
+[guardian.tool_classification]
+read_file = "read.local"
+search_files = "read.local"
+skill_view = "read.local"
+session_search = "read.local"
+vision_analyze = "read.local"
+browser_snapshot = "read.local"
+browser_vision = "read.local"
+browser_console = "read.local"
+browser_get_images = "read.local"
+uacp_state_write = "state.uacp"
+uacp_doc_write = "docs.uacp"
+uacp_config_write = "config.uacp"
+uacp_artifact_write = "artifact.uacp"
+uacp_sandbox_check = "evidence.containment"
+uacp_contained_shell = "exec.shell.contained"
+uacp_heartgate_check = "lifecycle.transition"
+uacp_gate_ledger_append = "state.uacp"
+uacp_run_registry_update = "state.uacp"
+uacp_escalation_event = "state.uacp"
+terminal = "exec.shell"
+execute_code = "exec.code_with_tool_proxy"
+send_message = "external.message"
+cronjob = "external.message"
+
+# --- Tool pattern classification (glob -> category) ------------------------
+[guardian.tool_pattern_classification]
+"spotify_*" = "external.network_write"
+"github_*" = "external.network_write"
+"browser_*" = "external.network_read"
+"web_*" = "external.network_read"
+"mcp_*" = "runtime.extension"
+
+# --- Tool provenance (per-provider classification policy) ------------------
+[guardian.tool_provenance.classification_by_provider]
+core = "use_tool_classification"
+plugin = "require_explicit_classification"
+mcp = "require_explicit_classification"
+inline_agent_loop = "require_control_plane_guard"
+unknown = "block_pending_heartgate"
+
+# --- Path rules ------------------------------------------------------------
+[guardian.path_rules]
+uacp_root_env = "UACP_ROOT"
+protected_state_globs = ["state/**"]
+protected_doc_globs = ["docs/**"]
+protected_config_globs = ["config/**"]
+
+[guardian.path_rules.protected_write_enforcement]
+required_for = ["state.uacp", "docs.uacp", "config.uacp", "exec.shell", "exec.code_with_tool_proxy"]
+
+# --- Self-attesting tools --------------------------------------------------
+# Tools whose handlers perform their own path-bounded containment (governed
+# writers, sandbox/heartgate checks, and the bwrap-backed contained shell
+# itself). For these tools, Guardian treats `filesystem_guard_verified` as True
+# without requiring an external bwrap attestation. The adapter reads this list
+# at hook-evaluation time so authority remains in policy, not in inline code.
+[guardian.self_attesting_tools]
+description = "Tools whose handlers perform their own path-bounded containment (governed writers, sandbox/heartgate checks, and the bwrap-backed contained shell itself). For these tools, Guardian treats `filesystem_guard_verified` as True without requiring an external bwrap attestation. The adapter reads this list at hook-evaluation time so authority remains in policy, not in inline code.\n"
+names = [
+    "uacp_state_write",
+    "uacp_doc_write",
+    "uacp_config_write",
+    "uacp_artifact_write",
+    "uacp_sandbox_check",
+    "uacp_heartgate_check",
+    "uacp_contained_shell",
+    "uacp_gate_ledger_append",
+    "uacp_run_registry_update",
+    "uacp_escalation_event",
+]
+
+# --- Runtime modes ---------------------------------------------------------
+[guardian.runtime_modes.observe]
+description = "Log decisions but allow unless non-waivable secret/private boundary is crossed."
+
+[guardian.runtime_modes.enforce]
+description = "Block protected actions that lack required authority, side-effect declaration, or Heartgate clearance."
+
+# --- Audit -----------------------------------------------------------------
+[guardian.audit]
+log_path = "logs/uacp/guardian.jsonl"
+required_fields = ["ts", "uacp_run_id", "uacp_phase", "tool_name", "decision", "authority_artifact", "side_effects", "runtime_commit", "uacp_commit"]
 
 [heartgate]
 enabled = true
 coherence_check_on_transition = true
 required_lenses = ["authority", "side_effects", "evidence", "rollback"]
+# From guardian-policy.yaml heartgate block (validator needs allowed_transitions).
+transition_config = "config/phase-transitions.yaml"
+allowed_transitions = [
+    "execute->verify",
+    "plan->execute",
+    "propose->plan",
+    "resolve->terminal",
+    "triage->propose",
+    "triage->terminal",
+    "verify->resolve",
+]
+decision_values = ["pass", "warn", "block"]
 
 # =============================================================================
 # OUTPUT
