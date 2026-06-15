@@ -134,5 +134,5 @@ See `proposals/uacp-patch-plan-20260515.yaml` for a real example. Full schema is
 - `docs/reference/skill-enforcement-spec.md` — what uacp-propose may do
 - `docs/reference/lifecycle-trace-table.md` — proposal's role in the lifecycle
 - `config/phase-transitions.yaml` — phase admissibility and exit invariants
-- `config/artifact-schemas.yaml` — sibling artifact schemas (scope, intent, lessons, evidence_disposition)
+- `engines/domain/artifact_schema.py` (`artifact_schemas_dict()`) — sibling artifact schemas (scope, intent, lessons, evidence_disposition; `config/artifact-schemas.yaml` deleted Slice 5)
 - `skills/devops/uacp/uacp-propose/SKILL.md` — operational instruction (output contract mirror)

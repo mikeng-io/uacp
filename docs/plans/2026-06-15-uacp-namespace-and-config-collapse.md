@@ -204,7 +204,7 @@ for path-scatter and is now hardened above.
   fail-closed** + its regression test. This is the riskiest slice — smallest steps.
 
 ### Slice 5 — Finalize ✅ COMPLETE (2026-06-16)
-- Deleted `config/roots.yaml` + `config/artifact-schemas.yaml` (inert, all grammar codified). Removed orphaned validator copy at `skills/scripts/validate_uacp_artifacts.py` (`scripts/` is canonical). Codified deferred T4d-2 schema grammar (`artifact_schema`/`council_synthesis_schema` required_fields + `terminal_kind` enum) into `engines/domain/artifact_schema.py`. Finalized `AGENTS.md`, `CLAUDE.md`, `docs/INDEX.md`, and `tests/e2e/fixtures/README.md` (repointed `artifact-schemas.yaml` authority to `engines/domain/artifact_schema.py`; updated `phase-transitions.yaml` row to reflect doctrine-only retention). Suite: 513 passed, 2 skipped. Branch: `feat/config-collapse-slice5`.
+- Deleted `config/roots.yaml` + `config/artifact-schemas.yaml` (inert, all grammar codified). Removed orphaned validator copy at `skills/scripts/validate_uacp_artifacts.py` (`scripts/` is canonical). Codified deferred T4d-2 schema grammar (`artifact_schema`/`council_synthesis_schema` required_fields + `terminal_kind` enum) into `engines/domain/phase_transitions.py`. Finalized `AGENTS.md`, `CLAUDE.md`, `docs/INDEX.md`, and `tests/e2e/fixtures/README.md` (repointed `artifact-schemas.yaml` authority to `engines/domain/artifact_schema.py`; updated `phase-transitions.yaml` row to reflect doctrine-only retention). Suite: 513 passed, 2 skipped. Branch: `feat/config-collapse-slice5`.
 
 ### Out of scope (sequenced after)
 Plugin packaging · Honcho `[memory]` adapter · prompt caching.

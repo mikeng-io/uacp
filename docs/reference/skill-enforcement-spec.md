@@ -106,7 +106,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Phase exit invariants**: `.outputs/{run_id}*`, ledger entry `VERIFY->RESOLVE`.
 
-**Phase 2 obligation**: emit `.outputs/{run_id}-lessons.yaml` matching `config/artifact-schemas.yaml#lessons`, including `ledger_citations` for non-trivial lessons.
+**Phase 2 obligation**: emit `.outputs/{run_id}-lessons.yaml` matching the `lessons` schema in `engines/domain/artifact_schema.py` (`artifact_schemas_dict()`; `config/artifact-schemas.yaml` deleted Slice 5), including `ledger_citations` for non-trivial lessons.
 
 ### `uacp-state` (cross-phase)
 
@@ -142,6 +142,6 @@ uacp-state has no Layer B entry of its own (it's `phase: '*'` / cross-phase); ad
 | Escape-hatch shape | `Heartgate._validate_evidence_dispositions` validates that `handled_findings_chain` / `accepted_exceptions` entries are non-empty mappings with required fields, not garbage placeholders (Phase 3 R2 SKEP-R1-002) |
 | Escalation events (Phase 4.4 stub) | `_handle_uacp_escalation_event` enforces UACP context, severity/mode enums, required `mode` field, PIPE_BUF size bound, escalation-dir containment check, embedded-newline refusal; writes to `state/escalations/{run_id}.jsonl`. Operator-polling only — push-notify is Phase 5. Trigger-ID validation against `config/uacp.toml [autonomy.escalation_triggers]` triggers is deferred to Phase 5 (no kernel reader yet). |
 | Operating mode (Phase 4.1 stub) | `state/current.yaml#uacp_mode` declared with default=manual. **No kernel reader in Phase 4** — `enforcement_status: stub_only_phase_4`. Skills consult `config/uacp.toml [autonomy]` as guidance. Phase 5 adds the first reader. |
-| Scope write_paths | `Heartgate._validate_scope_artifact` reads `config/artifact-schemas.yaml#scope` + `plans/{run_id}-scope.yaml` |
+| Scope write_paths | `Heartgate._validate_scope_artifact` reads `engines/domain/artifact_schema.py` (`artifact_schemas_dict()` key `scope`; `config/artifact-schemas.yaml` deleted Slice 5) + `plans/{run_id}-scope.yaml` |
 
 If a skill SKILL.md mirror drifts from this spec or from `config/phase-transitions.yaml`, the canonical config wins. Drift is recoverable through normal commits — there is no audit harness yet (deferred for Phase 4 autonomous-mode verification cycles).

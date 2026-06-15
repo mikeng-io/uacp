@@ -58,7 +58,7 @@ Run-registry registration:
 
 ### 6. Resolve (`uacp-resolve`)
 
-- Emit `.outputs/{run_id}-lessons.yaml` matching `config/artifact-schemas.yaml#lessons`. Include `ledger_citations` for non-trivial lessons.
+- Emit `.outputs/{run_id}-lessons.yaml` matching the `lessons` schema in `engines/domain/artifact_schema.py` (`artifact_schemas_dict()`; `config/artifact-schemas.yaml` deleted Slice 5). Include `ledger_citations` for non-trivial lessons.
 - Update `state/current.yaml` to `active_status: resolved`. Note: `state/current.yaml` is caller-bound — the new content's `active_run_id` must match the caller's `uacp_run_id`. Bootstrap-mode writes (file absent) are permitted to seed.
 
 ## Council review gate

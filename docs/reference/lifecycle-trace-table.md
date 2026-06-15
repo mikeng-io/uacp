@@ -2,7 +2,7 @@
 
 This document is the cross-phase artifact dependency map for UACP. For each phase transition, it lists required inputs, required outputs, Heartgate checks, and the gate-ledger entry that records the transition's evaluation.
 
-The kernel reads this dependency model from `config/phase-transitions.yaml`, `config/artifact-schemas.yaml`, and `config/uacp.toml [guardian]` (Guardian policy; collapsed from legacy guardian-policy.yaml in Slice 3). This document is the canonical reading-order narrative that humans use to verify the model is coherent end-to-end.
+The kernel reads this dependency model from `config/phase-transitions.yaml` (doctrine + operator knobs; gate-rule grammar codified to `engines/domain/gate_rules.py` in Slice 4b), `engines/domain/artifact_schema.py` (`artifact_schemas_dict()`; `config/artifact-schemas.yaml` deleted Slice 5), and `config/uacp.toml [guardian]` (Guardian policy; collapsed from legacy guardian-policy.yaml in Slice 3). This document is the canonical reading-order narrative that humans use to verify the model is coherent end-to-end.
 
 ## Transitions
 
@@ -114,6 +114,6 @@ Heartgate does not require a fixed evidence cluster set. TRIAGE/PROPOSE select e
 - `docs/reference/skill-enforcement-spec.md`
 - `docs/reference/proposal-schema.md`
 - `docs/runtime/runtime-enforcement.md`
-- `config/phase-transitions.yaml`
-- `config/artifact-schemas.yaml`
+- `config/phase-transitions.yaml` (doctrine + operator knobs; gate-rule grammar codified to `engines/domain/gate_rules.py` Slice 4b)
+- `engines/domain/artifact_schema.py` (`artifact_schemas_dict()` — artifact schemas codified Slice 4a; `config/artifact-schemas.yaml` deleted Slice 5)
 - `config/uacp.toml` (`[guardian]` section — Guardian policy)
