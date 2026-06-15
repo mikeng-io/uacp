@@ -144,7 +144,7 @@ Heartgate validates lifecycle phase transitions. It is surfaced through a callab
 
 A valid phase transition must satisfy **all** of the following:
 
-1. The transition is listed as allowed in `config/phase-transitions.yaml`
+1. The transition is admissible per the codified phase graph (`engines/domain/phase_graph.py` `LIFECYCLE_GRAPH`, from which `exits_to` derives; injected into the loaded phase-transitions model — `config/phase-transitions.yaml` carries adaptive-gate doctrine only)
 2. The current state pointer, run manifest, transition artifact, and phase fields all agree
 3. Required transition inputs exist and parse without error
 4. All non-waivable invariants pass — a result of `warn` is not accepted for invariants; the result must be `pass`

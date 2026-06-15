@@ -39,7 +39,7 @@ Required artifacts:
 - Append a `PLAN_VALIDATION` ledger record via `uacp_gate_ledger_append` covering all six pv_ids (`pv_1`..`pv_6`) with explicit per-check pass evidence (mapping-form OR sibling `check_results`). Heartgate blocks PLAN→EXECUTE otherwise. See [`docs/reference/skill-enforcement-spec.md`](docs/reference/skill-enforcement-spec.md) for the contract.
 
 Run-registry registration:
-- `config/phase-transitions.yaml#run_registry_rule.required_for_transition: plan->execute` declares the registry is consulted at every PLAN→EXECUTE in every mode. Any two concurrent runs whose `scope.write_paths` overlap will mutually block unless both register.
+- The codified `run_registry_rule` (`engines/domain/gate_rules.py` `run_registry_rule_default()`, Slice 4b; `required_for_transition: plan->execute`) declares the registry is consulted at every PLAN→EXECUTE in every mode. Any two concurrent runs whose `scope.write_paths` overlap will mutually block unless both register.
 - Manual-mode runs MAY skip registration when operator-driven serialization is the compensating control (no concurrent UACP run is open). Heartgate's overlap check then has nothing to flag.
 - `supervised_auto` / `full_auto` mode runs (Phase 5+) MUST register via `uacp_run_registry_update` op=register after PLAN_VALIDATION and deregister at RESOLVE. `config/uacp.toml [autonomy] modes.{supervised_auto,full_auto}.run_registry_registration_required: true` documents this obligation (kernel reader lands in Phase 5).
 

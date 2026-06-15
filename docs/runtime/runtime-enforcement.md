@@ -169,7 +169,7 @@ TRIAGE -> PROPOSE -> PLAN -> EXECUTE -> VERIFY -> RESOLVE
 
 Each transition must satisfy:
 
-- transition is allowed by `config/phase-transitions.yaml`;
+- transition is allowed by the canonical phase graph (`engines/domain/phase_graph.py` `LIFECYCLE_GRAPH`; `config/phase-transitions.yaml` retains adaptive-gate doctrine only);
 - current pointer, run manifest, transition artifact, and phase fields agree;
 - required transition inputs exist and parse;
 - non-waivable invariants are pass/block only and all pass;
@@ -191,8 +191,8 @@ warnings are surfaced but allow passage if owned.
 
 | Order | Check | Source | Blocks on |
 |---|---|---|---|
-| 1 | required_fields | `config/phase-transitions.yaml artifact_schema.required_fields` | missing required field |
-| 2 | transition_allowed | `config/phase-transitions.yaml stages.*.exits_to` | unauthorized from→to |
+| 1 | required_fields | `engines/domain/phase_transitions.py` (`phase_transition_required_fields()`; codified Slice 5, used when the `artifact_schema.required_fields` key is absent) | missing required field |
+| 2 | transition_allowed | `engines/domain/phase_graph.py` (`LIFECYCLE_GRAPH`; `stages` codified Slice 4b, `exits_to` derived from the canonical graph) | unauthorized from→to |
 | 3 | invariant_summary | transition artifact | any invariant status ≠ pass |
 | 4 | cluster_summary | transition artifact | cluster block / unaccepted warn / undeferred-deferred / invalid state |
 | 5 | blockers | transition artifact | any unresolved blocker |
@@ -200,7 +200,7 @@ warnings are surfaced but allow passage if owned.
 | 7 | deferred_items | transition artifact | items without owner/condition/accepted_by |
 | 8 | heartgate_coherence | transition artifact `heartgate_coherence` block | missing artifact_path / unmet lenses / status=block |
 | 9 | heartgate_coherence_required_when | `engines/domain/gate_rules.py` (`heartgate_coherence_required_when` key in `gate_rules_default()`; `config/phase-transitions.yaml` retains doctrine only) | required-but-absent coherence evidence |
-| 10 | phase_exit_invariants (Phase 1.2) | `config/phase-transitions.yaml stages.<from>.phase_exit_invariants` | required artifact glob unmet / gate-ledger entry missing |
+| 10 | phase_exit_invariants (Phase 1.2) | `engines/domain/phase_transitions.py` (`stages_default()` `<from>.phase_exit_invariants`; `stages` codified Slice 4b, injected by `load_phase_transitions` when absent from YAML) | required artifact glob unmet / gate-ledger entry missing |
 | 11 | piv_record (Phase 1.4 / Global review SKEP-G-002) | `engines/domain/gate_rules.py` (`piv_rule_default()`; `config/phase-transitions.yaml` retains doctrine only) + `state/gate-ledger/{run_id}.jsonl` | no PIV pass with per-check evidence; 2 PIV failures; malformed `piv_rule`; corrupt ledger line. Per-check pass evidence (each `piv_id` ∈ `{piv_1..piv_5}` carrying explicit `result: pass` either as a `checks[]` mapping entry or via sibling `check_results: {piv_id: pass}`) is required — generalizes the Phase 3 R1 PLAN_VALIDATION contract. |
 | 12 | intent_doc (Phase 2.3) | `engines/domain/artifact_schema.py` (`artifact_schemas_dict()` key `intent`; `config/artifact-schemas.yaml` deleted Slice 5) + `proposals/{run_id}-intent.md` | TRIAGE→PROPOSE: missing file or missing required section |
 | 13 | scope_artifact (Phase 2.1) | `engines/domain/artifact_schema.py` (`artifact_schemas_dict()` key `scope`) + `plans/{run_id}-scope.yaml` | PLAN→EXECUTE: missing file / missing required fields / write_paths not reachable by Layer B allowed_tools |

@@ -293,7 +293,7 @@ Exit condition: run is resolved and lessons are stored in the appropriate substr
 
 ## Council Synthesis Artifacts
 
-Council synthesis artifacts consumed by phase transitions must include council id, mode, tier, phase, phase-local granularity, roles, dispatch surfaces, findings, verdict, human escalation state, and artifact paths. The machine-readable seed schema lives in `config/phase-transitions.yaml`.
+Council synthesis artifacts consumed by phase transitions must include council id, mode, tier, phase, phase-local granularity, roles, dispatch surfaces, findings, verdict, human escalation state, and artifact paths. The consumed `council_synthesis_schema.required_fields` are codified in `engines/domain/phase_transitions.py` (Slice 5; used when the YAML key is absent); `config/phase-transitions.yaml` retains only the schema-doctrine narrative.
 
 ## Lifecycle Skill Contracts
 
