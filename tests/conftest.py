@@ -122,6 +122,28 @@ stages:
 # Production (config/phase-transitions.yaml) ships NO block and so gets the
 # enforce-by-default code default; only this test fixture opts out.
 heartgate_coherence_required_when: {}
+# Slice 4b T4c-2 opt-out stub — PRESERVES PRIOR TEST LAXITY.
+# Before T4c-2 this synthetic config OMITTED plan_validation_gate, so the gate
+# was OFF in tests (the reader did `rule = self.config.get(...) or {}; if not
+# rule.get("required_ledger_gate_for_transition"): return`). After T4c-2 an
+# ABSENT block becomes the CODE DEFAULT (ON: fires on plan->execute, demanding a
+# PLAN_VALIDATION pass record in the gate ledger), which test_full_lifecycle does
+# NOT seed -> plan->execute would block. An explicit empty mapping is read as
+# "block present" and carries no required_ledger_gate_for_transition, so the
+# reader's `if not required_for: return` keeps the gate OFF, exactly as before.
+plan_validation_gate: {}
+# Slice 4b T4c-2 opt-out stub — PRESERVES PRIOR TEST LAXITY.
+# Before T4c-2 this synthetic config OMITTED piv_rule, so the gate was OFF in
+# tests (the reader did `piv_rule = self.config.get(...) or {}; if not
+# piv_rule.get("ledger_required"): return`). After T4c-2 an ABSENT block becomes
+# the CODE DEFAULT (ON: ledger_required true -> EVERY transition demands a PIV
+# pass record in the gate ledger), which no test seeds -> all transition tests
+# would block. Providing the block present with ledger_required false is read as
+# the loaded value, so `not piv_rule.get("ledger_required")` keeps the gate OFF,
+# exactly as before. Production ships NO block and gets the enforce-by-default
+# code default; only this test fixture opts out.
+piv_rule:
+  ledger_required: false
 """)
 
     os.chdir(test_dir)

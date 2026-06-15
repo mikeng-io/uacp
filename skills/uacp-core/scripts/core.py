@@ -1449,6 +1449,28 @@ class Heartgate:
         if not self._dir_under_root_exists(package_rel):
             blockers.append(f"adaptive_resolve_closure_gate: missing resolve package directory {package_rel}/")
 
+    def _piv_rule(self) -> Mapping[str, Any]:
+        """Resolve the piv_rule.
+
+        Slice 4b T4c-2: the rule grammar (ledger_required, the piv_* check ids,
+        ledger_required_fields, max_attempts, second_failure_action) is codified
+        in engines.domain.gate_rules. The block is read from the loaded
+        phase-transitions config WHEN PRESENT (production behavior, unchanged);
+        when ABSENT it falls back to the code default whose ``ledger_required``
+        is True (enforce-by-default / fail-closed: a PIV pass record is required
+        on every transition). No operator-tunable knob this wave.
+
+        A test fixture may opt OUT by supplying ``piv_rule: {ledger_required:
+        false}``: present-with-falsy-ledger_required is read as the loaded value,
+        so the reader's ``not piv_rule.get("ledger_required")`` short-circuits the
+        gate exactly as the pre-T4c-2 absent block did.
+        """
+        if "piv_rule" in self.config:
+            return self.config.get("piv_rule") or {}
+        from engines.domain.gate_rules import piv_rule_default
+
+        return piv_rule_default()
+
     def _validate_piv_record(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Phase 1 / Item 1.4: require a PIV pass record in the ledger before
         Heartgate accepts a transition for which piv_rule applies.
@@ -1466,7 +1488,7 @@ class Heartgate:
         has explicit per-check pass evidence (mapping-form or sibling
         `check_results: {piv_id: pass}`).
         """
-        piv_rule = self.config.get("piv_rule") or {}
+        piv_rule = self._piv_rule()
         if not isinstance(piv_rule, Mapping) or not piv_rule.get("ledger_required"):
             return
         run_id = str(artifact.get("run_id") or "")
@@ -2050,6 +2072,28 @@ class Heartgate:
                 f"evidence_disposition: cluster '{cluster_id}' assumptions table missing canonical header '| Assumption | Disposition | Owner | Next-phase obligation |'"
             )
 
+    def _plan_validation_gate_rule(self) -> Mapping[str, Any]:
+        """Resolve the plan_validation_gate rule.
+
+        Slice 4b T4c-2: the rule grammar (required_ledger_gate_for_transition,
+        ledger_gate_name, ledger_required_fields, ledger_required_phase, and the
+        pv_* check ids) is codified in engines.domain.gate_rules. The block is
+        read from the loaded phase-transitions config WHEN PRESENT (production
+        behavior, unchanged); when ABSENT it falls back to the code default
+        (enforce-by-default / fail-closed). No operator-tunable knob this wave —
+        the grammar is non-tunable.
+
+        A test fixture may opt OUT by supplying an empty mapping for the block
+        (preserving prior test laxity): an explicit ``{}`` is read as present and
+        yields no ``required_ledger_gate_for_transition``, so the reader's
+        ``if not required_for: return`` short-circuits the gate exactly as before.
+        """
+        if "plan_validation_gate" in self.config:
+            return self.config.get("plan_validation_gate") or {}
+        from engines.domain.gate_rules import plan_validation_gate_default
+
+        return plan_validation_gate_default()
+
     def _validate_plan_validation_gate(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str] | None = None) -> None:
         """Phase 3.1: a PLAN_VALIDATION ledger entry with result=pass is
         required for PLAN->EXECUTE. The entry must be tagged phase=plan and
@@ -2060,7 +2104,7 @@ class Heartgate:
         verify gate presence; it enforces the ledger schema so a single-bit
         "PLAN_VALIDATION: pass" assertion is no longer enough.
         """
-        rule = self.config.get("plan_validation_gate") or {}
+        rule = self._plan_validation_gate_rule()
         if not isinstance(rule, Mapping):
             return
         required_for = str(rule.get("required_ledger_gate_for_transition") or "")

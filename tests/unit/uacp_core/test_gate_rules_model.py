@@ -36,6 +36,22 @@ config/phase-transitions.yaml state immediately before T4c-1):
      council_review_topology, transition_readiness]
   adaptive_plan_package_gate.not_applicable_required_fields:
     [reason, accepted_by, owner, residual_risk, revisit_phase, revisit_trigger]
+
+Slice 4b T4c-2 adds two more codified blocks (pre-slim production literals):
+
+  plan_validation_gate:
+    required_ledger_gate_for_transition: plan->execute
+    ledger_gate_name: PLAN_VALIDATION
+    ledger_required_fields: [phase, checks, result]
+    ledger_required_phase: plan
+    checks: [pv_1..pv_6] (id/name/description each)
+
+  piv_rule:
+    ledger_required: true
+    max_attempts: 2
+    second_failure_action: block_unconditional
+    ledger_required_fields: [piv_attempt, result, checks]
+    checks: [piv_1..piv_5] (id/name/description each)
 """
 
 from __future__ import annotations
@@ -48,11 +64,21 @@ from engines.domain.gate_rules import (
     HEARTGATE_COHERENCE_REQUIRED_FIELD,
     HEARTGATE_COHERENCE_REQUIRED_LENSES,
     HEARTGATE_COHERENCE_SELECTORS_DEFAULT,
+    PIV_LEDGER_REQUIRED,
+    PIV_LEDGER_REQUIRED_FIELDS,
+    PIV_MAX_ATTEMPTS,
+    PIV_SECOND_FAILURE_ACTION,
     PLAN_NOT_APPLICABLE_REQUIRED_FIELDS,
     PLAN_REQUIRED_UNIVERSAL_CORE,
+    PLAN_VALIDATION_LEDGER_GATE_NAME,
+    PLAN_VALIDATION_LEDGER_REQUIRED_FIELDS,
+    PLAN_VALIDATION_LEDGER_REQUIRED_PHASE,
+    PLAN_VALIDATION_REQUIRED_LEDGER_GATE_FOR_TRANSITION,
     PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS,
     PROPOSAL_REQUIRED_UNIVERSAL_CORE,
     heartgate_coherence_required_when_default,
+    piv_rule_default,
+    plan_validation_gate_default,
     run_registry_rule_default,
 )
 
@@ -105,6 +131,87 @@ _PROD_PLAN_CORE = [
     "council_review_topology", "transition_readiness",
 ]
 _PROD_PLAN_NA = ["reason", "accepted_by", "owner", "residual_risk", "revisit_phase", "revisit_trigger"]
+
+# Slice 4b T4c-2 pre-slim production literals ---------------------------------
+# These literals intentionally DUPLICATE the values in engines/domain/gate_rules.py.
+# Since the production phase-transitions.yaml no longer holds these blocks, this
+# copy is the independent drift witness that proves the code default did not
+# silently change. Do NOT "DRY this up" by importing from gate_rules — that would
+# destroy the tripwire (the test would then compare the module to itself).
+
+_PROD_PLAN_VALIDATION = {
+    "required_ledger_gate_for_transition": "plan->execute",
+    "ledger_gate_name": "PLAN_VALIDATION",
+    "ledger_required_fields": ["phase", "checks", "result"],
+    "ledger_required_phase": "plan",
+    "checks": [
+        {
+            "id": "pv_1",
+            "name": "scope_artifact_present_and_parses",
+            "description": "plans/{run_id}-scope.yaml exists and parses as valid YAML with all required fields.",
+        },
+        {
+            "id": "pv_2",
+            "name": "allowed_tools_registered",
+            "description": "All tools listed in scope.allowed_tools (if present) are registered in the Guardian tool registry.",
+        },
+        {
+            "id": "pv_3",
+            "name": "write_paths_within_proposal_side_effects",
+            "description": "scope.write_paths is a subset of the proposal's declared side_effects.paths.",
+        },
+        {
+            "id": "pv_4",
+            "name": "blast_radius_human_approval_when_high",
+            "description": "If blast_radius is high or critical, a human-involvement record exists in the triage artifact.",
+        },
+        {
+            "id": "pv_5",
+            "name": "rollback_path_declared",
+            "description": 'A rollback_path is declared (even if "none--write-only-artifact").',
+        },
+        {
+            "id": "pv_6",
+            "name": "cluster_artifacts_referenced",
+            "description": "All required cluster artifacts from PROPOSE->PLAN transition are referenced in plan.",
+        },
+    ],
+    "enforcement": "heartgate blocker on PLAN->EXECUTE if PLAN_VALIDATION ledger entry is absent or its result is not 'pass'",
+}
+
+_PROD_PIV = {
+    "ledger_required": True,
+    "max_attempts": 2,
+    "second_failure_action": "block_unconditional",
+    "ledger_required_fields": ["piv_attempt", "result", "checks"],
+    "checks": [
+        {
+            "id": "piv_1",
+            "name": "artifacts_produced",
+            "description": "Did the phase produce all artifacts declared in phase_exit_invariants?",
+        },
+        {
+            "id": "piv_2",
+            "name": "satisfies_plan",
+            "description": "Do produced artifacts satisfy the proposal/plan that authorized this phase?",
+        },
+        {
+            "id": "piv_3",
+            "name": "handled_findings_chain",
+            "description": "Are all material council/review findings classified in handled_findings_chain?",
+        },
+        {
+            "id": "piv_4",
+            "name": "non_waivable_invariants_intact",
+            "description": "Authority explicit, write containment honored, traceable state, conservative failure preserved.",
+        },
+        {
+            "id": "piv_5",
+            "name": "no_new_unresolved_findings",
+            "description": "Did the phase introduce any new material findings still unresolved?",
+        },
+    ],
+}
 
 
 # A. heartgate_coherence_required_when ----------------------------------------
@@ -232,3 +339,103 @@ def test_run_registry_rule_active_when_block_absent(temp_uacp_root, valid_run_id
     rule = hg._run_registry_rule()
     assert rule["required_for_transition"] == "plan->execute"
     assert rule["registry_path"] == "state/run-registry.yaml"
+
+
+# D. plan_validation_gate (Slice 4b T4c-2) ------------------------------------
+
+def test_plan_validation_gate_code_default_equals_pre_slim_production():
+    rule = plan_validation_gate_default()
+    assert rule["required_ledger_gate_for_transition"] == _PROD_PLAN_VALIDATION["required_ledger_gate_for_transition"]
+    assert rule["ledger_gate_name"] == _PROD_PLAN_VALIDATION["ledger_gate_name"]
+    assert rule["ledger_required_fields"] == _PROD_PLAN_VALIDATION["ledger_required_fields"]
+    assert rule["ledger_required_phase"] == _PROD_PLAN_VALIDATION["ledger_required_phase"]
+    assert rule["checks"] == _PROD_PLAN_VALIDATION["checks"]
+    assert rule["enforcement"] == _PROD_PLAN_VALIDATION["enforcement"]
+
+
+def test_plan_validation_gate_grammar_constants():
+    assert PLAN_VALIDATION_REQUIRED_LEDGER_GATE_FOR_TRANSITION == "plan->execute"
+    assert PLAN_VALIDATION_LEDGER_GATE_NAME == "PLAN_VALIDATION"
+    assert PLAN_VALIDATION_LEDGER_REQUIRED_FIELDS == ["phase", "checks", "result"]
+    assert PLAN_VALIDATION_LEDGER_REQUIRED_PHASE == "plan"
+
+
+def test_plan_validation_gate_check_ids_equal_production():
+    rule = plan_validation_gate_default()
+    assert [c["id"] for c in rule["checks"]] == ["pv_1", "pv_2", "pv_3", "pv_4", "pv_5", "pv_6"]
+
+
+# E. piv_rule (Slice 4b T4c-2) ------------------------------------------------
+
+def test_piv_rule_code_default_equals_pre_slim_production():
+    rule = piv_rule_default()
+    assert rule["ledger_required"] == _PROD_PIV["ledger_required"]
+    assert rule["max_attempts"] == _PROD_PIV["max_attempts"]
+    assert rule["second_failure_action"] == _PROD_PIV["second_failure_action"]
+    assert rule["ledger_required_fields"] == _PROD_PIV["ledger_required_fields"]
+    assert rule["checks"] == _PROD_PIV["checks"]
+
+
+def test_piv_rule_grammar_constants():
+    assert PIV_LEDGER_REQUIRED is True
+    assert PIV_MAX_ATTEMPTS == 2
+    assert PIV_SECOND_FAILURE_ACTION == "block_unconditional"
+    assert PIV_LEDGER_REQUIRED_FIELDS == ["piv_attempt", "result", "checks"]
+
+
+def test_piv_rule_check_ids_equal_production():
+    rule = piv_rule_default()
+    assert [c["id"] for c in rule["checks"]] == ["piv_1", "piv_2", "piv_3", "piv_4", "piv_5"]
+
+
+# Enforce-by-default behavior for the two new blocks --------------------------
+
+def test_plan_validation_gate_fires_when_block_absent(temp_uacp_root, valid_run_id):
+    """With NO plan_validation_gate in config (the production slimmed state), the
+    code default applies and a plan->execute transition with no PLAN_VALIDATION
+    ledger record is BLOCKED. The conftest fixture's explicit empty-mapping
+    opt-out is what keeps the lifecycle tests lax; here we delete that stub to
+    exercise the production enforce-by-default path."""
+    from core import Heartgate
+
+    hg = Heartgate.load(str(temp_uacp_root))
+    # Drop the fixture's opt-out stub so an ABSENT block exercises the code default.
+    hg.config.pop("plan_validation_gate", None)
+    assert "plan_validation_gate" not in hg.config
+
+    blockers: list[str] = []
+    hg._validate_plan_validation_gate(
+        {
+            "from_phase": "plan",
+            "to_phase": "execute",
+            "run_id": valid_run_id,
+        },
+        blockers,
+    )
+    assert any("plan_validation_gate" in b for b in blockers), blockers
+
+
+def test_piv_rule_fires_when_block_absent(temp_uacp_root, valid_run_id):
+    """With NO piv_rule in config (the production slimmed state), the code default
+    applies (ledger_required true) and a transition with no PIV pass record in
+    the ledger is BLOCKED. The conftest fixture's `ledger_required: false`
+    opt-out is what keeps the lifecycle tests lax; here we delete that stub to
+    exercise the production enforce-by-default path."""
+    from core import Heartgate
+
+    hg = Heartgate.load(str(temp_uacp_root))
+    # Drop the fixture's opt-out stub so an ABSENT block exercises the code default.
+    hg.config.pop("piv_rule", None)
+    assert "piv_rule" not in hg.config
+    assert hg._piv_rule()["ledger_required"] is True
+
+    blockers: list[str] = []
+    hg._validate_piv_record(
+        {
+            "from_phase": "execute",
+            "to_phase": "verify",
+            "run_id": valid_run_id,
+        },
+        blockers,
+    )
+    assert any("piv_rule" in b for b in blockers), blockers

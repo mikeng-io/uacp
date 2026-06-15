@@ -328,40 +328,14 @@ adaptive_verify_evidence_gate:
     - verify_self_remediation_without_upstream_repair_or_independent_reverification
     - resolve_readiness_without_required_heartgate_coherence
 
-plan_validation_gate:
-  description: >
-    Phase 3 Item 3.1: a deterministic structural check that runs at PLAN->EXECUTE
-    BEFORE any EXECUTE work begins. Not a council — a pre-flight verification
-    recorded as `gate: PLAN_VALIDATION` in the run's gate ledger. Heartgate
-    treats the PLAN_VALIDATION ledger entry as a required predecessor to
-    PLAN->EXECUTE; the entry must exist with result=pass.
-  required_ledger_gate_for_transition: plan->execute
-  ledger_gate_name: PLAN_VALIDATION
-  # Phase 3 R1 (SKEP-001 / GOV-004): the ledger record must carry these
-  # fields, must be tagged phase==plan, and its `checks` list must include
-  # every pv_id below. The kernel verifies these before accepting the gate.
-  ledger_required_fields: [phase, checks, result]
-  ledger_required_phase: plan
-  checks:
-  - id: pv_1
-    name: scope_artifact_present_and_parses
-    description: plans/{run_id}-scope.yaml exists and parses as valid YAML with all required fields.
-  - id: pv_2
-    name: allowed_tools_registered
-    description: All tools listed in scope.allowed_tools (if present) are registered in the Guardian tool registry.
-  - id: pv_3
-    name: write_paths_within_proposal_side_effects
-    description: scope.write_paths is a subset of the proposal's declared side_effects.paths.
-  - id: pv_4
-    name: blast_radius_human_approval_when_high
-    description: If blast_radius is high or critical, a human-involvement record exists in the triage artifact.
-  - id: pv_5
-    name: rollback_path_declared
-    description: A rollback_path is declared (even if "none--write-only-artifact").
-  - id: pv_6
-    name: cluster_artifacts_referenced
-    description: All required cluster artifacts from PROPOSE->PLAN transition are referenced in plan.
-  enforcement: heartgate blocker on PLAN->EXECUTE if PLAN_VALIDATION ledger entry is absent or its result is not 'pass'
+# plan_validation_gate: codified to code in Slice 4b T4c-2. The full rule
+# grammar (required_ledger_gate_for_transition=plan->execute, ledger_gate_name=
+# PLAN_VALIDATION, ledger_required_fields, ledger_required_phase=plan, and the
+# pv_1..pv_6 checks) now lives in
+# skills/uacp-core/scripts/engines/domain/gate_rules.py
+# (plan_validation_gate_default). There is no operator knob — the grammar is
+# non-tunable. Heartgate reads the code default (enforce-by-default) when this
+# block is absent, so behavior is unchanged.
 
 # run_registry_rule: codified to code in Slice 4b T4c-1. The rule grammar
 # (registry_path, required_for_transition, writer_tool, exclusive_mutator_advisory)
@@ -370,36 +344,14 @@ plan_validation_gate:
 # [heartgate.run_registry]. Heartgate reads the code default when this block is
 # absent, so behavior is unchanged.
 
-piv_rule:
-  description: >
-    Legacy Post-Phase Verification ledger rule. This is distinct from the newer
-    Phase Intent Verification contract (`uacp.phase_intent_verification_contract`)
-    used for PLAN-authored EXECUTE evidence. To avoid acronym collision in new
-    artifacts, refer to this rule as the post_phase_verification_ledger rule; it
-    remains recorded in the gate ledger as `gate: PIV` for backward compatibility.
-    It is a deterministic 5-check self-evaluation run at the end of every phase
-    BEFORE Heartgate is invoked. It may be retried at most once; a second failure
-    blocks the transition unconditionally regardless of mode.
-  checks:
-  - id: piv_1
-    name: artifacts_produced
-    description: Did the phase produce all artifacts declared in phase_exit_invariants?
-  - id: piv_2
-    name: satisfies_plan
-    description: Do produced artifacts satisfy the proposal/plan that authorized this phase?
-  - id: piv_3
-    name: handled_findings_chain
-    description: Are all material council/review findings classified in handled_findings_chain?
-  - id: piv_4
-    name: non_waivable_invariants_intact
-    description: Authority explicit, write containment honored, traceable state, conservative failure preserved.
-  - id: piv_5
-    name: no_new_unresolved_findings
-    description: Did the phase introduce any new material findings still unresolved?
-  max_attempts: 2
-  second_failure_action: block_unconditional
-  ledger_required: true
-  ledger_required_fields: [piv_attempt, result, checks]
+# piv_rule: codified to code in Slice 4b T4c-2. The full rule grammar
+# (ledger_required=true, the piv_1..piv_5 checks, ledger_required_fields,
+# max_attempts=2, second_failure_action=block_unconditional) now lives in
+# skills/uacp-core/scripts/engines/domain/gate_rules.py (piv_rule_default).
+# There is no operator knob — the grammar is non-tunable. Heartgate reads the
+# code default (enforce-by-default) when this block is absent, so behavior is
+# unchanged.
+
 artifact_schema:
   kind: uacp.phase_transition
   required_fields:

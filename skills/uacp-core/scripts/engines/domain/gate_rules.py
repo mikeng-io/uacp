@@ -221,3 +221,175 @@ PLAN_NOT_APPLICABLE_REQUIRED_FIELDS: list[str] = [
     "revisit_phase",
     "revisit_trigger",
 ]
+
+
+# ---------------------------------------------------------------------------
+# D. plan_validation_gate (Slice 4b T4c-2)
+# ---------------------------------------------------------------------------
+# Phase 3 Item 3.1: a deterministic structural pre-flight at PLAN->EXECUTE,
+# recorded as `gate: PLAN_VALIDATION` in the run's gate ledger. The full rule
+# grammar (which transition it guards, the ledger gate name, required ledger
+# record fields, the required ledger phase tag, and the pv_* check ids the
+# ledger record must cover) is CODE-DEFAULT grammar — not operator-tunable —
+# pinned to the values that were in config/phase-transitions.yaml before the
+# T4c-2 slim. The reader (_validate_plan_validation_gate) consumes
+# required_ledger_gate_for_transition / ledger_gate_name / ledger_required_fields
+# / ledger_required_phase, and each check's `id`.
+PLAN_VALIDATION_REQUIRED_LEDGER_GATE_FOR_TRANSITION: str = "plan->execute"
+PLAN_VALIDATION_LEDGER_GATE_NAME: str = "PLAN_VALIDATION"
+PLAN_VALIDATION_LEDGER_REQUIRED_FIELDS: list[str] = ["phase", "checks", "result"]
+PLAN_VALIDATION_LEDGER_REQUIRED_PHASE: str = "plan"
+PLAN_VALIDATION_ENFORCEMENT: str = (
+    "heartgate blocker on PLAN->EXECUTE if PLAN_VALIDATION ledger entry is absent "
+    "or its result is not 'pass'"
+)
+PLAN_VALIDATION_DESCRIPTION: str = (
+    "Phase 3 Item 3.1: a deterministic structural check that runs at PLAN->EXECUTE "
+    "BEFORE any EXECUTE work begins. Not a council — a pre-flight verification "
+    "recorded as `gate: PLAN_VALIDATION` in the run's gate ledger. Heartgate "
+    "treats the PLAN_VALIDATION ledger entry as a required predecessor to "
+    "PLAN->EXECUTE; the entry must exist with result=pass."
+)
+PLAN_VALIDATION_CHECKS: list[dict[str, str]] = [
+    {
+        "id": "pv_1",
+        "name": "scope_artifact_present_and_parses",
+        "description": (
+            "plans/{run_id}-scope.yaml exists and parses as valid YAML with all required fields."
+        ),
+    },
+    {
+        "id": "pv_2",
+        "name": "allowed_tools_registered",
+        "description": (
+            "All tools listed in scope.allowed_tools (if present) are registered "
+            "in the Guardian tool registry."
+        ),
+    },
+    {
+        "id": "pv_3",
+        "name": "write_paths_within_proposal_side_effects",
+        "description": (
+            "scope.write_paths is a subset of the proposal's declared side_effects.paths."
+        ),
+    },
+    {
+        "id": "pv_4",
+        "name": "blast_radius_human_approval_when_high",
+        "description": (
+            "If blast_radius is high or critical, a human-involvement record "
+            "exists in the triage artifact."
+        ),
+    },
+    {
+        "id": "pv_5",
+        "name": "rollback_path_declared",
+        "description": 'A rollback_path is declared (even if "none--write-only-artifact").',
+    },
+    {
+        "id": "pv_6",
+        "name": "cluster_artifacts_referenced",
+        "description": (
+            "All required cluster artifacts from PROPOSE->PLAN transition are referenced in plan."
+        ),
+    },
+]
+
+
+def plan_validation_gate_default() -> dict[str, Any]:
+    """Reconstruct the full ``plan_validation_gate`` rule dict.
+
+    Returns the code-default grammar in the same shape
+    ``_validate_plan_validation_gate`` consumed from the YAML block, so the
+    reader needs no shape change. All fields are non-operator-tunable grammar
+    (no uacp.toml knob this wave); the values pin the pre-slim production YAML.
+    """
+    return {
+        "description": PLAN_VALIDATION_DESCRIPTION,
+        "required_ledger_gate_for_transition": PLAN_VALIDATION_REQUIRED_LEDGER_GATE_FOR_TRANSITION,
+        "ledger_gate_name": PLAN_VALIDATION_LEDGER_GATE_NAME,
+        "ledger_required_fields": list(PLAN_VALIDATION_LEDGER_REQUIRED_FIELDS),
+        "ledger_required_phase": PLAN_VALIDATION_LEDGER_REQUIRED_PHASE,
+        "checks": [dict(c) for c in PLAN_VALIDATION_CHECKS],
+        "enforcement": PLAN_VALIDATION_ENFORCEMENT,
+    }
+
+
+# ---------------------------------------------------------------------------
+# E. piv_rule (Slice 4b T4c-2)
+# ---------------------------------------------------------------------------
+# Legacy Post-Phase Verification ledger rule (recorded as `gate: PIV`). A
+# deterministic 5-check self-evaluation run at the end of every phase BEFORE
+# Heartgate is invoked; retried at most once, second failure blocks
+# unconditionally. The reader (_validate_piv_record) consumes ledger_required,
+# each check's `id`, ledger_required_fields, max_attempts, and
+# second_failure_action. All are CODE-DEFAULT grammar this wave (no uacp.toml
+# knob); ledger_required defaults to True so the gate is enforce-by-default
+# when the block is absent (the production slimmed state).
+PIV_LEDGER_REQUIRED: bool = True
+PIV_MAX_ATTEMPTS: int = 2
+PIV_SECOND_FAILURE_ACTION: str = "block_unconditional"
+PIV_LEDGER_REQUIRED_FIELDS: list[str] = ["piv_attempt", "result", "checks"]
+PIV_DESCRIPTION: str = (
+    "Legacy Post-Phase Verification ledger rule. This is distinct from the newer "
+    "Phase Intent Verification contract (`uacp.phase_intent_verification_contract`) "
+    "used for PLAN-authored EXECUTE evidence. To avoid acronym collision in new "
+    "artifacts, refer to this rule as the post_phase_verification_ledger rule; it "
+    "remains recorded in the gate ledger as `gate: PIV` for backward compatibility. "
+    "It is a deterministic 5-check self-evaluation run at the end of every phase "
+    "BEFORE Heartgate is invoked. It may be retried at most once; a second failure "
+    "blocks the transition unconditionally regardless of mode."
+)
+PIV_CHECKS: list[dict[str, str]] = [
+    {
+        "id": "piv_1",
+        "name": "artifacts_produced",
+        "description": "Did the phase produce all artifacts declared in phase_exit_invariants?",
+    },
+    {
+        "id": "piv_2",
+        "name": "satisfies_plan",
+        "description": (
+            "Do produced artifacts satisfy the proposal/plan that authorized this phase?"
+        ),
+    },
+    {
+        "id": "piv_3",
+        "name": "handled_findings_chain",
+        "description": (
+            "Are all material council/review findings classified in handled_findings_chain?"
+        ),
+    },
+    {
+        "id": "piv_4",
+        "name": "non_waivable_invariants_intact",
+        "description": (
+            "Authority explicit, write containment honored, traceable state, "
+            "conservative failure preserved."
+        ),
+    },
+    {
+        "id": "piv_5",
+        "name": "no_new_unresolved_findings",
+        "description": "Did the phase introduce any new material findings still unresolved?",
+    },
+]
+
+
+def piv_rule_default() -> dict[str, Any]:
+    """Reconstruct the full ``piv_rule`` dict.
+
+    Returns the code-default grammar in the same shape ``_validate_piv_record``
+    consumed from the YAML block. ``ledger_required`` is True so the gate is
+    enforce-by-default when the block is absent. All fields are
+    non-operator-tunable grammar this wave; the values pin the pre-slim
+    production YAML.
+    """
+    return {
+        "description": PIV_DESCRIPTION,
+        "checks": [dict(c) for c in PIV_CHECKS],
+        "max_attempts": PIV_MAX_ATTEMPTS,
+        "second_failure_action": PIV_SECOND_FAILURE_ACTION,
+        "ledger_required": PIV_LEDGER_REQUIRED,
+        "ledger_required_fields": list(PIV_LEDGER_REQUIRED_FIELDS),
+    }
