@@ -18,6 +18,33 @@ purpose: 'Defines stable lifecycle phase envelopes and the adaptive transition a
 # fail-OPEN on empty stages, hence the loader fallback is required), and the
 # evidence-completeness engine (phase_exit_invariants). A loaded config that DOES
 # provide `stages` (e.g. tests/conftest.py) wholesale-overrides the default.
+#
+# ---------------------------------------------------------------------------
+# CODIFIED-GATE RESOLUTION SEMANTIC (operator-facing — read before editing)
+# ---------------------------------------------------------------------------
+# The gate/rule grammar that used to live here (plan_validation_gate, piv_rule,
+# run_registry_rule, heartgate_coherence_required_when, the Pattern-A
+# required_universal_core lists) is now codified in
+# skills/uacp-core/scripts/engines/domain/gate_rules.py. The kernel resolves each
+# block as: KEY ABSENT  -> the codified code-default applies (gate ENFORCED;
+# fail-closed — a missing block can no longer silently disable enforcement, the
+# F-T3-01 invariant); KEY PRESENT -> the loaded value is used verbatim.
+#
+# CONSEQUENCE / FOOT-GUN: because a PRESENT block is used verbatim, a present
+# block that is empty or sets a disabling field turns that gate OFF:
+#   * `plan_validation_gate: {}`  (no required_ledger_gate_for_transition) -> off
+#   * `heartgate_coherence_required_when: {}`                              -> off
+#   * `piv_rule: {ledger_required: false}`                                 -> off
+# This is DELIBERATE — it is the explicit opt-out the test fixture
+# (tests/conftest.py) uses to preserve lightweight test runs. It is also why the
+# semantic is ASYMMETRIC with `stages` above: stages are load-bearing for the
+# whole system, so the loader injects the default even on an empty/absent block
+# (cannot be disabled); individual gates are legitimately disable-able, so an
+# explicit empty/disabling block is honored. Net safety vs. the pre-Slice-4b
+# state is STRICTLY BETTER: previously an ABSENT block silently disabled a gate
+# (the common accident); now disabling requires an EXPLICIT, greppable block.
+# See docs/decisions/decision-log.md (2026-06-16 — Codified gate resolution
+# semantic) for the rationale and the deferred `enabled: false` sentinel option.
 adaptive_proposal_package_gate:
   description: >
     PROPOSE documentation selection is adaptive and context-driven. Granularity
