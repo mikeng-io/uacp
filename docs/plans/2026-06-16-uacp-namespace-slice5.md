@@ -10,6 +10,15 @@
 
 ---
 
+## ✅ STATUS (SLICE 5 COMPLETE — 2026-06-16): config-collapse refactor COMPLETE. Branch `feat/config-collapse-slice5`, merged --no-ff to main. Suite 516/2; production enforcement re-verified (`Heartgate.load('.').required_fields == 15`).
+- **W1** `f64e8ad` — deleted the orphaned stale `skills/scripts/validate_uacp_artifacts.py`; `scripts/` is the sole canonical copy.
+- **W2** `0d81e50` — codified `artifact_schema.required_fields` + `terminal_kind.values` + `council_synthesis_schema.required_fields` → `engines/domain/phase_transitions.py`; wired core + validator; slimmed from YAML.
+- **W3** `c92a5e8` — deleted inert `config/roots.yaml` + `config/artifact-schemas.yaml`; rewrote `scripts/phase{2,3,4}_verify.py`+`import_loader_verify.py` off the removed dependency (verified they still pass); repointed live doc refs.
+- **W4** `4dd7221` — finalized INDEX/roadmap/fixtures README.
+- **T6 council (2 lenses)** caught **2 findings the per-wave reviews missed:** (1) **BLOCKER** — W2 slim removed the `required_fields`/`terminal_kind.values` KEYS but left the BLOCKS present; the readers checked block-presence not key-presence, so production enforcement was silently OFF (required_fields=0 vs 15). **Fixed `4a1e897`** — readers now key-presence-aware (absent key → code-default ENFORCE; present-but-empty key → loaded opt-out, preserving the fixture stub) + a regression test that loads the REAL config and pins enforcement ON; re-verified `main`-equivalent (15 / enum-on / 11). (2) **MATERIAL** — live dangling refs to deleted files in canonical layer-2 docs (`docs/runtime/runtime-enforcement.md`, `docs/reference/skill-enforcement-spec.md`/`proposal-schema.md`/`lifecycle-trace-table.md`/`INDEX.md`, `lifecycle-reference.md`, `CONTRIBUTING.md`). **Fixed `f2e3e45`+`18e251b`** — repointed all live source-claims to the code modules; left doctrine/"loads-the-file"/historical refs. Focused enforcement re-review: PASS. Zero material findings unresolved at merge.
+
+---
+
 ## Recon facts (verified this session)
 
 - **Validator copies:** `scripts/validate_uacp_artifacts.py` (1607 lines) is the ACTIVE superset — Heartgate loads it in-process by path (`core.py` `_offline_validate_artifacts`, builds `self.uacp_root / "scripts" / "validate_uacp_artifacts.py"`, `spec_from_file_location` + `exec_module`); the e2e seeders copy it into temp roots; CLI/docs cite it. `skills/scripts/validate_uacp_artifacts.py` (1556 lines) is **ORPHANED** — referenced ONLY in historical plan docs (slice2/3/4a), no code/CLI/skill/hook loads it. It is also STALE (missing `_path_bound_to_run_id()` ~1427-1433, the accepted_exceptions run-binding checks ~249-253, and the `validate_current_state` run-binding call ~1454, plus the Slice-4b canonical cross-check + T4d-1 NOTE). **Dedup = delete the orphan; `scripts/` is canonical.** The by-path in-process load design (validator travels with the governed repo) is intentional and STAYS — do NOT convert to an imported module this slice (that changes the "validator version = target-repo's version" semantic and Heartgate's load mechanism; out of scope).
