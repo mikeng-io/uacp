@@ -2,7 +2,19 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# UACP runtime artifacts — generated during execution, not source of truth
+# UACP runtime artifacts — generated during execution, not source of truth.
+# Under the .uacp/ namespace, the per-phase run dirs are runtime; config.toml
+# (knob overrides) and knowledge/ (project-learned) are project-level and tracked.
+.uacp/state/
+.uacp/proposals/
+.uacp/plans/
+.uacp/executions/
+.uacp/verification/
+.uacp/resolutions/
+.uacp/bridges/
+.uacp/councils/
+
+# Legacy pre-.uacp/ output dir (kept until scratch is cleaned)
 .outputs/*
 
 # Worktree isolation — active runs live here, never commit
