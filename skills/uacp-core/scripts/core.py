@@ -677,17 +677,22 @@ def _truthy(value: Any) -> bool:
     return bool(value)
 
 
-def _load_artifact_schemas(uacp_root: Path) -> dict[str, Any]:
-    """Load config/artifact-schemas.yaml (Phase 2). Returns empty dict on
-    missing / malformed so legacy transitions keep working."""
-    if yaml is None:
-        return {}
-    path = uacp_root / "config" / "artifact-schemas.yaml"
-    if not path.exists():
-        return {}
+def _load_artifact_schemas(uacp_root: Path) -> dict[str, Any]:  # noqa: ARG001
+    """Return the codified artifact schemas (Slice 4a).
+
+    Previously read ``config/artifact-schemas.yaml`` via yaml.safe_load.
+    Now returns the same dict shape from the Pydantic models in
+    ``engines.domain.artifact_schema`` — no filesystem I/O, no YAML dependency.
+    The ``uacp_root`` argument is kept for call-site compatibility but is no
+    longer used.
+
+    The two operator-tunable path tables (tool_path_capabilities and
+    handler_refusals) are NOT in the returned dict; they have moved to
+    ``config/uacp.toml [scope]`` and are read via ``get_config(uacp_root)``.
+    """
     try:
-        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-        return raw if isinstance(raw, dict) else {}
+        from engines.domain.artifact_schema import artifact_schemas_dict
+        return artifact_schemas_dict()
     except Exception:
         return {}
 
@@ -1732,9 +1737,13 @@ class Heartgate:
         # SKEP-008 remediation: a positive prefix match is not enough — some
         # handlers refuse sub-paths of an allowed prefix. Honor those refusals
         # here so a scope can't launder unreachable paths.
-        cross = (self.artifact_schemas.get("cross_checks") or {})
-        scope_block = (cross.get("scope_write_paths_vs_layer_b") or {})
-        handler_refusals = (scope_block.get("handler_refusals") or {})
+        # Slice 4a: handler_refusals moved from artifact-schemas.yaml to
+        # config/uacp.toml [scope.handler_refusals] (operator-tunable knob).
+        try:
+            cfg_raw = get_config(self.uacp_root).model_dump()
+            handler_refusals = (cfg_raw.get("scope") or {}).get("handler_refusals") or {}
+        except Exception:
+            handler_refusals = {}
         if not isinstance(handler_refusals, Mapping):
             handler_refusals = {}
         for wp in write_paths:
@@ -1792,11 +1801,15 @@ class Heartgate:
     def _tool_path_capabilities(self) -> dict[str, list[str]]:
         """Path prefixes each governed writer tool can reach.
 
-        Phase 2 remediation (F2): the canonical source is now
-        `config/artifact-schemas.yaml#cross_checks.scope_write_paths_vs_layer_b.tool_path_capabilities`.
-        Loaded from `self.artifact_schemas`. Shell/exec surfaces are
-        deliberately absent — they target the workspace, not UACP_ROOT,
-        and do not satisfy UACP-rooted scope.write_paths (F1).
+        Slice 4a: the canonical source is now ``config/uacp.toml [scope.tool_path_capabilities]``
+        (operator-tunable). Previously read from
+        ``config/artifact-schemas.yaml#cross_checks.scope_write_paths_vs_layer_b.tool_path_capabilities``
+        via ``self.artifact_schemas``. Schemas are codified in engines.domain; the
+        operator knobs moved to uacp.toml so project operators can tune them without
+        touching kernel code.
+
+        Shell/exec surfaces are deliberately absent — they target the workspace,
+        not UACP_ROOT, and do not satisfy UACP-rooted scope.write_paths (F1).
 
         Phase 3 hardening (pc_p2_n1): drop prefixes that are empty or the
         literal "*" so a future config-author mistake cannot accidentally
@@ -1805,9 +1818,11 @@ class Heartgate:
         Fail-closed default: if the config section is missing or malformed,
         return an empty mapping so every write_path is unreachable.
         """
-        cross = (self.artifact_schemas.get("cross_checks") or {})
-        block = (cross.get("scope_write_paths_vs_layer_b") or {})
-        caps = block.get("tool_path_capabilities") or {}
+        try:
+            cfg_raw = get_config(self.uacp_root).model_dump()
+            caps = (cfg_raw.get("scope") or {}).get("tool_path_capabilities") or {}
+        except Exception:
+            caps = {}
         if not isinstance(caps, Mapping):
             return {}
         # SKEP-007 remediation: schema metadata keys (description, purpose, notes,

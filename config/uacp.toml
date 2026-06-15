@@ -987,3 +987,44 @@ low = 0.2
 medium = 0.5
 high = 0.8
 critical = 1.0
+
+# =============================================================================
+# SCOPE — operator-tunable per-tool path tables (Slice 4a)
+# =============================================================================
+# These two tables are OPERATOR KNOBS: project operators may override them in
+# <project>/.uacp/config.toml to reflect their governed-writer layout. Heartgate
+# reads them at scope-validation time via get_config(root), NOT from
+# artifact-schemas.yaml (which formerly housed them under cross_checks;
+# codified in engines/domain/artifact_schema.py as of Slice 4a).
+#
+# tool_path_capabilities: per-tool UACP_ROOT-relative path prefixes that each
+#   governed writer can reach. Shell/code execution surfaces (terminal,
+#   execute_code, uacp_contained_shell) are deliberately omitted — they target
+#   the workspace, not UACP_ROOT, and do not satisfy UACP-rooted write_paths.
+#   Heartgate filters out metadata keys (description/purpose/notes/documentation)
+#   and forbidden prefixes ("", "*", "**", "/", ".", "..", "./", "../").
+#
+# handler_refusals: per-tool prefixes the named tool will REFUSE at runtime
+#   (even though a positive prefix-match would otherwise allow them). Heartgate
+#   honors these so a scope cannot launder unreachable paths through a positive
+#   prefix match (SKEP-008 remediation).
+
+[scope.tool_path_capabilities]
+uacp_state_write = ["state/"]
+uacp_doc_write = ["docs/"]
+uacp_config_write = ["config/"]
+uacp_artifact_write = ["plans/", "proposals/", "executions/", "verification/", "resolutions/", "knowledge/"]
+uacp_gate_ledger_append = ["state/gate-ledger/"]
+# Global review R1 (TECH-G-002): governed append-only writers for run registry
+# and escalation events; scope.write_paths may reference these surfaces in
+# supervised_auto / full_auto modes.
+uacp_run_registry_update = ["state/run-registry.yaml"]
+uacp_escalation_event = ["state/escalations/"]
+
+[scope.handler_refusals]
+# uacp_state_write refuses sub-paths exclusively owned by other governed writers.
+uacp_state_write = ["state/gate-ledger/", "state/run-registry.yaml", "state/escalations/"]
+# The gate-ledger is governed through its own append-only channel; it is NOT
+# part of the scope.write_paths footprint (any scope entry pointing here is a
+# laundering attempt).
+uacp_gate_ledger_append = ["state/gate-ledger/"]

@@ -66,6 +66,21 @@ def _na_block(*, with_trigger: bool = False) -> dict:
     return block
 
 
+def _seed_intent_doc(root: Path, run_id: str) -> None:
+    """Create the intent doc (proposals/{run_id}-intent.md) the triage->propose
+    Heartgate gate requires. The four required sections match
+    IntentSchema.required_sections (codified in engines/domain/artifact_schema.py)."""
+    (root / ".uacp" / "proposals").mkdir(parents=True, exist_ok=True)
+    intent_path = root / ".uacp" / "proposals" / f"{run_id}-intent.md"
+    intent_path.write_text(
+        f"# Intent: {run_id}\n\n"
+        "## Success Definition\n\nE2E harness run reaches resolved state.\n\n"
+        "## Explicit Out-of-Scope\n\nAll production changes; this is a test run.\n\n"
+        "## Termination Condition\n\nRun reaches resolved phase with no open blockers.\n\n"
+        "## Authority Source\n\nE2E test harness; governed under uacp-test policy.\n"
+    )
+
+
 def _seed_proposal_package(root: Path, run_id: str) -> None:
     """Create the proposal package + selection the propose->plan gate requires."""
     pkg_dir = root / ".uacp" / "proposals" / run_id
@@ -91,8 +106,22 @@ def _seed_plan_package(root: Path, run_id: str) -> None:
     pkg_dir.mkdir(parents=True, exist_ok=True)
     module_artifact = f"plans/{run_id}/module-core.yaml"
     (root / ".uacp" / module_artifact).write_text("kind: uacp.plan_module\nbody: stub\n")
+    # Scope artifact: required fields are run_id, write_paths, blast_radius,
+    # rollback_path (codified in ScopeSchema / IntentSchema — Slice 4a).
+    # Use no_writes_intended: true to satisfy the non-empty write_paths gate
+    # (this is a test run; no governed write surfaces are claimed).
     (root / ".uacp" / "plans" / f"{run_id}-scope.yaml").write_text(
-        "kind: uacp.scope\nwrite_paths: []\nbody: stub\n"
+        yaml.safe_dump(
+            {
+                "kind": "uacp.scope",
+                "run_id": run_id,
+                "write_paths": [],
+                "no_writes_intended": True,
+                "blast_radius": "low",
+                "rollback_path": "none--write-only-artifact",
+            },
+            sort_keys=False,
+        )
     )
     # The run_registry_rule fires on plan->execute and warns when the registry
     # is absent. Seed it (empty active set) so this is a clean pass, not a warn.
@@ -123,6 +152,9 @@ def _seed_plan_package(root: Path, run_id: str) -> None:
 # gates guard with `if not isinstance(self.config.get(key), Mapping): return`, so
 # they self-disable on absent config — hence nothing is seeded for them.
 _SEEDERS = {
+    # Slice 4a: schemas always codified → Heartgate now enforces triage->propose
+    # (intent doc) and plan->execute (scope artifact required fields) on EVERY run.
+    ("triage", "propose"): _seed_intent_doc,
     ("propose", "plan"): _seed_proposal_package,
     ("plan", "execute"): _seed_plan_package,
 }

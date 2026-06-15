@@ -30,6 +30,15 @@ from state_machine import (  # noqa: E402  (path bootstrap must precede import)
     Status,
 )
 
+from .artifact_schema import (  # noqa: E402
+    BLAST_RADIUS_VALUES,
+    BlastRadius,
+    EvidenceDispositionSchema,
+    IntentSchema,
+    LessonsSchema,
+    ScopeSchema,
+    artifact_schemas_dict,
+)
 from .deferral import DeferredItem  # noqa: E402
 from .evidence_cluster import (  # noqa: E402
     INVARIANT_CLUSTER_FAMILIES,
@@ -43,7 +52,13 @@ from .registry import RunRegistry, RunRegistryEntry  # noqa: E402
 from .scope import Scope  # noqa: E402
 
 __all__ = [
+    "BLAST_RADIUS_VALUES",
+    "BlastRadius",
+    "EvidenceDispositionSchema",
     "INVARIANT_CLUSTER_FAMILIES",
+    "IntentSchema",
+    "LessonsSchema",
+    "ScopeSchema",
     "TERMINAL_PHASES",
     "VALID_TRANSITIONS",
     "ClusterPhase",
@@ -57,4 +72,5 @@ __all__ = [
     "RunRegistryEntry",
     "Scope",
     "Status",
+    "artifact_schemas_dict",
 ]
