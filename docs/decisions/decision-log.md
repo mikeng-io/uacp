@@ -6,6 +6,20 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-06-16 — Codified Gate Resolution Semantic (absent enforces, explicit-empty disables)
+
+Decision: When Slice 4b moved the phase-transition gate/rule grammar from `config/phase-transitions.yaml` into code (`engines/domain/gate_rules.py`, `phase_transitions.py`, `phase_graph.py`), the kernel readers resolve each block as: **key ABSENT → the codified code-default applies and the gate is ENFORCED** (fail-closed); **key PRESENT → the loaded value is used verbatim**, so a present-but-empty or disabling block (`plan_validation_gate: {}`, `heartgate_coherence_required_when: {}`, `piv_rule: {ledger_required: false}`) turns that gate OFF. This is intentional and is the explicit opt-out the test fixture (`tests/conftest.py`) uses. Note the deliberate ASYMMETRY with `stages`: `load_phase_transitions` injects the codified `stages_default()` even on an empty/absent `stages` block (stages are load-bearing for Guardian Layer-B + Heartgate and must never be disable-able), whereas individual gates are legitimately disable-able.
+
+Rationale: The F-T3-01 invariant is "a missing config must not silently disable enforcement." The absent→enforce rule satisfies it: forgetting a block now fails closed. Honoring an explicit empty/disabling block keeps deployments and the test harness able to opt a gate out deliberately. This is strictly safer than the pre-Slice-4b baseline, where an ABSENT block silently disabled the gate (the common accident); disabling now requires an explicit, greppable block. The council's devil's-advocate lens (Slice 4b T6) flagged the residual foot-gun that a present-but-empty block silently disables with no validator warning; the accepted resolution is to DOCUMENT the semantic operator-facing rather than redesign the opt-out mechanism this slice.
+
+Status: accepted. Deferred follow-up: consider an explicit `enabled: false` sentinel (so empty-mapping enforces rather than disables) plus a validator WARN when a production gate block is present-but-disabling — to be weighed alongside the Slice 5 validator dedup.
+
+Canonical targets:
+
+- `config/phase-transitions.yaml` (operator-facing "CODIFIED-GATE RESOLUTION SEMANTIC" note)
+- `skills/uacp-core/scripts/engines/domain/gate_rules.py`
+- `tests/conftest.py` (the opt-out stubs)
+
 ### 2026-06-15 — Computed Heartgate Engines Supersede Self-Attested Coherence
 
 Decision: Run coherence and adjacent run-integrity checks as **deterministic computed engines** that Heartgate executes at RESOLVE (`Heartgate.validate_closure`), turning `block`-severity findings into real Heartgate blockers. The self-attested `heartgate_coherence.status` flag (`core.py:_validate_heartgate_coherence`) is **superseded** and advisory only — the computed `coherence` engine is authoritative. Five engines ship: `coherence`, `ledger_integrity`, `scope_conformance`, `evidence_completeness`, `deferral_completeness`, organized as a hexagonal-lite package (`engines/{base,domain,io,<engine>}`) with one shared `Violation` type and one `ENGINES` registry.

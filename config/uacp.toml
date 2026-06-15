@@ -384,6 +384,41 @@ allowed_transitions = [
 ]
 decision_values = ["pass", "warn", "block"]
 
+# Slice 4b T4c-1: the transition-boundary coherence-requirement POLICY. The
+# structural grammar (which artifact field is demanded — heartgate_coherence —
+# and the six lenses it must cover) is codified in code
+# (skills/uacp-core/scripts/engines/domain/gate_rules.py) and is NOT tunable
+# here. What IS operator-tunable lives in this table: the granularity threshold
+# at/above which coherence evidence is mandatory, plus the phase / routing /
+# domain selectors that pick which transitions the requirement applies to.
+# Heartgate reads this via config.get_config(root). When this table is absent,
+# the kernel falls back to these same values as a fail-closed code default
+# (see gate_rules.heartgate_coherence_required_when_default).
+[heartgate.coherence]
+# Composite granularity at/above which transition-boundary coherence evidence
+# is required. Lower = stricter (more transitions must carry coherence).
+min_composite_granularity = 7
+# Transitions whose from_phase is in this list require coherence evidence.
+phases = ["execute", "verify"]
+# TRIAGE routing outcomes that trigger the requirement.
+routing_outcomes = ["full_governance"]
+# Work domains that trigger the requirement when the transition declares them.
+domains = ["runtime", "governance", "guardian", "heartgate", "kanban", "agent_council", "uacp"]
+
+# Slice 4b T4c-1: write-path overlap detection at PLAN->EXECUTE. The rule
+# grammar (registry path = state/run-registry.yaml, guarded transition =
+# plan->execute, governed writer = uacp_run_registry_update) is codified in code
+# (gate_rules.py) and is NOT tunable here. The enforcement field below is the
+# one operator-facing string. Read via config.get_config(root); absent table
+# falls back to the same default in code (run_registry_rule_default).
+[heartgate.run_registry]
+# Advisory disposition string for the overlap rule (the pre-slim production
+# value). NOTE: this is currently documentation only — `_validate_run_registry_overlap`
+# ALWAYS records a detected write-path overlap as a blocker regardless of this
+# string; there is no block-vs-warn toggle wired yet. Editing this text does not
+# change enforcement. Wiring an observe/warn mode is a future enhancement.
+enforcement = "heartgate blocker on overlap with another active_run's write_paths"
+
 # =============================================================================
 # OUTPUT
 # =============================================================================

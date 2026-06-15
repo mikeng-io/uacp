@@ -4,189 +4,47 @@ status: seed
 purpose: 'Defines stable lifecycle phase envelopes and the adaptive transition artifact
   shape. Transition decisions combine invariant checks, selected evidence cluster
   outcomes, and blocker synthesis.'
-stages:
-  triage:
-    enters_from:
-    - none
-    exits_to:
-    - propose
-    - terminal
-    purpose: Calibrate scope, score granularity, and route the request.
-    can_terminate_without_full_lifecycle: true
-    routing_outcomes:
-      direct: terminal_direct
-      lightweight: propose
-      standard_uacp: propose
-      full_governance: propose
-      block_or_clarify: terminal_blocked
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    - uacp_doc_write
-    - uacp_config_write
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "proposals/{run_id}-triage*.yaml"
-      required: true
-    - gate_ledger_entry: "TRIAGE_COMPLETE"
-      required: true
-  propose:
-    enters_from:
-    - triage
-    exits_to:
-    - plan
-    purpose: Establish authority, scope, context, risk, and proposal viability.
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    - uacp_doc_write
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "proposals/{run_id}*.yaml"
-      required: true
-    - artifact_glob: "proposals/{run_id}*-gate-selection.yaml"
-      required: false
-    - artifact_glob: "proposals/{run_id}*-package-selection.yaml"
-      required: false
-      applies_when: adaptive_proposal_package_selected
-      description: Machine bridge for adaptive proposal documentation selection; required for selected medium/high consequence work before PROPOSE->PLAN.
-    - package_directory: "proposals/{run_id}/"
-      required: false
-      applies_when: adaptive_proposal_package_selected
-      description: Human-reviewable proposal package; YAML proposal artifacts are lifecycle envelopes, not the complete proposal.
-    - gate_ledger_entry: "TRIAGE->PROPOSE"
-      required: true
-  plan:
-    enters_from:
-    - propose
-    exits_to:
-    - execute
-    purpose: Convert approved proposal into bounded execution and verification strategy.
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "plans/{run_id}*"
-      required: true
-    - gate_ledger_entry: "PROPOSE->PLAN"
-      required: true
-  execute:
-    enters_from:
-    - plan
-    exits_to:
-    - verify
-    purpose: Perform bounded work through UACP-authorized Agent Council orchestration,
-      Hermes Kanban coordination, delegated workers, selected runtimes, and approved
-      tool/evidence adapters.
-    allowed_tools:
-    - uacp_doc_write
-    - uacp_config_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_artifact_write
-    - uacp_gate_ledger_append
-    - uacp_contained_shell
-    - uacp_sandbox_check
-    - uacp_heartgate_check
-    - terminal
-    - execute_code
-    forbidden_tools: []
-    phase_exit_invariants:
-    - artifact_glob: "executions/{run_id}*"
-      required: true
-    - gate_ledger_entry: "PLAN->EXECUTE"
-      required: true
-  verify:
-    enters_from:
-    - execute
-    exits_to:
-    - resolve
-    purpose: Validate completed work with context-selected evidence clusters.
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    - uacp_sandbox_check
-    - uacp_contained_shell
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "verification/{run_id}*"
-      required: true
-    - gate_ledger_entry: "EXECUTE->VERIFY"
-      required: true
-  resolve:
-    enters_from:
-    - verify
-    exits_to:
-    - terminal
-    purpose: Finalize outputs, archive artifacts, and emit lessons.
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "resolutions/{run_id}*"
-      required: true
-    - gate_ledger_entry: "VERIFY->RESOLVE"
-      required: true
-transition_rule:
-  required_inputs:
-  - current_stage_or_phase_artifact
-  - gate_selection_artifact
-  - required_cluster_artifacts
-  - triage_artifact
-  - council_synthesis_artifact
-  - declared_side_effects
-  - write_containment_record
-  - blocker_synthesis
-  pass_condition: 'All non-waivable invariants pass, all required clusters are pass
-    or accepted warn, no unresolved blocker remains, and the next phase explicitly
-    accepts any deferred cluster.
-
-    '
-  warn_condition: 'Transition may proceed only when warnings are documented with owners,
-    residual risk, and next-phase acceptance.
-
-    '
-  block_condition: 'Any invariant block, missing required evidence, unauthorized side
-    effect, uncontained write, untraceable state change, or unresolved material risk.
-
-    '
-  heartgate_council_role: Heartgate may require a transition-boundary council that
-    checks lifecycle coherence and cross-artifact consistency. This is distinct from
-    phase-local Agent Council review of phase work products.
-
+# stages: codified to code in Slice 4b T4d-1. The full per-phase grammar
+# (allowed_tools, forbidden_tools, phase_exit_invariants, plus the doc-only
+# enters_from/purpose/routing_outcomes/can_terminate_without_full_lifecycle) now
+# lives in skills/uacp-core/scripts/engines/domain/phase_transitions.py
+# (stages_default). exits_to is DERIVED from the canonical phase graph
+# (engines/domain/phase_graph.py LIFECYCLE_GRAPH), not re-hardcoded.
+#
+# load_phase_transitions injects that code default when this block is absent, so
+# EVERY consumer keeps pre-slim behavior: Heartgate (_transition_allowed exits_to,
+# _validate_phase_exit_invariants, _validate_scope_artifact execute allowed_tools),
+# Guardian Layer-B (per-phase allowed/forbidden + unknown-phase block — which would
+# fail-OPEN on empty stages, hence the loader fallback is required), and the
+# evidence-completeness engine (phase_exit_invariants). A loaded config that DOES
+# provide `stages` (e.g. tests/conftest.py) wholesale-overrides the default.
+#
+# ---------------------------------------------------------------------------
+# CODIFIED-GATE RESOLUTION SEMANTIC (operator-facing — read before editing)
+# ---------------------------------------------------------------------------
+# The gate/rule grammar that used to live here (plan_validation_gate, piv_rule,
+# run_registry_rule, heartgate_coherence_required_when, the Pattern-A
+# required_universal_core lists) is now codified in
+# skills/uacp-core/scripts/engines/domain/gate_rules.py. The kernel resolves each
+# block as: KEY ABSENT  -> the codified code-default applies (gate ENFORCED;
+# fail-closed — a missing block can no longer silently disable enforcement, the
+# F-T3-01 invariant); KEY PRESENT -> the loaded value is used verbatim.
+#
+# CONSEQUENCE / FOOT-GUN: because a PRESENT block is used verbatim, a present
+# block that is empty or sets a disabling field turns that gate OFF:
+#   * `plan_validation_gate: {}`  (no required_ledger_gate_for_transition) -> off
+#   * `heartgate_coherence_required_when: {}`                              -> off
+#   * `piv_rule: {ledger_required: false}`                                 -> off
+# This is DELIBERATE — it is the explicit opt-out the test fixture
+# (tests/conftest.py) uses to preserve lightweight test runs. It is also why the
+# semantic is ASYMMETRIC with `stages` above: stages are load-bearing for the
+# whole system, so the loader injects the default even on an empty/absent block
+# (cannot be disabled); individual gates are legitimately disable-able, so an
+# explicit empty/disabling block is honored. Net safety vs. the pre-Slice-4b
+# state is STRICTLY BETTER: previously an ABSENT block silently disabled a gate
+# (the common accident); now disabling requires an EXPLICIT, greppable block.
+# See docs/decisions/decision-log.md (2026-06-16 — Codified gate resolution
+# semantic) for the rationale and the deferred `enabled: false` sentinel option.
 adaptive_proposal_package_gate:
   description: >
     PROPOSE documentation selection is adaptive and context-driven. Granularity
@@ -210,21 +68,11 @@ adaptive_proposal_package_gate:
   required_artifacts:
     - proposals/{run_id}-package-selection.yaml
     - proposals/{run_id}/
-  required_universal_core:
-    - intent
-    - authority
-    - scope
-    - containment
-    - risk
-    - verification
-    - transition
-    - artifact_map
-  not_applicable_required_fields:
-    - reason
-    - accepted_by
-    - owner
-    - residual_risk
-    - revisit_phase
+  # required_universal_core + not_applicable_required_fields: codified to code in
+  # Slice 4b T4c-1 (engines/domain/gate_rules.py
+  # PROPOSAL_REQUIRED_UNIVERSAL_CORE / PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS).
+  # The gate reader falls back to those code defaults when these sub-fields are
+  # absent, so behavior is unchanged. The doctrine sub-fields below STAY.
   block_when:
     - yaml_only_proposal_for_selected_medium_high_consequence_work
     - missing_package_selection_artifact
@@ -258,23 +106,11 @@ adaptive_plan_package_gate:
     - plans/{run_id}-plan-selection.yaml
     - plans/{run_id}/
     - plans/{run_id}-scope.yaml
-  required_universal_core:
-    - work_breakdown
-    - dependencies
-    - authority_and_side_effects
-    - tool_runtime_selection
-    - artifact_write_surfaces
-    - verification_strategy
-    - rollback_recovery
-    - council_review_topology
-    - transition_readiness
-  not_applicable_required_fields:
-    - reason
-    - accepted_by
-    - owner
-    - residual_risk
-    - revisit_phase
-    - revisit_trigger
+  # required_universal_core + not_applicable_required_fields: codified to code in
+  # Slice 4b T4c-1 (engines/domain/gate_rules.py
+  # PLAN_REQUIRED_UNIVERSAL_CORE / PLAN_NOT_APPLICABLE_REQUIRED_FIELDS).
+  # The gate reader falls back to those code defaults when these sub-fields are
+  # absent, so behavior is unchanged. The doctrine sub-fields below STAY.
   block_when:
     - yaml_only_plan_for_selected_medium_high_consequence_work
     - missing_plan_selection_artifact
@@ -377,93 +213,30 @@ adaptive_verify_evidence_gate:
     - verify_self_remediation_without_upstream_repair_or_independent_reverification
     - resolve_readiness_without_required_heartgate_coherence
 
-plan_validation_gate:
-  description: >
-    Phase 3 Item 3.1: a deterministic structural check that runs at PLAN->EXECUTE
-    BEFORE any EXECUTE work begins. Not a council — a pre-flight verification
-    recorded as `gate: PLAN_VALIDATION` in the run's gate ledger. Heartgate
-    treats the PLAN_VALIDATION ledger entry as a required predecessor to
-    PLAN->EXECUTE; the entry must exist with result=pass.
-  required_ledger_gate_for_transition: plan->execute
-  ledger_gate_name: PLAN_VALIDATION
-  # Phase 3 R1 (SKEP-001 / GOV-004): the ledger record must carry these
-  # fields, must be tagged phase==plan, and its `checks` list must include
-  # every pv_id below. The kernel verifies these before accepting the gate.
-  ledger_required_fields: [phase, checks, result]
-  ledger_required_phase: plan
-  checks:
-  - id: pv_1
-    name: scope_artifact_present_and_parses
-    description: plans/{run_id}-scope.yaml exists and parses as valid YAML with all required fields.
-  - id: pv_2
-    name: allowed_tools_registered
-    description: All tools listed in scope.allowed_tools (if present) are registered in the Guardian tool registry.
-  - id: pv_3
-    name: write_paths_within_proposal_side_effects
-    description: scope.write_paths is a subset of the proposal's declared side_effects.paths.
-  - id: pv_4
-    name: blast_radius_human_approval_when_high
-    description: If blast_radius is high or critical, a human-involvement record exists in the triage artifact.
-  - id: pv_5
-    name: rollback_path_declared
-    description: A rollback_path is declared (even if "none--write-only-artifact").
-  - id: pv_6
-    name: cluster_artifacts_referenced
-    description: All required cluster artifacts from PROPOSE->PLAN transition are referenced in plan.
-  enforcement: heartgate blocker on PLAN->EXECUTE if PLAN_VALIDATION ledger entry is absent or its result is not 'pass'
+# plan_validation_gate: codified to code in Slice 4b T4c-2. The full rule
+# grammar (required_ledger_gate_for_transition=plan->execute, ledger_gate_name=
+# PLAN_VALIDATION, ledger_required_fields, ledger_required_phase=plan, and the
+# pv_1..pv_6 checks) now lives in
+# skills/uacp-core/scripts/engines/domain/gate_rules.py
+# (plan_validation_gate_default). There is no operator knob — the grammar is
+# non-tunable. Heartgate reads the code default (enforce-by-default) when this
+# block is absent, so behavior is unchanged.
 
-run_registry_rule:
-  description: >
-    Phase 3 Item 3.2: write-path overlap detection across concurrent runs.
-    Heartgate consults state/run-registry.yaml at PLAN->EXECUTE; if another
-    active run declares an overlapping write_paths entry, this transition
-    blocks (enforce) or warns (observe).
-  registry_path: state/run-registry.yaml
-  enforcement: heartgate blocker on overlap with another active_run's write_paths
-  # Phase 3 R1 (TECH-003): the transition this rule guards is read here, not
-  # hardcoded in kernel. Extending overlap detection to other transitions
-  # only requires a config edit.
-  required_for_transition: plan->execute
-  # Phase 3 R2 (GOV-R1-004): the actual mechanical writer for state/run-registry.yaml
-  # is uacp_run_registry_update. uacp_state_write refuses direct writes
-  # (see config/artifact-schemas.yaml#cross_checks.scope_write_paths_vs_layer_b.handler_refusals).
-  writer_tool: uacp_run_registry_update
-  # _advisory suffix marks fields that are documentation-only; the
-  # mechanical enforcement comes from uacp_state_write refusing the path
-  # AND from uacp_run_registry_update enforcing caller-binding (entry.run_id
-  # == caller.uacp_run_id).
-  exclusive_mutator_advisory: uacp-state skill
+# run_registry_rule: codified to code in Slice 4b T4c-1. The rule grammar
+# (registry_path, required_for_transition, writer_tool, exclusive_mutator_advisory)
+# now lives in skills/uacp-core/scripts/engines/domain/gate_rules.py; the
+# operator-tunable enforcement mode lives in config/uacp.toml
+# [heartgate.run_registry]. Heartgate reads the code default when this block is
+# absent, so behavior is unchanged.
 
-piv_rule:
-  description: >
-    Legacy Post-Phase Verification ledger rule. This is distinct from the newer
-    Phase Intent Verification contract (`uacp.phase_intent_verification_contract`)
-    used for PLAN-authored EXECUTE evidence. To avoid acronym collision in new
-    artifacts, refer to this rule as the post_phase_verification_ledger rule; it
-    remains recorded in the gate ledger as `gate: PIV` for backward compatibility.
-    It is a deterministic 5-check self-evaluation run at the end of every phase
-    BEFORE Heartgate is invoked. It may be retried at most once; a second failure
-    blocks the transition unconditionally regardless of mode.
-  checks:
-  - id: piv_1
-    name: artifacts_produced
-    description: Did the phase produce all artifacts declared in phase_exit_invariants?
-  - id: piv_2
-    name: satisfies_plan
-    description: Do produced artifacts satisfy the proposal/plan that authorized this phase?
-  - id: piv_3
-    name: handled_findings_chain
-    description: Are all material council/review findings classified in handled_findings_chain?
-  - id: piv_4
-    name: non_waivable_invariants_intact
-    description: Authority explicit, write containment honored, traceable state, conservative failure preserved.
-  - id: piv_5
-    name: no_new_unresolved_findings
-    description: Did the phase introduce any new material findings still unresolved?
-  max_attempts: 2
-  second_failure_action: block_unconditional
-  ledger_required: true
-  ledger_required_fields: [piv_attempt, result, checks]
+# piv_rule: codified to code in Slice 4b T4c-2. The full rule grammar
+# (ledger_required=true, the piv_1..piv_5 checks, ledger_required_fields,
+# max_attempts=2, second_failure_action=block_unconditional) now lives in
+# skills/uacp-core/scripts/engines/domain/gate_rules.py (piv_rule_default).
+# There is no operator knob — the grammar is non-tunable. Heartgate reads the
+# code default (enforce-by-default) when this block is absent, so behavior is
+# unchanged.
+
 artifact_schema:
   kind: uacp.phase_transition
   required_fields:
@@ -642,71 +415,6 @@ artifact_schema:
         synthesis summary. Records doctrine coherence, cross-artifact consistency,
         runtime-state alignment, warning/deferred-item honesty, authority-plane integrity,
         and next-phase readiness.
-followthrough_gate:
-  max_followup_depth_default: 1
-  escalate_instead_of_recursing_after_depth: 1
-  hard_followup_handling_classifications: [remediated, expanded, justified]
-  conditional_followup_handling_classifications: [deferred, accepted_warning, rejected_with_reason]
-  material_finding_classifications: [blocker, concern, invariant_failure, negative_finding, material_warning]
-  fail_closed_when:
-    - missing_required_handling_artifact
-    - missing_required_followup_council
-    - unowned_warning_or_deferred_item
-    - non_waivable_invariant_warn_or_deferred
-    - unaccepted_recursion_depth_exceeded
-
-example_artifact:
-  kind: uacp.phase_transition
-  transition_id: uacp-bootstrap-001-plan-to-execute
-  run_id: uacp-bootstrap-001
-  from_phase: plan
-  to_phase: execute
-  routing_outcome: standard_uacp
-  granularity_level: 5
-  triage_artifact: proposals/uacp-bootstrap-stage-1-2-triage.yaml
-  decision: pass
-  terminal_kind: none
-  invariant_summary:
-  - id: authority.explicit
-    status: pass
-    evidence: Operator requested Stage 1 and Stage 2 implementation.
-  - id: writes.contained
-    status: pass
-    evidence: All planned writes are under UACP_ROOT.
-  cluster_summary:
-  - cluster_id: scope
-    state: pass
-    artifact_path: docs/lifecycle/lifecycle-reference.md
-  - cluster_id: verification_strategy
-    state: pass
-    artifact_path: config/phase-transitions.yaml
-  blockers: []
-  warnings: []
-  deferred_items: []
-  authority:
-    requested_by: operator
-    authorization_source: current task prompt
-  artifact_paths:
-  - config/gate-selection.yaml
-  - config/evidence-clusters.yaml
-  council_synthesis_artifact: ''
-  verification_artifact: ''
-  accepted_exceptions: []
-  phase_local_granularity:
-    phase: plan
-    entry_estimate: 5
-    exit_actual: 5
-    delta_reason: No material delta in example artifact.
-    downstream_projection:
-      execute: 5
-      verify: 5
-  composite_granularity: 5
-  human_involvement:
-    required: false
-    reason: Authority and containment are clear in example.
-    authority_needed: none
-    decision_owner: none
-    accepted_risk_artifact: ''
 council_synthesis_schema:
   kind: uacp.council_synthesis
   purpose: Minimum schema for Agent Council outputs consumed by phase transitions.
@@ -788,31 +496,13 @@ council_synthesis_schema:
     purpose: When a council is attached to Heartgate rather than a phase work product,
       findings should focus on transition truthfulness, lifecycle contract satisfaction,
       coherence, consistency, and next-phase readiness.
-heartgate_coherence_required_when:
-  purpose: Require transition-boundary Heartgate coherence evidence for material runtime/governance
-    transitions while keeping low-risk transitions lightweight.
-  min_composite_granularity: 7
-  phases:
-  - execute
-  - verify
-  routing_outcomes:
-  - full_governance
-  domains:
-  - runtime
-  - governance
-  - guardian
-  - heartgate
-  - kanban
-  - agent_council
-  - uacp
-  required_field: heartgate_coherence
-  required_lenses:
-  - doctrine_coherence
-  - cross_artifact_consistency
-  - runtime_state_alignment
-  - warning_and_deferred_item_honesty
-  - authority_plane_integrity
-  - next_phase_readiness
+# heartgate_coherence_required_when: codified to code in Slice 4b T4c-1. The
+# structural grammar (required_field=heartgate_coherence + the six required_lenses)
+# now lives in skills/uacp-core/scripts/engines/domain/gate_rules.py; the
+# operator-tunable selection policy (min_composite_granularity threshold + the
+# phases/routing_outcomes/domains selectors) lives in config/uacp.toml
+# [heartgate.coherence]. Heartgate reads the code default when this block is
+# absent, so behavior is unchanged.
 
 adaptive_resolve_closure_gate:
   description: >

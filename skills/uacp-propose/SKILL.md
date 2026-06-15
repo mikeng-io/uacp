@@ -19,7 +19,7 @@ phase_exit_invariants:
   required: true
 - gate_ledger_entry: TRIAGE->PROPOSE
   required: true
-authority_source: config/phase-transitions.yaml (mirror; config wins on conflict)
+authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ---
 # UACP Propose
 
@@ -124,7 +124,7 @@ When the package itself is repairing UACP PROPOSE or lifecycle semantics, drive 
 Read additionally:
 `UACP_ROOT/docs/lifecycle/orchestration-model.md`,
 `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`),
-`UACP_ROOT/config/phase-transitions.yaml`.
+`UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`; operator knobs in `config/uacp.toml [heartgate.*]`).
 
 Do not require external bridge dispatch merely because work is medium-sized.
 Select council mode/tier from phase-local granularity, risk, domains, side effects,

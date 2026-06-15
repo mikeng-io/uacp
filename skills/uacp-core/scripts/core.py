@@ -708,7 +708,20 @@ class Heartgate:
         self.config = dict(config)
         self.uacp_root = resolve_uacp_root(uacp_root)
         self.governed_root = base_dir(self.uacp_root)
-        self.stages = self.config.get("stages") or {}
+        # Slice 4b T4d-1: stages grammar (exits_to/allowed_tools/forbidden_tools/
+        # phase_exit_invariants) is codified in
+        # engines.domain.phase_transitions.stages_default(). Heartgate.load reads
+        # via load_phase_transitions, which already injects that default when the
+        # loaded config omits `stages`; this constructor-level fallback covers any
+        # direct Heartgate(config) construction with a stage-less config so the
+        # transition/exit-invariant/scope-tool checks never silently go absent.
+        # A loaded non-empty `stages` block wholesale-overrides the default.
+        stages = self.config.get("stages")
+        if not stages:
+            from engines.domain.phase_transitions import stages_default
+
+            stages = stages_default()
+        self.stages = stages
         schema = self.config.get("artifact_schema") or {}
         self.required_fields = list(schema.get("required_fields") or [])
         # Phase 2: artifact schemas (scope, intent, evidence_disposition, lessons)
@@ -966,8 +979,40 @@ class Heartgate:
             return False
 
 
+    def _heartgate_coherence_rule(self) -> Mapping[str, Any]:
+        """Resolve the heartgate_coherence_required_when rule.
+
+        Slice 4b T4c-1: the structural grammar (required_field/required_lenses)
+        and the selection policy (threshold + phases/routing/domains) are codified
+        in engines.domain.gate_rules. The block is read from the loaded
+        phase-transitions config WHEN PRESENT (production behavior, unchanged);
+        when ABSENT it falls back to the code default, whose operator-tunable
+        threshold + selectors come from config/uacp.toml [heartgate.coherence].
+
+        A test fixture may opt OUT by supplying an empty mapping for the block
+        (preserving prior test laxity): an explicit ``{}`` is honored as
+        "rule present but empty" and disables the gate, exactly as before.
+        """
+        if "heartgate_coherence_required_when" in self.config:
+            return self.config.get("heartgate_coherence_required_when") or {}
+        from engines.domain.gate_rules import heartgate_coherence_required_when_default
+
+        coherence_knob: Mapping[str, Any] = {}
+        try:
+            cfg_raw = get_config(self.uacp_root).model_dump()
+            coherence_knob = ((cfg_raw.get("heartgate") or {}).get("coherence")) or {}
+        except Exception:
+            coherence_knob = {}
+        if not isinstance(coherence_knob, Mapping):
+            coherence_knob = {}
+        threshold = coherence_knob.get("min_composite_granularity")
+        return heartgate_coherence_required_when_default(
+            min_composite_granularity=threshold if isinstance(threshold, int) else None,
+            selectors=dict(coherence_knob),
+        )
+
     def _validate_heartgate_coherence_requirement(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
-        rule = self.config.get("heartgate_coherence_required_when") or {}
+        rule = self._heartgate_coherence_rule()
         if not rule:
             return
         coherence = artifact.get("heartgate_coherence")
@@ -1076,9 +1121,10 @@ class Heartgate:
             return
         if selection.get("kind") != "uacp.proposal_package_selection":
             blockers.append("adaptive_proposal_package_gate: package-selection kind must be uacp.proposal_package_selection")
-        required_core = list(gate.get("required_universal_core") or []) or [
-            "intent", "authority", "scope", "containment", "risk", "verification", "transition", "artifact_map"
-        ]
+        from engines.domain.gate_rules import PROPOSAL_REQUIRED_UNIVERSAL_CORE
+        required_core = list(gate.get("required_universal_core") or []) or list(
+            PROPOSAL_REQUIRED_UNIVERSAL_CORE
+        )
         core = selection.get("universal_core") if isinstance(selection.get("universal_core"), Mapping) else {}
         for key in required_core:
             item = core.get(str(key)) if isinstance(core, Mapping) else None
@@ -1149,11 +1195,10 @@ class Heartgate:
             blockers.append("adaptive_plan_package_gate: plan-selection kind must be uacp.plan_package_selection")
         if selection.get("phase") != "plan":
             blockers.append("adaptive_plan_package_gate: plan-selection phase must be plan")
-        required_core = list(gate.get("required_universal_core") or []) or [
-            "work_breakdown", "dependencies", "authority_and_side_effects", "tool_runtime_selection",
-            "artifact_write_surfaces", "verification_strategy", "rollback_recovery",
-            "council_review_topology", "transition_readiness",
-        ]
+        from engines.domain.gate_rules import PLAN_REQUIRED_UNIVERSAL_CORE
+        required_core = list(gate.get("required_universal_core") or []) or list(
+            PLAN_REQUIRED_UNIVERSAL_CORE
+        )
         core = selection.get("universal_core") if isinstance(selection.get("universal_core"), Mapping) else {}
         for key in required_core:
             item = core.get(str(key)) if isinstance(core, Mapping) else None
@@ -1194,7 +1239,8 @@ class Heartgate:
         if not isinstance(item, Mapping):
             blockers.append(f"adaptive_plan_package_gate: {label} in {artifact} must be a mapping")
             return
-        for field_name in ("reason", "accepted_by", "owner", "residual_risk", "revisit_phase", "revisit_trigger"):
+        from engines.domain.gate_rules import PLAN_NOT_APPLICABLE_REQUIRED_FIELDS
+        for field_name in PLAN_NOT_APPLICABLE_REQUIRED_FIELDS:
             if item.get(field_name) in (None, ""):
                 blockers.append(f"adaptive_plan_package_gate: {label} missing {field_name}")
 
@@ -1202,7 +1248,8 @@ class Heartgate:
         if not isinstance(item, Mapping):
             blockers.append(f"adaptive_proposal_package_gate: {label} in {artifact} must be a mapping")
             return
-        for field_name in ("reason", "accepted_by", "owner", "residual_risk", "revisit_phase"):
+        from engines.domain.gate_rules import PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS
+        for field_name in PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS:
             if item.get(field_name) in (None, ""):
                 blockers.append(f"adaptive_proposal_package_gate: {label} missing {field_name}")
 
@@ -1306,8 +1353,11 @@ class Heartgate:
     def _validate_adaptive_execute_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         if str(artifact.get("from_phase") or "") != "execute" or str(artifact.get("to_phase") or "") != "verify":
             return
-        if not isinstance(self.config.get("adaptive_execute_evidence_gate"), Mapping):
-            return
+        # F-T3-01 (SECURITY): fail CLOSED. The gate body reads nothing from the
+        # config block beyond a former presence check (it enforces structure via
+        # hardcoded relative artifact paths), so when the phase-guard matches we
+        # ENFORCE regardless of whether adaptive_execute_evidence_gate is present.
+        # An absent or non-mapping key must not silently disable this evidence gate.
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             blockers.append("adaptive_execute_evidence_gate requires run_id")
@@ -1337,8 +1387,8 @@ class Heartgate:
     def _validate_adaptive_verify_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         if str(artifact.get("from_phase") or "") != "verify" or str(artifact.get("to_phase") or "") != "resolve":
             return
-        if not isinstance(self.config.get("adaptive_verify_evidence_gate"), Mapping):
-            return
+        # F-T3-01 (SECURITY): fail CLOSED — see _validate_adaptive_execute_evidence_gate.
+        # An absent or non-mapping adaptive_verify_evidence_gate key must not disable enforcement.
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             blockers.append("adaptive_verify_evidence_gate requires run_id")
@@ -1376,8 +1426,8 @@ class Heartgate:
     def _validate_adaptive_resolve_closure_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         if str(artifact.get("from_phase") or "") != "resolve":
             return
-        if not isinstance(self.config.get("adaptive_resolve_closure_gate"), Mapping):
-            return
+        # F-T3-01 (SECURITY): fail CLOSED — see _validate_adaptive_execute_evidence_gate.
+        # An absent or non-mapping adaptive_resolve_closure_gate key must not disable enforcement.
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             blockers.append("adaptive_resolve_closure_gate requires run_id")
@@ -1412,6 +1462,28 @@ class Heartgate:
         if not self._dir_under_root_exists(package_rel):
             blockers.append(f"adaptive_resolve_closure_gate: missing resolve package directory {package_rel}/")
 
+    def _piv_rule(self) -> Mapping[str, Any]:
+        """Resolve the piv_rule.
+
+        Slice 4b T4c-2: the rule grammar (ledger_required, the piv_* check ids,
+        ledger_required_fields, max_attempts, second_failure_action) is codified
+        in engines.domain.gate_rules. The block is read from the loaded
+        phase-transitions config WHEN PRESENT (production behavior, unchanged);
+        when ABSENT it falls back to the code default whose ``ledger_required``
+        is True (enforce-by-default / fail-closed: a PIV pass record is required
+        on every transition). No operator-tunable knob this wave.
+
+        A test fixture may opt OUT by supplying ``piv_rule: {ledger_required:
+        false}``: present-with-falsy-ledger_required is read as the loaded value,
+        so the reader's ``not piv_rule.get("ledger_required")`` short-circuits the
+        gate exactly as the pre-T4c-2 absent block did.
+        """
+        if "piv_rule" in self.config:
+            return self.config.get("piv_rule") or {}
+        from engines.domain.gate_rules import piv_rule_default
+
+        return piv_rule_default()
+
     def _validate_piv_record(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Phase 1 / Item 1.4: require a PIV pass record in the ledger before
         Heartgate accepts a transition for which piv_rule applies.
@@ -1429,7 +1501,7 @@ class Heartgate:
         has explicit per-check pass evidence (mapping-form or sibling
         `check_results: {piv_id: pass}`).
         """
-        piv_rule = self.config.get("piv_rule") or {}
+        piv_rule = self._piv_rule()
         if not isinstance(piv_rule, Mapping) or not piv_rule.get("ledger_required"):
             return
         run_id = str(artifact.get("run_id") or "")
@@ -2013,6 +2085,28 @@ class Heartgate:
                 f"evidence_disposition: cluster '{cluster_id}' assumptions table missing canonical header '| Assumption | Disposition | Owner | Next-phase obligation |'"
             )
 
+    def _plan_validation_gate_rule(self) -> Mapping[str, Any]:
+        """Resolve the plan_validation_gate rule.
+
+        Slice 4b T4c-2: the rule grammar (required_ledger_gate_for_transition,
+        ledger_gate_name, ledger_required_fields, ledger_required_phase, and the
+        pv_* check ids) is codified in engines.domain.gate_rules. The block is
+        read from the loaded phase-transitions config WHEN PRESENT (production
+        behavior, unchanged); when ABSENT it falls back to the code default
+        (enforce-by-default / fail-closed). No operator-tunable knob this wave —
+        the grammar is non-tunable.
+
+        A test fixture may opt OUT by supplying an empty mapping for the block
+        (preserving prior test laxity): an explicit ``{}`` is read as present and
+        yields no ``required_ledger_gate_for_transition``, so the reader's
+        ``if not required_for: return`` short-circuits the gate exactly as before.
+        """
+        if "plan_validation_gate" in self.config:
+            return self.config.get("plan_validation_gate") or {}
+        from engines.domain.gate_rules import plan_validation_gate_default
+
+        return plan_validation_gate_default()
+
     def _validate_plan_validation_gate(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str] | None = None) -> None:
         """Phase 3.1: a PLAN_VALIDATION ledger entry with result=pass is
         required for PLAN->EXECUTE. The entry must be tagged phase=plan and
@@ -2023,7 +2117,7 @@ class Heartgate:
         verify gate presence; it enforces the ledger schema so a single-bit
         "PLAN_VALIDATION: pass" assertion is no longer enough.
         """
-        rule = self.config.get("plan_validation_gate") or {}
+        rule = self._plan_validation_gate_rule()
         if not isinstance(rule, Mapping):
             return
         required_for = str(rule.get("required_ledger_gate_for_transition") or "")
@@ -2184,6 +2278,31 @@ class Heartgate:
             return False
         return a == b or a.startswith(b) or b.startswith(a)
 
+    def _run_registry_rule(self) -> Mapping[str, Any]:
+        """Resolve the run_registry_rule.
+
+        Slice 4b T4c-1: the rule grammar (registry_path, required_for_transition,
+        writer_tool) is codified in engines.domain.gate_rules. The block is read
+        from the loaded phase-transitions config WHEN PRESENT (production
+        behavior, unchanged); when ABSENT it falls back to the code default whose
+        operator-tunable ``enforcement`` mode comes from config/uacp.toml
+        [heartgate.run_registry]. A fixture may opt out via an empty mapping.
+        """
+        if "run_registry_rule" in self.config:
+            return self.config.get("run_registry_rule") or {}
+        from engines.domain.gate_rules import run_registry_rule_default
+
+        enforcement = None
+        try:
+            cfg_raw = get_config(self.uacp_root).model_dump()
+            knob = (cfg_raw.get("heartgate") or {}).get("run_registry") or {}
+            if isinstance(knob, Mapping):
+                value = knob.get("enforcement")
+                enforcement = value if isinstance(value, str) else None
+        except Exception:
+            enforcement = None
+        return run_registry_rule_default(enforcement=enforcement)
+
     def _validate_run_registry_overlap(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
         """Phase 3.2: detect write-path overlap with other active runs.
 
@@ -2196,8 +2315,8 @@ class Heartgate:
         (SKEP-003), and the required transition is read from config
         (TECH-003).
         """
-        rule = self.config.get("run_registry_rule") or {}
-        if not isinstance(rule, Mapping):
+        rule = self._run_registry_rule()
+        if not isinstance(rule, Mapping) or not rule:
             return
         from_phase = str(artifact.get("from_phase") or "")
         to_phase = str(artifact.get("to_phase") or "")
