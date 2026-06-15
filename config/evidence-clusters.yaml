@@ -1,3 +1,5 @@
+# cluster_states + artifact_schema codified in engines/domain/evidence_cluster.py (Slice 4a);
+# families/registry/example retained as doctrine.
 schema_version: '0.1'
 kind: uacp.evidence_cluster_registry
 status: seed
@@ -6,87 +8,6 @@ purpose: 'Defines reusable evidence cluster families and the artifact shape for 
   checklist.
 
   '
-cluster_states:
-  pass: No blocker found; transition can consider this cluster satisfied.
-  warn: Proceed only with recorded risk, owner, and follow-up condition.
-  block: Phase transition is forbidden until remediated or explicitly rescoped.
-  not_applicable: Cluster was considered and rejected with a reason.
-  deferred: Cluster is accepted by the next phase as explicit carried risk.
-artifact_schema:
-  kind: uacp.evidence_cluster
-  required_fields:
-  - cluster_id
-  - phase
-  - family
-  - purpose
-  - trigger_conditions
-  - required_inputs
-  - allowed_tools
-  - output_artifact_path
-  - decision_rules
-  - concurrency
-  - dependencies
-  - state
-  - findings
-  fields:
-    cluster_id:
-      type: string
-      description: Stable local identifier for this cluster instance or template.
-    phase:
-      type: enum
-      values:
-      - triage
-      - propose
-      - plan
-      - execute
-      - verify
-      - resolve
-    family:
-      type: string
-      description: Reusable family such as scope, context, risk, or generated.
-    purpose:
-      type: string
-    trigger_conditions:
-      type: list
-      item_type: string
-    required_inputs:
-      type: list
-      item_type: string
-    allowed_tools:
-      type: list
-      item_type: string
-      description: Tool classes or skill roles, not hardcoded model names.
-    output_artifact_path:
-      type: string
-      description: UACP_ROOT-relative path unless a symbolic external root is declared.
-    decision_rules:
-      type: map
-      fields:
-        pass: string
-        warn: string
-        block: string
-        not_applicable: string
-        deferred: string
-    concurrency:
-      type: map
-      fields:
-        can_run_parallel: boolean
-        fanout_group: string
-        max_parallelism_hint: string
-    dependencies:
-      type: list
-      item_type: string
-    state:
-      type: enum
-      values:
-      - pass
-      - warn
-      - block
-      - not_applicable
-      - deferred
-    findings:
-      type: list
-      item_type: map
 universal_cluster_families:
 - id: scope
   purpose: Clarify requested work, boundaries, non-goals, and ambiguity.

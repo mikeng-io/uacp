@@ -10,7 +10,7 @@ import argparse
 import sys
 import tomllib
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 # Bootstrap: make ``config.base_dir`` importable whether this module is loaded
 # dynamically by Heartgate (core.py adds uacp-core/scripts to sys.path) OR run
@@ -24,6 +24,8 @@ _CORE = _P(__file__).resolve().parents[1] / "skills" / "uacp-core" / "scripts"
 if str(_CORE) not in _sys.path:
     _sys.path.insert(0, str(_CORE))
 from config import base_dir  # noqa: E402
+from engines.domain import ClusterState, EvidenceCluster  # noqa: E402
+from pydantic import ValidationError as _ValidationError  # noqa: E402
 
 try:
     import yaml
@@ -34,7 +36,8 @@ except Exception as exc:  # pragma: no cover
 VALID_FINDING_STATES = {"open", "resolved", "accepted_risk", "not_applicable", "deferred"}
 VALID_TRANSITION_DECISIONS = {"pass", "warn", "block"}
 VALID_COUNCIL_VERDICTS = {"pass", "warn", "concerns", "fail", "pass_with_deferred_items", "pass_with_concerns", "proceed_to_plan_with_conditions", "completed_with_mixed_validity", "PASS", "WARN", "CONCERNS", "FAIL"}
-VALID_CLUSTER_STATES = {"pass", "warn", "block", "not_applicable", "deferred"}
+# Derived from ClusterState in engines.domain.evidence_cluster (Slice 4a — no longer a divergent copy).
+VALID_CLUSTER_STATES: set[str] = set(get_args(ClusterState))
 VALID_CHECKPOINT_TYPES = {"before_side_effect", "after_work_unit", "pre_verify_handoff", "deviation", "remediation"}
 VALID_NEXT_PHASE_READINESS = {"ready", "ready_with_deferred_items", "blocked"}
 VALID_PIV_CHECKPOINTS = {"before_first_side_effect", "after_each_work_unit", "before_verify_handoff"}
@@ -477,11 +480,25 @@ def validate_execute_task(path: Path, obj: dict, issues: list[str]) -> None:
 
 
 def validate_evidence_cluster(path: Path, obj: dict, issues: list[str]) -> None:
-    required = ["cluster_id", "phase", "family", "purpose", "state", "findings"]
-    check_required(str(path), obj, required, issues)
-    state = obj.get("state")
-    if state and state not in VALID_CLUSTER_STATES:
-        issues.append(f"BLOCK {path}: evidence cluster state {state!r} is invalid")
+    # Required-field and state-enum validation delegated to the EvidenceCluster
+    # Pydantic model (codified from config/evidence-clusters.yaml, Slice 4a).
+    # Error messages are translated to preserve the existing BLOCK string format.
+    try:
+        EvidenceCluster.model_validate(obj)
+    except _ValidationError as exc:
+        for err in exc.errors():
+            loc = ".".join(str(x) for x in err["loc"]) if err["loc"] else "?"
+            etype = err["type"]
+            if etype in ("missing",):
+                issues.append(f"BLOCK {path}: missing required field {loc}")
+            elif etype in ("literal_error",) and loc == "state":
+                state_val = obj.get("state")
+                issues.append(f"BLOCK {path}: evidence cluster state {state_val!r} is invalid")
+            elif etype in ("literal_error",) and loc == "phase":
+                phase_val = obj.get("phase")
+                issues.append(f"BLOCK {path}: evidence cluster phase {phase_val!r} is invalid")
+            else:
+                issues.append(f"BLOCK {path}: evidence cluster validation error at {loc}: {err['msg']}")
 
 def validate_evidence_registry(root: Path, issues: list[str]) -> None:
     path = root / "config" / "evidence-clusters.yaml"

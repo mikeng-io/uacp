@@ -31,16 +31,26 @@ from state_machine import (  # noqa: E402  (path bootstrap must precede import)
 )
 
 from .deferral import DeferredItem  # noqa: E402
+from .evidence_cluster import (  # noqa: E402
+    INVARIANT_CLUSTER_FAMILIES,
+    ClusterPhase,
+    ClusterState,
+    EvidenceCluster,
+)
 from .ledger import LedgerEntry  # noqa: E402
 from .pointer import CurrentPointer  # noqa: E402
 from .registry import RunRegistry, RunRegistryEntry  # noqa: E402
 from .scope import Scope  # noqa: E402
 
 __all__ = [
+    "INVARIANT_CLUSTER_FAMILIES",
     "TERMINAL_PHASES",
     "VALID_TRANSITIONS",
+    "ClusterPhase",
+    "ClusterState",
     "CurrentPointer",
     "DeferredItem",
+    "EvidenceCluster",
     "LedgerEntry",
     "RunManifest",
     "RunRegistry",
