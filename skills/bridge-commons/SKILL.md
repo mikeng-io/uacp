@@ -754,7 +754,7 @@ models = []  # empty = single-model default; 2+ entries = multi-model dispatch
 
 Models must use `provider/model` format as required by OpenCode (e.g., `glm/glm-4-7`, not just `glm`).
 
-**Local overrides:** Create `uacp.local.toml` (gitignored) to override any setting without modifying the canonical config.
+**Local overrides:** Create `.uacp/config.toml` (gitignored) to override any setting (incl. `[models]`/`[bridges]`) without modifying the canonical `config/uacp.toml`. It is deep-merged over the shipped default by `config.py`.
 
 **Model identifier validation:** During bridge availability checks, if a model identifier is resolved from `config/uacp.toml` `[models]`, bridges SHOULD perform a lightweight validation probe (e.g., `codex models list`, `opencode auth list`) to confirm the identifier is resolvable. If a model cannot be resolved:
 - Emit a **warning** in the bridge output (not SKIPPED — the bridge itself may still work with the provider's default model)
