@@ -48,7 +48,7 @@ def main() -> int:
             (tmp / "config").mkdir()
             (tmp / ".uacp/state").mkdir(parents=True)
             (tmp / ".uacp/state/escalations").mkdir()
-            for f in ["phase-transitions.yaml", "artifact-schemas.yaml", "guardian-policy.yaml", "state.yaml", "autonomy-policy.yaml"]:
+            for f in ["phase-transitions.yaml", "artifact-schemas.yaml", "state.yaml", "autonomy-policy.yaml"]:
                 src = ROOT / "config" / f
                 (tmp / "config" / f).write_text(src.read_text())
             plugin._POLICY = None

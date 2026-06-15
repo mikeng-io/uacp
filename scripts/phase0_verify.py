@@ -40,23 +40,26 @@ def _import_plugin():
 
 def _prepare_root(tmp: Path) -> None:
     here = Path(__file__).resolve().parent.parent
-    for sub in ("config", "docs", "state/runs"):
+    for sub in ("config", "docs", "state/runs", ".uacp"):
         (tmp / sub).mkdir(parents=True, exist_ok=True)
-    shutil.copy2(here / "config/guardian-policy.yaml", tmp / "config/guardian-policy.yaml")
     shutil.copy2(here / "config/phase-transitions.yaml", tmp / "config/phase-transitions.yaml")
 
 
 def _set_policy_mode(tmp: Path, mode: str) -> None:
-    import yaml
-    path = tmp / "config/guardian-policy.yaml"
-    data = yaml.safe_load(path.read_text())
-    data["mode"] = mode
-    path.write_text(yaml.safe_dump(data, sort_keys=False))
+    # Slice 3: policy now sourced from config/uacp.toml [guardian] via config.py.
+    # Override the mode by writing <tmp>/.uacp/config.toml; the deep-merge
+    # override wins over the repo-default uacp.toml for the `mode` leaf.
+    from config import clear_config_cache
+    override = tmp / ".uacp" / "config.toml"
+    override.write_text(f'[guardian]\nmode = "{mode}"\n', encoding="utf-8")
+    clear_config_cache()
 
 
 def _reload_policy(plugin) -> None:
+    from config import clear_config_cache
     plugin._POLICY = None
     plugin._POLICY_ERROR = ""
+    clear_config_cache()
 
 
 def _common_args(tmp: Path) -> dict:
