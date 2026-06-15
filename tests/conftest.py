@@ -110,6 +110,18 @@ stages:
       - uacp_state_write
       - uacp_gate_ledger_append
     exits_to: []
+# Slice 4b T4c-1 opt-out stub — PRESERVES PRIOR TEST LAXITY.
+# Before T4c-1 this synthetic config OMITTED heartgate_coherence_required_when,
+# so the coherence-requirement gate was OFF in tests (the reader did
+# `rule = self.config.get(...) or {}; if not rule: return`). After T4c-1 an
+# ABSENT block becomes the CODE DEFAULT (ON: fires on execute->verify and
+# verify->resolved with the production selectors), which would newly demand a
+# `heartgate_coherence` field on the lifecycle/coherence e2e transitions and
+# break them. Providing an explicit empty mapping is honored as "rule present
+# but empty" -> `if not rule: return` -> gate stays OFF, exactly as before.
+# Production (config/phase-transitions.yaml) ships NO block and so gets the
+# enforce-by-default code default; only this test fixture opts out.
+heartgate_coherence_required_when: {}
 """)
 
     os.chdir(test_dir)

@@ -55,6 +55,19 @@ from .evidence_cluster import (  # noqa: E402
     ClusterState,
     EvidenceCluster,
 )
+from .gate_rules import (  # noqa: E402
+    HEARTGATE_COHERENCE_MIN_GRANULARITY_DEFAULT,
+    HEARTGATE_COHERENCE_REQUIRED_FIELD,
+    HEARTGATE_COHERENCE_REQUIRED_LENSES,
+    HEARTGATE_COHERENCE_SELECTORS_DEFAULT,
+    PLAN_NOT_APPLICABLE_REQUIRED_FIELDS,
+    PLAN_REQUIRED_UNIVERSAL_CORE,
+    PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS,
+    PROPOSAL_REQUIRED_UNIVERSAL_CORE,
+    RUN_REGISTRY_ENFORCEMENT_DEFAULT,
+    heartgate_coherence_required_when_default,
+    run_registry_rule_default,
+)
 from .ledger import LedgerEntry, LedgerResult, LedgerReviewer  # noqa: E402
 
 # Re-export the canonical lifecycle-graph accessors so the rest of the codebase
@@ -99,6 +112,17 @@ __all__ = [
     "CurrentPointer",
     "DeferredItem",
     "EvidenceCluster",
+    "HEARTGATE_COHERENCE_MIN_GRANULARITY_DEFAULT",
+    "HEARTGATE_COHERENCE_REQUIRED_FIELD",
+    "HEARTGATE_COHERENCE_REQUIRED_LENSES",
+    "HEARTGATE_COHERENCE_SELECTORS_DEFAULT",
+    "PLAN_NOT_APPLICABLE_REQUIRED_FIELDS",
+    "PLAN_REQUIRED_UNIVERSAL_CORE",
+    "PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS",
+    "PROPOSAL_REQUIRED_UNIVERSAL_CORE",
+    "RUN_REGISTRY_ENFORCEMENT_DEFAULT",
+    "heartgate_coherence_required_when_default",
+    "run_registry_rule_default",
     "LedgerEntry",
     "RunManifest",
     "lifecycle_edges",

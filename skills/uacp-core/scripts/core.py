@@ -966,8 +966,40 @@ class Heartgate:
             return False
 
 
+    def _heartgate_coherence_rule(self) -> Mapping[str, Any]:
+        """Resolve the heartgate_coherence_required_when rule.
+
+        Slice 4b T4c-1: the structural grammar (required_field/required_lenses)
+        and the selection policy (threshold + phases/routing/domains) are codified
+        in engines.domain.gate_rules. The block is read from the loaded
+        phase-transitions config WHEN PRESENT (production behavior, unchanged);
+        when ABSENT it falls back to the code default, whose operator-tunable
+        threshold + selectors come from config/uacp.toml [heartgate.coherence].
+
+        A test fixture may opt OUT by supplying an empty mapping for the block
+        (preserving prior test laxity): an explicit ``{}`` is honored as
+        "rule present but empty" and disables the gate, exactly as before.
+        """
+        if "heartgate_coherence_required_when" in self.config:
+            return self.config.get("heartgate_coherence_required_when") or {}
+        from engines.domain.gate_rules import heartgate_coherence_required_when_default
+
+        coherence_knob: Mapping[str, Any] = {}
+        try:
+            cfg_raw = get_config(self.uacp_root).model_dump()
+            coherence_knob = ((cfg_raw.get("heartgate") or {}).get("coherence")) or {}
+        except Exception:
+            coherence_knob = {}
+        if not isinstance(coherence_knob, Mapping):
+            coherence_knob = {}
+        threshold = coherence_knob.get("min_composite_granularity")
+        return heartgate_coherence_required_when_default(
+            min_composite_granularity=threshold if isinstance(threshold, int) else None,
+            selectors=dict(coherence_knob),
+        )
+
     def _validate_heartgate_coherence_requirement(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
-        rule = self.config.get("heartgate_coherence_required_when") or {}
+        rule = self._heartgate_coherence_rule()
         if not rule:
             return
         coherence = artifact.get("heartgate_coherence")
@@ -1076,9 +1108,10 @@ class Heartgate:
             return
         if selection.get("kind") != "uacp.proposal_package_selection":
             blockers.append("adaptive_proposal_package_gate: package-selection kind must be uacp.proposal_package_selection")
-        required_core = list(gate.get("required_universal_core") or []) or [
-            "intent", "authority", "scope", "containment", "risk", "verification", "transition", "artifact_map"
-        ]
+        from engines.domain.gate_rules import PROPOSAL_REQUIRED_UNIVERSAL_CORE
+        required_core = list(gate.get("required_universal_core") or []) or list(
+            PROPOSAL_REQUIRED_UNIVERSAL_CORE
+        )
         core = selection.get("universal_core") if isinstance(selection.get("universal_core"), Mapping) else {}
         for key in required_core:
             item = core.get(str(key)) if isinstance(core, Mapping) else None
@@ -1149,11 +1182,10 @@ class Heartgate:
             blockers.append("adaptive_plan_package_gate: plan-selection kind must be uacp.plan_package_selection")
         if selection.get("phase") != "plan":
             blockers.append("adaptive_plan_package_gate: plan-selection phase must be plan")
-        required_core = list(gate.get("required_universal_core") or []) or [
-            "work_breakdown", "dependencies", "authority_and_side_effects", "tool_runtime_selection",
-            "artifact_write_surfaces", "verification_strategy", "rollback_recovery",
-            "council_review_topology", "transition_readiness",
-        ]
+        from engines.domain.gate_rules import PLAN_REQUIRED_UNIVERSAL_CORE
+        required_core = list(gate.get("required_universal_core") or []) or list(
+            PLAN_REQUIRED_UNIVERSAL_CORE
+        )
         core = selection.get("universal_core") if isinstance(selection.get("universal_core"), Mapping) else {}
         for key in required_core:
             item = core.get(str(key)) if isinstance(core, Mapping) else None
@@ -1194,7 +1226,8 @@ class Heartgate:
         if not isinstance(item, Mapping):
             blockers.append(f"adaptive_plan_package_gate: {label} in {artifact} must be a mapping")
             return
-        for field_name in ("reason", "accepted_by", "owner", "residual_risk", "revisit_phase", "revisit_trigger"):
+        from engines.domain.gate_rules import PLAN_NOT_APPLICABLE_REQUIRED_FIELDS
+        for field_name in PLAN_NOT_APPLICABLE_REQUIRED_FIELDS:
             if item.get(field_name) in (None, ""):
                 blockers.append(f"adaptive_plan_package_gate: {label} missing {field_name}")
 
@@ -1202,7 +1235,8 @@ class Heartgate:
         if not isinstance(item, Mapping):
             blockers.append(f"adaptive_proposal_package_gate: {label} in {artifact} must be a mapping")
             return
-        for field_name in ("reason", "accepted_by", "owner", "residual_risk", "revisit_phase"):
+        from engines.domain.gate_rules import PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS
+        for field_name in PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS:
             if item.get(field_name) in (None, ""):
                 blockers.append(f"adaptive_proposal_package_gate: {label} missing {field_name}")
 
@@ -2187,6 +2221,31 @@ class Heartgate:
             return False
         return a == b or a.startswith(b) or b.startswith(a)
 
+    def _run_registry_rule(self) -> Mapping[str, Any]:
+        """Resolve the run_registry_rule.
+
+        Slice 4b T4c-1: the rule grammar (registry_path, required_for_transition,
+        writer_tool) is codified in engines.domain.gate_rules. The block is read
+        from the loaded phase-transitions config WHEN PRESENT (production
+        behavior, unchanged); when ABSENT it falls back to the code default whose
+        operator-tunable ``enforcement`` mode comes from config/uacp.toml
+        [heartgate.run_registry]. A fixture may opt out via an empty mapping.
+        """
+        if "run_registry_rule" in self.config:
+            return self.config.get("run_registry_rule") or {}
+        from engines.domain.gate_rules import run_registry_rule_default
+
+        enforcement = None
+        try:
+            cfg_raw = get_config(self.uacp_root).model_dump()
+            knob = (cfg_raw.get("heartgate") or {}).get("run_registry") or {}
+            if isinstance(knob, Mapping):
+                value = knob.get("enforcement")
+                enforcement = value if isinstance(value, str) else None
+        except Exception:
+            enforcement = None
+        return run_registry_rule_default(enforcement=enforcement)
+
     def _validate_run_registry_overlap(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
         """Phase 3.2: detect write-path overlap with other active runs.
 
@@ -2199,8 +2258,8 @@ class Heartgate:
         (SKEP-003), and the required transition is read from config
         (TECH-003).
         """
-        rule = self.config.get("run_registry_rule") or {}
-        if not isinstance(rule, Mapping):
+        rule = self._run_registry_rule()
+        if not isinstance(rule, Mapping) or not rule:
             return
         from_phase = str(artifact.get("from_phase") or "")
         to_phase = str(artifact.get("to_phase") or "")

@@ -183,21 +183,11 @@ adaptive_proposal_package_gate:
   required_artifacts:
     - proposals/{run_id}-package-selection.yaml
     - proposals/{run_id}/
-  required_universal_core:
-    - intent
-    - authority
-    - scope
-    - containment
-    - risk
-    - verification
-    - transition
-    - artifact_map
-  not_applicable_required_fields:
-    - reason
-    - accepted_by
-    - owner
-    - residual_risk
-    - revisit_phase
+  # required_universal_core + not_applicable_required_fields: codified to code in
+  # Slice 4b T4c-1 (engines/domain/gate_rules.py
+  # PROPOSAL_REQUIRED_UNIVERSAL_CORE / PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS).
+  # The gate reader falls back to those code defaults when these sub-fields are
+  # absent, so behavior is unchanged. The doctrine sub-fields below STAY.
   block_when:
     - yaml_only_proposal_for_selected_medium_high_consequence_work
     - missing_package_selection_artifact
@@ -231,23 +221,11 @@ adaptive_plan_package_gate:
     - plans/{run_id}-plan-selection.yaml
     - plans/{run_id}/
     - plans/{run_id}-scope.yaml
-  required_universal_core:
-    - work_breakdown
-    - dependencies
-    - authority_and_side_effects
-    - tool_runtime_selection
-    - artifact_write_surfaces
-    - verification_strategy
-    - rollback_recovery
-    - council_review_topology
-    - transition_readiness
-  not_applicable_required_fields:
-    - reason
-    - accepted_by
-    - owner
-    - residual_risk
-    - revisit_phase
-    - revisit_trigger
+  # required_universal_core + not_applicable_required_fields: codified to code in
+  # Slice 4b T4c-1 (engines/domain/gate_rules.py
+  # PLAN_REQUIRED_UNIVERSAL_CORE / PLAN_NOT_APPLICABLE_REQUIRED_FIELDS).
+  # The gate reader falls back to those code defaults when these sub-fields are
+  # absent, so behavior is unchanged. The doctrine sub-fields below STAY.
   block_when:
     - yaml_only_plan_for_selected_medium_high_consequence_work
     - missing_plan_selection_artifact
@@ -385,27 +363,12 @@ plan_validation_gate:
     description: All required cluster artifacts from PROPOSE->PLAN transition are referenced in plan.
   enforcement: heartgate blocker on PLAN->EXECUTE if PLAN_VALIDATION ledger entry is absent or its result is not 'pass'
 
-run_registry_rule:
-  description: >
-    Phase 3 Item 3.2: write-path overlap detection across concurrent runs.
-    Heartgate consults state/run-registry.yaml at PLAN->EXECUTE; if another
-    active run declares an overlapping write_paths entry, this transition
-    blocks (enforce) or warns (observe).
-  registry_path: state/run-registry.yaml
-  enforcement: heartgate blocker on overlap with another active_run's write_paths
-  # Phase 3 R1 (TECH-003): the transition this rule guards is read here, not
-  # hardcoded in kernel. Extending overlap detection to other transitions
-  # only requires a config edit.
-  required_for_transition: plan->execute
-  # Phase 3 R2 (GOV-R1-004): the actual mechanical writer for state/run-registry.yaml
-  # is uacp_run_registry_update. uacp_state_write refuses direct writes
-  # (see config/artifact-schemas.yaml#cross_checks.scope_write_paths_vs_layer_b.handler_refusals).
-  writer_tool: uacp_run_registry_update
-  # _advisory suffix marks fields that are documentation-only; the
-  # mechanical enforcement comes from uacp_state_write refusing the path
-  # AND from uacp_run_registry_update enforcing caller-binding (entry.run_id
-  # == caller.uacp_run_id).
-  exclusive_mutator_advisory: uacp-state skill
+# run_registry_rule: codified to code in Slice 4b T4c-1. The rule grammar
+# (registry_path, required_for_transition, writer_tool, exclusive_mutator_advisory)
+# now lives in skills/uacp-core/scripts/engines/domain/gate_rules.py; the
+# operator-tunable enforcement mode lives in config/uacp.toml
+# [heartgate.run_registry]. Heartgate reads the code default when this block is
+# absent, so behavior is unchanged.
 
 piv_rule:
   description: >
@@ -696,31 +659,13 @@ council_synthesis_schema:
     purpose: When a council is attached to Heartgate rather than a phase work product,
       findings should focus on transition truthfulness, lifecycle contract satisfaction,
       coherence, consistency, and next-phase readiness.
-heartgate_coherence_required_when:
-  purpose: Require transition-boundary Heartgate coherence evidence for material runtime/governance
-    transitions while keeping low-risk transitions lightweight.
-  min_composite_granularity: 7
-  phases:
-  - execute
-  - verify
-  routing_outcomes:
-  - full_governance
-  domains:
-  - runtime
-  - governance
-  - guardian
-  - heartgate
-  - kanban
-  - agent_council
-  - uacp
-  required_field: heartgate_coherence
-  required_lenses:
-  - doctrine_coherence
-  - cross_artifact_consistency
-  - runtime_state_alignment
-  - warning_and_deferred_item_honesty
-  - authority_plane_integrity
-  - next_phase_readiness
+# heartgate_coherence_required_when: codified to code in Slice 4b T4c-1. The
+# structural grammar (required_field=heartgate_coherence + the six required_lenses)
+# now lives in skills/uacp-core/scripts/engines/domain/gate_rules.py; the
+# operator-tunable selection policy (min_composite_granularity threshold + the
+# phases/routing_outcomes/domains selectors) lives in config/uacp.toml
+# [heartgate.coherence]. Heartgate reads the code default when this block is
+# absent, so behavior is unchanged.
 
 adaptive_resolve_closure_gate:
   description: >
