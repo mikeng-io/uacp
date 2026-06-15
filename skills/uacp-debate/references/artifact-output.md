@@ -4,7 +4,7 @@ Save **two** artifacts per run.
 
 ## 1. JSON log — conforms to Gate 1 schema
 
-Path: `.outputs/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.json`
+Path: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.json`
 
 This file is the authoritative proof-of-execution artifact and MUST conform to `.agents/skills/state/schemas/gate_1_debate_log.schema.json` (v1.0). It is consumed by `record_gate_1_result`, which parses it and derives `challenge_stats` / `finding_summary` from its message counts — downstream callers do not recompute these.
 
@@ -21,7 +21,7 @@ Required top-level fields:
 
 ## 2. Markdown summary (optional, human-readable)
 
-Path: `.outputs/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md`
+Path: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md`
 
 YAML frontmatter:
 ```yaml
@@ -42,5 +42,5 @@ The Markdown is for human readers; the JSON is load-bearing for state.py.
 
 **No symlinks.** To find the latest artifact:
 ```bash
-ls -t .outputs/debate/ | head -1
+ls -t .uacp/debate/ | head -1
 ```

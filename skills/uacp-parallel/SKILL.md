@@ -59,10 +59,10 @@ tasks:
 
 ## Output
 
-Save execution report to `.outputs/workflow/`:
+Save execution report to `.uacp/workflow/`:
 
 ```
-.outputs/workflow/
+.uacp/workflow/
 ├── YYYYMMDD-HHMMSS-workflow-execution.md
 └── YYYYMMDD-HHMMSS-workflow-execution.json
 ```
@@ -71,7 +71,7 @@ JSON format follows schema in `schemas/workflow-execution-schema.json`.
 
 **No symlinks.** To find the latest artifact:
 ```bash
-ls -t .outputs/workflow/ | head -1
+ls -t .uacp/workflow/ | head -1
 ```
 
 ## Additional References

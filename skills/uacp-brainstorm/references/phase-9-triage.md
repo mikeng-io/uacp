@@ -15,13 +15,13 @@ python3 skills/uacp-state/scripts/state_machine.py init \
 python3 skills/uacp-state/scripts/state_machine.py transition \
   --run-id {new_run_id} \
   --to-phase triage \
-  --evidence .outputs/brainstorm/{session_id}/07-scope-package.yaml
+  --evidence .uacp/brainstorm/{session_id}/07-scope-package.yaml
 ```
 
 ### Evidence passed to TRIAGE
 
-- `.outputs/brainstorm/{session_id}/07-scope-package.yaml`
-- Full vault path `.outputs/brainstorm/{session_id}/` (for reference, not as state)
+- `.uacp/brainstorm/{session_id}/07-scope-package.yaml`
+- Full vault path `.uacp/brainstorm/{session_id}/` (for reference, not as state)
 - Guardian warnings (if any)
 - Heartgate findings (if any)
 
@@ -37,4 +37,4 @@ Do NOT skip TRIAGE and go directly to PROPOSE. Brainstorm produces a **candidate
 
 ### If the user declines UACP
 
-If at any point the user decides the scope does not need UACP governance, stop. The vault remains in `.outputs/brainstorm/` as reference material. No state is mutated.
+If at any point the user decides the scope does not need UACP governance, stop. The vault remains in `.uacp/brainstorm/` as reference material. No state is mutated.

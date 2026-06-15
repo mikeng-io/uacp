@@ -1,13 +1,13 @@
 ## Phase 6: Write the Obsidian Vault
 
-Dump the raw thinking material into `.outputs/brainstorm/` as an Obsidian-style vault. This is disposable documentation, not canonical state.
+Dump the raw thinking material into `.uacp/brainstorm/` as an Obsidian-style vault. This is disposable documentation, not canonical state.
 
 **Anti-collapse rule:** One phase = one markdown file. Never merge phases into a single document. The vault exists so each phase's reasoning remains separable and inspectable.
 
 **Vault path:**
 
 ```
-.outputs/brainstorm/{YYYYMMDD-HHMMSS}-{session_id}/
+.uacp/brainstorm/{YYYYMMDD-HHMMSS}-{session_id}/
 ├── manifest.yaml              # Machine-readable index of the entire brainstorm
 ├── 00-index.md                # Human-readable map of the vault
 ├── 01-signals.md              # Phase 1: what the user signaled
@@ -130,4 +130,4 @@ Every search, file read, and web query during Phases 1–2 must leave a trace in
 - **`searches.yaml`** — tool, pattern/command, path, result count, timestamp
 - **`web-queries.yaml`** — query string, source backend, result summary, timestamp
 
-**Output of this phase:** a complete Obsidian vault under `.outputs/brainstorm/` with both human narrative (markdown) and machine-readable evidence (YAML).
+**Output of this phase:** a complete Obsidian vault under `.uacp/brainstorm/` with both human narrative (markdown) and machine-readable evidence (YAML).

@@ -76,10 +76,10 @@ Load these before spawning Phase 1 participants:
 
 Save two artifacts per run. Read `references/artifact-output.md` for the full contract, schema requirements, and frontmatter format.
 
-- JSON log: `.outputs/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.json`
+- JSON log: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.json`
   - MUST conform to `.agents/skills/state/schemas/gate_1_debate_log.schema.json` (v1.0)
   - Consumed by `record_gate_1_result`; do not recompute derived fields downstream
-- Markdown summary: `.outputs/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md`
+- Markdown summary: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md`
 
 Do not fabricate participant voices. Every `messages[]` entry must correspond to a real Task-agent or TeamCreate-session message that actually happened.
 
@@ -88,7 +88,7 @@ Do not fabricate participant voices. Every `messages[]` entry must correspond to
 - Domain experts are resolved through `domain-registry` using exact match, adapted match, or session-based virtual expert selection.
 - Council taxonomy and role contracts are sourced from `uacp-council-taxonomy`.
 - Shared bridge conventions (packet schemas, envelope formats) are inherited from `bridge-commons`.
-- Do not change existing path references (`.agents/skills/state/schemas/gate_1_debate_log.schema.json`, `.outputs/debate/`, etc.).
+- Do not change existing path references (`.agents/skills/state/schemas/gate_1_debate_log.schema.json`, `.uacp/debate/`, etc.).
 
 ## Verification Checklist
 
@@ -102,5 +102,5 @@ Before finishing a debate run, confirm:
 
 **No symlinks.** To find the latest artifact:
 ```bash
-ls -t .outputs/debate/ | head -1
+ls -t .uacp/debate/ | head -1
 ```

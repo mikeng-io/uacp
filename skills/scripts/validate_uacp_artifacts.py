@@ -11,6 +11,18 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Bootstrap: make ``config.base_dir`` importable whether this module is loaded
+# dynamically by a skill/CLI reference OR run standalone via ``main()``. The
+# kernel's config resolver lives under ``skills/uacp-core/scripts``; this file
+# lives at ``skills/scripts/`` so the repo's ``skills/`` dir is ``parents[1]``.
+import sys as _sys
+from pathlib import Path as _P
+
+_CORE = _P(__file__).resolve().parents[1] / "uacp-core" / "scripts"
+if str(_CORE) not in _sys.path:
+    _sys.path.insert(0, str(_CORE))
+from config import base_dir  # noqa: E402
+
 try:
     import yaml
 except Exception as exc:  # pragma: no cover
@@ -237,6 +249,7 @@ def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[
 def validate_adaptive_transition_linked_artifacts(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
     if root is None:
         return
+    gov = base_dir(root)  # governed namespace root (.uacp/); artifacts live here
     run_id = str(obj.get("run_id") or "")
     if not run_id:
         return
@@ -251,7 +264,7 @@ def validate_adaptive_transition_linked_artifacts(path: Path, obj: dict, issues:
             if artifact is None:
                 issues.append(f"BLOCK {path}: linked EXECUTE gate artifact missing or unreadable: {rel}")
             else:
-                validator(root / rel, artifact, issues, root=root)
+                validator(gov / rel, artifact, issues, root=root)
     if from_phase == "verify" and to_phase == "resolve":
         for rel, validator in [
             (f"verification/{run_id}-verify-selection.yaml", validate_verify_package_selection),
@@ -261,25 +274,25 @@ def validate_adaptive_transition_linked_artifacts(path: Path, obj: dict, issues:
             if artifact is None:
                 issues.append(f"BLOCK {path}: linked VERIFY gate artifact missing or unreadable: {rel}")
             else:
-                validator(root / rel, artifact, issues, root=root)
+                validator(gov / rel, artifact, issues, root=root)
         piv_rel = f"verification/{run_id}-piv-assessment.yaml"
-        if (root / f"plans/{run_id}-piv.yaml").exists() or (root / piv_rel).exists():
+        if (gov / f"plans/{run_id}-piv.yaml").exists() or (gov / piv_rel).exists():
             artifact = _load_yaml_artifact(root, piv_rel)
             if artifact is None:
                 issues.append(f"BLOCK {path}: linked VERIFY PIV assessment missing or unreadable: {piv_rel}")
             else:
-                validate_piv_assessment(root / piv_rel, artifact, issues, root=root)
+                validate_piv_assessment(gov / piv_rel, artifact, issues, root=root)
     if from_phase == "resolve":
         for rel, validator in [
             (f"verification/{run_id}-resolve-readiness.yaml", validate_verify_resolve_readiness),
-            (f".outputs/{run_id}-resolve-selection.yaml", validate_resolve_package_selection),
-            (f".outputs/{run_id}-closure.yaml", validate_resolve_closure),
+            (f"resolutions/{run_id}-resolve-selection.yaml", validate_resolve_package_selection),
+            (f"resolutions/{run_id}-closure.yaml", validate_resolve_closure),
         ]:
             artifact = _load_yaml_artifact(root, rel)
             if artifact is None:
                 issues.append(f"BLOCK {path}: linked RESOLVE gate artifact missing or unreadable: {rel}")
             else:
-                validator(root / rel, artifact, issues, root=root)
+                validator(gov / rel, artifact, issues, root=root)
 
 
 def validate_heartgate_coherence_requirement(path: Path, obj: dict, config: dict, issues: list[str]) -> None:
@@ -393,12 +406,13 @@ def validate_heartgate_coherence(path: Path, obj: dict, issues: list[str], *, ro
     if not artifact_path:
         issues.append(f"BLOCK {path}: heartgate_coherence requires artifact_path")
     elif root is not None:
+        gov = base_dir(root)  # artifacts are base-relative under .uacp/
         candidate = Path(str(artifact_path))
         if not candidate.is_absolute():
-            candidate = root / candidate
+            candidate = gov / candidate
         try:
             resolved = candidate.resolve()
-            if resolved != root and root not in resolved.parents:
+            if resolved != gov and gov not in resolved.parents:
                 issues.append(f"BLOCK {path}: heartgate_coherence artifact_path escapes UACP_ROOT")
             elif not resolved.exists():
                 issues.append(f"BLOCK {path}: heartgate_coherence artifact_path not found: {artifact_path}")
@@ -489,13 +503,14 @@ def _validate_na_item(path: Path, label: str, item: Any, issues: list[str]) -> N
 def _artifact_exists(root: Path, artifact: Any) -> bool:
     if artifact in (None, ""):
         return False
+    gov = base_dir(root)  # artifact paths are base-relative under .uacp/
     candidate = Path(str(artifact))
     if not candidate.is_absolute():
-        candidate = root / candidate
+        candidate = gov / candidate
     try:
         resolved = candidate.resolve()
-        root_resolved = root.resolve()
-        return (resolved == root_resolved or root_resolved in resolved.parents) and resolved.exists()
+        gov_resolved = gov.resolve()
+        return (resolved == gov_resolved or gov_resolved in resolved.parents) and resolved.exists()
     except Exception:
         return False
 
@@ -508,7 +523,7 @@ def _artifact_run_bound(artifact: str, run_id: str) -> bool:
         f"plans/{run_id}",
         f"executions/{run_id}",
         f"verification/{run_id}",
-        f".outputs/{run_id}",
+        f"resolutions/{run_id}",
     )
     return artifact.startswith(prefixes)
 
@@ -516,13 +531,14 @@ def _artifact_run_bound(artifact: str, run_id: str) -> bool:
 def _read_artifact_text(root: Path | None, artifact: Any) -> str | None:
     if root is None or artifact in (None, ""):
         return None
+    gov = base_dir(root)  # artifact paths are base-relative under .uacp/
     candidate = Path(str(artifact))
     if not candidate.is_absolute():
-        candidate = root / candidate
+        candidate = gov / candidate
     try:
         resolved = candidate.resolve()
-        root_resolved = root.resolve()
-        if not (resolved == root_resolved or root_resolved in resolved.parents):
+        gov_resolved = gov.resolve()
+        if not (resolved == gov_resolved or gov_resolved in resolved.parents):
             return None
         if not resolved.exists() or not resolved.is_file():
             return None
@@ -561,9 +577,9 @@ def _validate_package_directory(root: Path | None, path: Path, phase: str, run_i
     """Require canonical semantic package directory and index for selected packages."""
     if root is None or not run_id:
         return None
-    root_name = {"propose": "proposals", "plan": "plans", "execute": "executions", "verify": "verification", "resolve": "outputs"}.get(phase, f"{phase}s")
+    root_name = {"propose": "proposals", "plan": "plans", "execute": "executions", "verify": "verification", "resolve": "resolutions"}.get(phase, f"{phase}s")
     package_rel = Path(root_name) / str(run_id)
-    package_dir = root / package_rel
+    package_dir = base_dir(root) / package_rel
     if not package_dir.is_dir():
         issues.append(f"BLOCK {path}: {phase} package directory not found: {package_rel}/")
         return None
@@ -581,7 +597,7 @@ def _artifact_under_package(root: Path | None, package_dir: Path | None, artifac
         return False
     candidate = Path(str(artifact))
     if not candidate.is_absolute():
-        candidate = root / candidate
+        candidate = base_dir(root) / candidate
     try:
         resolved = candidate.resolve()
         package_resolved = package_dir.resolve()
@@ -670,7 +686,7 @@ def validate_plan_package_selection(path: Path, obj: dict, issues: list[str], *,
         issues.append(f"BLOCK {path}: plan package selection requires work_heart mapping")
     package_dir = _validate_package_directory(root, path, "plan", run_id, issues)
     if root is not None and run_id:
-        scope_artifact = root / "plans" / f"{run_id}-scope.yaml"
+        scope_artifact = base_dir(root) / "plans" / f"{run_id}-scope.yaml"
         if not scope_artifact.exists():
             issues.append(f"BLOCK {path}: plan scope artifact not found: plans/{run_id}-scope.yaml")
     required_core = [
@@ -813,13 +829,14 @@ def validate_piv_contract(path: Path, obj: dict, issues: list[str], *, root: Pat
 def _load_piv_contract(root: Path | None, artifact: Any) -> dict | None:
     if root is None or artifact in (None, ""):
         return None
+    gov = base_dir(root)  # artifact paths are base-relative under .uacp/
     candidate = Path(str(artifact))
     if not candidate.is_absolute():
-        candidate = root / candidate
+        candidate = gov / candidate
     try:
         resolved = candidate.resolve()
-        root_resolved = root.resolve()
-        if not (resolved == root_resolved or root_resolved in resolved.parents) or not resolved.exists():
+        gov_resolved = gov.resolve()
+        if not (resolved == gov_resolved or gov_resolved in resolved.parents) or not resolved.exists():
             return None
         data = yaml.safe_load(resolved.read_text())
         return data if isinstance(data, dict) else None
@@ -1075,7 +1092,7 @@ def validate_verify_resolve_readiness(path: Path, obj: dict, issues: list[str], 
         issues.append(f"BLOCK {path}: verification_package not found: {obj.get('verification_package')}")
     elif root is not None and obj.get("verification_package"):
         try:
-            pkg_path = root / str(obj.get("verification_package"))
+            pkg_path = base_dir(root) / str(obj.get("verification_package"))
             package_obj = yaml.safe_load(pkg_path.read_text())
             if not isinstance(package_obj, dict) or package_obj.get("kind") != "uacp.verification_package":
                 issues.append(f"BLOCK {path}: verification_package must be kind uacp.verification_package")
@@ -1116,11 +1133,11 @@ def validate_verify_resolve_readiness(path: Path, obj: dict, issues: list[str], 
         issues.append(f"BLOCK {path}: piv_summary.artifact must be {expected_piv}")
     if piv_summary.get("status") not in {"pass", "warn", "block", "deferred", "not_applicable"}:
         issues.append(f"BLOCK {path}: piv_summary.status is invalid")
-    if root is not None and expected_piv and (root / f"plans/{obj.get('run_id')}-piv.yaml").exists() and not _artifact_exists(root, expected_piv):
+    if root is not None and expected_piv and (base_dir(root) / f"plans/{obj.get('run_id')}-piv.yaml").exists() and not _artifact_exists(root, expected_piv):
         issues.append(f"BLOCK {path}: PIV assessment required when plan PIV exists: {expected_piv}")
     if root is not None and piv_summary.get("artifact") and _artifact_exists(root, piv_summary.get("artifact")):
         try:
-            pa = yaml.safe_load((root / str(piv_summary.get("artifact"))).read_text())
+            pa = yaml.safe_load((base_dir(root) / str(piv_summary.get("artifact"))).read_text())
             if not isinstance(pa, dict) or pa.get("kind") != "uacp.piv_assessment":
                 issues.append(f"BLOCK {path}: piv_summary.artifact must be kind uacp.piv_assessment")
             elif pa.get("run_id") != obj.get("run_id"):
@@ -1160,7 +1177,7 @@ def validate_verify_resolve_readiness(path: Path, obj: dict, issues: list[str], 
         elif root is not None and coherence.get("artifact_path"):
             candidate = Path(str(coherence.get("artifact_path")))
             if not candidate.is_absolute():
-                candidate = root / candidate
+                candidate = base_dir(root) / candidate
             try:
                 data = yaml.safe_load(candidate.read_text())
                 if isinstance(data, dict) and data.get("run_id") != obj.get("run_id"):
@@ -1184,14 +1201,15 @@ def validate_verify_resolve_readiness(path: Path, obj: dict, issues: list[str], 
 def _load_yaml_artifact(root: Path | None, artifact: object) -> dict | None:
     if root is None or not artifact:
         return None
+    gov = base_dir(root)  # artifact paths are base-relative under .uacp/
     candidate = Path(str(artifact))
     try:
         if candidate.is_absolute():
             resolved = candidate.resolve()
         else:
-            resolved = (root / candidate).resolve()
-        root_resolved = root.resolve()
-        if resolved != root_resolved and root_resolved not in resolved.parents:
+            resolved = (gov / candidate).resolve()
+        gov_resolved = gov.resolve()
+        if resolved != gov_resolved and gov_resolved not in resolved.parents:
             return None
         if not resolved.exists() or not resolved.is_file():
             return None
@@ -1233,10 +1251,10 @@ def validate_resolve_package_selection(path: Path, obj: dict, issues: list[str],
         "operator_handoff": ("operator-handoff.md", ["conclusion", "risk", "next"]),
     }
     for label, (default_name, terms) in concerns.items():
-        artifact = sem.get(label) or (str(Path("outputs") / str(run_id) / default_name) if run_id else "")
+        artifact = sem.get(label) or (str(Path("resolutions") / str(run_id) / default_name) if run_id else "")
         _validate_semantic_markdown(path, label, artifact, _read_artifact_text(root, artifact), issues, terms)
         if package_dir is not None and not _artifact_under_package(root, package_dir, artifact):
-            issues.append(f"BLOCK {path}: {label} artifact must live under .outputs/{run_id}/: {artifact}")
+            issues.append(f"BLOCK {path}: {label} artifact must live under resolutions/{run_id}/: {artifact}")
     decision = obj.get("final_decision") if isinstance(obj.get("final_decision"), dict) else {}
     if decision.get("status") not in {"resolved", "resolved_with_warnings", "blocked"}:
         issues.append(f"BLOCK {path}: final_decision.status must be resolved|resolved_with_warnings|blocked")
@@ -1309,12 +1327,12 @@ def validate_resolve_closure(path: Path, obj: dict, issues: list[str], *, root: 
             for field in ("scope_id", "description", "source_artifact", "evidence_ref"):
                 if scope.get(field) in (None, ""):
                     issues.append(f"BLOCK {path}: closed_scope[{idx}] missing {field}")
-            if obj.get("run_id") and str(scope.get("source_artifact", "")).split("/")[0] not in {"verification", "outputs", "plans", "proposals"}:
+            if obj.get("run_id") and str(scope.get("source_artifact", "")).split("/")[0] not in {"verification", "resolutions", "plans", "proposals"}:
                 issues.append(f"BLOCK {path}: closed_scope[{idx}] source_artifact must be a UACP artifact path")
             if root is not None and scope.get("source_artifact") and not _artifact_exists(root, scope.get("source_artifact")):
                 issues.append(f"BLOCK {path}: closed_scope[{idx}] source_artifact not found")
     run_id = obj.get("run_id")
-    expected_pkg = f".outputs/{run_id}-resolve-selection.yaml" if run_id else None
+    expected_pkg = f"resolutions/{run_id}-resolve-selection.yaml" if run_id else None
     if expected_pkg and obj.get("resolve_package") != expected_pkg:
         issues.append(f"BLOCK {path}: resolve_package must be {expected_pkg}")
     pkg = _load_yaml_artifact(root, obj.get("resolve_package"))
@@ -1378,7 +1396,7 @@ def validate_resolve_closure(path: Path, obj: dict, issues: list[str], *, root: 
 
 
 def validate_current_state(root: Path, issues: list[str]) -> None:
-    path = root / "state/current.yaml"
+    path = base_dir(root) / "state/current.yaml"
     obj = require_map(load_yaml(path), path)
     required = ["kind", "active_run_id", "active_run_manifest", "mutation_policy", "current_transition_artifact", "kanban_binding_artifact", "kanban_board_slug", "bootstrap_closed", "governed_mutation_active"]
     check_required(str(path), obj, required, issues)
@@ -1434,6 +1452,7 @@ def main() -> int:
     args = ap.parse_args()
 
     root = Path(args.root).resolve()
+    gov = base_dir(root)  # governed namespace root (.uacp/); CLI artifact args are base-relative
     issues: list[str] = []
     try:
         configs = validate_configs(root, issues)
@@ -1442,7 +1461,7 @@ def main() -> int:
         for raw in args.artifacts:
             path = Path(raw)
             if not path.is_absolute():
-                path = root / path
+                path = gov / path
             obj = require_map(load_yaml(path), path)
             kind = obj.get("kind", "")
             validate_finding_states(path, obj, issues)

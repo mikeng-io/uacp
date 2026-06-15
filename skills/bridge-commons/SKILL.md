@@ -593,7 +593,7 @@ When previous-round outputs would exceed this limit:
 
 1. Summarize each finding to: `id`, `title`, `severity`, `description` only (drop `evidence`, `action`, `agent`)
 2. If still over limit: retain CRITICAL and HIGH findings verbatim; reduce MEDIUM/LOW to one-line summaries (`"id: title (severity)"`)
-3. Annotate the Round N prompt with: `"NOTE: Prior round context summarized due to size (>32k chars). Full outputs in ...outputs/bridges/ artifact."`
+3. Annotate the Round N prompt with: `"NOTE: Prior round context summarized due to size (>32k chars). Full outputs in .uacp/bridges/ artifact."`
 4. Record approximate prompt size per round in the bridge output as `prompt_size_chars_r{n}` (e.g., `prompt_size_chars_r2: 28500`)
 
 **Bridges MUST NOT silently truncate.** Silent truncation produces Round N responses that are indistinguishable from valid full-context responses and corrupts multi-model confirmation reliability.
@@ -620,7 +620,7 @@ Every bridge saves two files per execution for auditability.
 
 ### JSONL event log
 
-Path: `...outputs/bridges/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.jsonl`
+Path: `.uacp/bridges/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.jsonl`
 
 Write events as they occur — one JSON object per line:
 
@@ -636,7 +636,7 @@ Write events as they occur — one JSON object per line:
 
 ### Markdown summary
 
-Path: `...outputs/bridges/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.md`
+Path: `.uacp/bridges/{bridge}-{YYYYMMDD-HHMMSS}-{session_id}.md`
 
 YAML frontmatter + human-readable summary:
 
@@ -658,7 +658,7 @@ status: {status}
 ### Directory creation
 
 ```bash
-mkdir -p ...outputs/bridges
+mkdir -p .uacp/bridges
 ```
 
 ---
