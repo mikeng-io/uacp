@@ -20,8 +20,18 @@ _CORE_DIR = Path(__file__).resolve().parents[2] / "uacp-core" / "scripts"
 if str(_CORE_DIR) not in sys.path:
     sys.path.insert(0, str(_CORE_DIR))
 
+# The canonical phase graph lives in engines/domain/phase_graph.py. Import it as
+# a BARE module (mirroring the config/filesystem bootstrap above) so we do NOT
+# trigger engines/domain/__init__, which re-exports VALID_TRANSITIONS from this
+# module — importing the package here would create a circular import. phase_graph
+# is a pure leaf (stdlib only), so this bare import is safe.
+_PHASE_GRAPH_DIR = _CORE_DIR / "engines" / "domain"
+if str(_PHASE_GRAPH_DIR) not in sys.path:
+    sys.path.insert(0, str(_PHASE_GRAPH_DIR))
+
 from config import base_dir
 from filesystem import _resolve_uacp_path, _write_uacp_file
+from phase_graph import runtime_terminal_phases, state_machine_projection
 
 
 try:
@@ -39,15 +49,19 @@ class Status(str, Enum):
 
 # Valid phase transitions.  Each key is a "from" phase; value is the set of
 # allowed "to" phases.  The graph is a DAG ending in "resolved".
-VALID_TRANSITIONS: dict[str, set[str]] = {
-    "triage": {"propose"},
-    "propose": {"plan"},
-    "plan": {"execute"},
-    "execute": {"verify"},
-    "verify": {"resolved"},
-}
+#
+# DERIVED, not hand-authored: this is the runtime-state-machine *projection* of
+# the canonical lifecycle graph in engines/domain/phase_graph.py (the single
+# source of truth, which also backs config/phase-transitions.yaml and
+# config/uacp.toml). The projection collapses the lifecycle `resolve` phase into
+# the terminal `resolved` status and drops early-exit `terminal` edges; see that
+# module's docstring for the full reconciliation. The repo-level agreement test
+# (tests/unit/uacp_core/test_phase_graph.py) pins this to the production config.
+VALID_TRANSITIONS: dict[str, set[str]] = state_machine_projection()
 
-TERMINAL_PHASES: set[str] = {"resolved", "aborted"}
+# `resolved` is the projection of the lifecycle `resolve` phase; `aborted` is a
+# runtime-only early-termination status with no lifecycle-graph counterpart.
+TERMINAL_PHASES: set[str] = runtime_terminal_phases()
 
 
 class Authority(BaseModel):

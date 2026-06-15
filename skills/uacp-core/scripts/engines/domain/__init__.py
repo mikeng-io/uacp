@@ -56,6 +56,17 @@ from .evidence_cluster import (  # noqa: E402
     EvidenceCluster,
 )
 from .ledger import LedgerEntry, LedgerResult, LedgerReviewer  # noqa: E402
+
+# Re-export the canonical lifecycle-graph accessors so the rest of the codebase
+# has ONE access path. state_machine derives VALID_TRANSITIONS/TERMINAL_PHASES
+# from these (via a bare phase_graph import), so the constants above and these
+# accessors share a single source of truth.
+from .phase_graph import (  # noqa: E402
+    LIFECYCLE_GRAPH,
+    lifecycle_edges,
+    runtime_terminal_phases,
+    state_machine_projection,
+)
 from .pointer import (  # noqa: E402
     CURRENT_POINTER_REQUIRED_FIELDS,
     CurrentPointer,
@@ -67,6 +78,7 @@ from .scope import Scope  # noqa: E402
 
 __all__ = [
     "BLAST_RADIUS_VALUES",
+    "LIFECYCLE_GRAPH",
     "BlastRadius",
     "CURRENT_POINTER_REQUIRED_FIELDS",
     "EscalationMode",
@@ -89,6 +101,9 @@ __all__ = [
     "EvidenceCluster",
     "LedgerEntry",
     "RunManifest",
+    "lifecycle_edges",
+    "runtime_terminal_phases",
+    "state_machine_projection",
     "RunRegistry",
     "RunRegistryEntry",
     "Scope",
