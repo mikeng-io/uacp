@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
-from config import base_dir
+from config import base_dir, get_config
 
 try:
     import yaml
@@ -145,18 +145,23 @@ class GuardianPolicy:
 
     @classmethod
     def load(cls, uacp_root: str | Path | None = None) -> "GuardianPolicy":
+        # Slice 3: the Guardian policy is sourced from the collapsed
+        # config/uacp.toml `[guardian]` table via config.py (repo-default
+        # deep-merged with `<root>/.uacp/config.toml`), NOT from the legacy
+        # config/guardian-policy.yaml. `__init__`/`validate`/`evaluate` are
+        # unchanged: the `[guardian]` dict has the same key shape the
+        # structure-driven `__init__` already consumes. The UACP_GUARDIAN_MODE
+        # env override still applies (resolved inside `__init__`), and the
+        # anti-bypass invariant in `validate()` still runs against this policy.
         root = resolve_uacp_root(uacp_root)
-        policy_path = root / "config" / "guardian-policy.yaml"
-        if yaml is None:
-            raise GuardianPolicyError("PyYAML is required to load Guardian policy")
         try:
-            raw = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
-        except FileNotFoundError as exc:
-            raise GuardianPolicyError(f"Guardian policy not found: {policy_path}") from exc
+            raw = get_config(root).model_dump().get("guardian", {})
         except Exception as exc:
             raise GuardianPolicyError(f"Guardian policy failed to load: {exc}") from exc
-        if not isinstance(raw, dict):
-            raise GuardianPolicyError(f"Guardian policy must be a YAML mapping: {policy_path}")
+        if not isinstance(raw, dict) or not raw:
+            raise GuardianPolicyError(
+                f"Guardian policy missing or invalid: config/uacp.toml [guardian] for root {root}"
+            )
         policy = cls(raw, uacp_root=root)
         policy.validate()
         return policy

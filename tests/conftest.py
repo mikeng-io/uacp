@@ -48,36 +48,16 @@ def temp_uacp_root() -> Generator[Path, None, None]:
     (base / "resolutions").mkdir(parents=True)  # replaces flat .outputs/
     (base / "verification").mkdir(parents=True)
     (base / "knowledge").mkdir(parents=True)
-    # config/ stays at project root this slice (knob collapse is Slice 3).
+    # config/ stays at project root this slice.
     (test_dir / "config").mkdir(parents=True)
     (test_dir / "docs").mkdir(parents=True)
 
-    # Create minimal guardian policy
-    policy_path = test_dir / "config" / "guardian-policy.yaml"
-    policy_path.write_text("""
-schema_version: "0.1"
-protected_categories:
-  state.uacp:
-    allowed_tools:
-      - uacp_state_write
-      - uacp_gate_ledger_append
-      - uacp_run_registry_update
-      - uacp_escalation_event
-  docs.uacp: {}
-  config.uacp: {}
-  artifact.uacp: {}
-tool_classification:
-  uacp_state_write: state.uacp
-  uacp_gate_ledger_append: state.uacp
-  uacp_run_registry_update: state.uacp
-  uacp_escalation_event: state.uacp
-self_attesting_tools:
-  names:
-    - uacp_state_write
-    - uacp_gate_ledger_append
-    - uacp_run_registry_update
-    - uacp_escalation_event
-""")
+    # NOTE: no per-test config/guardian-policy.yaml is written. As of Slice 3
+    # GuardianPolicy.load sources the policy from config/uacp.toml [guardian]
+    # via config.py (the repo-default, deep-merged with an optional
+    # <root>/.uacp/config.toml override) — the legacy guardian-policy.yaml is no
+    # longer read. Tests get the full repo-default policy; a test needing a
+    # custom policy writes a [guardian] table into <root>/.uacp/config.toml.
 
     # Create minimal phase-transitions config
     phase_path = test_dir / "config" / "phase-transitions.yaml"
