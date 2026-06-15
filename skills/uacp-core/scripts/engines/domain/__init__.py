@@ -7,6 +7,10 @@ inward — domain depends on nothing in the package above it.
 ``RunManifest`` (plus the phase graph ``VALID_TRANSITIONS`` / ``TERMINAL_PHASES``
 and ``Status``) is REUSED from the kernel's ``state_machine`` rather than
 re-declared, so the engines and the kernel share one manifest schema.
+
+Slice 4a Task 3: ``CurrentPointer`` expanded with optional fields +
+``CURRENT_POINTER_REQUIRED_FIELDS`` constant; ``LedgerEntry`` expanded with
+optional phase/result/reviewer fields; ``EscalationRecord`` added (new module).
 """
 
 from __future__ import annotations
@@ -30,21 +34,65 @@ from state_machine import (  # noqa: E402  (path bootstrap must precede import)
     Status,
 )
 
+from .artifact_schema import (  # noqa: E402
+    BLAST_RADIUS_VALUES,
+    BlastRadius,
+    EvidenceDispositionSchema,
+    IntentSchema,
+    LessonsSchema,
+    ScopeSchema,
+    artifact_schemas_dict,
+)
 from .deferral import DeferredItem  # noqa: E402
-from .ledger import LedgerEntry  # noqa: E402
-from .pointer import CurrentPointer  # noqa: E402
+from .escalation import (  # noqa: E402
+    EscalationMode,
+    EscalationRecord,
+    EscalationSeverity,
+)
+from .evidence_cluster import (  # noqa: E402
+    INVARIANT_CLUSTER_FAMILIES,
+    ClusterPhase,
+    ClusterState,
+    EvidenceCluster,
+)
+from .ledger import LedgerEntry, LedgerResult, LedgerReviewer  # noqa: E402
+from .pointer import (  # noqa: E402
+    CURRENT_POINTER_REQUIRED_FIELDS,
+    CurrentPointer,
+    MutationPolicy,
+    UacpMode,
+)
 from .registry import RunRegistry, RunRegistryEntry  # noqa: E402
 from .scope import Scope  # noqa: E402
 
 __all__ = [
+    "BLAST_RADIUS_VALUES",
+    "BlastRadius",
+    "CURRENT_POINTER_REQUIRED_FIELDS",
+    "EscalationMode",
+    "EscalationRecord",
+    "EscalationSeverity",
+    "EvidenceDispositionSchema",
+    "INVARIANT_CLUSTER_FAMILIES",
+    "IntentSchema",
+    "LedgerResult",
+    "LedgerReviewer",
+    "LessonsSchema",
+    "MutationPolicy",
+    "ScopeSchema",
     "TERMINAL_PHASES",
     "VALID_TRANSITIONS",
+    "ClusterPhase",
+    "ClusterState",
     "CurrentPointer",
     "DeferredItem",
+    "EvidenceCluster",
     "LedgerEntry",
     "RunManifest",
     "RunRegistry",
     "RunRegistryEntry",
     "Scope",
     "Status",
+    "UacpMode",
+    "artifact_schemas_dict",
 ]

@@ -255,11 +255,24 @@ class TestHeartgateIntegration:
         assert "propose" in heartgate.stages
 
     def test_heartgate_allows_valid_transition(self, temp_uacp_root: Path):
+        # Slice 4a: artifact schemas are now always codified (not absent in temp
+        # dirs), so triage->propose Heartgate requires the intent doc to exist.
+        # Seed it with all four required sections before validating.
+        run_id = "uacp-test-001"
+        proposals_dir = temp_uacp_root / ".uacp" / "proposals"
+        proposals_dir.mkdir(parents=True, exist_ok=True)
+        (proposals_dir / f"{run_id}-intent.md").write_text(
+            f"# Intent: {run_id}\n\n"
+            "## Success Definition\n\nIntegration test run.\n\n"
+            "## Explicit Out-of-Scope\n\nAll production changes.\n\n"
+            "## Termination Condition\n\nTransition validation passes.\n\n"
+            "## Authority Source\n\nIntegration test harness.\n"
+        )
         heartgate = Heartgate.load(str(temp_uacp_root))
         decision = heartgate.validate_transition({
             "from_phase": "triage",
             "to_phase": "propose",
-            "run_id": "uacp-test-001",
+            "run_id": run_id,
             "artifact_path": "plans/test.yaml",
         })
         assert decision.decision == "pass"

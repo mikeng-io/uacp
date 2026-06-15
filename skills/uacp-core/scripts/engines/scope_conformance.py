@@ -64,6 +64,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from typing import get_args as _get_args
 
 from config import base_dir
 
@@ -73,7 +74,6 @@ from engines.base import ENGINES, Violation
 
 # All filesystem access is delegated to the io layer (no raw reads here).
 from engines.io import (
-    load_artifact,
     load_manifest,
     load_registry,
     load_scope,
@@ -89,27 +89,33 @@ from engines.io.loaders import ManifestDoc
 # (resolved under .uacp/), so `resolutions` replaces the old `.outputs`.
 _ALLOWED_OUTPUT_PREFIXES = ("resolutions", "state", "verification")
 
-# Conservative fallback if config/artifact-schemas.yaml cannot be read. Kept in
-# sync with the schema's documented enum; the loader prefers the live schema.
-_FALLBACK_BLAST_RADIUS = frozenset({"low", "medium", "high", "critical"})
+# Canonical blast_radius values — sourced from the codified Pydantic model
+# (engines.domain.artifact_schema.BLAST_RADIUS_VALUES) via get_args(BlastRadius).
+# Previously read from config/artifact-schemas.yaml (scope.fields.blast_radius.values);
+# codified in Slice 4a to eliminate the live YAML read.
+try:
+    from engines.domain.artifact_schema import BLAST_RADIUS_VALUES
+    _FALLBACK_BLAST_RADIUS: frozenset[str] = BLAST_RADIUS_VALUES
+except Exception:
+    _FALLBACK_BLAST_RADIUS = frozenset({"low", "medium", "high", "critical"})
 
 
 def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Violation:
     return Violation(code=code, severity=severity, message=message, detail=detail)
 
 
-def _load_blast_radius_enum(root: Path) -> frozenset[str]:
-    """Read the allowed blast_radius values from config/artifact-schemas.yaml
-    (``scope.fields.blast_radius.values``) THROUGH the io layer (no raw read).
-    Never raises: on any failure fall back to the documented enum so the check
-    still has teeth."""
-    loaded = load_artifact(root, "config/artifact-schemas.yaml")
-    if loaded.error is not None or loaded.value is None:
-        return _FALLBACK_BLAST_RADIUS
+def _load_blast_radius_enum(root: Path) -> frozenset[str]:  # noqa: ARG001
+    """Return the allowed blast_radius values from the codified domain model.
+
+    Slice 4a: previously read ``config/artifact-schemas.yaml`` (``scope.fields.
+    blast_radius.values``) via the io layer. Now returns ``BLAST_RADIUS_VALUES``
+    from ``engines.domain.artifact_schema`` — no filesystem I/O, no YAML
+    dependency. The ``root`` argument is kept for call-site compatibility.
+    Never raises: on any failure fall back to the hardcoded frozenset."""
     try:
-        values = loaded.value["scope"]["fields"]["blast_radius"]["values"]
-        parsed = {str(v) for v in values if isinstance(v, (str, int))}
-        return frozenset(parsed) if parsed else _FALLBACK_BLAST_RADIUS
+        from engines.domain.artifact_schema import BlastRadius  # noqa: PLC0415
+        values = frozenset(_get_args(BlastRadius))
+        return values if values else _FALLBACK_BLAST_RADIUS
     except Exception:
         return _FALLBACK_BLAST_RADIUS
 

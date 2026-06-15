@@ -1,10 +1,11 @@
 """E2E: golden artifact fixtures are valid instances of their schema kinds.
 
-For the YAML artifact kinds the required-key list is read FROM
-`config/artifact-schemas.yaml` (not hardcoded), so these tests stay correct if
-the schema evolves. The two Markdown kinds (intent, evidence_disposition) are
+For the YAML artifact kinds the required-key list is read FROM the codified
+Pydantic models in ``engines.domain.artifact_schema`` (Slice 4a; previously
+from ``config/artifact-schemas.yaml``), so these tests stay correct if the
+schema evolves. The two Markdown kinds (intent, evidence_disposition) are
 not YAML mappings, so they are checked against their schema-declared
-`required_sections` / required-header substrings instead. See fixtures/README.md
+``required_sections`` / required-header substrings instead. See fixtures/README.md
 for the filename->kind mapping.
 """
 
@@ -14,12 +15,12 @@ from pathlib import Path
 
 import pytest
 import yaml
+from engines.domain.artifact_schema import artifact_schemas_dict  # noqa: E402
 
-UACP_ROOT = Path(__file__).resolve().parents[2]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
-SCHEMAS = yaml.safe_load((UACP_ROOT / "config" / "artifact-schemas.yaml").read_text())
+SCHEMAS = artifact_schemas_dict()
 
-# Fixture file <-> schema-kind key in config/artifact-schemas.yaml.
+# Fixture file <-> schema-kind key in the codified artifact schemas dict.
 YAML_FIXTURES = {
     "scope.yaml": "scope",
     "lessons.yaml": "lessons",

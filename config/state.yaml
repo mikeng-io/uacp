@@ -1,3 +1,21 @@
+# ============================================================================
+# config/state.yaml — UACP run-state configuration
+#
+# Codified to engines/domain (Slice 4a Task 3):
+#   current_pointer_schema  → engines/domain/pointer.py
+#                              CurrentPointer, CURRENT_POINTER_REQUIRED_FIELDS,
+#                              UacpMode, MutationPolicy
+#   gate_ledger.record_schema → engines/domain/ledger.py
+#                              LedgerEntry, LedgerResult, LedgerReviewer
+#   escalations.record_schema → engines/domain/escalation.py
+#                              EscalationRecord, EscalationMode, EscalationSeverity
+#   run_manifest_schema     → REMOVED (drifted; live schema is state_machine.RunManifest
+#                              in skills/uacp-state/scripts/state_machine.py)
+#
+# Doctrine blocks (state_principles, lifecycle_skill_contracts, mutation_rules,
+# version_control_binding) and example blocks remain in this file.
+# ============================================================================
+
 schema_version: "0.1"
 kind: uacp.state_config
 status: active
@@ -24,12 +42,6 @@ gate_ledger:
     uacp_gate_ledger_append tool which enforces append-only semantics.
   path_template: "state/gate-ledger/{run_id}.jsonl"
   writer_tool: uacp_gate_ledger_append
-  record_schema:
-    required_fields: [gate, run_id, phase, result, ts]
-    optional_fields: [invariants, clusters, piv_attempt, reviewer, evidence_paths]
-    enum_values:
-      result: [pass, warn, block]
-      reviewer: [model, codex, council, operator]
   append_only_enforcement:
     - reject_truncate
     - reject_seek
@@ -77,144 +89,6 @@ lifecycle_skill_contracts:
       responsibility: "Finalize outputs, lessons, and memory or skill update decisions."
       write_scope: "resolutions/ and knowledge/"
 
-run_manifest_schema:
-  kind: uacp.run_state
-  required_fields:
-    - run_id
-    - status
-    - current_stage
-    - current_phase
-    - authority
-    - transition_artifact
-    - council_synthesis_artifact
-    - artifacts
-    - invariants
-    - state_history
-    - bootstrap_closed
-    - governed_mutation_active
-  fields:
-    run_id: string
-    status:
-      type: enum
-      values: [active, blocked, closed, archived]
-    current_stage:
-      type: enum
-      values: [triage, propose, plan, execute, verify, resolve]
-    current_phase:
-      type: enum
-      values: [triage, propose, plan, execute, verify, resolve]
-    authority:
-      type: map
-      fields:
-        source: string
-        status: "pass|warn|block"
-    transition_artifact:
-      type: string
-    council_synthesis_artifact:
-      type: string
-    bootstrap_closed:
-      type: boolean
-    governed_mutation_active:
-      type: boolean
-    artifacts:
-      type: map
-      fields:
-        triage: string
-        proposal: string
-        plan: string
-        execution: string
-        verification: string
-        resolution: string
-        learning: string
-    selected_clusters:
-      type: list
-      item_type: string
-    kanban:
-      type: map
-      fields:
-        enabled: boolean
-        board_slug: string
-        root_task_ids:
-          type: list
-          item_type: string
-        parent_child_graph:
-          type: list
-          item_type: map
-          fields:
-            parent_id: string
-            child_id: string
-        assignee_profile: string
-        workspace:
-          type: map
-          fields:
-            kind:
-              type: enum
-              values: [scratch, dir, worktree]
-            path_policy: string
-        completion_summary_ref: string
-        metadata:
-          type: map
-    invariants:
-      type: list
-      item_type: map
-      fields:
-        id: string
-        status: "pass|block"
-        evidence: string
-    deferred_items:
-      type: list
-      item_type: map
-    state_history:
-      type: list
-      item_type: map
-      fields:
-        event: string
-        source: string
-        artifact: string
-
-current_pointer_schema:
-  kind: uacp.current_state
-  required_fields:
-    - active_run_id
-    - active_run_manifest
-    - mutation_policy
-    - current_transition_artifact
-    - kanban_binding_artifact
-    - kanban_board_slug
-    - bootstrap_closed
-    - governed_mutation_active
-  optional_fields:
-    - uacp_mode      # Phase 4.1 — operating mode for the active run
-  fields:
-    active_run_id: string
-    active_run_manifest: string
-    mutation_policy:
-      type: enum
-      values: [bootstrap_direct_edit, uacp_state_required]
-    current_transition_artifact: string
-    kanban_binding_artifact: string
-    kanban_board_slug: string
-    bootstrap_closed:
-      type: boolean
-    governed_mutation_active:
-      type: boolean
-    uacp_mode:
-      type: enum
-      values: [manual, semi_auto, supervised_auto, full_auto]
-      default: manual
-      enforcement_status: stub_only_phase_4
-      description: >
-        Phase 4.1 stub — operating mode for the active run. Determines which
-        skill mode_behavior stubs apply and which escalation triggers
-        (config/uacp.toml [autonomy]) fire. manual is the safe default.
-        Phase 4 R1 honesty (SKEP-P4-003 / TECH-P4-006): no kernel reader
-        consumes this field in Phase 4; mode is consumed only by skills as
-        guidance. Phase 5 adds the first kernel reader
-        (Heartgate mode-gating).
-    notes:
-      type: list
-      item_type: string
-
 # --- Phase 4.4: escalation events ledger ---
 escalations:
   path: state/escalations/
@@ -224,31 +98,7 @@ escalations:
     record per escalation. Operators poll this directory (push notification
     is Phase 5).
   filename_template: "{run_id}.jsonl"
-  record_schema:
-    required_fields:
-      - run_id
-      - phase
-      - mode
-      - trigger
-      - severity
-      - reason
-      - authority_artifact
-      - ts
-    fields:
-      run_id: string
-      phase: string
-      mode:
-        type: enum
-        values: [manual, semi_auto, supervised_auto, full_auto]
-      trigger: string
-      severity:
-        type: enum
-        values: [info, warn, block]
-      reason: string
-      authority_artifact: string
-      ts: integer
-      details:
-        type: mapping
+  # record_schema codified to engines/domain/escalation.py (Slice 4a Task 3)
 
 mutation_rules:
   bootstrap:
