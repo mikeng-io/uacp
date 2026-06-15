@@ -174,14 +174,12 @@ uacp/
 │       └── INDEX.md
 │
 ├── config/                            ← machine-readable policy derived from docs
-│   ├── uacp.toml                      ← collapsed config: [guardian] [autonomy] [memory] [models] [runtime_bindings] [version_control] + knobs (Slice 3+)
+│   ├── uacp.toml                      ← collapsed config: [guardian] [autonomy] [memory] [models] [runtime_bindings] [version_control] [scope] + knobs (Slice 3+)
 │   ├── phase-transitions.yaml
-│   ├── artifact-schemas.yaml
 │   ├── state.yaml
 │   ├── evidence-clusters.yaml
 │   ├── gate-selection.yaml
-│   ├── review-routing.yaml
-│   └── roots.yaml
+│   └── review-routing.yaml
 │
 ├── state/                             ← mutable runtime state (governed writers only)
 │   ├── current.yaml                   ← active-run pointer (caller-bound)

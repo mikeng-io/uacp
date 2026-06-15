@@ -35,10 +35,11 @@ def _prepare_root(tmp: Path) -> None:
         (tmp / sub).mkdir(parents=True, exist_ok=True)
     # guardian policy is now sourced from config/uacp.toml [guardian] via
     # config.py — guardian-policy.yaml has been deleted (config-collapse Slice 3).
+    # artifact-schemas.yaml deleted in Slice 5 W3 (schemas codified to
+    # engines/domain/artifact_schema.py; knobs moved to uacp.toml [scope]).
     shutil.copy2(here / "config/uacp.toml", tmp / "config/uacp.toml")
     shutil.copy2(here / "config/phase-transitions.yaml", tmp / "config/phase-transitions.yaml")
     shutil.copy2(here / "config/state.yaml", tmp / "config/state.yaml")
-    shutil.copy2(here / "config/artifact-schemas.yaml", tmp / "config/artifact-schemas.yaml")
 
 
 def _reload(plugin) -> None:
@@ -299,11 +300,13 @@ def main() -> int:
             })
 
             # --- Remediation R-F2 (F2): tool_path_capabilities loaded from config ---
-            # Mutate config to add a sentinel; reload Heartgate; confirm propagation.
-            pp = tmp / "config/artifact-schemas.yaml"
-            data = _yaml.safe_load(pp.read_text())
-            data["cross_checks"]["scope_write_paths_vs_layer_b"]["tool_path_capabilities"]["sentinel_tool"] = ["sentinel-prefix/"]
-            pp.write_text(_yaml.safe_dump(data, sort_keys=False))
+            # Slice 5 W3: artifact-schemas.yaml deleted; knobs live in uacp.toml [scope]
+            # (Slice 4a). Sentinel is injected via the .uacp/config.toml deep-merge
+            # override so the mtime cache key changes and get_config() picks it up.
+            from config import clear_config_cache  # noqa: PLC0415  (local import ok in scripts)
+            override = tmp / ".uacp" / "config.toml"
+            override.write_text('[scope.tool_path_capabilities]\nsentinel_tool = ["sentinel-prefix/"]\n')
+            clear_config_cache()
             heartgate2 = Heartgate.load(tmp)
             caps2 = heartgate2._tool_path_capabilities()
             report["checks"].append({
@@ -311,9 +314,9 @@ def main() -> int:
                 "status": "pass" if caps2.get("sentinel_tool") == ["sentinel-prefix/"] else "fail",
                 "sentinel": caps2.get("sentinel_tool"),
             })
-            # Restore.
-            del data["cross_checks"]["scope_write_paths_vs_layer_b"]["tool_path_capabilities"]["sentinel_tool"]
-            pp.write_text(_yaml.safe_dump(data, sort_keys=False))
+            # Restore: remove the override so subsequent checks see the base config.
+            override.unlink()
+            clear_config_cache()
             heartgate = Heartgate.load(tmp)
 
             # --- Remediation R-F3 (F3): empty disposition files block ---

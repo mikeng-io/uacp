@@ -67,7 +67,8 @@ def main() -> int:
             (tmp / ".uacp/state").mkdir(parents=True)
             (tmp / ".uacp/state/escalations").mkdir()
             # autonomy-policy.yaml deleted in Slice 3; autonomy knobs now in uacp.toml [autonomy]
-            for f in ["phase-transitions.yaml", "artifact-schemas.yaml", "state.yaml", "uacp.toml"]:
+            # artifact-schemas.yaml deleted in Slice 5 W3; schemas in engines/domain.
+            for f in ["phase-transitions.yaml", "state.yaml", "uacp.toml"]:
                 src = ROOT / "config" / f
                 (tmp / "config" / f).write_bytes(src.read_bytes())
             plugin._POLICY = None

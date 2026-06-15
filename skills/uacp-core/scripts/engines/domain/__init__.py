@@ -93,6 +93,9 @@ from .phase_graph import (  # noqa: E402
     state_machine_projection,
 )
 from .phase_transitions import (  # noqa: E402
+    COUNCIL_SYNTHESIS_REQUIRED_FIELDS,
+    PHASE_TRANSITION_REQUIRED_FIELDS,
+    PHASE_TRANSITION_TERMINAL_KIND_VALUES,
     STAGE_ALLOWED_TOOLS,
     STAGE_ENTERS_FROM,
     STAGE_FORBIDDEN_TOOLS,
@@ -100,6 +103,9 @@ from .phase_transitions import (  # noqa: E402
     STAGE_PURPOSE,
     TRIAGE_CAN_TERMINATE,
     TRIAGE_ROUTING_OUTCOMES,
+    council_synthesis_required_fields,
+    phase_transition_required_fields,
+    phase_transition_terminal_kind_values,
     stages_default,
 )
 from .pointer import (  # noqa: E402
@@ -159,6 +165,9 @@ __all__ = [
     "run_registry_rule_default",
     "LedgerEntry",
     "RunManifest",
+    "COUNCIL_SYNTHESIS_REQUIRED_FIELDS",
+    "PHASE_TRANSITION_REQUIRED_FIELDS",
+    "PHASE_TRANSITION_TERMINAL_KIND_VALUES",
     "STAGE_ALLOWED_TOOLS",
     "STAGE_ENTERS_FROM",
     "STAGE_FORBIDDEN_TOOLS",
@@ -166,6 +175,9 @@ __all__ = [
     "STAGE_PURPOSE",
     "TRIAGE_CAN_TERMINATE",
     "TRIAGE_ROUTING_OUTCOMES",
+    "council_synthesis_required_fields",
+    "phase_transition_required_fields",
+    "phase_transition_terminal_kind_values",
     "stages_default",
     "lifecycle_edges",
     "runtime_terminal_phases",

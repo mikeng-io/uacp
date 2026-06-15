@@ -1,4 +1,13 @@
-"""Codified ``stages.<phase>`` grammar (Slice 4b T4d-1).
+"""Codified ``stages.<phase>`` grammar (Slice 4b T4d-1) + the phase-transition
+artifact schema (Slice 5 W2 / T4d-2).
+
+This module deliberately holds TWO distinct schema axes codified out of
+``config/phase-transitions.yaml``: the phase-STAGE grammar (``stages_default()``,
+below) and the transition-ARTIFACT schema (``phase_transition_required_fields()``
+/ ``phase_transition_terminal_kind_values()`` / ``council_synthesis_required_fields()``).
+They co-locate here because both came from the same source file; do not mistake
+this for a single-concern module. (The Slice-4a ``artifact_schema.py`` covers a
+SEPARATE schema set — scope/intent/evidence/lessons via ``artifact_schemas_dict()``.)
 
 Previously sourced from ``config/phase-transitions.yaml`` ``stages.<phase>`` by
 YAML parse, then consumed three ways:
@@ -41,6 +50,25 @@ Public API:
     TRIAGE_ROUTING_OUTCOMES      — triage doc-only routing_outcomes map (pinned pre-slim)
     TRIAGE_CAN_TERMINATE         — triage doc-only early-exit flag (pinned pre-slim)
     stages_default()             — full ``stages`` mapping (exits_to derived from phase_graph)
+
+Slice 5 W2 (closes deferred T4d-2) — artifact-schema consumed grammar:
+    PHASE_TRANSITION_REQUIRED_FIELDS      — artifact_schema.required_fields (pinned pre-slim)
+    PHASE_TRANSITION_TERMINAL_KIND_VALUES — artifact_schema.fields.terminal_kind.values (pinned)
+    COUNCIL_SYNTHESIS_REQUIRED_FIELDS     — council_synthesis_schema.required_fields (pinned)
+    phase_transition_required_fields()    — fresh-copy accessor
+    phase_transition_terminal_kind_values()
+    council_synthesis_required_fields()
+
+These three were the LAST consumed bits in config/phase-transitions.yaml. They
+are codified here (enforce-by-default) and read by their consumers ONLY when the
+loaded config omits the corresponding block; a loaded block wholesale-overrides
+the default. Consumers:
+  * PHASE_TRANSITION_REQUIRED_FIELDS — core.py Heartgate.__init__ (self.required_fields)
+    AND scripts/validate_uacp_artifacts.py validate_phase_transition.
+  * PHASE_TRANSITION_TERMINAL_KIND_VALUES — validate_phase_transition (terminal_kind enum).
+  * COUNCIL_SYNTHESIS_REQUIRED_FIELDS — validate_council_synthesis.
+The UNCONSUMED schema doctrine (the rest of artifact_schema.fields, the
+council_synthesis_schema narrative/conventions/extension) STAYS in the YAML.
 """
 
 from __future__ import annotations
@@ -218,6 +246,75 @@ TRIAGE_ROUTING_OUTCOMES: dict[str, str] = {
     "block_or_clarify": "terminal_blocked",
 }
 TRIAGE_CAN_TERMINATE: bool = True
+
+# ---------------------------------------------------------------------------
+# Artifact-schema consumed grammar (Slice 5 W2; closes T4d-2). Pinned to the
+# values that were in config/phase-transitions.yaml before the W2 slim.
+# ---------------------------------------------------------------------------
+
+# artifact_schema.required_fields (kind: uacp.phase_transition). Consumed by
+# Heartgate.__init__ (self.required_fields) and the offline validator's
+# validate_phase_transition.
+PHASE_TRANSITION_REQUIRED_FIELDS: list[str] = [
+    "transition_id",
+    "run_id",
+    "from_phase",
+    "to_phase",
+    "decision",
+    "invariant_summary",
+    "cluster_summary",
+    "blockers",
+    "warnings",
+    "deferred_items",
+    "authority",
+    "artifact_paths",
+    "phase_local_granularity",
+    "composite_granularity",
+    "human_involvement",
+]
+
+# artifact_schema.fields.terminal_kind.values. Consumed by the offline
+# validator's validate_phase_transition (terminal_kind enum membership check).
+PHASE_TRANSITION_TERMINAL_KIND_VALUES: list[str] = [
+    "none",
+    "direct",
+    "lightweight",
+    "standard_uacp",
+    "full_governance",
+    "block_or_clarify",
+]
+
+# council_synthesis_schema.required_fields (kind: uacp.council_synthesis).
+# Consumed by the offline validator's validate_council_synthesis.
+COUNCIL_SYNTHESIS_REQUIRED_FIELDS: list[str] = [
+    "council_id",
+    "mode",
+    "tier",
+    "phase",
+    "phase_local_granularity",
+    "roles",
+    "dispatch_surfaces",
+    "findings",
+    "verdict",
+    "artifact_paths",
+    "inspected_paths",
+]
+
+
+def phase_transition_required_fields() -> list[str]:
+    """Fresh copy of ``artifact_schema.required_fields`` (caller cannot mutate the default)."""
+    return list(PHASE_TRANSITION_REQUIRED_FIELDS)
+
+
+def phase_transition_terminal_kind_values() -> list[str]:
+    """Fresh copy of ``artifact_schema.fields.terminal_kind.values``."""
+    return list(PHASE_TRANSITION_TERMINAL_KIND_VALUES)
+
+
+def council_synthesis_required_fields() -> list[str]:
+    """Fresh copy of ``council_synthesis_schema.required_fields``."""
+    return list(COUNCIL_SYNTHESIS_REQUIRED_FIELDS)
+
 
 # Stable phase ordering for the reconstructed mapping (matches pre-slim YAML).
 _PHASE_ORDER: tuple[str, ...] = ("triage", "propose", "plan", "execute", "verify", "resolve")

@@ -1,18 +1,19 @@
 # UACP Skill Enforcement Spec
 
-This is the authoritative authority record for what each UACP skill is allowed to do at runtime. It is the **source of truth** that the per-skill `SKILL.md` YAML frontmatter mirrors and that the kernel reads via `config/phase-transitions.yaml`. When the spec and the mirror disagree, this spec and the canonical config win.
+This is the authoritative authority record for what each UACP skill is allowed to do at runtime. It is the **source of truth** that the per-skill `SKILL.md` YAML frontmatter mirrors and that the kernel enforces from the codified stages grammar in `engines/domain/phase_transitions.py` (`stages_default()`; `load_phase_transitions` injects it as the effective `stages` since `config/phase-transitions.yaml` no longer carries a `stages` block — slimmed Slice 4b). When the spec and the mirror disagree, this spec and the codified grammar win.
 
 ## Authority chain
 
 ```
 docs/reference/skill-enforcement-spec.md (intent)
     │
-    └─→ config/phase-transitions.yaml stages.<phase>.allowed_tools / forbidden_tools / phase_exit_invariants
+    └─→ engines/domain/phase_transitions.py stages_default(): stages.<phase>.allowed_tools / forbidden_tools / phase_exit_invariants
+            │   (injected by load_phase_transitions as the effective stages; config/phase-transitions.yaml carries no stages block)
             │
-            └─→ skills/devops/uacp/uacp-<phase>/SKILL.md (mirror; config wins on conflict)
+            └─→ skills/devops/uacp/uacp-<phase>/SKILL.md (mirror; codified grammar wins on conflict)
 ```
 
-The kernel reads phase admissibility (Layer B) from `config/phase-transitions.yaml`. The skill SKILL.md files are mirrors for self-documentation and editor discoverability.
+The kernel reads phase admissibility (Layer B) from the codified `stages_default()` in `engines/domain/phase_transitions.py` (injected as the effective `stages` by `load_phase_transitions`). The skill SKILL.md files are mirrors for self-documentation and editor discoverability.
 
 ## Per-skill contract
 
@@ -106,7 +107,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Phase exit invariants**: `.outputs/{run_id}*`, ledger entry `VERIFY->RESOLVE`.
 
-**Phase 2 obligation**: emit `.outputs/{run_id}-lessons.yaml` matching `config/artifact-schemas.yaml#lessons`, including `ledger_citations` for non-trivial lessons.
+**Phase 2 obligation**: emit `.outputs/{run_id}-lessons.yaml` matching the `lessons` schema in `engines/domain/artifact_schema.py` (`artifact_schemas_dict()`; `config/artifact-schemas.yaml` deleted Slice 5), including `ledger_citations` for non-trivial lessons.
 
 ### `uacp-state` (cross-phase)
 
@@ -130,7 +131,7 @@ uacp-state has no Layer B entry of its own (it's `phase: '*'` / cross-phase); ad
 
 | Authority | Where enforced |
 |---|---|
-| Phase admissibility (Layer B) | `Guardian._phase_layer_check` reads `config/phase-transitions.yaml stages.<phase>.allowed_tools/forbidden_tools` |
+| Phase admissibility (Layer B) | `Guardian._phase_layer_check` reads the effective `stages.<phase>.allowed_tools/forbidden_tools` — the codified `stages_default()` in `engines/domain/phase_transitions.py`, injected by `load_phase_transitions` (no `stages` block in `config/phase-transitions.yaml`) |
 | Per-category writer (Layer A) | `Guardian.evaluate()` reads `config/uacp.toml [guardian] protected_categories.<cat>.allowed_tools` |
 | Self-attesting containment | `Guardian._filesystem_guard_verified` reads `config/uacp.toml [guardian] self_attesting_tools.names` |
 | Phase exit invariants | `Heartgate._validate_phase_exit_invariants` reads `stages.<phase>.phase_exit_invariants` |
@@ -142,6 +143,6 @@ uacp-state has no Layer B entry of its own (it's `phase: '*'` / cross-phase); ad
 | Escape-hatch shape | `Heartgate._validate_evidence_dispositions` validates that `handled_findings_chain` / `accepted_exceptions` entries are non-empty mappings with required fields, not garbage placeholders (Phase 3 R2 SKEP-R1-002) |
 | Escalation events (Phase 4.4 stub) | `_handle_uacp_escalation_event` enforces UACP context, severity/mode enums, required `mode` field, PIPE_BUF size bound, escalation-dir containment check, embedded-newline refusal; writes to `state/escalations/{run_id}.jsonl`. Operator-polling only — push-notify is Phase 5. Trigger-ID validation against `config/uacp.toml [autonomy.escalation_triggers]` triggers is deferred to Phase 5 (no kernel reader yet). |
 | Operating mode (Phase 4.1 stub) | `state/current.yaml#uacp_mode` declared with default=manual. **No kernel reader in Phase 4** — `enforcement_status: stub_only_phase_4`. Skills consult `config/uacp.toml [autonomy]` as guidance. Phase 5 adds the first reader. |
-| Scope write_paths | `Heartgate._validate_scope_artifact` reads `config/artifact-schemas.yaml#scope` + `plans/{run_id}-scope.yaml` |
+| Scope write_paths | `Heartgate._validate_scope_artifact` reads `engines/domain/artifact_schema.py` (`artifact_schemas_dict()` key `scope`; `config/artifact-schemas.yaml` deleted Slice 5) + `plans/{run_id}-scope.yaml` |
 
-If a skill SKILL.md mirror drifts from this spec or from `config/phase-transitions.yaml`, the canonical config wins. Drift is recoverable through normal commits — there is no audit harness yet (deferred for Phase 4 autonomous-mode verification cycles).
+If a skill SKILL.md mirror drifts from this spec or from the codified stages grammar (`engines/domain/phase_transitions.py` `stages_default()`), the codified grammar wins. Drift is recoverable through normal commits — there is no audit harness yet (deferred for Phase 4 autonomous-mode verification cycles).

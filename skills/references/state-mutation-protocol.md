@@ -7,7 +7,7 @@ Non-authoritative reference for `uacp-state`. Canonical authority remains the UA
 - `UACP_ROOT/docs/index.md`
 - `UACP_ROOT/docs/lifecycle-reference.md`
 - `UACP_ROOT/config/state.yaml`
-- `UACP_ROOT/config/roots.yaml`
+- `UACP_ROOT/config/uacp.toml` (`[paths]` / `base_dir` resolver) — path-root authority (roots.yaml deleted in Slice 5 W3; canonical resolver is `config.py` + `config/uacp.toml [paths]`)
 - current `state/current.yaml`
 - target `state/runs/<run>.yaml`
 
