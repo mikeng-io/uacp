@@ -289,10 +289,10 @@ All web calls are logged to the gate ledger with:
 
 ## Output Artifacts
 
-Web evidence is stored under `.outputs/evidence/{run_id}/`:
+Web evidence is stored under `.uacp/evidence/{run_id}/`:
 
 ```
-.outputs/evidence/uacp-2026-0607-fix-router/
+.uacp/evidence/uacp-2026-0607-fix-router/
   search-triage-001.jsonl      # SearchResult items
   search-triage-001.md         # Markdown summary
   crawl-propose-001.jsonl      # CrawlResult pages

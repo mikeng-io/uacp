@@ -67,12 +67,12 @@ def test_nested_path_subtables_preserved():
     # Accessed via the extra-data accessor (these are `extra` on Paths, not
     # declared fields). Both model_extra and model_dump() expose them.
     assert cfg.paths.model_extra is not None
-    assert cfg.paths.model_extra["bridge_artifacts"] == {"root": ".outputs/bridges"}
-    assert cfg.paths.model_extra["council_artifacts"] == {"root": ".outputs/councils"}
+    assert cfg.paths.model_extra["bridge_artifacts"] == {"root": "bridges"}
+    assert cfg.paths.model_extra["council_artifacts"] == {"root": "councils"}
 
     dumped = cfg.paths.model_dump()
-    assert dumped["bridge_artifacts"] == {"root": ".outputs/bridges"}
-    assert dumped["council_artifacts"] == {"root": ".outputs/councils"}
+    assert dumped["bridge_artifacts"] == {"root": "bridges"}
+    assert dumped["council_artifacts"] == {"root": "councils"}
 
 
 def test_resolve_rejects_unknown_path_key(tmp_path):
@@ -81,3 +81,66 @@ def test_resolve_rejects_unknown_path_key(tmp_path):
     cfg = load_config(project_root=tmp_path)
     with pytest.raises(ValueError):
         cfg.resolve(tmp_path, "not_a_real_key", "x")
+
+
+def test_base_dir_injects_namespace(tmp_path):
+    from config import base_dir
+    assert base_dir(tmp_path) == tmp_path.resolve() / ".uacp"
+
+
+def test_dir_for_resolves_subdir(tmp_path):
+    from config import dir_for
+    assert dir_for(tmp_path, "state") == tmp_path.resolve() / ".uacp" / "state"
+    assert dir_for(tmp_path, "resolutions") == tmp_path.resolve() / ".uacp" / "resolutions"
+
+
+def test_dir_for_honors_base_override(tmp_path):
+    from config import clear_config_cache, dir_for
+    clear_config_cache()
+    (tmp_path / ".uacp").mkdir()
+    (tmp_path / ".uacp" / "config.toml").write_text('[paths]\nbase = ".governed"\n')
+    assert dir_for(tmp_path, "state") == tmp_path.resolve() / ".governed" / "state"
+    clear_config_cache()
+
+
+def test_dir_for_rejects_unknown_key(tmp_path):
+    from config import dir_for
+    with pytest.raises(ValueError):
+        dir_for(tmp_path, "nope")
+
+
+def test_get_config_invalidates_on_override_mtime(tmp_path):
+    # get_config caches by (root, override mtime). Creating/editing
+    # .uacp/config.toml after a first read must be reflected WITHOUT a manual
+    # clear_config_cache() — the mtime change rekeys the cache (council S2).
+    import os
+
+    from config import base_dir
+
+    # First read: no override -> default base.
+    assert base_dir(tmp_path) == tmp_path.resolve() / ".uacp"
+
+    # Create an override; force a distinct mtime so the change is observable
+    # even within the same clock tick.
+    (tmp_path / ".uacp").mkdir(exist_ok=True)
+    override = tmp_path / ".uacp" / "config.toml"
+    override.write_text('[paths]\nbase = ".governed"\n')
+    t = override.stat().st_mtime + 10
+    os.utime(override, (t, t))
+    assert base_dir(tmp_path) == tmp_path.resolve() / ".governed"  # no manual clear
+
+    # Edit again (new base) -> reflected once mtime advances.
+    override.write_text('[paths]\nbase = ".vault"\n')
+    t += 10
+    os.utime(override, (t, t))
+    assert base_dir(tmp_path) == tmp_path.resolve() / ".vault"
+
+
+def test_base_dir_rejects_escaping_base(tmp_path):
+    from config import base_dir, clear_config_cache
+    clear_config_cache()
+    (tmp_path / ".uacp").mkdir()
+    (tmp_path / ".uacp" / "config.toml").write_text('[paths]\nbase = "../escape"\n')
+    with pytest.raises(ValueError):
+        base_dir(tmp_path)
+    clear_config_cache()

@@ -37,7 +37,7 @@ protected_categories:
     allowed_tools:
     - uacp_contained_shell
   artifact.uacp:
-    description: Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, .outputs/, knowledge/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml.
+    description: Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml.
     default_decision: block
     allowed_tools:
     - uacp_artifact_write

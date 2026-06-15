@@ -20,6 +20,7 @@ _CORE_DIR = Path(__file__).resolve().parents[2] / "uacp-core" / "scripts"
 if str(_CORE_DIR) not in sys.path:
     sys.path.insert(0, str(_CORE_DIR))
 
+from config import base_dir
 from filesystem import _resolve_uacp_path, _write_uacp_file
 
 
@@ -99,7 +100,7 @@ def _iso_now() -> str:
 
 
 def _run_manifest_path(workspace: Path, run_id: str) -> Path:
-    return (_resolve_uacp_path(f"state/runs/{run_id}.yaml", workspace)).resolve()
+    return (_resolve_uacp_path(f"state/runs/{run_id}.yaml", base_dir(workspace))).resolve()
 
 
 def _load_manifest(workspace: Path, run_id: str) -> RunManifest:
@@ -165,10 +166,10 @@ def handle_init(args: dict[str, Any]) -> str:
         _save_manifest(workspace, manifest)
 
         # Create current.yaml pointer if none exists
-        current_path = workspace / "state" / "current.yaml"
+        current_path = base_dir(workspace) / "state" / "current.yaml"
         if not current_path.exists():
             current_body = yaml.safe_dump(
-                {"active_run_id": run_id, "active_run_manifest": str(manifest_path.relative_to(workspace))},
+                {"active_run_id": run_id, "active_run_manifest": str(manifest_path.relative_to(base_dir(workspace)))},
                 sort_keys=False,
             )
             current_path.parent.mkdir(parents=True, exist_ok=True)
@@ -177,7 +178,7 @@ def handle_init(args: dict[str, Any]) -> str:
         return json.dumps({
             "ok": True,
             "run_id": run_id,
-            "manifest_path": str(manifest_path.relative_to(workspace)),
+            "manifest_path": str(manifest_path.relative_to(base_dir(workspace))),
         }, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"error": f"init failed: {type(exc).__name__}: {exc}"})
@@ -274,10 +275,13 @@ def handle_register_artifact(args: dict[str, Any]) -> str:
 
         manifest = _load_manifest(workspace, run_id)
 
-        # Ensure artifact path stays inside workspace
+        # Ensure artifact path stays inside the governed namespace (.uacp/).
+        # Paths are base-relative (e.g. proposals/x.md, resolutions/x.yaml), so
+        # containment is checked under base_dir, and path_raw is stored verbatim.
         try:
-            resolved = _resolve_uacp_path(path_raw, workspace)
-            resolved.relative_to(workspace)
+            base = base_dir(workspace)
+            resolved = _resolve_uacp_path(path_raw, base)
+            resolved.relative_to(base)
         except ValueError:
             return json.dumps({"error": f"artifact path escapes workspace: {path_raw}"})
 

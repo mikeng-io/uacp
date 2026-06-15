@@ -51,10 +51,10 @@ def test_compliant_finalized_run_passes_closure(temp_uacp_root: Path, valid_run_
     assert manifest["status"] == "resolved"
     assert manifest.get("finalized_at"), "engines' terminal checks need a finalized run"
     assert manifest.get("state_history"), "ledger_integrity/coherence need phase history"
-    assert (temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl").exists()
-    assert (temp_uacp_root / "plans" / f"{valid_run_id}-scope.yaml").exists()
-    assert (temp_uacp_root / ".outputs" / f"{valid_run_id}-lessons.yaml").exists()
-    assert (temp_uacp_root / "state" / "run-registry.yaml").exists()
+    assert (temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl").exists()
+    assert (temp_uacp_root / ".uacp" / "plans" / f"{valid_run_id}-scope.yaml").exists()
+    assert (temp_uacp_root / ".uacp" / "resolutions" / f"{valid_run_id}-lessons.yaml").exists()
+    assert (temp_uacp_root / ".uacp" / "state" / "run-registry.yaml").exists()
 
     decision = _closure(temp_uacp_root, valid_run_id)
     assert decision.decision == "pass", (
@@ -100,13 +100,13 @@ def test_missing_phase_exit_artifact_blocks_with_ev(temp_uacp_root: Path, valid_
     seed_coherent_run(temp_uacp_root, valid_run_id)
     _add_plan_exit_invariant(temp_uacp_root)
     # With the required plan-exit artifact present, closure is still clean.
-    assert (temp_uacp_root / "plans" / f"{valid_run_id}-plan-selection.yaml").exists()
+    assert (temp_uacp_root / ".uacp" / "plans" / f"{valid_run_id}-plan-selection.yaml").exists()
     assert _closure(temp_uacp_root, valid_run_id).decision == "pass"
 
     # Remove ONLY the required plan-phase exit artifact (leave scope etc. intact so
     # no other engine fires). evidence_completeness must report a missing exit
     # artifact for the completed 'plan' phase.
-    (temp_uacp_root / "plans" / f"{valid_run_id}-plan-selection.yaml").unlink()
+    (temp_uacp_root / ".uacp" / "plans" / f"{valid_run_id}-plan-selection.yaml").unlink()
 
     decision = _closure(temp_uacp_root, valid_run_id)
     assert decision.decision == "block", decision.warnings
@@ -119,7 +119,7 @@ def test_non_monotonic_ledger_ts_blocks_with_li(temp_uacp_root: Path, valid_run_
     assert _closure(temp_uacp_root, valid_run_id).decision == "pass"
 
     # Rewrite the gate ledger so timestamps go backwards (non-monotonic ts).
-    ledger_path = temp_uacp_root / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
+    ledger_path = temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
     lines = ledger_path.read_text().strip().splitlines()
     records = [json.loads(line) for line in lines]
     assert len(records) >= 2, "need >=2 ledger records to make ts non-monotonic"
@@ -144,7 +144,7 @@ def test_scope_registry_disagreement_collapses_to_one_blocker(
     # coherence engine (C6_WRITE_PATHS_DISAGREE) and the scope_conformance engine
     # (SC_SCOPE_REGISTRY_DISAGREE) detect this same divergence. validate_closure
     # must collapse them to ONE operator-facing write_paths blocker (prefer C6).
-    scope_path = temp_uacp_root / "plans" / f"{valid_run_id}-scope.yaml"
+    scope_path = temp_uacp_root / ".uacp" / "plans" / f"{valid_run_id}-scope.yaml"
     body = yaml.safe_load(scope_path.read_text())
     body["write_paths"] = ["docs/something-else/"]
     scope_path.write_text(yaml.safe_dump(body, sort_keys=False))

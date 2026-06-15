@@ -47,7 +47,7 @@ def _load_plugin_under_alias():
 
 
 def _prepare_root(tmp: Path) -> None:
-    for sub in ("config", "state", "state/escalations"):
+    for sub in ("config", ".uacp/state", ".uacp/state/escalations"):
         (tmp / sub).mkdir(parents=True, exist_ok=True)
     for name in (
         "guardian-policy.yaml",

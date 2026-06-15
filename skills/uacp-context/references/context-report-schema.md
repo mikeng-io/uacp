@@ -61,7 +61,7 @@ Display this report to the user and return it to the calling skill.
 
 # Phase 10: Save Artifact
 
-Save context report to `.outputs/context/{YYYYMMDD-HHMMSS}-context.md` with YAML frontmatter, plus JSON companion:
+Save context report to `.uacp/context/{YYYYMMDD-HHMMSS}-context.md` with YAML frontmatter, plus JSON companion:
 
 ```yaml
 ---
@@ -78,7 +78,7 @@ session_id: "{session_id}"
 
 **No symlinks.** To find the latest artifact:
 ```bash
-ls -t .outputs/context/ | head -1
+ls -t .uacp/context/ | head -1
 ```
 
 # Integration with Calling Skills

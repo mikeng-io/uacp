@@ -75,7 +75,7 @@ lifecycle_skill_contracts:
       write_scope: "verification/"
     uacp-resolve:
       responsibility: "Finalize outputs, lessons, and memory or skill update decisions."
-      write_scope: ".outputs/ and knowledge/"
+      write_scope: "resolutions/ and knowledge/"
 
 run_manifest_schema:
   kind: uacp.run_state
@@ -280,7 +280,7 @@ version_control_binding:
     - "plans/"
     - "executions/"
     - "verification/"
-    - ".outputs/"
+    - "resolutions/"
     - "knowledge/"
     - "state/"
   commit_required_for:

@@ -34,8 +34,9 @@ def _import_plugin():
 
 def _prepare_root(tmp: Path) -> None:
     here = Path(__file__).resolve().parent.parent
-    for sub in ("config", "docs", "state/runs", "state/gate-ledger",
-                "plans", "proposals", "executions", "verification", "outputs", "knowledge"):
+    for sub in ("config", "docs", ".uacp/state/runs", ".uacp/state/gate-ledger",
+                ".uacp/plans", ".uacp/proposals", ".uacp/executions", ".uacp/verification",
+                ".uacp/resolutions", ".uacp/knowledge"):
         (tmp / sub).mkdir(parents=True, exist_ok=True)
     for fn in ("guardian-policy.yaml", "phase-transitions.yaml", "state.yaml", "artifact-schemas.yaml"):
         shutil.copy2(here / "config" / fn, tmp / "config" / fn)
@@ -122,15 +123,15 @@ def main() -> int:
                 if check_results is not None:
                     record["check_results"] = check_results
                 line = json.dumps(record, sort_keys=True) + "\n"
-                (tmp / f"state/gate-ledger/{rid}.jsonl").parent.mkdir(parents=True, exist_ok=True)
-                with (tmp / f"state/gate-ledger/{rid}.jsonl").open("a", encoding="utf-8") as fh:
+                (tmp / f".uacp/state/gate-ledger/{rid}.jsonl").parent.mkdir(parents=True, exist_ok=True)
+                with (tmp / f".uacp/state/gate-ledger/{rid}.jsonl").open("a", encoding="utf-8") as fh:
                     fh.write(line)
 
             # Common seed for transitions used below.
             _append("PROPOSE->PLAN", "plan")
             _append("PIV", "plan", piv_attempt=1)
-            (tmp / f"plans/{run_id}-plan.yaml").write_text("a: 1\n")
-            (tmp / f"plans/{run_id}-scope.yaml").write_text(_y.safe_dump({
+            (tmp / f".uacp/plans/{run_id}-plan.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/plans/{run_id}-scope.yaml").write_text(_y.safe_dump({
                 "run_id": run_id,
                 "write_paths": ["plans/", "executions/"],
                 "blast_radius": "low",
@@ -156,7 +157,7 @@ def main() -> int:
             })
 
             # --- Check 3: run_registry overlap blocks ---
-            (tmp / "state/run-registry.yaml").write_text(_y.safe_dump({
+            (tmp / ".uacp/state/run-registry.yaml").write_text(_y.safe_dump({
                 "active_runs": [
                     {"run_id": "other-run", "phase": "execute", "write_paths": ["plans/", "executions/"], "started": "2026-05-16"},
                 ],
@@ -170,7 +171,7 @@ def main() -> int:
             })
 
             # --- Check 4: run_registry no overlap passes ---
-            (tmp / "state/run-registry.yaml").write_text(_y.safe_dump({
+            (tmp / ".uacp/state/run-registry.yaml").write_text(_y.safe_dump({
                 "active_runs": [
                     {"run_id": "other-run", "phase": "execute", "write_paths": ["docs/"], "started": "2026-05-16"},
                 ],
@@ -186,8 +187,8 @@ def main() -> int:
             # --- Check 5: pc_p2_t3 empty cluster_summary blocks VERIFY->RESOLVE ---
             _append("EXECUTE->VERIFY", "verify")
             _append("PIV", "verify", piv_attempt=1)
-            (tmp / f"verification/{run_id}-v.yaml").write_text("a: 1\n")
-            (tmp / f".outputs/{run_id}-lessons.yaml").write_text(_y.safe_dump({"run_id": run_id, "lessons": []}))
+            (tmp / f".uacp/verification/{run_id}-v.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/resolutions/{run_id}-lessons.yaml").write_text(_y.safe_dump({"run_id": run_id, "lessons": []}))
             d = heartgate.validate_transition(_full_artifact(run_id, "verify", "resolve"))
             empty_cluster_blockers = [b for b in d.blockers if "cluster_summary is empty" in b]
             report["checks"].append({
@@ -197,10 +198,10 @@ def main() -> int:
             })
 
             # --- Check 6: pc_p2_t4 column-count mismatch produces blocker ---
-            (tmp / f"verification/{run_id}-scope-verified-facts.md").write_text(
+            (tmp / f".uacp/verification/{run_id}-scope-verified-facts.md").write_text(
                 "# Verified Facts\n\n| Fact | Source |\n|---|---|\n| ok | tested |\n"
             )
-            (tmp / f"verification/{run_id}-scope-assumptions.md").write_text(
+            (tmp / f".uacp/verification/{run_id}-scope-assumptions.md").write_text(
                 "# Assumptions\n\n| A | B | C |\n|---|---|---|\n| x | y | z |\n"  # 3 cols not 4
             )
             d = heartgate.validate_transition(_full_artifact(run_id, "verify", "resolve",
@@ -216,8 +217,8 @@ def main() -> int:
             triage_run = run_id + "-intent-fence"
             _append("TRIAGE_COMPLETE", "triage", run_id_override=triage_run)
             _append("PIV", "triage", piv_attempt=1, run_id_override=triage_run)
-            (tmp / f"proposals/{triage_run}-triage.yaml").write_text("a: 1\n")
-            (tmp / f"proposals/{triage_run}-intent.md").write_text(
+            (tmp / f".uacp/proposals/{triage_run}-triage.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/proposals/{triage_run}-intent.md").write_text(
                 "# Intent\n\n```\n## Success Definition\n## Explicit Out-of-Scope\n## Termination Condition\n## Authority Source\n```\n"
             )
             d = heartgate.validate_transition(_full_artifact(triage_run, "triage", "propose"))
@@ -229,7 +230,7 @@ def main() -> int:
             })
 
             # --- Check 8: pc_p2_t5 real sections satisfy ---
-            (tmp / f"proposals/{triage_run}-intent.md").write_text(
+            (tmp / f".uacp/proposals/{triage_run}-intent.md").write_text(
                 "# Intent\n\n## Success Definition\nx\n\n## Explicit Out-of-Scope\ny\n\n## Termination Condition\nz\n\n## Authority Source\nop\n"
             )
             d = heartgate.validate_transition(_full_artifact(triage_run, "triage", "propose"))
@@ -258,12 +259,12 @@ def main() -> int:
 
             # --- Check 10: pc_p2_minor JSONL fail-closed on bad ledger line ---
             bad_run = run_id + "-badledger"
-            badpath = tmp / f"state/gate-ledger/{bad_run}.jsonl"
+            badpath = tmp / f".uacp/state/gate-ledger/{bad_run}.jsonl"
             badpath.parent.mkdir(parents=True, exist_ok=True)
             badpath.write_text('{"gate": "PROPOSE->PLAN", "run_id": "x", "phase": "plan", "result": "pass", "ts": 0}\n'
                                'this is not json at all\n')
-            (tmp / f"plans/{bad_run}-plan.yaml").write_text("a: 1\n")
-            (tmp / f"plans/{bad_run}-scope.yaml").write_text(_y.safe_dump({
+            (tmp / f".uacp/plans/{bad_run}-plan.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/plans/{bad_run}-scope.yaml").write_text(_y.safe_dump({
                 "run_id": bad_run,
                 "write_paths": ["plans/"],
                 "blast_radius": "low",
@@ -317,8 +318,8 @@ def main() -> int:
 
             # --- Check 14 (SKEP-004): tilde fences do NOT satisfy intent sections ---
             tilde_run = run_id + "-tildefence"
-            (tmp / f"proposals/{tilde_run}-triage.yaml").write_text(_y.safe_dump({"run_id": tilde_run}))
-            (tmp / f"proposals/{tilde_run}-intent.md").write_text(
+            (tmp / f".uacp/proposals/{tilde_run}-triage.yaml").write_text(_y.safe_dump({"run_id": tilde_run}))
+            (tmp / f".uacp/proposals/{tilde_run}-intent.md").write_text(
                 "# Intent\n\n~~~\n## Success Definition\n## Explicit Out-of-Scope\n## Termination Condition\n## Authority Source\n~~~\n"
             )
             d = heartgate.validate_transition(_full_artifact(tilde_run, "triage", "propose"))
@@ -331,8 +332,8 @@ def main() -> int:
 
             # --- Check 15 (SKEP-005): substring "disposition" in data row does not skip it ---
             sk5_run = run_id + "-sk5"
-            (tmp / f"verification/{sk5_run}-scope-verified-facts.md").write_text("| Fact | Source |\n|---|---|\n| f | s |\n")
-            (tmp / f"verification/{sk5_run}-scope-assumptions.md").write_text(
+            (tmp / f".uacp/verification/{sk5_run}-scope-verified-facts.md").write_text("| Fact | Source |\n|---|---|\n| f | s |\n")
+            (tmp / f".uacp/verification/{sk5_run}-scope-assumptions.md").write_text(
                 "| Assumption | Disposition | Owner | Next-phase obligation |\n"
                 "|---|---|---|---|\n"
                 "| disposition reviewed | pending | | |\n"
@@ -352,7 +353,7 @@ def main() -> int:
             sk6_run = run_id + "-sk6"
             _append("EXECUTE->VERIFY", "verify", run_id_override=sk6_run)
             _append("PIV", "verify", piv_attempt=1, run_id_override=sk6_run)
-            (tmp / f".outputs/{sk6_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk6_run, "lessons": []}))
+            (tmp / f".uacp/resolutions/{sk6_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk6_run, "lessons": []}))
             artifact_sk6 = {
                 **_full_artifact(sk6_run, "verify", "resolve"),
                 "cluster_summary": [
@@ -370,15 +371,15 @@ def main() -> int:
 
             # --- Check 17 (SKEP-001): PLAN_VALIDATION with no checks list is rejected ---
             bare_run = run_id + "-bare"
-            bare_ledger = tmp / f"state/gate-ledger/{bare_run}.jsonl"
+            bare_ledger = tmp / f".uacp/state/gate-ledger/{bare_run}.jsonl"
             bare_ledger.parent.mkdir(parents=True, exist_ok=True)
             bare_ledger.write_text(
                 json.dumps({"gate": "PROPOSE->PLAN", "run_id": bare_run, "phase": "plan", "result": "pass", "ts": 0}) + "\n"
                 + json.dumps({"gate": "PIV", "run_id": bare_run, "phase": "plan", "result": "pass", "piv_attempt": 1, "ts": 0}) + "\n"
                 + json.dumps({"gate": "PLAN_VALIDATION", "run_id": bare_run, "phase": "plan", "result": "pass", "ts": 0}) + "\n"
             )
-            (tmp / f"plans/{bare_run}-plan.yaml").write_text("a: 1\n")
-            (tmp / f"plans/{bare_run}-scope.yaml").write_text(_y.safe_dump({
+            (tmp / f".uacp/plans/{bare_run}-plan.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/plans/{bare_run}-scope.yaml").write_text(_y.safe_dump({
                 "run_id": bare_run, "write_paths": ["plans/"], "blast_radius": "low", "rollback_path": "none",
             }))
             d = heartgate.validate_transition(_full_artifact(bare_run, "plan", "execute"))
@@ -403,14 +404,14 @@ def main() -> int:
 
             # --- Check 19 (SKEP-003): path normalization — './plans/' overlaps 'plans/' ---
             sk3_run = run_id + "-sk3"
-            (tmp / f"plans/{sk3_run}-plan.yaml").write_text("a: 1\n")
-            (tmp / f"plans/{sk3_run}-scope.yaml").write_text(_y.safe_dump({
+            (tmp / f".uacp/plans/{sk3_run}-plan.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/plans/{sk3_run}-scope.yaml").write_text(_y.safe_dump({
                 "run_id": sk3_run, "write_paths": ["plans/"], "blast_radius": "low", "rollback_path": "none",
             }))
             _append("PROPOSE->PLAN", "plan", run_id_override=sk3_run)
             _append("PIV", "plan", piv_attempt=1, run_id_override=sk3_run)
             _append("PLAN_VALIDATION", "plan", run_id_override=sk3_run)
-            (tmp / "state/run-registry.yaml").write_text(_y.safe_dump({
+            (tmp / ".uacp/state/run-registry.yaml").write_text(_y.safe_dump({
                 "schema_version": "0.1",
                 "active_runs": [
                     {"run_id": "other-sneaky-run", "phase": "execute", "write_paths": ["./plans/"], "started_at": 0, "scope_artifact_path": ""},
@@ -425,7 +426,7 @@ def main() -> int:
             })
 
             # --- Check 20 (SKEP-003 inverse): "plans" vs "plans-other/" must NOT overlap ---
-            (tmp / "state/run-registry.yaml").write_text(_y.safe_dump({
+            (tmp / ".uacp/state/run-registry.yaml").write_text(_y.safe_dump({
                 "schema_version": "0.1",
                 "active_runs": [
                     {"run_id": "lookalike-other", "phase": "execute", "write_paths": ["plans-other/"], "started_at": 0, "scope_artifact_path": ""},
@@ -440,7 +441,7 @@ def main() -> int:
             })
 
             # --- Check 21 (SKEP-010): malformed active_runs (non-list) blocks ---
-            (tmp / "state/run-registry.yaml").write_text("active_runs: hello\n")
+            (tmp / ".uacp/state/run-registry.yaml").write_text("active_runs: hello\n")
             d = heartgate.validate_transition(_full_artifact(sk3_run, "plan", "execute"))
             malformed = [b for b in d.blockers if "active_runs" in b and "must be a list" in b]
             report["checks"].append({
@@ -449,12 +450,12 @@ def main() -> int:
                 "blockers": malformed,
             })
             # cleanup registry
-            (tmp / "state/run-registry.yaml").unlink()
+            (tmp / ".uacp/state/run-registry.yaml").unlink()
 
             # --- Check 22 (SKEP-008): scope.write_paths cannot launder state/gate-ledger/ ---
             sk8_run = run_id + "-sk8"
-            (tmp / f"plans/{sk8_run}-plan.yaml").write_text("a: 1\n")
-            (tmp / f"plans/{sk8_run}-scope.yaml").write_text(_y.safe_dump({
+            (tmp / f".uacp/plans/{sk8_run}-plan.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/plans/{sk8_run}-scope.yaml").write_text(_y.safe_dump({
                 "run_id": sk8_run, "write_paths": ["state/gate-ledger/forged.jsonl"], "blast_radius": "low", "rollback_path": "none",
             }))
             _append("PROPOSE->PLAN", "plan", run_id_override=sk8_run)
@@ -497,7 +498,7 @@ def main() -> int:
             sk2_run = run_id + "-sk2"
             _append("EXECUTE->VERIFY", "verify", run_id_override=sk2_run)
             _append("PIV", "verify", piv_attempt=1, run_id_override=sk2_run)
-            (tmp / f".outputs/{sk2_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk2_run, "lessons": []}))
+            (tmp / f".uacp/resolutions/{sk2_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk2_run, "lessons": []}))
             artifact_sk2 = {
                 **_full_artifact(sk2_run, "verify", "resolve"),
                 "cluster_summary": [{"cluster_id": "a", "state": "not_applicable"}],
@@ -514,7 +515,7 @@ def main() -> int:
 
             # --- Check 26 (SKEP-R1-003): flat-string checks list without check_results is rejected ---
             flat_run = run_id + "-flat"
-            flat_ledger = tmp / f"state/gate-ledger/{flat_run}.jsonl"
+            flat_ledger = tmp / f".uacp/state/gate-ledger/{flat_run}.jsonl"
             flat_ledger.parent.mkdir(parents=True, exist_ok=True)
             flat_ledger.write_text(
                 json.dumps({"gate": "PROPOSE->PLAN", "run_id": flat_run, "phase": "plan", "result": "pass", "ts": 0}) + "\n"
@@ -522,8 +523,8 @@ def main() -> int:
                 # NOTE: flat list of pv_ids WITHOUT check_results sibling → must be rejected.
                 + json.dumps({"gate": "PLAN_VALIDATION", "run_id": flat_run, "phase": "plan", "result": "pass", "checks": ["pv_1","pv_2","pv_3","pv_4","pv_5","pv_6"], "ts": 0}) + "\n"
             )
-            (tmp / f"plans/{flat_run}-plan.yaml").write_text("a: 1\n")
-            (tmp / f"plans/{flat_run}-scope.yaml").write_text(_y.safe_dump({
+            (tmp / f".uacp/plans/{flat_run}-plan.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/plans/{flat_run}-scope.yaml").write_text(_y.safe_dump({
                 "run_id": flat_run, "write_paths": ["plans/"], "blast_radius": "low", "rollback_path": "none",
             }))
             d = heartgate.validate_transition(_full_artifact(flat_run, "plan", "execute"))
@@ -536,8 +537,8 @@ def main() -> int:
 
             # --- Check 27 (SKEP-R1-004): empty scope.write_paths is a blocker ---
             empty_run = run_id + "-empty"
-            (tmp / f"plans/{empty_run}-plan.yaml").write_text("a: 1\n")
-            (tmp / f"plans/{empty_run}-scope.yaml").write_text(_y.safe_dump({
+            (tmp / f".uacp/plans/{empty_run}-plan.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/plans/{empty_run}-scope.yaml").write_text(_y.safe_dump({
                 "run_id": empty_run, "write_paths": [], "blast_radius": "low", "rollback_path": "none",
             }))
             _append("PROPOSE->PLAN", "plan", run_id_override=empty_run)
@@ -553,7 +554,7 @@ def main() -> int:
 
             # --- Check 28 (SKEP-R1-007): DoS via bad PLAN_VALIDATION followed by good one — good wins ---
             dos_run = run_id + "-dos"
-            dos_ledger = tmp / f"state/gate-ledger/{dos_run}.jsonl"
+            dos_ledger = tmp / f".uacp/state/gate-ledger/{dos_run}.jsonl"
             dos_ledger.parent.mkdir(parents=True, exist_ok=True)
             dos_ledger.write_text(
                 json.dumps({"gate": "PROPOSE->PLAN", "run_id": dos_run, "phase": "plan", "result": "pass", "ts": 0}) + "\n"
@@ -566,8 +567,8 @@ def main() -> int:
                               "check_results": {"pv_1":"pass","pv_2":"pass","pv_3":"pass","pv_4":"pass","pv_5":"pass","pv_6":"pass"},
                               "ts": 1}) + "\n"
             )
-            (tmp / f"plans/{dos_run}-plan.yaml").write_text("a: 1\n")
-            (tmp / f"plans/{dos_run}-scope.yaml").write_text(_y.safe_dump({
+            (tmp / f".uacp/plans/{dos_run}-plan.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/plans/{dos_run}-scope.yaml").write_text(_y.safe_dump({
                 "run_id": dos_run, "write_paths": ["plans/"], "blast_radius": "low", "rollback_path": "none",
             }))
             d = heartgate.validate_transition(_full_artifact(dos_run, "plan", "execute"))

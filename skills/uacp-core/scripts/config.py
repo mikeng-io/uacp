@@ -12,6 +12,7 @@ slices build on.
 from __future__ import annotations
 
 import tomllib
+from functools import lru_cache
 from pathlib import Path
 
 from filesystem import _resolve_uacp_path
@@ -119,3 +120,74 @@ def load_config(project_root: Path | None = None) -> UacpConfig:
             merged = _deep_merge(merged, override)
 
     return UacpConfig(**merged)
+
+
+@lru_cache(maxsize=256)
+def _cached_config(root_str: str, _mtime: float) -> UacpConfig:
+    """Cache by (resolved root, override mtime). The ``_mtime`` arg is part of
+    the cache key only — when ``.uacp/config.toml`` is created or edited its
+    mtime changes, producing a fresh key and a re-parse, so a long-lived
+    process never serves stale paths (council S2)."""
+    return load_config(Path(root_str))
+
+
+def clear_config_cache() -> None:
+    """Drop the per-root config cache. Call between tests that mutate a
+    project's ``.uacp/config.toml`` after a prior read (a conftest autouse
+    fixture wires this up suite-wide once Slice 2's conftest change lands)."""
+    _cached_config.cache_clear()
+
+
+def get_config(root: Path) -> UacpConfig:
+    """Config for ``root``, deep-merging ``<root>/.uacp/config.toml`` if present.
+
+    Cached per resolved root *and* the override file's mtime so kernel readers
+    do not re-parse TOML on every path lookup, yet a created/edited override is
+    picked up without an explicit :func:`clear_config_cache` (council S2). The
+    override always lives at the fixed bootstrap home ``<root>/.uacp/config.toml``
+    regardless of ``[paths] base`` — ``base`` relocates runtime dirs only.
+    """
+    root_r = Path(root).resolve()
+    override = root_r / ".uacp" / "config.toml"
+    # Single stat() (no exists()-then-stat() TOCTOU): a missing or vanished
+    # override keys as 0.0 rather than crashing a hot-path lookup on a race.
+    try:
+        mtime = override.stat().st_mtime
+    except OSError:
+        mtime = 0.0
+    return _cached_config(str(root_r), mtime)
+
+
+def base_dir(root: Path) -> Path:
+    """The governed namespace root: ``<root>/<paths.base>`` (default ``.uacp``).
+
+    ``paths.base`` is config-controlled (``.uacp/config.toml`` may override it),
+    so containment is enforced: the resolved base must stay under ``root``. A
+    base that escapes (e.g. ``"../foo"``) raises ``ValueError`` — fail closed,
+    matching :meth:`UacpConfig.resolve`'s traversal semantics.
+    """
+    cfg = get_config(root)
+    root_resolved = Path(root).resolve()
+    candidate = (root_resolved / cfg.paths.base).resolve()
+    if candidate != root_resolved and root_resolved not in candidate.parents:
+        raise ValueError(f"paths.base {cfg.paths.base!r} escapes root {root_resolved}")
+    return candidate
+
+
+def dir_for(root: Path, path_key: str) -> Path:
+    """Resolve a declared ``[paths]`` subdir under the governed base.
+
+    ``path_key`` must be a declared field (unknown key raises ``ValueError`` so
+    typos fail loud). The subdir *value* is config-controlled, so containment is
+    enforced: the result must stay under the governed base — a traversing value
+    raises ``ValueError`` (fail closed).
+    """
+    cfg = get_config(root)
+    if path_key not in type(cfg.paths).model_fields:
+        known = ", ".join(sorted(type(cfg.paths).model_fields))
+        raise ValueError(f"unknown paths key {path_key!r}; expected one of: {known}")
+    base = base_dir(root)
+    candidate = (base / getattr(cfg.paths, path_key)).resolve()
+    if candidate != base and base not in candidate.parents:
+        raise ValueError(f"paths.{path_key} {getattr(cfg.paths, path_key)!r} escapes base {base}")
+    return candidate

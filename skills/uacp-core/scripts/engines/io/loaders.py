@@ -30,6 +30,8 @@ if str(_CORE_DIR) not in sys.path:
 
 from filesystem import _resolve_uacp_path  # noqa: E402
 
+from config import base_dir, dir_for  # noqa: E402
+
 # Importing the domain package also bootstraps state_machine onto sys.path and
 # reuses RunManifest (it is not re-declared here).
 from engines.domain import (  # noqa: E402
@@ -64,11 +66,17 @@ class ManifestDoc:
 
 
 def resolve_in_workspace(root: Path, rel: str) -> Path | None:
-    """Resolve a UACP-root-relative path defensively, or None if it escapes /
-    is unresolvable. Never raises."""
+    """Resolve a governed-namespace-relative path defensively, or None if it
+    escapes / is unresolvable. Never raises.
+
+    ``rel`` is a base-relative artifact/state reference (e.g. ``proposals/x.md``,
+    ``resolutions/x.yaml``, ``state/...``) stored by writers under ``.uacp/``, so
+    it resolves under ``base_dir(root)`` and is contained there.
+    """
     try:
-        resolved = _resolve_uacp_path(rel, root)
-        resolved.relative_to(root)
+        base = base_dir(root)
+        resolved = _resolve_uacp_path(rel, base)
+        resolved.relative_to(base)
         return resolved
     except Exception:
         return None
@@ -93,7 +101,7 @@ def load_manifest(workspace: Path, run_id: str) -> Loaded[ManifestDoc]:
     is a :class:`ManifestDoc` whose ``raw`` is the mapping and whose ``model`` is
     the validated :class:`RunManifest` when it validates, else None.
     """
-    path = workspace / "state" / "runs" / f"{run_id}.yaml"
+    path = dir_for(workspace, "state") / "runs" / f"{run_id}.yaml"
     raw, err = _safe_load_yaml(path)
     if err is not None:
         return Loaded(error=err)
@@ -114,7 +122,7 @@ def load_ledger(workspace: Path, run_id: str) -> tuple[list[LedgerEntry], list[s
     unreadable file or malformed line (the engine maps each to a violation).
     A missing ledger yields ``([], [])`` — its absence is the caller's concern.
     """
-    path = workspace / "state" / "gate-ledger" / f"{run_id}.jsonl"
+    path = dir_for(workspace, "state") / "gate-ledger" / f"{run_id}.jsonl"
     entries: list[LedgerEntry] = []
     errors: list[str] = []
     if not path.exists():
@@ -144,7 +152,7 @@ def load_current(workspace: Path) -> Loaded[CurrentPointer]:
     A missing file is reported via ``error`` (callers may treat it as benign).
     ``value`` is None when the body is missing, garbled, or not a mapping.
     """
-    path = workspace / "state" / "current.yaml"
+    path = dir_for(workspace, "state") / "current.yaml"
     raw, err = _safe_load_yaml(path)
     if err is not None:
         return Loaded(error=err)
@@ -155,7 +163,7 @@ def load_current(workspace: Path) -> Loaded[CurrentPointer]:
 
 def load_registry(workspace: Path) -> Loaded[RunRegistry]:
     """Load ``state/run-registry.yaml``. ``value`` None on missing/garbled/non-mapping."""
-    path = workspace / "state" / "run-registry.yaml"
+    path = dir_for(workspace, "state") / "run-registry.yaml"
     raw, err = _safe_load_yaml(path)
     if err is not None:
         return Loaded(error=err)
@@ -211,10 +219,13 @@ def glob_in_workspace(workspace: Path, pattern: str) -> list[Path]:
 
     Defensive: never raises. Patterns whose literal prefix escapes the workspace,
     or that cannot be globbed, yield ``[]``. Matches that resolve outside the
-    workspace (e.g. via symlinks) are dropped.
+    governed namespace (e.g. via symlinks) are dropped.
+
+    ``pattern`` is base-relative (e.g. ``proposals/{run_id}*``), so it globs under
+    ``base_dir(workspace)`` (``.uacp/``) — where the writers place artifacts.
     """
     try:
-        root = workspace.resolve()
+        root = base_dir(workspace)
         matches: list[Path] = []
         for m in root.glob(pattern):
             try:

@@ -29,8 +29,9 @@ def _import_plugin():
 
 def _prepare_root(tmp: Path) -> None:
     here = Path(__file__).resolve().parent.parent
-    for sub in ("config", "docs", "state/runs", "state/gate-ledger",
-                "plans", "proposals", "executions", "verification", "outputs", "knowledge"):
+    for sub in ("config", "docs", ".uacp/state/runs", ".uacp/state/gate-ledger",
+                ".uacp/plans", ".uacp/proposals", ".uacp/executions", ".uacp/verification",
+                ".uacp/resolutions", ".uacp/knowledge"):
         (tmp / sub).mkdir(parents=True, exist_ok=True)
     shutil.copy2(here / "config/guardian-policy.yaml", tmp / "config/guardian-policy.yaml")
     shutil.copy2(here / "config/phase-transitions.yaml", tmp / "config/phase-transitions.yaml")
@@ -89,7 +90,7 @@ def main() -> int:
             # treats the record as a defect.
             PIV_IDS = ["piv_1", "piv_2", "piv_3", "piv_4", "piv_5"]
             def _seed_ledger(phase: str, gate: str, piv_pass: bool = True):
-                ledger_dir = tmp / "state/gate-ledger"
+                ledger_dir = tmp / ".uacp/state/gate-ledger"
                 ledger_dir.mkdir(parents=True, exist_ok=True)
                 path = ledger_dir / f"{run_id}.jsonl"
                 import time as _t
@@ -110,7 +111,7 @@ def main() -> int:
 
             # --- Check 1: scope artifact missing blocks PLAN->EXECUTE ---
             _seed_ledger("plan", "PROPOSE->PLAN")
-            (tmp / "plans/phase2-verify-plan.yaml").write_text("a: 1\n")
+            (tmp / ".uacp/plans/phase2-verify-plan.yaml").write_text("a: 1\n")
             d = heartgate.validate_transition(_full_artifact(run_id, "plan", "execute"))
             report["checks"].append({
                 "name": "scope_missing_blocks_plan_to_execute",
@@ -119,9 +120,9 @@ def main() -> int:
             })
 
             # --- Check 2: scope artifact present with correct fields + reachable write_paths passes ---
-            (tmp / f"plans/{run_id}-scope.yaml").write_text(_yaml.safe_dump({
+            (tmp / f".uacp/plans/{run_id}-scope.yaml").write_text(_yaml.safe_dump({
                 "run_id": run_id,
-                "write_paths": ["plans/", "executions/", ".outputs/"],
+                "write_paths": ["plans/", "executions/", "resolutions/"],
                 "blast_radius": "low",
                 "rollback_path": "git revert",
             }))
@@ -134,7 +135,7 @@ def main() -> int:
             })
 
             # --- Check 3: scope.write_paths cross-check rejects unreachable path ---
-            (tmp / f"plans/{run_id}-scope.yaml").write_text(_yaml.safe_dump({
+            (tmp / f".uacp/plans/{run_id}-scope.yaml").write_text(_yaml.safe_dump({
                 "run_id": run_id,
                 "write_paths": ["nonexistent-top-dir/anything"],
                 "blast_radius": "low",
@@ -148,7 +149,7 @@ def main() -> int:
             })
 
             # --- Check 4: scope missing required field blocks ---
-            (tmp / f"plans/{run_id}-scope.yaml").write_text(_yaml.safe_dump({
+            (tmp / f".uacp/plans/{run_id}-scope.yaml").write_text(_yaml.safe_dump({
                 "run_id": run_id,
                 # missing write_paths
                 "blast_radius": "low",
@@ -163,7 +164,7 @@ def main() -> int:
 
             # --- Check 5: intent doc missing blocks TRIAGE->PROPOSE ---
             _seed_ledger("triage", "TRIAGE_COMPLETE")
-            (tmp / f"proposals/{run_id}-triage.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/proposals/{run_id}-triage.yaml").write_text("a: 1\n")
             d = heartgate.validate_transition(_full_artifact(run_id, "triage", "propose"))
             report["checks"].append({
                 "name": "intent_missing_blocks_triage_to_propose",
@@ -172,7 +173,7 @@ def main() -> int:
             })
 
             # --- Check 6: intent doc present + all required sections passes ---
-            (tmp / f"proposals/{run_id}-intent.md").write_text(
+            (tmp / f".uacp/proposals/{run_id}-intent.md").write_text(
                 "# Intent\n\n## Success Definition\nx\n\n## Explicit Out-of-Scope\ny\n\n## Termination Condition\nz\n\n## Authority Source\nop\n"
             )
             d = heartgate.validate_transition(_full_artifact(run_id, "triage", "propose"))
@@ -184,7 +185,7 @@ def main() -> int:
             })
 
             # --- Check 7: intent doc missing a required section blocks ---
-            (tmp / f"proposals/{run_id}-intent.md").write_text(
+            (tmp / f".uacp/proposals/{run_id}-intent.md").write_text(
                 "# Intent\n\n## Success Definition\nx\n\n## Termination Condition\nz\n"
             )
             d = heartgate.validate_transition(_full_artifact(run_id, "triage", "propose"))
@@ -196,9 +197,9 @@ def main() -> int:
 
             # --- Check 8: evidence disposition pair missing blocks VERIFY->RESOLVE ---
             _seed_ledger("verify", "EXECUTE->VERIFY")
-            (tmp / f"verification/{run_id}-v.yaml").write_text("a: 1\n")
+            (tmp / f".uacp/verification/{run_id}-v.yaml").write_text("a: 1\n")
             # Lessons file pre-create for this check (so we isolate disposition blocker).
-            (tmp / f".outputs/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({"run_id": run_id, "lessons": []}))
+            (tmp / f".uacp/resolutions/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({"run_id": run_id, "lessons": []}))
             artifact = _full_artifact(run_id, "verify", "resolve",
                 clusters=[{"cluster_id": "scope", "state": "pass", "artifact_path": ""}])
             d = heartgate.validate_transition(artifact)
@@ -210,10 +211,10 @@ def main() -> int:
             })
 
             # --- Check 9: disposition pair present + no pending assumption passes ---
-            (tmp / f"verification/{run_id}-scope-verified-facts.md").write_text(
+            (tmp / f".uacp/verification/{run_id}-scope-verified-facts.md").write_text(
                 "# Verified Facts\n\n| Fact | Source |\n|---|---|\n| ok | tested |\n"
             )
-            (tmp / f"verification/{run_id}-scope-assumptions.md").write_text(
+            (tmp / f".uacp/verification/{run_id}-scope-assumptions.md").write_text(
                 "# Assumptions\n\n| Assumption | Disposition | Owner | Next-phase obligation |\n|---|---|---|---|\n| x | accepted_risk | mike | none |\n"
             )
             d = heartgate.validate_transition(artifact)
@@ -225,7 +226,7 @@ def main() -> int:
             })
 
             # --- Check 10: unowned pending assumption blocks ---
-            (tmp / f"verification/{run_id}-scope-assumptions.md").write_text(
+            (tmp / f".uacp/verification/{run_id}-scope-assumptions.md").write_text(
                 "# Assumptions\n\n| Assumption | Disposition | Owner | Next-phase obligation |\n|---|---|---|---|\n| missing-owner | pending |  |  |\n"
             )
             d = heartgate.validate_transition(artifact)
@@ -236,9 +237,9 @@ def main() -> int:
             })
 
             # --- Check 11: lessons artifact missing blocks VERIFY->RESOLVE ---
-            (tmp / f".outputs/{run_id}-lessons.yaml").unlink()
+            (tmp / f".uacp/resolutions/{run_id}-lessons.yaml").unlink()
             # Restore valid disposition for isolation.
-            (tmp / f"verification/{run_id}-scope-assumptions.md").write_text(
+            (tmp / f".uacp/verification/{run_id}-scope-assumptions.md").write_text(
                 "# Assumptions\n\n| Assumption | Disposition | Owner | Next-phase obligation |\n|---|---|---|---|\n| x | accepted_risk | mike | none |\n"
             )
             d = heartgate.validate_transition(artifact)
@@ -249,7 +250,7 @@ def main() -> int:
             })
 
             # --- Check 12: lessons artifact malformed (lessons key not a list) blocks ---
-            (tmp / f".outputs/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({"run_id": run_id, "lessons": "not-a-list"}))
+            (tmp / f".uacp/resolutions/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({"run_id": run_id, "lessons": "not-a-list"}))
             d = heartgate.validate_transition(artifact)
             report["checks"].append({
                 "name": "lessons_malformed_blocks",
@@ -258,7 +259,7 @@ def main() -> int:
             })
 
             # --- Check 13: well-formed lessons with ledger_citations passes ---
-            (tmp / f".outputs/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({
+            (tmp / f".uacp/resolutions/{run_id}-lessons.yaml").write_text(_yaml.safe_dump({
                 "run_id": run_id,
                 "lessons": [
                     {
@@ -314,8 +315,8 @@ def main() -> int:
             heartgate = Heartgate.load(tmp)
 
             # --- Remediation R-F3 (F3): empty disposition files block ---
-            (tmp / f"verification/{run_id}-scope-verified-facts.md").write_text("")  # empty file
-            (tmp / f"verification/{run_id}-scope-assumptions.md").write_text("")
+            (tmp / f".uacp/verification/{run_id}-scope-verified-facts.md").write_text("")  # empty file
+            (tmp / f".uacp/verification/{run_id}-scope-assumptions.md").write_text("")
             d = heartgate.validate_transition(artifact)
             empty_disp_blockers = [b for b in d.blockers if "is empty or missing required header" in b]
             report["checks"].append({
@@ -324,10 +325,10 @@ def main() -> int:
                 "blockers": empty_disp_blockers,
             })
             # Restore valid disposition files for later checks.
-            (tmp / f"verification/{run_id}-scope-verified-facts.md").write_text(
+            (tmp / f".uacp/verification/{run_id}-scope-verified-facts.md").write_text(
                 "# Verified Facts\n\n| Fact | Source |\n|---|---|\n| ok | tested |\n"
             )
-            (tmp / f"verification/{run_id}-scope-assumptions.md").write_text(
+            (tmp / f".uacp/verification/{run_id}-scope-assumptions.md").write_text(
                 "# Assumptions\n\n| Assumption | Disposition | Owner | Next-phase obligation |\n|---|---|---|---|\n| x | accepted_risk | mike | none |\n"
             )
 

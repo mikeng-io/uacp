@@ -41,21 +41,23 @@ _COMPLETE_ITEM = {
     "reason": "Out of scope for this run.",
 }
 
-_LESSONS_REL_TMPL = ".outputs/{run_id}-lessons.yaml"
+_LESSONS_REL_TMPL = "resolutions/{run_id}-lessons.yaml"
 
 
 def _codes(violations) -> set[str]:
     return {v.code for v in violations}
 
 
+def _lessons_disk_path(root: Path, run_id: str) -> Path:
+    return root / ".uacp" / _LESSONS_REL_TMPL.format(run_id=run_id)
+
+
 def _read_lessons(root: Path, run_id: str) -> dict:
-    return yaml.safe_load((root / _LESSONS_REL_TMPL.format(run_id=run_id)).read_text())
+    return yaml.safe_load(_lessons_disk_path(root, run_id).read_text())
 
 
 def _write_lessons(root: Path, run_id: str, data: dict) -> None:
-    (root / _LESSONS_REL_TMPL.format(run_id=run_id)).write_text(
-        yaml.safe_dump(data, sort_keys=False)
-    )
+    _lessons_disk_path(root, run_id).write_text(yaml.safe_dump(data, sort_keys=False))
 
 
 def seed_run_with_deferral(root: Path, run_id: str, item: dict) -> None:
@@ -183,7 +185,7 @@ def test_never_raises_on_missing_run(temp_uacp_root: Path):
 
 
 def test_never_raises_on_garbled_manifest(temp_uacp_root: Path, valid_run_id: str):
-    mpath = temp_uacp_root / "state" / "runs" / f"{valid_run_id}.yaml"
+    mpath = temp_uacp_root / ".uacp" / "state" / "runs" / f"{valid_run_id}.yaml"
     mpath.parent.mkdir(parents=True, exist_ok=True)
     mpath.write_text("this: : : not valid yaml: [")
     out = validate_deferral_completeness(temp_uacp_root, valid_run_id)

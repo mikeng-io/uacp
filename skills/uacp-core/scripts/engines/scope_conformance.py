@@ -65,6 +65,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from config import base_dir
+
 # The shared violation type + engine registry. Every engine reports the same
 # Violation; this engine registers itself in ENGINES at the bottom of the module.
 from engines.base import ENGINES, Violation
@@ -81,10 +83,11 @@ from engines.io.loaders import ManifestDoc
 
 # UACP output / state surfaces an in-scope run product may legitimately land in
 # even when not explicitly enumerated in write_paths: governed-writer outputs
-# (.outputs/), the run's own state (state/), and verification evidence. These are
-# system-owned write surfaces, not free-form EXECUTE writes, so a referenced
-# artifact under one of them is treated as in-scope.
-_ALLOWED_OUTPUT_PREFIXES = (".outputs", "state", "verification")
+# (resolutions/), the run's own state (state/), and verification evidence. These
+# are system-owned write surfaces, not free-form EXECUTE writes, so a referenced
+# artifact under one of them is treated as in-scope. Strings are base-relative
+# (resolved under .uacp/), so `resolutions` replaces the old `.outputs`.
+_ALLOWED_OUTPUT_PREFIXES = ("resolutions", "state", "verification")
 
 # Conservative fallback if config/artifact-schemas.yaml cannot be read. Kept in
 # sync with the schema's documented enum; the loader prefers the live schema.
@@ -326,7 +329,7 @@ def _check_artifact_containment(
 ) -> list[Violation]:
     """SC_ARTIFACT_OUT_OF_SCOPE — every artifact path the manifest references must
     fall UNDER a declared write_path OR a permitted UACP output surface
-    (.outputs/, state/, verification/). An artifact the manifest records as
+    (resolutions/, state/, verification/). An artifact the manifest records as
     living outside every declared boundary is an out-of-scope write the system
     CAN see.
 
@@ -344,8 +347,11 @@ def _check_artifact_containment(
         resolved = resolve_in_workspace(root, probe)
         if resolved is not None:
             allowed_roots.append(resolved)
+    # Permitted output surfaces are base-relative dirs under the governed
+    # namespace (.uacp/), matching where writers place artifacts and where
+    # resolve_in_workspace resolves the artifact refs below.
     for surface in _ALLOWED_OUTPUT_PREFIXES:
-        allowed_roots.append((root / surface).resolve())
+        allowed_roots.append((base_dir(root) / surface).resolve())
 
     scope_resolved = resolve_in_workspace(root, scope_rel)
 

@@ -2,7 +2,7 @@
 
 If `selected_scope.enter_uacp == true`, extract a concise scope package from the vault. This is the only artifact that crosses the brainstorm → TRIAGE boundary.
 
-**Scope package path:** `.outputs/brainstorm/{session_id}/07-scope-package.yaml`
+**Scope package path:** `.uacp/brainstorm/{session_id}/07-scope-package.yaml`
 
 ```yaml
 kind: uacp.brainstorm_scope_package
@@ -10,7 +10,7 @@ session_id: "{session_id}"
 run_id: ""  # populated by TRIAGE if admitted
 timestamp: "{ISO-8601}"
 
-source_vault: ".outputs/brainstorm/{session_id}/"
+source_vault: ".uacp/brainstorm/{session_id}/"
 
 selected_scope:
   title: "..."

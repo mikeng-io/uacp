@@ -1,6 +1,6 @@
 ## Step 8: Save Artifact
 
-Write to `.outputs/council/{YYYYMMDD-HHMMSS}-tier{N}-{session_id}.md` with frontmatter:
+Write to `.uacp/councils/{YYYYMMDD-HHMMSS}-tier{N}-{session_id}.md` with frontmatter:
 
 ```yaml
 ---

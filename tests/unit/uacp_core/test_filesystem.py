@@ -36,7 +36,11 @@ class TestResolveUacpPath:
 
     def test_rejects_symlink_traversal(self, temp_uacp_root: Path):
         root = temp_uacp_root
-        # Create a symlink inside UACP_ROOT that points outside
+        # Create a symlink inside UACP_ROOT that points outside. These tests
+        # exercise the layout-agnostic _resolve_uacp_path primitive against an
+        # arbitrary subdir under root, so create it explicitly (the fixture's
+        # standard dirs now live under .uacp/).
+        (root / "state").mkdir(parents=True, exist_ok=True)
         symlink_dir = root / "state" / "evil"
         symlink_dir.symlink_to("/tmp")
         with pytest.raises(ValueError, match="symlink"):
@@ -72,6 +76,7 @@ class TestWriteUacpFile:
     def test_overwrites_existing(self, temp_uacp_root: Path):
         root = temp_uacp_root
         target = root / "state" / "existing.txt"
+        target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("old")
         _write_uacp_file(target, "new")
         assert target.read_text() == "new"

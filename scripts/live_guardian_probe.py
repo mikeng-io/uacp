@@ -54,7 +54,7 @@ def _exercise_guardian_writers(checks):
         tmp_root = Path(tmp)
         (tmp_root / "config").mkdir(parents=True)
         (tmp_root / "docs").mkdir(parents=True)
-        (tmp_root / "state/runs").mkdir(parents=True)
+        (tmp_root / ".uacp/state/runs").mkdir(parents=True)
         shutil.copy2(UACP_ROOT / "config/guardian-policy.yaml", tmp_root / "config/guardian-policy.yaml")
         shutil.copy2(UACP_ROOT / "config/phase-transitions.yaml", tmp_root / "config/phase-transitions.yaml")
         old_env = {key: os.environ.get(key) for key in ["UACP_ROOT", "UACP_GUARDIAN_MODE"]}
@@ -145,7 +145,7 @@ def _exercise_guardian_writers(checks):
             checks.append(check(known_doc.decision == "allow_with_audit" and known_doc.category == "docs.uacp", "guardian_classifies_known_doc_writer", {"decision": known_doc.decision, "category": known_doc.category, "reason": known_doc.reason}))
             known_config = guardian.evaluate(make_event(tool_name="uacp_config_write", tool_provider="plugin", args={**common, "target_path": "config/probe.yaml"}))
             checks.append(check(known_config.decision == "allow_with_audit" and known_config.category == "config.uacp", "guardian_classifies_known_config_writer", {"decision": known_config.decision, "category": known_config.category, "reason": known_config.reason}))
-            transition_ok = tmp_root / "state/runs/probe-verify-to-resolve.yaml"
+            transition_ok = tmp_root / ".uacp/state/runs/probe-verify-to-resolve.yaml"
             transition_ok.write_text("""kind: uacp.phase_transition
 transition_id: probe-verify-to-resolve
 run_id: live-guardian-proof-20260514
@@ -189,7 +189,7 @@ human_involvement:
             }))
             checks.append(check(heartgate_ok.get("ok") is True and heartgate_ok.get("decision") == "pass", "uacp_heartgate_check_passes_valid_transition", heartgate_ok))
 
-            transition_bad = tmp_root / "state/runs/probe-invalid-transition.yaml"
+            transition_bad = tmp_root / ".uacp/state/runs/probe-invalid-transition.yaml"
             transition_bad.write_text("""kind: uacp.phase_transition
 transition_id: probe-invalid
 run_id: live-guardian-proof-20260514
@@ -337,8 +337,8 @@ def main():
     yaml_paths = [
         "config/runtime-bindings.yaml",
         "config/state.yaml",
-        ".outputs/uacp-current-status.yaml",
-        "verification/runtime-porting-20260514-cleanup-doc-sync.yaml",
+        ".uacp/resolutions/uacp-current-status.yaml",
+        ".uacp/verification/runtime-porting-20260514-cleanup-doc-sync.yaml",
     ]
     for rel in yaml_paths:
         path = UACP_ROOT / rel

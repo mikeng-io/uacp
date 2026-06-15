@@ -18,20 +18,37 @@ sys.path.insert(0, str(UACP_ROOT / "skills" / "uacp-state" / "scripts"))
 sys.path.insert(0, str(UACP_ROOT / "runtime-adapters" / "hermes" / "plugins" / "uacp_guardian"))
 
 
+@pytest.fixture(autouse=True)
+def _clear_uacp_config_cache():
+    """Reset config.py's per-root cache around every test (override hygiene)."""
+    try:
+        from config import clear_config_cache
+    except Exception:
+        yield
+        return
+    clear_config_cache()
+    yield
+    clear_config_cache()
+
+
 @pytest.fixture
 def temp_uacp_root() -> Generator[Path, None, None]:
     """Create a temporary UACP_ROOT directory with standard structure."""
     test_dir = Path(tempfile.mkdtemp(prefix="uacp-test-"))
     original_cwd = os.getcwd()
 
-    # Create standard UACP directories
-    (test_dir / "state" / "runs").mkdir(parents=True)
-    (test_dir / "state" / "gate-ledger").mkdir(parents=True)
-    (test_dir / "state" / "escalations").mkdir(parents=True)
-    (test_dir / "plans").mkdir(parents=True)
-    (test_dir / "proposals").mkdir(parents=True)
-    (test_dir / ".outputs").mkdir(parents=True)
-    (test_dir / "verification").mkdir(parents=True)
+    # Create standard UACP directories under the .uacp/ governed namespace.
+    base = test_dir / ".uacp"
+    (base / "state" / "runs").mkdir(parents=True)
+    (base / "state" / "gate-ledger").mkdir(parents=True)
+    (base / "state" / "escalations").mkdir(parents=True)
+    (base / "plans").mkdir(parents=True)
+    (base / "proposals").mkdir(parents=True)
+    (base / "executions").mkdir(parents=True)
+    (base / "resolutions").mkdir(parents=True)  # replaces flat .outputs/
+    (base / "verification").mkdir(parents=True)
+    (base / "knowledge").mkdir(parents=True)
+    # config/ stays at project root this slice (knob collapse is Slice 3).
     (test_dir / "config").mkdir(parents=True)
     (test_dir / "docs").mkdir(parents=True)
 

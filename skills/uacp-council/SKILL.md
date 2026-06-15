@@ -47,6 +47,6 @@ Read: [skills-root]/uacp-council-taxonomy/SKILL.md
 3. **Plan** — read `phase-3-domain-planning.md` to resolve domains and prompts.
 4. **Dispatch** — read `phase-4-dispatch.md` to run Tier 0/1/2/3 or IC-hoist.
 5. **Synthesize** — read `phase-7-synthesis.md` to merge outputs and apply verdicts.
-6. **Save** — read `phase-8-artifact.md` and write the artifact to `.outputs/council/`.
+6. **Save** — read `phase-8-artifact.md` and write the artifact to `.uacp/councils/`.
 
 Also read `modes.md`, `finding-driven-mode.md`, `tier-reference.md`, `devils-advocate.md`, and `integration-checker.md` before constructing role prompts or interpreting results.

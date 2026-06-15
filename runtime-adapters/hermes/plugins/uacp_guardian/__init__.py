@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import time
@@ -25,6 +24,7 @@ from .kernel import (
 
 # Import runtime-neutral filesystem helpers from uacp-core.
 from filesystem import _resolve_uacp_path, _write_uacp_file
+from config import base_dir
 
 # Add uacp-state/scripts to path so we can import state handlers.
 _STATE_SCRIPTS = Path(__file__).resolve().parents[4] / "skills" / "uacp-state" / "scripts"
@@ -161,7 +161,7 @@ def on_pre_tool_call(
         )
         decision = _decision_for_event(event)
         if decision.audit_required:
-            audit_path = write_audit_record(decision.to_audit_record(event))
+            write_audit_record(decision.to_audit_record(event))
             decision = GuardianDecision(
                 decision.decision,
                 decision.category,
@@ -621,18 +621,18 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
             return json.dumps({"error": validated})
         target_path, content, reason, authority = validated
 
-        target = _resolve_uacp_path(target_path, root)
-        rel = target.relative_to(root)
+        target = _resolve_uacp_path(target_path, base_dir(root))
+        rel = target.relative_to(base_dir(root))
         if not rel.parts:
             return json.dumps({"error": "target_path must point to an artifact file"})
-        allowed_roots = {"plans", "proposals", "executions", "verification", "outputs", "knowledge"}
+        allowed_roots = {"plans", "proposals", "executions", "verification", "resolutions", "knowledge"}
         forbidden_roots = {"state", "docs", "config"}
         top = rel.parts[0]
         if top in forbidden_roots:
             return json.dumps({"error": f"uacp_artifact_write may not write under {top}/"})
         if top not in allowed_roots:
             return json.dumps(
-                {"error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, .outputs/, or knowledge/"}
+                {"error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, resolutions/, or knowledge/"}
             )
         if target.name in {"", ".", ".."}:
             return json.dumps({"error": "target_path must point to a file"})
@@ -745,9 +745,9 @@ def _handle_uacp_heartgate_check(args: dict, **_: Any) -> str:
         if not authority:
             return json.dumps({"error": "authority_artifact is required"})
 
-        target = _resolve_uacp_path(transition_path, root)
-        rel = target.relative_to(root.resolve())
-        allowed_transition_roots = {"state", "verification", "executions", "plans", "proposals", "outputs", "knowledge"}
+        target = _resolve_uacp_path(transition_path, base_dir(root))
+        rel = target.relative_to(base_dir(root))
+        allowed_transition_roots = {"state", "verification", "executions", "plans", "proposals", "resolutions", "knowledge"}
         if not rel.parts or rel.parts[0] not in allowed_transition_roots:
             return json.dumps({"error": "transition_path must be under a managed UACP artifact/state directory"})
         if target.suffix not in {".yaml", ".yml"}:

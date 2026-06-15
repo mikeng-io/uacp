@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping
 
+from config import base_dir
+
 try:
     import yaml
 except ImportError:  # pragma: no cover - Hermes ships with PyYAML in normal use.
@@ -553,7 +555,7 @@ class Guardian:
                 token = token.strip('"\'')
                 if not token or token.startswith("-"):
                     continue
-                if token.startswith(("./", "../", "state/", "config/", "docs/", "proposals/", "plans/", "executions/", "verification/", ".outputs/", "uacp/")):
+                if token.startswith(("./", "../", ".uacp/", "state/", "config/", "docs/", "proposals/", "plans/", "executions/", "verification/", "resolutions/", "knowledge/", "uacp/")):
                     for base in context_paths or [root_path]:
                         try:
                             candidate = (base / token).resolve()
@@ -566,7 +568,7 @@ class Guardian:
     def _path_is_under_state(self, raw_path: str) -> bool:
         try:
             path = self._resolve_path(raw_path)
-            state_root = (self.policy.uacp_root / "state").resolve()
+            state_root = (base_dir(self.policy.uacp_root) / "state").resolve()
             return path == state_root or state_root in path.parents
         except Exception:
             return False
@@ -695,6 +697,7 @@ class Heartgate:
     def __init__(self, config: Mapping[str, Any], *, uacp_root: str | Path | None = None):
         self.config = dict(config)
         self.uacp_root = resolve_uacp_root(uacp_root)
+        self.governed_root = base_dir(self.uacp_root)
         self.stages = self.config.get("stages") or {}
         schema = self.config.get("artifact_schema") or {}
         self.required_fields = list(schema.get("required_fields") or [])
@@ -808,7 +811,7 @@ class Heartgate:
     def validate_transition_file(self, path: str | Path) -> HeartgateDecision:
         raw_path = Path(path)
         if not raw_path.is_absolute():
-            raw_path = self.uacp_root / raw_path
+            raw_path = self.governed_root / raw_path
         if yaml is None:
             raise HeartgateError("PyYAML is required to load transition artifact")
         artifact = yaml.safe_load(raw_path.read_text(encoding="utf-8"))
@@ -947,9 +950,9 @@ class Heartgate:
         try:
             path = Path(artifact_path)
             if not path.is_absolute():
-                path = self.uacp_root / path
+                path = self.governed_root / path
             resolved = path.resolve()
-            root = self.uacp_root.resolve()
+            root = self.governed_root.resolve()
             if resolved != root and root not in resolved.parents:
                 return False
             return resolved.exists()
@@ -1047,8 +1050,8 @@ class Heartgate:
             return
         selection_rel = f"proposals/{run_id}-package-selection.yaml"
         package_rel = f"proposals/{run_id}"
-        selection_path = self.uacp_root / selection_rel
-        package_path = self.uacp_root / package_rel
+        selection_path = self.governed_root / selection_rel
+        package_path = self.governed_root / package_rel
         if not selection_path.exists():
             blockers.append(f"adaptive_proposal_package_gate: missing {selection_rel}")
             return
@@ -1115,9 +1118,9 @@ class Heartgate:
         selection_rel = f"plans/{run_id}-plan-selection.yaml"
         package_rel = f"plans/{run_id}"
         scope_rel = f"plans/{run_id}-scope.yaml"
-        selection_path = self.uacp_root / selection_rel
-        package_path = self.uacp_root / package_rel
-        scope_path = self.uacp_root / scope_rel
+        selection_path = self.governed_root / selection_rel
+        package_path = self.governed_root / package_rel
+        scope_path = self.governed_root / scope_rel
         if not selection_path.exists():
             blockers.append(f"adaptive_plan_package_gate: missing {selection_rel}")
             return
@@ -1207,8 +1210,8 @@ class Heartgate:
             if candidate.is_absolute():
                 resolved = candidate.resolve()
             else:
-                resolved = (self.uacp_root / candidate).resolve()
-            root = self.uacp_root.resolve()
+                resolved = (self.governed_root / candidate).resolve()
+            root = self.governed_root.resolve()
             if resolved != root and root not in resolved.parents:
                 blockers.append(f"{label}: artifact path escapes UACP root: {rel_path}")
                 return None
@@ -1226,8 +1229,8 @@ class Heartgate:
 
     def _dir_under_root_exists(self, rel_path: str) -> bool:
         try:
-            p = (self.uacp_root / rel_path).resolve()
-            root = self.uacp_root.resolve()
+            p = (self.governed_root / rel_path).resolve()
+            root = self.governed_root.resolve()
             return p.is_dir() and (p == root or root in p.parents)
         except Exception:
             return False
@@ -1256,9 +1259,16 @@ class Heartgate:
             configs = module.validate_configs(self.uacp_root, issues)
             module.validate_transition_config_consistency(configs, issues)
             phase_config = configs.get("config/phase-transitions.yaml") or {}
+            # The offline validator (validate_uacp_artifacts.py) is now .uacp/-aware:
+            # it reads config flat under the project root but resolves state/artifact
+            # paths under base_dir(root). So the artifact `path` Heartgate loads here
+            # resolves under governed_root, while validate_configs + the validate_*
+            # kwargs keep passing the project root (self.uacp_root) — the validator
+            # base_dir's internally. (Council C-A: keeps the in-process path correct
+            # on a migrated repo instead of fail-closed BLOCKing real transitions.)
             for rel in rel_paths:
-                path = (self.uacp_root / rel).resolve()
-                root = self.uacp_root.resolve()
+                path = (self.governed_root / rel).resolve()
+                root = self.governed_root.resolve()
                 if path != root and root not in path.parents:
                     issues.append(f"BLOCK {label}: artifact path escapes UACP root: {rel}")
                     continue
@@ -1351,7 +1361,7 @@ class Heartgate:
                     blockers.append("adaptive_verify_evidence_gate: open blocker in resolve readiness")
         piv_assessment_rel = f"verification/{run_id}-piv-assessment.yaml"
         artifacts = [selection_rel, readiness_rel]
-        if (self.uacp_root / piv_assessment_rel).exists():
+        if (self.governed_root / piv_assessment_rel).exists():
             artifacts.append(piv_assessment_rel)
         self._offline_validate_artifacts(artifacts, blockers, "adaptive_verify_evidence_gate")
         if not self._dir_under_root_exists(package_rel):
@@ -1366,10 +1376,10 @@ class Heartgate:
         if not run_id:
             blockers.append("adaptive_resolve_closure_gate requires run_id")
             return
-        selection_rel = f".outputs/{run_id}-resolve-selection.yaml"
-        closure_rel = f".outputs/{run_id}-closure.yaml"
+        selection_rel = f"resolutions/{run_id}-resolve-selection.yaml"
+        closure_rel = f"resolutions/{run_id}-closure.yaml"
         readiness_rel = f"verification/{run_id}-resolve-readiness.yaml"
-        package_rel = f".outputs/{run_id}"
+        package_rel = f"resolutions/{run_id}"
         selection = self._load_yaml_under_root(selection_rel, blockers, "adaptive_resolve_closure_gate")
         if selection is not None:
             if selection.get("kind") != "uacp.resolve_package":
@@ -1421,11 +1431,11 @@ class Heartgate:
             blockers.append("piv_rule requires run_id to verify ledger record")
             return
         if not _is_safe_run_id(run_id):
-            blockers.append(f"piv_rule: unsafe run_id rejected for ledger lookup")
+            blockers.append("piv_rule: unsafe run_id rejected for ledger lookup")
             return
-        ledger_path = self.uacp_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
+        ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
         if not ledger_path.exists():
-            blockers.append(f"piv_rule unmet: no gate ledger at {ledger_path.relative_to(self.uacp_root)}")
+            blockers.append(f"piv_rule unmet: no gate ledger at {ledger_path.relative_to(self.governed_root)}")
             return
         from_phase = str(artifact.get("from_phase") or "")
         # Precompute declared piv_ids when piv_rule.checks is present.
@@ -1543,8 +1553,8 @@ class Heartgate:
         """
         import glob as _glob
         try:
-            root = self.uacp_root.resolve()
-            matches = _glob.glob(str(self.uacp_root / pattern), recursive=True)
+            root = self.governed_root.resolve()
+            matches = _glob.glob(str(self.governed_root / pattern), recursive=True)
             for raw in matches:
                 p = Path(raw)
                 if p.is_symlink():
@@ -1573,7 +1583,7 @@ class Heartgate:
     def _ledger_contains_gate(self, run_id: str, gate: str) -> bool:
         if not _is_safe_run_id(run_id):
             return False
-        ledger_path = self.uacp_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
+        ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
         if not ledger_path.exists():
             return False
         try:
@@ -1611,9 +1621,9 @@ class Heartgate:
             blockers.append("intent doc: unsafe or missing run_id")
             return
         template = str(schema.get("path_template") or "proposals/{run_id}-intent.md")
-        path = self.uacp_root / template.replace("{run_id}", run_id)
+        path = self.governed_root / template.replace("{run_id}", run_id)
         if not path.exists():
-            blockers.append(f"intent doc missing: {path.relative_to(self.uacp_root)}")
+            blockers.append(f"intent doc missing: {path.relative_to(self.governed_root)}")
             return
         try:
             text = path.read_text(encoding="utf-8")
@@ -1677,9 +1687,9 @@ class Heartgate:
             blockers.append("scope artifact: unsafe or missing run_id")
             return
         template = str(schema.get("path_template") or "plans/{run_id}-scope.yaml")
-        path = self.uacp_root / template.replace("{run_id}", run_id)
+        path = self.governed_root / template.replace("{run_id}", run_id)
         if not path.exists():
-            blockers.append(f"scope artifact missing: {path.relative_to(self.uacp_root)}")
+            blockers.append(f"scope artifact missing: {path.relative_to(self.governed_root)}")
             return
         if yaml is None:
             blockers.append("scope artifact requires PyYAML to validate")
@@ -1897,7 +1907,7 @@ class Heartgate:
                 (assumptions_tmpl, "assumptions", assump_req),
             ):
                 rel = tmpl.replace("{run_id}", run_id).replace("{cluster}", cluster_id)
-                p = self.uacp_root / rel
+                p = self.governed_root / rel
                 if not p.exists():
                     blockers.append(f"evidence_disposition: missing {label} for cluster '{cluster_id}': {rel}")
                     continue
@@ -1912,7 +1922,7 @@ class Heartgate:
                         )
             # Inspect assumptions for unowned 'pending' rows.
             assumptions_rel = assumptions_tmpl.replace("{run_id}", run_id).replace("{cluster}", cluster_id)
-            assumptions_path = self.uacp_root / assumptions_rel
+            assumptions_path = self.governed_root / assumptions_rel
             if assumptions_path.exists():
                 try:
                     text = assumptions_path.read_text(encoding="utf-8")
@@ -2022,9 +2032,9 @@ class Heartgate:
         # Required-field policy for the ledger record (mirrors piv_rule.ledger_required_fields).
         ledger_required_fields = [str(f) for f in (rule.get("ledger_required_fields") or ["phase", "checks", "result"]) if isinstance(f, str)]
         required_phase = str(rule.get("ledger_required_phase") or "plan")
-        ledger_path = self.uacp_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
+        ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
         if not ledger_path.exists():
-            blockers.append(f"plan_validation_gate: missing {gate_name} ledger entry (no ledger file at {ledger_path.relative_to(self.uacp_root)})")
+            blockers.append(f"plan_validation_gate: missing {gate_name} ledger entry (no ledger file at {ledger_path.relative_to(self.governed_root)})")
             return
         try:
             raw = ledger_path.read_text(encoding="utf-8")
@@ -2182,7 +2192,7 @@ class Heartgate:
         if not _is_safe_run_id(run_id):
             return
         registry_rel = str(rule.get("registry_path") or "state/run-registry.yaml")
-        registry_path = self.uacp_root / registry_rel
+        registry_path = self.governed_root / registry_rel
         if not registry_path.exists():
             # No registry yet — emit a warning so it is observable but do not
             # block; runs that pre-date the registry must not be blocked
@@ -2208,7 +2218,7 @@ class Heartgate:
             blockers.append("run_registry: 'active_runs' must be a list")
             return
         # Load the active run's scope to extract its write_paths.
-        scope_path = self.uacp_root / "plans" / f"{run_id}-scope.yaml"
+        scope_path = self.governed_root / "plans" / f"{run_id}-scope.yaml"
         if not scope_path.exists():
             return  # scope_artifact validator handles missing-scope blockers
         try:
@@ -2244,7 +2254,7 @@ class Heartgate:
                         )
 
     def _validate_lessons_artifact(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
-        """Phase 2.4: VERIFY->RESOLVE requires .outputs/{run_id}-lessons.yaml
+        """Phase 2.4: VERIFY->RESOLVE requires resolutions/{run_id}-lessons.yaml
         with structured schema (run_id + lessons list).
         """
         schema = (self.artifact_schemas.get("lessons") or {})
@@ -2259,10 +2269,10 @@ class Heartgate:
         if not _is_safe_run_id(run_id):
             blockers.append("lessons: unsafe or missing run_id")
             return
-        template = str(schema.get("path_template") or ".outputs/{run_id}-lessons.yaml")
-        path = self.uacp_root / template.replace("{run_id}", run_id)
+        template = str(schema.get("path_template") or "resolutions/{run_id}-lessons.yaml")
+        path = self.governed_root / template.replace("{run_id}", run_id)
         if not path.exists():
-            blockers.append(f"lessons artifact missing: {path.relative_to(self.uacp_root)}")
+            blockers.append(f"lessons artifact missing: {path.relative_to(self.governed_root)}")
             return
         if yaml is None:
             return
@@ -2298,9 +2308,9 @@ class Heartgate:
             if not (item.get("id") and item.get("accepted_by") and item.get("owner") and item.get("rationale") and item.get("next_phase_acceptance")):
                 continue
             run_id = str(artifact.get("run_id") or "")
-            if not artifact_path.startswith(("verification/", ".outputs/")):
+            if not artifact_path.startswith(("verification/", "resolutions/")):
                 continue
-            if run_id and not artifact_path.startswith((f"verification/{run_id}", f".outputs/{run_id}")):
+            if run_id and not artifact_path.startswith((f"verification/{run_id}", f"resolutions/{run_id}")):
                 continue
             if not self._artifact_path_exists(artifact_path):
                 continue

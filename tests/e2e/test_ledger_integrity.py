@@ -22,7 +22,7 @@ from tests.e2e.test_coherence import seed_coherent_run
 
 
 def _ledger_path(root: Path, run_id: str) -> Path:
-    return root / "state" / "gate-ledger" / f"{run_id}.jsonl"
+    return root / ".uacp" / "state" / "gate-ledger" / f"{run_id}.jsonl"
 
 
 def _read_lines(root: Path, run_id: str) -> list[str]:

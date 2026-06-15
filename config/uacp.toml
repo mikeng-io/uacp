@@ -27,10 +27,10 @@ knowledge = "knowledge"
 config = "config.toml"
 
 [paths.bridge_artifacts]
-root = ".outputs/bridges"               # Bridge execution artifacts (JSONL + Markdown)
+root = "bridges"               # Bridge execution artifacts (JSONL + Markdown), resolved under .uacp/
 
 [paths.council_artifacts]
-root = ".outputs/councils"              # Council session artifacts
+root = "councils"              # Council session artifacts, resolved under .uacp/
 
 # =============================================================================
 # MODEL REGISTRY

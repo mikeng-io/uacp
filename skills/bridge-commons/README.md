@@ -15,7 +15,7 @@ Each bridge adapter (Claude, Gemini, Codex, OpenCode) connects to a different AI
 | Input schema | `bridge_input` — the standard contract every bridge accepts |
 | Output schema | Common report structure every bridge returns |
 | Status semantics | `COMPLETED`, `SKIPPED`, `HALTED`, `ABORTED` and when each applies |
-| Artifact format | JSONL event log + Markdown summary in `...outputs/bridges/` |
+| Artifact format | JSONL event log + Markdown summary in `.uacp/bridges/` |
 | Error handling | Exit code patterns, timeout handling, parse failure recovery |
 
 ## How Bridges Use This

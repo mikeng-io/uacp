@@ -16,6 +16,7 @@ _CORE_DIR = Path(__file__).resolve().parents[2] / "uacp-core" / "scripts"
 if str(_CORE_DIR) not in sys.path:
     sys.path.insert(0, str(_CORE_DIR))
 
+from config import base_dir
 from core import GuardianPolicy, Heartgate, _is_safe_run_id
 from filesystem import _resolve_uacp_path, _write_uacp_file
 
@@ -105,8 +106,9 @@ def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
         if len(line.encode("utf-8")) > 3584:
             return json.dumps({"error": "record exceeds 3584-byte ledger limit (PIPE_BUF atomicity)"})
 
-        ledger_root = (root / "state" / "gate-ledger").resolve()
-        if (root / "state").resolve() not in ledger_root.parents and ledger_root != (root / "state").resolve():
+        base = base_dir(root)
+        ledger_root = (base / "state" / "gate-ledger").resolve()
+        if (base / "state").resolve() not in ledger_root.parents and ledger_root != (base / "state").resolve():
             return json.dumps({"error": "gate-ledger root resolved outside state/"})
         ledger_root.mkdir(parents=True, exist_ok=True)
         ledger_path = ledger_root / f"{run_id}.jsonl"
@@ -117,7 +119,7 @@ def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
         return json.dumps(
             {
                 "ok": True,
-                "path": str(ledger_path.relative_to(root)),
+                "path": str(ledger_path.relative_to(base)),
                 "gate": gate,
                 "run_id": run_id,
                 "byte_offset": offset,
@@ -139,22 +141,23 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
             return json.dumps({"error": validated})
         target_path, content, reason, authority = validated
 
-        target = _resolve_uacp_path(target_path, root)
-        state_root = (root / "state").resolve()
+        base = base_dir(root)
+        target = _resolve_uacp_path(target_path, base)
+        state_root = (base / "state").resolve()
         if target != state_root and state_root not in target.parents:
             return json.dumps({"error": "uacp_state_write may only write under state/"})
         # Phase 1 remediation (skeptic F1): the gate ledger is append-only and
         # must only be written through uacp_gate_ledger_append. uacp_state_write
         # refuses any path under state/gate-ledger/, eliminating the forge-
         # PIV-record bypass.
-        gate_ledger_root = (root / "state" / "gate-ledger").resolve()
+        gate_ledger_root = (base / "state" / "gate-ledger").resolve()
         if target == gate_ledger_root or gate_ledger_root in target.parents:
             return json.dumps({"error": "uacp_state_write may not write under state/gate-ledger/; use uacp_gate_ledger_append"})
         # Phase 3 R1 (GOV-002 / SKEP-002): the run registry is exclusively
         # mutated by the uacp-state skill. Mirror the gate-ledger pattern —
         # refuse direct writes through uacp_state_write so the registry
         # cannot be clobbered by an EXECUTE-phase caller.
-        run_registry_path = (root / "state" / "run-registry.yaml").resolve()
+        run_registry_path = (base / "state" / "run-registry.yaml").resolve()
         if target == run_registry_path:
             return json.dumps({"error": "uacp_state_write may not write state/run-registry.yaml directly; use uacp_run_registry_update via the uacp-state skill"})
         # Global review R1 (TECH-G-001): state/escalations/ is exclusively
@@ -162,7 +165,7 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         # established by gate-ledger and run-registry so uacp_state_write
         # cannot clobber JSONL files or skip the trigger/severity/mode
         # validation done in the narrow writer.
-        escalations_root = (root / "state" / "escalations").resolve()
+        escalations_root = (base / "state" / "escalations").resolve()
         if target == escalations_root or escalations_root in target.parents:
             return json.dumps({"error": "uacp_state_write may not write under state/escalations/; use uacp_escalation_event"})
         # Global review R1 (SKEP-G-005): state/current.yaml is the active-run
@@ -178,7 +181,7 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         # but new content has empty active_run_id). Bootstrap permits any
         # caller to seed the file; once the file exists, every write must
         # declare a non-empty active_run_id that matches the caller.
-        current_pointer_path = (root / "state" / "current.yaml").resolve()
+        current_pointer_path = (base / "state" / "current.yaml").resolve()
         if target == current_pointer_path:
             caller_run_id = str(args.get("uacp_run_id") or "")
             try:
@@ -207,7 +210,7 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         return json.dumps(
             {
                 "ok": True,
-                "path": str(target.relative_to(root)),
+                "path": str(target.relative_to(base)),
                 "reason": reason,
                 "authority_artifact": authority,
             },
@@ -251,6 +254,7 @@ def _handle_uacp_run_registry_update(args: dict, **_: Any) -> str:
         workspace = args.get("workspace")
         policy = GuardianPolicy.load(workspace)
         root = policy.uacp_root
+        base = base_dir(root)
         op = str(args.get("op") or "").strip().lower()
         if op not in {"register", "deregister"}:
             return json.dumps({"error": "uacp_run_registry_update: op must be 'register' or 'deregister'"})
@@ -268,7 +272,7 @@ def _handle_uacp_run_registry_update(args: dict, **_: Any) -> str:
         authority = str(args.get("authority_artifact") or "")
         if not reason or not authority:
             return json.dumps({"error": "uacp_run_registry_update: reason and authority_artifact are required"})
-        registry_path = (root / "state" / "run-registry.yaml").resolve()
+        registry_path = (base / "state" / "run-registry.yaml").resolve()
         # Read existing registry.
         try:
             import yaml as _yaml
@@ -351,6 +355,7 @@ def _handle_uacp_escalation_event(args: dict, **_: Any) -> str:
         workspace = args.get("workspace")
         policy = GuardianPolicy.load(workspace)
         root = policy.uacp_root
+        base = base_dir(root)
         run_id = str(args.get("uacp_run_id") or "")
         if not _is_safe_run_id(run_id):
             return json.dumps({"error": "uacp_escalation_event: unsafe or missing uacp_run_id"})
@@ -397,8 +402,8 @@ def _handle_uacp_escalation_event(args: dict, **_: Any) -> str:
         # Phase 4 R1 (TECH-P4-005): containment check — ensure resolved path
         # remains under root/state/escalations. Defense-in-depth alongside
         # _is_safe_run_id (which already prevents traversal).
-        out_path = (root / "state" / "escalations" / f"{run_id}.jsonl").resolve()
-        escalations_root = (root / "state" / "escalations").resolve()
+        out_path = (base / "state" / "escalations" / f"{run_id}.jsonl").resolve()
+        escalations_root = (base / "state" / "escalations").resolve()
         if escalations_root not in out_path.parents:
             return json.dumps({"error": "uacp_escalation_event: resolved path escapes state/escalations/"})
         # Phase 4 R1 (TECH-P4-009): mirror gate-ledger's explicit embedded-newline
@@ -408,6 +413,6 @@ def _handle_uacp_escalation_event(args: dict, **_: Any) -> str:
         out_path.parent.mkdir(parents=True, exist_ok=True)
         with out_path.open("a", encoding="utf-8") as fh:
             fh.write(line + "\n")
-        return json.dumps({"ok": True, "path": str(out_path.relative_to(root)), "trigger": trigger, "severity": severity, "run_id": run_id, "authority_artifact": authority}, ensure_ascii=False)
+        return json.dumps({"ok": True, "path": str(out_path.relative_to(base)), "trigger": trigger, "severity": severity, "run_id": run_id, "authority_artifact": authority}, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"error": f"uacp_escalation_event failed: {type(exc).__name__}: {exc}"})

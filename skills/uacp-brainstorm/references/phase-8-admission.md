@@ -38,7 +38,7 @@ Heartgate checks whether the proposed scope conflicts with existing UACP state. 
 ```bash
 python3 skills/uacp-guardian/scripts/guardian.py heartgate \
   --proposed-phase triage \
-  --artifact-path .outputs/brainstorm/{session_id}/07-scope-package.yaml \
+  --artifact-path .uacp/brainstorm/{session_id}/07-scope-package.yaml \
   --side-effects {declared_side_effects}
 ```
 

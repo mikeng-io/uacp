@@ -4,7 +4,7 @@ description: >
   Pre-TRIAGE exploration and scope-clarification skill. Helps the user understand
   what they actually want before UACP admission control. Writes rough notes,
   design sketches, and candidate scopes into an Obsidian-style vault under
-  .outputs/brainstorm/. Only the trimmed selected scope transitions into TRIAGE.
+  .uacp/brainstorm/. Only the trimmed selected scope transitions into TRIAGE.
 location: managed
 dependencies:
   - uacp-context
@@ -29,7 +29,7 @@ allowed-tools:
 
 Use this skill when the user has a vague idea, ambiguous scope, or multiple possible directions. Brainstorming happens **before** UACP admission control. Its job is to help the user understand what they actually want and trim it down to a bounded scope that can be handed to TRIAGE.
 
-**This skill is informal.** It does not write formal UACP proposals, state records, or lifecycle artifacts. It writes rough notes to an Obsidian-style vault under `.outputs/brainstorm/`. Only the final selected scope transitions into TRIAGE.
+**This skill is informal.** It does not write formal UACP proposals, state records, or lifecycle artifacts. It writes rough notes to an Obsidian-style vault under `.uacp/brainstorm/`. Only the final selected scope transitions into TRIAGE.
 
 **Hard rule:** do not invoke implementation skills during brainstorming. Exploration only.
 
@@ -64,7 +64,7 @@ BRAINSTORM → TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE
                             formal UACP state begins here
 ```
 
-- Brainstorm outputs live in `.outputs/brainstorm/` (local notes).
+- Brainstorm outputs live in `.uacp/brainstorm/` (local notes).
 - TRIAGE receives a **selected-scope package**, not the whole vault.
 - If the user declines UACP governance, the vault remains as documentation and the process stops.
 
