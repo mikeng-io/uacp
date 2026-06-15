@@ -206,7 +206,7 @@ current_pointer_schema:
       description: >
         Phase 4.1 stub — operating mode for the active run. Determines which
         skill mode_behavior stubs apply and which escalation triggers
-        (config/autonomy-policy.yaml) fire. manual is the safe default.
+        (config/uacp.toml [autonomy]) fire. manual is the safe default.
         Phase 4 R1 honesty (SKEP-P4-003 / TECH-P4-006): no kernel reader
         consumes this field in Phase 4; mode is consumed only by skills as
         guidance. Phase 5 adds the first kernel reader

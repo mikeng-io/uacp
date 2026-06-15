@@ -56,7 +56,6 @@ def _prepare_root(tmp: Path) -> None:
         "phase-transitions.yaml",
         "state.yaml",
         "artifact-schemas.yaml",
-        "autonomy-policy.yaml",
     ):
         shutil.copy2(ROOT / "config" / name, tmp / "config" / name)
 

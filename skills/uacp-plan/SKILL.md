@@ -53,7 +53,7 @@ Per-record DoS resistance (Phase 3 R2 / SKEP-R1-007): Heartgate scans ALL `PLAN_
 - `UACP_ROOT/docs/INDEX.md`
 - `UACP_ROOT/docs/lifecycle/lifecycle-reference.md`
 - `UACP_ROOT/config/phase-transitions.yaml`
-- `UACP_ROOT/config/review-routing.yaml`
+- `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`)
 
 ## Rules
 - Keep the plan bounded.
@@ -126,7 +126,7 @@ A complete plan should identify:
 - selected profiles, agent runtimes, tool adapters, evidence services, and control substrates,
 - profile/runtime separation: `role` = cognitive responsibility, `profile_id` = Hermes execution identity/configuration, `runtime_surface` = where work runs,
 - runtime adapter ownership when plugins/hooks/config are involved: UACP-owned source under `UACP_ROOT/runtime-adapters/<runtime>/...` vs runtime-local binding path,
-- version-control/branch/worktree SOP when the plan changes UACP artifacts or runtime adapter source,
+- version-control/branch/worktree SOP when the plan changes UACP artifacts or runtime adapter source (see `config/uacp.toml [version_control]`),
 - symlink/install/export binding and rollback steps when UACP-owned adapters are consumed by Hermes/OpenCode/Claude Code/Codex/etc.,
 - whether delegated work should use native `delegate_task`, a Hermes Kanban/profile worker, a spawned `hermes --profile <name>` process, or an external runtime adapter,
 - human involvement checkpoints,
@@ -207,7 +207,7 @@ During this skill-library refactor specifically, do **not** use UACP protected w
 
 ## mode_behavior (Phase 4.3 stub)
 
-This skill consults `config/autonomy-policy.yaml` to decide which actions
+This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
 
 | mode | Behavior in PLAN | Operator confirmation |
@@ -222,7 +222,7 @@ require operator confirmation per the active `state.current.uacp_mode`.
 **Mechanism**: when an escalation trigger fires, this skill emits a
 `uacp_escalation_event` record into `state/escalations/{run_id}.jsonl`
 (severity ∈ {info, warn, block}). Operators poll the file (push-notify
-is Phase 5). See `config/autonomy-policy.yaml#escalation_triggers` for
+is Phase 5). See `config/uacp.toml [autonomy.escalation_triggers]` for
 the registered triggers.
 
 ## Semantic package requirement

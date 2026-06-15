@@ -123,7 +123,7 @@ When the package itself is repairing UACP PROPOSE or lifecycle semantics, drive 
 ## Updated doctrine alignment
 Read additionally:
 `UACP_ROOT/docs/lifecycle/orchestration-model.md`,
-`UACP_ROOT/config/review-routing.yaml`,
+`UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`),
 `UACP_ROOT/config/phase-transitions.yaml`.
 
 Do not require external bridge dispatch merely because work is medium-sized.
@@ -208,7 +208,7 @@ viability. PLAN/VERIFY councils review implementation and evidence.
 
 ## mode_behavior (Phase 4.3 stub)
 
-This skill consults `config/autonomy-policy.yaml` to decide which actions
+This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
 
 | mode | Behavior in PROPOSE | Operator confirmation |
@@ -223,7 +223,7 @@ require operator confirmation per the active `state.current.uacp_mode`.
 **Mechanism**: when an escalation trigger fires, this skill emits a
 `uacp_escalation_event` record into `state/escalations/{run_id}.jsonl`
 (severity ∈ {info, warn, block}). Operators poll the file (push-notify
-is Phase 5). See `config/autonomy-policy.yaml#escalation_triggers` for
+is Phase 5). See `config/uacp.toml [autonomy.escalation_triggers]` for
 the registered triggers.
 
 ## Semantic package requirement

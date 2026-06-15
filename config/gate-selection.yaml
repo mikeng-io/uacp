@@ -1,6 +1,10 @@
 schema_version: "0.1"
 kind: uacp.gate_selection_config
 status: seed
+# Slice 3 (config-collapse): scoring/weight knobs moved to config/uacp.toml [gates.scoring].
+# Removed from this file: triage_scoring.default_calculation, triage_scoring.route_mapping,
+# ranking_heuristics.risk_weight, and path_resolution (superseded by [paths]).
+# This file retains non_waivable_invariants, classification_inputs, artifact schemas, etc.
 purpose: >
   Defines the adaptive meta-gate used before UACP stage and phase decisions. The
   meta-gate selects, ranks, generates, or rejects evidence clusters for the
@@ -70,16 +74,7 @@ candidate_cluster_sources:
   - source: context_generated_clusters
     location: "embedded in gate-selection artifact until promoted to template"
 
-path_resolution:
-  default_base: UACP_ROOT
-  rule: "Unqualified relative paths resolve against UACP_ROOT, not the current working directory."
-  symbolic_roots:
-    - UACP_ROOT
-    - HERMES_ROOT
-    - PRIVATE_ROOT
-  forbidden_patterns:
-    - "../"
-    - environment_specific_absolute_paths
+# path_resolution moved to config/uacp.toml [paths] (Slice 3)
 
 selection_states:
   required: "Must reach pass or explicitly accepted warn before transition."
@@ -108,22 +103,7 @@ triage_scoring:
     verification_difficulty:
       scale: "1-10"
       high_score_means: "Correctness is hard to prove or requires indirect evidence."
-  default_calculation:
-    method: weighted_max_plus_average
-    weights:
-      impact: 0.30
-      reversibility: 0.20
-      domain_count: 0.15
-      runtime_count: 0.15
-      verification_difficulty: 0.20
-    escalation_rule: "If any factor is 9 or 10, route must be reviewed for full_governance or human clarification."
-    conservative_rule: "Unknown impact, reversibility, or verification difficulty increases the score until clarified."
-  route_mapping:
-    direct: "granularity_level 1"
-    lightweight: "granularity_level 2-3"
-    standard_uacp: "granularity_level 4-8, with stronger review and Kanban decomposition at 7-8"
-    full_governance: "granularity_level 9-10"
-    block_or_clarify: "authority, side effects, or critical scoring factors are unclear"
+  # default_calculation weights/method and route_mapping moved to config/uacp.toml [gates.scoring] (Slice 3)
 
 triage_artifact_schema:
   kind: uacp.triage
@@ -193,11 +173,7 @@ example_triage_artifact:
   next_step: "Enter PROPOSE or continue with a bounded Stage 1/2 plan artifact."
 
 ranking_heuristics:
-  risk_weight:
-    low: 0.2
-    medium: 0.5
-    high: 0.8
-    critical: 1.0
+  # risk_weight moved to config/uacp.toml [gates.scoring.risk_weight] (Slice 3)
   scoring_signals:
     - domain_similarity
     - artifact_type_similarity

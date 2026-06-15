@@ -1,6 +1,10 @@
 schema_version: '0.1'
 kind: uacp.review_routing_config
 status: seed
+# Slice 3 (config-collapse): operator knobs moved to config/uacp.toml [review].
+# Removed from this file: operating_mode (locked_current_operating_mode),
+# escalation_rules, and followthrough max_followup_depth_default.
+# This file retains council grammar/surfaces/profiles for Slice 4.
 purpose: 'Defines how UACP chooses review intensity and review surfaces. Review routing
   is selected by context, risk, domain, artifacts, and side effects; it is not a software-only
   checklist.
@@ -488,23 +492,7 @@ council_model:
     - ordinary_plan
     - ordinary_verify
     - ordinary_resolve
-  locked_current_operating_mode:
-    status: active_until_superseded
-    mode: manual_semi_auto
-    default_orchestrator_led_phases:
-    - triage
-    - propose
-    - plan
-    - verify
-    - resolve
-    primary_coordination_phase: execute
-    non_execute_helpers:
-    - delegate_task_same_profile_branch
-    - external_runtime_when_justified
-    kanban_default_for_non_execute: false
-    kanban_task_semantics: bounded_work_unit_inside_phase_not_lifecycle_phase
-    named_profiles_now: role_templates_optional_future_execution_identities
-    full_autonomy: reserved_future_design_slot
+  # operating_mode knob moved to config/uacp.toml [review] (Slice 3)
   execute_task_schema:
     status: draft_ready_for_review
     source: plans/uacp-agent-council-followthrough/10-execute-task-schema.md
@@ -676,25 +664,7 @@ domain_routing_notes:
     - brief_alignment
     - asset_constraints
     - rights_or_license_review
-escalation_rules:
-- condition: checkpoint requires full_dimension local_council
-  route: local_council
-- condition: any triage factor score is 9 or 10
-  route: deep_council
-- condition: any non-waivable invariant is block
-  route: human_operator
-- condition: risk_level is critical
-  route: deep_council
-- condition: granularity_level is 9 or 10
-  route: deep_council
-- condition: write containment cannot be proven
-  route: human_operator
-- condition: external publication or irreversible action is requested
-  route: human_operator
-- condition: review tool or council is unavailable
-  route: main_orchestrator
-  fallback: record unavailable review surface and apply conservative failure if risk
-    requires it
+# escalation_rules moved to config/uacp.toml [review.escalation_rules] (Slice 3)
 human_involvement_policy:
   purpose: Select when Mike/human operator involvement is required from TRIAGE or
     later phase-local reassessment.
@@ -760,12 +730,7 @@ heartgate_council_model:
     low_risk: main orchestrator Heartgate coherence checklist
     medium_risk: focused Heartgate council or explicit coherence synthesis
     high_risk: role-diverse or cross-runtime Heartgate council before transition acceptance
-locked_current_operating_mode:
-  mode: manual_semi_auto
-  status: locked_until_superseded
-  summary: UACP remains manual/semi-auto unless explicitly superseded by canonical
-    docs/config.
-
+# operating_mode knob moved to config/uacp.toml [review] (Slice 3)
 triage_council_trigger:
   purpose: Select TRIAGE-local Agent Council before PROPOSE for high-granularity governance-core admission work.
   required_when:
@@ -782,5 +747,5 @@ followthrough_council_routing:
   purpose: Route follow-up councils for handled negative findings.
   tier_1_bounded_when: [material concern, material warning]
   tier_2_role_diverse_when: [blocker, invariant_failure, authority-boundary change, lifecycle schema change, runtime enforcement change]
-  max_followup_depth_default: 1
+  # max_followup_depth moved to config/uacp.toml [review.followthrough] (Slice 3)
   escalate_instead_of_recursing_after_depth: 1
