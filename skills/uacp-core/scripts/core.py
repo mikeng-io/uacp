@@ -1306,8 +1306,11 @@ class Heartgate:
     def _validate_adaptive_execute_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         if str(artifact.get("from_phase") or "") != "execute" or str(artifact.get("to_phase") or "") != "verify":
             return
-        if not isinstance(self.config.get("adaptive_execute_evidence_gate"), Mapping):
-            return
+        # F-T3-01 (SECURITY): fail CLOSED. The gate body reads nothing from the
+        # config block beyond a former presence check (it enforces structure via
+        # hardcoded relative artifact paths), so when the phase-guard matches we
+        # ENFORCE regardless of whether adaptive_execute_evidence_gate is present.
+        # An absent or non-mapping key must not silently disable this evidence gate.
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             blockers.append("adaptive_execute_evidence_gate requires run_id")
@@ -1337,8 +1340,8 @@ class Heartgate:
     def _validate_adaptive_verify_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         if str(artifact.get("from_phase") or "") != "verify" or str(artifact.get("to_phase") or "") != "resolve":
             return
-        if not isinstance(self.config.get("adaptive_verify_evidence_gate"), Mapping):
-            return
+        # F-T3-01 (SECURITY): fail CLOSED — see _validate_adaptive_execute_evidence_gate.
+        # An absent or non-mapping adaptive_verify_evidence_gate key must not disable enforcement.
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             blockers.append("adaptive_verify_evidence_gate requires run_id")
@@ -1376,8 +1379,8 @@ class Heartgate:
     def _validate_adaptive_resolve_closure_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         if str(artifact.get("from_phase") or "") != "resolve":
             return
-        if not isinstance(self.config.get("adaptive_resolve_closure_gate"), Mapping):
-            return
+        # F-T3-01 (SECURITY): fail CLOSED — see _validate_adaptive_execute_evidence_gate.
+        # An absent or non-mapping adaptive_resolve_closure_gate key must not disable enforcement.
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             blockers.append("adaptive_resolve_closure_gate requires run_id")

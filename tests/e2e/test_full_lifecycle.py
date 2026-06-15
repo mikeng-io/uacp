@@ -9,6 +9,7 @@ later config refactor.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import state_machine
@@ -17,6 +18,18 @@ from core import Heartgate
 from state import _handle_uacp_gate_ledger_append
 
 from tests.e2e.driver import Driver
+from tests.e2e.test_adaptive_evidence_gate_uacp import (
+    REAL_CONFIG,
+    REAL_VALIDATOR,
+    _seed_governed_run,
+)
+
+# config files the in-process offline validator (validate_configs) hard-requires
+# beyond the fixture's minimal phase-transitions.yaml. Copied from the real repo
+# config so validate_configs/validate_evidence_registry resolve cleanly; the
+# config-consistency cross-checks against the minimal fixture stages are WARN-only
+# (never BLOCK), so they cannot fail the transition.
+_VALIDATOR_CONFIG_FILES = ("evidence-clusters.yaml", "state.yaml", "uacp.toml")
 
 PHASES = [
     ("triage", "propose"),
@@ -143,20 +156,64 @@ def _seed_plan_package(root: Path, run_id: str) -> None:
     )
 
 
+def _seed_execute_evidence(root: Path, run_id: str) -> None:
+    """Create the PIV + checkpoint + execution package the execute->verify gate
+    requires. As of F-T3-01 the adaptive_execute_evidence_gate fails CLOSED: it
+    enforces on EVERY execute->verify regardless of config, so this seeding is
+    mandatory (not optional) for the happy path.
+
+    The gate calls Heartgate._offline_validate_artifacts in-process, which loads
+    <root>/scripts/validate_uacp_artifacts.py — so the real validator script must
+    be present under the test root for the gate to clear.
+
+    The artifact-seeding contract is owned by _seed_governed_run in
+    test_adaptive_evidence_gate_uacp (single source of truth). This function
+    handles only the lifecycle-specific setup: copying the real validator script
+    and the extra config files the in-process offline validator hard-requires.
+    """
+    # The in-process offline validator is loaded from <root>/scripts/.
+    scripts_dir = root / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(REAL_VALIDATOR, scripts_dir / "validate_uacp_artifacts.py")
+
+    # validate_configs() hard-requires evidence-clusters.yaml + state.yaml (and
+    # reads uacp.toml for the heartgate consistency cross-check). The fixture only
+    # writes phase-transitions.yaml, so copy the rest from the real repo config.
+    cfg_dir = root / "config"
+    cfg_dir.mkdir(parents=True, exist_ok=True)
+    for name in _VALIDATOR_CONFIG_FILES:
+        shutil.copy2(REAL_CONFIG / name, cfg_dir / name)
+
+    # Seed all governed artifacts (PIV, checkpoint, semantic package,
+    # state/current.yaml, and the manifest/transition stubs it references) under
+    # .uacp/ — the single authoritative seeder from test_adaptive_evidence_gate_uacp.
+    # validate_configs() also runs validate_current_state(), which BLOCKs unless
+    # state/current.yaml is a fully-formed governed pointer to run-bound, existing
+    # manifest/transition artifacts. The state machine writes a MINIMAL current.yaml
+    # (active_run_id + manifest only), so this seeder overwrites it with a conformant
+    # pointer. This is consumed only by the in-process validator at the execute->verify
+    # check; the state machine rewrites current.yaml on the next handle_transition,
+    # so this does not perturb later lifecycle steps.
+    _seed_governed_run(root / ".uacp", run_id)
+
+
 # Per-(from,to) real-evidence seeding the kernel's adaptive gates REQUIRE — not
 # optional. The propose->plan and plan->execute gates read config via
 # `self.config.get(key) or {}`: an absent key becomes `{}`, still a Mapping, so
-# the gate fires and demands its artifacts regardless of config. Drop these
+# the gate fires and demands its artifacts regardless of config. The
+# execute->verify gate fails CLOSED as of F-T3-01 (it no longer self-disables on
+# absent config), so it too demands its evidence on every run. Drop any of these
 # seeders and the happy path fails (e.g. "adaptive_proposal_package_gate: missing
-# proposals/<run>-package-selection.yaml"). By contrast the execute/verify/resolve
-# gates guard with `if not isinstance(self.config.get(key), Mapping): return`, so
-# they self-disable on absent config — hence nothing is seeded for them.
+# proposals/<run>-package-selection.yaml" or "adaptive_execute_evidence_gate:
+# artifact not found: plans/<run>-piv.yaml").
 _SEEDERS = {
     # Slice 4a: schemas always codified → Heartgate now enforces triage->propose
     # (intent doc) and plan->execute (scope artifact required fields) on EVERY run.
     ("triage", "propose"): _seed_intent_doc,
     ("propose", "plan"): _seed_proposal_package,
     ("plan", "execute"): _seed_plan_package,
+    # F-T3-01: execute->verify evidence gate now fails closed → seed real evidence.
+    ("execute", "verify"): _seed_execute_evidence,
 }
 
 

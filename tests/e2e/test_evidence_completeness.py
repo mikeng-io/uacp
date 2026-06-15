@@ -23,6 +23,7 @@ single, cleanly-removable required artifact for the teeth tests.
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import yaml
@@ -148,8 +149,18 @@ def test_missing_exit_artifact_fires(temp_uacp_root: Path, valid_run_id: str):
         validate_evidence_completeness(temp_uacp_root, valid_run_id)
     )
 
-    # Remove the execute phase's required exit artifact (executions/{run_id}*).
-    (temp_uacp_root / ".uacp" / "executions" / f"{valid_run_id}-execution.yaml").unlink()
+    # Remove EVERYTHING matching the execute phase's required exit glob
+    # (executions/{run_id}*). Besides the {run_id}-execution.yaml stub, the
+    # happy-path run now also emits the adaptive-execute-evidence artifacts
+    # (PIV checkpoint + executions/{run_id}/ package) under that glob (F-T3-01:
+    # the execute->verify gate fails closed and demands real evidence), so the
+    # invariant is only unsatisfied once all of them are gone.
+    executions_dir = temp_uacp_root / ".uacp" / "executions"
+    for match in executions_dir.glob(f"{valid_run_id}*"):
+        if match.is_dir():
+            shutil.rmtree(match)
+        else:
+            match.unlink()
 
     codes = _codes(validate_evidence_completeness(temp_uacp_root, valid_run_id))
     assert "EV_PHASE_EXIT_ARTIFACT_MISSING" in codes, codes
