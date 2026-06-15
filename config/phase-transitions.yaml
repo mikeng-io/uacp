@@ -160,33 +160,6 @@ stages:
       required: true
     - gate_ledger_entry: "VERIFY->RESOLVE"
       required: true
-transition_rule:
-  required_inputs:
-  - current_stage_or_phase_artifact
-  - gate_selection_artifact
-  - required_cluster_artifacts
-  - triage_artifact
-  - council_synthesis_artifact
-  - declared_side_effects
-  - write_containment_record
-  - blocker_synthesis
-  pass_condition: 'All non-waivable invariants pass, all required clusters are pass
-    or accepted warn, no unresolved blocker remains, and the next phase explicitly
-    accepts any deferred cluster.
-
-    '
-  warn_condition: 'Transition may proceed only when warnings are documented with owners,
-    residual risk, and next-phase acceptance.
-
-    '
-  block_condition: 'Any invariant block, missing required evidence, unauthorized side
-    effect, uncontained write, untraceable state change, or unresolved material risk.
-
-    '
-  heartgate_council_role: Heartgate may require a transition-boundary council that
-    checks lifecycle coherence and cross-artifact consistency. This is distinct from
-    phase-local Agent Council review of phase work products.
-
 adaptive_proposal_package_gate:
   description: >
     PROPOSE documentation selection is adaptive and context-driven. Granularity
@@ -642,71 +615,6 @@ artifact_schema:
         synthesis summary. Records doctrine coherence, cross-artifact consistency,
         runtime-state alignment, warning/deferred-item honesty, authority-plane integrity,
         and next-phase readiness.
-followthrough_gate:
-  max_followup_depth_default: 1
-  escalate_instead_of_recursing_after_depth: 1
-  hard_followup_handling_classifications: [remediated, expanded, justified]
-  conditional_followup_handling_classifications: [deferred, accepted_warning, rejected_with_reason]
-  material_finding_classifications: [blocker, concern, invariant_failure, negative_finding, material_warning]
-  fail_closed_when:
-    - missing_required_handling_artifact
-    - missing_required_followup_council
-    - unowned_warning_or_deferred_item
-    - non_waivable_invariant_warn_or_deferred
-    - unaccepted_recursion_depth_exceeded
-
-example_artifact:
-  kind: uacp.phase_transition
-  transition_id: uacp-bootstrap-001-plan-to-execute
-  run_id: uacp-bootstrap-001
-  from_phase: plan
-  to_phase: execute
-  routing_outcome: standard_uacp
-  granularity_level: 5
-  triage_artifact: proposals/uacp-bootstrap-stage-1-2-triage.yaml
-  decision: pass
-  terminal_kind: none
-  invariant_summary:
-  - id: authority.explicit
-    status: pass
-    evidence: Operator requested Stage 1 and Stage 2 implementation.
-  - id: writes.contained
-    status: pass
-    evidence: All planned writes are under UACP_ROOT.
-  cluster_summary:
-  - cluster_id: scope
-    state: pass
-    artifact_path: docs/lifecycle/lifecycle-reference.md
-  - cluster_id: verification_strategy
-    state: pass
-    artifact_path: config/phase-transitions.yaml
-  blockers: []
-  warnings: []
-  deferred_items: []
-  authority:
-    requested_by: operator
-    authorization_source: current task prompt
-  artifact_paths:
-  - config/gate-selection.yaml
-  - config/evidence-clusters.yaml
-  council_synthesis_artifact: ''
-  verification_artifact: ''
-  accepted_exceptions: []
-  phase_local_granularity:
-    phase: plan
-    entry_estimate: 5
-    exit_actual: 5
-    delta_reason: No material delta in example artifact.
-    downstream_projection:
-      execute: 5
-      verify: 5
-  composite_granularity: 5
-  human_involvement:
-    required: false
-    reason: Authority and containment are clear in example.
-    authority_needed: none
-    decision_owner: none
-    accepted_risk_artifact: ''
 council_synthesis_schema:
   kind: uacp.council_synthesis
   purpose: Minimum schema for Agent Council outputs consumed by phase transitions.
