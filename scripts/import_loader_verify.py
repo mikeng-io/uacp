@@ -49,12 +49,13 @@ def _load_plugin_under_alias():
 def _prepare_root(tmp: Path) -> None:
     for sub in ("config", ".uacp/state", ".uacp/state/escalations"):
         (tmp / sub).mkdir(parents=True, exist_ok=True)
+    # guardian policy is now sourced from config/uacp.toml [guardian] via
+    # config.py — guardian-policy.yaml has been deleted (config-collapse Slice 3).
     for name in (
-        "guardian-policy.yaml",
+        "uacp.toml",
         "phase-transitions.yaml",
         "state.yaml",
         "artifact-schemas.yaml",
-        "autonomy-policy.yaml",
     ):
         shutil.copy2(ROOT / "config" / name, tmp / "config" / name)
 

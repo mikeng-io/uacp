@@ -48,12 +48,12 @@ Parameters this bridge reads from `config/uacp.toml` at runtime:
 
 ## Tier Resolution
 
-Claude bridge resolves the model alias and reasoning level from `config/model-registry.yaml` in `UACP_ROOT`. The tier mapping lives **only** in the registry — this skill does not hardcode it.
+Claude bridge resolves the model alias and reasoning level from `config/uacp.toml` `[models]` in `UACP_ROOT`. The tier mapping lives **only** in `uacp.toml` — this skill does not hardcode it.
 
 **Resolution protocol:**
-1. Read `UACP_ROOT/config/model-registry.yaml`
-2. Look up `tier_mappings.claude.{tier}` → get `alias` + `reasoning`
-3. Look up `providers.anthropic.models.{alias}.concrete_id` → get resolved model ID
+1. Read `UACP_ROOT/config/uacp.toml` `[models]` section
+2. Look up `[models.tier_mappings.claude.{tier}]` → get `alias` + `reasoning`
+3. Look up `[models.providers.anthropic.models.{alias}]` → `concrete_id` → get resolved model ID
 4. Apply reasoning level to `--effort`
 
 The alias is stable; the `concrete_id` is updated in the registry when Anthropic releases new models. No bridge skill changes required.

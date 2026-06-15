@@ -2,7 +2,7 @@
 
 This document is the cross-phase artifact dependency map for UACP. For each phase transition, it lists required inputs, required outputs, Heartgate checks, and the gate-ledger entry that records the transition's evaluation.
 
-The kernel reads this dependency model from `config/phase-transitions.yaml`, `config/artifact-schemas.yaml`, and `config/guardian-policy.yaml`. This document is the canonical reading-order narrative that humans use to verify the model is coherent end-to-end.
+The kernel reads this dependency model from `config/phase-transitions.yaml`, `config/artifact-schemas.yaml`, and `config/uacp.toml [guardian]` (Guardian policy; collapsed from legacy guardian-policy.yaml in Slice 3). This document is the canonical reading-order narrative that humans use to verify the model is coherent end-to-end.
 
 ## Transitions
 
@@ -93,7 +93,7 @@ terminal
 
 ## Escalation events (Phase 4.4 stub — parallel surface)
 
-The `state/escalations/{run_id}.jsonl` ledger is a parallel, **non-blocking**, append-only surface separate from the gate ledger. Skills emit records via `uacp_escalation_event` when an escalation trigger in `config/autonomy-policy.yaml#escalation_triggers` fires in the active operating mode.
+The `state/escalations/{run_id}.jsonl` ledger is a parallel, **non-blocking**, append-only surface separate from the gate ledger. Skills emit records via `uacp_escalation_event` when an escalation trigger in `config/uacp.toml [autonomy.escalation_triggers]` fires in the active operating mode.
 
 Phase 4 status:
 - `uacp_mode` remains a stub field with no full kernel reader.
@@ -116,4 +116,4 @@ Heartgate does not require a fixed evidence cluster set. TRIAGE/PROPOSE select e
 - `docs/runtime/runtime-enforcement.md`
 - `config/phase-transitions.yaml`
 - `config/artifact-schemas.yaml`
-- `config/guardian-policy.yaml`
+- `config/uacp.toml` (`[guardian]` section — Guardian policy)

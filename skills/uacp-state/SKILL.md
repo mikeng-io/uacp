@@ -158,7 +158,7 @@ During this skill-library refactor specifically, do **not** use UACP protected w
 
 ## mode_behavior (Phase 4.3 stub)
 
-This skill consults `config/autonomy-policy.yaml` to decide which actions
+This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
 
 | mode | Behavior in cross-phase | Operator confirmation |
@@ -173,5 +173,5 @@ require operator confirmation per the active `state.current.uacp_mode`.
 **Mechanism**: when an escalation trigger fires, this skill emits a
 `uacp_escalation_event` record into `state/escalations/{run_id}.jsonl`
 (severity ∈ {info, warn, block}). Operators poll the file (push-notify
-is Phase 5). See `config/autonomy-policy.yaml#escalation_triggers` for
+is Phase 5). See `config/uacp.toml [autonomy.escalation_triggers]` for
 the registered triggers.

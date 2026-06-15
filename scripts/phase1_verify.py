@@ -35,15 +35,18 @@ def _prepare_root(tmp: Path) -> None:
                 ".uacp/plans", ".uacp/proposals", ".uacp/executions", ".uacp/verification",
                 ".uacp/resolutions", ".uacp/knowledge"):
         (tmp / sub).mkdir(parents=True, exist_ok=True)
-    shutil.copy2(here / "config/guardian-policy.yaml", tmp / "config/guardian-policy.yaml")
+    # Slice 3: guardian policy is now sourced from config/uacp.toml [guardian]
+    # via config.py — guardian-policy.yaml is no longer copied or read here.
     shutil.copy2(here / "config/phase-transitions.yaml", tmp / "config/phase-transitions.yaml")
     shutil.copy2(here / "config/state.yaml", tmp / "config/state.yaml")
 
 
 def _reload(plugin) -> None:
+    from config import clear_config_cache
     plugin._POLICY = None
     plugin._POLICY_ERROR = ""
     plugin._PHASE_CONFIG = None
+    clear_config_cache()
 
 
 def _common_args(tmp: Path, phase: str = "execute") -> dict:
@@ -320,13 +323,15 @@ transition_readiness:
             })
 
             # --- Check 9: pc_4 empty tool_name blocks in both modes ---
+            # Slice 3: policy mode is set via <tmp>/.uacp/config.toml override
+            # (deep-merged over repo-default uacp.toml [guardian]) rather than
+            # mutating the now-dead guardian-policy.yaml in the temp root.
+            from config import clear_config_cache as _clear_cfg
+            override_toml = tmp / ".uacp" / "config.toml"
             for mode in ("enforce", "observe"):
                 if mode == "observe":
-                    import yaml as _yaml
-                    pp = tmp / "config/guardian-policy.yaml"
-                    data = _yaml.safe_load(pp.read_text())
-                    data["mode"] = "observe"
-                    pp.write_text(_yaml.safe_dump(data, sort_keys=False))
+                    override_toml.write_text('[guardian]\nmode = "observe"\n', encoding="utf-8")
+                    _clear_cfg()
                     _reload(plugin)
                     policy = plugin._policy()
                 event = make_event(tool_name="", args=_common_args(tmp))
@@ -339,11 +344,8 @@ transition_readiness:
                 })
 
             # restore enforce
-            import yaml as _yaml
-            pp = tmp / "config/guardian-policy.yaml"
-            data = _yaml.safe_load(pp.read_text())
-            data["mode"] = "enforce"
-            pp.write_text(_yaml.safe_dump(data, sort_keys=False))
+            override_toml.write_text('[guardian]\nmode = "enforce"\n', encoding="utf-8")
+            _clear_cfg()
             _reload(plugin)
             policy = plugin._policy()
 
@@ -393,11 +395,19 @@ transition_readiness:
             })
 
             # --- Remediation R2 (skeptic F2): policy validator rejects poisoned self_attesting_tools ---
-            import yaml as _y
-            pp = tmp / "config/guardian-policy.yaml"
-            data = _y.safe_load(pp.read_text())
-            data["self_attesting_tools"]["names"].append("terminal")
-            pp.write_text(_y.safe_dump(data, sort_keys=False))
+            # Slice 3: policy is sourced from config/uacp.toml [guardian] via
+            # config.py.  Poison self_attesting_tools via a <tmp>/.uacp/config.toml
+            # override: setting names = ["terminal"] replaces the default list
+            # (lists are not deep-merged) so validate() sees only "terminal", which
+            # is classified as exec.shell — a non-governed category — and must raise.
+            import yaml as _y  # needed by R5/R6/R7 below for phase-transitions.yaml
+            from config import clear_config_cache as _clear_cfg_r2
+            override_toml_r2 = tmp / ".uacp" / "config.toml"
+            override_toml_r2.write_text(
+                '[guardian.self_attesting_tools]\nnames = ["terminal"]\n',
+                encoding="utf-8",
+            )
+            _clear_cfg_r2()
             _reload(plugin)
             poisoned_rejected = False
             try:
@@ -408,9 +418,9 @@ transition_readiness:
                 "name": "remediation_R2_policy_validator_rejects_poisoned_self_attesting",
                 "status": "pass" if poisoned_rejected else "fail",
             })
-            # Restore clean policy.
-            data["self_attesting_tools"]["names"].remove("terminal")
-            pp.write_text(_y.safe_dump(data, sort_keys=False))
+            # Restore clean policy: remove the override and reset to enforce mode.
+            override_toml_r2.unlink(missing_ok=True)
+            _clear_cfg_r2()
             _reload(plugin)
             policy = plugin._policy()
 

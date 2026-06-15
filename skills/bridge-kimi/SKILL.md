@@ -41,22 +41,22 @@ Parameters this bridge reads from `config/uacp.toml` at runtime:
 
 **Not read from TOML** (intrinsic to bridge implementation):
 - `connection_preference` — defined in this SKILL.md only
-- Model selection — resolved from `config/model-registry.yaml`, not TOML
+- Model selection — resolved from `config/uacp.toml` `[models]` (same file, `[models.tier_mappings]` + `[models.providers]` sections)
 
 ---
 
 ## Tier Resolution
 
-Kimi bridge resolves the model alias from `config/model-registry.yaml` in `UACP_ROOT`. The tier mapping lives **only** in the registry — this skill does not hardcode it.
+Kimi bridge resolves the model alias from `config/uacp.toml` `[models]` in `UACP_ROOT`. The tier mapping lives **only** in `uacp.toml` — this skill does not hardcode it.
 
 **Resolution protocol:**
-1. Read `UACP_ROOT/config/model-registry.yaml`
-2. Look up `tier_mappings.kimi.{tier}` → get `alias` + `reasoning`
-3. Look up `providers.moonshot.models.{alias}.concrete_id` → get resolved model ID
+1. Read `UACP_ROOT/config/uacp.toml` `[models]` section
+2. Look up `[models.tier_mappings.kimi.{tier}]` → get `alias` + `reasoning`
+3. Look up `[models.providers.moonshot.models.{alias}]` → `concrete_id` → get resolved model ID
 
 The alias is stable; the `concrete_id` is updated in the registry when Moonshot releases new models. No bridge skill changes required.
 
-**Current limitation:** Kimi Code currently offers one primary model (`kimi-k2.6`). All tiers map to the same alias in the registry. When Moonshot releases additional models, update `config/model-registry.yaml` only.
+**Current limitation:** Kimi Code currently offers one primary model (`kimi-k2.6`). All tiers map to the same alias. When Moonshot releases additional models, update `config/uacp.toml` `[models.providers.moonshot]` and `[models.tier_mappings.kimi]` only.
 
 **Override via `bridge_input.tier`:** If the council assigns a specific tier, use it directly. If absent, derive from `task_type` + `intensity` per bridge-commons rules.
 
@@ -103,17 +103,17 @@ If unavailable, return `SKIPPED` with `skip_reason: "kimi CLI not available"`.
 
 ```yaml
 priority:
-  1: UACP model registry → UACP_ROOT/config/model-registry.yaml → tier_mappings.kimi.{tier}
+  1: uacp.toml [models] → UACP_ROOT/config/uacp.toml → [models.tier_mappings.kimi.{tier}]
   2: Environment → KIMI_CODE_MODEL
   3: CLI default → omit --model flag (uses config.toml default_model)
 ```
 
-Resolve tier first, then look up the model alias from the registry:
+Resolve tier first, then look up the model alias from `uacp.toml`:
 ```bash
 # 1. Determine tier (from bridge_input.tier or derive from task_type + intensity)
-# 2. Read UACP_ROOT/config/model-registry.yaml
-# 3. Look up tier_mappings.kimi.{tier} → get alias + reasoning
-# 4. Look up providers.moonshot.models.{alias}.concrete_id → get resolved model ID
+# 2. Read UACP_ROOT/config/uacp.toml [models] section
+# 3. Look up [models.tier_mappings.kimi.{tier}] → get alias + reasoning
+# 4. Look up [models.providers.moonshot.models.{alias}].concrete_id → get resolved model ID
 # 5. Set RESOLVED_MODEL
 ```
 

@@ -1,46 +1,12 @@
-schema_version: "0.1"
-kind: uacp.memory_policy
-status: seed
-purpose: >
-  Defines where UACP stores state, run artifacts, lessons, and long-lived
-  memory. Gate-learning artifacts stay in local UACP knowledge first and later
-  move behind a standalone Knowledge Bank API.
+# Learning Artifact Schema
 
-storage_boundaries:
-  honcho:
-    purpose: "Personal and peer memory, preferences, and conversation continuity."
-    allowed:
-      - "operator preferences"
-      - "high-level architectural preferences"
-      - "stable facts about Mike/Norty"
-    forbidden:
-      - "high-volume gate-learning artifacts"
-      - "active proposal state"
-      - "raw verification logs"
-  uacp_artifact_root:
-    path: "UACP_ROOT"
-    purpose: "Active and archived UACP governed-run artifacts."
-    allowed:
-      - "proposals"
-      - "plans"
-      - "execution histories"
-      - "verification artifacts"
-      - "outputs"
-      - "local knowledge artifacts"
-  knowledge_bank_future:
-    purpose: "Shared retrieval and ranking substrate for scenarios, gates, and lessons."
-    status: "not implemented in Stage 1 or Stage 2"
-    boundary: "Expose an API; do not make Cortex or Honcho sole owner."
-  cortex:
-    purpose: "Workflow/editorial/Discord consumer and producer of knowledge."
-    boundary: "May consume or produce through APIs; should not own all UACP knowledge."
+Preserved from `config/memory-policy.yaml` (Slice 3 config-collapse). Operational
+storage boundaries moved to `config/uacp.toml [memory]`. This document is the
+canonical reference for the learning artifact schema and example.
 
-local_knowledge_locations:
-  scenarios: "knowledge/scenarios/"
-  gate_templates: "knowledge/gate-templates/"
-  lessons: "knowledge/lessons/"
-  indexes: "knowledge/indexes/"
+## Schema
 
+```yaml
 learning_artifact_schema:
   kind: uacp.learning_artifact
   required_fields:
@@ -98,7 +64,11 @@ learning_artifact_schema:
         local_artifact_path: string
         honcho_memory: "never|summary_only|operator_preference_only"
         knowledge_bank_ingest: "pending|sent|not_applicable"
+```
 
+## Example Artifact
+
+```yaml
 example_artifact:
   kind: uacp.learning_artifact
   scenario_id: uacp-run-2026-05-10-001
@@ -135,3 +105,4 @@ example_artifact:
     local_artifact_path: "knowledge/scenarios/uacp-run-2026-05-10-001.yaml"
     honcho_memory: summary_only
     knowledge_bank_ingest: pending
+```

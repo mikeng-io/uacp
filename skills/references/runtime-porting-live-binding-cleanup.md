@@ -12,7 +12,7 @@ Use this when UACP-owned Hermes adapters have been symlink-bound from `UACP_ROOT
    - Ignore `__pycache__`/`.pyc`.
    - If files are byte-identical and the user-plugin source is active, Hermes Agent copies are transitional duplicates.
 3. Patch UACP status/config docs before or alongside cleanup:
-   - `config/runtime-bindings.yaml`: mark real adapters `live_bound_user_plugin` and keep verification artifact pointers.
+   - `config/uacp.toml [runtime_bindings]`: mark real adapters `live_bound_user_plugin` and keep verification artifact pointers.
    - `docs/index.md`: update old follow-up language from “bind after review” to “bindings active; remaining cleanup/hardening”.
    - `.outputs/uacp-current-status.yaml`: distinguish live adapter activation from production-complete enforcement.
    - `config/state.yaml`: say Guardian adapter is live-bound/partial, not merely “not implemented”.

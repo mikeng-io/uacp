@@ -55,7 +55,9 @@ def _exercise_guardian_writers(checks):
         (tmp_root / "config").mkdir(parents=True)
         (tmp_root / "docs").mkdir(parents=True)
         (tmp_root / ".uacp/state/runs").mkdir(parents=True)
-        shutil.copy2(UACP_ROOT / "config/guardian-policy.yaml", tmp_root / "config/guardian-policy.yaml")
+        # guardian policy is now sourced from config/uacp.toml [guardian] via
+        # config.py — guardian-policy.yaml has been deleted (config-collapse Slice 3).
+        shutil.copy2(UACP_ROOT / "config/uacp.toml", tmp_root / "config/uacp.toml")
         shutil.copy2(UACP_ROOT / "config/phase-transitions.yaml", tmp_root / "config/phase-transitions.yaml")
         old_env = {key: os.environ.get(key) for key in ["UACP_ROOT", "UACP_GUARDIAN_MODE"]}
         try:
@@ -335,7 +337,6 @@ def main():
 
     # YAML parse checks
     yaml_paths = [
-        "config/runtime-bindings.yaml",
         "config/state.yaml",
         ".uacp/resolutions/uacp-current-status.yaml",
         ".uacp/verification/runtime-porting-20260514-cleanup-doc-sync.yaml",
@@ -347,6 +348,21 @@ def main():
             checks.append(check(True, f"yaml_parse:{rel}", rel))
         except Exception as exc:
             checks.append(check(False, f"yaml_parse:{rel}", str(exc)))
+
+    # TOML parse checks (runtime-bindings collapsed into uacp.toml [runtime_bindings])
+    import tomllib
+
+    toml_paths = [
+        "config/uacp.toml",
+    ]
+    for rel in toml_paths:
+        path = UACP_ROOT / rel
+        try:
+            with path.open("rb") as _f:
+                tomllib.load(_f)
+            checks.append(check(True, f"toml_parse:{rel}", rel))
+        except Exception as exc:
+            checks.append(check(False, f"toml_parse:{rel}", str(exc)))
 
     # Safe temporary-root writer/Guardian checks
     try:

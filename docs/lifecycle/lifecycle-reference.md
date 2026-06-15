@@ -329,7 +329,7 @@ Seed schemas for the main UACP artifacts are defined in:
 - `config/evidence-clusters.yaml`
 - `config/phase-transitions.yaml`
 - `config/review-routing.yaml`
-- `config/memory-policy.yaml`
+- `config/uacp.toml [memory]` (operational boundaries) + `docs/reference/learning-artifact-schema.md` (schema)
 - `config/state.yaml`
 
 The schemas cover:

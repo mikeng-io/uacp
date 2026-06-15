@@ -33,8 +33,8 @@ Use for unclear scope, governance-depth decisions, granularity scoring, phase ad
 Routing depth may be direct, lightweight, standard, full-governance, or block/clarify.
 
 ## Read when needed
-- `UACP_ROOT/config/gate-selection.yaml` — scoring and routing factors
-- `UACP_ROOT/config/review-routing.yaml` — council/review routing hints
+- `UACP_ROOT/config/gate-selection.yaml` — scoring factors (descriptive) and artifact schemas; scoring weights/method/route-bands in `config/uacp.toml [gates.scoring]`
+- `UACP_ROOT/config/review-routing.yaml` — council/review doctrine, grammar, and surfaces; operator knobs (operating_mode, escalation_rules, followthrough depth) in `config/uacp.toml [review]`
 - `UACP_ROOT/docs/lifecycle/orchestration-model.md` — phase and council boundaries
 - `UACP_ROOT/config/phase-transitions.yaml` — transition evidence requirements
 
@@ -139,7 +139,7 @@ return PASS/no concerns.
 
 ## mode_behavior (Phase 4.3 stub)
 
-This skill consults `config/autonomy-policy.yaml` to decide which actions
+This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
 
 | mode | Behavior in TRIAGE | Operator confirmation |
@@ -154,7 +154,7 @@ require operator confirmation per the active `state.current.uacp_mode`.
 **Mechanism**: when an escalation trigger fires, this skill emits a
 `uacp_escalation_event` record into `state/escalations/{run_id}.jsonl`
 (severity ∈ {info, warn, block}). Operators poll the file (push-notify
-is Phase 5). See `config/autonomy-policy.yaml#escalation_triggers` for
+is Phase 5). See `config/uacp.toml [autonomy.escalation_triggers]` for
 the registered triggers.
 
 ## Operator phase-return presentation

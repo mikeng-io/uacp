@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -1413,17 +1414,36 @@ def validate_current_state(root: Path, issues: list[str]) -> None:
         if rel and not _artifact_exists(root, rel):
             issues.append(f"BLOCK {path}: {field} not found: {rel}")
 
+def _load_heartgate_allowed_transitions(root: Path) -> list[str]:
+    """Read ``[heartgate].allowed_transitions`` from ``config/uacp.toml``.
+
+    Sourced from uacp.toml (config collapse) instead of the retired
+    ``config/guardian-policy.yaml``. A missing/unparsable uacp.toml is not an
+    error here: it yields an empty list so the consistency check is suppressed
+    rather than crashing the in-process validator (Heartgate path)."""
+    toml_path = root / "config" / "uacp.toml"
+    if not toml_path.exists():
+        return []
+    try:
+        with toml_path.open("rb") as fh:
+            toml_cfg = tomllib.load(fh)
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+    return list((toml_cfg.get("heartgate") or {}).get("allowed_transitions") or [])
+
+
 def validate_configs(root: Path, issues: list[str]) -> dict:
     configs = {}
     for rel in [
         "config/phase-transitions.yaml",
-        "config/review-routing.yaml",
         "config/evidence-clusters.yaml",
-        "config/guardian-policy.yaml",
         "config/state.yaml",
     ]:
         path = root / rel
         configs[rel] = require_map(load_yaml(path), path)
+    # heartgate.allowed_transitions now sourced from config/uacp.toml [heartgate]
+    # (was config/guardian-policy.yaml, retired in the config-collapse refactor).
+    configs["heartgate"] = {"allowed_transitions": _load_heartgate_allowed_transitions(root)}
     validate_evidence_registry(root, issues)
     validate_current_state(root, issues)
     return configs
@@ -1431,18 +1451,16 @@ def validate_configs(root: Path, issues: list[str]) -> dict:
 
 def validate_transition_config_consistency(configs: dict, issues: list[str]) -> None:
     phase_cfg = configs.get("config/phase-transitions.yaml") or {}
-    guardian_cfg = configs.get("config/guardian-policy.yaml") or {}
+    heartgate_cfg = configs.get("heartgate") or {}
     stages = phase_cfg.get("stages") or {}
     canonical = sorted(
         f"{stage}->{target}"
         for stage, body in stages.items()
         for target in (body.get("exits_to") or [])
     )
-    allowed = sorted(
-        str(item) for item in ((guardian_cfg.get("heartgate") or {}).get("allowed_transitions") or [])
-    )
+    allowed = sorted(str(item) for item in (heartgate_cfg.get("allowed_transitions") or []))
     if allowed and canonical and allowed != canonical:
-        issues.append("WARN config/guardian-policy.yaml: heartgate.allowed_transitions differs from config/phase-transitions.yaml stages")
+        issues.append("WARN config/uacp.toml [heartgate]: allowed_transitions differs from config/phase-transitions.yaml stages")
 
 
 def main() -> int:

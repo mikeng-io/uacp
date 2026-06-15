@@ -275,7 +275,7 @@ Context7 works **without an API key** at reduced rate limits.  Set
 
 Web backend operations are classified as `external.network_read`.
 
-Policy defaults (in `config/guardian-policy.yaml`):
+Policy defaults (in `config/uacp.toml [guardian]`):
 
 ```yaml
 protected_categories:

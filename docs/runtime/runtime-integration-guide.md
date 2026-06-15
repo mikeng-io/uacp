@@ -31,13 +31,13 @@ A runtime adapter is a thin, runtime-specific translation layer that:
 - Receives runtime-native events (tool calls, hook callbacks, plugin registrations)
 - Normalizes them into the runtime-neutral Guardian event schema
 - Returns Guardian decisions to the runtime in whatever form the runtime expects
-- Does not own policy — policy lives in `config/guardian-policy.yaml` and in the canonical docs
+- Does not own policy — policy lives in `config/uacp.toml [guardian]` and in the canonical docs
 
 Adapters may translate, enforce, and audit. They must not encode policy inline.
 
 ### What adapters do not own
 
-- **Policy** — lives in `config/guardian-policy.yaml` and the canonical document chain; the adapter loads and applies it, never defines it
+- **Policy** — lives in `config/uacp.toml [guardian]` and the canonical document chain; the adapter loads and applies it, never defines it
 - **Phase state** — lives in `state/`; mutated only through `uacp_state_write`
 - **Lifecycle authority** — Guardian and Heartgate derive rules from the document chain (`docs/` and `config/`), not from adapter logic
 
@@ -100,7 +100,7 @@ Every Guardian evaluation requires a normalized event object. The runtime adapte
 | `workspace` | string | Declared execution workspace path |
 | `uacp_run_id` | string | Active UACP run identifier |
 | `uacp_phase` | string | Current lifecycle phase |
-| `policy_version` | string | Version of the loaded `config/guardian-policy.yaml` |
+| `policy_version` | string | Version of the loaded Guardian policy (`config/uacp.toml [guardian]`) |
 | `declared_authority` | string | Path to the authority artifact for this action |
 | `declared_side_effects` | list | Declared side effects for this action |
 
@@ -126,7 +126,7 @@ Guardian classifies tools by provenance in addition to name. The adapter must po
 
 | Provenance | Guardian classification rule |
 |---|---|
-| `core` | Use tool-name classification from `config/guardian-policy.yaml` |
+| `core` | Use tool-name classification from `config/uacp.toml [guardian]` |
 | `plugin` | Require explicit classification in policy |
 | `mcp` | Require explicit classification in policy |
 | `inline_agent_loop` | Require control-plane guard |
@@ -197,7 +197,7 @@ The adapter must register at minimum the following hooks with the host runtime:
 
 The `pre_tool_call` hook must block execution for all protected categories. This is not optional. A runtime that only supports post-call hooks cannot provide production Guardian enforcement for protected actions, because the action will have already executed before any decision is rendered.
 
-If the host runtime does not support `pre_tool_call` blocking semantics, that limitation must be documented in the binding's verification artifact and `config/runtime-bindings.yaml` must record the enforcement gap explicitly.
+If the host runtime does not support `pre_tool_call` blocking semantics, that limitation must be documented in the binding's verification artifact and `config/uacp.toml [runtime_bindings]` must record the enforcement gap explicitly.
 
 ---
 
@@ -228,9 +228,9 @@ Registering `uacp_sandbox_check` and `uacp_contained_shell` is strongly recommen
 
 ## 8. Policy Loading Requirements
 
-Policy is loaded from `config/guardian-policy.yaml` at adapter startup. The following requirements apply:
+Policy is loaded from `config/uacp.toml [guardian]` at adapter startup (collapsed from legacy guardian-policy.yaml in Slice 3; read via `GuardianPolicy.load()` → `config.py`). The following requirements apply:
 
-- Resolve the path to `config/guardian-policy.yaml` using the `UACP_ROOT` environment variable. Do not hardcode a path.
+- Resolve the project root using the `UACP_ROOT` environment variable; `config.py` applies the repo-default `config/uacp.toml` deep-merged with `<root>/.uacp/config.toml`. Do not hardcode a path.
 - Resolve symbolic roots (such as `UACP_ROOT` itself) from environment variables before performing any path checks.
 - Fail closed for protected actions if the policy file cannot be loaded or cannot be parsed. Do not fall through to a permissive default.
 - Do not cache policy across restarts without validating a version or hash against the loaded file.
@@ -254,7 +254,7 @@ Follow this sequence when binding a new adapter to a host runtime.
    - A positive probe passes a protected action with correct authority and expects `allow` or `allow_with_audit`
    - A negative probe passes a protected action without authority and expects `block`
 
-5. **Record evidence** — write verification artifacts under `verification/` using `uacp_artifact_write`. Update `config/runtime-bindings.yaml` with the binding status and artifact path.
+5. **Record evidence** — write verification artifacts under `verification/` using `uacp_artifact_write`. Update `config/uacp.toml [runtime_bindings]` with the binding status and artifact path.
 
 6. **Register rollback** — document the exact rollback command in the verification artifact before considering the binding complete. See section 14.
 
@@ -277,11 +277,11 @@ Processes executing UACP-bound work must receive the following environment varia
 
 ### Policy load and reload semantics
 
-The Guardian policy and the phase-transitions config are loaded **once per process** and cached at module scope. Editing `config/guardian-policy.yaml`, `config/phase-transitions.yaml`, or `config/state.yaml` while the adapter is loaded has **no effect on a running session** — the host runtime must be restarted, or the adapter explicitly reloaded, for changes to take effect. The in-memory bwrap-attestation cache is pruned of expired entries on every validation call; the currently-looked-up id is preserved so the validator can report `expired` rather than `not found`.
+The Guardian policy and the phase-transitions config are loaded **once per process** and cached at module scope. Editing `config/uacp.toml` (guardian policy), `config/phase-transitions.yaml`, or `config/state.yaml` while the adapter is loaded has **no effect on a running session** — the host runtime must be restarted, or the adapter explicitly reloaded, for changes to take effect. The in-memory bwrap-attestation cache is pruned of expired entries on every validation call; the currently-looked-up id is preserved so the validator can report `expired` rather than `not found`.
 
 ### Mode semantics
 
-Mode is resolved from `config/guardian-policy.yaml` (`mode:` key) with `UACP_GUARDIAN_MODE` as an environment override. Invalid or missing values fall back to `enforce`. Mode is read once at policy load (see policy load section above).
+Mode is resolved from `config/uacp.toml [guardian]` (`mode` key) with `UACP_GUARDIAN_MODE` as an environment override. Invalid or missing values fall back to `enforce`. Mode is read once at policy load (see policy load section above).
 
 **`observe` mode** — Guardian logs decisions and downgrades **policy-default** blocks for UACP-bound actions to `allow_with_audit`. Observe mode is intended for integration testing and non-critical runtimes, not for production enforcement.
 
@@ -337,7 +337,7 @@ Durable checkpoint artifacts — required for phase transitions and any `allow_w
 Complete this checklist before declaring an adapter binding production-ready.
 
 - [ ] `pre_tool_call` hook fires before execution for all protected categories
-- [ ] Policy loads from `config/guardian-policy.yaml` at startup
+- [ ] Policy loads from `config/uacp.toml [guardian]` at startup
 - [ ] Symbolic roots resolve correctly from environment variables
 - [ ] Guardian fails closed when policy cannot be loaded
 - [ ] Tool schema includes all required UACP tools
@@ -347,7 +347,7 @@ Complete this checklist before declaring an adapter binding production-ready.
 - [ ] Negative probe: a protected action without authority returns `block`
 - [ ] Containment probe (if shell execution is in scope): uncontained shell execution returns `block`
 - [ ] Verification artifact recorded under `verification/`
-- [ ] `config/runtime-bindings.yaml` updated with binding status and artifact path
+- [ ] `config/uacp.toml [runtime_bindings]` updated with binding status and artifact path
 
 ---
 
@@ -384,6 +384,6 @@ The rollback path must be executable by an operator who has no knowledge of UACP
 
 - `docs/runtime/runtime-enforcement.md` — full Guardian and Heartgate design
 - `docs/runtime/runtime-porting-and-version-control.md` — adapter ownership and version-control policy
-- `config/guardian-policy.yaml` — machine-readable policy seed
+- `config/uacp.toml [guardian]` — Guardian policy (collapsed from legacy guardian-policy.yaml in Slice 3)
 - `runtime-adapters/hermes/plugins/uacp_guardian/` — the Hermes adapter implementation
-- `config/runtime-bindings.yaml` — current binding registry
+- `config/uacp.toml [runtime_bindings]` — current binding registry

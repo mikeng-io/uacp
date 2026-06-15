@@ -335,7 +335,7 @@ def _handle_uacp_escalation_event(args: dict, **_: Any) -> str:
     state/escalations/{run_id}.jsonl.
 
     Required args (plus standard UACP context):
-      trigger: string id matching an entry in config/autonomy-policy.yaml#escalation_triggers.triggers
+      trigger: string id matching an entry in config/uacp.toml [autonomy.escalation_triggers] triggers
       severity: enum {info, warn, block}
       reason: string explanation
       mode: current uacp_mode {manual, semi_auto, supervised_auto, full_auto}

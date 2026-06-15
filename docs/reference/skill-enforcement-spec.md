@@ -131,8 +131,8 @@ uacp-state has no Layer B entry of its own (it's `phase: '*'` / cross-phase); ad
 | Authority | Where enforced |
 |---|---|
 | Phase admissibility (Layer B) | `Guardian._phase_layer_check` reads `config/phase-transitions.yaml stages.<phase>.allowed_tools/forbidden_tools` |
-| Per-category writer (Layer A) | `Guardian.evaluate()` reads `config/guardian-policy.yaml protected_categories.<cat>.allowed_tools` |
-| Self-attesting containment | `Guardian._filesystem_guard_verified` reads `config/guardian-policy.yaml self_attesting_tools.names` |
+| Per-category writer (Layer A) | `Guardian.evaluate()` reads `config/uacp.toml [guardian] protected_categories.<cat>.allowed_tools` |
+| Self-attesting containment | `Guardian._filesystem_guard_verified` reads `config/uacp.toml [guardian] self_attesting_tools.names` |
 | Phase exit invariants | `Heartgate._validate_phase_exit_invariants` reads `stages.<phase>.phase_exit_invariants` |
 | PIV obligation | `Heartgate._validate_piv_record` reads `piv_rule` + run gate-ledger; enforces per-check pass evidence (each piv_id ∈ {piv_1..piv_5} carrying explicit `result: pass` either as a mapping entry in `checks[]` or via sibling `check_results: {piv_id: pass}`) — Global review SKEP-G-002 generalized the Phase 3 R1 PLAN_VALIDATION pattern to PIV |
 | Plan validation | `Heartgate._validate_plan_validation_gate` reads `plan_validation_gate` (incl. `ledger_required_fields`, `ledger_required_phase`, declared `checks`) + run gate-ledger; enforces per-check pass evidence (Phase 3 R1/R2) |
@@ -140,8 +140,8 @@ uacp-state has no Layer B entry of its own (it's `phase: '*'` / cross-phase); ad
 | Run registry mutation | `uacp_run_registry_update` enforces caller-binding + write-path canonicalization; `uacp_state_write` refuses direct writes to `state/run-registry.yaml` (Phase 3 R1/R2) |
 | Scope handler refusals | `Heartgate._validate_scope_artifact` reads `cross_checks.scope_write_paths_vs_layer_b.handler_refusals` so a scope cannot launder paths the handler refuses (Phase 3 R1) |
 | Escape-hatch shape | `Heartgate._validate_evidence_dispositions` validates that `handled_findings_chain` / `accepted_exceptions` entries are non-empty mappings with required fields, not garbage placeholders (Phase 3 R2 SKEP-R1-002) |
-| Escalation events (Phase 4.4 stub) | `_handle_uacp_escalation_event` enforces UACP context, severity/mode enums, required `mode` field, PIPE_BUF size bound, escalation-dir containment check, embedded-newline refusal; writes to `state/escalations/{run_id}.jsonl`. Operator-polling only — push-notify is Phase 5. Trigger-ID validation against `config/autonomy-policy.yaml#escalation_triggers.triggers` is deferred to Phase 5 (no kernel reader yet). |
-| Operating mode (Phase 4.1 stub) | `state/current.yaml#uacp_mode` declared with default=manual. **No kernel reader in Phase 4** — `enforcement_status: stub_only_phase_4`. Skills consult `config/autonomy-policy.yaml` as guidance. Phase 5 adds the first reader. |
+| Escalation events (Phase 4.4 stub) | `_handle_uacp_escalation_event` enforces UACP context, severity/mode enums, required `mode` field, PIPE_BUF size bound, escalation-dir containment check, embedded-newline refusal; writes to `state/escalations/{run_id}.jsonl`. Operator-polling only — push-notify is Phase 5. Trigger-ID validation against `config/uacp.toml [autonomy.escalation_triggers]` triggers is deferred to Phase 5 (no kernel reader yet). |
+| Operating mode (Phase 4.1 stub) | `state/current.yaml#uacp_mode` declared with default=manual. **No kernel reader in Phase 4** — `enforcement_status: stub_only_phase_4`. Skills consult `config/uacp.toml [autonomy]` as guidance. Phase 5 adds the first reader. |
 | Scope write_paths | `Heartgate._validate_scope_artifact` reads `config/artifact-schemas.yaml#scope` + `plans/{run_id}-scope.yaml` |
 
 If a skill SKILL.md mirror drifts from this spec or from `config/phase-transitions.yaml`, the canonical config wins. Drift is recoverable through normal commits — there is no audit harness yet (deferred for Phase 4 autonomous-mode verification cycles).

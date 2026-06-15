@@ -41,7 +41,7 @@ Required artifacts:
 Run-registry registration:
 - `config/phase-transitions.yaml#run_registry_rule.required_for_transition: plan->execute` declares the registry is consulted at every PLAN→EXECUTE in every mode. Any two concurrent runs whose `scope.write_paths` overlap will mutually block unless both register.
 - Manual-mode runs MAY skip registration when operator-driven serialization is the compensating control (no concurrent UACP run is open). Heartgate's overlap check then has nothing to flag.
-- `supervised_auto` / `full_auto` mode runs (Phase 5+) MUST register via `uacp_run_registry_update` op=register after PLAN_VALIDATION and deregister at RESOLVE. `config/autonomy-policy.yaml#modes.{supervised_auto,full_auto}.run_registry_registration_required: true` documents this obligation (kernel reader lands in Phase 5).
+- `supervised_auto` / `full_auto` mode runs (Phase 5+) MUST register via `uacp_run_registry_update` op=register after PLAN_VALIDATION and deregister at RESOLVE. `config/uacp.toml [autonomy] modes.{supervised_auto,full_auto}.run_registry_registration_required: true` documents this obligation (kernel reader lands in Phase 5).
 
 ### 4. Execute (`uacp-execute`)
 
@@ -112,7 +112,7 @@ The list below distinguishes **mechanically enforced** (kernel refuses; no opera
 **Authoring contract** (documentation-only; no kernel reader yet):
 - Opening Phase 5 (or any future reserved_slot phase). Phase 5 prerequisites in `docs/plans/phase5-reserved-slot.md` are doc-level — a mechanical pre-check is on the Phase 5 backlog (`pc_g_skep_007`).
 - Force-pushing to `main`. There is no git hook in this repo; the rule is contributor discipline.
-- Authoring a proposal with `blast_radius` ∈ {high, critical}. `config/autonomy-policy.yaml#escalation_triggers.trigger_blast_radius_high` describes the intended trigger, but the kernel reader for this is Phase 5.
+- Authoring a proposal with `blast_radius` ∈ {high, critical}. `config/uacp.toml [autonomy.escalation_triggers] trigger_blast_radius_high` describes the intended trigger, but the kernel reader for this is Phase 5.
 - Decisions that supersede an `accepted` ADR (must propose a new ADR superseding the old one, not edit in place).
 
 ## Cross-references

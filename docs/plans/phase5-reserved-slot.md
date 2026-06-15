@@ -21,10 +21,10 @@ Closing the patch plan at RESOLVE without entering Phase 5 honors prerequisite #
 
 ## What Phase 5 will deliver (per the proposal)
 
-- **Kernel readers for `state/current.yaml#uacp_mode`** — Heartgate gates transitions on the active mode's `requires_operator_confirmation` list from `config/autonomy-policy.yaml`.
-- **Trigger-ID validation** in `uacp_escalation_event` against the autonomy-policy registry.
+- **Kernel readers for `state/current.yaml#uacp_mode`** — Heartgate gates transitions on the active mode's `requires_operator_confirmation` list from `config/uacp.toml [autonomy]` (collapsed from the former `autonomy-policy.yaml` in Slice 3).
+- **Trigger-ID validation** in `uacp_escalation_event` against the `[autonomy.escalation_triggers]` registry in `config/uacp.toml`.
 - **Registry mutation atomicity** — atomic-rename + advisory locking for `state/run-registry.yaml` to support concurrent autonomous runs.
-- **`_canonical_state_path()` kernel helper** consuming `autonomy-policy.yaml#canonical_state_paths`.
+- **`_canonical_state_path()` kernel helper** — resolve via the live `config/uacp.toml [paths]` (Slice 2) + `config.py` `dir_for`; the former `autonomy-policy.yaml#canonical_state_paths` was dropped in Slice 3 as superseded by `[paths]`.
 - **Push-notification surface** (Hermes core seam) replacing operator polling of `state/escalations/`.
 - **`scripts/check_authority_mirror.py`** detecting drift across the config/spec/SKILL.md authority chain.
 - **Structured condition DSL** for `escalation_triggers.triggers[*].condition`, replacing prose.

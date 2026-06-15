@@ -99,7 +99,7 @@ Read additionally:
 
 - `UACP_ROOT/docs/lifecycle/orchestration-model.md`
 - `UACP_ROOT/config/phase-transitions.yaml`
-- `UACP_ROOT/config/review-routing.yaml`
+- `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`)
 - `HERMES_ROOT/skills/devops/../references/current-semi-auto-orchestration.md` when deciding whether EXECUTE really needs Kanban/coordination or can stay synchronous
 - `references/self-patch-write-authority-gap-20260518.md` when EXECUTE touches UACP skills, validators, Heartgate/Guardian runtime adapters, or other self-patch governance surfaces
 - `references/phase-intent-verification-execute-evidence.md` when EXECUTE needs PIV-backed semantic evidence and VERIFY handoff
@@ -177,7 +177,7 @@ During this skill-library refactor specifically, do **not** use UACP protected w
 
 ## mode_behavior (Phase 4.3 stub)
 
-This skill consults `config/autonomy-policy.yaml` to decide which actions
+This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
 
 | mode | Behavior in EXECUTE | Operator confirmation |
@@ -192,7 +192,7 @@ require operator confirmation per the active `state.current.uacp_mode`.
 **Mechanism**: when an escalation trigger fires, this skill emits a
 `uacp_escalation_event` record into `state/escalations/{run_id}.jsonl`
 (severity ∈ {info, warn, block}). Operators poll the file (push-notify
-is Phase 5). See `config/autonomy-policy.yaml#escalation_triggers` for
+is Phase 5). See `config/uacp.toml [autonomy.escalation_triggers]` for
 the registered triggers.
 
 ## Phase Intent Verification (PIV) execution evidence

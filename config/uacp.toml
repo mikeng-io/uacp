@@ -35,16 +35,12 @@ root = "councils"              # Council session artifacts, resolved under .uacp
 # =============================================================================
 # MODEL REGISTRY
 # =============================================================================
-# Model alias → concrete provider model IDs live in config/model-registry.yaml.
-# That file is the canonical upstream source. Bridges and skills fetch it from
-# GitHub raw content at runtime. This TOML only keeps bridge behavioural
-# settings (timeouts, feature flags, connection preferences).
-#
-# Raw URL:
-#   https://raw.githubusercontent.com/nortrix-labs/uacp/main/config/model-registry.yaml
-#
-# When a provider releases a new model, update ONLY model-registry.yaml —
-# no bridge skill code changes are required.
+# Model alias → concrete provider model IDs are now defined in this file
+# under [models.providers.*] and [models.tier_mappings.*].
+# config/model-registry.yaml was deleted in Slice 3 (config-collapse); this
+# file is now the single source of truth for all model identifiers.
+# This section precedes the [models.tiers.*] and behavioural bridge settings
+# sections below.
 
 # =============================================================================
 # MODELS & TIER SYSTEM
@@ -55,8 +51,8 @@ root = "councils"              # Council session artifacts, resolved under .uacp
 #
 # Assignment flow:
 #   1. Council assesses task → assigns tier (0–4) in bridge_input
-#   2. Bridge reads tier → resolves model alias + reasoning from model-registry.yaml
-#   3. Bridge resolves alias → concrete provider model ID from model-registry.yaml
+#   2. Bridge reads tier → resolves model alias + reasoning from [models.tier_mappings]
+#   3. Bridge resolves alias → concrete provider model ID from [models.providers]
 #   4. If tier is absent, bridge derives it from task_type + intensity
 
 [models.tiers.0]
@@ -103,7 +99,8 @@ thorough = 2
 # BRIDGE RUNTIME SETTINGS
 # =============================================================================
 # Connection preference, tier-to-alias mappings, and model identifiers are
-# defined in each bridge's SKILL.md and in config/model-registry.yaml.
+# defined in each bridge's SKILL.md and in [models.providers]/[models.tier_mappings]
+# in this file (config/model-registry.yaml was deleted in Slice 3).
 # This section contains only runtime-configurable parameters that skills
 # actively read from config/uacp.toml.
 #
@@ -207,14 +204,185 @@ council_mode = "resolve"
 # =============================================================================
 # Runtime enforcement configuration.
 
+# Faithful translation of config/guardian-policy.yaml (kind: uacp.guardian_policy).
+# Canonical prose authority remains docs/runtime/runtime-enforcement.md and
+# docs/lifecycle/lifecycle-reference.md. The YAML is the source of truth for
+# structure; GuardianPolicy.__init__ is structure-driven (data.get(...)), so the
+# top-level key shape under [guardian] mirrors the YAML exactly.
 [guardian]
-mode = "enforce"              # enforce | audit | permissive
-self_attesting_tools = ["uacp_doc_write", "uacp_config_write", "uacp_state_write"]
+mode = "enforce"              # enforce | observe
+schema_version = "0.1"
+
+# --- Protected categories (decision surface) -------------------------------
+# Each category: description, default_decision, optional allowed_tools.
+[guardian.protected_categories."state.uacp"]
+description = "Runtime lifecycle state under state/."
+default_decision = "block"
+allowed_tools = ["uacp_state_write", "uacp_gate_ledger_append", "uacp_run_registry_update", "uacp_escalation_event"]
+
+[guardian.protected_categories."docs.uacp"]
+description = "Canonical UACP Markdown docs under docs/."
+default_decision = "block"
+allowed_tools = ["uacp_doc_write"]
+
+[guardian.protected_categories."config.uacp"]
+description = "Canonical UACP YAML config under config/."
+default_decision = "block"
+allowed_tools = ["uacp_config_write"]
+
+[guardian.protected_categories."file.write"]
+description = "Local filesystem write outside explicit UACP state/config/doc boundaries."
+default_decision = "require_approval"
+
+[guardian.protected_categories."exec.shell"]
+description = "Shell command execution."
+default_decision = "block_pending_heartgate"
+
+[guardian.protected_categories."exec.code_with_tool_proxy"]
+description = "Code execution that can call filesystem or terminal tools."
+default_decision = "block_pending_heartgate"
+
+[guardian.protected_categories."exec.shell.contained"]
+description = "bwrap-contained shell execution surface used to mint filesystem-containment attestations."
+default_decision = "block"
+allowed_tools = ["uacp_contained_shell"]
+
+[guardian.protected_categories."artifact.uacp"]
+description = "Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml."
+default_decision = "block"
+allowed_tools = ["uacp_artifact_write"]
+
+[guardian.protected_categories."evidence.containment"]
+description = "Read-only filesystem-containment evidence checks."
+default_decision = "allow_with_audit"
+allowed_tools = ["uacp_sandbox_check"]
+
+[guardian.protected_categories."lifecycle.transition"]
+description = "Heartgate phase-transition artifact validation (read-only)."
+default_decision = "allow_with_audit"
+allowed_tools = ["uacp_heartgate_check"]
+
+[guardian.protected_categories."external.message"]
+description = "Sending messages or commitments outside origin conversation."
+default_decision = "require_approval"
+
+[guardian.protected_categories."external.network_write"]
+description = "Network mutation including APIs, posts, issues, PRs, pushes, deploys."
+default_decision = "require_approval"
+
+[guardian.protected_categories."external.network_read"]
+description = "Network read or web retrieval."
+default_decision = "allow_with_audit"
+
+[guardian.protected_categories."runtime.extension"]
+description = "Plugin or MCP-provided tool whose provenance must be classified before protected use."
+default_decision = "block_pending_heartgate"
+
+[guardian.protected_categories."read.local"]
+description = "Local non-private file reads."
+default_decision = "allow"
+
+# --- Tool classification (tool name -> category) ---------------------------
+[guardian.tool_classification]
+read_file = "read.local"
+search_files = "read.local"
+skill_view = "read.local"
+session_search = "read.local"
+vision_analyze = "read.local"
+browser_snapshot = "read.local"
+browser_vision = "read.local"
+browser_console = "read.local"
+browser_get_images = "read.local"
+uacp_state_write = "state.uacp"
+uacp_doc_write = "docs.uacp"
+uacp_config_write = "config.uacp"
+uacp_artifact_write = "artifact.uacp"
+uacp_sandbox_check = "evidence.containment"
+uacp_contained_shell = "exec.shell.contained"
+uacp_heartgate_check = "lifecycle.transition"
+uacp_gate_ledger_append = "state.uacp"
+uacp_run_registry_update = "state.uacp"
+uacp_escalation_event = "state.uacp"
+terminal = "exec.shell"
+execute_code = "exec.code_with_tool_proxy"
+send_message = "external.message"
+cronjob = "external.message"
+
+# --- Tool pattern classification (glob -> category) ------------------------
+[guardian.tool_pattern_classification]
+"spotify_*" = "external.network_write"
+"github_*" = "external.network_write"
+"browser_*" = "external.network_read"
+"web_*" = "external.network_read"
+"mcp_*" = "runtime.extension"
+
+# --- Tool provenance (per-provider classification policy) ------------------
+[guardian.tool_provenance.classification_by_provider]
+core = "use_tool_classification"
+plugin = "require_explicit_classification"
+mcp = "require_explicit_classification"
+inline_agent_loop = "require_control_plane_guard"
+unknown = "block_pending_heartgate"
+
+# --- Path rules ------------------------------------------------------------
+[guardian.path_rules]
+uacp_root_env = "UACP_ROOT"
+protected_state_globs = ["state/**"]
+protected_doc_globs = ["docs/**"]
+protected_config_globs = ["config/**"]
+
+[guardian.path_rules.protected_write_enforcement]
+required_for = ["state.uacp", "docs.uacp", "config.uacp", "exec.shell", "exec.code_with_tool_proxy"]
+
+# --- Self-attesting tools --------------------------------------------------
+# Tools whose handlers perform their own path-bounded containment (governed
+# writers, sandbox/heartgate checks, and the bwrap-backed contained shell
+# itself). For these tools, Guardian treats `filesystem_guard_verified` as True
+# without requiring an external bwrap attestation. The adapter reads this list
+# at hook-evaluation time so authority remains in policy, not in inline code.
+[guardian.self_attesting_tools]
+description = "Tools whose handlers perform their own path-bounded containment (governed writers, sandbox/heartgate checks, and the bwrap-backed contained shell itself). For these tools, Guardian treats `filesystem_guard_verified` as True without requiring an external bwrap attestation. The adapter reads this list at hook-evaluation time so authority remains in policy, not in inline code.\n"
+names = [
+    "uacp_state_write",
+    "uacp_doc_write",
+    "uacp_config_write",
+    "uacp_artifact_write",
+    "uacp_sandbox_check",
+    "uacp_heartgate_check",
+    "uacp_contained_shell",
+    "uacp_gate_ledger_append",
+    "uacp_run_registry_update",
+    "uacp_escalation_event",
+]
+
+# --- Runtime modes ---------------------------------------------------------
+[guardian.runtime_modes.observe]
+description = "Log decisions but allow unless non-waivable secret/private boundary is crossed."
+
+[guardian.runtime_modes.enforce]
+description = "Block protected actions that lack required authority, side-effect declaration, or Heartgate clearance."
+
+# --- Audit -----------------------------------------------------------------
+[guardian.audit]
+log_path = "logs/uacp/guardian.jsonl"
+required_fields = ["ts", "uacp_run_id", "uacp_phase", "tool_name", "decision", "authority_artifact", "side_effects", "runtime_commit", "uacp_commit"]
 
 [heartgate]
 enabled = true
 coherence_check_on_transition = true
 required_lenses = ["authority", "side_effects", "evidence", "rollback"]
+# From guardian-policy.yaml heartgate block (validator needs allowed_transitions).
+transition_config = "config/phase-transitions.yaml"
+allowed_transitions = [
+    "execute->verify",
+    "plan->execute",
+    "propose->plan",
+    "resolve->terminal",
+    "triage->propose",
+    "triage->terminal",
+    "verify->resolve",
+]
+decision_values = ["pass", "warn", "block"]
 
 # =============================================================================
 # OUTPUT
@@ -239,3 +407,583 @@ max_prompt_size_chars = 32000
 [telemetry]
 enabled = false
 level = "minimal"             # minimal | standard | verbose
+
+# =============================================================================
+# VERSION CONTROL
+# =============================================================================
+# Controls repository, branch, worktree, backup, and commit-boundary policy for
+# UACP-owned doctrine, configs, audit artifacts, and runtime adapters.
+# Collapsed from: config/version-control.yaml (kind: uacp.version_control)
+# Canonical prose authority: none yet (self-documenting policy config).
+
+[version_control]
+schema_version = "0.1"
+
+[version_control.repository]
+root = "UACP_ROOT"
+stable_branch = "main"
+private_remote_required_for_backup = true
+local_git_is_backup = false
+push_policy = "external side effect; requires explicit operator confirmation"
+
+[version_control.branch_policy]
+# Pattern for active UACP run branches.
+active_run_branch_pattern = "uacp/<run-id>/<topic>"
+# Pattern for active UACP worktrees under the Hermes runtime root.
+active_worktree_pattern = "HERMES_ROOT/worktrees/uacp/<run-id>/"
+# The branch currently tracking the Hermes plugin porting effort.
+# time-bound; updated per runtime-porting effort
+current_runtime_porting_branch = "uacp/runtime-porting-20260513/hermes-plugin-port"
+
+[version_control.commit_policy]
+# Commit slices that carry meaningful governance signal and should be kept.
+meaningful_slices = [
+    "proposal_or_plan_artifacts",
+    "runtime_adapter_source_import",
+    "binding_config_or_sop",
+    "verification_evidence",
+    "resolution_or_lessons",
+]
+# Commit types that produce noise and should be squashed or skipped.
+avoid_noisy_commits_for = [
+    "high_frequency_runtime_state_churn",
+    "unreviewed_temporary_probe_output",
+]
+
+[version_control.runtime_repositories.hermes_agent]
+# Hermes Agent is a downstream runtime target — UACP_ROOT is the source of truth.
+role = "downstream runtime target"
+local_patch_policy = "single local patch commit while unavoidable"
+ownership_rule = "UACP-specific plugin source should migrate to UACP_ROOT runtime-adapters after binding proof"
+backup_rule = "do not use Hermes Agent commits as UACP backup"
+
+# =============================================================================
+# MEMORY
+# =============================================================================
+# RESERVED — Honcho/Knowledge-Bank wiring is a later slice; no kernel reader yet.
+# Controls where UACP stores state, run artifacts, lessons, and long-lived memory.
+# Gate-learning artifacts stay in local UACP knowledge first, then move to a
+# standalone Knowledge Bank API.
+# Collapsed from: config/memory-policy.yaml (kind: uacp.memory_policy)
+# NOTE: learning_artifact_schema and example_artifact are omitted here — the
+# schema will be relocated to docs/reference in a later phase.
+
+[memory]
+schema_version = "0.1"
+status = "reserved"   # RESERVED — no kernel reader in Slice 3; Honcho wiring is Phase 5
+
+# --- Storage boundaries -------------------------------------------------------
+# What Honcho personal/peer memory may and may not hold.
+[memory.storage_boundaries.honcho]
+purpose = "Personal and peer memory, preferences, and conversation continuity."
+allowed = [
+    "operator preferences",
+    "high-level architectural preferences",
+    "stable facts about Mike/Norty",
+]
+forbidden = [
+    "high-volume gate-learning artifacts",
+    "active proposal state",
+    "raw verification logs",
+]
+
+# Active and archived governed-run artifacts live under UACP_ROOT.
+[memory.storage_boundaries.uacp_artifact_root]
+path = "UACP_ROOT"
+purpose = "Active and archived UACP governed-run artifacts."
+allowed = [
+    "proposals",
+    "plans",
+    "execution histories",
+    "verification artifacts",
+    "outputs",
+    "local knowledge artifacts",
+]
+
+# Placeholder for the future shared retrieval/ranking substrate.
+[memory.storage_boundaries.knowledge_bank_future]
+purpose = "Shared retrieval and ranking substrate for scenarios, gates, and lessons."
+status = "not implemented in Stage 1 or Stage 2"   # reserved slot; wired in a later phase
+boundary = "Expose an API; do not make Cortex or Honcho sole owner."
+
+# Cortex may consume or produce knowledge through APIs only.
+[memory.storage_boundaries.cortex]
+purpose = "Workflow/editorial/Discord consumer and producer of knowledge."
+boundary = "May consume or produce through APIs; should not own all UACP knowledge."
+
+# --- Local knowledge locations ------------------------------------------------
+# Relative paths under UACP_ROOT for knowledge artifacts produced during runs.
+[memory.local_knowledge_locations]
+scenarios = "knowledge/scenarios/"
+gate_templates = "knowledge/gate-templates/"
+lessons = "knowledge/lessons/"
+indexes = "knowledge/indexes/"
+
+# =============================================================================
+# AUTONOMY
+# =============================================================================
+# Declares operating-mode policy for autonomous UACP runs.
+# Each uacp_mode (manual | semi_auto | supervised_auto | full_auto) has a
+# behavior profile and escalation triggers.
+# Collapsed from: config/autonomy-policy.yaml (kind: uacp.autonomy_policy)
+# Canonical prose authority: docs/ (Phase 5 will add kernel readers).
+#
+# enforcement_status values (see [autonomy.enforcement_status_legend]):
+#   stub_only_phase_4 — declared but no kernel reader yet; consumed as guidance
+#   partial_phase_4   — subset has kernel readers; others documented per field
+#   production        — fully consumed by kernel/adapter at runtime
+#
+# canonical_state_paths dropped — see live [paths]
+
+[autonomy]
+schema_version = "0.1"
+# Honesty marker from Phase 4 R1 — must NOT be removed until kernel readers land.
+enforcement_status = "stub_only_phase_4"
+
+# Legend for enforcement_status values used throughout this section.
+[autonomy.enforcement_status_legend]
+stub_only_phase_4 = "declared in YAML; no kernel reader; consumed by humans/skills as guidance"
+partial_phase_4 = "some kernel readers exist; balance documented per field"
+production = "fully consumed by kernel/adapter at runtime"
+
+# --- Advisory field convention ------------------------------------------------
+# Absorbs pc_p3_gov_r1_003: YAML fields not read by code use _advisory suffix
+# or live under a documentation: block. Kernels MUST NOT depend on _advisory fields.
+[autonomy.advisory_field_convention]
+description = "Phase 4 absorbs pc_p3_gov_r1_003 — YAML fields not read by code must use the _advisory suffix or live under a documentation: block. Kernels and adapters MUST NOT depend on _advisory fields. Operators use them as authoritative human-readable annotations."
+rule = "Any YAML field name ending in '_advisory' is documentation-only. Any YAML field with no kernel reader after a Phase 4 audit should be renamed with the suffix OR have a kernel reader added."
+
+# --- Operating modes (stub_only_phase_4 — no kernel reader yet) ---------------
+# Per-mode fields (autonomous_actions, requires_operator_confirmation, on_block,
+# on_warn, default_escalation_severity, run_registry_registration_required) have
+# ZERO kernel readers in Phase 4. Skills consult them as guidance only.
+[autonomy.modes.manual]
+# Operator drives every transition. UACP is a recording and validation layer only.
+enforcement_status = "stub_only_phase_4"
+description = "Operator drives every transition. No autonomous decisions; UACP acts as a recording and validation layer."
+autonomous_actions = []
+requires_operator_confirmation = [
+    "propose_to_plan",
+    "plan_to_execute",
+    "execute_to_verify",
+    "verify_to_resolve",
+    "any_council_review",
+]
+on_block = "pause_for_operator"
+on_warn = "pause_for_operator"
+default_escalation_severity = "info"
+
+[autonomy.modes.semi_auto]
+# Operator confirms phase transitions; UACP autonomously runs within-phase work.
+enforcement_status = "stub_only_phase_4"
+description = "Operator confirms phase transitions; UACP autonomously runs within-phase work (artifact writes, internal validations, PIV)."
+autonomous_actions = [
+    "within_phase_artifact_write",
+    "within_phase_piv",
+    "within_phase_heartgate_check",
+]
+requires_operator_confirmation = [
+    "propose_to_plan",
+    "plan_to_execute",
+    "execute_to_verify",
+    "verify_to_resolve",
+]
+on_block = "pause_for_operator"
+on_warn = "continue_with_recorded_warning"
+default_escalation_severity = "warn"
+
+[autonomy.modes.supervised_auto]
+# Runs the lifecycle autonomously until a registered escalation trigger fires.
+# Operator is notified via state/escalations/{run_id}.jsonl.
+enforcement_status = "stub_only_phase_4"
+description = "UACP autonomously runs the lifecycle until a registered escalation trigger fires. Operator is notified via state/escalations/{run_id}.jsonl. Council reviews run automatically but escalate on material findings."
+autonomous_actions = [
+    "within_phase_artifact_write",
+    "within_phase_piv",
+    "within_phase_heartgate_check",
+    "propose_to_plan",
+    "plan_to_execute",
+    "execute_to_verify",
+    "verify_to_resolve",
+    "agent_council_review",
+]
+requires_operator_confirmation = [
+    "destructive_operations",
+    "blast_radius_high_or_critical",
+    "escalation_triggered",
+]
+on_block = "emit_escalation_then_pause"
+on_warn = "emit_escalation_continue"
+default_escalation_severity = "warn"
+# Phase 4 hardening (pc_p3_gov_r1_004): supervised_auto runs MUST register in
+# state/run-registry.yaml via uacp_run_registry_update after PLAN_VALIDATION and
+# deregister at RESOLVE.
+run_registry_registration_required = true
+
+[autonomy.modes.full_auto]
+# End-to-end autonomous. Operator engaged only on explicit escalation triggers.
+enforcement_status = "stub_only_phase_4"
+description = "End-to-end autonomous. Operator engaged only on explicit escalation triggers (auth, irreversible_writes, sweeping changes, council block). All other lifecycle progresses without confirmation."
+autonomous_actions = [
+    "all_within_phase_actions",
+    "all_phase_transitions",
+    "all_council_reviews",
+]
+requires_operator_confirmation = [
+    "irreversible_writes_unbounded",
+    "cross_run_writes_unbounded",
+    "escalation_triggered",
+]
+on_block = "emit_escalation_then_pause"
+on_warn = "emit_escalation_continue"
+default_escalation_severity = "warn"
+run_registry_registration_required = true
+
+# --- Escalation triggers (stub_only_phase_4; prose conditions, not DSL yet) ---
+# Conditions emit uacp_escalation_event records in state/escalations/{run_id}.jsonl.
+# severity: block = run pauses; warn/info = run continues per mode's on_block/on_warn.
+# Phase 5 must introduce a structured condition DSL and lock trigger IDs at init time.
+[[autonomy.escalation_triggers.triggers]]
+id = "trigger_blast_radius_high"
+condition = "scope.blast_radius in {high, critical}"
+severity = "block"
+modes = ["semi_auto", "supervised_auto", "full_auto"]
+reason = "high blast radius requires explicit operator authorization"
+
+[[autonomy.escalation_triggers.triggers]]
+id = "trigger_council_material_finding"
+condition = "council_review.verdict == \"block\" or material_findings_count > 0"
+severity = "block"
+modes = ["supervised_auto", "full_auto"]
+reason = "council surfaced material finding that requires operator review"
+
+[[autonomy.escalation_triggers.triggers]]
+id = "trigger_pending_assumption_unowned"
+condition = "evidence_disposition has unowned 'pending' assumption"
+severity = "block"
+modes = ["supervised_auto", "full_auto"]
+reason = "unowned pending assumption is a governance blocker"
+
+[[autonomy.escalation_triggers.triggers]]
+id = "trigger_irreversible_write"
+condition = "scope.declared_side_effects contains kind=irreversible_write"
+severity = "block"
+modes = ["full_auto"]   # even full_auto requires operator for irreversible writes
+reason = "irreversible_write requires operator confirmation even in full_auto"
+
+[[autonomy.escalation_triggers.triggers]]
+id = "trigger_run_registry_overlap_imminent"
+condition = "registry overlap detected during plan->execute"
+severity = "warn"
+modes = ["supervised_auto", "full_auto"]
+reason = "another active run claims overlapping write_paths"
+
+[[autonomy.escalation_triggers.triggers]]
+id = "trigger_piv_first_failure"
+condition = "first PIV attempt failed"
+severity = "warn"
+modes = ["supervised_auto", "full_auto"]
+reason = "PIV failure may indicate phase work is incomplete"
+
+[[autonomy.escalation_triggers.triggers]]
+id = "trigger_piv_second_failure"
+condition = "second PIV attempt failed (unconditional block)"
+severity = "block"
+modes = ["semi_auto", "supervised_auto", "full_auto"]   # non-waivable across all non-manual modes
+reason = "PIV second failure is non-waivable"
+
+# --- Hermes core seam (stub_only_phase_4) ------------------------------------
+# Describes the current operator-polling mechanism and the Phase 5 push target.
+[autonomy.hermes_core_seam]
+enforcement_status = "stub_only_phase_4"
+push_notification_phase = 5   # push surface is reserved for Phase 5
+current_mechanism = "Operator polls state/escalations/{run_id}.jsonl. uacp_escalation_event writes JSONL records, one per escalation, with severity + trigger + reason. Operator's polling cadence is out of scope; UACP guarantees the record exists and is readable."
+phase_5_deliverable = "Push notification surface (per the proposal's Phase 5 reserved slot). Replaces operator polling with active push to a configured endpoint."
+
+# =============================================================================
+# MODELS — PROVIDERS + TIER MAPPINGS
+# =============================================================================
+# Canonical provider registry and tier-to-alias mappings.
+# Collapsed from: config/model-registry.yaml (kind: uacp.model_registry)
+# These sections are COMPLEMENTARY to the existing [models.tiers.*] and
+# [models.tier_derivation] above — do not remove those.
+#
+# Design principles:
+#   - Alias names are stable and version-agnostic (e.g. "claude-sonnet", not
+#     "sonnet-4-6"). Concrete IDs carry version numbers and are updated when
+#     providers release or deprecate models.
+#   - Per-project overrides: .uacp/config.toml [models] (replaces the old
+#     config/model-registry.local.yaml gitignored override mechanism).
+#   - OpenCode is intentionally absent from tier_mappings — it is multi-provider
+#     and discovers its own model from local config; aliases here would be
+#     misleading. See [bridges.opencode] for OpenCode runtime settings.
+# Last verified: 2026-06-07
+
+# --- Provider catalogue -------------------------------------------------------
+[models.providers.anthropic]
+name = "Anthropic"
+base_url = "https://api.anthropic.com"
+
+[models.providers.anthropic.models.claude-haiku]
+concrete_id = "claude-haiku-4-5"
+description = "Fast, lightweight Claude model for trivial tasks"
+
+[models.providers.anthropic.models.claude-sonnet]
+concrete_id = "claude-sonnet-4-6"
+description = "Balanced reasoning and speed — daily driver"
+
+[models.providers.anthropic.models.claude-opus]
+concrete_id = "claude-opus-4-8"
+description = "Highest capability Claude model"
+
+[models.providers.openai]
+name = "OpenAI"
+base_url = "https://api.openai.com"
+
+[models.providers.openai.models.gpt-5-4-mini]
+concrete_id = "gpt-5.4-mini"
+description = "Fast, cost-effective GPT model for light tasks"
+
+[models.providers.openai.models.gpt-5-4]
+concrete_id = "gpt-5.4"
+description = "Standard GPT model — frontier quality at lower cost"
+
+[models.providers.openai.models.gpt-5-5]
+concrete_id = "gpt-5.5"
+description = "Highest capability GPT model for complex reasoning"
+
+[models.providers.google]
+name = "Google"
+base_url = "https://generativelanguage.googleapis.com"
+
+[models.providers.google.models.gemini-3-5-flash]
+concrete_id = "gemini-3.5-flash"
+description = "Fastest Gemini model — agentic coding & tool use"
+
+[models.providers.google.models.gemini-3-5-pro]
+concrete_id = "gemini-3.5-pro"
+description = "Highest capability Gemini model (expected June 2026)"
+
+[models.providers.moonshot]
+name = "Moonshot"
+base_url = "https://api.moonshot.cn"
+
+[models.providers.moonshot.models.kimi-default]
+concrete_id = "kimi-k2.6"
+description = "Kimi K2.6 — Moonshot's current flagship model"
+
+# --- Tier mappings (bridge → tier 0-4 → alias + reasoning level) -------------
+# When a provider releases a new model, update concrete_id above only —
+# never change alias names or tier mappings unless the capability model changes.
+# OpenCode intentionally absent — opaque multi-provider gateway (see above).
+
+[models.tier_mappings.claude]
+# tier 0: haiku (fast/cheap), 1-2: sonnet (daily driver), 3-4: opus (highest)
+0 = { alias = "claude-haiku",  reasoning = "medium" }
+1 = { alias = "claude-sonnet", reasoning = "medium" }
+2 = { alias = "claude-sonnet", reasoning = "high" }
+3 = { alias = "claude-opus",   reasoning = "high" }
+4 = { alias = "claude-opus",   reasoning = "xhigh" }
+
+[models.tier_mappings.codex]
+# tier 0: mini (fast), 1-2: gpt-5.4, 3-4: gpt-5.5 (highest)
+0 = { alias = "gpt-5-4-mini", reasoning = "medium" }
+1 = { alias = "gpt-5-4",      reasoning = "medium" }
+2 = { alias = "gpt-5-4",      reasoning = "high" }
+3 = { alias = "gpt-5-5",      reasoning = "high" }
+4 = { alias = "gpt-5-5",      reasoning = "xhigh" }
+
+[models.tier_mappings.gemini]
+# Gemini: flash for tiers 0-3 (fastest/cost), pro reserved for tier 4
+0 = { alias = "gemini-3-5-flash", reasoning = "medium" }
+1 = { alias = "gemini-3-5-flash", reasoning = "medium" }
+2 = { alias = "gemini-3-5-flash", reasoning = "high" }
+3 = { alias = "gemini-3-5-flash", reasoning = "high" }
+4 = { alias = "gemini-3-5-pro",   reasoning = "xhigh" }
+
+[models.tier_mappings.kimi]
+# Kimi K2: single model; all tiers use "thinking" reasoning mode
+0 = { alias = "kimi-default", reasoning = "thinking" }
+1 = { alias = "kimi-default", reasoning = "thinking" }
+2 = { alias = "kimi-default", reasoning = "thinking" }
+3 = { alias = "kimi-default", reasoning = "thinking" }
+4 = { alias = "kimi-default", reasoning = "thinking" }
+
+# =============================================================================
+# RUNTIME BINDINGS
+# =============================================================================
+# Stateful binding registry: runtime-adapter source locations and downstream
+# runtime binding targets for UACP-owned plugins/adapters.
+# Collapsed from: config/runtime-bindings.yaml (kind: uacp.runtime_bindings)
+# Operator decision to collapse here is recorded in the parallel decision-log
+# entry added by the concurrent phase of Slice 3.
+#
+# binding_kind values: symlink | copy | package_install
+# migration_status values: live_bound_user_plugin | temporary_probe_removed | planned
+
+[runtime_bindings.hermes]
+# Hermes is the first downstream runtime host for UACP adapter plugins.
+runtime_role = "first downstream host runtime"
+source_root = "runtime-adapters/hermes/"
+user_plugin_binding_root = "HERMES_ROOT/plugins/"
+discovery_status = "symlink_probe_passed"
+
+[runtime_bindings.hermes.adapters.uacp_guardian]
+source = "runtime-adapters/hermes/plugins/uacp_guardian/"
+binding = "HERMES_ROOT/plugins/uacp_guardian"
+binding_kind = "symlink"
+migration_status = "live_bound_user_plugin"
+verification_artifact = "verification/runtime-porting-20260513-uacp-guardian-live-bind.yaml"
+
+[runtime_bindings.hermes.adapters.thread_title_sync]
+source = "runtime-adapters/hermes/plugins/thread_title_sync/"
+binding = "HERMES_ROOT/plugins/thread_title_sync"
+binding_kind = "symlink"
+migration_status = "live_bound_user_plugin"
+verification_artifact = "verification/runtime-porting-20260513-thread-title-sync-live-bind.yaml"
+
+[runtime_bindings.hermes.adapters.uacp_symlink_probe]
+source = "runtime-adapters/hermes/plugins/uacp_symlink_probe/"
+binding = "HERMES_ROOT/plugins/uacp_symlink_probe"
+binding_kind = "symlink"
+migration_status = "temporary_probe_removed"   # probe served its purpose; cleaned up
+cleanup_artifact = "verification/runtime-porting-20260514-cleanup-doc-sync.yaml"
+
+# --- Future runtime targets (planned; not yet bound) -------------------------
+[runtime_bindings.future_runtimes.opencode]
+source_root = "runtime-adapters/opencode/"
+status = "planned"
+
+[runtime_bindings.future_runtimes.claude_code]
+source_root = "runtime-adapters/claude-code/"
+status = "planned"
+
+[runtime_bindings.future_runtimes.codex]
+source_root = "runtime-adapters/codex/"
+status = "planned"
+
+[runtime_bindings.future_runtimes.kimi]
+source_root = "runtime-adapters/kimi/"
+status = "planned"
+
+[runtime_bindings.future_runtimes.gemini]
+source_root = "runtime-adapters/gemini/"
+status = "planned"
+
+# =============================================================================
+# REVIEW
+# =============================================================================
+# SLIM — only operator knobs extracted here; council grammar, surfaces, profiles,
+# checkpoint policy, and domain routing notes stay in config/review-routing.yaml
+# (those are targeted for Slice 4).
+# Collapsed from: config/review-routing.yaml (kind: uacp.review_routing_config)
+# Canonical prose authority: docs/lifecycle/orchestration-model.md
+
+[review]
+# Current locked operating mode (from locked_current_operating_mode.mode).
+# Status: active_until_superseded — change requires explicit canonical doc entry.
+operating_mode = "manual_semi_auto"
+
+# Minimum granularity level at which TRIAGE spawns a council before PROPOSE.
+# From triage_council_trigger (phase_local_granularity >= 7 threshold).
+triage_council_min_granularity = 7
+
+# --- Intensity bands (granularity level → review intensity) ------------------
+# Derived from review_intensity.*.use_when granularity annotations.
+# none="1", lightweight="2-3", local_council="7-8", deep_council="9-10"
+# Note: granularity 4-6 is covered by standard_uacp path (no dedicated band entry).
+[review.intensity_bands]
+none = "1"
+lightweight = "2-3"
+local_council = "7-8"
+deep_council = "9-10"
+
+# --- Escalation rules (8 condition → route mappings) -------------------------
+# Extracted from escalation_rules lines ~679-697 of config/review-routing.yaml.
+[[review.escalation_rules]]
+condition = "checkpoint requires full_dimension local_council"
+route = "local_council"
+
+[[review.escalation_rules]]
+condition = "any triage factor score is 9 or 10"
+route = "deep_council"
+
+[[review.escalation_rules]]
+condition = "any non-waivable invariant is block"
+route = "human_operator"
+
+[[review.escalation_rules]]
+condition = "risk_level is critical"
+route = "deep_council"
+
+[[review.escalation_rules]]
+condition = "granularity_level is 9 or 10"
+route = "deep_council"
+
+[[review.escalation_rules]]
+condition = "write containment cannot be proven"
+route = "human_operator"
+
+[[review.escalation_rules]]
+condition = "external publication or irreversible action is requested"
+route = "human_operator"
+
+[[review.escalation_rules]]
+condition = "review tool or council is unavailable"
+route = "main_orchestrator"
+# When unavailable, record the missing surface and apply conservative failure if risk requires it.
+fallback = "record unavailable review surface and apply conservative failure if risk requires it"
+
+# --- Follow-through routing --------------------------------------------------
+[review.followthrough]
+# Maximum follow-up council depth before escalating instead of recursing.
+max_followup_depth = 1
+
+# =============================================================================
+# GATES — SCORING
+# =============================================================================
+# SLIM — triage scoring knobs only; non_waivable_invariants, artifact schemas,
+# path_resolution, and generated_cluster_rules stay in config/gate-selection.yaml
+# (those are targeted for Slice 4 / policy docs).
+# Collapsed from: config/gate-selection.yaml (kind: uacp.gate_selection_config)
+# Canonical prose authority: docs/ (governance principles).
+
+[gates.scoring]
+# Scoring method for composite granularity from triage factor scores.
+# weighted_max_plus_average: max(factor*weight) + average, capped at 10.
+method = "weighted_max_plus_average"
+
+# Threshold: if any single factor is at or above this, route must be reviewed
+# for full_governance or human clarification.
+escalation_factor_threshold = 9
+
+# --- Factor weights (must sum to 1.0) ----------------------------------------
+# impact: material effect on systems, people, money, reputation, safety, future work
+# reversibility: hard to undo, externally visible, destructive, costly to roll back
+# domain_count: many distinct domains or specialist perspectives required
+# runtime_count: many agents, tools, services, execution environments
+# verification_difficulty: correctness hard to prove or requires indirect evidence
+[gates.scoring.weights]
+impact = 0.30
+reversibility = 0.20
+domain_count = 0.15
+runtime_count = 0.15
+verification_difficulty = 0.20
+
+# --- Route bands (granularity_level → governance route) ----------------------
+# direct="1", lightweight="2-3", standard_uacp="4-8", full_governance="9-10",
+# block_or_clarify = authority/side-effects/critical factors unclear
+[gates.scoring.route_bands]
+direct = "1"
+lightweight = "2-3"
+standard_uacp = "4-8"      # stronger review + Kanban decomposition at 7-8
+full_governance = "9-10"
+block_or_clarify = "authority, side effects, or critical scoring factors are unclear"
+
+# --- Risk weight multipliers -------------------------------------------------
+# Applied when ranking evidence clusters by risk_level of the current context.
+[gates.scoring.risk_weight]
+low = 0.2
+medium = 0.5
+high = 0.8
+critical = 1.0

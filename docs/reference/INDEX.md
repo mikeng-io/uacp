@@ -21,4 +21,4 @@ Canonical schemas and per-skill authority records. These are the machine-readabl
 
 - Foundational policy: [`../policy/`](../policy/INDEX.md).
 - Runtime enforcement of these specs: [`../runtime/runtime-enforcement.md`](../runtime/runtime-enforcement.md).
-- Schemas in YAML form: `config/artifact-schemas.yaml`, `config/phase-transitions.yaml`, `config/guardian-policy.yaml`, `config/autonomy-policy.yaml`.
+- Schemas in YAML form: `config/artifact-schemas.yaml`, `config/phase-transitions.yaml`. Autonomy/mode policy: `config/uacp.toml [autonomy]` (collapsed from legacy autonomy-policy.yaml in Slice 3). Guardian policy: `config/uacp.toml [guardian]` (collapsed from legacy guardian-policy.yaml in Slice 3).

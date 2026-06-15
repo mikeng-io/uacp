@@ -234,7 +234,7 @@ The adapter must:
 - pass tool provenance into Guardian decisions;
 - handle plugin-registered tools;
 - avoid hidden policy inside adapter code;
-- load policy from `config/guardian-policy.yaml`;
+- load policy from `config/uacp.toml [guardian]` (collapsed from legacy guardian-policy.yaml in Slice 3);
 - resolve paths through symbolic roots;
 - fail closed for protected actions when policy cannot be loaded.
 

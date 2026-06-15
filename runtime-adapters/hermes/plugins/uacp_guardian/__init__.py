@@ -66,9 +66,10 @@ def _phase_config() -> dict[str, Any]:
         _PHASE_CONFIG = {}
     return _PHASE_CONFIG
 
-# Self-attesting tools are declared in `config/guardian-policy.yaml` under
+# Self-attesting tools are declared in `config/uacp.toml [guardian]` under
 # `self_attesting_tools.names` (moved out of adapter code in Phase 1 / pc_1 to
-# remove the hidden authority list flagged by the Phase 0 Codex review).
+# remove the hidden authority list flagged by the Phase 0 Codex review;
+# migrated from legacy guardian-policy.yaml to uacp.toml in config-collapse Slice 3).
 # `_self_attesting_tools()` returns the active set from the loaded policy.
 
 
@@ -103,7 +104,7 @@ def _filesystem_guard_verified(tool_name: str, args: Mapping[str, Any] | None) -
     Returns True when either:
       - The tool is one of the UACP-governed writers/checks whose handler
         performs its own path-bounded containment (the active policy's
-        `self_attesting_tools` list — see config/guardian-policy.yaml).
+        `self_attesting_tools` list — see config/uacp.toml [guardian]).
       - The args include an `attestation_id` that matches an unexpired,
         containment-verified record produced by `uacp_contained_shell` with
         a policy version matching the currently-loaded policy.
