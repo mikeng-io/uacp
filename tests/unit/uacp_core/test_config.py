@@ -109,6 +109,33 @@ def test_dir_for_rejects_unknown_key(tmp_path):
         dir_for(tmp_path, "nope")
 
 
+def test_get_config_invalidates_on_override_mtime(tmp_path):
+    # get_config caches by (root, override mtime). Creating/editing
+    # .uacp/config.toml after a first read must be reflected WITHOUT a manual
+    # clear_config_cache() — the mtime change rekeys the cache (council S2).
+    import os
+
+    from config import base_dir
+
+    # First read: no override -> default base.
+    assert base_dir(tmp_path) == tmp_path.resolve() / ".uacp"
+
+    # Create an override; force a distinct mtime so the change is observable
+    # even within the same clock tick.
+    (tmp_path / ".uacp").mkdir(exist_ok=True)
+    override = tmp_path / ".uacp" / "config.toml"
+    override.write_text('[paths]\nbase = ".governed"\n')
+    t = override.stat().st_mtime + 10
+    os.utime(override, (t, t))
+    assert base_dir(tmp_path) == tmp_path.resolve() / ".governed"  # no manual clear
+
+    # Edit again (new base) -> reflected once mtime advances.
+    override.write_text('[paths]\nbase = ".vault"\n')
+    t += 10
+    os.utime(override, (t, t))
+    assert base_dir(tmp_path) == tmp_path.resolve() / ".vault"
+
+
 def test_base_dir_rejects_escaping_base(tmp_path):
     from config import base_dir, clear_config_cache
     clear_config_cache()

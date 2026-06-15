@@ -123,7 +123,11 @@ def load_config(project_root: Path | None = None) -> UacpConfig:
 
 
 @lru_cache(maxsize=256)
-def _cached_config(root_str: str) -> UacpConfig:
+def _cached_config(root_str: str, _mtime: float) -> UacpConfig:
+    """Cache by (resolved root, override mtime). The ``_mtime`` arg is part of
+    the cache key only — when ``.uacp/config.toml`` is created or edited its
+    mtime changes, producing a fresh key and a re-parse, so a long-lived
+    process never serves stale paths (council S2)."""
     return load_config(Path(root_str))
 
 
@@ -137,11 +141,16 @@ def clear_config_cache() -> None:
 def get_config(root: Path) -> UacpConfig:
     """Config for ``root``, deep-merging ``<root>/.uacp/config.toml`` if present.
 
-    Cached per resolved root so kernel readers do not re-parse TOML on every
-    path lookup. Use :func:`clear_config_cache` between tests that mutate the
-    override after a prior read.
+    Cached per resolved root *and* the override file's mtime so kernel readers
+    do not re-parse TOML on every path lookup, yet a created/edited override is
+    picked up without an explicit :func:`clear_config_cache` (council S2). The
+    override always lives at the fixed bootstrap home ``<root>/.uacp/config.toml``
+    regardless of ``[paths] base`` — ``base`` relocates runtime dirs only.
     """
-    return _cached_config(str(Path(root).resolve()))
+    root_r = Path(root).resolve()
+    override = root_r / ".uacp" / "config.toml"
+    mtime = override.stat().st_mtime if override.exists() else 0.0
+    return _cached_config(str(root_r), mtime)
 
 
 def base_dir(root: Path) -> Path:
