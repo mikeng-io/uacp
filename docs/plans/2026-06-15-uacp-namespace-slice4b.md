@@ -15,6 +15,10 @@
 
 ---
 
+## STATUS (2026-06-15): T1 done + merged to main (`load_phase_transitions` shim consolidation, behavior-preserving). T2-T6 deferred to a FRESH SESSION (operator decision — enforcement-grammar precision wants clean context).
+
+## REORDER NOTE (discovered during T1): **fold T2 (F-T3-01) into T4 (gate codification).** "Fail-closed on absent gate config" only makes clean sense once each gate's required-evidence lives in CODE as a default — otherwise there's nothing to enforce when config is absent. So: codify the gates with enforce-by-default behavior (T4), and F-T3-01 falls out naturally (a missing uacp.toml override cannot disable the code default). Do NOT do a standalone idiom-flip for T2. Revised order: T3 (graph dedup) → T4 (gate+invariant codification, incl. F-T3-01 fail-closed defaults + regression test) → T5 (SKILL.md authority repoints) → T6 (council + finish).
+
 ## Staging (landmines first — they de-risk the codification; each independently green + reviewed)
 
 # Task 1: C-3 — consolidate the 3 load paths behind `load_phase_transitions()`
