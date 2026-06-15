@@ -149,7 +149,12 @@ def get_config(root: Path) -> UacpConfig:
     """
     root_r = Path(root).resolve()
     override = root_r / ".uacp" / "config.toml"
-    mtime = override.stat().st_mtime if override.exists() else 0.0
+    # Single stat() (no exists()-then-stat() TOCTOU): a missing or vanished
+    # override keys as 0.0 rather than crashing a hot-path lookup on a race.
+    try:
+        mtime = override.stat().st_mtime
+    except OSError:
+        mtime = 0.0
     return _cached_config(str(root_r), mtime)
 
 
