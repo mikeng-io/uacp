@@ -3,7 +3,7 @@
 These tests assert the codified schema from config/evidence-clusters.yaml:
 - ClusterState Literal covers exactly the 5 states
 - EvidenceCluster validates a correct artifact and rejects bad state / missing required fields
-- INVARIANT_CLUSTER_FAMILIES matches the 7 invariant=true families from the YAML
+- INVARIANT_CLUSTER_FAMILIES matches the 6 invariant=true families from the YAML
 """
 
 from __future__ import annotations
@@ -74,6 +74,9 @@ def test_evidence_cluster_rejects_missing_required_field(field: str):
 # INVARIANT_CLUSTER_FAMILIES frozenset
 # ---------------------------------------------------------------------------
 
+# The 6 universal_cluster_families flagged invariant: true (NOT gate-selection's
+# 7 non_waivable_invariants — a different set). handled_negative_result_followthrough
+# is not a universal_cluster_family and is intentionally excluded.
 EXPECTED_INVARIANT_FAMILIES = frozenset({
     "authority",
     "side_effects",
@@ -81,7 +84,6 @@ EXPECTED_INVARIANT_FAMILIES = frozenset({
     "privacy_safety",
     "traceable_state",
     "conservative_failure",
-    "handled_negative_result_followthrough",
 })
 
 
@@ -89,8 +91,8 @@ def test_invariant_cluster_families_is_frozenset():
     assert isinstance(INVARIANT_CLUSTER_FAMILIES, frozenset)
 
 
-def test_invariant_cluster_families_has_exactly_seven():
-    assert len(INVARIANT_CLUSTER_FAMILIES) == 7
+def test_invariant_cluster_families_has_exactly_six():
+    assert len(INVARIANT_CLUSTER_FAMILIES) == 6
 
 
 def test_invariant_cluster_families_matches_yaml():

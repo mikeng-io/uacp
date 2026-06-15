@@ -15,8 +15,9 @@ on partially-formed or forward-extended artifacts without crashing.  Required
 fields are those from artifact_schema.required_fields that the validators
 enforce: cluster_id, phase, family, purpose, state, findings.
 
-``INVARIANT_CLUSTER_FAMILIES`` is the frozenset of the 7 families whose
-``invariant: true`` flag appears in ``universal_cluster_families``.
+``INVARIANT_CLUSTER_FAMILIES`` is the frozenset of the 6 families whose
+``invariant: true`` flag appears in ``universal_cluster_families`` (do NOT
+conflate with gate-selection's 7 ``non_waivable_invariants`` — a different set).
 """
 
 from __future__ import annotations
@@ -34,7 +35,7 @@ ClusterState = Literal["pass", "warn", "block", "not_applicable", "deferred"]
 ClusterPhase = Literal["triage", "propose", "plan", "execute", "verify", "resolve"]
 
 # ---------------------------------------------------------------------------
-# INVARIANT_CLUSTER_FAMILIES — the 7 families with invariant: true in the YAML
+# INVARIANT_CLUSTER_FAMILIES — the 6 families with invariant: true in the YAML
 # ---------------------------------------------------------------------------
 
 INVARIANT_CLUSTER_FAMILIES: frozenset[str] = frozenset({
@@ -44,7 +45,6 @@ INVARIANT_CLUSTER_FAMILIES: frozenset[str] = frozenset({
     "privacy_safety",
     "traceable_state",
     "conservative_failure",
-    "handled_negative_result_followthrough",
 })
 
 # ---------------------------------------------------------------------------
