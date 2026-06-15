@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.13+ (`python3`), Pydantic v2, `tomllib`, PyYAML, pytest, ruff (`/Users/mike/.local/bin/ruff`, `E,F,I,UP,B`).
 
+**Authoring convention (operator-required):** every collapsed `uacp.toml` section MUST carry human-readable `#` comments — a section header stating what it controls + which YAML it was collapsed from + any canonical prose-authority doc, and inline comments on non-obvious knobs (enums, thresholds, weights, reserved/inert markers). The YAMLs carried `purpose:`/`description:` prose; that intent must survive the move so the single config stays self-documenting.
+
 **Decisions (operator-confirmed):** all 8 in scope; model-registry + runtime-bindings included despite discovery's risk/plane warnings (runtime-bindings config/state plane-mix accepted — record in `docs/decisions/decision-log.md`). guardian-policy YAML is source of truth (the `[guardian]` toml stub is divergent — 3-of-10 self-attesting tools; do NOT trust it).
 
 ---
