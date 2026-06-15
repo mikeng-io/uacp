@@ -18,7 +18,7 @@ phase_exit_invariants:
   required: true
 - gate_ledger_entry: VERIFY->RESOLVE
   required: true
-authority_source: config/phase-transitions.yaml (mirror; config wins on conflict)
+authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ---
 # UACP Resolve
 
@@ -46,7 +46,8 @@ This skill closes the run, captures lessons, decides what belongs in memory, and
 Read additionally:
 
 - `UACP_ROOT/docs/lifecycle/orchestration-model.md`
-- `UACP_ROOT/config/phase-transitions.yaml`
+- `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`)
+- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/phase_graph.py` — codified valid transitions (`LIFECYCLE_GRAPH`)
 
 RESOLVE closes the run only after verification evidence, council findings, accepted risks, and human involvement requirements are settled.
 

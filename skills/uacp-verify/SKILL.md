@@ -20,7 +20,7 @@ phase_exit_invariants:
   required: true
 - gate_ledger_entry: EXECUTE->VERIFY
   required: true
-authority_source: config/phase-transitions.yaml (mirror; config wins on conflict)
+authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ---
 # UACP Verify
 
@@ -52,7 +52,9 @@ This skill verifies completed work against the actual artifact set using context
 Read additionally:
 
 - `UACP_ROOT/docs/lifecycle/orchestration-model.md`
-- `UACP_ROOT/config/phase-transitions.yaml`
+- `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`)
+- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (heartgate_coherence required fields/lenses, piv_rule)
+- `UACP_ROOT/config/uacp.toml` (`[heartgate.coherence]` — coherence threshold and phase/routing/domain selectors)
 
 VERIFY consumes actual artifacts, execution evidence, council synthesis artifacts, and selected evidence clusters.
 

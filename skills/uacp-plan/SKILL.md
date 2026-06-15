@@ -21,7 +21,7 @@ phase_exit_invariants:
 - gate_ledger_entry: PLAN_VALIDATION
   required: true
   note: "Phase 3.1 obligation \u2014 see \"PLAN_VALIDATION ledger contract\" below."
-authority_source: config/phase-transitions.yaml (mirror; config wins on conflict)
+authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ---
 # UACP Plan
 
@@ -30,7 +30,7 @@ This skill turns an approved proposal into an executable graph with explicit dep
 
 ## PLAN_VALIDATION ledger contract (Phase 3.1 / R1 / R2)
 
-Before requesting PLAN→EXECUTE, this skill MUST append a `gate: PLAN_VALIDATION` record to the run's gate ledger via `uacp_gate_ledger_append`. Heartgate blocks the transition otherwise (see `config/phase-transitions.yaml#plan_validation_gate`).
+Before requesting PLAN→EXECUTE, this skill MUST append a `gate: PLAN_VALIDATION` record to the run's gate ledger via `uacp_gate_ledger_append`. Heartgate blocks the transition otherwise (see `engines/domain/gate_rules.py` — `plan_validation_gate_default()`).
 
 The record must satisfy ALL of:
 - `gate: PLAN_VALIDATION`
@@ -39,7 +39,7 @@ The record must satisfy ALL of:
 - `checks:` a list containing every declared pv_id (`pv_1`..`pv_6`); extra unknown pv_ids are rejected
 - explicit per-check pass evidence — EITHER each `checks[]` entry is a mapping `{id, result: pass[, evidence_path]}` OR the record carries a sibling `check_results: {pv_id: pass, ...}` mapping covering every pv_id
 
-The six pv checks (declared in `config/phase-transitions.yaml#plan_validation_gate.checks`):
+The six pv checks (codified in `engines/domain/gate_rules.py` — `PLAN_VALIDATION` pv-check list):
 - `pv_1` scope_artifact_present_and_parses — `plans/{run_id}-scope.yaml` exists and parses with all required fields
 - `pv_2` allowed_tools_registered — every tool named in scope.allowed_tools is registered in the Guardian tool registry
 - `pv_3` write_paths_within_proposal_side_effects — `scope.write_paths` is a subset of the proposal's declared `side_effects.paths`
@@ -52,7 +52,9 @@ Per-record DoS resistance (Phase 3 R2 / SKEP-R1-007): Heartgate scans ALL `PLAN_
 ## Read first
 - `UACP_ROOT/docs/INDEX.md`
 - `UACP_ROOT/docs/lifecycle/lifecycle-reference.md`
-- `UACP_ROOT/config/phase-transitions.yaml`
+- `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`; `plan_validation_gate` grammar in `engines/domain/gate_rules.py`)
+- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified `plan_validation_gate_default()` and PLAN_VALIDATION pv-check list
+- `UACP_ROOT/config/uacp.toml` (`[heartgate.*]` — operator-tunable knobs)
 - `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`)
 
 ## Rules

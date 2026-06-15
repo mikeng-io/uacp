@@ -15,7 +15,7 @@ forbidden_tools:
 phase_exit_invariants: []
 note: uacp-state is the exclusive mutator for state/. Invoked from any phase; per-phase
   admissibility comes from the active phase's allowed_tools.
-authority_source: config/phase-transitions.yaml (mirror; config wins on conflict)
+authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ---
 # UACP State
 

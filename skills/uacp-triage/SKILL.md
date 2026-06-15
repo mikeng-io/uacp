@@ -20,7 +20,7 @@ phase_exit_invariants:
   required: true
 - gate_ledger_entry: TRIAGE_COMPLETE
   required: true
-authority_source: config/phase-transitions.yaml (mirror; config wins on conflict)
+authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ---
 # UACP Triage
 
@@ -36,7 +36,10 @@ Routing depth may be direct, lightweight, standard, full-governance, or block/cl
 - `UACP_ROOT/config/gate-selection.yaml` — scoring factors (descriptive) and artifact schemas; scoring weights/method/route-bands in `config/uacp.toml [gates.scoring]`
 - `UACP_ROOT/config/review-routing.yaml` — council/review doctrine, grammar, and surfaces; operator knobs (operating_mode, escalation_rules, followthrough depth) in `config/uacp.toml [review]`
 - `UACP_ROOT/docs/lifecycle/orchestration-model.md` — phase and council boundaries
-- `UACP_ROOT/config/phase-transitions.yaml` — transition evidence requirements
+- `UACP_ROOT/config/phase-transitions.yaml` — adaptive-gate doctrine (LLM-read; `selected_when_any`/`block_when`/`required_artifacts` blocks) + artifact schemas
+- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/phase_graph.py` — codified valid transitions (`LIFECYCLE_GRAPH`)
+- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (heartgate_coherence, run_registry, piv_rule)
+- `UACP_ROOT/config/uacp.toml` (`[heartgate.*]` — operator-tunable coherence thresholds and enforcement mode)
 
 ## Rules
 - TRIAGE is not PROPOSE.
