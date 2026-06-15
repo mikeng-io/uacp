@@ -40,7 +40,9 @@ def _prepare_root(tmp: Path) -> None:
         (tmp / sub).mkdir(parents=True, exist_ok=True)
     # guardian policy is now sourced from config/uacp.toml [guardian] via
     # config.py — guardian-policy.yaml has been deleted (config-collapse Slice 3).
-    for fn in ("uacp.toml", "phase-transitions.yaml", "state.yaml", "artifact-schemas.yaml"):
+    # artifact-schemas.yaml deleted in Slice 5 W3 (schemas codified to
+    # engines/domain/artifact_schema.py; knobs moved to uacp.toml [scope]).
+    for fn in ("uacp.toml", "phase-transitions.yaml", "state.yaml"):
         shutil.copy2(here / "config" / fn, tmp / "config" / fn)
 
 
@@ -244,10 +246,13 @@ def main() -> int:
             })
 
             # --- Check 9: pc_p2_n1 "*" sentinel dropped from capabilities ---
-            pp = tmp / "config/artifact-schemas.yaml"
-            data = _y.safe_load(pp.read_text())
-            data["cross_checks"]["scope_write_paths_vs_layer_b"]["tool_path_capabilities"]["evil_tool"] = ["*"]
-            pp.write_text(_y.safe_dump(data, sort_keys=False))
+            # Slice 5 W3: artifact-schemas.yaml deleted; knobs live in uacp.toml [scope]
+            # (Slice 4a). Override via .uacp/config.toml deep-merge so mtime cache key
+            # changes and get_config() picks up the injected evil_tool.
+            from config import clear_config_cache  # noqa: PLC0415
+            override = tmp / ".uacp" / "config.toml"
+            override.write_text('[scope.tool_path_capabilities]\nevil_tool = ["*"]\n')
+            clear_config_cache()
             heartgate2 = Heartgate.load(tmp)
             caps = heartgate2._tool_path_capabilities()
             report["checks"].append({
@@ -255,8 +260,8 @@ def main() -> int:
                 "status": "pass" if "evil_tool" not in caps else "fail",
                 "loaded": sorted(caps.keys()),
             })
-            del data["cross_checks"]["scope_write_paths_vs_layer_b"]["tool_path_capabilities"]["evil_tool"]
-            pp.write_text(_y.safe_dump(data, sort_keys=False))
+            override.unlink()
+            clear_config_cache()
             heartgate = Heartgate.load(tmp)
 
             # --- Check 10: pc_p2_minor JSONL fail-closed on bad ledger line ---
@@ -294,10 +299,9 @@ def main() -> int:
             })
 
             # --- Check 12 (TECH-006): mixed wildcard list keeps real prefix, drops "*" ---
-            pp = tmp / "config/artifact-schemas.yaml"
-            data = _y.safe_load(pp.read_text())
-            data["cross_checks"]["scope_write_paths_vs_layer_b"]["tool_path_capabilities"]["mixed_tool"] = ["state/", "*"]
-            pp.write_text(_y.safe_dump(data, sort_keys=False))
+            # Slice 5 W3: override via .uacp/config.toml (artifact-schemas.yaml deleted).
+            override.write_text('[scope.tool_path_capabilities]\nmixed_tool = ["state/", "*"]\n')
+            clear_config_cache()
             heartgate_mix = Heartgate.load(tmp)
             caps_mix = heartgate_mix._tool_path_capabilities()
             mixed_ok = caps_mix.get("mixed_tool") == ["state/"]
@@ -306,8 +310,8 @@ def main() -> int:
                 "status": "pass" if mixed_ok else "fail",
                 "loaded": caps_mix.get("mixed_tool"),
             })
-            del data["cross_checks"]["scope_write_paths_vs_layer_b"]["tool_path_capabilities"]["mixed_tool"]
-            pp.write_text(_y.safe_dump(data, sort_keys=False))
+            override.unlink()
+            clear_config_cache()
             heartgate = Heartgate.load(tmp)
 
             # --- Check 13 (SKEP-007): description metadata key not loaded as tool ---

@@ -27,7 +27,7 @@ This skill owns governed state mutation. Use it whenever the current run pointer
 This skill is the exclusive mutator for two state surfaces that are mechanically protected from direct `uacp_state_write`:
 
 - `state/gate-ledger/{run_id}.jsonl` — written exclusively through `uacp_gate_ledger_append` (`uacp_state_write` refuses any path under `state/gate-ledger/`).
-- `state/run-registry.yaml` — written exclusively through `uacp_run_registry_update` (`uacp_state_write` refuses this exact path; see `config/artifact-schemas.yaml#cross_checks.scope_write_paths_vs_layer_b.handler_refusals`).
+- `state/run-registry.yaml` — written exclusively through `uacp_run_registry_update` (`uacp_state_write` refuses this exact path; see `config/uacp.toml [scope.handler_refusals]` — handler_refusals moved from artifact-schemas.yaml to uacp.toml in Slice 4a).
 
 ### `uacp_run_registry_update` contract
 
@@ -48,7 +48,7 @@ Heartgate consults `state/run-registry.yaml` at every PLAN→EXECUTE to detect c
 - `UACP_ROOT/docs/policy/constitution.md`
 - `UACP_ROOT/docs/lifecycle/lifecycle-reference.md`
 - `UACP_ROOT/config/state.yaml`
-- `UACP_ROOT/config/roots.yaml`
+- `UACP_ROOT/config/uacp.toml` (`[paths]` / `base_dir` resolver) — path-root authority (roots.yaml deleted Slice 5 W3)
 - `references/state-mutation-protocol.md`
 
 ## Rules

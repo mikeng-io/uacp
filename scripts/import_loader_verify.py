@@ -51,11 +51,12 @@ def _prepare_root(tmp: Path) -> None:
         (tmp / sub).mkdir(parents=True, exist_ok=True)
     # guardian policy is now sourced from config/uacp.toml [guardian] via
     # config.py — guardian-policy.yaml has been deleted (config-collapse Slice 3).
+    # artifact-schemas.yaml deleted in Slice 5 W3; schemas codified to
+    # engines/domain/artifact_schema.py; knobs in uacp.toml [scope].
     for name in (
         "uacp.toml",
         "phase-transitions.yaml",
         "state.yaml",
-        "artifact-schemas.yaml",
     ):
         shutil.copy2(ROOT / "config" / name, tmp / "config" / name)
 
