@@ -52,6 +52,23 @@ Canonical targets:
 
 Follow-up: Phase 2 implementation must make all adaptive gates enforce-on-absent-config and add a regression test asserting an absent gate key enforces. Until then, the inconsistency stands but is harmless in practice because the production `config/phase-transitions.yaml` defines all gate keys explicitly.
 
+### 2026-06-15 — Slice 3 Config Collapse: runtime-bindings.yaml Folded Into uacp.toml [runtime_bindings]
+
+Decision: Slice 3 collapses `config/runtime-bindings.yaml` (a stateful binding registry) into `config/uacp.toml [runtime_bindings]` per operator decision, overriding the AGENTS.md Cognitive-Planes config/state separation for this case. The `[runtime_bindings]` section in `config/uacp.toml` subsumes the Hermes adapter registry (`[runtime_bindings.hermes]`, per-adapter entries) and future-runtime placeholders (`[runtime_bindings.future_runtimes.*]`). All operational references in `docs/runtime/`, `scripts/live_guardian_probe.py`, and `skills/references/` have been repointed to cite `config/uacp.toml [runtime_bindings]`.
+
+Rationale: Collapsing the binding registry into the central TOML config removes a two-file split (YAML + TOML) that required readers to consult two separate sources for runtime binding state. The AGENTS.md Cognitive-Planes rule separates config (static policy) from state (runtime-mutable records); runtime-bindings.yaml was effectively static config reviewed per operator decision at each binding event rather than machine-mutated runtime state. This operator decision treats it as config, not state, for this specific registry. The override is recorded here as the only mechanism to supersede the Authority Chain.
+
+Status: accepted; `config/runtime-bindings.yaml` deleted, `config/uacp.toml [runtime_bindings]` is now the canonical binding registry.
+
+Canonical targets:
+
+- `config/uacp.toml` — receives `[runtime_bindings]` section (Slice 3 agent A)
+- `config/runtime-bindings.yaml` — deleted (this entry)
+- `docs/runtime/runtime-integration-guide.md` — repointed from `config/runtime-bindings.yaml` to `config/uacp.toml [runtime_bindings]`
+- `docs/runtime/runtime-porting-and-version-control.md` — repointed from `config/runtime-bindings.yaml` to `config/uacp.toml [runtime_bindings]`
+- `scripts/live_guardian_probe.py` — smoke-check entry updated to parse `config/uacp.toml` instead of deleted YAML
+- `skills/references/runtime-porting-live-binding-cleanup.md` — repointed operational instruction
+
 ### 2026-05-17 — UACP Patch Plan Run uacp-patch-plan-20260515: Phases 0–4 + Global Review
 
 Decision: A 5-phase UACP patch plan (`proposals/uacp-patch-plan-20260515.yaml`) was authored, council-reviewed, and merged in 7 commits between 2026-05-15 and 2026-05-17, mechanically hardening the governance plane against the original Phase 0 audit findings and propagating constraints forward through each phase. A final cross-phase global review surfaced 14 high-consensus material findings; 10 batched as in-scope R1 remediation, 4+minor propagated to Phase 5.

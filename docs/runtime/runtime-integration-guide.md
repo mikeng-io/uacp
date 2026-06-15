@@ -197,7 +197,7 @@ The adapter must register at minimum the following hooks with the host runtime:
 
 The `pre_tool_call` hook must block execution for all protected categories. This is not optional. A runtime that only supports post-call hooks cannot provide production Guardian enforcement for protected actions, because the action will have already executed before any decision is rendered.
 
-If the host runtime does not support `pre_tool_call` blocking semantics, that limitation must be documented in the binding's verification artifact and `config/runtime-bindings.yaml` must record the enforcement gap explicitly.
+If the host runtime does not support `pre_tool_call` blocking semantics, that limitation must be documented in the binding's verification artifact and `config/uacp.toml [runtime_bindings]` must record the enforcement gap explicitly.
 
 ---
 
@@ -254,7 +254,7 @@ Follow this sequence when binding a new adapter to a host runtime.
    - A positive probe passes a protected action with correct authority and expects `allow` or `allow_with_audit`
    - A negative probe passes a protected action without authority and expects `block`
 
-5. **Record evidence** — write verification artifacts under `verification/` using `uacp_artifact_write`. Update `config/runtime-bindings.yaml` with the binding status and artifact path.
+5. **Record evidence** — write verification artifacts under `verification/` using `uacp_artifact_write`. Update `config/uacp.toml [runtime_bindings]` with the binding status and artifact path.
 
 6. **Register rollback** — document the exact rollback command in the verification artifact before considering the binding complete. See section 14.
 
@@ -347,7 +347,7 @@ Complete this checklist before declaring an adapter binding production-ready.
 - [ ] Negative probe: a protected action without authority returns `block`
 - [ ] Containment probe (if shell execution is in scope): uncontained shell execution returns `block`
 - [ ] Verification artifact recorded under `verification/`
-- [ ] `config/runtime-bindings.yaml` updated with binding status and artifact path
+- [ ] `config/uacp.toml [runtime_bindings]` updated with binding status and artifact path
 
 ---
 
@@ -386,4 +386,4 @@ The rollback path must be executable by an operator who has no knowledge of UACP
 - `docs/runtime/runtime-porting-and-version-control.md` — adapter ownership and version-control policy
 - `config/uacp.toml [guardian]` — Guardian policy (collapsed from legacy guardian-policy.yaml in Slice 3)
 - `runtime-adapters/hermes/plugins/uacp_guardian/` — the Hermes adapter implementation
-- `config/runtime-bindings.yaml` — current binding registry
+- `config/uacp.toml [runtime_bindings]` — current binding registry

@@ -64,7 +64,7 @@ For a symlink binding, rollback must be executable without touching UACP source:
 UACP is designed to support multiple runtimes. The following runtimes are planned for future adapter implementations. Each requires:
 
 - adapter source under `runtime-adapters/<runtime>/`
-- binding registered in `config/runtime-bindings.yaml`
+- binding registered in `config/uacp.toml [runtime_bindings]`
 - verification artifact under `verification/`
 - environment documented in the adapter source directory
 

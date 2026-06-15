@@ -337,7 +337,6 @@ def main():
 
     # YAML parse checks
     yaml_paths = [
-        "config/runtime-bindings.yaml",
         "config/state.yaml",
         ".uacp/resolutions/uacp-current-status.yaml",
         ".uacp/verification/runtime-porting-20260514-cleanup-doc-sync.yaml",
@@ -349,6 +348,21 @@ def main():
             checks.append(check(True, f"yaml_parse:{rel}", rel))
         except Exception as exc:
             checks.append(check(False, f"yaml_parse:{rel}", str(exc)))
+
+    # TOML parse checks (runtime-bindings collapsed into uacp.toml [runtime_bindings])
+    import tomllib
+
+    toml_paths = [
+        "config/uacp.toml",
+    ]
+    for rel in toml_paths:
+        path = UACP_ROOT / rel
+        try:
+            with path.open("rb") as _f:
+                tomllib.load(_f)
+            checks.append(check(True, f"toml_parse:{rel}", rel))
+        except Exception as exc:
+            checks.append(check(False, f"toml_parse:{rel}", str(exc)))
 
     # Safe temporary-root writer/Guardian checks
     try:
