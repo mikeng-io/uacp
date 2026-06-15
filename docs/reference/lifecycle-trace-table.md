@@ -93,7 +93,7 @@ terminal
 
 ## Escalation events (Phase 4.4 stub — parallel surface)
 
-The `state/escalations/{run_id}.jsonl` ledger is a parallel, **non-blocking**, append-only surface separate from the gate ledger. Skills emit records via `uacp_escalation_event` when an escalation trigger in `config/autonomy-policy.yaml#escalation_triggers` fires in the active operating mode.
+The `state/escalations/{run_id}.jsonl` ledger is a parallel, **non-blocking**, append-only surface separate from the gate ledger. Skills emit records via `uacp_escalation_event` when an escalation trigger in `config/uacp.toml [autonomy.escalation_triggers]` fires in the active operating mode.
 
 Phase 4 status:
 - `uacp_mode` remains a stub field with no full kernel reader.

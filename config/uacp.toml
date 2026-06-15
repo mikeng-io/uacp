@@ -35,16 +35,12 @@ root = "councils"              # Council session artifacts, resolved under .uacp
 # =============================================================================
 # MODEL REGISTRY
 # =============================================================================
-# Model alias → concrete provider model IDs live in config/model-registry.yaml.
-# That file is the canonical upstream source. Bridges and skills fetch it from
-# GitHub raw content at runtime. This TOML only keeps bridge behavioural
-# settings (timeouts, feature flags, connection preferences).
-#
-# Raw URL:
-#   https://raw.githubusercontent.com/nortrix-labs/uacp/main/config/model-registry.yaml
-#
-# When a provider releases a new model, update ONLY model-registry.yaml —
-# no bridge skill code changes are required.
+# Model alias → concrete provider model IDs are now defined in this file
+# under [models.providers.*] and [models.tier_mappings.*].
+# config/model-registry.yaml was deleted in Slice 3 (config-collapse); this
+# file is now the single source of truth for all model identifiers.
+# This section precedes the [models.tiers.*] and behavioural bridge settings
+# sections below.
 
 # =============================================================================
 # MODELS & TIER SYSTEM
@@ -55,8 +51,8 @@ root = "councils"              # Council session artifacts, resolved under .uacp
 #
 # Assignment flow:
 #   1. Council assesses task → assigns tier (0–4) in bridge_input
-#   2. Bridge reads tier → resolves model alias + reasoning from model-registry.yaml
-#   3. Bridge resolves alias → concrete provider model ID from model-registry.yaml
+#   2. Bridge reads tier → resolves model alias + reasoning from [models.tier_mappings]
+#   3. Bridge resolves alias → concrete provider model ID from [models.providers]
 #   4. If tier is absent, bridge derives it from task_type + intensity
 
 [models.tiers.0]
@@ -103,7 +99,8 @@ thorough = 2
 # BRIDGE RUNTIME SETTINGS
 # =============================================================================
 # Connection preference, tier-to-alias mappings, and model identifiers are
-# defined in each bridge's SKILL.md and in config/model-registry.yaml.
+# defined in each bridge's SKILL.md and in [models.providers]/[models.tier_mappings]
+# in this file (config/model-registry.yaml was deleted in Slice 3).
 # This section contains only runtime-configurable parameters that skills
 # actively read from config/uacp.toml.
 #

@@ -110,9 +110,9 @@ Per-tool-call flow: Guardian decision diagram in [`runtime/runtime-enforcement.m
 | Mechanical-over-prose enforcement | [`policy/first-principles.md`](policy/first-principles.md) |
 | Agent Council protocol (tier_1 / tier_2 / heartgate) | [`lifecycle/orchestration-model.md`](lifecycle/orchestration-model.md) |
 | Append-only ledger (gate ledger, escalations) with PIPE_BUF atomicity | [`runtime/runtime-enforcement.md`](runtime/runtime-enforcement.md) |
-| Operating modes (manual / semi_auto / supervised_auto / full_auto) | `config/autonomy-policy.yaml`, [`/PROJECT.md`](../PROJECT.md) |
+| Operating modes (manual / semi_auto / supervised_auto / full_auto) | `config/uacp.toml [autonomy]`, [`/PROJECT.md`](../PROJECT.md) |
 | Drift propagation between phases | [ADR-0007](architecture/0007-global-review-cross-phase-remediation.md), [`/ROADMAP.md`](../ROADMAP.md) |
-| `_advisory` suffix convention | `config/autonomy-policy.yaml#advisory_field_convention` |
+| `_advisory` suffix convention | `config/uacp.toml [autonomy] advisory_field_convention` |
 | `enforcement_status` tagging | [ADR-0006](architecture/0006-phase4-autonomous-mode-stub.md) |
 
 ## §9 — Architecture Decisions

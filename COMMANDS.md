@@ -88,7 +88,7 @@ UACP is versioned at `nortrix-labs/uacp` (GitHub). Local working tree at `UACP_R
 
 ```bash
 # Always commit through standard git (UACP enforces commit-boundary policy via
-# config/version-control.yaml — see docs/lifecycle/lifecycle-reference.md for the SOP).
+# config/uacp.toml [version_control] — see docs/lifecycle/lifecycle-reference.md for the SOP).
 git status
 git diff --stat HEAD
 git log --oneline -10
