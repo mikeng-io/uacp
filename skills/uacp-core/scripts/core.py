@@ -716,18 +716,14 @@ class Heartgate:
 
     @classmethod
     def load(cls, uacp_root: str | Path | None = None) -> "Heartgate":
+        from engines.io import load_phase_transitions
         root = resolve_uacp_root(uacp_root)
-        path = root / "config" / "phase-transitions.yaml"
-        if yaml is None:
-            raise HeartgateError("PyYAML is required to load Heartgate config")
-        try:
-            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except FileNotFoundError as exc:
-            raise HeartgateError(f"Heartgate config not found: {path}") from exc
-        except Exception as exc:
-            raise HeartgateError(f"Heartgate config failed to load: {exc}") from exc
+        loaded = load_phase_transitions(root)
+        if loaded.error is not None:
+            raise HeartgateError(f"Heartgate config failed to load: {loaded.error}")
+        raw = loaded.value
         if not isinstance(raw, dict):
-            raise HeartgateError(f"Heartgate config must be a YAML mapping: {path}")
+            raise HeartgateError(f"Heartgate config must be a YAML mapping: {root / 'config' / 'phase-transitions.yaml'}")
         return cls(raw, uacp_root=root)
 
     def validate_transition(self, artifact: Mapping[str, Any]) -> HeartgateDecision:

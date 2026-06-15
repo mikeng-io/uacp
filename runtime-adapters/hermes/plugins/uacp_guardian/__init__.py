@@ -58,10 +58,12 @@ def _phase_config() -> dict[str, Any]:
     if _PHASE_CONFIG is not None:
         return _PHASE_CONFIG
     try:
-        import yaml as _yaml
-        path = _policy().uacp_root / "config" / "phase-transitions.yaml"
-        raw = _yaml.safe_load(path.read_text(encoding="utf-8"))
-        _PHASE_CONFIG = raw if isinstance(raw, dict) else {}
+        from engines.io import load_phase_transitions
+        loaded = load_phase_transitions(_policy().uacp_root)
+        if loaded.error is not None or not isinstance(loaded.value, dict):
+            _PHASE_CONFIG = {}
+        else:
+            _PHASE_CONFIG = loaded.value
     except Exception:
         _PHASE_CONFIG = {}
     return _PHASE_CONFIG
