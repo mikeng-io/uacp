@@ -722,8 +722,25 @@ class Heartgate:
 
             stages = stages_default()
         self.stages = stages
-        schema = self.config.get("artifact_schema") or {}
-        self.required_fields = list(schema.get("required_fields") or [])
+        # Slice 5 W2 (closes T4d-2): artifact_schema.required_fields is codified
+        # in engines.domain.phase_transition_required_fields() (enforce-by-default).
+        # When the loaded config OMITS the artifact_schema block (production, after
+        # the W2 slim), use the code default; when a loaded artifact_schema block is
+        # PRESENT (e.g. the test fixture's opt-out stub), its required_fields wins
+        # (an explicit empty list opts the gate OFF, exactly as before). This keeps
+        # the missing-required-field transition check from silently going absent.
+        # NOTE the idiom differs deliberately from the `not stages` check above:
+        # stages are load-bearing so an empty block coerces to the default, but a
+        # present-but-empty `artifact_schema` is honored as a loaded opt-out.
+        schema = self.config.get("artifact_schema")
+        if isinstance(schema, Mapping):
+            self.required_fields = list(schema.get("required_fields") or [])
+        else:
+            from engines.domain.phase_transitions import (
+                phase_transition_required_fields,
+            )
+
+            self.required_fields = phase_transition_required_fields()
         # Phase 2: artifact schemas (scope, intent, evidence_disposition, lessons)
         self.artifact_schemas = _load_artifact_schemas(self.uacp_root)
 

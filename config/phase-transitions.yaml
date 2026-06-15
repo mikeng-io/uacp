@@ -239,22 +239,12 @@ adaptive_verify_evidence_gate:
 
 artifact_schema:
   kind: uacp.phase_transition
-  required_fields:
-  - transition_id
-  - run_id
-  - from_phase
-  - to_phase
-  - decision
-  - invariant_summary
-  - cluster_summary
-  - blockers
-  - warnings
-  - deferred_items
-  - authority
-  - artifact_paths
-  - phase_local_granularity
-  - composite_granularity
-  - human_involvement
+  # required_fields: codified to code in Slice 5 W2 (closes T4d-2). The ~15
+  # uacp.phase_transition required_fields now live in
+  # engines.domain.phase_transitions.PHASE_TRANSITION_REQUIRED_FIELDS. Heartgate
+  # (self.required_fields) and the offline validator (validate_phase_transition)
+  # read the code default when this block omits required_fields, so behavior is
+  # unchanged. The UNCONSUMED field doctrine below STAYS.
   fields:
     transition_id: string
     run_id: string
@@ -287,13 +277,11 @@ artifact_schema:
       type: string
     terminal_kind:
       type: enum
-      values:
-      - none
-      - direct
-      - lightweight
-      - standard_uacp
-      - full_governance
-      - block_or_clarify
+      # values: codified to code in Slice 5 W2 (closes T4d-2). The terminal_kind
+      # enum now lives in
+      # engines.domain.phase_transitions.PHASE_TRANSITION_TERMINAL_KIND_VALUES;
+      # the offline validator (validate_phase_transition) reads the code default
+      # when this enum is absent, so behavior is unchanged.
       description: Disposition/terminal kind aligned with routing_outcome; use none
         for non-terminal transitions.
     to_phase:
@@ -418,18 +406,12 @@ artifact_schema:
 council_synthesis_schema:
   kind: uacp.council_synthesis
   purpose: Minimum schema for Agent Council outputs consumed by phase transitions.
-  required_fields:
-  - council_id
-  - mode
-  - tier
-  - phase
-  - phase_local_granularity
-  - roles
-  - dispatch_surfaces
-  - findings
-  - verdict
-  - artifact_paths
-  - inspected_paths
+  # required_fields: codified to code in Slice 5 W2 (closes T4d-2). The
+  # council_synthesis required_fields now live in
+  # engines.domain.phase_transitions.COUNCIL_SYNTHESIS_REQUIRED_FIELDS; the
+  # offline validator (validate_council_synthesis) reads the code default when
+  # this block omits required_fields, so behavior is unchanged. The UNCONSUMED
+  # field doctrine / conventions / heartgate_council_extension below STAY.
   fields:
     council_id:
       type: string

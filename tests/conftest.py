@@ -144,6 +144,24 @@ plan_validation_gate: {}
 # code default; only this test fixture opts out.
 piv_rule:
   ledger_required: false
+# Slice 5 W2 opt-out stub (closes T4d-2) — PRESERVES PRIOR TEST LAXITY.
+# Before W2 this synthetic config OMITTED artifact_schema, so the
+# missing-required-field check was OFF in tests (Heartgate.__init__ did
+# `schema = self.config.get("artifact_schema") or {}; required_fields =
+# schema.get("required_fields") or []` -> []). After W2 an ABSENT block becomes
+# the CODE DEFAULT (ON: the ~15 uacp.phase_transition required_fields), which the
+# 4-field transition artifacts built by test_full_lifecycle / test_transition_matrix
+# do NOT carry -> every transition would block on missing fields. Providing the
+# block PRESENT with an explicit empty required_fields is read as the loaded value
+# (`isinstance(schema, dict)` -> `schema.get("required_fields") or []` -> []), so
+# the check stays OFF, exactly as before. Production (config/phase-transitions.yaml)
+# ships NO block and gets the enforce-by-default code default; only this fixture
+# opts out. The unconsumed schema doctrine (fields/terminal_kind) is NOT needed
+# here — the validator's terminal_kind check is gated on `values` which, with an
+# absent block, the validator sources from its own code default; no test exercises
+# validate_council_synthesis, so no council_synthesis_schema stub is required.
+artifact_schema:
+  required_fields: []
 """)
 
     os.chdir(test_dir)

@@ -28,6 +28,9 @@ from engines.domain import (  # noqa: E402
     CURRENT_POINTER_REQUIRED_FIELDS,
     ClusterState,
     EvidenceCluster,
+    council_synthesis_required_fields,
+    phase_transition_required_fields,
+    phase_transition_terminal_kind_values,
 )
 from pydantic import ValidationError as _ValidationError  # noqa: E402
 
@@ -220,14 +223,24 @@ def validate_handled_findings_chain(path: Path, obj: dict, issues: list[str]) ->
 
 
 def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[str], *, root: Path | None = None) -> None:
-    schema = config.get("artifact_schema", {})
-    required = schema.get("required_fields", [])
+    schema = config.get("artifact_schema")
+    # Slice 5 W2 (closes T4d-2): artifact_schema.required_fields and
+    # fields.terminal_kind.values are codified in engines.domain
+    # (enforce-by-default). When the loaded config OMITS the artifact_schema block
+    # (production, after the W2 slim), use the code defaults; when a loaded block
+    # is PRESENT (test fixture opt-out stub), its values win (an explicit empty
+    # required_fields/values list opts that check OFF, exactly as before).
+    if isinstance(schema, dict):
+        required = schema.get("required_fields", [])
+        values = schema.get("fields", {}).get("terminal_kind", {}).get("values", [])
+    else:
+        required = phase_transition_required_fields()
+        values = phase_transition_terminal_kind_values()
     check_required(str(path), obj, required, issues)
     decision = obj.get("decision")
     if decision and decision not in VALID_TRANSITION_DECISIONS:
         issues.append(f"BLOCK {path}: invalid decision {decision!r}")
     terminal = obj.get("terminal_kind")
-    values = schema.get("fields", {}).get("terminal_kind", {}).get("values", [])
     if terminal and values and terminal not in values:
         issues.append(f"BLOCK {path}: terminal_kind {terminal!r} not in {values}")
     validate_transition_invariant_summary(path, obj, issues)
@@ -337,8 +350,15 @@ def validate_heartgate_coherence_requirement(path: Path, obj: dict, config: dict
 
 
 def validate_council_synthesis(path: Path, obj: dict, config: dict, issues: list[str]) -> None:
-    schema = config.get("council_synthesis_schema", {})
-    required = schema.get("required_fields", [])
+    schema = config.get("council_synthesis_schema")
+    # Slice 5 W2 (closes T4d-2): council_synthesis_schema.required_fields is
+    # codified in engines.domain.council_synthesis_required_fields()
+    # (enforce-by-default). Absent loaded block -> code default; present loaded
+    # block -> its required_fields wins (empty list opts OFF).
+    if isinstance(schema, dict):
+        required = schema.get("required_fields", [])
+    else:
+        required = council_synthesis_required_fields()
     aliases = {
         "council_id": obj.get("council_id") or obj.get("artifact_id") or obj.get("review_id"),
         "tier": obj.get("tier") or obj.get("council_tier"),
