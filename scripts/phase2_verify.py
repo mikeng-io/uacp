@@ -33,7 +33,9 @@ def _prepare_root(tmp: Path) -> None:
                 ".uacp/plans", ".uacp/proposals", ".uacp/executions", ".uacp/verification",
                 ".uacp/resolutions", ".uacp/knowledge"):
         (tmp / sub).mkdir(parents=True, exist_ok=True)
-    shutil.copy2(here / "config/guardian-policy.yaml", tmp / "config/guardian-policy.yaml")
+    # guardian policy is now sourced from config/uacp.toml [guardian] via
+    # config.py — guardian-policy.yaml has been deleted (config-collapse Slice 3).
+    shutil.copy2(here / "config/uacp.toml", tmp / "config/uacp.toml")
     shutil.copy2(here / "config/phase-transitions.yaml", tmp / "config/phase-transitions.yaml")
     shutil.copy2(here / "config/state.yaml", tmp / "config/state.yaml")
     shutil.copy2(here / "config/artifact-schemas.yaml", tmp / "config/artifact-schemas.yaml")

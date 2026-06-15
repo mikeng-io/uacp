@@ -131,8 +131,8 @@ uacp-state has no Layer B entry of its own (it's `phase: '*'` / cross-phase); ad
 | Authority | Where enforced |
 |---|---|
 | Phase admissibility (Layer B) | `Guardian._phase_layer_check` reads `config/phase-transitions.yaml stages.<phase>.allowed_tools/forbidden_tools` |
-| Per-category writer (Layer A) | `Guardian.evaluate()` reads `config/guardian-policy.yaml protected_categories.<cat>.allowed_tools` |
-| Self-attesting containment | `Guardian._filesystem_guard_verified` reads `config/guardian-policy.yaml self_attesting_tools.names` |
+| Per-category writer (Layer A) | `Guardian.evaluate()` reads `config/uacp.toml [guardian] protected_categories.<cat>.allowed_tools` |
+| Self-attesting containment | `Guardian._filesystem_guard_verified` reads `config/uacp.toml [guardian] self_attesting_tools.names` |
 | Phase exit invariants | `Heartgate._validate_phase_exit_invariants` reads `stages.<phase>.phase_exit_invariants` |
 | PIV obligation | `Heartgate._validate_piv_record` reads `piv_rule` + run gate-ledger; enforces per-check pass evidence (each piv_id ∈ {piv_1..piv_5} carrying explicit `result: pass` either as a mapping entry in `checks[]` or via sibling `check_results: {piv_id: pass}`) — Global review SKEP-G-002 generalized the Phase 3 R1 PLAN_VALIDATION pattern to PIV |
 | Plan validation | `Heartgate._validate_plan_validation_gate` reads `plan_validation_gate` (incl. `ledger_required_fields`, `ledger_required_phase`, declared `checks`) + run gate-ledger; enforces per-check pass evidence (Phase 3 R1/R2) |

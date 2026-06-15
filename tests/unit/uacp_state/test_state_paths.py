@@ -32,23 +32,8 @@ def _seed_root(tmp_path: Path) -> None:
     (tmp_path / ".uacp" / "state" / "gate-ledger").mkdir(parents=True)
     (tmp_path / ".uacp" / "state" / "escalations").mkdir(parents=True)
     (tmp_path / "config").mkdir(parents=True)
-    (tmp_path / "config" / "guardian-policy.yaml").write_text(
-        """
-schema_version: "0.1"
-protected_categories:
-  state.uacp:
-    allowed_tools:
-      - uacp_state_write
-      - uacp_gate_ledger_append
-      - uacp_run_registry_update
-      - uacp_escalation_event
-tool_classification:
-  uacp_state_write: state.uacp
-self_attesting_tools:
-  names:
-    - uacp_state_write
-"""
-    )
+    # guardian policy is now sourced from config/uacp.toml [guardian] via
+    # config.py (config-collapse Slice 3) — no per-test guardian-policy.yaml needed.
 
 
 def test_state_write_lands_under_uacp(tmp_path: Path, monkeypatch):

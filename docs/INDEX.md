@@ -44,7 +44,7 @@ The canonical inventory of UACP-owned files outside `docs/`. Every file here MUS
 | `ROADMAP.md` | entry_point | canonical | Phase status + Phase 5 backlog | Update when phase complete or constraints propagated |
 | `CONTRIBUTING.md` | entry_point | canonical | Authoring contract | Update when contract changes |
 | `COMMANDS.md` | entry_point | canonical | Build/run/test commands | Update when scripts change |
-| `config/guardian-policy.yaml` | schema_config | generated | Guardian policy seed (Layer A categories, tool_classification, self_attesting_tools) | Update on new tool/category |
+| `config/uacp.toml` (`[guardian]`) | schema_config | canonical | Guardian policy (Layer A categories, tool_classification, self_attesting_tools) — collapsed from legacy guardian-policy.yaml in Slice 3 | Update on new tool/category |
 | `config/phase-transitions.yaml` | schema_config | generated | Phase-stage admissibility + Heartgate gates (incl. adaptive PROPOSE/PLAN package gates, plan_validation_gate, run_registry_rule, piv_rule) | Update on new phase, transition rule, or adaptive package gate |
 | `config/state.yaml` | schema_config | generated | State pointer schema, gate-ledger schema, escalations schema, run-manifest schema, current-pointer schema | Update on new state field |
 | `config/artifact-schemas.yaml` | schema_config | generated | Phase-2 artifact schemas (scope, intent, evidence_disposition, lessons) + Phase-3 run_registry schema + cross_checks (handler_refusals, tool_path_capabilities) | Update on new artifact class |

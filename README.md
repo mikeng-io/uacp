@@ -174,7 +174,7 @@ uacp/
 │       └── INDEX.md
 │
 ├── config/                            ← machine-readable policy derived from docs
-│   ├── guardian-policy.yaml
+│   ├── uacp.toml                      ← collapsed config: [guardian] policy + knobs (Slice 3+)
 │   ├── phase-transitions.yaml
 │   ├── artifact-schemas.yaml
 │   ├── state.yaml

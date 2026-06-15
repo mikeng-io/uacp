@@ -89,7 +89,7 @@ UACP comprises four planes (per [`policy/first-principles.md`](policy/first-prin
 | Guardian (per-tool-call enforcement) | `runtime-adapters/hermes/plugins/uacp_guardian/kernel.py#class Guardian` | [`runtime/runtime-enforcement.md`](runtime/runtime-enforcement.md) Guardian section |
 | Heartgate (transition validator) | `kernel.py#class Heartgate` | [`runtime/runtime-enforcement.md`](runtime/runtime-enforcement.md) Heartgate section |
 | Governed writers | `__init__.py#_handle_uacp_*` | [`reference/skill-enforcement-spec.md`](reference/skill-enforcement-spec.md) |
-| Config layer | `config/{guardian-policy,phase-transitions,artifact-schemas,state,autonomy-policy}.yaml` | [`/docs/INDEX.md`](INDEX.md) inventory |
+| Config layer | `config/uacp.toml` (guardian policy) + `config/{phase-transitions,artifact-schemas,state,autonomy-policy}.yaml` | [`/docs/INDEX.md`](INDEX.md) inventory |
 
 ## §6 — Runtime View
 

@@ -58,6 +58,6 @@ decision = guardian.evaluate(event)
 
 ## Canonical authority
 
-- `config/guardian-policy.yaml`
+- `config/uacp.toml` (`[guardian]` section — policy collapsed from legacy guardian-policy.yaml in Slice 3)
 - `config/phase-transitions.yaml`
 - `docs/runtime/runtime-integration-guide.md`

@@ -17,7 +17,7 @@ This compatibility conductor exists for agents that look for
 
 Canonical Guardian authority lives in the UACP repository:
 
-- `config/guardian-policy.yaml`
+- `config/uacp.toml` (`[guardian]` section — policy collapsed from legacy guardian-policy.yaml in Slice 3)
 - `config/hooks/terminal/authority-resolution.yaml`
 - `docs/runtime/runtime-integration-guide.md`
 - `runtime-adapters/hermes/plugins/uacp_guardian/`
