@@ -15,19 +15,24 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-import yaml
-
 import state_machine
 from engines.domain import phase_graph
+from engines.domain.phase_transitions import stages_default
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def _production_lifecycle_edges() -> set[tuple[str, str]]:
-    """Flat ``(from, to)`` edge set from config/phase-transitions.yaml stages."""
-    path = REPO_ROOT / "config" / "phase-transitions.yaml"
-    cfg = yaml.safe_load(path.read_text(encoding="utf-8"))
-    stages = cfg.get("stages") or {}
+def _code_default_stage_edges() -> set[tuple[str, str]]:
+    """Flat ``(from, to)`` edge set from the codified ``stages_default()``.
+
+    Slice 4b T4d-1: production config/phase-transitions.yaml no longer ships a
+    ``stages`` block (the grammar is codified). The former
+    "phase_graph == YAML stages.*.exits_to" agreement is replaced by this
+    INTERNAL-consistency check: the codified stages must DERIVE their
+    ``exits_to`` from ``phase_graph`` (not a re-hardcoded second copy of the
+    graph). The EXTERNAL drift-guard against config/uacp.toml is unchanged below.
+    """
+    stages = stages_default()
     return {
         (phase, target)
         for phase, body in stages.items()
@@ -48,10 +53,18 @@ def _uacp_toml_allowed_edges() -> set[tuple[str, str]]:
     return edges
 
 
-def test_canonical_graph_matches_phase_transitions_yaml() -> None:
-    """phase_graph lifecycle graph == config/phase-transitions.yaml exits_to."""
-    assert phase_graph.lifecycle_edges() == _production_lifecycle_edges(), (
-        "phase_graph.LIFECYCLE_GRAPH drifted from config/phase-transitions.yaml stages.*.exits_to"
+def test_code_default_stages_exits_to_derive_from_phase_graph() -> None:
+    """Codified stages_default() exits_to == phase_graph (internal consistency).
+
+    This is the T4d-1 replacement for the old "phase_graph == YAML
+    stages.*.exits_to" assertion: it proves the codified stages derive their
+    ``exits_to`` from ``phase_graph.LIFECYCLE_GRAPH`` rather than carrying a
+    second hardcoded copy of the graph. The EXTERNAL graph drift-guard lives in
+    test_canonical_graph_matches_uacp_toml_allowed_transitions (uacp.toml).
+    """
+    assert phase_graph.lifecycle_edges() == _code_default_stage_edges(), (
+        "stages_default() exits_to drifted from phase_graph.LIFECYCLE_GRAPH "
+        "(exits_to must be DERIVED from the canonical graph, not re-hardcoded)"
     )
 
 

@@ -40,6 +40,7 @@ from engines.domain import (  # noqa: E402
     RunManifest,
     RunRegistry,
     Scope,
+    stages_default,
 )
 
 
@@ -201,9 +202,23 @@ def load_scope(workspace: Path, rel: str) -> Loaded[Scope]:
 def load_phase_transitions(workspace: Path) -> Loaded[dict[str, Any]]:
     """Load ``config/phase-transitions.yaml`` as a parsed mapping.
 
-    Used by the evidence-completeness engine to read each phase's declared
-    ``phase_exit_invariants``. ``value`` is the parsed mapping; ``error`` is set
-    when the file is missing, garbled, or is not a mapping. Never raises.
+    Used by Heartgate (``self.stages``), the Hermes Guardian adapter
+    (``_phase_config`` -> Layer-B), and the evidence-completeness engine
+    (``phase_exit_invariants``) — the single seam through which every runtime
+    consumer obtains the ``stages`` block.
+
+    Slice 4b T4d-1: the ``stages.<phase>`` grammar (allowed_tools, forbidden_tools,
+    phase_exit_invariants, exits_to) is codified in
+    ``engines.domain.phase_transitions.stages_default()``. When the loaded config
+    OMITS a ``stages`` block (production, after the T4d-1 slim), this loader
+    injects that code default so every consumer keeps its pre-slim behavior —
+    crucially, Guardian Layer-B's per-phase allowlist + unknown-phase block do
+    NOT fail-open. When the loaded config PROVIDES ``stages`` (e.g. the test
+    fixture), that block wholesale-overrides the default — the loader leaves it
+    untouched.
+
+    ``value`` is the parsed mapping; ``error`` is set when the file is missing,
+    garbled, or is not a mapping. Never raises.
     """
     path = workspace / "config" / "phase-transitions.yaml"
     raw, err = _safe_load_yaml(path)
@@ -211,6 +226,11 @@ def load_phase_transitions(workspace: Path) -> Loaded[dict[str, Any]]:
         return Loaded(error=err)
     if not isinstance(raw, dict):
         return Loaded(error="config/phase-transitions.yaml is not a YAML mapping")
+    if not raw.get("stages"):
+        # Absent (or empty/falsy) stages -> code default. A loaded non-empty
+        # stages block is honored as-is (wholesale override), matching the
+        # T4c "loaded-config-overrides / code-default-when-absent" convention.
+        raw = {**raw, "stages": stages_default()}
     return Loaded(value=raw)
 
 

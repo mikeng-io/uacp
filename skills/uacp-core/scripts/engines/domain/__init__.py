@@ -92,6 +92,16 @@ from .phase_graph import (  # noqa: E402
     runtime_terminal_phases,
     state_machine_projection,
 )
+from .phase_transitions import (  # noqa: E402
+    STAGE_ALLOWED_TOOLS,
+    STAGE_ENTERS_FROM,
+    STAGE_FORBIDDEN_TOOLS,
+    STAGE_PHASE_EXIT_INVARIANTS,
+    STAGE_PURPOSE,
+    TRIAGE_CAN_TERMINATE,
+    TRIAGE_ROUTING_OUTCOMES,
+    stages_default,
+)
 from .pointer import (  # noqa: E402
     CURRENT_POINTER_REQUIRED_FIELDS,
     CurrentPointer,
@@ -149,6 +159,14 @@ __all__ = [
     "run_registry_rule_default",
     "LedgerEntry",
     "RunManifest",
+    "STAGE_ALLOWED_TOOLS",
+    "STAGE_ENTERS_FROM",
+    "STAGE_FORBIDDEN_TOOLS",
+    "STAGE_PHASE_EXIT_INVARIANTS",
+    "STAGE_PURPOSE",
+    "TRIAGE_CAN_TERMINATE",
+    "TRIAGE_ROUTING_OUTCOMES",
+    "stages_default",
     "lifecycle_edges",
     "runtime_terminal_phases",
     "state_machine_projection",

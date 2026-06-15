@@ -4,162 +4,20 @@ status: seed
 purpose: 'Defines stable lifecycle phase envelopes and the adaptive transition artifact
   shape. Transition decisions combine invariant checks, selected evidence cluster
   outcomes, and blocker synthesis.'
-stages:
-  triage:
-    enters_from:
-    - none
-    exits_to:
-    - propose
-    - terminal
-    purpose: Calibrate scope, score granularity, and route the request.
-    can_terminate_without_full_lifecycle: true
-    routing_outcomes:
-      direct: terminal_direct
-      lightweight: propose
-      standard_uacp: propose
-      full_governance: propose
-      block_or_clarify: terminal_blocked
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    - uacp_doc_write
-    - uacp_config_write
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "proposals/{run_id}-triage*.yaml"
-      required: true
-    - gate_ledger_entry: "TRIAGE_COMPLETE"
-      required: true
-  propose:
-    enters_from:
-    - triage
-    exits_to:
-    - plan
-    purpose: Establish authority, scope, context, risk, and proposal viability.
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    - uacp_doc_write
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "proposals/{run_id}*.yaml"
-      required: true
-    - artifact_glob: "proposals/{run_id}*-gate-selection.yaml"
-      required: false
-    - artifact_glob: "proposals/{run_id}*-package-selection.yaml"
-      required: false
-      applies_when: adaptive_proposal_package_selected
-      description: Machine bridge for adaptive proposal documentation selection; required for selected medium/high consequence work before PROPOSE->PLAN.
-    - package_directory: "proposals/{run_id}/"
-      required: false
-      applies_when: adaptive_proposal_package_selected
-      description: Human-reviewable proposal package; YAML proposal artifacts are lifecycle envelopes, not the complete proposal.
-    - gate_ledger_entry: "TRIAGE->PROPOSE"
-      required: true
-  plan:
-    enters_from:
-    - propose
-    exits_to:
-    - execute
-    purpose: Convert approved proposal into bounded execution and verification strategy.
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "plans/{run_id}*"
-      required: true
-    - gate_ledger_entry: "PROPOSE->PLAN"
-      required: true
-  execute:
-    enters_from:
-    - plan
-    exits_to:
-    - verify
-    purpose: Perform bounded work through UACP-authorized Agent Council orchestration,
-      Hermes Kanban coordination, delegated workers, selected runtimes, and approved
-      tool/evidence adapters.
-    allowed_tools:
-    - uacp_doc_write
-    - uacp_config_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_artifact_write
-    - uacp_gate_ledger_append
-    - uacp_contained_shell
-    - uacp_sandbox_check
-    - uacp_heartgate_check
-    - terminal
-    - execute_code
-    forbidden_tools: []
-    phase_exit_invariants:
-    - artifact_glob: "executions/{run_id}*"
-      required: true
-    - gate_ledger_entry: "PLAN->EXECUTE"
-      required: true
-  verify:
-    enters_from:
-    - execute
-    exits_to:
-    - resolve
-    purpose: Validate completed work with context-selected evidence clusters.
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    - uacp_sandbox_check
-    - uacp_contained_shell
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "verification/{run_id}*"
-      required: true
-    - gate_ledger_entry: "EXECUTE->VERIFY"
-      required: true
-  resolve:
-    enters_from:
-    - verify
-    exits_to:
-    - terminal
-    purpose: Finalize outputs, archive artifacts, and emit lessons.
-    allowed_tools:
-    - uacp_artifact_write
-    - uacp_state_write
-    - uacp_run_registry_update
-    - uacp_escalation_event
-    - uacp_gate_ledger_append
-    - uacp_heartgate_check
-    forbidden_tools:
-    - terminal
-    - execute_code
-    phase_exit_invariants:
-    - artifact_glob: "resolutions/{run_id}*"
-      required: true
-    - gate_ledger_entry: "VERIFY->RESOLVE"
-      required: true
+# stages: codified to code in Slice 4b T4d-1. The full per-phase grammar
+# (allowed_tools, forbidden_tools, phase_exit_invariants, plus the doc-only
+# enters_from/purpose/routing_outcomes/can_terminate_without_full_lifecycle) now
+# lives in skills/uacp-core/scripts/engines/domain/phase_transitions.py
+# (stages_default). exits_to is DERIVED from the canonical phase graph
+# (engines/domain/phase_graph.py LIFECYCLE_GRAPH), not re-hardcoded.
+#
+# load_phase_transitions injects that code default when this block is absent, so
+# EVERY consumer keeps pre-slim behavior: Heartgate (_transition_allowed exits_to,
+# _validate_phase_exit_invariants, _validate_scope_artifact execute allowed_tools),
+# Guardian Layer-B (per-phase allowed/forbidden + unknown-phase block — which would
+# fail-OPEN on empty stages, hence the loader fallback is required), and the
+# evidence-completeness engine (phase_exit_invariants). A loaded config that DOES
+# provide `stages` (e.g. tests/conftest.py) wholesale-overrides the default.
 adaptive_proposal_package_gate:
   description: >
     PROPOSE documentation selection is adaptive and context-driven. Granularity

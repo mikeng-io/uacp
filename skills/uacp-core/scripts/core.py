@@ -708,7 +708,20 @@ class Heartgate:
         self.config = dict(config)
         self.uacp_root = resolve_uacp_root(uacp_root)
         self.governed_root = base_dir(self.uacp_root)
-        self.stages = self.config.get("stages") or {}
+        # Slice 4b T4d-1: stages grammar (exits_to/allowed_tools/forbidden_tools/
+        # phase_exit_invariants) is codified in
+        # engines.domain.phase_transitions.stages_default(). Heartgate.load reads
+        # via load_phase_transitions, which already injects that default when the
+        # loaded config omits `stages`; this constructor-level fallback covers any
+        # direct Heartgate(config) construction with a stage-less config so the
+        # transition/exit-invariant/scope-tool checks never silently go absent.
+        # A loaded non-empty `stages` block wholesale-overrides the default.
+        stages = self.config.get("stages")
+        if not stages:
+            from engines.domain.phase_transitions import stages_default
+
+            stages = stages_default()
+        self.stages = stages
         schema = self.config.get("artifact_schema") or {}
         self.required_fields = list(schema.get("required_fields") or [])
         # Phase 2: artifact schemas (scope, intent, evidence_disposition, lessons)

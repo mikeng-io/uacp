@@ -57,7 +57,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-import yaml
 from core import (
     DECISION_ALLOW,
     DECISION_ALLOW_WITH_AUDIT,
@@ -66,6 +65,7 @@ from core import (
     GuardianEvent,
     GuardianPolicy,
 )
+from engines.io import load_phase_transitions
 
 # --------------------------------------------------------------------------
 # Load the REAL production policy + phase-transitions config (not the temp
@@ -75,7 +75,14 @@ from core import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PHASE_TRANSITIONS_PATH = REPO_ROOT / "config" / "phase-transitions.yaml"
 
-_PHASE_CONFIG = yaml.safe_load(PHASE_TRANSITIONS_PATH.read_text())
+# Slice 4b T4d-1: production config/phase-transitions.yaml no longer ships a
+# `stages` block — the grammar is codified in
+# engines.domain.phase_transitions.stages_default() and injected by
+# load_phase_transitions when the YAML omits it. Source the EFFECTIVE stages the
+# production runtime actually uses (loaded YAML overrides, else code default) so
+# this matrix keeps testing the real per-phase envelope. Reading the raw YAML
+# here would now yield an empty `stages` and silently test nothing.
+_PHASE_CONFIG = load_phase_transitions(REPO_ROOT).value or {}
 _STAGES: dict = _PHASE_CONFIG.get("stages") or {}
 
 # Raw-exec tools: Layer-A blocks these regardless of phase allowlisting, so
@@ -171,7 +178,7 @@ def _cell_id(cell: tuple[str, str]) -> str:
 # Sanity: the config must actually differentiate tools per phase, otherwise the
 # matrix proves nothing. (The temp fixture would fail this — it is uniform.)
 def test_config_is_differentiated():
-    assert _STAGES, "real phase-transitions.yaml has no stages"
+    assert _STAGES, "effective phase-transitions stages (code default) is empty"
     assert _ADMIT_CELLS, "no admitted cells derived"
     assert _FORBIDDEN_CELLS, "config declares no forbidden_tools anywhere"
     assert _ALLOWLIST_MISS_CELLS, "config does not differentiate allowlists per phase"

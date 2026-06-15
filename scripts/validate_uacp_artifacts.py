@@ -1490,6 +1490,14 @@ def validate_configs(root: Path, issues: list[str]) -> dict:
 
 
 def validate_transition_config_consistency(configs: dict, issues: list[str]) -> None:
+    # NOTE (post-Slice-4b T4d-1): both WARN cross-checks below key off
+    # phase-transitions.yaml `stages`, which `validate_configs` reads RAW (not via
+    # load_phase_transitions, so the codified stages_default() is NOT injected here).
+    # Production no longer ships a `stages` block (codified to engines/domain), so
+    # `stages` is empty for prod and BOTH checks degrade to silence. This is fine:
+    # the hard graph drift-guard is the repo-level agreement test
+    # (tests/unit/uacp_core/test_phase_graph.py, phase_graph vs config/uacp.toml).
+    # These WARNs now only fire for a project that still ships an inline `stages`.
     phase_cfg = configs.get("config/phase-transitions.yaml") or {}
     heartgate_cfg = configs.get("heartgate") or {}
     stages = phase_cfg.get("stages") or {}
