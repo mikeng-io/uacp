@@ -145,21 +145,22 @@ plan_validation_gate: {}
 piv_rule:
   ledger_required: false
 # Slice 5 W2 opt-out stub (closes T4d-2) — PRESERVES PRIOR TEST LAXITY.
-# Before W2 this synthetic config OMITTED artifact_schema, so the
-# missing-required-field check was OFF in tests (Heartgate.__init__ did
-# `schema = self.config.get("artifact_schema") or {}; required_fields =
-# schema.get("required_fields") or []` -> []). After W2 an ABSENT block becomes
-# the CODE DEFAULT (ON: the ~15 uacp.phase_transition required_fields), which the
-# 4-field transition artifacts built by test_full_lifecycle / test_transition_matrix
-# do NOT carry -> every transition would block on missing fields. Providing the
-# block PRESENT with an explicit empty required_fields is read as the loaded value
-# (`isinstance(schema, dict)` -> `schema.get("required_fields") or []` -> []), so
-# the check stays OFF, exactly as before. Production (config/phase-transitions.yaml)
-# ships NO block and gets the enforce-by-default code default; only this fixture
-# opts out. The unconsumed schema doctrine (fields/terminal_kind) is NOT needed
-# here — the validator's terminal_kind check is gated on `values` which, with an
-# absent block, the validator sources from its own code default; no test exercises
-# validate_council_synthesis, so no council_synthesis_schema stub is required.
+# Enforcement of artifact_schema.required_fields now falls back to the codified
+# code default (the ~15 uacp.phase_transition required_fields) on KEY ABSENCE, not
+# block absence (Slice 5 BLOCKER fix). The 4-field transition artifacts built by
+# test_full_lifecycle / test_transition_matrix do NOT carry those fields, so the
+# code default would block every transition. This stub opts OUT by providing the
+# required_fields KEY PRESENT with an explicit empty list: Heartgate.__init__ reads
+# `isinstance(schema, Mapping) and "required_fields" in schema` -> True -> uses the
+# loaded `[]` -> check stays OFF, exactly as before. KEY semantics:
+#   * KEY PRESENT (even `[]`) -> use the loaded value (explicit empty == deliberate
+#     opt-out -> OFF). <-- this fixture, and any project disabling the gate.
+#   * KEY ABSENT -> use the enforce-by-default code default (ON). <-- production
+#     (config/phase-transitions.yaml), which ships the block but NOT the key.
+# The unconsumed schema doctrine (fields/terminal_kind) is NOT needed here — the
+# validator's terminal_kind check is gated on a `values` key which, absent here,
+# sources from the code default; no test exercises validate_council_synthesis, so
+# no council_synthesis_schema stub is required.
 artifact_schema:
   required_fields: []
 """)

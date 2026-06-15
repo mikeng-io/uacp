@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 import tomllib
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, get_args
 
@@ -224,17 +225,24 @@ def validate_handled_findings_chain(path: Path, obj: dict, issues: list[str]) ->
 
 def validate_phase_transition(path: Path, obj: dict, config: dict, issues: list[str], *, root: Path | None = None) -> None:
     schema = config.get("artifact_schema")
-    # Slice 5 W2 (closes T4d-2): artifact_schema.required_fields and
+    # Slice 5 W2 (closes T4d-2) + BLOCKER fix: artifact_schema.required_fields and
     # fields.terminal_kind.values are codified in engines.domain
-    # (enforce-by-default). When the loaded config OMITS the artifact_schema block
-    # (production, after the W2 slim), use the code defaults; when a loaded block
-    # is PRESENT (test fixture opt-out stub), its values win (an explicit empty
-    # required_fields/values list opts that check OFF, exactly as before).
-    if isinstance(schema, dict):
+    # (enforce-by-default). The W2 slim removed only the required_fields KEY and the
+    # terminal_kind.values KEY from config/phase-transitions.yaml but LEFT the
+    # artifact_schema BLOCK present (unconsumed doctrine: kind, fields, conventions).
+    # So fall back on KEY PRESENCE, not block presence: when the loaded block OMITS
+    # a specific key (production, after the slim), use the code default (ENFORCE);
+    # when the key is PRESENT (test fixture opt-out stub), its value wins (an
+    # explicit empty list opts that check OFF, exactly as before).
+    if isinstance(schema, Mapping) and "required_fields" in schema:
         required = schema.get("required_fields", [])
-        values = schema.get("fields", {}).get("terminal_kind", {}).get("values", [])
     else:
         required = phase_transition_required_fields()
+    fields = schema.get("fields") if isinstance(schema, Mapping) else None
+    terminal_kind = fields.get("terminal_kind") if isinstance(fields, Mapping) else None
+    if isinstance(terminal_kind, Mapping) and "values" in terminal_kind:
+        values = terminal_kind.get("values", [])
+    else:
         values = phase_transition_terminal_kind_values()
     check_required(str(path), obj, required, issues)
     decision = obj.get("decision")
@@ -351,11 +359,13 @@ def validate_heartgate_coherence_requirement(path: Path, obj: dict, config: dict
 
 def validate_council_synthesis(path: Path, obj: dict, config: dict, issues: list[str]) -> None:
     schema = config.get("council_synthesis_schema")
-    # Slice 5 W2 (closes T4d-2): council_synthesis_schema.required_fields is
-    # codified in engines.domain.council_synthesis_required_fields()
-    # (enforce-by-default). Absent loaded block -> code default; present loaded
-    # block -> its required_fields wins (empty list opts OFF).
-    if isinstance(schema, dict):
+    # Slice 5 W2 (closes T4d-2) + BLOCKER fix: council_synthesis_schema.required_fields
+    # is codified in engines.domain.council_synthesis_required_fields()
+    # (enforce-by-default). The W2 slim removed only the required_fields KEY but LEFT
+    # the council_synthesis_schema BLOCK present, so fall back on KEY PRESENCE, not
+    # block presence: absent key -> code default (ENFORCE); present key -> its
+    # value wins (explicit empty list opts OFF).
+    if isinstance(schema, Mapping) and "required_fields" in schema:
         required = schema.get("required_fields", [])
     else:
         required = council_synthesis_required_fields()

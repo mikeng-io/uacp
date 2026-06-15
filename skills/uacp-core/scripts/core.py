@@ -722,18 +722,18 @@ class Heartgate:
 
             stages = stages_default()
         self.stages = stages
-        # Slice 5 W2 (closes T4d-2): artifact_schema.required_fields is codified
-        # in engines.domain.phase_transition_required_fields() (enforce-by-default).
-        # When the loaded config OMITS the artifact_schema block (production, after
-        # the W2 slim), use the code default; when a loaded artifact_schema block is
-        # PRESENT (e.g. the test fixture's opt-out stub), its required_fields wins
-        # (an explicit empty list opts the gate OFF, exactly as before). This keeps
-        # the missing-required-field transition check from silently going absent.
-        # NOTE the idiom differs deliberately from the `not stages` check above:
-        # stages are load-bearing so an empty block coerces to the default, but a
-        # present-but-empty `artifact_schema` is honored as a loaded opt-out.
+        # Slice 5 W2 (closes T4d-2) + BLOCKER fix: artifact_schema.required_fields
+        # is codified in engines.domain.phase_transition_required_fields()
+        # (enforce-by-default). The W2 slim removed only the required_fields KEY from
+        # config/phase-transitions.yaml but LEFT the artifact_schema BLOCK present
+        # (it still carries unconsumed doctrine: kind, fields, conventions). So the
+        # fallback must key on KEY PRESENCE, not block presence: when the loaded
+        # block OMITS required_fields (production, after the slim), use the code
+        # default (ENFORCE); when the KEY is PRESENT (e.g. the test fixture's opt-out
+        # stub `required_fields: []`), its value wins (an explicit empty list opts
+        # the gate OFF, exactly as before, and lets a project deliberately disable).
         schema = self.config.get("artifact_schema")
-        if isinstance(schema, Mapping):
+        if isinstance(schema, Mapping) and "required_fields" in schema:
             self.required_fields = list(schema.get("required_fields") or [])
         else:
             from engines.domain.phase_transitions import (

@@ -27,6 +27,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+import yaml
+
 from core import Heartgate
 from engines.domain.phase_transitions import (
     COUNCIL_SYNTHESIS_REQUIRED_FIELDS,
@@ -228,4 +230,83 @@ def test_validator_council_synthesis_fires_when_block_absent():
     )
     assert issues, "expected missing-required-field issues for a sparse council synthesis"
     # A representative codified field is demanded.
+    assert any("verdict" in i for i in issues), f"expected verdict to be required, got: {issues}"
+
+
+# ---------------------------------------------------------------------------
+# REGRESSION (Slice 5 BLOCKER): enforcement must FIRE against the REAL repo
+# config, where the schema BLOCKS are PRESENT but the consumed KEYS were
+# slimmed away. The pre-fix readers keyed on block presence and took the loaded
+# branch -> `schema.get("required_fields") or []` -> [] -> enforcement silently
+# OFF in production. The fix keys on KEY presence; these tests load the ACTUAL
+# config/phase-transitions.yaml and pin enforcement ON. They FAIL on pre-fix
+# code (count 0 / no blockers) and PASS after (count 15 / blockers fire).
+# ---------------------------------------------------------------------------
+
+
+def _real_phase_transitions_config() -> dict:
+    text = (REPO_ROOT / "config" / "phase-transitions.yaml").read_text()
+    cfg = yaml.safe_load(text)
+    assert isinstance(cfg, dict)
+    # Guard the precondition this regression pins: the schema BLOCKS are PRESENT
+    # (unconsumed doctrine stays YAML) but the consumed KEYS were slimmed out.
+    assert isinstance(cfg.get("artifact_schema"), dict), "artifact_schema block must stay in YAML"
+    assert "required_fields" not in cfg["artifact_schema"], (
+        "artifact_schema.required_fields KEY must be codified out of YAML"
+    )
+    tk = cfg["artifact_schema"].get("fields", {}).get("terminal_kind", {})
+    assert "values" not in tk, "terminal_kind.values KEY must be codified out of YAML"
+    assert isinstance(cfg.get("council_synthesis_schema"), dict), (
+        "council_synthesis_schema block must stay in YAML"
+    )
+    assert "required_fields" not in cfg["council_synthesis_schema"], (
+        "council_synthesis_schema.required_fields KEY must be codified out of YAML"
+    )
+    return cfg
+
+
+def test_heartgate_real_config_required_fields_enforced():
+    """Heartgate.load(REPO_ROOT) against the real config -> required_fields ON (15)."""
+    hg = Heartgate.load(REPO_ROOT)
+    # Pre-fix: block present + key absent -> loaded branch -> [] (enforcement OFF).
+    # Post-fix: key absent -> code default -> the 15 codified fields.
+    assert hg.required_fields == _PROD_PHASE_TRANSITION_REQUIRED_FIELDS
+    assert hg.required_fields == phase_transition_required_fields()
+    assert len(hg.required_fields) == 15
+
+
+def test_validator_phase_transition_real_config_blocks_bogus():
+    """validate_phase_transition against the REAL config blocks bad terminal_kind + missing fields."""
+    module = _load_validator()
+    cfg = _real_phase_transitions_config()
+    issues: list[str] = []
+    module.validate_phase_transition(
+        Path("plans/x.yaml"),
+        {"from_phase": "plan", "to_phase": "execute", "terminal_kind": "bogus_kind"},
+        cfg,  # real config: schema block PRESENT, consumed keys ABSENT
+        issues,
+    )
+    assert issues, "real config must enforce required fields + terminal_kind enum"
+    # Missing required fields fire (code default, not the empty loaded value).
+    assert any("transition_id" in i for i in issues), (
+        f"expected missing required-field blockers, got: {issues}"
+    )
+    # terminal_kind enum (codified) enforced against the real config.
+    assert any("terminal_kind" in i and "bogus_kind" in i for i in issues), (
+        f"expected terminal_kind enum block, got: {issues}"
+    )
+
+
+def test_validator_council_synthesis_real_config_demands_required_fields():
+    """validate_council_synthesis against the REAL config demands codified required_fields."""
+    module = _load_validator()
+    cfg = _real_phase_transitions_config()
+    issues: list[str] = []
+    module.validate_council_synthesis(
+        Path("verification/x.yaml"),
+        {"council_id": "c1"},  # most required fields missing
+        cfg,  # real config: council_synthesis_schema block PRESENT, key ABSENT
+        issues,
+    )
+    assert issues, "real config must enforce council_synthesis required fields"
     assert any("verdict" in i for i in issues), f"expected verdict to be required, got: {issues}"
