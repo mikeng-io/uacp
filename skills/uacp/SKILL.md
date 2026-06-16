@@ -79,7 +79,8 @@ See `../references/operator-phase-return-presentation.md` for the reusable summa
 
 ## Documentation-authority reset pitfall
 
-If Mike corrects that a documentation cleanup is actually in UACP lifecycle, especially for LEXA/MEMEX/Cortex/Nora/private-public boundary docs, stop treating it as informal Vault cleanup. Admit/reroute it through UACP at the appropriate granularity and record a compact lifecycle artifact. If he says to start over or that no document should be non-draft, demote even prior `accepted` decision notes to draft input and add explicit restart guards before content review. See the `documentation-routing` skill's `../references/lexa-doc-routing.md` for the LEXA-specific pattern.
+If Mike corrects that a documentation cleanup is actually in UACP lifecycle, especially for LEXA/MEMEX/Cortex/Nora/private-public boundary docs, stop treating it as informal Vault cleanup. Admit/reroute it through UACP at the appropriate granularity and record a compact lifecycle artifact. If he says to start over or that no document should be non-draft, demote even prior `accepted` decision notes to draft input and add explicit restart guards before content review. See the `documentation-routing` skill's `references/lexa-doc-routing.md` for the LEXA-specific pattern.
+<!-- TODO(references-slice): dead/external pointer — resolve or remove during the skills/references audit -->
 
 ## Granularity ownership and naming pitfall
 
@@ -132,7 +133,9 @@ If Mike asks for a full review/audit, do **not** narrow the audit to the latest 
 
 For the combined full-lineage audit + documentation aftermath pattern, read `../references/full-lineage-audit-and-docs-package-20260520.md`. It captures the anti-fracture guide package shape (`docs/guides/<topic>/00-index.md` conductor + modular human/agent/gate/history files), the need to avoid scattering doctrine across random docs, and the UACP git identity pitfall (`norty-dev <norty@nortrix.io>`; check local config before committing).
 
-When LEXA documentation authority is being reset or promoted, treat it as UACP lifecycle work if it affects source registry contracts, private/public retrieval boundaries, Nora/Cortex integration, or future runtime readiness. Do not frame it as informal Vault cleanup. Use the documentation-routing reference `../references/lexa-uacp-draft-restart.md` for the all-draft restart pattern. After the reset, use `../references/lexa-first-principles-review-sliced-continuation.md` for the sliced continuation pattern: review draft docs in bounded slices, write per-slice checkpoints, preserve draft posture, then VERIFY/RESOLVE the review scope without implying LEXA itself is canonical or implementation-ready.
+When LEXA documentation authority is being reset or promoted, treat it as UACP lifecycle work if it affects source registry contracts, private/public retrieval boundaries, Nora/Cortex integration, or future runtime readiness. Do not frame it as informal Vault cleanup. Use the documentation-routing reference `references/lexa-uacp-draft-restart.md` for the all-draft restart pattern.
+<!-- TODO(references-slice): dead/external pointer — resolve or remove during the skills/references audit -->
+After the reset, use `../references/lexa-first-principles-review-sliced-continuation.md` for the sliced continuation pattern: review draft docs in bounded slices, write per-slice checkpoints, preserve draft posture, then VERIFY/RESOLVE the review scope without implying LEXA itself is canonical or implementation-ready.
 
 ## Legacy reference warning
 
