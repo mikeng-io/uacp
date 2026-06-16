@@ -19,6 +19,8 @@ connection_preference:
 
 **Note:** `http-api` is at slot 2 (before cli) and `halt` is at slot 4 (not skip). This is unique to the OpenCode bridge — no silent skip when all paths are exhausted.
 
+OpenCode is provider-agnostic: running it as a bridge lets the calling skill get a second opinion from a *different model family* than the one currently executing the skill (the 1.5× timeout multiplier reflects this multi-provider routing cost).
+
 ---
 
 ## Configuration Reference

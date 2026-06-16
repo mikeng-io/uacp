@@ -5,7 +5,7 @@ kind: reference
 location: managed
 ---
 
-# Bridge Commons: Shared Contract
+# UACP Bridge: Shared Contract
 
 This document defines the shared contract that all bridge adapters implement. Every bridge reads this document and conforms to the schemas, status semantics, artifact format, and pre-flight ordering defined here.
 

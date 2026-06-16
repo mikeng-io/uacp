@@ -30,8 +30,8 @@ uacp-bridge/SKILL.md (the shared contract)
 
 references/claude.md    ←  implements it: Task tool → claude CLI → Anthropic API
 references/gemini.md    ←  implements it: gemini CLI → SKIPPED
-references/codex.md     ←  implements it: MCP → codex exec → SKIPPED
-references/opencode.md  ←  implements it: HTTP API → opencode run → SKIPPED
+references/codex.md     ←  implements it: MCP → codex exec → HALTED
+references/opencode.md  ←  implements it: HTTP API → opencode run → HALTED
 references/kimi.md      ←  implements it: kimi CLI → SKIPPED
 ```
 

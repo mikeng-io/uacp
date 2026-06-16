@@ -105,7 +105,7 @@ thorough = 2
 # actively read from config/uacp.toml.
 #
 # To see the full list of parameters a bridge reads, check its
-# "Configuration Reference" section in skills/bridge-<name>/SKILL.md.
+# "Configuration Reference" section in `skills/uacp-bridge/references/<name>.md`.
 
 # --- Claude (Anthropic) ---
 [bridges.claude]
