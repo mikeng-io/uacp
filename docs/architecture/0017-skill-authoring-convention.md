@@ -48,13 +48,15 @@ Establish one convention, codified as a shipping reference skill `uacp-skills` (
 
 - **Structure & disclosure (adopt `skill-creator`):** `skills/<kebab-name>/SKILL.md` (required) plus optional `references/`, `scripts/`, `assets/`. Three-level progressive disclosure (metadata → SKILL.md body → bundled resources). **SKILL.md target < 500 lines**; detail moves to `references/` with "Read when…" pointers; reference files > 300 lines carry a table of contents.
 
+- **Plugin packaging (the install target):** the library ships as a Claude Code plugin — `.claude-plugin/plugin.json` (`name: uacp`) at the repo/plugin root; skills auto-discover from `skills/<dir>/SKILL.md`; **invocation name = directory name** (frontmatter `name:` is a label); do not misuse Claude-Code-reserved frontmatter keys (`context`, `allowed-tools`, `model`, `effort`, `agent`, `hooks`, `paths`, …). The same files are Hermes-ready (`metadata.hermes.*`, `~/.hermes/skills/devops/uacp/`). Hermes sync, marketplace publication, and CC Guardian-hook enforcement are deferred follow-ups; this ADR governs being *loadable and readable*, not distribution.
+
 - **`kind` taxonomy (improvise):** every skill declares `kind ∈ {kernel, lifecycle, reference, orchestration}`, which sets the minimum frontmatter — nothing decorative.
 
 - **No authority mirrors:** lifecycle skills do **not** copy `allowed_tools` / `forbidden_tools` / `phase_exit_invariants` into frontmatter. They declare `authority_source` (a pointer to the codified grammar) and stop. The codified grammar is the single source of truth.
 
 - **Self-containment rule (load-bearing):** a skill instruction body (`SKILL.md` and any instructing `references/` file) may reference only files that ship with *some* skill — its own bundled resources or another skill's shipped paths (`uacp-core/scripts/...`, `uacp-core/references/...`). It must **not** cite `docs/`. Durable contracts that live in `docs/` are **mirrored into `uacp-core/references/`** and cited there; the `docs/` original remains the origin of record. Source `*.py` files MAY cite ADRs in comments (provenance in code, not instruction prose). Enforced by `tests/unit/skills/test_skill_self_containment.py`.
 
-- **DRY shared content:** content repeated across skills lives once under `skills/references/` and is cited, not re-inlined.
+- **DRY shared content:** content repeated across skills lives once under `uacp-core/references/` and is cited, not re-inlined. (The former top-level `skills/references/` shared dump is abolished; the relocation is handled in the references slice.)
 
 - **`bridge-*` → `uacp-bridge`:** one `kind: reference` skill — `SKILL.md` = the shared contract (today's `bridge-commons`), `references/<runtime>.md` per adapter.
 
@@ -64,9 +66,10 @@ Establish one convention, codified as a shipping reference skill `uacp-skills` (
 - **Negative / risks:** a library-wide application pass is required (sequenced as Step 2) — collapsing `bridge-*`, DRYing boilerplate, slimming frontmatter, rolling out `kind:`. Until that completes, the library is partially converted; the self-containment test starts narrow (ADR citations in SKILL.md bodies) and widens to the `docs/` class in Step 2.
 - **Sanctioned provenance carve-outs:** source `*.py` files may cite ADRs in comments, and a `references/` mirror may carry one "Origin of record" provenance line to its `docs/` source. Both ship as non-instruction provenance and are exempt from the self-containment rule.
 - **No runtime-behavior change:** this is documentation/structure only. The codified grammar remains the enforcement authority.
+- **Plugin-ready, not yet distributed:** after this convention, the library installs as a CC plugin and is Hermes-ready, but is not auto-synced to either runtime; distribution remains an explicit step.
 
 ## Status / next step
 
 Accepted. Sequenced execution:
 - **Step 1** (`docs/plans/2026-06-16-uacp-skills-convention-step1.md`): DONE — authored `uacp-skills`, mirrored the goal-driven contract into `uacp-core/references/`, repointed the five lifecycle skills off `ADR-0016`, added the self-containment test, council-cleared, merged.
-- **Step 2** (separate plan): apply the convention library-wide — collapse `bridge-*` → `uacp-bridge`, DRY the shared boilerplate into `skills/references/`, slim lifecycle frontmatter (drop the tool/invariant mirrors), roll out `kind:`, and widen the self-containment test to the `docs/` citation class.
+- **Step 2** (separate plan): apply the convention library-wide — collapse `bridge-*` → `uacp-bridge`, DRY the shared boilerplate into `uacp-core/references/` (the former `skills/references/` shared dump is abolished; relocation handled in the references slice), slim lifecycle frontmatter (drop the tool/invariant mirrors), roll out `kind:`, and widen the self-containment test to the `docs/` citation class.

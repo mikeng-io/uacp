@@ -31,7 +31,7 @@ UACP is the generic, unified, adaptive control-plane doctrine for governed agent
 
 ## Lifecycle semantic gate reference
 
-For UACP lifecycle hardening, validator gates, or phase-skill repair, read `references/lifecycle-semantic-gates.md` before claiming a phase chain is complete. It captures the PROPOSE/PLAN/EXECUTE/VERIFY/RESOLVE semantic-gate pattern, the PIV naming correction, and the VERIFY/RESOLVE pitfalls Mike corrected in-session.
+For UACP lifecycle hardening, validator gates, or phase-skill repair, read `../references/lifecycle-semantic-gates.md` before claiming a phase chain is complete. It captures the PROPOSE/PLAN/EXECUTE/VERIFY/RESOLVE semantic-gate pattern, the PIV naming correction, and the VERIFY/RESOLVE pitfalls Mike corrected in-session.
 
 ## When to use
 
@@ -47,7 +47,7 @@ Use `uacp-state` only for governed state mutation and state-authority questions.
 
 ## Route
 
-Reference: `references/lifecycle-semantic-gates-20260519.md` captures the preferred lifecycle hardening pattern from the PROPOSE/PLAN/EXECUTE/VERIFY/RESOLVE gate work: PIV means Phase Intent Verification, VERIFY and RESOLVE are first-class gates, and governance-core phase hardening should use retrieval-led gap audit, pre-design council when semantics are subtle, implementation, validation, post-council, remediation, and follow-up PASS before commit/push.
+Reference: `../references/lifecycle-semantic-gates-20260519.md` captures the preferred lifecycle hardening pattern from the PROPOSE/PLAN/EXECUTE/VERIFY/RESOLVE gate work: PIV means Phase Intent Verification, VERIFY and RESOLVE are first-class gates, and governance-core phase hardening should use retrieval-led gap audit, pre-design council when semantics are subtle, implementation, validation, post-council, remediation, and follow-up PASS before commit/push.
 
 - unclear scope, granularity, or admission -> `uacp-triage`
 - proposal, authority, side effects, or viability -> `uacp-propose`
@@ -75,11 +75,12 @@ When reporting UACP phase progress or completion back to Telegram/Discord, retur
 
 Raw evidence still belongs in UACP artifacts, commits, gate ledgers, and verification records. Mention that details are available on request. Include specific paths only when a path is itself the decision subject, a blocker/error depends on it, rollback requires it, or Mike explicitly asks for audit detail.
 
-See `references/operator-phase-return-presentation.md` for the reusable summary schema and suppression rules.
+See `../references/operator-phase-return-presentation.md` for the reusable summary schema and suppression rules.
 
 ## Documentation-authority reset pitfall
 
 If Mike corrects that a documentation cleanup is actually in UACP lifecycle, especially for LEXA/MEMEX/Cortex/Nora/private-public boundary docs, stop treating it as informal Vault cleanup. Admit/reroute it through UACP at the appropriate granularity and record a compact lifecycle artifact. If he says to start over or that no document should be non-draft, demote even prior `accepted` decision notes to draft input and add explicit restart guards before content review. See the `documentation-routing` skill's `references/lexa-doc-routing.md` for the LEXA-specific pattern.
+<!-- TODO(references-slice): dead/external pointer — resolve or remove during the skills/references audit -->
 
 ## Granularity ownership and naming pitfall
 
@@ -110,41 +111,43 @@ When settling a large UACP working tree, especially after governance/runtime/doc
 - inline test comments when an old verification lane needs new fixture setup because an invariant changed;
 - a self-contained commit message with `What changed`, `Why`, `Invariants and details`, and `Verification` sections.
 
-See `references/adaptive-package-gate-commit-pattern-20260519.md` for the concrete pattern, including validator command pitfalls and long commit-message handling.
+See `../references/adaptive-package-gate-commit-pattern-20260519.md` for the concrete pattern, including validator command pitfalls and long commit-message handling.
 
 ## Adaptive package backfill pattern
 
-When auditing an in-flight UACP run, distinguish machine lifecycle envelopes from human-readable adaptive packages. If a medium/high consequence run has `proposals/{run_id}-proposal.yaml`, `plans/{run_id}-plan.yaml`, or scope/gate-selection YAML but lacks `proposals/{run_id}/` or `plans/{run_id}/` Markdown packages, call that out directly and backfill the package directories plus package-selection/plan-selection bridge artifacts before claiming strict lifecycle completeness. See `references/adaptive-package-backfill-pattern.md`.
+When auditing an in-flight UACP run, distinguish machine lifecycle envelopes from human-readable adaptive packages. If a medium/high consequence run has `proposals/{run_id}-proposal.yaml`, `plans/{run_id}-plan.yaml`, or scope/gate-selection YAML but lacks `proposals/{run_id}/` or `plans/{run_id}/` Markdown packages, call that out directly and backfill the package directories plus package-selection/plan-selection bridge artifacts before claiming strict lifecycle completeness. See `../references/adaptive-package-backfill-pattern.md`.
 
 ## Architecture packet UACP-compatibility pattern
 
-When Mike asks whether existing architecture/design documents need to be revisited to comply with UACP, first classify the surface. Draft Vault/project docs usually need **UACP-compatible documentation hygiene** — explicit authority, status, boundaries, promotion path, and implementation stop rules — not a forced full UACP lifecycle package. Use full lifecycle artifacts only when the work changes protected runtime, governance, public/private, memory, agent-control, or UACP surfaces. See `references/architecture-packet-uacp-compatibility.md`.
+When Mike asks whether existing architecture/design documents need to be revisited to comply with UACP, first classify the surface. Draft Vault/project docs usually need **UACP-compatible documentation hygiene** — explicit authority, status, boundaries, promotion path, and implementation stop rules — not a forced full UACP lifecycle package. Use full lifecycle artifacts only when the work changes protected runtime, governance, public/private, memory, agent-control, or UACP surfaces. See `../references/architecture-packet-uacp-compatibility.md`.
 
 ## Lifecycle hardening pattern
 
-For UACP self-patches, especially phase gates or truth/authority boundaries, use retrieval-led gap audit, pre-design council when appropriate, docs/config/validator/fixtures/skills patching, post-implementation adversarial audit, then commit/push. See `references/lifecycle-hardening-pattern.md`.
+For UACP self-patches, especially phase gates or truth/authority boundaries, use retrieval-led gap audit, pre-design council when appropriate, docs/config/validator/fixtures/skills patching, post-implementation adversarial audit, then commit/push. See `../references/lifecycle-hardening-pattern.md`.
 
-For external audit remediation of lifecycle gates, do not stop at docs/config/offline validators. Check Heartgate runtime enforcement, root-confined artifact loading, runtime transition fixtures, PIV terminology/evidence semantics, and active skill-store sync. See `references/external-audit-runtime-gate-remediation.md`.
+For external audit remediation of lifecycle gates, do not stop at docs/config/offline validators. Check Heartgate runtime enforcement, root-confined artifact loading, runtime transition fixtures, PIV terminology/evidence semantics, and active skill-store sync. See `../references/external-audit-runtime-gate-remediation.md`.
 
-When Mike asks for both Kimi Code and Codex to review UACP changes, launch them as bounded read-only external audits with explicit in-runtime Agent Council roles and command-level timeouts; see `references/kimi-codex-agent-council-audit-loop-20260520.md` for the prompt skeleton, Kimi coding-model invocation, and contamination checks.
+When Mike asks for both Kimi Code and Codex to review UACP changes, launch them as bounded read-only external audits with explicit in-runtime Agent Council roles and command-level timeouts; see `../references/kimi-codex-agent-council-audit-loop-20260520.md` for the prompt skeleton, Kimi coding-model invocation, and contamination checks.
 
-If Mike asks for a full review/audit, do **not** narrow the audit to the latest commit or immediate remediation unless explicitly instructed. Scope it to the full related change lineage and end-to-end lifecycle coherence across PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE, with devil's advocate, consistency historian, and dependency-readiness roles. After findings, patch all authoritative surfaces together — runtime, offline validator, config/schema, fixtures, active skill exports, state, and docs — and rerun adversarial follow-up until PASS. See `references/full-lineage-external-audit-remediation-loop-20260520.md`.
+If Mike asks for a full review/audit, do **not** narrow the audit to the latest commit or immediate remediation unless explicitly instructed. Scope it to the full related change lineage and end-to-end lifecycle coherence across PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE, with devil's advocate, consistency historian, and dependency-readiness roles. After findings, patch all authoritative surfaces together — runtime, offline validator, config/schema, fixtures, active skill exports, state, and docs — and rerun adversarial follow-up until PASS. See `../references/full-lineage-external-audit-remediation-loop-20260520.md`.
 
-For the combined full-lineage audit + documentation aftermath pattern, read `references/full-lineage-audit-and-docs-package-20260520.md`. It captures the anti-fracture guide package shape (`docs/guides/<topic>/00-index.md` conductor + modular human/agent/gate/history files), the need to avoid scattering doctrine across random docs, and the UACP git identity pitfall (`norty-dev <norty@nortrix.io>`; check local config before committing).
+For the combined full-lineage audit + documentation aftermath pattern, read `../references/full-lineage-audit-and-docs-package-20260520.md`. It captures the anti-fracture guide package shape (`docs/guides/<topic>/00-index.md` conductor + modular human/agent/gate/history files), the need to avoid scattering doctrine across random docs, and the UACP git identity pitfall (`norty-dev <norty@nortrix.io>`; check local config before committing).
 
-When LEXA documentation authority is being reset or promoted, treat it as UACP lifecycle work if it affects source registry contracts, private/public retrieval boundaries, Nora/Cortex integration, or future runtime readiness. Do not frame it as informal Vault cleanup. Use the documentation-routing reference `references/lexa-uacp-draft-restart.md` for the all-draft restart pattern. After the reset, use `references/lexa-first-principles-review-sliced-continuation.md` for the sliced continuation pattern: review draft docs in bounded slices, write per-slice checkpoints, preserve draft posture, then VERIFY/RESOLVE the review scope without implying LEXA itself is canonical or implementation-ready.
+When LEXA documentation authority is being reset or promoted, treat it as UACP lifecycle work if it affects source registry contracts, private/public retrieval boundaries, Nora/Cortex integration, or future runtime readiness. Do not frame it as informal Vault cleanup. Use the documentation-routing reference `references/lexa-uacp-draft-restart.md` for the all-draft restart pattern.
+<!-- TODO(references-slice): dead/external pointer — resolve or remove during the skills/references audit -->
+After the reset, use `../references/lexa-first-principles-review-sliced-continuation.md` for the sliced continuation pattern: review draft docs in bounded slices, write per-slice checkpoints, preserve draft posture, then VERIFY/RESOLVE the review scope without implying LEXA itself is canonical or implementation-ready.
 
 ## Legacy reference warning
 
-`references/` is legacy/quarantined until phase skills reclaim or retire content. Do not depend on shared references unless the active skill Decision justifies that dependency.
+`../references/` is legacy/quarantined until phase skills reclaim or retire content. Do not depend on shared references unless the active skill Decision justifies that dependency.
 
 ## Presentation and semantic package rule
 
-Read `references/operator-phase-return-and-semantic-packages-20260519.md` when a UACP task involves phase-return messaging, adaptive PROPOSE/PLAN packages, or a dispute about whether Markdown files are optional.
+Read `../references/operator-phase-return-and-semantic-packages-20260519.md` when a UACP task involves phase-return messaging, adaptive PROPOSE/PLAN packages, or a dispute about whether Markdown files are optional.
 
 Durable rule: YAML lifecycle files are machine envelopes; Markdown package files are semantic substrate for future human/agent understanding; Telegram/Discord receives a short operator summary. Do not fix missing semantic context only at the proposal level — update skills and validators/schema behavior so the failure cannot recur.
 
-When council review finds gaps in semantic package enforcement, use `references/semantic-package-council-patch-loop-20260519.md`: patch the systemic validator/skill contract, rerun focused council to PASS, and report conclusion -> patch -> rerun outcome without dumping raw inventories.
+When council review finds gaps in semantic package enforcement, use `../references/semantic-package-council-patch-loop-20260519.md`: patch the systemic validator/skill contract, rerun focused council to PASS, and report conclusion -> patch -> rerun outcome without dumping raw inventories.
 
 ## Emergency stop
 
