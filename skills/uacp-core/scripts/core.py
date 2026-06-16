@@ -1251,22 +1251,58 @@ class Heartgate:
         A goal can span a CHAIN of runs (Task 3): "roll back to a checkpoint" is
         realized as launching a new forward run under the same persistent goal.
         So the convergence cap counts CHECKPOINT entries across ALL runs sharing
-        the ``goal_id`` — enumerated via ``list_runs_for_goal`` (the run-registry
-        scan, the authoritative live-run list), then summed across each run's
-        per-run gate ledger. Never raises: an unreadable registry/ledger
-        contributes zero rather than crashing the gate.
+        the ``goal_id``.
+
+        Council M-1 (autonomous-safety): the chain is enumerated by scanning the
+        RUN MANIFESTS on disk (``state/runs/*.yaml``), NOT the run registry. The
+        manifest's ``goal_id`` is the AUTHORITATIVE binding — it is what the
+        per-run goal-driven gates read (:meth:`_run_track` / :meth:`_run_goal_id`)
+        and what the registry writer is cross-checked against. The registry, by
+        contrast, is self-declared and need not be complete: an executor can spawn
+        a forward run that never registers (or registers under a different
+        ``goal_id``), which would let a registry-based count UNDERcount and reset
+        the budget per run -> an unbounded loop. Counting by manifest closes both
+        "didn't register" and "registered under a different goal_id": every run
+        whose MANIFEST declares this ``goal_id`` contributes its CHECKPOINT
+        entries, regardless of registry presence.
+
+        Never raises: an unreadable manifest/ledger contributes zero rather than
+        crashing the gate (a fail-safe count, like the rest of the goal-driven
+        path). A manifest the strict schema rejects still has its raw ``goal_id``
+        consulted, so a structurally-odd-but-bound run is still counted.
         """
         if not goal_id:
             return 0
         try:
-            from state_machine import list_runs_for_goal
-
-            run_ids = list_runs_for_goal(self.uacp_root, goal_id)
+            from engines.io.loaders import glob_in_workspace, load_manifest
         except Exception:
             return 0
         total = 0
-        for rid in run_ids:
-            if not _is_safe_run_id(rid):
+        seen: set[str] = set()
+        try:
+            manifests = glob_in_workspace(self.uacp_root, "state/runs/*.yaml")
+        except Exception:
+            return 0
+        for manifest_path in manifests:
+            rid = manifest_path.stem  # filename sans .yaml is the run_id
+            if not _is_safe_run_id(rid) or rid in seen:
+                continue
+            seen.add(rid)
+            # Authoritative binding: this run is in the chain iff its MANIFEST
+            # goal_id equals goal_id. Load tolerantly (never raise).
+            try:
+                loaded = load_manifest(self.uacp_root, rid)
+            except Exception:
+                continue
+            if loaded.error is not None or loaded.value is None:
+                continue
+            model = loaded.value.model
+            if model is not None:
+                run_goal = str(getattr(model, "goal_id", "") or "")
+            else:
+                raw = loaded.value.raw
+                run_goal = str(raw.get("goal_id") or "") if isinstance(raw, Mapping) else ""
+            if run_goal != goal_id:
                 continue
             ledger_path = self.governed_root / "state" / "gate-ledger" / f"{rid}.jsonl"
             if not ledger_path.exists():

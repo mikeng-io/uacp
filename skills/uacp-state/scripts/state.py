@@ -23,6 +23,37 @@ from engines.domain import EscalationMode, EscalationSeverity
 from typing import get_args as _get_args
 
 
+def _run_manifest_goal_id(root: Path, run_id: str) -> str | None:
+    """Read a run's goal_id from its manifest (state/runs/{run_id}.yaml).
+
+    Council M-1: the manifest goal_id is the AUTHORITATIVE goal binding (the
+    convergence cap counts the run-chain by scanning manifests). The registry
+    register cross-checks against this value and fails closed on mismatch.
+
+    Returns the manifest's goal_id as a string (``""`` when the manifest carries
+    no goal_id), or ``None`` when the manifest is missing/unreadable/invalid — so
+    a caller without a positive manifest binding cannot assert a goal_id in the
+    registry. Never raises.
+    """
+    if not _is_safe_run_id(run_id):
+        return None
+    try:
+        from engines.io.loaders import load_manifest
+
+        loaded = load_manifest(root, run_id)
+        if loaded.error is not None or loaded.value is None:
+            return None
+        model = loaded.value.model
+        if model is not None:
+            return str(getattr(model, "goal_id", "") or "")
+        raw = loaded.value.raw
+        if isinstance(raw, Mapping):
+            return str(raw.get("goal_id") or "")
+        return None
+    except Exception:
+        return None
+
+
 def _required_uacp_context_missing(args: Mapping[str, Any]) -> list[str]:
     # Use "in" not truthiness so empty lists (e.g. declared_side_effects=[])
     # are accepted as present while missing keys are rejected.
@@ -325,6 +356,19 @@ def _handle_uacp_run_registry_update(args: dict, **_: Any) -> str:
             # widen who may register an entry. Standard runs omit goal_id.
             goal_id = entry.get("goal_id")
             if goal_id is not None:
+                # Council M-1 (defense-in-depth): a registry goal_id must match
+                # the caller's run-MANIFEST goal_id. The manifest is the
+                # authoritative binding (the convergence cap counts the chain by
+                # manifest), so the registry must not be poisoned with a
+                # different goal_id (which a registry-based count would have
+                # trusted). Fail CLOSED on mismatch — error, no write. A run
+                # whose manifest is absent/unreadable cannot assert a goal_id
+                # binding either.
+                manifest_goal_id = _run_manifest_goal_id(root, run_id)
+                if manifest_goal_id is None:
+                    return json.dumps({"error": f"uacp_run_registry_update: cannot bind goal_id '{goal_id}' — run manifest for '{run_id}' is missing or unreadable (the manifest goal_id is authoritative)"})
+                if str(goal_id) != manifest_goal_id:
+                    return json.dumps({"error": f"uacp_run_registry_update: entry.goal_id '{goal_id}' does not match run-manifest goal_id '{manifest_goal_id}' for '{run_id}' — the manifest goal_id is authoritative (registry-poisoning refused)"})
                 new_entry["goal_id"] = str(goal_id)
             active.append(new_entry)
         else:  # deregister

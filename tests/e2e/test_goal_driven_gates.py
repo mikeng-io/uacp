@@ -430,3 +430,102 @@ class TestStandardTrackUnchanged:
 
         assert decision.decision == "block"
         assert _piv_blockers(decision.blockers), decision.blockers
+
+
+# ---------------------------------------------------------------------------
+# (M-1) cross-chain cap evasion is closed: the cap counts the run-chain by
+#       MANIFEST goal_id, not the run registry. A forward run that does NOT
+#       register (or registers under a different goal_id) is still counted.
+# ---------------------------------------------------------------------------
+
+
+class TestCrossChainCapEvasionClosed:
+    """Council M-1 (autonomous-safety hole).
+
+    The convergence budget counts a goal's CHECKPOINT entries across its whole
+    run-chain. The chain is now enumerated by scanning run MANIFESTS on disk
+    (``state/runs/*.yaml``) and counting every run whose manifest ``goal_id``
+    equals the goal — NOT the run registry. So an executor cannot reset the
+    budget by spawning forward runs that never register (or register under a
+    different goal_id): those runs are still counted via their manifest.
+    """
+
+    def test_unregistered_forward_run_is_still_counted(
+        self, temp_uacp_root: Path, valid_run_id: str
+    ):
+        """The exploit: goal g1, cap=2. r1 has 2 keep checkpoints (at budget).
+        r2 (manifest goal_id=g1) adds 1 more checkpoint but is NOT registered
+        under g1. A registry-based count would see only r2's 1 checkpoint and
+        let it through; the manifest scan counts r1's 2 + r2's 1 = 3 > 2 -> the
+        over-budget keep is BLOCKED at r2's execute->verify."""
+        goal_id = "g1"
+        r1 = valid_run_id
+        r2 = "uacp-test-002"
+        # r1: 2 keep checkpoints (the budget is max_checkpoints=2 -> at budget).
+        _seed_manifest(temp_uacp_root, r1, goal_id=goal_id)
+        _seed_budget(temp_uacp_root, r1, {"max_checkpoints": 2})
+        ev1 = _seed_evidence(temp_uacp_root, "executions/r1-c1.txt")
+        ev2 = _seed_evidence(temp_uacp_root, "executions/r1-c2.txt")
+        _append_checkpoint(temp_uacp_root, r1, goal_id=goal_id,
+                           checkpoint_id="r1-ckpt-001", evidence=ev1, verdict="keep")
+        _append_checkpoint(temp_uacp_root, r1, goal_id=goal_id,
+                           checkpoint_id="r1-ckpt-002", evidence=ev2, verdict="keep")
+
+        # r2: forward run bound to g1 by MANIFEST, with its own budget, 1 more
+        # keep checkpoint -- but deliberately NOT registered under g1 (the
+        # evasion: only r2 is registered for itself, NOT into the g1 chain).
+        _seed_manifest(temp_uacp_root, r2, goal_id=goal_id)
+        _seed_budget(temp_uacp_root, r2, {"max_checkpoints": 2})
+        ev3 = _seed_evidence(temp_uacp_root, "executions/r2-c1.txt")
+        _append_checkpoint(temp_uacp_root, r2, goal_id=goal_id,
+                           checkpoint_id="r2-ckpt-001", evidence=ev3, verdict="keep")
+        # NOTE: no _register_run_for_goal call at all -> registry has NO g1 entry.
+
+        hg = Heartgate.load(str(temp_uacp_root))
+        decision = hg.validate_transition(_transition(r2))
+
+        # The manifest scan counts r1(2) + r2(1) = 3 > cap 2 -> over budget.
+        assert decision.decision == "block"
+        cap_blockers = [
+            b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()
+        ]
+        assert cap_blockers, decision.blockers
+        # And the count attributed to the goal is the full chain total (3).
+        assert hg._goal_checkpoint_count(goal_id) == 3
+
+    def test_misregistered_forward_run_is_still_counted(
+        self, temp_uacp_root: Path, valid_run_id: str
+    ):
+        """A forward run registered under a DIFFERENT goal_id is still counted by
+        its MANIFEST goal_id. r1(g1)=2 at cap; r2 manifest goal_id=g1 but its
+        registry entry claims goal_id=g-other -> a registry count for g1 would
+        miss r2, but the manifest scan still counts it -> BLOCKED."""
+        goal_id = "g1"
+        r1 = valid_run_id
+        r2 = "uacp-test-002"
+        _seed_manifest(temp_uacp_root, r1, goal_id=goal_id)
+        _seed_budget(temp_uacp_root, r1, {"max_checkpoints": 2})
+        ev1 = _seed_evidence(temp_uacp_root, "executions/r1-c1.txt")
+        ev2 = _seed_evidence(temp_uacp_root, "executions/r1-c2.txt")
+        _append_checkpoint(temp_uacp_root, r1, goal_id=goal_id,
+                           checkpoint_id="r1-ckpt-001", evidence=ev1, verdict="keep")
+        _append_checkpoint(temp_uacp_root, r1, goal_id=goal_id,
+                           checkpoint_id="r1-ckpt-002", evidence=ev2, verdict="keep")
+
+        _seed_manifest(temp_uacp_root, r2, goal_id=goal_id)
+        _seed_budget(temp_uacp_root, r2, {"max_checkpoints": 2})
+        ev3 = _seed_evidence(temp_uacp_root, "executions/r2-c1.txt")
+        _append_checkpoint(temp_uacp_root, r2, goal_id=goal_id,
+                           checkpoint_id="r2-ckpt-001", evidence=ev3, verdict="keep")
+        # Registry mis-attribution: r2 registered under g-other, NOT g1.
+        _register_run_for_goal(temp_uacp_root, r2, "g-other")
+
+        hg = Heartgate.load(str(temp_uacp_root))
+        decision = hg.validate_transition(_transition(r2))
+
+        assert decision.decision == "block"
+        cap_blockers = [
+            b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()
+        ]
+        assert cap_blockers, decision.blockers
+        assert hg._goal_checkpoint_count(goal_id) == 3

@@ -287,6 +287,9 @@ class TestCheckpointCapEnforcement:
         goal_id = "g1"
         run_a = valid_run_id
         run_b = "uacp-test-002"
+        # Council M-1: the chain is counted by MANIFEST goal_id, so both runs
+        # need a manifest binding them to the goal.
+        _seed_manifest(temp_uacp_root, run_a, goal_id=goal_id)
         _seed_manifest(temp_uacp_root, run_b, goal_id=goal_id)
         _seed_budget(temp_uacp_root, run_b, {"max_checkpoints": 2})
         _register_run_for_goal(temp_uacp_root, run_a, goal_id)

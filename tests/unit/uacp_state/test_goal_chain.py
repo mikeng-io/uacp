@@ -103,6 +103,22 @@ class TestChainQueryableByGoal:
     entries sharing a goal_id; given a goal_id you can list its runs."""
 
     def _register(self, workspace: Path, run_id: str, goal_id: str | None) -> dict:
+        # Council M-1: a registry goal_id must match the run-MANIFEST goal_id
+        # (the manifest is authoritative). Seed a matching manifest so the
+        # register cross-check binds, then register the chain entry.
+        from state_machine import _save_manifest
+
+        if goal_id is not None:
+            _save_manifest(
+                workspace,
+                RunManifest(
+                    run_id=run_id,
+                    authority=Authority(source="operator-request"),
+                    track="goal-driven",
+                    goal_id=goal_id,
+                    current_phase="execute",
+                ),
+            )
         entry = {
             "run_id": run_id,
             "phase": "execute",
@@ -178,3 +194,66 @@ class TestCallerBindingPreserved:
         }))
         assert "error" in result
         assert "does not match caller" in result["error"]
+
+
+class TestRegisterGoalIdBoundToManifest:
+    """Council M-1 (defense-in-depth): a registry goal_id must match the
+    caller's run-MANIFEST goal_id (the manifest is the authoritative binding).
+    Fail CLOSED on mismatch or when the manifest is absent — the registry must
+    not be poisonable with a wrong/unbacked goal_id."""
+
+    def _register(self, workspace: Path, run_id: str, goal_id: str) -> dict:
+        return json.loads(_handle_uacp_run_registry_update({
+            "workspace": str(workspace),
+            "uacp_run_id": run_id,
+            "uacp_phase": "execute",
+            "policy_version": "0.1",
+            "declared_side_effects": [],
+            "op": "register",
+            "entry": {
+                "run_id": run_id,
+                "phase": "execute",
+                "write_paths": ["src/x.py"],
+                "scope_artifact_path": f"plans/{run_id}-scope.yaml",
+                "started_at": 1,
+                "goal_id": goal_id,
+            },
+            "reason": "register run",
+            "authority_artifact": f"plans/{run_id}-scope.yaml",
+        }))
+
+    def _seed(self, workspace: Path, run_id: str, goal_id: str | None) -> None:
+        from state_machine import _save_manifest
+
+        _save_manifest(
+            workspace,
+            RunManifest(
+                run_id=run_id,
+                authority=Authority(source="operator-request"),
+                track="goal-driven",
+                goal_id=goal_id,
+                current_phase="execute",
+            ),
+        )
+
+    def test_mismatched_goal_id_rejected(self, temp_uacp_root: Path):
+        # Manifest binds run-X to g1; registering it under g-evil is refused.
+        self._seed(temp_uacp_root, "run-X", "g1")
+        result = self._register(temp_uacp_root, "run-X", "g-evil")
+        assert "error" in result
+        assert "authoritative" in result["error"]
+        # Nothing was written for the poisoned goal.
+        assert list_runs_for_goal(temp_uacp_root, "g-evil") == []
+        assert list_runs_for_goal(temp_uacp_root, "g1") == []
+
+    def test_absent_manifest_rejects_goal_id(self, temp_uacp_root: Path):
+        # No manifest at all -> a run cannot assert a goal_id binding.
+        result = self._register(temp_uacp_root, "run-Y", "g1")
+        assert "error" in result
+        assert list_runs_for_goal(temp_uacp_root, "g1") == []
+
+    def test_matching_goal_id_accepted(self, temp_uacp_root: Path):
+        self._seed(temp_uacp_root, "run-Z", "g1")
+        result = self._register(temp_uacp_root, "run-Z", "g1")
+        assert result["ok"] is True
+        assert list_runs_for_goal(temp_uacp_root, "g1") == ["run-Z"]
