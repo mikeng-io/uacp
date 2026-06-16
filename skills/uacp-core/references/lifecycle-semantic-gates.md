@@ -114,7 +114,7 @@ For high-impact phases such as VERIFY and RESOLVE, do not implement first. Use t
 7. Focused follow-up council until PASS or accepted residual risk is explicit.
 8. Commit and push only after validation passes and material audit findings are closed.
 
-For clearer, lower-risk gaps (such as EXECUTE PIV binding), implementation before council can be acceptable. VERIFY and RESOLVE always deserve pre-design council.
+For clearer, lower-risk gaps (such as EXECUTE PIV binding), implementation before council can be acceptable. **Pre-design council is warranted when the phase is VERIFY, RESOLVE, or otherwise Heartgate-, Guardian-, public/private-boundary-, or self-approval-sensitive** — not only for VERIFY/RESOLVE. Start the sequence by loading the relevant lifecycle skills.
 
 When a known phase remains under-modeled, keep external Kimi/Codex audits as a final independent review — not an early substitute for completing the phase model.
 

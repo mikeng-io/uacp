@@ -148,4 +148,9 @@ python scripts/check_active_uacp_skill_links.py
 # negative sweep across adaptive execute/verify/resolve and heartgate fail fixtures
 ```
 
+## Git provenance / authority
+
+- Verify the local git identity before committing (a remediation run committed under the wrong identity pollutes provenance).
+- **Rewriting already-pushed history is a separate authority decision.** Do not rewrite / force-push pushed history without explicit operator approval — treat it as its own authorized action, not part of the remediation.
+
 Finish with a concise operator report: commit SHA, pushed/clean state, findings closed, validation evidence, and whether external follow-up remains pending.
