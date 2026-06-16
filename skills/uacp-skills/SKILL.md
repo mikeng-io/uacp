@@ -2,7 +2,6 @@
 name: uacp-skills
 description: The UACP skill-authoring convention — directory structure, the kind taxonomy, per-kind frontmatter, progressive disclosure, and the self-containment rule. Read this before creating or refactoring any skill in skills/. UACP's analog of Anthropic skill-creator.
 kind: reference
-context: reference
 ---
 
 # UACP Skills — Authoring Convention
