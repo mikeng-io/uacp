@@ -56,14 +56,16 @@ These were each explored and explicitly rejected; re-introducing them is the fai
 
 ## Mechanism
 
-- **TRIAGE selects the track.** Extend the existing TRIAGE routing to set a `track` field (alongside the existing `routing_outcome`). [Track names not finalized — see Open Items.]
+- **TRIAGE selects the track**, via a *mechanical* test (closes the escape-hatch risk): **"Is the success criterion specifiable as a verifiable artifact before EXECUTE begins?"** — yes → `standard`; no → `goal-driven`. The selection is recorded as a `track` field on the triage artifact (a canonical, validated location every downstream phase + Heartgate reads — track identity must not be inferred or stored out-of-band). [Track names not finalized — see Open Items.]
 - **PROPOSE declares the goal as the fixed anchor.** Success criteria are *semantic* (operator/defined satisfaction), not a fixed spec. PROPOSE sets the sandbox + authority + scope; the goal is the invariant the rest of the track serves.
 - **Checkpoint = a recorded phase-state you can return to.** Rolling back = returning to a checkpoint and proceeding again, still toward the same goal.
 - **Transition discipline is the only per-track difference (Heartgate-owned):**
   - Standard: forward-only.
   - Goal-driven: a transition may roll back to a prior checkpoint; the binding constraint is the goal, not the phase order.
 - **Builds are checkpoints, not commitments.** A checkpoint is disposable. Heavy weight — impact, commitment, governance pressure — attaches to **the goal** and to **the moment of satisfaction**, not to every attempt. When a checkpoint meets the goal it is *promoted from checkpoint to result*, and VERIFY/RESOLVE close against the goal + manifest coherence.
-- **Lightweight manifest (append-only) makes roll-back traceable.** One short entry per checkpoint: **what changed · why · evidence (the "see it" — render/screenshot/preview/sample) · verdict (keep / roll back / restart) · invariant (what must still hold).** This is the reason to do exploratory work under UACP at all: even when you scrap and restart, you retain what/why/evidence/verdict/invariant.
+- **Manifest (append-only, gate-ledger-backed) makes roll-back traceable — and is NOT an honor system.** Entries route through the existing `uacp_gate_ledger_append` writer (not a new one), and Heartgate runs the **same no-self-attestation check on checkpoint entries that it runs on standard-track phase transitions**. The `evidence` slot must reference an **externally verifiable artifact** (a committed render/screenshot/preview/sample path), not a prose description — this is the *structural claim⇒evidence coupling* enforcement finding applied here. This is the reason to do exploratory work under UACP at all: even when you scrap and restart, you retain a governed record of what/why/evidence/verdict/invariant.
+
+  **Manifest entry schema (stub — `[schema TBD]`, promote in the plan):** `checkpoint_id` · `phase` · `what_changed` · `why` · `evidence` (verifiable artifact ref) · `verdict` (keep | roll_back | restart) · `invariant` (what must still hold) · `rolled_back_to` (checkpoint_id | null).
 
 ### Where an "unsatisfying outcome" goes (roll-back semantics)
 
@@ -91,17 +93,32 @@ The phases, the artifacts, the governed writers, and the core invariants — **a
 
 ---
 
-## Open items (resolve in the implementation plan)
+## Council audit (2026-06-16, 3 Sonnet lenses) — verdict: kernel sound, not yet implementable
 
-1. **Track naming.** Working pair: `standard` vs `goal-driven`. Alternatives considered: directed/exploratory, deterministic/generative. Not finalized.
-2. **Checkpoint + manifest schema.** Exact fields, storage location under `state/`, granularity, and how a checkpoint records the returnable phase-state.
-3. **Validator relaxation per track.** Which validators stay vs relax for the goal-driven track. Instinct: authority / containment / no-fabrication **stay**; deterministic findings-clearing / PIV-style gates **relax** into the manifest obligation.
-4. **Heartgate transition-rule representation.** How the transition validator (and `engines/domain/phase_graph.py`) encode "roll-back-to-checkpoint allowed" for the goal-driven track *without* making the standard track non-linear. (The standard track must stay strictly forward/acyclic.)
-5. **Roll-back ↔ worktree/state interaction.** Returning to a checkpoint = restoring a recorded state; define how this composes with the worktree protocol and governed `state/` writers.
-6. **Convergence / termination.** Operator sign-off as the exit; whether an iteration/spend budget bounds the checkpoint loop.
+### Preconditions — MUST resolve before an implementation plan (elevated from "open item" to blocker)
+
+P1. **Checkpoint semantics / state serialization (the #1 blocker).** "Return to a checkpoint" must specify *exactly what is restored vs preserved*: the `state/current.yaml` phase pointer, worktree git SHA (revert build commits or leave them?), scope-artifact version, the append-only gate-ledger (entries can't be erased → tombstone with a `rolled_back_by` pointer?), and the run-manifest `state_history` (preserved — it's the audit trail). Minimum viable definition: a checkpoint is a named `(phase, run-manifest snapshot, git SHA, gate-ledger length, scope-artifact version)` tuple, with a chosen+recorded policy for worktree commits. Until this is defined, roll-back has no stable operational meaning.
+
+P2. **The roll-back MECHANISM (pending operator decision — see below).** A restorable checkpoint you re-enter and proceed forward from is, graph-theoretically, a back-edge. Two clean resolutions: **(a)** own it as a DAG-with-back-edges and fully define what a checkpoint serializes (P1); or **(b)** reframe "roll back to PLAN/PROPOSE" as *a new forward run with the goal held constant and the prior PROPOSE/PLAN output reused* — which dissolves both the topology concern and most of P1. **This is the operator's call; everything downstream depends on it.**
+
+### Resolved in this audit (fold into the plan)
+
+R1. **TRIAGE selection test** — mechanical ("success criterion specifiable as a verifiable artifact before EXECUTE?"). Recorded in Mechanism above.
+R2. **Required convergence budget** — goal-driven runs MUST declare a budget (max checkpoints / spend / wall-clock) at PROPOSE; Heartgate blocks PROPOSE-exit if absent. Without it, an autonomous run (`claude -p`, cron, no human to sign off) is an infinite loop by design. Operator sign-off is the *interactive* exit; the budget is the *autonomous* exit.
+R3. **Manifest is gate-ledger-backed + no-self-attestation + external evidence refs.** Recorded in Mechanism above.
+
+### Remaining open items (resolve in the implementation plan)
+
+O1. **Track naming.** Working pair `standard` vs `goal-driven`; alternatives directed/exploratory, deterministic/generative. Not finalized.
+O2. **Validator relaxation per track.** authority / containment / no-fabrication **stay**; deterministic findings-clearing / PIV-style gates **relax** into the manifest obligation. (Coupled to the Hermes grounding-gate work item — see Provenance.)
+O3. **Heartgate transition-rule representation.** Recommended shape (Lens 1, Option A): keep `LIFECYCLE_GRAPH` acyclic; the standard track keeps the existing DAG check unchanged; the goal-driven track consults a separate mode-gated `ROLLBACK_TRANSITIONS` allowlist — so the standard track stays provably linear. (Contingent on P2.)
+O4. **"build" vs "checkpoint" naming** — canonicalize one term in the plan.
+O5. **Promotion semantics** — what "promoted from checkpoint to result" requires at VERIFY (define "manifest coherence" so it isn't a lower bar than standard VERIFY).
 
 ---
 
 ## Provenance note
 
 This design was reached through a long brainstorming dialogue that repeatedly over-built (porting trustless ACP, unifying the tracks into one, inventing rewind topologies, reclassifying UACP as "semantic"). The kernel above is the de-scrambled result: **same lifecycle, golden phases reused; TRIAGE picks the track; the goal-driven track swaps forward-only progression for goal-anchored roll-back-to-checkpoint, with a lightweight manifest for traceability.** The "What this is NOT" section exists to prevent re-derailing.
+
+**Origin / coupling:** this design spun off from a separate queued work item — a **Hermes "grounding gate"** (hard enforcement that catches/blocks ungrounded final answers). The connection is load-bearing: the trustless-ACP grounding exploration done during this design found that robust grounding enforcement is **structural claim⇒evidence coupling checked deterministically** (trustless has *no* response-text LLM judge), which is exactly what shapes O2 (validator relaxation) here *and* the Hermes work item. The full reasoning + the rejected-detour arguments + the trustless dossier are preserved in **ADR `docs/architecture/0016-goal-driven-track.md`** and **`docs/decisions/decision-log.md` (2026-06-16)** — leaving them only in chat would itself be the self-attesting closure UACP forbids.
