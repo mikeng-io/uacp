@@ -22,7 +22,7 @@ ADR_CITATION = re.compile(r"ADR-\d")
 
 
 def _skill_md_files() -> list[Path]:
-    return sorted(SKILLS_DIR.glob("*/SKILL.md"))
+    return sorted(SKILLS_DIR.glob("**/SKILL.md"))
 
 
 def test_skills_dir_resolved() -> None:

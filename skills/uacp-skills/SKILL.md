@@ -80,8 +80,16 @@ the reference dangles. When a skill must cite a durable contract that lives in
 `docs/`, **mirror the contract into `uacp-core/references/`** and cite the mirror.
 The `docs/` original remains the origin of record; the mirror is the shipped,
 citable copy. (Source `*.py` files MAY cite ADRs in comments — that is provenance
-in code, not instruction prose.) Enforced by
+in code, not instruction prose.) A `references/` mirror MAY carry a single "Origin of record" provenance line naming the `docs/` original it mirrors (e.g. the goal-driven mirror's header), provided the file is fully usable without following that link. Enforced by
 `tests/unit/skills/test_skill_self_containment.py`.
+
+> **Enforcement scope (rollout).** The regression test currently enforces only
+> the `ADR-<number>` citation class in `SKILL.md` bodies. The broader `docs/`
+> citation class (e.g. `docs/INDEX.md`, `docs/lifecycle/...` read-pointers) is
+> being migrated incrementally and the test widens to it in the library-wide
+> rollout. Until then, existing skills may still carry `docs/` read-pointers —
+> that is known debt, not a counter-example. New/refactored skills must follow the
+> full rule now.
 
 ## DRY shared content
 

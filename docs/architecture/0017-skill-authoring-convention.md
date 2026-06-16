@@ -11,7 +11,7 @@ date: 2026-06-16
 - **Status**: proposed — flip to `accepted` after the Step-1 council gate.
 - **Date**: 2026-06-16
 - **Decision Makers**: UACP maintainer
-- **Consulted**: Anthropic `skill-creator` convention (adopted, improvised)
+- **Consulted**: Anthropic `skill-creator` convention (adopted, then improvised for UACP)
 - **Informed**: all skill authors; the lifecycle, kernel, reference, and orchestration skills
 - **Related**: ADR-0008 (subdirectory + ADR documentation structure); design `docs/plans/2026-06-16-uacp-skill-convention-design.md`; Step-1 plan `docs/plans/2026-06-16-uacp-skills-convention-step1.md`; the goal-driven track (ADR-0016) whose in-flight edits motivated the self-containment rule
 
@@ -62,6 +62,7 @@ Establish one convention, codified as a shipping reference skill `uacp-skills` (
 
 - **Positive:** a single readable standard; installed skills no longer dangle; the vestigial-authority ambiguity is removed; SKILL.md files shrink under the size target; the convention ships and is testable.
 - **Negative / risks:** a library-wide application pass is required (sequenced as Step 2) — collapsing `bridge-*`, DRYing boilerplate, slimming frontmatter, rolling out `kind:`. Until that completes, the library is partially converted; the self-containment test starts narrow (ADR citations in SKILL.md bodies) and widens to the `docs/` class in Step 2.
+- **Sanctioned provenance carve-outs:** source `*.py` files may cite ADRs in comments, and a `references/` mirror may carry one "Origin of record" provenance line to its `docs/` source. Both ship as non-instruction provenance and are exempt from the self-containment rule.
 - **No runtime-behavior change:** this is documentation/structure only. The codified grammar remains the enforcement authority.
 
 ## Status / next step
