@@ -1,6 +1,7 @@
 ---
 name: uacp-debate
 description: Generic structured adversarial protocol for review, audit, research synthesis, and brainstorm/design councils within UACP. Supports finding validation plus proposal brainstorming lifecycles, packetized exchanges, and auditable manifests for nested councils.
+kind: orchestration
 location: managed
 dependencies:
   - uacp-council-taxonomy

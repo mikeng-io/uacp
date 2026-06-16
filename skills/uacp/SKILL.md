@@ -1,6 +1,7 @@
 ---
 name: uacp
 description: Router for Universal Agent Control Plane governance, lifecycle, and state work.
+kind: orchestration
 version: 2.1.0
 metadata:
   hermes:

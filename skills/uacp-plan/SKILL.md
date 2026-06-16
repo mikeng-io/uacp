@@ -3,6 +3,7 @@ name: uacp-plan
 description: Use when converting an approved UACP proposal into a bounded plan with
   execution and verification structure.
 phase: plan
+kind: lifecycle
 authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ---
 # UACP Plan

@@ -1,6 +1,7 @@
 ---
 name: uacp-lifecycle
 description: Compatibility conductor for UACP lifecycle work; routes to the phase-specific UACP skills.
+kind: orchestration
 version: 1.0.0
 metadata:
   hermes:

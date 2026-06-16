@@ -1,6 +1,7 @@
 ---
 name: uacp-heartgate
 description: Compatibility conductor for UACP Heartgate transition checks.
+kind: orchestration
 version: 1.0.0
 metadata:
   hermes:

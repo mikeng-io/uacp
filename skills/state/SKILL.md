@@ -1,6 +1,7 @@
 ---
 name: uacp-state-compat
 description: Compatibility conductor for UACP state work; delegates to uacp-state.
+kind: orchestration
 version: 1.0.0
 metadata:
   hermes:

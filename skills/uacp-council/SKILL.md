@@ -1,6 +1,7 @@
 ---
 name: uacp-council
 description: Unified multi-agent orchestration skill for UACP. Takes a tier parameter (0/1/2/3) that scales from a single agent through in-runtime sub-agent dispatch up to cross-runtime councils with debate. Replaces the historical separate skills "agent-council", "runtime-council", and "deep-council" — all are tiers of the same operation. Supports review, audit, verify, research, planning, implementation, and brainstorm/design modes.
+kind: orchestration
 location: managed
 dependencies:
   - uacp-council-taxonomy

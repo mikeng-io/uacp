@@ -3,6 +3,7 @@ name: uacp-state
 description: Use when mutating UACP state, updating run manifests, current pointers,
   or tombstones.
 phase: '*'
+kind: lifecycle
 cross_phase: true
 note: uacp-state is the exclusive mutator for state/. Invoked from any phase; per-phase
   admissibility comes from the active phase's allowed_tools.
