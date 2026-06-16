@@ -12,7 +12,7 @@ dependencies:
   - domain-registry
   - uacp-web
   - uacp-state
-  - bridge-commons
+  - uacp-bridge
 allowed-tools:
   - Read
   - Glob
@@ -40,7 +40,7 @@ Before executing, verify required skills are present:
 ```
 [skills-root]/domain-registry/README.md
 [skills-root]/uacp-council-taxonomy/SKILL.md
-[skills-root]/bridge-commons/SKILL.md
+[skills-root]/uacp-bridge/SKILL.md
 ```
 
 If `uacp-web` is present, web enrichment is available. If `uacp-state` is present, active-run context is available. Neither is blocking — the skill degrades gracefully.

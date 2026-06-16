@@ -12,7 +12,7 @@ dependencies:
   - uacp-guardian
   - uacp-heartgate
   - domain-registry
-  - bridge-commons
+  - uacp-bridge
 allowed-tools:
   - Read
   - Glob

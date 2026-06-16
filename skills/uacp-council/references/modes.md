@@ -19,4 +19,4 @@ The first round (Round 1) must receive a **minimal, non-leading packet**:
 - artifact / topic scope, user goal, hard constraints, allowed mutation level, output contract
 - **Exclude**: expected findings, suspected root cause, coordinator's preferred architecture, other participants' findings, desired verdict
 
-Later rounds may introduce proposal inventories, challenges, and reconciliation packets. See `bridge-commons` for the brainstorm output schema.
+Later rounds may introduce proposal inventories, challenges, and reconciliation packets. See `uacp-bridge` for the brainstorm output schema.

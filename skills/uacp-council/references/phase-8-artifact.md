@@ -57,8 +57,8 @@ Also save JSON companion: `{YYYYMMDD-HHMMSS}-tier{N}-{session_id}.json` with the
 }
 ```
 
-**For brainstorm/design/research modes:** replace `outputs` with `proposals` or `observations` arrays as defined in `bridge-commons`.
+**For brainstorm/design/research modes:** replace `outputs` with `proposals` or `observations` arrays as defined in `uacp-bridge`.
 
-**For finding-driven mode:** the four finding-driven output types (`resolution`, `regression-finding`, `design-drift-finding`, `cross-domain-impact`, `fix-interaction-finding`) live in the standard `outputs[]` array, filterable by `type` — they do NOT get their own top-level arrays (the schema previously listed `regression_findings` / `design_drift_findings` / `fix_interaction_findings` as parallel arrays; this duplicated `outputs[]` semantics and has been removed). Consumers should filter `outputs[]` by `type` when they need a specific category. Resolution items additionally carry `resolution_status` and `target_finding_id` fields — see `bridge-commons` "Finding-driven-mode types".
+**For finding-driven mode:** the four finding-driven output types (`resolution`, `regression-finding`, `design-drift-finding`, `cross-domain-impact`, `fix-interaction-finding`) live in the standard `outputs[]` array, filterable by `type` — they do NOT get their own top-level arrays (the schema previously listed `regression_findings` / `design_drift_findings` / `fix_interaction_findings` as parallel arrays; this duplicated `outputs[]` semantics and has been removed). Consumers should filter `outputs[]` by `type` when they need a specific category. Resolution items additionally carry `resolution_status` and `target_finding_id` fields — see `uacp-bridge` "Finding-driven-mode types".
 
 `ic_tier` is non-null whenever finding-driven mode runs; it equals `tier` unless Step 6.IC (IC-hoist) elevated it. `prior_session_id` is populated when a prior council artifact was passed in as the `findings` source.

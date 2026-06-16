@@ -1,11 +1,11 @@
 ---
-name: bridge-commons
-description: Shared contract for all bridge adapters — pre-flight SOP, standardized input/output schemas, artifact format, and status semantics. Read by any bridge or orchestrating skill. Not invocable standalone.
+name: uacp-bridge
+description: Unified bridge dispatch contract — the shared pre-flight SOP, tier system, input/output schemas, timeout/verdict logic, and status semantics that all runtime adapters implement. Read via the Read tool; per-runtime specifics live in references/<runtime>.md.
+kind: reference
 location: managed
-context: reference
 ---
 
-# Bridge Commons: Shared Contract
+# UACP Bridge: Shared Contract
 
 This document defines the shared contract that all bridge adapters implement. Every bridge reads this document and conforms to the schemas, status semantics, artifact format, and pre-flight ordering defined here.
 
@@ -388,7 +388,7 @@ When multiple agents within a bridge produce similar outputs:
 
 After the initial parallel analysis, every bridge runs a post-analysis protocol before returning results. Two approaches are available — select based on intensity:
 
-**Note:** These round counts apply to the bridge-commons Post-Analysis Protocol — the iterative
+**Note:** These round counts apply to the uacp-bridge Post-Analysis Protocol — the iterative
 debate used within individual bridges (Gemini, Codex, OpenCode). They are distinct from the
 debate-protocol skill's round counts, which govern the standalone 5-phase protocol. The two
 systems have different purposes and calibrations:
@@ -775,7 +775,7 @@ This prevents silent capability reduction when committed model identifiers becom
 
 ### Input Field Aliases (Deprecated)
 
-`session_id` and `scope` are the canonical bridge-commons field names. The following aliases exist in agent-council Step 4 for backward compatibility and will be removed in a future version:
+`session_id` and `scope` are the canonical uacp-bridge field names. The following aliases exist in agent-council Step 4 for backward compatibility and will be removed in a future version:
 
 | Alias | Canonical name | Removal target |
 |-------|---------------|----------------|

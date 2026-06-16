@@ -24,7 +24,7 @@ finding_driven_input:
   # ... + standard fields (scope, domains, tier, intensity)
 ```
 
-**Finding object schema** (canonical definition in `bridge-commons/SKILL.md` "Finding Object Schema"):
+**Finding object schema** (canonical definition in `uacp-bridge/SKILL.md` "Finding Object Schema"):
 
 Each item in `findings` must have `{id, title, description, severity, domain, source}`. Items can be lifted directly from a prior `uacp-council` artifact's `outputs[]` array — they already conform. For spec-compliance use, each spec requirement becomes one finding (with `source: "spec:<path>"`).
 
@@ -137,6 +137,6 @@ Consumer-side filtering (examples):
 
 ### Verdict logic for finding-driven mode
 
-Defined canonically in `bridge-commons/SKILL.md` "Verdict Logic" → "For `mode == finding-driven`". Do not duplicate the table here. The short version: any unaddressed CRITICAL/HIGH or any CRITICAL new-issue (regression/drift/interaction) → `FAIL`. Any HIGH new-issue → `CONCERNS`. Otherwise → `PASS`.
+Defined canonically in `uacp-bridge/SKILL.md` "Verdict Logic" → "For `mode == finding-driven`". Do not duplicate the table here. The short version: any unaddressed CRITICAL/HIGH or any CRITICAL new-issue (regression/drift/interaction) → `FAIL`. Any HIGH new-issue → `CONCERNS`. Otherwise → `PASS`.
 
 A re-review that says "all fixes addressed their findings" but introduces design drift is still `CONCERNS` — that's the point of the mode.

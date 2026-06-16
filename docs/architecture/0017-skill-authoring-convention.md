@@ -23,7 +23,7 @@ The `skills/` library grew organically and has no single enforced convention. Th
 
 2. **Dangling references.** Skills cite `docs/` files (ADRs, decision-log, lifecycle docs). When a skill is installed into a coding agent, only the skill directory ships — `docs/` does not. Those references dangle in an installed agent. This was caught concretely when the goal-driven edits (ADR-0016) cited `ADR-0016` in five SKILL.md bodies.
 
-3. **Monolith + duplication.** The `bridge-*` skills are large monoliths (`bridge-commons` 785 lines; none use `references/`). The six lifecycle skills re-inline the same four boilerplate blocks (operator-phase-return, agent-council-followthrough, autonomous-self-closing-loop, mode_behavior) verbatim, and some duplicate sections within a single file.
+3. **Monolith + duplication.** The `bridge-*` skills are large monoliths (`bridge-commons` 785 lines (now `uacp-bridge/SKILL.md`); none use `references/`). The six lifecycle skills re-inline the same four boilerplate blocks (operator-phase-return, agent-council-followthrough, autonomous-self-closing-loop, mode_behavior) verbatim, and some duplicate sections within a single file.
 
 There is no authoritative definition of what a UACP skill *is* — its directory shape, frontmatter, size discipline, or what it may reference. Without one, every new skill re-litigates these choices and the drift compounds.
 

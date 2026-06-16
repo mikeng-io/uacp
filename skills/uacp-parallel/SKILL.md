@@ -8,7 +8,7 @@ description: >
 location: managed
 dependencies:
   - uacp-council-taxonomy
-  - bridge-commons
+  - uacp-bridge
 allowed-tools:
   - Read
   - Write

@@ -21,10 +21,10 @@ If you are reading this from another skill that read-tooled into it: continue ba
 An AI agent executor: Claude Code, Codex CLI, Gemini CLI, Kimi Code, OpenCode, or a custom executor (e.g., Hermes). Each runtime has its own native tools, sub-agent dispatch mechanism, model defaults, and tool surface.
 
 ### Runtime adapter (Bridge)
-A skill that defines how to dispatch a council task to a specific runtime. Lives at `skills/bridge-{name}/SKILL.md`. Examples: `bridge-claude`, `bridge-codex`, `bridge-kimi`, `bridge-gemini`, `bridge-opencode`. Each adapter is a reference document — read via the `Read` tool and embedded into an executor agent's prompt. *(In the parent agent-skills repo these were called "runtime-*".)*
+A skill that defines how to dispatch a council task to a specific runtime. Lives at `skills/uacp-bridge/references/{name}.md`. Examples: `uacp-bridge/references/claude.md`, `uacp-bridge/references/codex.md`, `uacp-bridge/references/kimi.md`, `uacp-bridge/references/gemini.md`, `uacp-bridge/references/opencode.md`. Each adapter is a reference document — read via the `Read` tool and embedded into an executor agent's prompt. *(In the parent agent-skills repo these were called "runtime-*".)*
 
-### Bridge Commons
-The shared schema all runtime adapters implement: input format, output schema, capability profiles, status values, agent prompt template, artifact format, and the post-analysis protocol. Lives at `skills/bridge-commons/SKILL.md`. *(In the parent repo this was `runtime-contracts`.)*
+### Bridge Commons (uacp-bridge)
+The shared schema all runtime adapters implement: input format, output schema, capability profiles, status values, agent prompt template, artifact format, and the post-analysis protocol. Lives at `skills/uacp-bridge/SKILL.md`. *(In the parent repo this was `runtime-contracts`.)*
 
 ### Local agent / sub-agent
 An agent dispatched inside a single runtime using its native mechanism — for example, `Task` in Claude Code, `task` (lowercase) in OpenCode, `delegate_task` in Hermes, the `Agent` tool in Kimi, multi-agent dispatch in Codex or Gemini when enabled. "Local" always means **inside one runtime** — it does not cross runtime boundaries.
@@ -60,7 +60,7 @@ Orthogonal axes a council can vary along: **role**, **model**, **runtime**, **to
 - `ABORTED` — user stopped the entire operation
 
 ### Cross-domain signal
-A flag emitted by a domain expert in its output, indicating that another domain should also examine a finding. Triggers dynamic addition of new domain experts in the next debate round. Mechanism is defined in `bridge-commons/SKILL.md`.
+A flag emitted by a domain expert in its output, indicating that another domain should also examine a finding. Triggers dynamic addition of new domain experts in the next debate round. Mechanism is defined in `uacp-bridge/SKILL.md`.
 
 ### Multi-agent enablement
 Whether a runtime supports sub-agent dispatch out of the box.
@@ -240,8 +240,10 @@ Finding-driven mode performs up to four checks (resolution, regression, design-d
 | Deep Council | uacp-council, Tier 3 |
 | Local council / local review | Tier 1 (in-runtime dispatch) |
 | Bridge / bridge adapter | Runtime adapter (bridge-*) |
-| `runtime-contracts` skill | `bridge-commons` skill |
-| `runtime-claude` / `runtime-codex` / `runtime-gemini` / `runtime-opencode` / `runtime-kimi` | `bridge-claude` / `bridge-codex` / `bridge-gemini` / `bridge-opencode` / `bridge-kimi` |
+| `runtime-contracts` skill | `uacp-bridge` skill (`skills/uacp-bridge/SKILL.md`) |
+| `runtime-claude` / `runtime-codex` / `runtime-gemini` / `runtime-opencode` / `runtime-kimi` | `uacp-bridge/references/claude.md` / `uacp-bridge/references/codex.md` / `uacp-bridge/references/gemini.md` / `uacp-bridge/references/opencode.md` / `uacp-bridge/references/kimi.md` |
+| `bridge-commons` | `uacp-bridge` (`skills/uacp-bridge/SKILL.md`) |
+| `bridge-*` (any individual adapter) | `uacp-bridge/references/*` (e.g. `uacp-bridge/references/claude.md`) |
 | `.runtime-settings.json` | `.runtime-settings.json` |
 | Deep Council escalation | Tier escalation (Tier 1 → 2 → 3) |
 | `deep-council` skill | Deleted. Invoke `uacp-council` with `tier: 3` |
@@ -289,6 +291,6 @@ Finding-driven mode performs up to four checks (resolution, regression, design-d
 ## Where to Read Next
 
 - `uacp-council/SKILL.md` — the unified, tier-parameterized council skill
-- `bridge-commons/SKILL.md` — the shared contract all runtime adapters implement
-- `bridge-{claude,codex,gemini,kimi,opencode}/SKILL.md` — runtime adapter specs
+- `uacp-bridge/SKILL.md` — the shared contract all runtime adapters implement
+- `uacp-bridge/references/{claude,codex,gemini,kimi,opencode}.md` — runtime adapter specs
 - `domain-registry/README.md` — domain definitions and trigger signals

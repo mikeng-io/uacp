@@ -5,12 +5,7 @@ location: managed
 dependencies:
   - uacp-council-taxonomy
   - domain-registry
-  - bridge-commons
-  - bridge-claude
-  - bridge-codex
-  - bridge-gemini
-  - bridge-opencode
-  - bridge-kimi
+  - uacp-bridge
 allowed-tools:
   - Read
   - Glob

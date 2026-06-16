@@ -6,6 +6,22 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-06-17 — Bridge Skill Collapse: bridge-* → uacp-bridge
+
+Decision: Collapsed `skills/bridge-*` (commons + 5 adapters: bridge-claude, bridge-codex, bridge-gemini, bridge-kimi, bridge-opencode) into a single `skills/uacp-bridge/` skill. `skills/uacp-bridge/SKILL.md` is the former `bridge-commons/SKILL.md` shared contract (verbatim content); per-runtime adapter specifics live in `skills/uacp-bridge/references/<runtime>.md` (claude, codex, gemini, kimi, opencode). All citers have been rewired to the new paths. Part of the ADR-0017 skill-authoring-convention application (Step 2 Slice 2).
+
+ADR-0015 path note: ADR-0015 references `skills/bridge-commons/SKILL.md` in its body; that path is now `skills/uacp-bridge/SKILL.md`. The ADR body is unchanged per ADR-immutability policy; this log entry records the path change.
+
+Status: accepted; bridge-* deleted, uacp-bridge is now the canonical bridge skill.
+
+Canonical targets:
+
+- `skills/uacp-bridge/SKILL.md` (the former bridge-commons shared contract)
+- `skills/uacp-bridge/references/{claude,codex,gemini,kimi,opencode}.md` (per-runtime adapters)
+- `skills/uacp-council/references/phase-4-dispatch.md` (rewired; dangling tool-discovery.md cite removed)
+- `skills/references/trustless-acp-source-analysis.md` (table updated to new paths)
+- `docs/architecture/0017-skill-authoring-convention.md` (annotation added)
+
 ### 2026-06-16 — Goal-Driven Track (second lifecycle track for semantic/exploratory work)
 
 Decision: Add a **goal-driven track** alongside the existing **standard track**, both under the *one* UACP lifecycle. The five phases are reused unchanged; TRIAGE selects the track via a mechanical test ("is the success criterion specifiable as a verifiable artifact before EXECUTE?" — yes → standard, no → goal-driven). The two tracks differ in exactly one thing: transition discipline. Standard = forward-only (anchored to the phase sequence). Goal-driven = anchored to the **goal**; builds are disposable **checkpoints** (not commitments), impact is deferred to goal-satisfaction, and a gate-ledger-backed append-only **manifest** (what/why/evidence/verdict/invariant) records each checkpoint and any roll-back.
@@ -65,7 +81,7 @@ Canonical targets:
 
 - `config/phase-transitions.yaml`, `config/state.yaml`, `config/roots.yaml`, `config/guardian-policy.yaml`, `config/artifact-schemas.yaml`, and affected `scripts/`/`skills/`.
 
-Follow-up: review the `bridge-commons` three-dot `...outputs` token separately.
+Follow-up: review the `bridge-commons` three-dot `...outputs` token separately — closed; nothing to migrate. The `...outputs` token was already removed from `bridge-commons/SKILL.md` before the collapse (it does not appear in `skills/uacp-bridge/SKILL.md`); no migration needed.
 
 ### 2026-06-15 — Adaptive Gates Are Fail-Closed on Absent Config (F-T3-01)
 

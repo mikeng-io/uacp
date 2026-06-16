@@ -9,7 +9,7 @@ Verify required skills are present:
 ```
 [skills-root]/uacp-council-taxonomy/SKILL.md
 [skills-root]/domain-registry/README.md
-[skills-root]/bridge-commons/SKILL.md
+[skills-root]/uacp-bridge/SKILL.md
 ```
 
 If a required file is missing, stop and emit an install advisory.
@@ -24,11 +24,11 @@ Guardian is optional but should be detected at one of these paths:
 For Tier 2+ dispatch, also verify runtime adapters:
 
 ```
-[skills-root]/bridge-claude/SKILL.md
-[skills-root]/bridge-codex/SKILL.md
-[skills-root]/bridge-gemini/SKILL.md
-[skills-root]/bridge-opencode/SKILL.md
-[skills-root]/bridge-kimi/SKILL.md
+[skills-root]/uacp-bridge/references/claude.md
+[skills-root]/uacp-bridge/references/codex.md
+[skills-root]/uacp-bridge/references/gemini.md
+[skills-root]/uacp-bridge/references/opencode.md
+[skills-root]/uacp-bridge/references/kimi.md
 ```
 
 If only some *runtime adapters* are missing → log which are unavailable; Tier 2+ will dispatch only the ones present.
@@ -53,7 +53,7 @@ Merge into `working_scope`:
 working_scope:
   artifact: ""           # what to analyze
   intent: ""             # review | audit | verify | research | implement | analysis | planning
-  task_type: ""          # canonical bridge-commons task_type
+  task_type: ""          # canonical uacp-bridge task_type
   mode: ""               # canonical council mode
   domains: []            # from context (authoritative), supplemented by preflight, or caller-provided
   constraints: []        # from preflight (empty if skipped)
@@ -77,13 +77,13 @@ council_manifest:
   intensity: ""            # quick | standard | thorough
   tier: null               # populated during routing
   ic_tier: null            # populated for finding-driven mode
-  capability_profile: ""   # inspect | modify, derived from bridge-commons
+  capability_profile: ""   # inspect | modify, derived from uacp-bridge
   guardian_enforced: false
   guardian_warnings: []
   registration_errors: []
 ```
 
-Read `bridge-commons/SKILL.md` for the canonical capability profile mapping. `task_type` controls authority: inspect tasks (`review`, `audit`, `research`, `analysis`, `planning`) must not modify project state; `implementation` may modify project state.
+Read `uacp-bridge/SKILL.md` for the canonical capability profile mapping. `task_type` controls authority: inspect tasks (`review`, `audit`, `research`, `analysis`, `planning`) must not modify project state; `implementation` may modify project state.
 
 ### Guardian registration enforcement
 

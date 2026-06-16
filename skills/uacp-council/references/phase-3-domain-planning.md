@@ -21,7 +21,7 @@ Select the prompt template and conditional inputs to pass:
 
 | `mode` | Prompt template source | Inputs to inject |
 |--------|------------------------|------------------|
-| Any open-ended mode (`review`/`audit`/`brainstorm`/`design`/`research`/`synthesis`) | `bridge-commons` Agent Prompt Template | `scope`, `task_description`, `task_type`, `mode`, `domains`, `context_summary`, `intensity` |
+| Any open-ended mode (`review`/`audit`/`brainstorm`/`design`/`research`/`synthesis`) | `uacp-bridge` Agent Prompt Template | `scope`, `task_description`, `task_type`, `mode`, `domains`, `context_summary`, `intensity` |
 | `finding-driven` | Finding-Driven Mode reference (domain-expert prompt + IC prompt) | All of the above, PLUS `findings`, `fixes_applied`, `original_proposal`, `prior_session_id` (the last three may be empty strings — the prompt templates self-disable corresponding checks when inputs are absent) |
 
 **Tier 0 in finding-driven mode is forbidden.** Tier 0 has no IC role, so Check #4 (fix-interaction) cannot run, and finding-driven without all four checks is misleading. If the user explicitly requests Tier 0 + finding-driven → halt with: `"Tier 0 + finding-driven is contradictory. Use Tier 1 for in-runtime four-check, or Tier 0 + review mode for trivial single-agent review."`
