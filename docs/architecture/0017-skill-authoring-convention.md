@@ -1,6 +1,6 @@
 ---
 type: adr
-status: proposed
+status: accepted
 date: 2026-06-16
 ---
 
@@ -8,7 +8,7 @@ date: 2026-06-16
 
 ## Metadata
 
-- **Status**: proposed — flip to `accepted` after the Step-1 council gate.
+- **Status**: accepted — Step-1 built and council-cleared (2-lens council, APPROVE-WITH-NITS; all material/minor findings resolved). Step 2 (library-wide application) pending.
 - **Date**: 2026-06-16
 - **Decision Makers**: UACP maintainer
 - **Consulted**: Anthropic `skill-creator` convention (adopted, then improvised for UACP)
@@ -67,6 +67,6 @@ Establish one convention, codified as a shipping reference skill `uacp-skills` (
 
 ## Status / next step
 
-Proposed. Sequenced execution:
-- **Step 1** (`docs/plans/2026-06-16-uacp-skills-convention-step1.md`): author `uacp-skills`, mirror the goal-driven contract into `uacp-core/references/`, repoint the five lifecycle skills off `ADR-0016`, add the self-containment test. Council gate, then flip this ADR to `accepted` and merge.
-- **Step 2** (separate plan): apply the convention library-wide.
+Accepted. Sequenced execution:
+- **Step 1** (`docs/plans/2026-06-16-uacp-skills-convention-step1.md`): DONE — authored `uacp-skills`, mirrored the goal-driven contract into `uacp-core/references/`, repointed the five lifecycle skills off `ADR-0016`, added the self-containment test, council-cleared, merged.
+- **Step 2** (separate plan): apply the convention library-wide — collapse `bridge-*` → `uacp-bridge`, DRY the shared boilerplate into `skills/references/`, slim lifecycle frontmatter (drop the tool/invariant mirrors), roll out `kind:`, and widen the self-containment test to the `docs/` citation class.
