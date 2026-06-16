@@ -22,15 +22,15 @@ name: uacp-execute
 description: Use when dispatching bounded UACP work through Hermes Kanban or delegated workers.
 kind: lifecycle
 phase: execute
-authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read doctrine + artifact schemas only)"
+authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ```
 No `allowed_tools` / `forbidden_tools` / `phase_exit_invariants` — codified grammar
 is authoritative (see `../SKILL.md` → "no authority mirrors").
 
 ## `kind: reference`
 ```yaml
-name: uacp-bridge
-description: Reference adapter contract for dispatching to external runtimes. Read via the Read tool; not invocable standalone.
+name: domain-registry
+description: Reference library of domain definitions used by lifecycle and bridge skills to select expert agents. Read via the Read tool; not invocable standalone.
 kind: reference
 context: reference
 ```

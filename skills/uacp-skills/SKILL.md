@@ -46,8 +46,14 @@ decorative.
 |---|---|---|
 | `kernel` | imported by runtime adapters; not invoked as a skill | `uacp-core` |
 | `lifecycle` | a phase skill; behavior gated by the codified grammar | triage, propose, plan, execute, verify, resolve |
-| `reference` | read via the Read tool; never invoked standalone | `uacp-bridge`, `domain-registry`, `uacp-skills` |
+| `reference` | read via the Read tool; never invoked standalone | `domain-registry`, `uacp-skills` (and `uacp-bridge`, planned) |
 | `orchestration` | invocable helpers around the lifecycle | council, debate, parallel, context, web, brainstorm |
+
+> **Rollout status.** This is the target convention. Existing skills are being
+> brought into compliance incrementally — some still carry pre-convention
+> frontmatter (e.g. lifecycle skills with `allowed_tools` mirrors, or skills with
+> no `kind:` yet). The examples below show the **target** form a new or refactored
+> skill should adopt, not a claim that every skill already conforms.
 
 Per-kind frontmatter fields and examples: **read** `references/frontmatter-by-kind.md`.
 
