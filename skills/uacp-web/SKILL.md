@@ -1,3 +1,8 @@
+---
+name: uacp-web
+description: Unified web evidence backend for UACP phases — selects and invokes the right data provider (Tavily, Firecrawl, Devin, Context7) to collect live web evidence during triage, propose, plan, and verify phases.
+---
+
 # uacp-web — Web Evidence Backend
 
 Reference document for UACP web evidence retrieval.  Orchestrating skills (triage,
