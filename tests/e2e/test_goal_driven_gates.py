@@ -529,3 +529,70 @@ class TestCrossChainCapEvasionClosed:
         ]
         assert cap_blockers, decision.blockers
         assert hg._goal_checkpoint_count(goal_id) == 3
+
+
+# ---------------------------------------------------------------------------
+# (MINOR) goal-driven under PRODUCTION-DEFAULT gates: the checkpoint relaxation
+#         layers ON TOP of the PIV ledger gate; it does NOT dodge it.
+# ---------------------------------------------------------------------------
+
+
+def _enable_production_piv_ledger(root: Path) -> None:
+    """Flip the test fixture's piv_rule opt-out (ledger_required: false) to the
+    PRODUCTION DEFAULT (ledger_required: true), so the PIV ledger gate is ON.
+
+    The conftest fixture deliberately opts OUT of piv_rule to preserve prior
+    test laxity; this restores the production posture for the one test that
+    pins goal-driven != governance-skip under production config."""
+    cfg = root / "config" / "phase-transitions.yaml"
+    text = cfg.read_text(encoding="utf-8")
+    new_text = text.replace(
+        "piv_rule:\n  ledger_required: false", "piv_rule:\n  ledger_required: true"
+    )
+    # Fail loudly (not vacuously) if the conftest stub formatting drifts so the
+    # replace silently no-ops: the production posture this test depends on would
+    # otherwise quietly never be set. Pin the precondition explicitly.
+    assert new_text != text, (
+        "conftest piv_rule opt-out stub not found to flip — _enable_production_piv_ledger "
+        "must actually set ledger_required: true (check tests/conftest.py stub formatting)"
+    )
+    cfg.write_text(new_text, encoding="utf-8")
+
+
+class TestGoalDrivenUnderProductionPivLedger:
+    """Council MINOR: the goal-driven e2e fixtures opt OUT of piv_rule. Pin that,
+    UNDER the production-default piv_rule (ledger_required: true), a goal-driven
+    execute->verify with an otherwise-COHERENT checkpoint manifest STILL owes the
+    PIV ledger record — the checkpoint relaxation substitutes for the
+    PIV/findings-clearing ARTIFACTS, not for the PIV LEDGER gate."""
+
+    def test_goal_driven_still_owes_piv_ledger_record(
+        self, temp_uacp_root: Path, valid_run_id: str
+    ):
+        goal_id = "g1"
+        _seed_manifest(temp_uacp_root, valid_run_id, goal_id=goal_id)
+        _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 5})
+        _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
+        # A coherent manifest: real evidence, final verdict keep, within budget.
+        ev1 = _seed_evidence(temp_uacp_root, "executions/prod-c1.txt")
+        ev2 = _seed_evidence(temp_uacp_root, "executions/prod-c2.txt")
+        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
+                           checkpoint_id="ckpt-001", evidence=ev1, verdict="keep")
+        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
+                           checkpoint_id="ckpt-002", evidence=ev2, verdict="keep")
+
+        # Production-default PIV ledger gate ON (no PIV pass record is seeded —
+        # only CHECKPOINT records exist, which are NOT PIV pass records).
+        _enable_production_piv_ledger(temp_uacp_root)
+
+        hg = Heartgate.load(str(temp_uacp_root))
+        decision = hg.validate_transition(_transition(valid_run_id))
+
+        # The coherent manifest satisfies the adaptive PIV-ARTIFACT gate (no
+        # adaptive_execute_evidence_gate blocker) ...
+        assert not _checkpoint_blockers(decision.blockers), decision.blockers
+        # ... but the production PIV LEDGER gate STILL fires: the run owes a PIV
+        # pass ledger record, which the checkpoint relaxation does NOT provide.
+        piv_ledger_blockers = [b for b in decision.blockers if "piv_rule" in b.lower()]
+        assert decision.decision == "block"
+        assert piv_ledger_blockers, decision.blockers

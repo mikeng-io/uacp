@@ -1456,44 +1456,6 @@ class Heartgate:
         if error is not None:
             blockers.append(error)
 
-    def _validate_convergence_cap(self, checkpoint: Mapping[str, Any], blockers: list[str]) -> None:
-        """Enforce the convergence cap on a proposed continue (``keep``) checkpoint.
-
-        ADR-0016 R2 (ii): once the goal's CHECKPOINT count (across its whole
-        run-chain) has reached ``max_checkpoints``, a further continue checkpoint
-        is BLOCKED — the run must converge or escalate. A non-continue verdict
-        (``roll_back`` / ``restart``) is the very escape the cap forces, so it is
-        never itself capped.
-
-        Track-gated: the proposed checkpoint's run must be on the goal-driven
-        track (checkpoints only exist there); a standard run returns immediately.
-        The budget is resolved from the run that authored the checkpoint.
-        """
-        run_id = str(checkpoint.get("run_id") or "")
-        if self._run_track(run_id) != "goal-driven":
-            return
-        verdict = str(checkpoint.get("verdict") or "")
-        if verdict != "keep":
-            # roll_back / restart are the convergence escapes the cap forces.
-            return
-        goal_id = str(checkpoint.get("goal_id") or "")
-        if not goal_id:
-            blockers.append("convergence cap: goal-driven checkpoint requires a goal_id")
-            return
-        budget, error = self._load_convergence_budget(run_id)
-        if error is not None or budget is None:
-            blockers.append(
-                error or "convergence cap: goal-driven run requires a convergence_budget"
-            )
-            return
-        count = self._goal_checkpoint_count(goal_id)
-        if count >= budget.max_checkpoints:
-            blockers.append(
-                f"convergence_budget exhausted: goal '{goal_id}' has {count} checkpoint(s), "
-                f"cap is max_checkpoints={budget.max_checkpoints}; a further 'keep' checkpoint "
-                "is blocked (the run must converge or escalate, not loop)"
-            )
-
     def _load_checkpoint_manifest(self, run_id: str) -> list[Mapping[str, Any]]:
         """Read the run's gate: CHECKPOINT ledger records (raw, in ledger order).
 
@@ -1600,9 +1562,10 @@ class Heartgate:
         # Cap: block iff the total recorded checkpoint count for this goal EXCEEDS
         # max_checkpoints (strict >). A manifest with EXACTLY max_checkpoints
         # entries is at-budget and PASSES; max_checkpoints+1 BLOCKS.
-        # This is a post-hoc check on an already-recorded total, so we use strict
-        # > rather than >= (_validate_convergence_cap uses >= for its pre-append
-        # "may I take a further keep?" posture and must not be changed here).
+        # This is the LIVE cap path (council MINOR+cleanup removed the dead
+        # _validate_convergence_cap pre-append helper): a post-hoc check on an
+        # already-recorded total, so it uses strict > (not >=) against the total
+        # the manifest scan returns for this goal's whole run-chain.
         if goal_id_seen:
             budget, budget_error = self._load_convergence_budget(run_id)
             if budget_error is not None or budget is None:

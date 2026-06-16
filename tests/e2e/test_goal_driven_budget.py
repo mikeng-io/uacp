@@ -21,7 +21,6 @@ conventions): a machine-readable YAML carrying ``convergence_budget``.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import yaml
@@ -79,37 +78,6 @@ def _seed_budget(root: Path, run_id: str, budget: dict | None) -> None:
     if budget is not None:
         body["convergence_budget"] = budget
     path.write_text(yaml.safe_dump(body, sort_keys=False), encoding="utf-8")
-
-
-def _append_checkpoint(root: Path, run_id: str, goal_id: str, ckpt_id: str,
-                       verdict: str = "keep") -> None:
-    """Append a gate: CHECKPOINT record to the run's gate ledger directly
-    (the writer is exercised elsewhere; here we just need the count)."""
-    rel = root / ".uacp" / "state" / "gate-ledger" / f"{run_id}.jsonl"
-    rel.parent.mkdir(parents=True, exist_ok=True)
-    rec = {
-        "gate": "CHECKPOINT",
-        "run_id": run_id,
-        "goal_id": goal_id,
-        "checkpoint_id": ckpt_id,
-        "verdict": verdict,
-    }
-    with rel.open("a", encoding="utf-8") as fh:
-        fh.write(json.dumps(rec, sort_keys=True) + "\n")
-
-
-def _register_run_for_goal(root: Path, run_id: str, goal_id: str) -> None:
-    """Add an active_runs[] entry carrying goal_id so list_runs_for_goal finds
-    it (the chain is enumerated via the registry)."""
-    reg = root / ".uacp" / "state" / "run-registry.yaml"
-    reg.parent.mkdir(parents=True, exist_ok=True)
-    data = {}
-    if reg.exists():
-        data = yaml.safe_load(reg.read_text(encoding="utf-8")) or {}
-    active = data.get("active_runs") or []
-    active.append({"run_id": run_id, "goal_id": goal_id, "phase": "execute"})
-    data["active_runs"] = active
-    reg.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
 def _budget_blockers(blockers: list[str]) -> list[str]:
@@ -347,102 +315,3 @@ class TestTrackBoundToTriage:
         decision = self._propose_to_plan(hg, valid_run_id)
 
         assert not _track_mismatch_blockers(decision.blockers), decision.blockers
-
-
-# ---------------------------------------------------------------------------
-# (d) cap enforcement: a further keep/continue checkpoint at/over the cap blocks
-# ---------------------------------------------------------------------------
-
-
-class TestCheckpointCapEnforcement:
-    def test_at_cap_blocks_further_keep(self, temp_uacp_root: Path, valid_run_id: str):
-        goal_id = "g1"
-        _seed_manifest(temp_uacp_root, valid_run_id, goal_id=goal_id)
-        _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 2})
-        _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
-        # Two checkpoints already recorded for the goal -> cap reached.
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id, "ckpt-001")
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id, "ckpt-002")
-
-        hg = Heartgate.load(str(temp_uacp_root))
-        blockers: list[str] = []
-        proposed = {
-            "checkpoint_id": "ckpt-003",
-            "run_id": valid_run_id,
-            "goal_id": goal_id,
-            "verdict": "keep",
-        }
-        hg._validate_convergence_cap(proposed, blockers)
-
-        assert blockers, "a keep checkpoint at the cap must block"
-        assert _budget_blockers(blockers), blockers
-
-    def test_below_cap_allows_keep(self, temp_uacp_root: Path, valid_run_id: str):
-        goal_id = "g1"
-        _seed_manifest(temp_uacp_root, valid_run_id, goal_id=goal_id)
-        _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 3})
-        _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id, "ckpt-001")
-
-        hg = Heartgate.load(str(temp_uacp_root))
-        blockers: list[str] = []
-        proposed = {
-            "checkpoint_id": "ckpt-002",
-            "run_id": valid_run_id,
-            "goal_id": goal_id,
-            "verdict": "keep",
-        }
-        hg._validate_convergence_cap(proposed, blockers)
-
-        assert not blockers, blockers
-
-    def test_cap_counts_across_run_chain(self, temp_uacp_root: Path, valid_run_id: str):
-        """The cap counts CHECKPOINT entries across ALL runs sharing the goal_id
-        (a goal can span a chain of runs, Task 3)."""
-        goal_id = "g1"
-        run_a = valid_run_id
-        run_b = "uacp-test-002"
-        # Council M-1: the chain is counted by MANIFEST goal_id, so both runs
-        # need a manifest binding them to the goal.
-        _seed_manifest(temp_uacp_root, run_a, goal_id=goal_id)
-        _seed_manifest(temp_uacp_root, run_b, goal_id=goal_id)
-        _seed_budget(temp_uacp_root, run_b, {"max_checkpoints": 2})
-        _register_run_for_goal(temp_uacp_root, run_a, goal_id)
-        _register_run_for_goal(temp_uacp_root, run_b, goal_id)
-        # One checkpoint on each of two chained runs -> 2 total -> cap reached.
-        _append_checkpoint(temp_uacp_root, run_a, goal_id, "ckpt-001")
-        _append_checkpoint(temp_uacp_root, run_b, goal_id, "ckpt-002")
-
-        hg = Heartgate.load(str(temp_uacp_root))
-        blockers: list[str] = []
-        proposed = {
-            "checkpoint_id": "ckpt-003",
-            "run_id": run_b,
-            "goal_id": goal_id,
-            "verdict": "keep",
-        }
-        hg._validate_convergence_cap(proposed, blockers)
-
-        assert blockers, "cap must count across the whole run-chain"
-        assert _budget_blockers(blockers), blockers
-
-    def test_converge_verdict_not_capped(self, temp_uacp_root: Path, valid_run_id: str):
-        """A non-continue verdict (roll_back/restart) is the *escape* the cap
-        forces — it must NOT itself be blocked by the cap."""
-        goal_id = "g1"
-        _seed_manifest(temp_uacp_root, valid_run_id, goal_id=goal_id)
-        _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 1})
-        _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id, "ckpt-001")
-
-        hg = Heartgate.load(str(temp_uacp_root))
-        blockers: list[str] = []
-        proposed = {
-            "checkpoint_id": "ckpt-002",
-            "run_id": valid_run_id,
-            "goal_id": goal_id,
-            "verdict": "restart",
-        }
-        hg._validate_convergence_cap(proposed, blockers)
-
-        assert not blockers, blockers
