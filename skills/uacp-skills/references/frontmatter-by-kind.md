@@ -3,6 +3,8 @@
 > **Read when** creating or refactoring a skill and you need the exact frontmatter
 > fields for its `kind`. Companion to `../SKILL.md`.
 
+Invocation name comes from the skill **directory** name, not `name:`; `name:` is a display label. Avoid Claude-Code-reserved frontmatter keys (`context`, `allowed-tools`, `model`, `effort`, `agent`, `hooks`, `paths`, …) except for their real CC meaning.
+
 `name` and `description` are required for every kind. `description` is the trigger:
 state what the skill does AND when to use it.
 
@@ -32,7 +34,6 @@ is authoritative (see `../SKILL.md` → "no authority mirrors").
 name: domain-registry
 description: Reference library of domain definitions used by lifecycle and bridge skills to select expert agents. Read via the Read tool; not invocable standalone.
 kind: reference
-context: reference
 ```
 
 ## `kind: orchestration`

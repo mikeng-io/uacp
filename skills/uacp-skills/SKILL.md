@@ -37,6 +37,20 @@ available, the trigger; (2) **SKILL.md body** — loaded when the skill triggers
 (3) **bundled resources** — `references/` read on demand, `scripts/` executed
 without being read into context. Put only what is always needed in the body.
 
+## Plugin packaging (the install target)
+
+These skills ship as a **Claude Code plugin** (and, deferred-but-ready, a Hermes skill package). The convention exists so they load correctly once installed. Conform to the real format:
+
+- **Manifest:** the plugin root carries `.claude-plugin/plugin.json` (`name: uacp` — this namespaces every skill as `/uacp:<dir>`). Adding/owning the manifest is a one-time packaging step, not per-skill.
+- **Location = discovery:** every skill MUST be `skills/<dir>/SKILL.md`. A bare `skills/SKILL.md` is **not discovered**. The plugin loader auto-discovers from `skills/`.
+- **Directory name = invocation name.** `skills/uacp-execute/` → `/uacp:uacp-execute`. Frontmatter `name:` is only a display label — do not rely on it for invocation, and keep dir name = intended invocation name.
+- **Do not misuse reserved Claude Code frontmatter keys.** CC silently ignores *unknown* keys (so our `phase`/`authority_source`/`kind`/`location`/`metadata` are harmless), but these keys have real CC meaning — only use them for that meaning: `context` (value `fork` only), `allowed-tools`/`disallowed-tools`, `model`, `effort`, `agent`, `hooks`, `paths`, `disable-model-invocation`, `user-invocable`, `argument-hint`, `arguments`, `shell`.
+- **Bundled resources ship:** `references/`, `scripts/`, `assets/` under a skill dir are bundled and readable at their relative paths. Keep `description` (+ `when_to_use`) under ~1536 chars (the listing budget) and SKILL.md under 500 lines.
+
+**Dual-target (Hermes).** The same files install into Hermes' skill store (`~/.hermes/skills/devops/uacp/<dir>/SKILL.md`); Hermes reads `metadata.hermes.{tags,related_skills}`. CC ignores the Hermes keys and Hermes ignores the CC keys, so one frontmatter serves both. Hermes packaging/sync is deferred but the layout is ready.
+
+**Deferred (not built yet):** the Hermes sync mechanism, marketplace publication, and the Guardian-enforcement hooks for CC (a separate effort). This convention is about being *loadable and readable*; distribution is a follow-up.
+
 ## The `kind` taxonomy
 
 Every UACP skill declares `kind`. It sets the minimum frontmatter — nothing
@@ -93,9 +107,7 @@ in code, not instruction prose.) A `references/` mirror MAY carry a single "Orig
 
 ## DRY shared content
 
-Content repeated across skills lives once under `skills/references/` and is cited
-with a "Read when…" pointer, not re-inlined. Existing shared references include
-`agent-council-followthrough.md` and `operator-phase-return-presentation.md`.
+Content shared across skills lives once under **`uacp-core/references/`** (the kernel skill every skill may cite) and is cited with a "Read when…" pointer, not re-inlined. There is no top-level shared dump under `skills/` outside a skill dir.
 
 ## Authoring checklist
 
@@ -104,5 +116,17 @@ with a "Read when…" pointer, not re-inlined. Existing shared references includ
 2. Write the body imperative and < 500 lines; move detail to `references/`.
 3. Cite only shipped files (self-containment). Mirror any `docs/` contract into
    `uacp-core/references/` first.
-4. Do not inline content that already exists under `skills/references/`.
+4. Do not inline content that already exists under `uacp-core/references/`.
 5. Run `python3 -m pytest tests/unit/skills/ -q` before committing.
+
+### Where a shared/reference doc lives
+- Cited by exactly ONE skill → that skill's own `references/`.
+- Shared across many skills, or a kernel-level contract → `uacp-core/references/`.
+- Dated session-history / one-off lessons / external analysis cited by no skill → `docs/knowledge/` (human/agent reading + provenance; **not** skill-citable — skills must not cite `docs/`).
+
+## Plugin-readiness checklist
+1. Skill is at `skills/<dir>/SKILL.md`; the dir name is the intended `/uacp:<dir>` invocation name.
+2. `description` present and within the listing budget; no reserved-key misuse (above).
+3. Body < 500 lines; detail in `references/`; cites only shipped files (self-containment).
+4. `.claude-plugin/plugin.json` exists at the plugin root (one-time).
+5. `python3 -m pytest tests/unit/skills/ -q` passes (self-containment + readiness lint).
