@@ -9,10 +9,10 @@ Do not assume the branch is canonical. Ground-truth the live UACP docs/config/st
 ## Sequence
 
 1. Read the live UACP canon in this order:
-   - `docs/index.md`
-   - `docs/constitution.md`
-   - `docs/lifecycle-reference.md`
-   - `docs/runtime-enforcement.md`
+   - `docs/INDEX.md`
+   - `docs/policy/constitution.md`
+   - `docs/lifecycle/lifecycle-reference.md`
+   - `docs/runtime/runtime-enforcement.md`
    - relevant `config/*.yaml`
    - `state/current.yaml` and relevant run manifests
 2. Diff the branch against the live canon.
@@ -24,6 +24,6 @@ Do not assume the branch is canonical. Ground-truth the live UACP docs/config/st
 4. Port only the missing or approved-conflict items into UACP.
 5. Re-check for terminology drift after the port.
 
-## Common mistake
+## Common Pitfall
 
-Treating agent-skills wording as doctrine before UACP has absorbed it. Skills are implementation surfaces; UACP is the authority layer.
+Treating agent-skills wording as doctrine before UACP has absorbed it. **Skills are implementation surfaces; UACP is the authority layer.** If a skills branch uses terminology or semantics that differ from what is in `docs/`, the canonical docs win — not the branch.

@@ -4,16 +4,16 @@ Use this reference when UACP runtime work needs to mutate canonical artifacts wi
 
 ## Pattern
 
-UACP-owned Hermes adapters should expose narrow writer tools by artifact class instead of relying on broad filesystem access:
+UACP-owned runtime adapters should expose narrow writer tools by artifact class instead of relying on broad filesystem access:
 
 - `uacp_state_write` for `state/` artifacts.
 - `uacp_artifact_write` for allowed run/verification/output artifacts.
 - `uacp_doc_write` for canonical Markdown under `docs/`.
 - `uacp_config_write` for canonical YAML under `config/`.
 
-The writer boundary should live in the UACP-owned runtime adapter source, e.g. `UACP_ROOT/runtime-adapters/hermes/plugins/uacp_guardian/`, with Hermes consuming it through a user-plugin symlink or equivalent runtime binding.
+The writer boundary should live in the UACP-owned runtime adapter source, with the host runtime consuming it through a user-plugin symlink or equivalent runtime binding.
 
-## Required context
+## Required Context
 
 Every governed writer call should carry full UACP context, not just a path and content:
 
@@ -27,7 +27,7 @@ Every governed writer call should carry full UACP context, not just a path and c
 
 If these fields are missing, Guardian should block or treat the mutation as under-contexted.
 
-## Containment rules
+## Containment Rules
 
 - Resolve target paths against the intended UACP root and block path escape.
 - Keep writer scopes separate: docs writer should not write config/state; config writer should not write docs/state.
@@ -35,16 +35,16 @@ If these fields are missing, Guardian should block or treat the mutation as unde
 - Restrict config to `.yaml`/`.yml` and validate YAML before writing.
 - Keep `state/` mutation under `uacp_state_write`; do not silently route state writes through generic doc/config/artifact writers.
 
-## Guardian classification
+## Guardian Classification
 
-When Hermes plugin provenance would otherwise classify all plugin calls as `runtime.extension`, use an explicit tool-name classification map for known UACP writers:
+When host-runtime plugin provenance would otherwise classify all plugin calls as `runtime.extension`, use an explicit tool-name classification map for known UACP writers:
 
 - known `uacp_*_write` tools receive their intended class (`state.uacp` or `file.write`) and audit decision;
 - unknown plugin mutators remain blocked as `runtime.extension`.
 
 This avoids weakening plugin security while permitting governed canonical writers.
 
-## Verification pattern
+## Verification Pattern
 
 A safe live proof harness should test both positive and negative behavior, preferably against a temporary UACP root:
 
@@ -56,7 +56,7 @@ A safe live proof harness should test both positive and negative behavior, prefe
 - unknown plugin mutator still blocked as `runtime.extension`;
 - live user-plugin symlink and loader behavior still valid after adapter edits.
 
-Record the result under `verification/` and update `.outputs/uacp-operational-dashboard.yaml` / `.outputs/uacp-current-status.yaml` through governed writers when available.
+Record the result under `verification/` and update status artifacts through governed writers when available.
 
 ## Pitfall
 

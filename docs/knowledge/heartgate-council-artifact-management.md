@@ -2,14 +2,14 @@
 
 Use when UACP work touches Agent Council, Heartgate, phase transitions, runtime enforcement, artifact validators, or lifecycle coherence checks.
 
-## Core distinction
+## Core Distinction
 
 - **Phase-local Agent Council** checks the work product inside a phase: proposal quality, plan sufficiency, implementation correctness, verification quality, local security risks, and evidence strength.
 - **Heartgate Council** checks the phase boundary: whether the phase truthfully satisfied its lifecycle contract and whether the next phase receives a coherent state.
 
 Do not collapse these into one review. A phase-local council can pass while Heartgate still blocks because state/artifacts are inconsistent, warnings are unowned, or the next phase would inherit incoherent assumptions.
 
-## Retrieval-led reasoning requirement
+## Retrieval-Led Reasoning Requirement
 
 When changing Heartgate, Guardian, council semantics, artifact management, or lifecycle doctrine, do not claim correctness from the main session's understanding alone.
 
@@ -21,9 +21,9 @@ Required loop:
 4. **Patch all blockers/concerns or explicitly defer them:** do not reframe a blocker as "acceptable" without an owner, residual risk, acceptance, and next-phase condition.
 5. **Re-verify:** run syntax/config/artifact validators plus targeted positive/negative runtime checks.
 
-Pitfall: prose/config updates can look coherent while runtime scripts or artifact validators still encode stale behavior. Mike explicitly expects retrieval-led council review/audit for this class of change.
+Pitfall: prose/config updates can look coherent while runtime scripts or artifact validators still encode stale behavior.
 
-## Artifact placement
+## Artifact Placement
 
 Heartgate Council / transition-coherence outputs are **verification evidence**, not lifecycle state.
 
@@ -53,7 +53,7 @@ The coherence artifact does **not** replace `council_synthesis_artifact`. Keep b
 - `council_synthesis_artifact`: phase-local work review / audit / execution critique.
 - `heartgate_coherence.artifact_path`: transition-boundary lifecycle truthfulness and consistency.
 
-## Required Heartgate lenses
+## Required Heartgate Lenses
 
 1. `doctrine_coherence` — phase aligns with UACP doctrine and intent.
 2. `cross_artifact_consistency` — docs, config, state, proposal/plan, evidence, and status agree.
@@ -62,38 +62,35 @@ The coherence artifact does **not** replace `council_synthesis_artifact`. Keep b
 5. `authority_plane_integrity` — Kanban, Agent Council, Guardian, Heartgate, runtimes, and UACP lifecycle state remain in their own authority planes.
 6. `next_phase_readiness` — the next phase receives a coherent, safe state and explicit obligations.
 
-## Runtime/script alignment checklist
+## Runtime/Script Alignment Checklist
 
 When adding or changing this distinction, check more than prose:
 
-- `docs/lifecycle-reference.md`
-- `docs/orchestration-model.md`
-- `docs/runtime-enforcement.md`
-- `docs/index.md` artifact registry/change log
+- `docs/lifecycle/lifecycle-reference.md`
+- `docs/runtime/runtime-enforcement.md`
+- `docs/INDEX.md` artifact registry/change log
 - `config/review-routing.yaml`
 - `config/phase-transitions.yaml`
 - `config/guardian-policy.yaml` when Heartgate transitions or protected categories are implicated
 - Heartgate runtime/kernel validation if transition artifacts gain a machine field
-- runtime adapter/tool schemas such as `runtime-adapters/hermes/plugins/uacp_guardian/__init__.py`
+- runtime adapter/tool schemas
 - artifact validators such as `scripts/validate_uacp_artifacts.py`
 - lifecycle skills that mention council/Heartgate responsibilities
 
 Pitfall: updating docs/config without updating Heartgate or artifact validators leaves the new field as unenforced prose.
 
-## Session-proven blocker patterns and fixes
+## Session-Proven Blocker Patterns and Fixes
 
-If council finds similar issues, apply these patterns:
-
-- **Governed writer symlink escape:** writer path resolution must reject symlinked intermediate directories and symlink target files before writing; resolving after concatenation is not enough if a symlink can escape `UACP_ROOT`.
-- **Config-driven coherence requirement:** if `heartgate_coherence` is optional globally, add config/routing triggers for material runtime/governance transitions and teach Heartgate to enforce them.
+- **Governed writer symlink escape:** writer path resolution must reject symlinked intermediate directories and symlink target files before writing; resolving after concatenation is not enough.
+- **Config-driven coherence requirement:** if `heartgate_coherence` is optional globally, add config/routing triggers for material runtime/governance transitions.
 - **Relative path semantics:** Guardian/Heartgate path checks should resolve UACP artifact paths relative to `UACP_ROOT`, not process CWD.
-- **Transition-path whitelist:** `uacp_heartgate_check` should accept managed UACP artifact/state roots that can legitimately host transition artifacts, or explicitly document a narrower policy.
+- **Transition-path whitelist:** `uacp_heartgate_check` should accept managed UACP artifact/state roots that can legitimately host transition artifacts.
 - **Validator strictness:** manual artifact validators should check `heartgate_coherence.artifact_path` containment and existence, not only field shape.
 - **Config drift:** if `guardian-policy.yaml` duplicates transition lists from `phase-transitions.yaml`, add a consistency check or sync the duplicate before claiming coherence.
 - **Residual risk honesty:** verification artifacts must name known fail-open/bypass gaps rather than implying total runtime closure.
 - **End-to-end proof:** ensure at least one real transition artifact exercises the new `heartgate_coherence` field; unit-like probes alone are not sufficient.
 - **Generated cache hygiene:** add/keep `.gitignore` for `__pycache__/` and `*.pyc`; clean generated cache before commit.
 
-## Writer safety pitfall
+## Writer Safety Pitfall
 
 `uacp_doc_write` overwrites the whole target document. Before using it on large canonical docs, build content from the current full file (or `git show HEAD:<path>` plus a targeted insertion), then verify size/expected anchors after the write. Do not paste a shortened reconstruction as the full document.

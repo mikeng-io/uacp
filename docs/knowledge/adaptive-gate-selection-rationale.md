@@ -1,6 +1,6 @@
-# Adaptive Gate Selection for UACP
+# Adaptive Gate Selection Rationale
 
-Session-derived design correction: UACP cannot inherit Trustless ACP's fixed software-engineering gate checklist. Trustless ACP worked in a constrained domain, so predefined gates were reasonable. UACP is universal and must adapt across software, infra, research, marketing, productivity, lifestyle, creative, operations, and mixed-domain work.
+UACP cannot inherit Trustless ACP's fixed software-engineering gate checklist. Trustless ACP worked in a constrained domain, so predefined gates were reasonable. UACP is universal and must adapt across software, infra, research, marketing, productivity, lifestyle, creative, operations, and mixed-domain work.
 
 ## Core Rule
 
@@ -21,7 +21,7 @@ The lifecycle phases stay stable:
 TRIAGE -> PROPOSE -> PLAN -> EXECUTE -> VERIFY -> RESOLVE
 ```
 
-But gates/clusters inside a phase are adaptive.
+Gates and clusters inside a phase are adaptive; the phases themselves are not.
 
 ## What the Meta-Gate Decides
 
@@ -56,42 +56,16 @@ The meta-gate may adapt evidence requirements, but it cannot waive constitutiona
 - privacy/safety constraints
 - conservative failure on missing required config/evidence
 
-## VERIFY Examples
+## VERIFY Examples by Domain
 
-Software/code VERIFY may select:
+**Software/code VERIFY** may select: tests, diff review, security review, runtime validation, rollback validation.
 
-- tests
-- diff review
-- security review
-- runtime validation
-- rollback validation
+**Marketing/content VERIFY** may select: audience fit, brand consistency, claims grounding, legal/compliance risk, channel formatting.
 
-Marketing/content VERIFY may select:
+**Research VERIFY** may select: source quality, claim-to-source mapping, recency/currency, contradiction scan, confidence rating.
 
-- audience fit
-- brand consistency
-- claims grounding
-- legal/compliance risk
-- channel formatting
+**Productivity/lifestyle VERIFY** may select: constraints and preferences, availability, safety, cost, reversibility.
 
-Research VERIFY may select:
+## Implementation Note
 
-- source quality
-- claim-to-source mapping
-- recency/currency
-- contradiction scan
-- confidence rating
-
-Productivity/lifestyle VERIFY may select:
-
-- constraints and preferences
-- availability
-- safety
-- cost
-- reversibility
-
-## Implementation Notes
-
-Add `config/gate-selection.yaml` alongside `config/evidence-clusters.yaml` and `config/phase-transitions.yaml`.
-
-Each phase skill (`uacp-propose`, `uacp-plan`, `uacp-verify`) should run gate-selection before fan-out. PLAN should rerun selection because new risk/domain facts often appear during planning. VERIFY should run against actual completed artifacts, not the initial proposal only.
+The live implementation lives in `config/gate-selection.yaml` alongside `config/evidence-clusters.yaml` and `config/phase-transitions.yaml`. Each phase skill (`uacp-propose`, `uacp-plan`, `uacp-verify`) should run gate-selection before fan-out. PLAN should rerun selection because new risk/domain facts often appear during planning. VERIFY should run against actual completed artifacts, not the initial proposal only.
