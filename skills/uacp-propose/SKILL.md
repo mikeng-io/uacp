@@ -162,7 +162,7 @@ If council is used, record a council synthesis artifact matching
 gate: remediated/expanded/justified material findings require handling evidence
 and follow-up Agent Council where selected; deferred/accepted_warning/rejected_with_reason
 findings require Heartgate-visible owner, residual risk, and next-phase obligation.
-See `../references/proposal-council-concerns-pattern-20260515.md` for the full pattern.
+See `references/proposal-council-concerns-pattern.md` for the full pattern.
 
 For medium/high-consequence runs, proposal council must review the adaptive proposal package, not only YAML metadata. If universal core concerns or gate-selected domain modules are missing without explicit not-applicable rationale, treat that as a material proposal-quality concern before PROPOSE→PLAN. Do not require fixed OpenSpec-style filenames when the concerns are covered by context-appropriate documents.
 
@@ -214,13 +214,13 @@ See `../uacp-plan/references/operator-summary-and-package-sufficiency-20260519.m
   uacp_heartgate_check; avoid: implementation tools except artifact drafting,
   direct production/runtime mutation.
 
-This phase-specific contract complements `../references/agent-council-followthrough.md`;
+This phase-specific contract complements `../uacp-core/references/agent-council-followthrough.md`;
 the shared reference supplies the common follow-through gate, while this section
 defines this phase's own job, intent, constraints, decisions, and tool boundary.
 
 ## Agent Council follow-through wiring
 When this phase invokes or consumes Agent Council output, execute
-`../references/agent-council-followthrough.md` rather than treating council review
+`../uacp-core/references/agent-council-followthrough.md` rather than treating council review
 as prose advice. PROPOSE council reviews proposal authority, scope, and artifact
 viability. PLAN/VERIFY councils review implementation and evidence.
 

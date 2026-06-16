@@ -114,7 +114,7 @@ For EXECUTE phases that reference `kind: uacp.phase_intent_verification_contract
 When acting as a verification reviewer before PLAN (e.g. the operator asks "what tests/dry-run fixtures and acceptance evidence are required before implementing or enabling live changes?"), use `references/codebase-verification-review-pattern.md`. This pattern inspects the existing codebase, maps test coverage, identifies gaps between design intent and implementation, defines required tests/fixtures, compiles blockers/concerns/suggestions, and produces a structured review artifact that gates PROPOSE → PLAN.
 
 ## Adversarial runtime review
-Before claiming Guardian/Heartgate is production-complete, or after any host-runtime change that affects tool dispatch, run an adversarial review of the actual runtime source to find bypasses, hook gaps, and fail-open paths. See `../references/adversarial-runtime-review.md` for the methodology, known bypass classes, and the mandatory questions that must be answered before enforcement can be claimed complete.
+Before claiming Guardian/Heartgate is production-complete, or after any host-runtime change that affects tool dispatch, run an adversarial review of the actual runtime source to find bypasses, hook gaps, and fail-open paths. See `references/adversarial-runtime-review.md` for the methodology, known bypass classes, and the mandatory questions that must be answered before enforcement can be claimed complete.
 
 
 
@@ -127,11 +127,11 @@ Before claiming Guardian/Heartgate is production-complete, or after any host-run
 - **Reason / rational intent / decisions:** intent is evidence closure: decisions are pass/warn/block, residual risk, deferred obligations, and whether RESOLVE may proceed.
 - **Tools to use / not use:** use: validators, terminal tests, read/diff inspection, delegate_task council, uacp_heartgate_check; avoid: new feature implementation except minimal verification fixes routed back through EXECUTE/patch checkpoint.
 
-This phase-specific contract complements `../references/agent-council-followthrough.md`; the shared reference supplies the common follow-through gate, while this section defines this phase's own job, intent, constraints, decisions, and tool boundary.
+This phase-specific contract complements `../uacp-core/references/agent-council-followthrough.md`; the shared reference supplies the common follow-through gate, while this section defines this phase's own job, intent, constraints, decisions, and tool boundary.
 
 ## Agent Council follow-through wiring
 
-When this phase invokes or consumes Agent Council output, execute `../references/agent-council-followthrough.md` rather than treating council review as prose advice. In brief:
+When this phase invokes or consumes Agent Council output, execute `../uacp-core/references/agent-council-followthrough.md` rather than treating council review as prose advice. In brief:
 
 1. Select mode/tier/dispatch surface from UACP routing config and phase-local risk.
 2. Dispatch retrieval-led roles when governance, runtime, artifact schema, Guardian/Heartgate, lifecycle, protected state, or skill behavior is involved.
@@ -157,7 +157,7 @@ When this skill invokes or consumes Agent Council during skill-library repair, g
 3. Run a full-perspective Agent Council and, when runtime/model diversity is requested or materially useful, an independent Kimi Code / Kimi K2.6 audit.
 4. Classify every blocker, concern, invariant failure, negative finding, and material warning into the handled-findings matrix.
 5. Remediate concrete findings with the smallest sufficient patch, then rerun focused verification until the result is `PASS` / no material concerns or a refusal condition is reached.
-6. Preserve the recursion cap from `../references/agent-council-followthrough.md`: at most one focused follow-up council for the same finding chain unless the operator explicitly authorizes deeper recursion; unresolved material findings after the cap block closure or require recorded accepted risk/deferment with owner and condition.
+6. Preserve the recursion cap from `../uacp-core/references/agent-council-followthrough.md`: at most one focused follow-up council for the same finding chain unless the operator explicitly authorizes deeper recursion; unresolved material findings after the cap block closure or require recorded accepted risk/deferment with owner and condition.
 7. Record `handled_findings_chain`, `source_negative_findings_present`, `followup_depth`, inspected paths, commands, and residual risks in the relevant checkpoint or transition artifact.
 
 During this skill-library refactor specifically, do **not** use UACP protected writers, Heartgate, MEMEX/BES, or `uacp-verify` as self-approval authority. Use normal file/git workflow, deterministic audits, Agent Council, and Kimi verification. A skill is considered repaired only after its implementation audit and end-of-implementation council/audit return `PASS` with no material concerns.
@@ -205,7 +205,7 @@ Do not treat test success, raw diffs, or worker self-report as sufficient when t
 
 ## Adaptive VERIFY evidence package
 
-Reference: `../references/lifecycle-semantic-gates-20260519.md` summarizes the lifecycle semantic-gate pattern and the user correction that VERIFY is not optional follow-through: it is the truth boundary before RESOLVE.
+Reference: `../uacp-core/references/lifecycle-semantic-gates.md` summarizes the lifecycle semantic-gate pattern and the user correction that VERIFY is not optional follow-through: it is the truth boundary before RESOLVE.
 
 For governed/non-trivial VERIFY work, VERIFY must produce validator-backed truth evidence rather than only a loose verification summary.
 

@@ -97,8 +97,8 @@ Session-specific notes and example wording live in `references/manual-drill-stat
 
 Reuse `references/heartgate-transition-schema-template.md` when a phase-transition artifact fails Heartgate for missing fields or schema drift.
 
-### state-mutation-protocol.md may be missing
-The skill references `references/state-mutation-protocol.md` but it may not exist in all installations. If the file is missing, use the rules in this SKILL.md as the authoritative protocol.
+### state-mutation-protocol.md
+The skill references `references/state-mutation-protocol.md` for the full mutation protocol, inputs, modes, owned fields, boundary rules, and verification steps.
 
 ## Updated doctrine alignment
 
@@ -125,11 +125,11 @@ Known Guardian bypass gaps must be recorded as HIGH accepted risk or blocker in 
 - **Reason / rational intent / decisions:** intent is truthful lifecycle bookkeeping; decisions are whether state mutation is authorized, whether transition evidence is sufficient, and whether current pointers may move.
 - **Tools to use / not use:** use `uacp_state_write`, `uacp_heartgate_check`, read/validator tools; avoid generic file mutation for protected state, docs/config writers, production tools, and external messaging.
 
-This state-specific contract complements `../references/agent-council-followthrough.md` when state movement consumes council or Heartgate findings.
+This state-specific contract complements `../uacp-core/references/agent-council-followthrough.md` when state movement consumes council or Heartgate findings.
 
 ## Agent Council follow-through wiring
 
-When this phase invokes or consumes Agent Council output, execute `../references/agent-council-followthrough.md` rather than treating council review as prose advice. In brief:
+When this phase invokes or consumes Agent Council output, execute `../uacp-core/references/agent-council-followthrough.md` rather than treating council review as prose advice. In brief:
 
 1. Select mode/tier/dispatch surface from UACP routing config and phase-local risk.
 2. Dispatch retrieval-led roles when governance, runtime, artifact schema, Guardian/Heartgate, lifecycle, protected state, or skill behavior is involved.
@@ -151,7 +151,7 @@ When this skill invokes or consumes Agent Council during skill-library repair, g
 3. Run a full-perspective Agent Council and, when runtime/model diversity is requested or materially useful, an independent Kimi Code / Kimi K2.6 audit.
 4. Classify every blocker, concern, invariant failure, negative finding, and material warning into the handled-findings matrix.
 5. Remediate concrete findings with the smallest sufficient patch, then rerun focused verification until the result is `PASS` / no material concerns or a refusal condition is reached.
-6. Preserve the recursion cap from `../references/agent-council-followthrough.md`: at most one focused follow-up council for the same finding chain unless the operator explicitly authorizes deeper recursion; unresolved material findings after the cap block closure or require recorded accepted risk/deferment with owner and condition.
+6. Preserve the recursion cap from `../uacp-core/references/agent-council-followthrough.md`: at most one focused follow-up council for the same finding chain unless the operator explicitly authorizes deeper recursion; unresolved material findings after the cap block closure or require recorded accepted risk/deferment with owner and condition.
 7. Record `handled_findings_chain`, `source_negative_findings_present`, `followup_depth`, inspected paths, commands, and residual risks in the relevant checkpoint or transition artifact.
 
 During this skill-library refactor specifically, do **not** use UACP protected writers, Heartgate, MEMEX/BES, or `uacp-verify` as self-approval authority. Use normal file/git workflow, deterministic audits, Agent Council, and Kimi verification. A skill is considered repaired only after its implementation audit and end-of-implementation council/audit return `PASS` with no material concerns.

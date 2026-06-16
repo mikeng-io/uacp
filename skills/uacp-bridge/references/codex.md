@@ -422,6 +422,9 @@ Output ID prefix: `X` (e.g., `X001`, `X002`).
 - **X-high reasoning requires explicit user confirmation** before proceeding — never activate silently; silently activating xhigh is an explicit anti-pattern
 - **Tier is never hardcoded** — model selections come from `config/uacp.toml`; update the TOML when OpenAI releases new models
 - **+50% base timeout when multi_agent_enabled** — agent spawn overhead; apply before the 1.2× bridge multiplier
+- **Handoff scope must be staged** — when handing off UACP implementation to Codex, restrict scope to explicit stages (e.g., Stage 1: create artifact directories and initial config/docs files; Stage 2: define schemas). Do not implement the full Knowledge Bank service in an initial handoff; do not include `/private` writes; do not hardcode model names.
+- **Verification handoff requirement** — every staged Codex task must end with a verification step (e.g., list created files and confirm YAML parses). A task without a verification command is incomplete.
+- **Vague-handoff pitfall** — do not compress a Codex handoff into a vague instruction like "continue UACP." Codex needs an explicit read-first file list, boundaries, staged scope, non-goals, and verification commands. A vague handoff produces broad or destructive implementation.
 
 ---
 

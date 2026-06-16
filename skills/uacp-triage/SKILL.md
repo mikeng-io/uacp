@@ -140,7 +140,7 @@ next_step: "..."
 ```
 
 ## Shared follow-through
-When TRIAGE invokes or consumes Agent Council output, use `../references/agent-council-followthrough.md`.
+When TRIAGE invokes or consumes Agent Council output, use `../uacp-core/references/agent-council-followthrough.md`.
 
 This file exists in the current skill library and is intentionally not modified in this phase.
 

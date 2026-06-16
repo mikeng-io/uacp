@@ -115,11 +115,11 @@ Do not store high-volume gate outcomes in personal memory. Use durable UACP arti
 - **Reason / rational intent / decisions:** intent is durable closure: decisions are resolved scope, residual risks, future work, skill/memory updates, and non-actions.
 - **Tools to use / not use:** use: read/validator/session artifacts, skill_manage for durable skill fixes, memory only for stable facts, uacp_heartgate_check when boundary state is touched; avoid: implementation changes, broad memory dumps, public/external actions.
 
-This phase-specific contract complements `../references/agent-council-followthrough.md`; the shared reference supplies the common follow-through gate, while this section defines this phase's own job, intent, constraints, decisions, and tool boundary.
+This phase-specific contract complements `../uacp-core/references/agent-council-followthrough.md`; the shared reference supplies the common follow-through gate, while this section defines this phase's own job, intent, constraints, decisions, and tool boundary.
 
 ## Agent Council follow-through wiring
 
-When this phase invokes or consumes Agent Council output, execute `../references/agent-council-followthrough.md` rather than treating council review as prose advice. In brief:
+When this phase invokes or consumes Agent Council output, execute `../uacp-core/references/agent-council-followthrough.md` rather than treating council review as prose advice. In brief:
 
 1. Select mode/tier/dispatch surface from UACP routing config and phase-local risk.
 2. Dispatch retrieval-led roles when governance, runtime, artifact schema, Guardian/Heartgate, lifecycle, protected state, or skill behavior is involved.
@@ -141,7 +141,7 @@ When this skill invokes or consumes Agent Council during skill-library repair, g
 3. Run a full-perspective Agent Council and, when runtime/model diversity is requested or materially useful, an independent Kimi Code / Kimi K2.6 audit.
 4. Classify every blocker, concern, invariant failure, negative finding, and material warning into the handled-findings matrix.
 5. Remediate concrete findings with the smallest sufficient patch, then rerun focused verification until the result is `PASS` / no material concerns or a refusal condition is reached.
-6. Preserve the recursion cap from `../references/agent-council-followthrough.md`: at most one focused follow-up council for the same finding chain unless the operator explicitly authorizes deeper recursion; unresolved material findings after the cap block closure or require recorded accepted risk/deferment with owner and condition.
+6. Preserve the recursion cap from `../uacp-core/references/agent-council-followthrough.md`: at most one focused follow-up council for the same finding chain unless the operator explicitly authorizes deeper recursion; unresolved material findings after the cap block closure or require recorded accepted risk/deferment with owner and condition.
 7. Record `handled_findings_chain`, `source_negative_findings_present`, `followup_depth`, inspected paths, commands, and residual risks in the relevant checkpoint or transition artifact.
 
 During this skill-library refactor specifically, do **not** use UACP protected writers, Heartgate, MEMEX/BES, or `uacp-verify` as self-approval authority. Use normal file/git workflow, deterministic audits, Agent Council, and Kimi verification. A skill is considered repaired only after its implementation audit and end-of-implementation council/audit return `PASS` with no material concerns.
@@ -170,7 +170,7 @@ the registered triggers.
 
 ## Adaptive RESOLVE closure package
 
-Reference: `../references/lifecycle-semantic-gates-20260519.md` summarizes the lifecycle semantic-gate pattern and the user correction that RESOLVE must be hardened before claiming lifecycle completion.
+Reference: `../uacp-core/references/lifecycle-semantic-gates.md` summarizes the lifecycle semantic-gate pattern and the user correction that RESOLVE must be hardened before claiming lifecycle completion.
 
 For governed/non-trivial RESOLVE work, RESOLVE must produce validator-backed closure evidence instead of only a terminal summary or loose output file.
 
