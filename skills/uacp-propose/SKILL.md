@@ -120,6 +120,24 @@ For selected medium/high consequence work, missing selected concerns without exp
 
 When the package itself is repairing UACP PROPOSE or lifecycle semantics, drive the sequence in the main orchestrator, use Agent Council/delegate_task for bounded critique, and use Kanban only if EXECUTE becomes multi-lane or durable async work. Keep downstream proving cases paused until VERIFY/RESOLVE. For self-repair, do not stop at skill/config prose: wire the rule into validator fixtures and, where transition behavior is claimed, Heartgate/kernel-level enforcement or an explicit accepted residual risk.
 
+## Goal-driven track
+
+When TRIAGE selected `track: goal-driven` (the goal-driven track — see `uacp-core/references/goal-driven-track.md`), PROPOSE has two track-specific obligations on top of the normal proposal artifact. Both are load-bearing — Heartgate enforces them at PROPOSE→PLAN.
+
+1. **Establish the persistent goal.** The proposal anchors to a **goal** (the invariant that does not move), not to a pre-specified deliverable. Record it as the run manifest's `goal_id` (set at `uacp_state_write` init). State the goal as a verifiable success condition even though the artifact that satisfies it is *discovered* in EXECUTE, not specified now.
+2. **Author the convergence budget — REQUIRED.** Write `proposals/{run_id}-convergence-budget.yaml` containing:
+   ```yaml
+   convergence_budget:
+     max_checkpoints: 8      # REQUIRED, integer > 0 — the enforced cap
+     max_spend: null         # optional, declare-only (not yet enforced)
+     max_wall_clock: null    # optional, declare-only (not yet enforced)
+   ```
+   Without this artifact (or with a non-positive `max_checkpoints`), Heartgate **BLOCKS** PROPOSE→PLAN. The cap exists because an autonomous goal-driven run (`claude -p`, cron) has no operator sign-off — without an enforced bound it loops forever. Size `max_checkpoints` to the goal's expected probe count plus headroom; the run must converge or escalate before it is exhausted.
+
+**Track binding (council M-2).** The manifest `track` must equal the TRIAGE artifact's `track`. A manifest that declares `goal-driven` over a TRIAGE artifact that did not decide `goal-driven` fails closed — do not self-relax the track to dodge the deterministic PIV-artifact gate.
+
+For the standard track, none of the above applies; the normal proposal flow is unchanged.
+
 ## Updated doctrine alignment
 Read additionally:
 `UACP_ROOT/docs/lifecycle/orchestration-model.md`,

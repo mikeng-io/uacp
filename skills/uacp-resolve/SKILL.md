@@ -65,6 +65,18 @@ Resolution should record:
 - whether downstream agent-skills extraction should happen now or remain deferred.
 - whether any operationally relevant skill changes live outside the UACP repo commit boundary. If skill alignment was inspected via `skill_view`, state that clearly as an external skill-store dependency rather than implying the change is backed by the UACP git commit.
 
+## Goal-driven track
+
+When the run is `track: goal-driven` (the goal-driven track — see `uacp-core/references/goal-driven-track.md`), RESOLVE closes the **goal**, not just the run. A goal-driven run is realized as a *chain of forward runs* held together by a shared `goal_id` (each rollback/restart was a new run with `inherits_from` the prior); closure happens once a checkpoint is **promoted to result** by satisfying the goal.
+
+RESOLVE must:
+
+- record the **converged checkpoint** (the final `keep`, goal-bound) as the result, and the **run-chain** that reached it (the `inherits_from` links and the `goal_id`), so a future agent can reconstruct how the goal was satisfied across restarts;
+- **release the goal anchor** — deregister the goal's runs from the run registry (`uacp_run_registry_update`) so the held `goal_id` no longer pins live runs;
+- carry the disposable-probe history honestly: the discarded `roll_back`/`restart` checkpoints are part of the record, not failures to hide.
+
+The VERIFY→RESOLVE closure gate already enforced manifest coherence + goal-binding of the promoted checkpoint; RESOLVE consumes that judgment and does not re-open it. The standard closure invariants (computed engines, Heartgate coherence, no-fabrication) fire unchanged. Standard-track RESOLVE is unchanged.
+
 ## Closure sequence checklist
 
 When a run is still in EXECUTE but implementation and council review are complete, do not jump straight to a terminal summary. Close the lifecycle explicitly:

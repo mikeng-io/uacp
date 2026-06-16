@@ -70,6 +70,18 @@ Use Agent Council in verify/audit/review mode when phase-local risk, findings, o
 
 If the council returns blockers, concerns, invariant failures, negative findings, or material warnings, VERIFY must not normalize them into pass after explanation. Require a handled-findings chain: handling artifact, follow-up council when `remediated`/`expanded`/`justified` affects a boundary, or owner/residual risk/next-phase obligation when deferred/accepted/rejected. Cap follow-up council at one rerun and then block or escalate through Heartgate. docs/config/scripts/state artifacts, then dispatch role-diverse council reviewers, then synthesize blockers/concerns with file/path evidence. The council synthesis artifact should use `kind: uacp.council_synthesis` and record `inspected_paths` for ground-truth files, directories, commands, or evidence artifacts. Do not claim coherence from the main session's inferred understanding alone. Do not let a deterministic VERIFY evidence package substitute for council synthesis when the plan or operator requires a VERIFY council; create both artifacts and link the council synthesis from the transition.
 
+## Goal-driven track
+
+When the run is `track: goal-driven` (the goal-driven track — see `uacp-core/references/goal-driven-track.md`), VERIFY does not consume a fixed `executions/{run_id}` package — it judges the **checkpoint manifest** and the probe that converged. The manifest (`gate: CHECKPOINT` ledger entries) substitutes for the verify-selection / resolve-readiness artifacts at the VERIFY→RESOLVE closure boundary, but the standard closure invariants (computed engines, no-fabrication, containment, invariant/cluster/warning checks) all still fire unchanged.
+
+VERIFY must confirm, before requesting VERIFY→RESOLVE:
+
+- the manifest is **coherent**: every `CHECKPOINT` entry parses (`CheckpointEntry`), each entry's `evidence` references a real governed-root-contained artifact, the checkpoint count does not exceed `max_checkpoints`, and the **final entry's verdict is `keep`** (no dangling `roll_back`/`restart`);
+- the promoted result — the final `keep` checkpoint — is **bound to the goal**: its `goal_id` equals the run manifest's `goal_id`. A final keep recorded under a different goal is not a result for this run's goal and Heartgate blocks closure;
+- the kept checkpoint's evidence actually **satisfies the goal** (the semantic judgment the deterministic gate cannot make): inspect the promoted artifact against the goal invariant, not just the manifest shape.
+
+If the goal is not yet satisfied, the run has not converged — return to EXECUTE for another probe (within budget) rather than passing a non-converged manifest. Standard-track VERIFY is unchanged.
+
 ## Phase-end council default
 
 For UACP work, treat phase-end Agent Council as the default before formal RESOLVE, especially after phases that change governance, runtime bindings, Guardian/Heartgate behavior, lifecycle state, protected write paths, or execution policy. Run deterministic verification first, then a role-diverse Agent Council (Primary Reviewer, Devil's Advocate, Integration Checker, Synthesis Lead) to catch assumptions, boundary leaks, integration gaps, and governance drift.
