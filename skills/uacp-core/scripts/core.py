@@ -820,6 +820,7 @@ class Heartgate:
         self._validate_heartgate_coherence_requirement(artifact, blockers)
         self._validate_phase_exit_invariants(artifact, blockers)
         self._validate_adaptive_proposal_package_gate(artifact, blockers)
+        self._validate_convergence_budget_gate(artifact, blockers)
         self._validate_adaptive_plan_package_gate(artifact, blockers)
         self._validate_adaptive_execute_evidence_gate(artifact, blockers)
         self._validate_adaptive_verify_evidence_gate(artifact, blockers)
@@ -1207,6 +1208,185 @@ class Heartgate:
         na = selection.get("not_applicable") if isinstance(selection.get("not_applicable"), Mapping) else {}
         for name, item in na.items() if isinstance(na, Mapping) else []:
             self._validate_package_na(selection_rel, f"not_applicable.{name}", item, blockers)
+
+    def _run_track(self, run_id: str) -> str:
+        """Read a run's track from its manifest (state/runs/{run_id}.yaml).
+
+        This is the ONLY seam by which Heartgate learns whether a run is on the
+        goal-driven track. It is called EXCLUSIVELY from the goal-driven budget
+        gates below — standard-track transitions never reach this read, so the
+        standard PROPOSE->PLAN path is byte-identical to before (the new manifest
+        read is strictly behind the goal-driven branch).
+
+        Fail-safe: a missing/garbled manifest, or one that does not validate,
+        resolves to ``"standard"`` (the default) — an autonomous-safety gate must
+        not *itself* hard-fail a transition because the manifest could not be
+        read; absent positive evidence of the goal-driven track, no new behavior
+        fires. (The manifest's own existence/validity is enforced elsewhere.)
+        """
+        if not _is_safe_run_id(run_id):
+            return "standard"
+        try:
+            from engines.io.loaders import load_manifest
+
+            loaded = load_manifest(self.uacp_root, run_id)
+            if loaded.error is not None or loaded.value is None:
+                return "standard"
+            model = loaded.value.model
+            if model is not None:
+                return str(getattr(model, "track", "standard") or "standard")
+            # Tolerate a manifest the strict schema rejected: read the raw track.
+            raw = loaded.value.raw
+            return str(raw.get("track") or "standard") if isinstance(raw, Mapping) else "standard"
+        except Exception:
+            return "standard"
+
+    def _goal_checkpoint_count(self, goal_id: str) -> int:
+        """Count gate: CHECKPOINT ledger entries across the goal's whole run-chain.
+
+        A goal can span a CHAIN of runs (Task 3): "roll back to a checkpoint" is
+        realized as launching a new forward run under the same persistent goal.
+        So the convergence cap counts CHECKPOINT entries across ALL runs sharing
+        the ``goal_id`` — enumerated via ``list_runs_for_goal`` (the run-registry
+        scan, the authoritative live-run list), then summed across each run's
+        per-run gate ledger. Never raises: an unreadable registry/ledger
+        contributes zero rather than crashing the gate.
+        """
+        if not goal_id:
+            return 0
+        try:
+            from state_machine import list_runs_for_goal
+
+            run_ids = list_runs_for_goal(self.uacp_root, goal_id)
+        except Exception:
+            return 0
+        total = 0
+        for rid in run_ids:
+            if not _is_safe_run_id(rid):
+                continue
+            ledger_path = self.governed_root / "state" / "gate-ledger" / f"{rid}.jsonl"
+            if not ledger_path.exists():
+                continue
+            try:
+                for line in ledger_path.read_text(encoding="utf-8").splitlines():
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        rec = json.loads(line)
+                    except Exception:
+                        continue
+                    if str(rec.get("gate") or "") == "CHECKPOINT":
+                        total += 1
+            except Exception:
+                continue
+        return total
+
+    def _load_convergence_budget(self, run_id: str):
+        """Load + validate the PROPOSE convergence-budget artifact for a run.
+
+        Returns ``(budget, error)``: ``budget`` is a validated
+        :class:`ConvergenceBudget` (or None) and ``error`` is a human blocker
+        string (or None). The artifact lives at
+        ``proposals/{run_id}-convergence-budget.yaml`` — a sibling PROPOSE
+        artifact mirroring the ``-package-selection.yaml`` / ``-scope.yaml``
+        conventions. A missing artifact, a missing/non-positive
+        ``max_checkpoints``, or a malformed budget yields an error.
+        """
+        rel = f"proposals/{run_id}-convergence-budget.yaml"
+        path = self.governed_root / rel
+        if yaml is None:
+            return None, "convergence_budget gate requires PyYAML"
+        if not path.exists():
+            return None, (
+                f"goal-driven run requires a convergence_budget: missing {rel} "
+                "(an autonomous run with no checkpoint cap would loop forever)"
+            )
+        try:
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception as exc:
+            return None, f"convergence_budget: failed to parse {rel}: {exc}"
+        if not isinstance(raw, Mapping):
+            return None, f"convergence_budget: {rel} must be a mapping"
+        budget_raw = raw.get("convergence_budget")
+        if not isinstance(budget_raw, Mapping):
+            return None, (
+                f"convergence_budget: {rel} must declare a convergence_budget block "
+                "with a positive max_checkpoints"
+            )
+        from engines.domain import ConvergenceBudget
+        from pydantic import ValidationError
+
+        try:
+            return ConvergenceBudget.model_validate(dict(budget_raw)), None
+        except ValidationError as exc:
+            return None, (
+                "convergence_budget invalid (max_checkpoints must be an integer > 0): "
+                f"{exc.errors()[0].get('msg') if exc.errors() else exc}"
+            )
+
+    def _validate_convergence_budget_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """PROPOSE->PLAN: a goal-driven run MUST declare a convergence budget.
+
+        ADR-0016 R2: an autonomous goal-driven run (``claude -p``, cron) has no
+        operator to sign off, so without a declared+enforced bound it loops
+        forever. At PROPOSE->PLAN, when (and ONLY when) the run's track is
+        ``goal-driven``, the PROPOSE convergence-budget artifact must exist and
+        carry a positive ``max_checkpoints``. Standard runs skip this entirely —
+        the track is read from the manifest behind the goal-driven branch, so
+        the standard PROPOSE->PLAN path is unchanged.
+        """
+        if str(artifact.get("from_phase") or "") != "propose" or str(artifact.get("to_phase") or "") != "plan":
+            return
+        run_id = str(artifact.get("run_id") or "")
+        # TRACK GATE: read the manifest only after the phase guard, and only act
+        # on goal-driven. A standard run returns here before any budget logic.
+        if self._run_track(run_id) != "goal-driven":
+            return
+        if not _is_safe_run_id(run_id):
+            blockers.append("convergence_budget gate requires a valid run_id")
+            return
+        _budget, error = self._load_convergence_budget(run_id)
+        if error is not None:
+            blockers.append(error)
+
+    def _validate_convergence_cap(self, checkpoint: Mapping[str, Any], blockers: list[str]) -> None:
+        """Enforce the convergence cap on a proposed continue (``keep``) checkpoint.
+
+        ADR-0016 R2 (ii): once the goal's CHECKPOINT count (across its whole
+        run-chain) has reached ``max_checkpoints``, a further continue checkpoint
+        is BLOCKED — the run must converge or escalate. A non-continue verdict
+        (``roll_back`` / ``restart``) is the very escape the cap forces, so it is
+        never itself capped.
+
+        Track-gated: the proposed checkpoint's run must be on the goal-driven
+        track (checkpoints only exist there); a standard run returns immediately.
+        The budget is resolved from the run that authored the checkpoint.
+        """
+        run_id = str(checkpoint.get("run_id") or "")
+        if self._run_track(run_id) != "goal-driven":
+            return
+        verdict = str(checkpoint.get("verdict") or "")
+        if verdict != "keep":
+            # roll_back / restart are the convergence escapes the cap forces.
+            return
+        goal_id = str(checkpoint.get("goal_id") or "")
+        if not goal_id:
+            blockers.append("convergence cap: goal-driven checkpoint requires a goal_id")
+            return
+        budget, error = self._load_convergence_budget(run_id)
+        if error is not None or budget is None:
+            blockers.append(
+                error or "convergence cap: goal-driven run requires a convergence_budget"
+            )
+            return
+        count = self._goal_checkpoint_count(goal_id)
+        if count >= budget.max_checkpoints:
+            blockers.append(
+                f"convergence_budget exhausted: goal '{goal_id}' has {count} checkpoint(s), "
+                f"cap is max_checkpoints={budget.max_checkpoints}; a further 'keep' checkpoint "
+                "is blocked (the run must converge or escalate, not loop)"
+            )
 
     def _validate_adaptive_plan_package_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Enforce adaptive PLAN package selection for PLAN->EXECUTE."""
