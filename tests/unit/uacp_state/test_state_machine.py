@@ -405,7 +405,18 @@ class TestHandleInitTrackFields:
     """Tests that handle_init threads track/goal_id/inherits_from into the manifest."""
 
     def test_goal_driven_fields_persisted(self, temp_uacp_root: Path):
-        """handle_init with goal-driven args writes them into the manifest YAML."""
+        """handle_init with goal-driven args writes them into the manifest YAML.
+
+        Task 3 makes ``inherits_from`` a resolved link (fail-closed if the
+        parent manifest is absent), so a real parent run-A must exist.
+        """
+        json.loads(handle_init({
+            "workspace": str(temp_uacp_root),
+            "run_id": "run-A",
+            "source": "operator-request",
+            "track": "goal-driven",
+            "goal_id": "g1",
+        }))
         result = json.loads(handle_init({
             "workspace": str(temp_uacp_root),
             "run_id": "uacp-gd-001",

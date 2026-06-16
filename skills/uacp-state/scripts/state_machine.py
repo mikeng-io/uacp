@@ -102,6 +102,11 @@ class RunManifest(BaseModel):
     track: str = "standard"
     goal_id: str | None = None
     inherits_from: str | None = None
+    # Goal-chaining: phase-output references reused from the run named by
+    # `inherits_from`. Kept SEPARATE from `artifacts` (which holds THIS run's
+    # own freshly-registered outputs) so provenance is unambiguous — an entry
+    # here means "reused from the parent run", not "produced by this run".
+    inherited_artifacts: dict[str, str] = Field(default_factory=dict)
 
     @field_validator("run_id")
     @classmethod
@@ -175,6 +180,28 @@ def handle_init(args: dict[str, Any]) -> str:
         if manifest_path.exists():
             return json.dumps({"error": f"run manifest already exists: {run_id}"})
 
+        # Goal-chaining (Task 3): when launching a forward run under a held goal
+        # that inherits a prior run, copy the parent's reusable prior-phase
+        # output references into inherited_artifacts. The reused set is the
+        # parent's `artifacts` entries for the completed upstream phases
+        # (triage/proposal/plan) — the parent's MUTABLE state (state_history,
+        # its own in-flight artifacts beyond those phases, status) is NOT
+        # carried over, matching design 0016 P2=option-b (a checkpoint is a
+        # reusable prior-phase output reference, not an in-run state snapshot).
+        # Fail closed if the named parent manifest is absent.
+        inherited_artifacts: dict[str, str] = {}
+        if inherits_from is not None:
+            try:
+                parent = _load_manifest(workspace, inherits_from)
+            except FileNotFoundError:
+                return json.dumps({"error": f"inherits_from parent manifest not found: {inherits_from}"})
+            _REUSABLE_PHASE_ARTIFACTS = ("triage", "proposal", "plan")
+            inherited_artifacts = {
+                k: parent.artifacts[k]
+                for k in _REUSABLE_PHASE_ARTIFACTS
+                if k in parent.artifacts
+            }
+
         authority = Authority(source=source, status="pass")
         # Attach optional metadata to authority
         for key in ("scope", "granularity", "risk", "domains"):
@@ -197,6 +224,7 @@ def handle_init(args: dict[str, Any]) -> str:
             track=track,
             goal_id=goal_id,
             inherits_from=inherits_from,
+            inherited_artifacts=inherited_artifacts,
         )
         _save_manifest(workspace, manifest)
 
@@ -217,6 +245,35 @@ def handle_init(args: dict[str, Any]) -> str:
         }, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"error": f"init failed: {type(exc).__name__}: {exc}"})
+
+
+def list_runs_for_goal(workspace: Path, goal_id: str) -> list[str]:
+    """Return the run_ids of all active registry entries carrying ``goal_id``.
+
+    Goal-chaining query (Task 3): the goal->runs chain is recorded on the run
+    registry (state/run-registry.yaml) as a ``goal_id`` field on each
+    active_runs[] entry, and queried by a simple registry scan. No separate
+    goal index is introduced — the registry is already the authoritative list
+    of live runs, so a held goal's chain is exactly its entries that share a
+    goal_id. A missing/empty registry means "no active runs" -> [].
+    """
+    base = base_dir(workspace)
+    registry_path = (base / "state" / "run-registry.yaml").resolve()
+    if not registry_path.exists():
+        return []
+    raw = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    if not isinstance(raw, dict):
+        return []
+    active = raw.get("active_runs") or []
+    if not isinstance(active, list):
+        return []
+    out: list[str] = []
+    for entry in active:
+        if isinstance(entry, dict) and entry.get("goal_id") == goal_id:
+            rid = entry.get("run_id")
+            if rid:
+                out.append(str(rid))
+    return out
 
 
 def handle_read(args: dict[str, Any]) -> str:

@@ -312,13 +312,21 @@ def _handle_uacp_run_registry_update(args: dict, **_: Any) -> str:
                 return json.dumps({"error": "uacp_run_registry_update: empty write_paths requires explicit entry.no_writes_intended=true"})
             # Replace any existing entry for this run_id.
             active = [e for e in active if isinstance(e, dict) and str(e.get("run_id") or "") != run_id]
-            active.append({
+            new_entry = {
                 "run_id": run_id,
                 "phase": str(entry.get("phase") or ""),
                 "write_paths": canon_wps,
                 "scope_artifact_path": str(entry.get("scope_artifact_path") or ""),
                 "started_at": int(entry.get("started_at") or 0),
-            })
+            }
+            # Goal-chaining (Task 3): record the persistent goal link when
+            # present so the chain is queryable by goal_id (list_runs_for_goal).
+            # Caller-binding (SKEP-R1-001) above is unchanged — goal_id does not
+            # widen who may register an entry. Standard runs omit goal_id.
+            goal_id = entry.get("goal_id")
+            if goal_id is not None:
+                new_entry["goal_id"] = str(goal_id)
+            active.append(new_entry)
         else:  # deregister
             active = [e for e in active if isinstance(e, dict) and str(e.get("run_id") or "") != run_id]
         data["active_runs"] = active
