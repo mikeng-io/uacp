@@ -8,10 +8,10 @@ Dispatch branches first on **mode**, then on **tier**.
 
 Single agent, no diversity. Use only when the scope is trivial (1 domain, no integration concerns). Allowed modes: open-ended only (not `finding-driven` — see Step 6.0).
 
-1. Spawn one Task agent with the domain expert's prompt (constructed using the Agent Prompt Template from `bridge-commons`).
+1. Spawn one Task agent with the domain expert's prompt (constructed using the Agent Prompt Template from `uacp-bridge`).
 2. Wait for completion.
 3. Skip debate (no DA, no IC).
-4. Output conforms to `bridge-commons` output schema; `debate_rounds: 0`; `diversity_sources: ["role"]`.
+4. Output conforms to `uacp-bridge` output schema; `debate_rounds: 0`; `diversity_sources: ["role"]`.
 
 ### Tier 1: Local Agent Council (in-runtime)
 
@@ -31,11 +31,11 @@ Total parallel agents = `len(domains) + 2`. If `domains > 5`, group related doma
 
 1. Construct one prompt per role using the template selected in Step 6.0. For `finding-driven` mode, use the prompt templates from the Finding-Driven Mode reference (`[skills-root]/uacp-council/references/finding-driven-mode.md` and `[skills-root]/uacp-council/experts/integration-checker.md`) instead of the generic Agent Prompt Template.
 2. Spawn all agents in parallel using the runtime's native dispatch mechanism. Detect the mechanism by tool availability — see `bridge-commons/tool-discovery.md`.
-3. After all complete, run the Post-Analysis Protocol from `bridge-commons`:
+3. After all complete, run the Post-Analysis Protocol from `uacp-bridge`:
    - `intensity: quick` → 1 consolidation pass, 0 debate rounds
    - `intensity: standard` → 1 challenge + 1 response round
    - `intensity: thorough` → up to 3 rounds until convergence
-4. The DA challenges findings, the IC surfaces cross-component gaps, domain experts respond/revise across rounds. Domain expansion via `cross_domain_signals` is handled per `bridge-commons`.
+4. The DA challenges findings, the IC surfaces cross-component gaps, domain experts respond/revise across rounds. Domain expansion via `cross_domain_signals` is handled per `uacp-bridge`.
 5. **IC-hoist (finding-driven mode, optional):** If `council_context.ic_tier > council_context.tier`, additionally dispatch a parallel IC-only fan-out at the higher tier — see Step 6.IC below.
 
 `diversity_sources` = `["role"]` (+ `"debate-layer"` if any debate round ran).
@@ -67,16 +67,16 @@ If not found, run a discovery pass and present available runtimes to the user. S
 }
 ```
 
-See `bridge-commons/SKILL.md` for the full settings schema.
+See `uacp-bridge/SKILL.md` for the full settings schema.
 
 **Step 6.2.2: Read each enabled adapter's SKILL.md.**
 
 ```
-Read: [skills-root]/bridge-claude/SKILL.md
-Read: [skills-root]/bridge-codex/SKILL.md
-Read: [skills-root]/bridge-gemini/SKILL.md
-Read: [skills-root]/bridge-opencode/SKILL.md
-Read: [skills-root]/bridge-kimi/SKILL.md
+Read: [skills-root]/uacp-bridge/references/claude.md
+Read: [skills-root]/uacp-bridge/references/codex.md
+Read: [skills-root]/uacp-bridge/references/gemini.md
+Read: [skills-root]/uacp-bridge/references/opencode.md
+Read: [skills-root]/uacp-bridge/references/kimi.md
 ```
 
 **Step 6.2.3: Dispatch one Task agent per enabled adapter in parallel.**
@@ -103,12 +103,12 @@ For each enabled adapter, spawn a Task agent (the "runtime executor") with the a
 }
 ```
 
-When `mode == "finding-driven"`, populate `findings` / `fixes_applied` / `original_proposal` / `prior_session_id` from the council's input. For open-ended modes, leave the last four empty — runtime adapters MUST honor this by skipping the finding-driven prompt section per `bridge-commons` Agent Prompt Template.
+When `mode == "finding-driven"`, populate `findings` / `fixes_applied` / `original_proposal` / `prior_session_id` from the council's input. For open-ended modes, leave the last four empty — runtime adapters MUST honor this by skipping the finding-driven prompt section per `uacp-bridge` Agent Prompt Template.
 
 Each runtime executor:
 - Performs the adapter's pre-flight (availability, auth, capability detection)
 - Runs its own internal Tier 1 council (parallel domain experts + DA + IC)
-- Returns a report conforming to the `bridge-commons` output schema
+- Returns a report conforming to the `uacp-bridge` output schema
 
 **Step 6.2.4: Collect reports.**
 

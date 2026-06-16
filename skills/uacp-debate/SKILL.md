@@ -5,7 +5,7 @@ location: managed
 dependencies:
   - uacp-council-taxonomy
   - domain-registry
-  - bridge-commons
+  - uacp-bridge
 allowed-tools:
   - Read
   - Task
@@ -87,7 +87,7 @@ Do not fabricate participant voices. Every `messages[]` entry must correspond to
 
 - Domain experts are resolved through `domain-registry` using exact match, adapted match, or session-based virtual expert selection.
 - Council taxonomy and role contracts are sourced from `uacp-council-taxonomy`.
-- Shared bridge conventions (packet schemas, envelope formats) are inherited from `bridge-commons`.
+- Shared bridge conventions (packet schemas, envelope formats) are inherited from `uacp-bridge`.
 - Do not change existing path references (`.agents/skills/state/schemas/gate_1_debate_log.schema.json`, `.uacp/debate/`, etc.).
 
 ## Verification Checklist

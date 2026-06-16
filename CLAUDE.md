@@ -20,4 +20,4 @@ Guard: always fall back to Agent Teams or Task tool if workflows are unavailable
 
 **Non-interactive (`claude -p`) mode:** Add `--dangerously-skip-permissions` for file writes — no user is present to approve tool calls.
 
-Full dispatch contract: `skills/bridge-claude/SKILL.md`
+Full dispatch contract: `skills/uacp-bridge/references/claude.md`

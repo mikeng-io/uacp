@@ -117,7 +117,7 @@ timeout <n> codex exec "<prompt>" \
   --skip-git-repo-check
 ```
 
-Full dispatch contract: `skills/bridge-codex/SKILL.md`
+Full dispatch contract: `skills/uacp-bridge/references/codex.md`
 
 ---
 
