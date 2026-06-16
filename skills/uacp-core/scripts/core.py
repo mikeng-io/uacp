@@ -995,6 +995,41 @@ class Heartgate:
         except Exception:
             return False
 
+    def _validate_checkpoint_entry(self, entry: Any, blockers: list[str]) -> None:
+        """Structural claim=>evidence check for an in-EXECUTE checkpoint (ADR-0016).
+
+        The goal-driven track records each EXECUTE iteration as a checkpoint
+        manifest entry (gate-ledger ``gate: "CHECKPOINT"``). The manifest is NOT
+        an honor system: a checkpoint's ``evidence`` must reference a real,
+        governed-root-contained artifact — not a prose sentence, not a missing
+        path, not a path that escapes the root. This is the same
+        no-self-attestation rule Heartgate applies to other gate-ledger evidence,
+        applied at the checkpoint boundary.
+
+        Reuses :meth:`_artifact_path_exists` (the existing governed-root
+        containment + existence helper) so the containment matches the rest of
+        Heartgate — no hand-rolled path logic. A missing/empty evidence ref or a
+        ref that escapes the governed root or does not resolve to a real file is
+        a BLOCKER.
+
+        Note: this validates the structural evidence coupling only. Wiring the
+        checkpoint into the transition/gate flow (so it substitutes for PIV) is
+        a later task; this method is exercised in isolation.
+        """
+        checkpoint_id = str(getattr(entry, "checkpoint_id", "") or "unknown")
+        evidence = str(getattr(entry, "evidence", "") or "")
+        if not evidence.strip():
+            blockers.append(
+                f"checkpoint {checkpoint_id}: evidence is required (no self-attestation — a checkpoint claim must reference a real artifact)"
+            )
+            return
+        # Reuse the governed-root containment + existence helper: an evidence ref
+        # that escapes the root or does not resolve to an existing file is not a
+        # real artifact and cannot back the checkpoint's claim.
+        if not self._artifact_path_exists(evidence):
+            blockers.append(
+                f"checkpoint {checkpoint_id}: evidence artifact not found or escapes governed root: {evidence}"
+            )
 
     def _heartgate_coherence_rule(self) -> Mapping[str, Any]:
         """Resolve the heartgate_coherence_required_when rule.
