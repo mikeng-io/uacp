@@ -78,6 +78,12 @@ Record the result as `track` on the triage artifact. When the key is absent it d
 
 Valid values: `standard | goal-driven`. Any other value is a Heartgate BLOCK.
 
+**The TRIAGE `track` is authoritative.** Heartgate binds the run manifest's `track` to this value at PROPOSE→PLAN (a worker may not self-select `goal-driven` to relax the PIV-artifact gate). So a mistaken TRIAGE choice propagates — apply the mechanical test honestly.
+
+**Goal-driven obligations to record forward.** When `track: goal-driven`, TRIAGE must hand two obligations to PROPOSE:
+- a **persistent goal** — the invariant the whole run-chain serves (becomes the manifest `goal_id`); name it in `next_step`/obligations even though PROPOSE establishes it formally.
+- a **convergence budget** — PROPOSE must author `proposals/{run_id}-convergence-budget.yaml` (a positive `max_checkpoints`), or Heartgate blocks PROPOSE→PLAN. Flag this as a PROPOSE obligation so an autonomous run cannot loop unbounded.
+
 ## Council and human-involvement trigger
 Strongly consider TRIAGE-local council when granularity is high, authority is unclear, or phase compression risk exists.
 Also consider it when the request touches lifecycle semantics, Agent Council behavior, Guardian/Heartgate boundaries,

@@ -109,6 +109,17 @@ PLAN must not execute the work. PLAN may name target files, acceptance checks, a
 
 N/A entries must be falsifiable. Each N/A must include reason, accepted_by, owner, residual_risk, revisit_phase, and an observable revisit_trigger.
 
+## Goal-driven track
+
+When the run is `track: goal-driven` (the goal-driven track — see `uacp-core/references/goal-driven-track.md`), the PLAN is **provisional and disposable**: the success criterion is the **goal** (held constant across a chain of forward runs), not a deliverable specifiable before EXECUTE. Plan accordingly:
+
+- Do not over-specify a fixed acceptance artifact. Instead define the **checkpoint cadence**: what each EXECUTE probe attempts toward the goal, and what real evidence artifact each checkpoint must reference (Heartgate enforces that `evidence` is a governed-root-contained artifact — no prose self-attestation).
+- The in-EXECUTE **checkpoint manifest** (`gate: CHECKPOINT` ledger entries) substitutes for the PIV/execution-evidence *artifact* at EXECUTE→VERIFY. The PIV *ledger* gate, authority/containment, and no-fabrication engines still fire. So a light PIV contract is still useful, but the checkpoint manifest — not a `executions/{run_id}` package — is the goal-driven EXECUTE evidence substrate.
+- Carry the convergence budget (`proposals/{run_id}-convergence-budget.yaml`, `max_checkpoints`) into the plan's stop conditions: the plan must name what happens when the budget is near exhaustion (converge to a `keep`, or escalate) rather than looping.
+- Plan rollback as **relaunch under the held goal**, not in-run rewind: a `roll_back`/`restart` verdict closes the run and starts a new forward run (`inherits_from` the prior, reusing triage/proposal/plan output). The phase graph is untouched.
+
+Standard-track PLAN is unchanged.
+
 ## Updated doctrine alignment
 
 Read additionally:

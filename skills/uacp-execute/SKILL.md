@@ -93,12 +93,48 @@ When EXECUTE produces a local code patch in a project worktree, do not stop at "
 
 If an external coding runtime returns success but produces no output or no diff, treat that as no verified work. Inspect git state and either rerun with a narrower prompt or continue manually; never report success from the worker's exit code alone.
 
+## Goal-driven track — the checkpoint loop
+
+When the run is `track: goal-driven` (the goal-driven track — see `uacp-core/references/goal-driven-track.md`), EXECUTE is not a single bounded implementation pass — it is an iterative loop of **disposable probes** toward the persistent goal (`goal_id`). Each iteration is recorded as a governed checkpoint; nothing is committed as "the result" until a probe *satisfies* the goal. This loop is what `uacp-plan`'s standard PIV/execution package is replaced by here.
+
+**1. Write each checkpoint to the gate ledger.** After each probe, append a `gate: CHECKPOINT` record via `uacp_gate_ledger_append`. The payload is a `CheckpointEntry` (`engines/domain/checkpoint.py`, `extra="forbid"` — extra fields BLOCK):
+
+```yaml
+checkpoint_id: "<unique within run>"
+run_id: "<this run>"
+goal_id: "<the held goal>"
+phase: execute
+what_changed: "what this probe produced/changed"
+why: "why this probe, toward the goal"
+evidence: "executions/{run_id}/cp-3-hero.png"   # a REAL governed-root artifact — existence is enforced; prose is rejected
+verdict: keep | roll_back | restart
+invariant: "the goal invariant this probe is judged against"
+rolled_back_to: "<checkpoint_id>"               # only when verdict=roll_back
+```
+
+The `evidence` must reference a real, governed-root-contained artifact. Heartgate runs the same no-self-attestation / no-fabrication check it uses for all gate-ledger evidence — a missing path, an escaping path, or a prose sentence is a BLOCK.
+
+**2. Decide the verdict honestly.**
+- `keep` — the probe advances the goal; carry it forward. (The *final* manifest entry must be `keep` or EXECUTE→VERIFY blocks — a dangling `roll_back`/`restart` means nothing converged.)
+- `roll_back` — discard this probe; relaunch from a prior checkpoint (`rolled_back_to`).
+- `restart` — discard and relaunch the run under the held goal.
+
+**3. Roll-back / restart is a NEW forward run, not an in-run rewind (P2=b).** There are no phase-graph back-edges. To roll back: close this run, then `uacp_state_write` init a new run with the **same `goal_id`** and `inherits_from: <this run_id>`. The new run inherits the prior triage/proposal/plan output references automatically; its EXECUTE continues the same checkpoint chain.
+
+**4. Respect the convergence budget.** The cap (`proposals/{run_id}-convergence-budget.yaml` → `max_checkpoints`) counts `CHECKPOINT` entries across the goal's **whole run-chain** (every run sharing the `goal_id`), not just this run. Exactly `max_checkpoints` passes; `max_checkpoints + 1` BLOCKS at EXECUTE→VERIFY. As the count approaches the cap, converge to a `keep` or escalate via `uacp_escalation_event` — do not keep probing.
+
+**5. EXECUTE→VERIFY requires a coherent manifest.** Before requesting the transition, the checkpoint manifest must be: non-empty, every entry valid (`CheckpointEntry`), every `evidence` ref real, total count ≤ cap, and the final verdict `keep`. This coherent manifest is what substitutes for the PIV/execution-evidence *artifact* — but the PIV *ledger* gate, authority/containment, and no-fabrication engines still fire normally.
+
+Standard-track EXECUTE (PIV contract + `executions/{run_id}` package) is unchanged — the above applies only when `track: goal-driven`.
+
 ## Updated doctrine alignment
 
 Read additionally:
 
 - `UACP_ROOT/docs/lifecycle/orchestration-model.md`
 - `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`)
+- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/checkpoint.py` — codified `CheckpointEntry` schema (goal-driven checkpoint manifest)
+- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/budget.py` — codified `ConvergenceBudget` schema (goal-driven cap)
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/phase_graph.py` — codified valid transitions (`LIFECYCLE_GRAPH`)
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (piv_rule, heartgate_coherence, run_registry)
 - `UACP_ROOT/config/uacp.toml` (`[heartgate.*]` — operator-tunable coherence thresholds and enforcement mode)
