@@ -1777,6 +1777,105 @@ class Heartgate:
         if not self._dir_under_root_exists(package_rel):
             blockers.append(f"adaptive_execute_evidence_gate: missing execution package directory {package_rel}/")
 
+    def _validate_goal_driven_closure_gate(self, run_id: str, blockers: list[str]) -> bool:
+        """Gate a goal-driven run's CLOSURE on manifest coherence (ADR-0016 O5).
+
+        A goal-driven run's checkpoints are disposable probes until one SATISFIES
+        the goal; that satisfying checkpoint is *promoted to result* and the run
+        closes. This gate is what lets the run close: it requires the run's
+        checkpoint manifest to be COHERENT *and* the final (promoted) checkpoint's
+        evidence to be BOUND TO THE GOAL.
+
+        "Manifest coherence at closure" is NOT a lower bar — it ADDS to the shared
+        standard closure invariants (the computed engines, no-fabrication,
+        containment), which continue to fire unchanged for goal-driven runs (this
+        gate does not touch them). It layers these REQUIREMENTS on top:
+
+          * the manifest is COHERENT per :meth:`_validate_goal_driven_checkpoint_gate`
+            — every CHECKPOINT entry parses, each entry's ``evidence`` references a
+            real governed-root-contained artifact (the no-self-attestation /
+            no-fabrication / containment rule), no keep is over the convergence
+            cap, AND the FINAL entry's verdict is ``keep`` (no dangling roll_back /
+            restart — i.e. (a) final keep and (b) no dangling non-keep are the same
+            convergence requirement, enforced there); AND
+          * the FINAL (promoted) checkpoint's evidence is BOUND TO THE GOAL: its
+            ``goal_id`` equals the run manifest's ``goal_id``. A final keep whose
+            evidence belongs to a DIFFERENT goal is not a result for THIS goal and
+            must not close the run. (The final entry's evidence EXISTENCE is already
+            enforced by the coherence pass above; this adds the goal binding.)
+
+        DRY: the coherence layer is the SAME Task-6 helper used at EXECUTE->VERIFY
+        (:meth:`_validate_goal_driven_checkpoint_gate`); this gate reuses it rather
+        than re-deriving "coherent", then layers only the goal-binding requirement
+        the closure boundary adds. Returns ``True`` iff coherent AND goal-bound;
+        any failure appends a blocker and returns ``False``.
+        """
+        coherent = self._validate_goal_driven_checkpoint_gate(run_id, blockers)
+
+        # The promoted result is the FINAL checkpoint. Its evidence must be bound
+        # to the run's goal — a final keep recorded under a different goal_id is
+        # not a result for THIS run's goal. (Existence/containment of that evidence
+        # is enforced by the coherence pass above; this adds the goal binding.)
+        final = self._final_checkpoint_entry(run_id)
+        run_goal_id = self._run_goal_id(run_id)
+        if final is not None and run_goal_id:
+            final_goal_id = str(getattr(final, "goal_id", "") or "")
+            if final_goal_id != run_goal_id:
+                blockers.append(
+                    "goal-driven closure: final checkpoint evidence is not bound to "
+                    f"the run's goal (final checkpoint goal_id '{final_goal_id}' != run "
+                    f"goal_id '{run_goal_id}' — the promoted result must satisfy THIS "
+                    "run's goal)"
+                )
+                return False
+        return coherent
+
+    def _final_checkpoint_entry(self, run_id: str):
+        """Parse the LAST gate: CHECKPOINT manifest record into a CheckpointEntry.
+
+        Returns the final entry (or ``None`` if the manifest is empty / the final
+        record does not validate). Reuses :meth:`_load_checkpoint_manifest` (the
+        same raw-record reader the coherence gate uses) and the same envelope-strip
+        rule, so the "final entry" this sees is exactly the one the coherence gate
+        validated. Never raises.
+        """
+        from engines.domain.checkpoint import CheckpointEntry
+        from pydantic import ValidationError
+
+        records = self._load_checkpoint_manifest(run_id)
+        if not records:
+            return None
+        payload_fields = set(CheckpointEntry.model_fields)
+        payload = {k: v for k, v in records[-1].items() if k in payload_fields}
+        try:
+            return CheckpointEntry(**payload)
+        except ValidationError:
+            return None
+
+    def _run_goal_id(self, run_id: str) -> str:
+        """Read a run's goal_id from its manifest (state/runs/{run_id}.yaml).
+
+        Mirrors :meth:`_run_track`'s fail-safe manifest read: a missing/garbled/
+        invalid manifest resolves to ``""`` (no positive goal binding) rather than
+        raising. Used by the goal-driven closure gate to bind the promoted final
+        checkpoint to the run's goal.
+        """
+        if not _is_safe_run_id(run_id):
+            return ""
+        try:
+            from engines.io.loaders import load_manifest
+
+            loaded = load_manifest(self.uacp_root, run_id)
+            if loaded.error is not None or loaded.value is None:
+                return ""
+            model = loaded.value.model
+            if model is not None:
+                return str(getattr(model, "goal_id", "") or "")
+            raw = loaded.value.raw
+            return str(raw.get("goal_id") or "") if isinstance(raw, Mapping) else ""
+        except Exception:
+            return ""
+
     def _validate_adaptive_verify_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         if str(artifact.get("from_phase") or "") != "verify" or str(artifact.get("to_phase") or "") != "resolve":
             return
@@ -1785,6 +1884,26 @@ class Heartgate:
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             blockers.append("adaptive_verify_evidence_gate requires run_id")
+            return
+        # ADR-0016 O5 / Task 7 — PER-TRACK CLOSURE (track-gated; the standard path
+        # below is byte-identical). For a GOAL-DRIVEN run, the deterministic
+        # verify-selection / resolve-readiness evidence gate is SATISFIED by a
+        # COHERENT checkpoint manifest whose final (promoted) checkpoint is bound
+        # to the run's goal — the manifest substitutes for the verify-selection /
+        # resolve-readiness artifacts at CLOSURE exactly as it does at EXECUTE->
+        # VERIFY. This ADDS manifest coherence on top of the shared standard
+        # closure invariants; it does NOT relax them — the computed closure engines
+        # (validate_closure), the invariant/cluster/warning checks in
+        # validate_transition, and the structural no-fabrication / containment
+        # rules all continue to fire unchanged for goal-driven runs. A coherent,
+        # goal-bound manifest -> the deterministic verify-evidence demands are met,
+        # so return before requesting the verify-selection / readiness artifacts.
+        # An INCOHERENT / unbound / missing manifest appends its own blocker(s) and
+        # returns (BLOCKED). A STANDARD run falls straight through to the unchanged
+        # gate body below — the track read is the ONLY new statement on its path
+        # and resolves fail-safe to "standard".
+        if self._run_track(run_id) == "goal-driven":
+            self._validate_goal_driven_closure_gate(run_id, blockers)
             return
         selection_rel = f"verification/{run_id}-verify-selection.yaml"
         readiness_rel = f"verification/{run_id}-resolve-readiness.yaml"
