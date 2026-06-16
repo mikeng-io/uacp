@@ -30,7 +30,7 @@ Total parallel agents = `len(domains) + 2`. If `domains > 5`, group related doma
 **Dispatch protocol:**
 
 1. Construct one prompt per role using the template selected in Step 6.0. For `finding-driven` mode, use the prompt templates from the Finding-Driven Mode reference (`[skills-root]/uacp-council/references/finding-driven-mode.md` and `[skills-root]/uacp-council/experts/integration-checker.md`) instead of the generic Agent Prompt Template.
-2. Spawn all agents in parallel using the runtime's native dispatch mechanism. Detect the mechanism by tool availability — see `bridge-commons/tool-discovery.md`.
+2. Spawn all agents in parallel using the runtime's native dispatch mechanism. Detect the mechanism by tool availability (Task tool, Agent Teams, Workflows, MCP, CLI — in that priority order).
 3. After all complete, run the Post-Analysis Protocol from `uacp-bridge`:
    - `intensity: quick` → 1 consolidation pass, 0 debate rounds
    - `intensity: standard` → 1 challenge + 1 response round

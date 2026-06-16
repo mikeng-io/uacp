@@ -85,11 +85,11 @@ All at `/home/norty/.openclaw/.agents/skills/`:
 | `deep-council` | Council-of-councils orchestrator | context, preflight, bridge-*, domain-registry |
 | `agent-council` | Role-diverse local council | context, preflight, debate-protocol, domain-registry |
 | `debate-protocol` | 5-phase adversarial protocol | (standalone) |
-| `bridge-claude` | Claude Code bridge adapter | bridge-commons |
-| `bridge-codex` | Codex CLI bridge adapter | bridge-commons |
-| `bridge-opencode` | OpenCode bridge adapter | bridge-commons |
-| `bridge-gemini` | Gemini CLI bridge adapter | bridge-commons |
-| `bridge-commons` | Shared bridge utilities | (standalone) |
+| `uacp-bridge/references/claude.md` | Claude Code bridge adapter | uacp-bridge |
+| `uacp-bridge/references/codex.md` | Codex CLI bridge adapter | uacp-bridge |
+| `uacp-bridge/references/opencode.md` | OpenCode bridge adapter | uacp-bridge |
+| `uacp-bridge/references/gemini.md` | Gemini CLI bridge adapter | uacp-bridge |
+| `uacp-bridge` | Shared bridge contract (SKILL.md) | (standalone) |
 | `domain-registry` | Domain taxonomy | (standalone) |
 | `council-taxonomy` | Council terminology | (standalone) |
 | `context` | Artifact classification | domain-registry |
