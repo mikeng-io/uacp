@@ -66,6 +66,18 @@ If the operator asks “UACP or no UACP” or rejects “UACP Lite”, TRIAGE mu
 8. If routing to PROPOSE, record TRIAGE→PROPOSE obligations; do not adopt proposal artifacts early.
 9. Report routing outcome and next phase obligations.
 
+## Track selection
+
+TRIAGE selects the lifecycle **track** by applying one mechanical test:
+
+> *Is the success criterion specifiable as a verifiable artifact before EXECUTE begins?*
+> - **yes** → `track: standard` (the default)
+> - **no** → `track: goal-driven`
+
+Record the result as `track` on the triage artifact. When the key is absent it defaults to `standard`; existing runs without the field are unaffected.
+
+Valid values: `standard | goal-driven`. Any other value is a Heartgate BLOCK.
+
 ## Council and human-involvement trigger
 Strongly consider TRIAGE-local council when granularity is high, authority is unclear, or phase compression risk exists.
 Also consider it when the request touches lifecycle semantics, Agent Council behavior, Guardian/Heartgate boundaries,

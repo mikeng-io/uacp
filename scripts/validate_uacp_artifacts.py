@@ -418,6 +418,9 @@ def validate_triage(path: Path, obj: dict, issues: list[str]) -> None:
     authority = obj.get("authority") if isinstance(obj.get("authority"), dict) else {}
     if authority.get("status") not in {"pass", "warn", "block"}:
         issues.append(f"BLOCK {path}: authority.status must be pass|warn|block")
+    track = obj.get("track", "standard")
+    if track not in {"standard", "goal-driven"}:
+        issues.append(f"BLOCK {path}: invalid track {track!r} (must be standard|goal-driven)")
 
 
 def validate_proposal(path: Path, obj: dict, issues: list[str]) -> None:

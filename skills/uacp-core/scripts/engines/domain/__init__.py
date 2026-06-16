@@ -43,6 +43,8 @@ from .artifact_schema import (  # noqa: E402
     ScopeSchema,
     artifact_schemas_dict,
 )
+from .budget import ConvergenceBudget  # noqa: E402
+from .checkpoint import CheckpointEntry  # noqa: E402
 from .deferral import DeferredItem  # noqa: E402
 from .escalation import (  # noqa: E402
     EscalationMode,
@@ -135,6 +137,8 @@ __all__ = [
     "ScopeSchema",
     "TERMINAL_PHASES",
     "VALID_TRANSITIONS",
+    "CheckpointEntry",
+    "ConvergenceBudget",
     "ClusterPhase",
     "ClusterState",
     "CurrentPointer",

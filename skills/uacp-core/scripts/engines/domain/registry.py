@@ -23,6 +23,10 @@ class RunRegistryEntry(BaseModel):
     write_paths: Any = None
     scope_artifact_path: str | None = None
     started_at: int | None = None
+    # Goal-chaining (Task 3): links this run into a persistent goal's run-chain.
+    # None for standard runs. Declared (rather than relying on extra="allow")
+    # so the field is typed and discoverable.
+    goal_id: str | None = None
 
 
 class RunRegistry(BaseModel):
