@@ -86,6 +86,9 @@ class Workspace(BaseModel):
     validated_at: str | None = None
 
 
+_VALID_TRACKS: frozenset[str] = frozenset({"standard", "goal-driven"})
+
+
 class RunManifest(BaseModel):
     run_id: str
     status: Status = Status.active
@@ -96,6 +99,9 @@ class RunManifest(BaseModel):
     artifacts: dict[str, str] = Field(default_factory=dict)
     state_history: list[StateHistoryEntry] = Field(default_factory=list)
     finalized_at: str | None = None
+    track: str = "standard"
+    goal_id: str | None = None
+    inherits_from: str | None = None
 
     @field_validator("run_id")
     @classmethod
@@ -157,6 +163,14 @@ def handle_init(args: dict[str, Any]) -> str:
         if not source:
             return json.dumps({"error": "source is required"})
 
+        # Track validation — fail closed on unknown tracks.
+        track = str(args.get("track") or "standard").strip()
+        if track not in _VALID_TRACKS:
+            return json.dumps({"error": f"invalid track '{track}': must be one of {sorted(_VALID_TRACKS)}"})
+
+        goal_id: str | None = str(args["goal_id"]).strip() or None if args.get("goal_id") is not None else None
+        inherits_from: str | None = str(args["inherits_from"]).strip() or None if args.get("inherits_from") is not None else None
+
         manifest_path = _run_manifest_path(workspace, run_id)
         if manifest_path.exists():
             return json.dumps({"error": f"run manifest already exists: {run_id}"})
@@ -176,7 +190,14 @@ def handle_init(args: dict[str, Any]) -> str:
         ws_branch = str(args.get("workspace_branch") or "").strip() or None
         workspace_obj = Workspace(kind=ws_kind, path=ws_path, branch=ws_branch)
 
-        manifest = RunManifest(run_id=run_id, authority=authority, workspace=workspace_obj)
+        manifest = RunManifest(
+            run_id=run_id,
+            authority=authority,
+            workspace=workspace_obj,
+            track=track,
+            goal_id=goal_id,
+            inherits_from=inherits_from,
+        )
         _save_manifest(workspace, manifest)
 
         # Create current.yaml pointer if none exists

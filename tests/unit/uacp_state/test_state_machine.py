@@ -361,3 +361,96 @@ class TestStateMachineFinalize:
         }))
         assert "error" in result
         assert "not in terminal phase" in result["error"]
+
+
+class TestRunManifestTrackFields:
+    """Tests for the new track/goal_id/inherits_from fields on RunManifest."""
+
+    def test_defaults_when_not_set(self):
+        """RunManifest with none of the new fields set has standard defaults."""
+        manifest = RunManifest(
+            run_id="uacp-test-defaults",
+            authority=Authority(source="test"),
+        )
+        assert manifest.track == "standard"
+        assert manifest.goal_id is None
+        assert manifest.inherits_from is None
+
+    def test_goal_driven_track_fields_accepted(self):
+        """RunManifest accepts goal-driven track with goal_id and inherits_from."""
+        manifest = RunManifest(
+            run_id="uacp-test-gd",
+            authority=Authority(source="test"),
+            track="goal-driven",
+            goal_id="g1",
+            inherits_from="run-A",
+        )
+        assert manifest.track == "goal-driven"
+        assert manifest.goal_id == "g1"
+        assert manifest.inherits_from == "run-A"
+
+    def test_standard_track_explicit(self):
+        """RunManifest with explicit track='standard' is identical to default."""
+        manifest = RunManifest(
+            run_id="uacp-test-explicit",
+            authority=Authority(source="test"),
+            track="standard",
+        )
+        assert manifest.track == "standard"
+        assert manifest.goal_id is None
+        assert manifest.inherits_from is None
+
+
+class TestHandleInitTrackFields:
+    """Tests that handle_init threads track/goal_id/inherits_from into the manifest."""
+
+    def test_goal_driven_fields_persisted(self, temp_uacp_root: Path):
+        """handle_init with goal-driven args writes them into the manifest YAML."""
+        result = json.loads(handle_init({
+            "workspace": str(temp_uacp_root),
+            "run_id": "uacp-gd-001",
+            "source": "operator-request",
+            "track": "goal-driven",
+            "goal_id": "g1",
+            "inherits_from": "run-A",
+        }))
+        assert result["ok"] is True
+
+        manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-gd-001.yaml"
+        data = yaml.safe_load(manifest_path.read_text())
+        assert data["track"] == "goal-driven"
+        assert data["goal_id"] == "g1"
+        assert data["inherits_from"] == "run-A"
+
+    def test_standard_run_defaults_in_manifest(self, temp_uacp_root: Path):
+        """handle_init without new args produces a manifest with standard defaults."""
+        result = json.loads(handle_init({
+            "workspace": str(temp_uacp_root),
+            "run_id": "uacp-std-001",
+            "source": "operator-request",
+        }))
+        assert result["ok"] is True
+
+        manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-std-001.yaml"
+        data = yaml.safe_load(manifest_path.read_text())
+        assert data["track"] == "standard"
+        assert data["goal_id"] is None
+        assert data["inherits_from"] is None
+        # Existing fields must still be present
+        assert data["run_id"] == "uacp-std-001"
+        assert data["status"] == "active"
+        assert data["current_phase"] == "triage"
+
+    def test_invalid_track_returns_error(self, temp_uacp_root: Path):
+        """handle_init with an unknown track returns a JSON error, no manifest written."""
+        result = json.loads(handle_init({
+            "workspace": str(temp_uacp_root),
+            "run_id": "uacp-bad-track",
+            "source": "operator-request",
+            "track": "turbo-mode",
+        }))
+        assert "error" in result
+        assert "track" in result["error"].lower()
+        # No manifest should have been created
+        manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-bad-track.yaml"
+        assert not manifest_path.exists()
