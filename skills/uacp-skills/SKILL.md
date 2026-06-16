@@ -43,7 +43,7 @@ These skills ship as a **Claude Code plugin** (and, deferred-but-ready, a Hermes
 - **Manifest:** the plugin root carries `.claude-plugin/plugin.json` (`name: uacp` — this namespaces every skill as `/uacp:<dir>`). Adding/owning the manifest is a one-time packaging step, not per-skill.
 - **Location = discovery:** every skill MUST be `skills/<dir>/SKILL.md`. A bare `skills/SKILL.md` is **not discovered**. The plugin loader auto-discovers from `skills/`.
 - **Directory name = invocation name.** `skills/uacp-execute/` → `/uacp:uacp-execute`. Frontmatter `name:` is only a display label — do not rely on it for invocation, and keep dir name = intended invocation name.
-- **Do not misuse reserved Claude Code frontmatter keys.** CC ignores *unknown* keys (so our `phase`/`authority_source`/`kind`/`location`/`metadata` are harmless and do not break loading), but these keys have real CC meaning — only use them for that meaning: `context` (value `fork` only), `allowed-tools`/`disallowed-tools`, `model`, `effort`, `agent`, `hooks`, `paths`, `disable-model-invocation`, `user-invocable`, `argument-hint`, `arguments`, `shell`. *(Rollout: some pre-convention skills still carry a misused `context: reference` — CC ignores it since the value isn't `fork`, so it is latent, not a loading failure. Those are swept during the frontmatter-normalization slice alongside the `kind:` rollout; new/refactored skills must conform now.)*
+- **Do not misuse reserved Claude Code frontmatter keys.** CC ignores *unknown* keys (so our `phase`/`authority_source`/`kind`/`location`/`metadata` are harmless and do not break loading), but these keys have real CC meaning — only use them for that meaning: `context` (value `fork` only), `allowed-tools`/`disallowed-tools`, `model`, `effort`, `agent`, `hooks`, `paths`, `disable-model-invocation`, `user-invocable`, `argument-hint`, `arguments`, `shell`. No skill misuses `context` now — the frontmatter-normalization sweep (Slice 4) is complete and enforced by `tests/unit/skills/test_plugin_readiness.py`.
 - **Bundled resources ship:** `references/`, `scripts/`, `assets/` under a skill dir are bundled and readable at their relative paths. Keep `description` (+ `when_to_use`) under ~1536 chars (the listing budget) and SKILL.md under 500 lines.
 
 **Dual-target (Hermes).** The same files install into Hermes' skill store (`~/.hermes/skills/devops/uacp/<dir>/SKILL.md`); Hermes reads `metadata.hermes.{tags,related_skills}`. CC ignores the Hermes keys and Hermes ignores the CC keys, so one frontmatter serves both. Hermes packaging/sync is deferred but the layout is ready.
@@ -62,11 +62,7 @@ decorative.
 | `reference` | read via the Read tool; never invoked standalone | `domain-registry`, `uacp-skills` (and `uacp-bridge`, planned) |
 | `orchestration` | invocable helpers around the lifecycle | council, debate, parallel, context, web, brainstorm |
 
-> **Rollout status.** This is the target convention. Existing skills are being
-> brought into compliance incrementally — some still carry pre-convention
-> frontmatter (e.g. lifecycle skills with `allowed_tools` mirrors, or skills with
-> no `kind:` yet). The examples below show the **target** form a new or refactored
-> skill should adopt, not a claim that every skill already conforms.
+> **Status: rollout complete.** Every skill in the library now declares `kind`; lifecycle skills no longer carry `allowed_tools` / `forbidden_tools` / `phase_exit_invariants` mirrors. Enforced by `tests/unit/skills/test_plugin_readiness.py`.
 
 Per-kind frontmatter fields and examples: **read** `references/frontmatter-by-kind.md`.
 
@@ -96,13 +92,7 @@ citable copy. (Source `*.py` files MAY cite ADRs in comments — that is provena
 in code, not instruction prose.) A `references/` mirror MAY carry a single "Origin of record" provenance line naming the `docs/` original it mirrors (e.g. the goal-driven mirror's header), provided the file is fully usable without following that link. Enforced by
 `tests/unit/skills/test_skill_self_containment.py`.
 
-> **Enforcement scope (rollout).** The regression test currently enforces only
-> the `ADR-<number>` citation class in `SKILL.md` bodies. The broader `docs/`
-> citation class (e.g. `docs/INDEX.md`, `docs/lifecycle/...` read-pointers) is
-> being migrated incrementally and the test widens to it in the library-wide
-> rollout. Until then, existing skills may still carry `docs/` read-pointers —
-> that is known debt, not a counter-example. New/refactored skills must follow the
-> full rule now.
+> **Enforcement scope.** The regression test enforces the `ADR-<number>` citation class in `SKILL.md` bodies. The broader `docs/` citation class (e.g. `docs/INDEX.md`, `docs/lifecycle/...` read-pointers) is an **open operator decision** — approximately 60 `docs/` read-pointers remain in skill bodies (mostly "Read first/additionally" canonical-doc pointers). The options are: mirror durable docs into `uacp-core/references/` and cite the mirror; drop the "additional reading" pointers; or formally accept canonical-doc pointers as a named carve-out. This is the one remaining convention-application item after Step 2 Slices 1–4; the test will widen once the operator decides. New/refactored skills must follow the full rule now (no new `docs/` citations).
 
 ## DRY shared content
 

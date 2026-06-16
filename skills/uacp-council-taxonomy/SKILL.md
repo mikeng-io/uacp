@@ -1,8 +1,8 @@
 ---
 name: uacp-council-taxonomy
 description: Authoritative vocabulary for the UACP skills suite — tier model, runtime/adapter terms, diversity dimensions, anti-patterns. Every council-related skill reads this first before doing anything else. Installs alongside uacp-council as a hard dependency. Read this whenever you encounter the words "council", "tier", "runtime", or "local agent" in any UACP artifact or skill.
+kind: reference
 location: managed
-context: reference
 ---
 
 # Council Taxonomy — UACP Skills Suite Glossary

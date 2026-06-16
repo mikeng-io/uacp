@@ -4,6 +4,7 @@ description: >
   Runtime-neutral UACP core — policy, Guardian evaluation, Heartgate transitions,
   audit, and shared filesystem utilities. Imported by runtime adapters; not invoked
   directly as a skill.
+kind: kernel
 version: 1.0.0
 metadata:
   hermes:

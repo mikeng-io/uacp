@@ -1,8 +1,8 @@
 ---
 name: domain-registry
 description: Reference library of domain definitions used by UACP lifecycle skills and bridge adapters to select appropriate expert agents. Not invocable standalone — read via the Read tool by context, agent-council, and all bridge adapters.
+kind: reference
 location: managed
-context: reference
 ---
 
 # Domain Registry

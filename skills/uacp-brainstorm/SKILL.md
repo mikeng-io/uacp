@@ -5,6 +5,7 @@ description: >
   what they actually want before UACP admission control. Writes rough notes,
   design sketches, and candidate scopes into an Obsidian-style vault under
   .uacp/brainstorm/. Only the trimmed selected scope transitions into TRIAGE.
+kind: orchestration
 location: managed
 dependencies:
   - uacp-context

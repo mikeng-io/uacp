@@ -3,22 +3,7 @@ name: uacp-propose
 description: Use when creating governed UACP proposals, bootstrap artifacts, or authority
   declarations.
 phase: propose
-allowed_tools:
-- uacp_artifact_write
-- uacp_state_write
-- uacp_gate_ledger_append
-- uacp_heartgate_check
-- uacp_doc_write
-- uacp_run_registry_update
-- uacp_escalation_event
-forbidden_tools:
-- terminal
-- execute_code
-phase_exit_invariants:
-- artifact_glob: proposals/{run_id}*.yaml
-  required: true
-- gate_ledger_entry: TRIAGE->PROPOSE
-  required: true
+kind: lifecycle
 authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ---
 # UACP Propose

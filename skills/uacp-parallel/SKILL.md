@@ -5,6 +5,7 @@ description: >
   parallel execution order while respecting task dependencies. Can run standalone
   for any multi-step workflow or be invoked from UACP lifecycle phases when
   governed execution is needed.
+kind: orchestration
 location: managed
 dependencies:
   - uacp-council-taxonomy

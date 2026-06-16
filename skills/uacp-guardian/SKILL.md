@@ -1,6 +1,7 @@
 ---
 name: uacp-guardian
 description: Compatibility conductor for UACP Guardian policy and runtime enforcement work.
+kind: orchestration
 version: 1.0.0
 metadata:
   hermes:

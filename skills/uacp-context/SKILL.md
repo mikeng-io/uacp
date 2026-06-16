@@ -6,6 +6,7 @@ description: >
   via web backends (Tavily/Firecrawl/Context7), assesses confidence, and produces a
   structured context report. Includes inline preflight questioning when confidence is low.
   Every major UACP operation should start here.
+kind: orchestration
 location: managed
 dependencies:
   - uacp-council-taxonomy
