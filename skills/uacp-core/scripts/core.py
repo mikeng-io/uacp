@@ -1213,10 +1213,14 @@ class Heartgate:
         """Read a run's track from its manifest (state/runs/{run_id}.yaml).
 
         This is the ONLY seam by which Heartgate learns whether a run is on the
-        goal-driven track. It is called EXCLUSIVELY from the goal-driven budget
-        gates below — standard-track transitions never reach this read, so the
-        standard PROPOSE->PLAN path is byte-identical to before (the new manifest
-        read is strictly behind the goal-driven branch).
+        goal-driven track. It is called from the goal-driven gates (the PROPOSE
+        convergence-budget gate, the convergence cap, and the EXECUTE->VERIFY
+        checkpoint relaxation). A standard-track transition DOES reach this read
+        at those phase pairs, but it is a fail-safe, behavior-NEUTRAL read: it
+        resolves to "standard" and every new behavior is strictly behind the
+        ``== "goal-driven"`` branch, so the standard path stays byte-identical to
+        before (the read returns "standard" and the gate proceeds exactly as it
+        did, with no new blocker, warning, or side effect).
 
         Fail-safe: a missing/garbled manifest, or one that does not validate,
         resolves to ``"standard"`` (the default) — an autonomous-safety gate must
@@ -1387,6 +1391,145 @@ class Heartgate:
                 f"cap is max_checkpoints={budget.max_checkpoints}; a further 'keep' checkpoint "
                 "is blocked (the run must converge or escalate, not loop)"
             )
+
+    def _load_checkpoint_manifest(self, run_id: str) -> list[Mapping[str, Any]]:
+        """Read the run's gate: CHECKPOINT ledger records (raw, in ledger order).
+
+        Each record carries the ledger ENVELOPE the writer stamps (``gate``,
+        ``run_id``, ``ts``) wrapped around a CheckpointEntry payload. This returns
+        the raw records; envelope-stripping + model validation happens in the
+        coherence check. Never raises: an unreadable/garbled ledger contributes
+        no records rather than crashing the gate.
+        """
+        records: list[Mapping[str, Any]] = []
+        if not _is_safe_run_id(run_id):
+            return records
+        ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
+        if not ledger_path.exists():
+            return records
+        try:
+            for line in ledger_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except Exception:
+                    continue
+                if isinstance(rec, Mapping) and str(rec.get("gate") or "") == "CHECKPOINT":
+                    records.append(rec)
+        except Exception:
+            return records
+        return records
+
+    def _validate_goal_driven_checkpoint_gate(
+        self, run_id: str, blockers: list[str]
+    ) -> bool:
+        """Validate a goal-driven run's in-EXECUTE checkpoint manifest (ADR-0016).
+
+        Returns ``True`` iff the manifest is COHERENT — i.e. it may substitute for
+        the deterministic PIV/findings-clearing artifacts at EXECUTE->VERIFY.
+        "Coherent" means ALL of:
+
+          * the manifest is non-empty (there is at least one ``gate: CHECKPOINT``
+            record to substitute for the PIV/checkpoint artifacts);
+          * EVERY record, once its ledger ENVELOPE is stripped (``gate``/``ts``
+            and any non-payload key — ``run_id`` is itself a CheckpointEntry
+            field and is kept), validates as a :class:`CheckpointEntry`
+            (``extra="forbid"``) — a malformed/extra-field record is incoherent;
+          * EVERY entry's ``evidence`` references a real governed-root-contained
+            artifact (:meth:`_validate_checkpoint_entry` — the structural
+            no-self-attestation / no-fabrication rule);
+          * the total recorded checkpoint count does NOT exceed the convergence cap
+            (checked post-loop with strict ``>`` against the already-recorded total
+            — exactly ``max_checkpoints`` records PASSES; more BLOCKS);
+          * the FINAL entry's verdict is ``keep`` — a dangling ``roll_back`` /
+            ``restart`` means the run has not converged and must not promote.
+
+        Any failure appends a blocker and returns ``False``. This method is only
+        ever reached behind the goal-driven track gate in
+        :meth:`_validate_adaptive_execute_evidence_gate`; it does not itself read
+        the track.
+        """
+        from engines.domain.checkpoint import CheckpointEntry
+        from pydantic import ValidationError
+
+        records = self._load_checkpoint_manifest(run_id)
+        if not records:
+            blockers.append(
+                "goal-driven execute->verify: checkpoint manifest is empty "
+                "(no gate: CHECKPOINT records to substitute for the PIV/execution "
+                "evidence — the run has produced no governed checkpoint)"
+            )
+            return False
+
+        coherent = True
+        entries: list[CheckpointEntry] = []
+        goal_id_seen: str | None = None
+        # The ledger envelope keys the writer stamps that are NOT CheckpointEntry
+        # payload fields. ``run_id`` IS a CheckpointEntry field, so it is kept.
+        payload_fields = set(CheckpointEntry.model_fields)
+        for idx, rec in enumerate(records, start=1):
+            cid = str(rec.get("checkpoint_id") or f"#{idx}")
+            # Envelope-strip: keep only valid CheckpointEntry payload keys so the
+            # extra="forbid" model validates the PAYLOAD, not the envelope.
+            payload = {k: v for k, v in rec.items() if k in payload_fields}
+            try:
+                entry = CheckpointEntry(**payload)
+            except ValidationError as exc:
+                first = exc.errors()[0] if exc.errors() else {}
+                detail = first.get("msg") or str(exc)
+                loc = ".".join(str(p) for p in (first.get("loc") or [])) or "?"
+                blockers.append(
+                    f"goal-driven checkpoint manifest: checkpoint {cid} is malformed "
+                    f"(CheckpointEntry validation failed at {loc}: {detail})"
+                )
+                coherent = False
+                continue
+            entries.append(entry)
+            if goal_id_seen is None and entry.goal_id:
+                goal_id_seen = entry.goal_id
+            # Structural claim=>evidence (no self-attestation / no-fabrication).
+            before = len(blockers)
+            self._validate_checkpoint_entry(entry, blockers)
+            if len(blockers) != before:
+                coherent = False
+
+        # Cap: block iff the total recorded checkpoint count for this goal EXCEEDS
+        # max_checkpoints (strict >). A manifest with EXACTLY max_checkpoints
+        # entries is at-budget and PASSES; max_checkpoints+1 BLOCKS.
+        # This is a post-hoc check on an already-recorded total, so we use strict
+        # > rather than >= (_validate_convergence_cap uses >= for its pre-append
+        # "may I take a further keep?" posture and must not be changed here).
+        if goal_id_seen:
+            budget, budget_error = self._load_convergence_budget(run_id)
+            if budget_error is not None or budget is None:
+                blockers.append(
+                    budget_error or "convergence cap: goal-driven run requires a convergence_budget"
+                )
+                coherent = False
+            else:
+                count = self._goal_checkpoint_count(goal_id_seen)
+                if count > budget.max_checkpoints:
+                    blockers.append(
+                        f"convergence_budget exhausted: goal '{goal_id_seen}' has {count} "
+                        f"checkpoint(s), cap is max_checkpoints={budget.max_checkpoints}; "
+                        "the manifest exceeds the convergence budget "
+                        "(the run must converge or escalate, not loop)"
+                    )
+                    coherent = False
+
+        # The manifest must converge on a keep: a dangling roll_back/restart final
+        # verdict means the probe was discarded — there is nothing to promote.
+        if entries and entries[-1].verdict != "keep":
+            blockers.append(
+                "goal-driven checkpoint manifest: final checkpoint verdict is "
+                f"'{entries[-1].verdict}' (a dangling roll_back/restart has not "
+                "converged on a keep — there is no result to promote to VERIFY)"
+            )
+            coherent = False
+
+        return coherent
 
     def _validate_adaptive_plan_package_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Enforce adaptive PLAN package selection for PLAN->EXECUTE."""
@@ -1593,6 +1736,24 @@ class Heartgate:
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             blockers.append("adaptive_execute_evidence_gate requires run_id")
+            return
+        # ADR-0016 / Task 6b — PER-TRACK RELAXATION (track-gated; standard path
+        # below is byte-identical). For a GOAL-DRIVEN run, the deterministic
+        # PIV/findings-clearing evidence gate is SATISFIED by a COHERENT checkpoint
+        # manifest IN LIEU OF the PIV/checkpoint artifacts: every CHECKPOINT entry
+        # validates + has real evidence (no-fabrication still fires), no keep is
+        # over the convergence cap (now LIVE), and the manifest converges on a
+        # final keep. A coherent manifest -> the deterministic evidence demands are
+        # met, so return before requesting the PIV/checkpoint artifacts. An
+        # INCOHERENT/missing manifest appends its own blocker(s) and returns
+        # (BLOCKED). The authority/containment/no-fabrication invariants are NOT
+        # part of this method (Guardian + invariant_summary + the structural
+        # evidence check enforce them) and continue to fire for goal-driven runs.
+        # A STANDARD run falls straight through to the unchanged gate body below —
+        # the track read is the ONLY new statement on its path and resolves
+        # fail-safe to "standard".
+        if self._run_track(run_id) == "goal-driven":
+            self._validate_goal_driven_checkpoint_gate(run_id, blockers)
             return
         piv_rel = f"plans/{run_id}-piv.yaml"
         checkpoint_rel = f"executions/{run_id}-checkpoint-001.yaml"
