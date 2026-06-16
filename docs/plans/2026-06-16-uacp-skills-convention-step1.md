@@ -457,7 +457,8 @@ Run: `git log --oneline origin/main..HEAD` — expect the design-doc commit plus
 ## After this plan
 
 1. **Council review** (project norm for skill-library changes): one architecture/governance lens + one devil's-advocate lens over the diff. Resolve material findings.
-2. **Merge** `--no-ff` to `main`, delete the branch.
+2. **Flip ADR-0017** (`docs/architecture/0017-skill-authoring-convention.md`) status `proposed` → `accepted` and update `docs/architecture/INDEX.md`.
+3. **Merge** `--no-ff` to `main`, delete the branch.
 3. **Step 2 plan** (separate): apply the convention library-wide — `bridge-*` → `uacp-bridge`, DRY the four boilerplate blocks into `skills/references/`, slim lifecycle frontmatter (drop the tool/invariant mirrors), roll out the `kind:` classifier, and extend the self-containment test to the `docs/` reference class.
 
 ## Out of scope (Step 2, do not do now)

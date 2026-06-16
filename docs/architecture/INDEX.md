@@ -36,6 +36,7 @@ The template is at [0000-template.md](0000-template.md). Numbering is sequential
 | [0014](0014-adaptive-resolve-closure.md) | Adaptive RESOLVE closure gate | accepted | 2026-05-19 |
 | [0015](0015-web-backends-separate-from-bridge-adapters.md) | Web backends remain separate from bridge-* runtime adapters | accepted | 2026-06-08 |
 | [0016](0016-goal-driven-track.md) | Goal-driven track — second lifecycle track for semantic/exploratory work | accepted | 2026-06-16 |
+| [0017](0017-skill-authoring-convention.md) | UACP skill-authoring convention — `uacp-skills`, `kind` taxonomy, self-containment | proposed | 2026-06-16 |
 
 ## Related
 
