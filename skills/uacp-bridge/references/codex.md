@@ -1,18 +1,8 @@
+# Bridge: Codex (OpenAI) — uacp-bridge reference
+
+*Per-runtime reference for [uacp-bridge](../SKILL.md). Depends on: uacp-bridge, domain-registry.*
+
 ---
-name: bridge-codex
-description: Reference adapter for Codex multi-agent review. Read by any orchestrating skill via the Read tool. Native dispatch (preferred when executor is Codex), MCP server path, CLI fallback. Interactive pre-flight advisory when not configured, correct flags embedded. Usable by agent-council, lifecycle skills, or any custom skill that needs Codex-based review.
-location: managed
-context: reference
-dependencies:
-  - bridge-commons
-  - domain-registry
----
-
-# Bridge: Codex Multi-Agent Adapter
-
-This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Codex review dispatch via MCP server or CLI.
-
-**Input schema, output schema, verdict logic, artifact format, tier system, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers Codex-specific connection detection, tier resolution, prompt adaptation, and execution.**
 
 ## Bridge Identity
 
@@ -36,34 +26,36 @@ Parameters this bridge reads from `config/uacp.toml` at runtime:
 | Parameter | Section | Type | Default | Description |
 |-----------|---------|------|---------|-------------|
 | `enabled` | `[bridges.codex]` | boolean | `true` | Whether this bridge is active. If `false`, the orchestrator skips it. |
-| `timeout_multiplier` | `[bridges.codex]` | float | `1.2` | Multiplier applied to the bridge-commons base timeout estimate. |
+| `timeout_multiplier` | `[bridges.codex]` | float | `1.2` | Multiplier applied to the uacp-bridge base timeout estimate. |
 
 **Not read from TOML** (intrinsic to bridge implementation):
-- `connection_preference` — defined in this SKILL.md only
+- `connection_preference` — defined in this file only
 - `multi_agent_enabled` — auto-detected via `codex features list`; recorded in output for transparency
 
 ---
 
 ## Tier Resolution
 
-Codex bridge resolves the model alias and reasoning level from `config/uacp.toml` `[models]` in `UACP_ROOT`. The tier mapping lives **only** in `uacp.toml` — this skill does not hardcode it.
+Codex bridge resolves the model alias and reasoning level from `config/uacp.toml` `[models]` in `UACP_ROOT`. The tier mapping lives **only** in `uacp.toml` — this file does not hardcode it.
 
-**Resolution protocol:**
+The general tier resolution protocol is defined in [uacp-bridge/SKILL.md](../SKILL.md). Codex-specific steps:
+
 1. Read `UACP_ROOT/config/uacp.toml` `[models]` section
 2. Look up `[models.tier_mappings.codex.{tier}]` → get `alias` + `reasoning`
 3. Look up `[models.providers.openai.models.{alias}]` → `concrete_id` → get resolved model ID
 4. Apply reasoning level to `--config reasoning-effort`
 
-The alias is stable; the `concrete_id` is updated in the registry when OpenAI releases new models. No bridge skill changes required.
+The alias is stable; the `concrete_id` is updated in the registry when OpenAI releases new models. No bridge reference changes required.
 
-**Reasoning mapping (bridge-specific):**
+**Reasoning mapping (Codex-specific — maps reasoning level to `--config reasoning-effort` value):**
 - `medium` → `--config reasoning-effort=medium`
 - `high` → `--config reasoning-effort=high`
 - `xhigh` → `--config reasoning-effort=xhigh`
 
-**Override via `bridge_input.tier`:** If the council assigns a specific tier, use it directly. If absent, derive from `task_type` + `intensity` per bridge-commons rules.
+**Override via `bridge_input.tier`:** If the council assigns a specific tier, use it directly. If absent, derive from `task_type` + `intensity` per uacp-bridge rules (see [uacp-bridge/SKILL.md](../SKILL.md)).
 
 **Xhigh Alert (MANDATORY):** When resolved reasoning is `xhigh`, alert the user before proceeding:
+
 ```
 ⚠ Reasoning level: XHIGH
 Codex will use maximum reasoning depth for this review.
@@ -71,7 +63,10 @@ This increases token usage and may take 2–3× longer than standard.
 
 Continue? (y/n)
 ```
+
 If user declines → fall back to `high`. Return `resolved_reasoning: "high"` in output.
+
+Silently activating `xhigh` without presenting this prompt is an explicit anti-pattern. Never skip this gate.
 
 ---
 
@@ -231,11 +226,15 @@ Return `status: HALTED`, `halt_reason: not_authenticated`.
 
 If no interactive context is available, return `status: HALTED` with the full advisory text in `halt_message`. Never silently skip in a way that hides a configuration gap.
 
+See [uacp-bridge/SKILL.md](../SKILL.md) for the HALTED→SKIPPED orchestrator conversion policy (non-interactive auto-mode).
+
 ---
 
 ## Step 3: Build Domain Prompt
 
-Codex's multi-agent capability means the prompt is addressed to a **coordinator**, not a single domain expert. This differs from the bridge-commons Agent Prompt Template (which addresses one expert per call). Adapt as follows:
+### When `multi_agent_enabled: true` — use this coordinator prompt instead of the shared Agent Prompt Template
+
+Codex's multi-agent capability means the prompt is addressed to a **coordinator**, not a single domain expert. Use the following coordinator-framing prompt when in multi-agent mode. In single-agent mode, use the Agent Prompt Template from [uacp-bridge/SKILL.md](../SKILL.md) directly.
 
 ```
 You are a multi-agent code review coordinator. Spawn one agent per domain
@@ -251,7 +250,7 @@ Domains to analyze (spawn one agent per domain):
 {for each domain:
   "- {domain_name}: focus on {focus_areas from domain-registry}"}
 
-Each agent must return outputs using the schema from bridge-commons:
+Each agent must return outputs using the schema from uacp-bridge:
 {
   "domain": "...",
   "outputs": [
@@ -273,27 +272,27 @@ After all agents complete, consolidate all findings and return:
 }
 ```
 
-In single-agent mode, drop the coordinator framing and use the bridge-commons Agent Prompt Template directly, covering all domains in one prompt.
+In single-agent mode, drop the coordinator framing and use the [uacp-bridge/SKILL.md](../SKILL.md) Agent Prompt Template directly, covering all domains in one prompt.
 
 ---
 
 ## Timeout Estimation
 
-Use bridge-commons base timeout table and intensity multiplier. Codex multi-agent adds sub-agent spawn overhead — apply a higher base when multi-agent is enabled:
+Use uacp-bridge base timeout table and intensity multiplier (see [uacp-bridge/SKILL.md](../SKILL.md)). Codex multi-agent adds sub-agent spawn overhead — apply a higher base when multi-agent is enabled:
 
 ```yaml
 # When multi_agent_enabled: true — increase base by 50%
 # e.g., 5-20 files: 180s → 270s to account for agent spawn latency
-# When multi_agent_enabled: false — use bridge-commons base times directly
+# When multi_agent_enabled: false — use uacp-bridge base times directly
 ```
 
-No separate bridge multiplier otherwise.
+The Codex bridge `timeout_multiplier = 1.2` from `[bridges.codex]` is applied on top of the scope/intensity base as defined in [uacp-bridge/SKILL.md](../SKILL.md).
 
 ---
 
 ## Step 3A: Execute via MCP Server (Preferred)
 
-Use the `codex` MCP tool directly. The MCP server runs `codex mcp-server` and exposes two tools:
+Use the `codex` MCP tool directly. The MCP server runs `codex mcp-server` and exposes two tools.
 
 ### Model Selection — Resolve from Tier
 
@@ -309,7 +308,7 @@ Before calling either MCP or CLI, resolve the model from the tier:
 
 Do NOT hardcode a model name. If model discovery fails, omit the `model` parameter and let the server select its default.
 
-### Tool: `codex` — Start a session
+### Tool: `mcp__codex__codex` — Start a session
 
 ```
 Call: mcp__codex__codex
@@ -323,7 +322,7 @@ Parameters:
 
 Capture `structuredContent.threadId` from response for multi-turn use.
 
-### Tool: `codex-reply` — Continue session (if needed)
+### Tool: `mcp__codex__codex-reply` — Continue session (if needed)
 
 ```
 Call: mcp__codex__codex-reply
@@ -332,20 +331,22 @@ Parameters:
   threadId: {threadId from previous call}
 ```
 
-The `codex-reply` call implements the bridge-commons Post-Analysis Protocol for the MCP path. Use `codex-reply` for each subsequent round — the thread maintains full Round 1 history, so only inject the context packet:
+The MCP path is **stateful** — the `threadId` maintains full Round 1 history. For subsequent Post-Analysis Protocol rounds, only inject the context packet (not the full previous-round output):
 
 ```
 Call: mcp__codex__codex-reply
 Parameters:
-  prompt:   "{role-specific Round N prompt from bridge-commons context packet}"
+  prompt:   "{role-specific Round N prompt from uacp-bridge context packet}"
   threadId: {threadId from Round 1}
 ```
 
-Run one `codex` + N `codex-reply` calls per role, one role at a time or in parallel sessions.
+Run one `mcp__codex__codex` + N `mcp__codex__codex-reply` calls per role, one role at a time or in parallel sessions.
 
 ---
 
 ## Step 3B: Execute via CLI (Fallback)
+
+The CLI path is **stateless** — each `codex exec` call is independent. For Post-Analysis Protocol rounds via CLI, use separate `codex exec` calls per round and embed the full previous-round context in each Round N prompt (stateless full-context-embed, unlike MCP's threadId session continuity).
 
 ```bash
 # Resolve model from tier
@@ -373,9 +374,9 @@ timeout {final_timeout} codex exec "{constructed_prompt}" \
   --config reasoning-effort={RESOLVED_REASONING}
 ```
 
-For the Post-Analysis Protocol via CLI, use separate `codex exec` calls per round — no session continuity. Embed the full previous-round context in each Round N prompt (same stateless pattern as Gemini CLI).
-
 ### CLI Error Handling
+
+Shared rows from [uacp-bridge/SKILL.md](../SKILL.md), plus one Codex-specific row:
 
 | Exit code | Meaning | Action |
 |-----------|---------|--------|
@@ -386,36 +387,9 @@ For the Post-Analysis Protocol via CLI, use separate `codex exec` calls per roun
 
 ---
 
-## CLI Reference
-
-**Last verified:** 2026-06-07
-
-### Key flags
-
-| Flag | Purpose |
-|------|---------|
-| `codex exec` | Non-interactive execution (always use this, not bare `codex`) |
-| `--model <model>` | Model to use (resolved from tier mapping) |
-| `--config reasoning-effort=<level>` | Reasoning effort: medium, high, xhigh |
-| `--sandbox read-only` | Analysis-only mode (no file writes) |
-| `--ask-for-approval never` | No interactive approval prompts |
-| `--json` | Structured JSON output |
-| `--output-last-message <path>` | Write final message to file for parsing |
-| `--ephemeral` | Discard session after execution |
-| `--skip-git-repo-check` | Skip git repository validation |
-
-### MCP tools
-
-| Tool | Purpose |
-|------|---------|
-| `mcp__codex__codex` | Start a session (returns threadId) |
-| `mcp__codex__codex-reply` | Continue session with threadId |
-
----
-
 ## Output
 
-See bridge-commons Output Schema. Bridge-specific fields:
+For the full Output Schema, see [uacp-bridge/SKILL.md](../SKILL.md). Bridge-specific fields added by this adapter:
 
 ```json
 {
@@ -429,6 +403,8 @@ See bridge-commons Output Schema. Bridge-specific fields:
 }
 ```
 
+`multi_agent_enabled` is **always emitted** regardless of connection path — for caller transparency.
+
 Output ID prefix: `X` (e.g., `X001`, `X002`).
 
 ---
@@ -436,12 +412,164 @@ Output ID prefix: `X` (e.g., `X001`, `X002`).
 ## Notes
 
 - **Native dispatch is preferred when executor is Codex** — spawn parallel Codex agents directly
-- **MCP server is preferred for non-Codex executors** — no CLI install needed, auth handled internally, persistent sessions via `codex-reply`
+- **MCP server is preferred for non-Codex executors** — no CLI install needed, auth handled internally, persistent sessions via `codex-reply` (stateful — threadId carries full history)
+- **CLI path is stateless** — each `codex exec` call starts fresh; embed full prior-round context in Round N prompts (unlike MCP)
 - **Auto-setup option** — orchestrator can write `.mcp.json` to enable MCP server without user installing anything
 - **`codex exec` ≠ `codex`** — bare `codex` opens an interactive session; always use `codex exec` for programmatic use
 - **`--sandbox read-only` + `--ask-for-approval never`** are required for analysis-only mode
-- **HALTED ≠ SKIPPED** — HALTED means the user must make a choice before the review can continue
+- **HALTED ≠ SKIPPED** — HALTED means the user must make a choice before the review can continue; connection_preference step 4 is HALT, not skip
 - **Model**: resolved from tier mapping in `config/uacp.toml`; never hardcoded
-- **X-high reasoning requires explicit user confirmation** before proceeding — never activate silently
+- **X-high reasoning requires explicit user confirmation** before proceeding — never activate silently; silently activating xhigh is an explicit anti-pattern
 - **Tier is never hardcoded** — model selections come from `config/uacp.toml`; update the TOML when OpenAI releases new models
-- Timeout base increases when multi-agent is enabled (agent spawn overhead)
+- **+50% base timeout when multi_agent_enabled** — agent spawn overhead; apply before the 1.2× bridge multiplier
+
+---
+
+## CLI Reference
+
+*Last verified: 2026-06-07*
+
+### Invocation Modes
+
+| Mode | Command | When to Use |
+|------|---------|-------------|
+| Non-interactive exec | `codex exec "prompt"` | Scripted/programmatic use |
+| Interactive TUI | `codex` | Terminal UI — do NOT use programmatically |
+| MCP server | `codex mcp-server` | Expose Codex as MCP server |
+
+**Always use `codex exec` for programmatic dispatch.** Bare `codex` opens the TUI and cannot be scripted.
+
+---
+
+### `codex exec` — All Flags
+
+| Flag | Values | Default | Purpose |
+|------|--------|---------|---------|
+| (message) | string | required | Prompt — first positional argument |
+| `--sandbox`, `-s` | `read-only`, `workspace-write`, `full` | `workspace-write` | Filesystem access level |
+| `--ask-for-approval`, `-a` | `never`, `on-write`, `always` | `on-write` | When to pause for user approval |
+| `--json` | flag | off | Emit newline-delimited JSON event stream |
+| `--output-last-message` | path | none | Write final assistant response to file |
+| `--ephemeral` | flag | off | Skip disk persistence (no session stored) |
+| `--skip-git-repo-check` | flag | off | Allow execution outside git repos |
+| `--model`, `-m` | model name | server default | Model override (check latest via `codex models list`) |
+| `--profile`, `-p` | string | none | Load named config profile |
+| `--config`, `-c` | `key=value` | none | Inline config override (repeatable) |
+| `--reasoning-effort` | `medium`, `high`, `xhigh` | `medium` | Reasoning depth for reasoning models |
+| `--session` | session ID | none | Resume an existing session |
+| `--title` | string | none | Name for the session |
+
+> **Note:** The exact flag name for reasoning effort may vary — check `codex exec --help` for the current version.
+
+---
+
+### `codex models list` — Model Discovery
+
+```bash
+codex models list
+```
+
+Returns available models. Always check this at runtime — never hardcode a model name.
+
+---
+
+### Authentication
+
+```bash
+codex login              # Browser OAuth (interactive)
+codex login --device-auth   # Device code flow (headless/CI)
+codex login status       # Check authentication status (exit 0 = authenticated)
+codex logout             # Remove stored credentials
+```
+
+---
+
+### Multi-Agent Feature
+
+```bash
+codex features list                       # Show all features and their status
+codex features enable multi_agent         # Enable (persists to ~/.codex/config.toml)
+codex features disable multi_agent        # Disable
+```
+
+Manual config (equivalent):
+
+```toml
+# ~/.codex/config.toml
+[features]
+multi_agent = true
+```
+
+---
+
+### MCP Server
+
+```bash
+codex mcp-server    # Start Codex as an MCP server
+```
+
+Or via npx (no install required):
+
+```bash
+npx -y codex mcp-server
+```
+
+`.mcp.json` configuration:
+
+```json
+{
+  "mcpServers": {
+    "codex": {
+      "command": "npx",
+      "args": ["-y", "codex", "mcp-server"]
+    }
+  }
+}
+```
+
+**Exposed MCP tools:**
+
+| Tool | Purpose |
+|------|---------|
+| `mcp__codex__codex` | Start a Codex session |
+| `mcp__codex__codex-reply` | Continue an existing session |
+
+**`mcp__codex__codex` tool parameters:**
+
+| Parameter | Values | Purpose |
+|-----------|--------|---------|
+| `prompt` | string | Prompt content |
+| `approval-policy` | `never`, `on-write`, `always` | Approval mode |
+| `sandbox` | `read-only`, `workspace-write` | Filesystem access |
+| `model` | model name | Model override |
+| `reasoning` | `medium`, `high`, `xhigh` | Reasoning depth |
+| `base-instructions` | string | Custom system instructions |
+
+**`mcp__codex__codex-reply` tool parameters:**
+
+| Parameter | Values | Purpose |
+|-----------|--------|---------|
+| `prompt` | string | Follow-up prompt |
+| `threadId` | string | Thread ID from initial `mcp__codex__codex` call |
+
+`threadId` is available in the response as `structuredContent.threadId`.
+
+---
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | CLI error |
+| 124 | Timeout (shell `timeout` wrapper) |
+
+---
+
+### Installation
+
+```bash
+npm install -g @openai/codex
+# or
+npx -y codex   # without global install
+```
