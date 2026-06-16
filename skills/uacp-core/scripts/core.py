@@ -1365,8 +1365,51 @@ class Heartgate:
                 f"{exc.errors()[0].get('msg') if exc.errors() else exc}"
             )
 
+    def _triage_track(self, run_id: str) -> str:
+        """Read the run's TRACK as decided by the TRIAGE artifact (authoritative).
+
+        Council M-2: the manifest's ``track`` is set by the worker on its own
+        manifest — a worker could self-select ``goal-driven`` to swap the
+        deterministic PIV-artifact gate for the (relaxed) checkpoint-manifest
+        gate. TRIAGE is where the track is *decided* (the mechanical
+        specifiable-artifact test), so the TRIAGE artifact is the authority. This
+        reads the ``track`` declared on the triage artifact at
+        ``proposals/{run_id}-triage*.yaml`` (the same glob Heartgate's
+        phase_exit_invariants use to locate it).
+
+        Returns the triage ``track`` as a string, defaulting to ``"standard"``
+        when the triage artifact is absent / unreadable / declares no track —
+        i.e. a run is treated as goal-driven by TRIAGE ONLY on positive evidence.
+        Never raises. (The FIRST matching triage artifact is consulted; the glob
+        is normally singular.)
+        """
+        if not _is_safe_run_id(run_id):
+            return "standard"
+        try:
+            from engines.io.loaders import glob_in_workspace
+        except Exception:
+            return "standard"
+        try:
+            matches = sorted(
+                glob_in_workspace(self.uacp_root, f"proposals/{run_id}-triage*.yaml"),
+                key=lambda p: p.name,
+            )
+        except Exception:
+            return "standard"
+        if yaml is None:
+            return "standard"
+        for path in matches:
+            try:
+                raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+            if isinstance(raw, Mapping):
+                return str(raw.get("track") or "standard") or "standard"
+        return "standard"
+
     def _validate_convergence_budget_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
-        """PROPOSE->PLAN: a goal-driven run MUST declare a convergence budget.
+        """PROPOSE->PLAN: a goal-driven run MUST declare a convergence budget,
+        and its manifest track MUST match the TRIAGE decision.
 
         ADR-0016 R2: an autonomous goal-driven run (``claude -p``, cron) has no
         operator to sign off, so without a declared+enforced bound it loops
@@ -1375,6 +1418,15 @@ class Heartgate:
         carry a positive ``max_checkpoints``. Standard runs skip this entirely —
         the track is read from the manifest behind the goal-driven branch, so
         the standard PROPOSE->PLAN path is unchanged.
+
+        Council M-2 (un-forge the track): the manifest ``track`` is set by the
+        worker, so a worker could self-select ``goal-driven`` to swap the
+        deterministic PIV-artifact gate for the relaxed manifest gate. TRIAGE is
+        the authority for the track decision. So when the manifest claims
+        ``goal-driven``, the TRIAGE artifact's ``track`` (default ``standard``
+        if absent) must ALSO be ``goal-driven`` — else fail CLOSED (a worker
+        cannot self-relax the track). Still fully behind the goal-driven branch;
+        the standard path is untouched.
         """
         if str(artifact.get("from_phase") or "") != "propose" or str(artifact.get("to_phase") or "") != "plan":
             return
@@ -1385,6 +1437,20 @@ class Heartgate:
             return
         if not _is_safe_run_id(run_id):
             blockers.append("convergence_budget gate requires a valid run_id")
+            return
+        # Council M-2: the manifest track must match the TRIAGE decision. A
+        # manifest that claims goal-driven over a triage artifact that did NOT
+        # decide goal-driven is a self-relaxation -> fail closed.
+        triage_track = self._triage_track(run_id)
+        if triage_track != "goal-driven":
+            blockers.append(
+                f"track mismatch: run manifest declares track 'goal-driven' but the "
+                f"TRIAGE artifact decided track '{triage_track}' "
+                "(proposals/{run_id}-triage*.yaml is authoritative; a worker may not "
+                "self-select the goal-driven track to relax the PIV-artifact gate)".replace(
+                    "{run_id}", run_id
+                )
+            )
             return
         _budget, error = self._load_convergence_budget(run_id)
         if error is not None:
