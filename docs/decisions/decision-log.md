@@ -6,6 +6,22 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-06-16 — Goal-Driven Track (second lifecycle track for semantic/exploratory work)
+
+Decision: Add a **goal-driven track** alongside the existing **standard track**, both under the *one* UACP lifecycle. The five phases are reused unchanged; TRIAGE selects the track via a mechanical test ("is the success criterion specifiable as a verifiable artifact before EXECUTE?" — yes → standard, no → goal-driven). The two tracks differ in exactly one thing: transition discipline. Standard = forward-only (anchored to the phase sequence). Goal-driven = anchored to the **goal**; builds are disposable **checkpoints** (not commitments), impact is deferred to goal-satisfaction, and a gate-ledger-backed append-only **manifest** (what/why/evidence/verdict/invariant) records each checkpoint and any roll-back.
+
+Rationale: UACP's linear lifecycle does not fit semantic/exploratory work (landing page, positioning statement, conceptual data model) where the target is discovered and attempts are disposable. The value of doing such work under UACP is the governed record of what changed/why/evidence/verdict across restarts. A grounding finding anchors the manifest design: robust grounding enforcement is **structural claim⇒evidence coupling checked deterministically** — the proven trustless ACP system enforces grounding via deterministic hooks (commit-before-complete, PIV `output_hash`) and has **no response-text LLM judge**; a semantic judge is at most augmentation. So the manifest's `evidence` slot references a verifiable artifact, not prose, and is subject to Heartgate's no-self-attestation check. (Rejected alternatives + full reasoning: forked lifecycle, melt-into-one, port-trustless, rewind-tree, "make UACP semantic" — see ADR-0016.)
+
+Status: proposed. Validated via brainstorming + a 3-lens council audit (kernel sound; not yet implementable). **P2 RESOLVED (2026-06-16): roll-back = a new forward run under the held goal, reusing prior phase output (option b) — NOT a phase-graph back-edge and NOT an in-run state restore.** This dissolves the phase-graph mutation (O3) and shrinks P1: a "checkpoint" is a reusable prior-phase output reference, not a restorable in-run snapshot; the goal-driven track is realized as a persistent goal anchoring a chain of forward runs + an in-EXECUTE checkpoint manifest. Remaining before an implementation plan: P1-reduced (in-EXECUTE checkpoint manifest entry + how a run inherits a goal + prior output) and O1/O2/O4/O5. A convergence budget (max checkpoints/spend/wall-clock) is required for goal-driven runs so autonomous runs cannot loop forever.
+
+Canonical targets:
+
+- `docs/architecture/0016-goal-driven-track.md` (the ADR — full reasoning + trustless dossier + enforcement finding)
+- `docs/plans/2026-06-16-uacp-goal-driven-track-design.md` (the design doc)
+- future: `engines/domain/phase_graph.py` + Heartgate transition rules (per-track), TRIAGE `track` field, the checkpoint manifest schema
+
+Coupling / deferred: O2 (which validators relax for the goal-driven track) is coupled to the queued **Hermes grounding-gate** work item — both turn on the same structural claim⇒evidence enforcement finding.
+
 ### 2026-06-16 — Codified Gate Resolution Semantic (absent enforces, explicit-empty disables)
 
 Decision: When Slice 4b moved the phase-transition gate/rule grammar from `config/phase-transitions.yaml` into code (`engines/domain/gate_rules.py`, `phase_transitions.py`, `phase_graph.py`), the kernel readers resolve each block as: **key ABSENT → the codified code-default applies and the gate is ENFORCED** (fail-closed); **key PRESENT → the loaded value is used verbatim**, so a present-but-empty or disabling block (`plan_validation_gate: {}`, `heartgate_coherence_required_when: {}`, `piv_rule: {ledger_required: false}`) turns that gate OFF. This is intentional and is the explicit opt-out the test fixture (`tests/conftest.py`) uses. Note the deliberate ASYMMETRY with `stages`: `load_phase_transitions` injects the codified `stages_default()` even on an empty/absent `stages` block (stages are load-bearing for Guardian Layer-B + Heartgate and must never be disable-able), whereas individual gates are legitimately disable-able.
