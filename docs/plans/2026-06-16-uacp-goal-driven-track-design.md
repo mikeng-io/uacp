@@ -1,6 +1,6 @@
 # UACP Goal-Driven Track — Design
 
-> **Status:** validated design (brainstorming complete). Next step is an implementation plan (superpowers:writing-plans). Design-only; no code in this doc.
+> **Status:** BUILT and merged to main (2026-06-16). Implemented per the 9-task plan (`2026-06-16-uacp-goal-driven-track-implementation.md`); P2 resolved = option (b); 2-lens council cleared after resolving 2 MATERIAL findings. See ADR-0016. This design doc is retained as the as-designed record.
 
 **Goal:** Add a second *track* to the existing UACP lifecycle so that **semantic / exploratory** work (where the outcome is judged subjectively and attempts are disposable) is governable under the *same* phases — without forcing it through the forward-only, deterministic progression that fits 0→100 work.
 

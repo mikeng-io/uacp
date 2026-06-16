@@ -1,6 +1,6 @@
 ---
 type: adr
-status: proposed
+status: accepted
 date: 2026-06-16
 ---
 
@@ -8,7 +8,7 @@ date: 2026-06-16
 
 ## Metadata
 
-- **Status**: proposed (design validated via brainstorming + 3-lens council audit; pending one operator decision + an implementation plan)
+- **Status**: accepted — BUILT and merged to main (2026-06-16). 9-task implementation, two-stage-reviewed per task + a 2-lens council; both MATERIAL council findings (M-1 cross-chain cap evasion, M-2 forgeable track) resolved. Standard track provably byte-identical; suite 604/2.
 - **Date**: 2026-06-16
 - **Decision Makers**: UACP maintainer
 - **Consulted**: 3-lens Sonnet council (architecture/governance, devil's-advocate, capture/traceability)
