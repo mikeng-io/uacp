@@ -97,8 +97,8 @@ Session-specific notes and example wording live in `references/manual-drill-stat
 
 Reuse `references/heartgate-transition-schema-template.md` when a phase-transition artifact fails Heartgate for missing fields or schema drift.
 
-### state-mutation-protocol.md may be missing
-The skill references `references/state-mutation-protocol.md` but it may not exist in all installations. If the file is missing, use the rules in this SKILL.md as the authoritative protocol.
+### state-mutation-protocol.md
+The skill references `references/state-mutation-protocol.md` for the full mutation protocol, inputs, modes, owned fields, boundary rules, and verification steps.
 
 ## Updated doctrine alignment
 

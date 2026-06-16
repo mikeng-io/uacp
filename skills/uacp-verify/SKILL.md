@@ -114,7 +114,7 @@ For EXECUTE phases that reference `kind: uacp.phase_intent_verification_contract
 When acting as a verification reviewer before PLAN (e.g. the operator asks "what tests/dry-run fixtures and acceptance evidence are required before implementing or enabling live changes?"), use `references/codebase-verification-review-pattern.md`. This pattern inspects the existing codebase, maps test coverage, identifies gaps between design intent and implementation, defines required tests/fixtures, compiles blockers/concerns/suggestions, and produces a structured review artifact that gates PROPOSE → PLAN.
 
 ## Adversarial runtime review
-Before claiming Guardian/Heartgate is production-complete, or after any host-runtime change that affects tool dispatch, run an adversarial review of the actual runtime source to find bypasses, hook gaps, and fail-open paths. See `../references/adversarial-runtime-review.md` for the methodology, known bypass classes, and the mandatory questions that must be answered before enforcement can be claimed complete.
+Before claiming Guardian/Heartgate is production-complete, or after any host-runtime change that affects tool dispatch, run an adversarial review of the actual runtime source to find bypasses, hook gaps, and fail-open paths. See `references/adversarial-runtime-review.md` for the methodology, known bypass classes, and the mandatory questions that must be answered before enforcement can be claimed complete.
 
 
 

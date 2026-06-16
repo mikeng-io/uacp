@@ -139,7 +139,7 @@ Read additionally:
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (piv_rule, heartgate_coherence, run_registry)
 - `UACP_ROOT/config/uacp.toml` (`[heartgate.*]` — operator-tunable coherence thresholds and enforcement mode)
 - `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`)
-- `HERMES_ROOT/skills/devops/../references/current-semi-auto-orchestration.md` when deciding whether EXECUTE really needs Kanban/coordination or can stay synchronous
+- `references/current-semi-auto-orchestration.md` when deciding whether EXECUTE really needs Kanban/coordination or can stay synchronous
 - `references/self-patch-write-authority-gap-20260518.md` when EXECUTE touches UACP skills, validators, Heartgate/Guardian runtime adapters, or other self-patch governance surfaces
 - `references/phase-intent-verification-execute-evidence.md` when EXECUTE needs PIV-backed semantic evidence and VERIFY handoff
 - `references/phase-intent-verification-execute-evidence-20260519.md` when EXECUTE needs PIV-backed evidence, semantic execution packages, checkpoint validators, or expected-fail fixtures
