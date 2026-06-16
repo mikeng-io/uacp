@@ -1,19 +1,8 @@
+# Bridge: Claude (Anthropic) — uacp-bridge reference
+
+*Per-runtime reference for [uacp-bridge](../SKILL.md). Depends on: uacp-bridge, domain-registry, debate-protocol (Claude-only Layer-2 supersession of the Post-Analysis Protocol).*
+
 ---
-name: bridge-claude
-description: Reference adapter for Claude (Anthropic) dispatch. Read by any orchestrating skill via the Read tool. Defines how to invoke Claude sub-agents or the Anthropic API, with availability checks. Usable by any AI orchestrator — Claude Code, OpenCode, Codex, Gemini, or custom agents.
-location: managed
-context: reference
-dependencies:
-  - bridge-commons
-  - domain-registry
-  - debate-protocol
----
-
-# Bridge: Claude (Anthropic) Adapter
-
-This file is a REFERENCE DOCUMENT. Any orchestrating skill reads it via the `Read` tool and embeds its instructions directly into Task agent prompts. It is not invoked as a standalone skill — it is a reusable set of instructions for Anthropic model dispatch.
-
-**Input schema, agent prompt template, output schema, verdict logic, timeout formula, artifact format, tier system, and status semantics are defined in `bridge-commons/SKILL.md`. This file covers only Claude-specific connection detection, execution paths, and tier resolution.**
 
 ## Bridge Identity
 
@@ -37,33 +26,34 @@ Parameters this bridge reads from `config/uacp.toml` at runtime:
 | Parameter | Section | Type | Default | Description |
 |-----------|---------|------|---------|-------------|
 | `enabled` | `[bridges.claude]` | boolean | `true` | Whether this bridge is active. If `false`, the orchestrator skips it. |
-| `timeout_multiplier` | `[bridges.claude]` | float | `1.0` | Multiplier applied to the bridge-commons base timeout estimate. |
+| `timeout_multiplier` | `[bridges.claude]` | float | `1.0` | Multiplier applied to the uacp-bridge base timeout estimate. |
 | `workflows_enabled` | `[bridges.claude]` | boolean | `true` | Enable dynamic workflow dispatch (`/workflows`, `/deep-research`, `ultracode`). |
 
 **Not read from TOML** (intrinsic to bridge implementation):
-- `connection_preference` — defined in this SKILL.md only
+- `connection_preference` — defined in this file only
 - `agent_teams_env` — hardcoded as `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS`
 
 ---
 
 ## Tier Resolution
 
-Claude bridge resolves the model alias and reasoning level from `config/uacp.toml` `[models]` in `UACP_ROOT`. The tier mapping lives **only** in `uacp.toml` — this skill does not hardcode it.
+Claude bridge resolves the model alias and reasoning level from `config/uacp.toml` `[models]` in `UACP_ROOT`. The tier mapping lives **only** in `uacp.toml` — this file does not hardcode it.
 
-**Resolution protocol:**
+The general tier resolution protocol is defined in [uacp-bridge/SKILL.md](../SKILL.md). Claude-specific steps:
+
 1. Read `UACP_ROOT/config/uacp.toml` `[models]` section
 2. Look up `[models.tier_mappings.claude.{tier}]` → get `alias` + `reasoning`
 3. Look up `[models.providers.anthropic.models.{alias}]` → `concrete_id` → get resolved model ID
 4. Apply reasoning level to `--effort`
 
-The alias is stable; the `concrete_id` is updated in the registry when Anthropic releases new models. No bridge skill changes required.
+The alias is stable; the `concrete_id` is updated in the registry when Anthropic releases new models. No bridge reference changes required.
 
-**Effort mapping (bridge-specific):**
+**Effort mapping (Claude-specific — maps reasoning level to `--effort` flag value):**
 - `quick` / `medium` → `--effort medium`
 - `high` → `--effort high`
-- `xhigh` → `--effort max` (Claude Code's maximum reasoning effort)
+- `xhigh` → `--effort max` (Claude Code's maximum reasoning effort; note the flag value is `max`, not `xhigh`)
 
-**Override via `bridge_input.tier`:** If the council assigns a specific tier, use it directly. If absent, derive from `task_type` + `intensity` per bridge-commons rules.
+**Override via `bridge_input.tier`:** If the council assigns a specific tier, use it directly. If absent, derive from `task_type` + `intensity` per uacp-bridge rules (see [uacp-bridge/SKILL.md](../SKILL.md)).
 
 ---
 
@@ -122,7 +112,7 @@ dispatch_mode:
     condition: "tier >= 3 OR mode in [research, audit] OR task_description contains 'ultracode'"
     description: "Dynamic JavaScript workflows — orchestrate subagents at scale via Claude Code /workflows"
     preferred: true
-    capabilities: 
+    capabilities:
       - "Up to 16 concurrent agents (fewer on limited CPU)"
       - "Up to 1,000 agents total per run"
       - "JavaScript orchestration scripts in .claude/workflows/"
@@ -194,7 +184,7 @@ Claude Code workflows are JavaScript scripts that orchestrate subagents at scale
 2. Invoke: claude -p "/deep-research {task_description}" \
      --model {resolved_model} --effort {resolved_effort}
 3. Capture output (structured JSON if available, else markdown)
-4. Parse findings into bridge-commons output format
+4. Parse findings into uacp-bridge output format
 ```
 
 **For `ultracode` (keyword-triggered):**
@@ -220,17 +210,17 @@ async function main() {
     model: $.input.model,
     effort: $.input.effort
   }));
-  
+
   // Spawn up to 16 concurrent agents
   const results = await Promise.all(tasks.map(t => $.agent(t)));
-  
+
   // Synthesis agent
   const synthesis = await $.agent({
     name: "synthesis",
     prompt: `Synthesize these findings: ${JSON.stringify(results)}`,
     model: $.input.model
   });
-  
+
   return synthesis;
 }
 
@@ -245,9 +235,9 @@ claude -p "run workflow uacp-council" \
   --input '{"domains": [...], "task_description": "..."}'
 ```
 
-### Workflow fallback
+### Workflow fallback (degrade-at-depth-2 guard)
 
-If workflows are not available (older Claude Code version, not in Claude Code context, workflow scripts missing) → fall back to Step 3B (Agent Teams) or Step 3C (Task Tool).
+If workflows are not available (older Claude Code version, not in Claude Code context, workflow scripts missing, or depth ≥2 where Workflows degrade to single-agent mode) → fall back to Step 3B (Agent Teams) or Step 3C (Task Tool).
 
 ---
 
@@ -255,7 +245,7 @@ If workflows are not available (older Claude Code version, not in Claude Code co
 
 When `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` is set and task complexity warrants it (3+ domains or thorough intensity), attempt Agent Teams. Teammates share a task list and can message each other directly — enabling real-time debate between domain experts.
 
-### Failure guard — attempt before committing
+### Failure guard — TeamCreate-FIRST, fail-closed
 
 Before executing the full flow, attempt `TeamCreate`. If it fails for any reason (not available in this execution context, naming collision, experimental feature restricted at current depth) → **immediately fall back to Step 3C**. Do not retry Agent Teams.
 
@@ -278,7 +268,7 @@ Before executing the full flow, attempt `TeamCreate`. If it fails for any reason
    IF any step 2–6 fails → call TeamDelete before returning SKIPPED
 ```
 
-Teammates communicate findings and challenges directly without routing through the parent. This replaces the bridge-commons consolidation pass — debate-protocol provides a richer version.
+Teammates communicate findings and challenges directly without routing through the parent. This supersedes the uacp-bridge Post-Analysis Protocol for Claude — debate-protocol provides the full Layer-2 protocol instead.
 
 ### Teammate prompts
 
@@ -287,10 +277,10 @@ Teammates communicate findings and challenges directly without routing through t
 You are a {expert_role}. Your task: {task_description}
 Scope: {scope} | Context: {context_summary} | Intensity: {intensity} | Tier: {tier}
 Focus: {focus_areas from domain-registry}
-Return your output as the JSON structure defined in bridge-commons Agent Prompt Template.
+Return your output as the JSON structure defined in uacp-bridge/SKILL.md Agent Prompt Template.
 ```
 
-**Devil's Advocate:**
+**Devil's Advocate (EXTENDED — richer than uacp-bridge generic Challenger):**
 ```
 You are a Devil's Advocate for this analysis session.
 Scope: {scope} | Context: {context_summary} | Intensity: {intensity} | Tier: {tier}
@@ -308,7 +298,7 @@ Message domain expert teammates directly to challenge their findings. Do not wai
 Return outputs JSON with domain: "cross-domain". Include both challenge outcomes (findings you successfully challenged/withdrew) and new findings you discovered.
 ```
 
-**Integration Checker:**
+**Integration Checker (EXTENDED — richer than uacp-bridge generic Integration Checker):**
 ```
 You are an Integration Checker for this analysis session.
 Scope: {scope} | Context: {context_summary} | Intensity: {intensity} | Tier: {tier}
@@ -330,7 +320,7 @@ Return outputs JSON with domain: "integration".
 
 ## Step 3C: Execute via Task Tool (fallback)
 
-When Agent Teams is not available, spawn parallel Task sub-agents — one per domain + Devil's Advocate + Integration Checker. Sub-agents report results to parent only (no direct inter-agent communication). Build prompts using the Agent Prompt Template from bridge-commons.
+When Agent Teams is not available, spawn parallel Task sub-agents — one per domain + Devil's Advocate + Integration Checker. Sub-agents report results to parent only (no direct inter-agent communication). Build prompts using the Agent Prompt Template from [uacp-bridge/SKILL.md](../SKILL.md).
 
 ```
 Task 1: {domain_1} expert — focus: {focus_areas}, scope: {scope}
@@ -340,7 +330,7 @@ Task N:   Devil's Advocate — challenge assumptions, find failure modes (domain
 Task N+1: Integration Checker — cross-component impacts, implicit contracts (domain: "integration")
 ```
 
-All tasks run in parallel. After all complete, run the bridge-commons Post-Analysis Protocol. For subsequent rounds, spawn new Task sub-agents with the context packet embedded in their prompts — the parent agent holds all state between rounds and manages the orchestrator synthesis step.
+All tasks run in parallel. After all complete, run the uacp-bridge Post-Analysis Protocol (see [uacp-bridge/SKILL.md](../SKILL.md)). For subsequent rounds, spawn new Task sub-agents with the context packet embedded in their prompts — the parent agent holds all state between rounds and manages the orchestrator synthesis step.
 
 ---
 
@@ -348,14 +338,14 @@ All tasks run in parallel. After all complete, run the bridge-commons Post-Analy
 
 When any non-Claude-Code executor can call the `claude` CLI:
 
-**Resolve tier first:**
+**Resolve tier first** (see Tier Resolution above and [uacp-bridge/SKILL.md](../SKILL.md)):
 ```bash
 # Read tier from bridge_input or derive from task_type + intensity
 # Look up model and reasoning from config/uacp.toml
 # Resolved values: RESOLVED_MODEL, RESOLVED_EFFORT
 ```
 
-**Read-only analysis (research, review, audit):**
+**Read-only analysis (research, review, audit) — `capability_profile: inspect`:**
 ```bash
 timeout {final_timeout} claude -p "{constructed_prompt}" \
   --model {RESOLVED_MODEL} \
@@ -364,7 +354,7 @@ timeout {final_timeout} claude -p "{constructed_prompt}" \
   --allowedTools "Read,Grep,Glob,Bash(ls *)"
 ```
 
-**Implementation tasks (writes files, runs git, generates artifacts):**
+**Implementation tasks (writes files, runs git, generates artifacts) — `capability_profile: modify`:**
 ```bash
 timeout {final_timeout} claude -p "{constructed_prompt}" \
   --model {RESOLVED_MODEL} \
@@ -406,14 +396,14 @@ timeout {final_timeout} claude -p "ultracode: {task_description}" \
 | `--allowedTools` | Restrict what Claude can do (read-only tasks only) |
 | `--continue` | Resume the most recent session |
 
-For read-only analysis, scope tools to `Read,Grep,Glob,Bash(ls *)`. For implementation tasks (write files, commit, qmd update), use `--dangerously-skip-permissions` with no `--allowedTools` restriction.
+For read-only analysis (`capability_profile: inspect`), scope tools to `Read,Grep,Glob,Bash(ls *)`. For implementation tasks (`capability_profile: modify`), use `--dangerously-skip-permissions` with no `--allowedTools` restriction.
 
 ---
 
 ## Step 3E: Execute via Anthropic API (last resort)
 
 ```bash
-# Discover latest model first — do not hardcode
+# Discover latest model at runtime — never hardcode the model ID
 CLAUDE_MODEL=$(curl -s -H "x-api-key: $ANTHROPIC_API_KEY" \
   https://api.anthropic.com/v1/models | python3 -c \
   "import sys,json; models=json.load(sys.stdin)['data']; print(models[0]['id'])")
@@ -435,7 +425,7 @@ Single API call covers all domains in one prompt. Less parallelism than native-d
 
 ## Output
 
-See bridge-commons Output Schema. Bridge-specific fields:
+For the full Output Schema, see [uacp-bridge/SKILL.md](../SKILL.md). Bridge-specific fields added by this adapter:
 
 ```json
 {
@@ -460,12 +450,111 @@ Output ID prefix: `C` (e.g., `C001`, `C002`).
 - **Not always available** — check Task tool access or `ANTHROPIC_API_KEY` before using
 - **SKIPPED is non-blocking** — if unavailable, other bridges continue
 - **native-dispatch is preferred** — richer parallel dispatch when running in Claude Code
-- **Workflows are the highest-capability mode** — use for tier ≥3, research, audit, or when scale matters (16 concurrent agents, 1000 total)
-- **Agent Teams replaces consolidation pass** — when available, debate-protocol runs instead
-- **Agent Teams guard is mandatory** — `TeamCreate` can fail even when the env var is set (nested sub-agent context, depth limit, naming collision); always fall back to Task Tool on failure
+- **Workflows are the highest-capability mode** — use for tier ≥3, research, audit, or when scale matters (16 concurrent agents, 1,000 total)
+- **Agent Teams supersedes Post-Analysis Protocol** — when available, debate-protocol Layer-2 runs instead of the uacp-bridge consolidation pass
+- **Agent Teams guard is mandatory** — `TeamCreate` can fail even when the env var is set (nested sub-agent context, depth limit, naming collision); always fall back to Task Tool on failure; no retries
 - **Workflows guard is mandatory** — workflows require Claude Code context and may not be available in nested execution; always fall back to Agent Teams or Task Tool
 - **Sub-agent recursion depth** — Task → Task works reliably; Agent Teams inside a Task agent (Task → TeamCreate) is experimental and context-dependent; Workflows at depth 2+ may degrade to single-agent mode
 - **TeamDelete on failure** — if any step between TeamCreate and synthesis fails, call TeamDelete before returning SKIPPED to avoid orphaned teams
 - **API path works from any executor** — fallback for non-Claude orchestrators
-- **Task type drives framing** — the same bridge handles review, planning, research, etc.
+- **Task type drives framing** — the same bridge handles review, planning, research, etc. (see uacp-bridge/SKILL.md for capability_profile derivation)
 - **Tier is never hardcoded** — model selections come from `config/uacp.toml`; update the TOML when Anthropic releases new models
+
+---
+
+## CLI Reference
+
+Complete reference for `claude` CLI non-interactive usage. Used when this bridge runs via an external executor (OpenCode, Codex, Gemini, or any agent that can shell out to `claude`).
+
+### Non-Interactive Mode
+
+```bash
+claude -p "prompt"
+```
+
+The `-p` flag runs Claude non-interactively without opening an interactive session.
+
+### Key Flags
+
+| Flag | Values | Purpose |
+|------|--------|---------|
+| `-p`, `--print` | string | Prompt string — enables non-interactive mode |
+| `--output-format` | `text`, `json`, `stream-json` | Output format |
+| `--allowedTools` | comma-separated tool names | Restrict available tools |
+| `--continue` | — | Resume most recent session |
+| `--resume` | session ID | Resume a specific session |
+| `--model` | model ID | Override model |
+| `--verbose` | — | Debug output (remove in production) |
+| `--dangerously-skip-permissions` | — | Skip all permission checks (use in sandboxed env only) |
+
+### Output Formats
+
+| Format | Description | Use Case |
+|--------|-------------|---------|
+| `text` | Plain text (default) | Human-readable output |
+| `json` | Structured JSON result | Programmatic parsing |
+| `stream-json` | Streaming JSON events | Real-time processing, long tasks |
+
+### Tool Scoping for Read-Only Analysis
+
+```bash
+claude -p "{prompt}" \
+  --output-format json \
+  --allowedTools "Read,Grep,Glob,Bash(ls *),Bash(cat *)"
+```
+
+Restricts Claude to reading files only — appropriate for review, analysis, planning tasks where no writes should occur.
+
+### Piping Input
+
+```bash
+# Pipe file contents as context
+cat error.log | claude -p "Analyze this log for errors"
+
+# Pipe from another command
+git diff | claude -p "Summarize what changed"
+```
+
+### Agent Teams (Claude Code native, not CLI-invocable)
+
+Agent Teams require `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in environment and are only available when Claude Code is the executor. They cannot be triggered via `claude -p`.
+
+Enable in `settings.json`:
+```json
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
+```
+
+### Sub-Agent Definitions (`.claude/agents/`)
+
+Define specialized sub-agents in `.claude/agents/`:
+
+```markdown
+---
+name: security-reviewer
+description: Reviews code for security vulnerabilities
+tools: Read, Grep, Glob, Bash
+model: opus
+---
+You are a security engineer. Review for injection vulnerabilities,
+auth flaws, secrets in code, and insecure data handling.
+```
+
+Invoke: `"Use a security-reviewer subagent to analyze src/auth/"`
+
+### Anthropic API Fallback
+
+When `claude` CLI is not available, fall back to the Anthropic API directly (see Step 3E above for the full invocation pattern with runtime model discovery).
+
+### Installation
+
+```bash
+# Via npm
+npm install -g @anthropic-ai/claude-code
+
+# Check version
+claude --version
+```
