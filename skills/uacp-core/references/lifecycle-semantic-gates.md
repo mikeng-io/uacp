@@ -109,7 +109,7 @@ For high-impact phases such as VERIFY and RESOLVE, do not implement first. Use t
 2. Pre-design council to define constraints and must-block cases.
 3. Implement docs, config, validator, fixtures, and skills together.
 4. Run deterministic validation including expected-fail fixtures.
-5. Post-implementation council and adversarial audit.
+5. Post-implementation council and adversarial audit — **mandatory for governance/validator changes** (not optional for high-risk work).
 6. Patch findings.
 7. Focused follow-up council until PASS or accepted residual risk is explicit.
 8. Commit and push only after validation passes and material audit findings are closed.
