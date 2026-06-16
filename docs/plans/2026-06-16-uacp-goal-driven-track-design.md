@@ -59,9 +59,7 @@ These were each explored and explicitly rejected; re-introducing them is the fai
 - **TRIAGE selects the track**, via a *mechanical* test (closes the escape-hatch risk): **"Is the success criterion specifiable as a verifiable artifact before EXECUTE begins?"** — yes → `standard`; no → `goal-driven`. The selection is recorded as a `track` field on the triage artifact (a canonical, validated location every downstream phase + Heartgate reads — track identity must not be inferred or stored out-of-band). [Track names not finalized — see Open Items.]
 - **PROPOSE declares the goal as the fixed anchor.** Success criteria are *semantic* (operator/defined satisfaction), not a fixed spec. PROPOSE sets the sandbox + authority + scope; the goal is the invariant the rest of the track serves.
 - **Checkpoint = a recorded phase-state you can return to.** Rolling back = returning to a checkpoint and proceeding again, still toward the same goal.
-- **Transition discipline is the only per-track difference (Heartgate-owned):**
-  - Standard: forward-only.
-  - Goal-driven: a transition may roll back to a prior checkpoint; the binding constraint is the goal, not the phase order.
+- **Per-track difference (updated by P2=(b)):** per-run transitions are **forward-only in BOTH tracks** — the phase graph is untouched. The goal-driven track differs by *(i)* a **persistent goal** that anchors a **chain of forward runs** (re-launch under the held goal = the "roll back"), and *(ii)* an **in-EXECUTE checkpoint manifest**. The binding constraint is the goal across the chain, not the phase order within a run. (The earlier "transition discipline / back-edge" framing applied to the rejected option A.)
 - **Builds are checkpoints, not commitments.** A checkpoint is disposable. Heavy weight — impact, commitment, governance pressure — attaches to **the goal** and to **the moment of satisfaction**, not to every attempt. When a checkpoint meets the goal it is *promoted from checkpoint to result*, and VERIFY/RESOLVE close against the goal + manifest coherence.
 - **Manifest (append-only, gate-ledger-backed) makes roll-back traceable — and is NOT an honor system.** Entries route through the existing `uacp_gate_ledger_append` writer (not a new one), and Heartgate runs the **same no-self-attestation check on checkpoint entries that it runs on standard-track phase transitions**. The `evidence` slot must reference an **externally verifiable artifact** (a committed render/screenshot/preview/sample path), not a prose description — this is the *structural claim⇒evidence coupling* enforcement finding applied here. This is the reason to do exploratory work under UACP at all: even when you scrap and restart, you retain a governed record of what/why/evidence/verdict/invariant.
 
@@ -77,11 +75,13 @@ The destination depends on *what* the dissatisfaction indicts; the goal-driven t
 
 The deciding question at each unsatisfying outcome: *"Is this fixable within what the plan left fluid?"* → yes: another checkpoint · no, approach wrong: PLAN · no, goal wrong: PROPOSE. The manifest verdict records which of the three, and why.
 
+> **Per P2=(b):** "roll back to PLAN/PROPOSE" means **launch a new forward run under the same persistent goal, reusing that phase's prior output** — not an in-run rewind. The common case ("attempt weak") stays in-place inside one run's EXECUTE. The manifest chains the runs under the goal.
+
 ---
 
 ## What stays identical across both tracks
 
-The phases, the artifacts, the governed writers, and the core invariants — **authority is explicit, side effects are declared/contained, writes are governed, claims are backed by evidence, no self-attesting closure.** Only the *transition discipline* and the *manifest obligation* differ. The goal-driven track is not "less governed" — it is differently shaped, and it adds a finer-grained (per-checkpoint) record stream on top of the existing per-phase artifacts.
+The phases, the per-run forward transition discipline, the artifacts, the governed writers, and the core invariants — **authority is explicit, side effects are declared/contained, writes are governed, claims are backed by evidence, no self-attesting closure.** Per P2=(b), what the goal-driven track *adds* (rather than changes) is: a **persistent goal** anchoring a **run-chain**, and an **in-EXECUTE checkpoint manifest**. The goal-driven track is not "less governed" — it is differently shaped, and it adds a finer-grained (per-checkpoint) record stream plus a cross-run goal link on top of the existing per-phase artifacts.
 
 ---
 
@@ -99,7 +99,10 @@ The phases, the artifacts, the governed writers, and the core invariants — **a
 
 P1. **Checkpoint semantics / state serialization (the #1 blocker).** "Return to a checkpoint" must specify *exactly what is restored vs preserved*: the `state/current.yaml` phase pointer, worktree git SHA (revert build commits or leave them?), scope-artifact version, the append-only gate-ledger (entries can't be erased → tombstone with a `rolled_back_by` pointer?), and the run-manifest `state_history` (preserved — it's the audit trail). Minimum viable definition: a checkpoint is a named `(phase, run-manifest snapshot, git SHA, gate-ledger length, scope-artifact version)` tuple, with a chosen+recorded policy for worktree commits. Until this is defined, roll-back has no stable operational meaning.
 
-P2. **The roll-back MECHANISM (pending operator decision — see below).** A restorable checkpoint you re-enter and proceed forward from is, graph-theoretically, a back-edge. Two clean resolutions: **(a)** own it as a DAG-with-back-edges and fully define what a checkpoint serializes (P1); or **(b)** reframe "roll back to PLAN/PROPOSE" as *a new forward run with the goal held constant and the prior PROPOSE/PLAN output reused* — which dissolves both the topology concern and most of P1. **This is the operator's call; everything downstream depends on it.**
+P2. **The roll-back MECHANISM — RESOLVED 2026-06-16: option (b).** "Roll back to PLAN/PROPOSE" is *a new forward run with the goal held constant and the prior PROPOSE/PLAN output reused* — NOT a graph back-edge and NOT an in-run state restore. Consequences, which materially de-risk the design:
+  - **The phase graph is untouched.** Per-run transitions stay forward-only in *both* tracks; `LIFECYCLE_GRAPH` / `_transition_allowed` need no change. → **O3 dissolves** (no per-track back-edge allowlist needed).
+  - **P1 shrinks drastically.** A "checkpoint" you roll back to is just a *reusable prior-phase output reference* (the frozen goal + the prior PROPOSE/PLAN artifact), not a restorable in-run state snapshot. No worktree-revert / gate-ledger-tombstone machinery for roll-back. The in-EXECUTE checkpoint remains a manifest entry (+ optional worktree marker).
+  - **The kernel reframes:** the goal-driven track is realized as **(i) a persistent GOAL that anchors a chain of forward runs + (ii) an in-EXECUTE checkpoint manifest** — not as a "transition-discipline" change. The standard track = a single run whose goal is satisfied once. The one genuinely new construct is the *persistent goal that links a run-chain* (a goal-id in the run registry).
 
 ### Resolved in this audit (fold into the plan)
 
