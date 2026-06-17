@@ -136,7 +136,7 @@ If any fails → extend an existing doc (or, for non-cited material, put it in `
 
 ### OKF frontmatter
 
-Every doc in `uacp-core/references/` and `docs/knowledge/` carries Open-Knowledge-Format
+Every doc in `uacp-core/references/` and `.uacp/knowledge/` carries Open-Knowledge-Format
 frontmatter so the reference/knowledge layer is interoperable across runtimes and tooling:
 
 ```yaml
@@ -193,7 +193,7 @@ Content shared across skills lives once under **`uacp-core/references/`** (the k
 ### Where a shared/reference doc lives
 - Cited by exactly ONE skill → that skill's own `references/`.
 - Shared across many skills, or a kernel-level contract → `uacp-core/references/`.
-- Dated session-history / one-off lessons / external analysis cited by no skill → `docs/knowledge/` (reading + provenance; it ships with the plugin, but it is *not* the operational contract — point skill instruction at the `uacp-core/references/` digest, not at history).
+- Dated session-history / one-off lessons / external analysis cited by no skill → `.uacp/knowledge/` (the single Oracle-owned knowledge corpus — reading + provenance; it ships with the plugin, but it is *not* the operational contract — point skill instruction at the `uacp-core/references/` digest, not at history).
 
 ## Plugin-readiness checklist
 1. Skill is at `skills/<dir>/SKILL.md`; the dir name is the intended `/uacp:<dir>` invocation name.

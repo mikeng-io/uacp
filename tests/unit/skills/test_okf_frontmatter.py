@@ -2,7 +2,7 @@
 
 Open Knowledge Format (OKF) frontmatter is required on every *.md file in:
   - skills/uacp-core/references/
-  - docs/knowledge/
+  - .uacp/knowledge/
 
 with the sole exemption of per-directory index.md files.
 
@@ -27,7 +27,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 REFERENCES_DIR = REPO_ROOT / "skills" / "uacp-core" / "references"
-KNOWLEDGE_DIR = REPO_ROOT / "docs" / "knowledge"
+KNOWLEDGE_DIR = REPO_ROOT / ".uacp" / "knowledge"
 
 VALID_TYPES = {"contract", "pattern", "digest", "lessons", "analysis"}
 
