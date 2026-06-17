@@ -17,8 +17,8 @@ If a required file is missing, stop and emit an install advisory.
 Guardian is optional but should be detected at one of these paths:
 
 ```
-[skills-root]/uacp-guardian/SKILL.md
-.guardian/guardian.py
+[skills-root]/uacp-core/scripts/core.py   # Guardian is implemented here
+.guardian/guardian.py                      # runtime-local hook binding (if present)
 ```
 
 For Tier 2+ dispatch, also verify runtime adapters:
