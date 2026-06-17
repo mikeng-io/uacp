@@ -74,7 +74,11 @@ def _relevance(
     Scoring:
       +1 per matching domain
       +2 per matching invariant
-      +3 if any affected_path appears in the query (currently unused; wired for future)
+
+    The ``+3 affected_path`` term described in early design notes is not
+    implemented: corpus docs do not carry a consistent ``affected_path`` field
+    and the query string is not pre-tokenised into paths here. If the corpus
+    schema adds that field, wire it as ``+3 * len(doc_paths & query_paths)``.
 
     Returns 0 when there is no overlap (gate: relevance >= 1 to include).
     """

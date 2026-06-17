@@ -242,7 +242,9 @@ def oracle_query(
     except Exception:
         sources_skipped.append("honcho")
 
-    # Source 3: semantic (C-semantic deferred — always skipped at C-floor)
+    # Source 3: semantic — runs the pipeline when the store is available;
+    # records "semantic" in sources_skipped when the store is unavailable
+    # (lancedb absent, index not built, or oracle.enabled=false).
     try:
         sem_packets = _semantic_packets(
             workspace, phase, project,

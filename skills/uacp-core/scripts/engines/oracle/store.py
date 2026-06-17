@@ -100,8 +100,13 @@ class LanceDBStore:
     def rrf_hybrid(
         self, vector: list[float] | None, query: str, k: int
     ) -> list[dict[str, Any]]:
-        # LanceDB native hybrid search fuses dense + FTS with RRF (k=60). When no
-        # vector is available the dense leg is skipped and FTS carries the query.
+        # NOTE: this method does NOT implement real RRF fusion. It issues a single
+        # table.search() call — either vector search (when vector is provided) or
+        # FTS (when vector is None). True RRF fusion across both legs is performed
+        # by pipeline.rrf_fuse(), which the live pipeline (pipeline.semantic_retrieve)
+        # uses instead of this method. Real index build is also deferred: upsert()
+        # raises StoreUnavailable. This stub exists only to satisfy the VectorStore
+        # protocol while the full hybrid-index build task is pending.
         table = self._open_table()
         probe = vector if vector is not None else query
         rows = table.search(probe).limit(k).to_list()
