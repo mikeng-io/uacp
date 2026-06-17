@@ -108,3 +108,29 @@ def test_knowledge_to_okf_round_trips():
     from engines.domain.corpus import KnowledgeItem
     original = KnowledgeItem.from_okf(_knowledge_md())
     assert KnowledgeItem.from_okf(original.to_okf()) == original
+
+
+from engines.domain.corpus import bes_score
+
+
+def test_bes_prior_when_no_eligible_runs():
+    # eligible == 0 -> prior 0.5, regardless of days
+    assert bes_score(eligible=0, recurrences=0, days_since_extracted=0) == 0.5
+    assert bes_score(eligible=0, recurrences=0, days_since_extracted=1000) == 0.5
+
+
+def test_bes_smoothed_posterior_no_recurrence():
+    # eligible=8, recurrences=0, days=0 (recency=1.0)
+    # successes=8 ; smoothed=(8+1)/(8+2)=0.9 ; bes=0.9*1.0
+    assert bes_score(eligible=8, recurrences=0, days_since_extracted=0) == 0.9
+
+
+def test_bes_smoothed_posterior_with_recurrences():
+    # eligible=8, recurrences=4, days=0
+    # successes=4 ; smoothed=(4+1)/(8+2)=0.5 ; bes=0.5
+    assert bes_score(eligible=8, recurrences=4, days_since_extracted=0) == 0.5
+
+
+def test_bes_all_recurrences_floor_not_zero():
+    # eligible=3, recurrences=3 -> successes=0 ; smoothed=(0+1)/(3+2)=0.2
+    assert bes_score(eligible=3, recurrences=3, days_since_extracted=0) == 0.2
