@@ -9,7 +9,6 @@ description: >
 kind: orchestration
 location: managed
 dependencies:
-  - uacp-council-taxonomy
   - domain-registry
   - uacp-web
   - uacp-state
@@ -40,7 +39,7 @@ Before executing, verify required skills are present:
 
 ```
 [skills-root]/domain-registry/README.md
-[skills-root]/uacp-council-taxonomy/SKILL.md
+[skills-root]/uacp-core/references/council-taxonomy.md
 [skills-root]/uacp-bridge/SKILL.md
 ```
 

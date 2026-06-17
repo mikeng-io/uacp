@@ -7,7 +7,7 @@ This phase establishes the council manifest. It resolves what the council is all
 Verify required skills are present:
 
 ```
-[skills-root]/uacp-council-taxonomy/SKILL.md
+[skills-root]/uacp-core/references/council-taxonomy.md
 [skills-root]/domain-registry/README.md
 [skills-root]/uacp-bridge/SKILL.md
 ```

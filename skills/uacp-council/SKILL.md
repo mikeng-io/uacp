@@ -4,7 +4,6 @@ description: Unified multi-agent orchestration skill for UACP. Takes a tier para
 kind: orchestration
 location: managed
 dependencies:
-  - uacp-council-taxonomy
   - domain-registry
   - uacp-bridge
 allowed-tools:
@@ -30,10 +29,10 @@ Guardian, when installed, enforces the council's registration manifest and outpu
 Read the vocabulary first:
 
 ```
-Read: [skills-root]/uacp-council-taxonomy/SKILL.md
+Read: [skills-root]/uacp-core/references/council-taxonomy.md
 ```
 
-`uacp-council-taxonomy` is this suite's authoritative glossary — tier model, runtime vocabulary, diversity dimensions, and anti-patterns. Every step below assumes that vocabulary.
+`council-taxonomy.md` is this suite's authoritative glossary — tier model, runtime vocabulary, diversity dimensions, and anti-patterns. Every step below assumes that vocabulary.
 
 `[skills-root]` is the parent of this skill's directory — resolve with `ls ../` from this skill's location.
 

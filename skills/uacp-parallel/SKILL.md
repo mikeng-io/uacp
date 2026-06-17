@@ -8,7 +8,6 @@ description: >
 kind: orchestration
 location: managed
 dependencies:
-  - uacp-council-taxonomy
   - uacp-bridge
 allowed-tools:
   - Read

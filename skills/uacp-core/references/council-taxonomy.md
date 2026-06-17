@@ -1,8 +1,9 @@
 ---
-name: uacp-council-taxonomy
-description: Authoritative vocabulary for the UACP skills suite — tier model, runtime/adapter terms, diversity dimensions, anti-patterns. Every council-related skill reads this first before doing anything else. Installs alongside uacp-council as a hard dependency. Read this whenever you encounter the words "council", "tier", "runtime", or "local agent" in any UACP artifact or skill.
-kind: reference
-location: managed
+type: contract
+title: Council Taxonomy
+description: Canonical Agent-Council vocabulary — modes, tiers, roles, and dispatch surfaces that lifecycle/orchestration skills must use.
+tags: [council, taxonomy, orchestration]
+timestamp: 2026-06-17
 ---
 
 # Council Taxonomy — UACP Skills Suite Glossary

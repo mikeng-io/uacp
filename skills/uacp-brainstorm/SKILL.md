@@ -9,7 +9,6 @@ kind: orchestration
 location: managed
 dependencies:
   - uacp-context
-  - uacp-council-taxonomy
   - domain-registry
   - uacp-bridge
 allowed-tools:
