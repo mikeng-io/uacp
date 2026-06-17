@@ -66,3 +66,45 @@ def test_lesson_to_okf_round_trips():
 def test_lesson_to_okf_emits_type_lesson_first():
     serialized = Lesson.from_okf(_lesson_md()).to_okf()
     assert serialized.startswith("---\ntype: lesson\n")
+
+
+def _knowledge_md() -> str:
+    return textwrap.dedent("""\
+        ---
+        type: pattern
+        id: governed-writer-discipline
+        title: Always route protected writes through a governed writer
+        description: How to satisfy the no-raw-writes invariant.
+        tags: [governance, writers]
+        domains: [runtime, governance]
+        scope: shared
+        derived_from: [kanban-guard-resolve-bypass]
+        timestamp: "2026-06-17"
+        ---
+        Body prose explaining the pattern.
+        """)
+
+
+def test_knowledge_from_okf():
+    from engines.domain.corpus import KnowledgeItem
+    k = KnowledgeItem.from_okf(_knowledge_md())
+    assert k.type == "pattern"
+    assert k.id == "governed-writer-discipline"
+    assert k.scope == "shared"
+    assert k.derived_from == ["kanban-guard-resolve-bypass"]
+    assert k.domains == ["runtime", "governance"]
+    assert "Body prose" in k.body
+
+
+def test_knowledge_rejects_lesson_type():
+    import pytest
+    from engines.domain.corpus import KnowledgeItem
+    bad = _knowledge_md().replace("type: pattern", "type: lesson")
+    with pytest.raises(ValueError):
+        KnowledgeItem.from_okf(bad)
+
+
+def test_knowledge_to_okf_round_trips():
+    from engines.domain.corpus import KnowledgeItem
+    original = KnowledgeItem.from_okf(_knowledge_md())
+    assert KnowledgeItem.from_okf(original.to_okf()) == original
