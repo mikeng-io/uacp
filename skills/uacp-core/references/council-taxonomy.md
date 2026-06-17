@@ -37,7 +37,7 @@ The unified multi-agent review skill. Takes a `tier` parameter (0/1/2/3) that sc
 The scale parameter of Agent Council. Tier 0 = single agent. Tier 1 = in-runtime. Tier 2 = cross-runtime. Tier 3 = cross-runtime + debate. See **The Tier Model** below.
 
 ### Domain
-A subject area an expert focuses on (e.g., security, performance, accessibility, data integrity). Resolved from `domain-registry/domains/*.md` by matching `trigger_signals` against conversation context.
+A subject area an expert focuses on (e.g., security, performance, accessibility, data integrity). Resolved from `uacp-core/references/domains/*.md` by matching `trigger_signals` against conversation context.
 
 ### Domain expert
 A sub-agent (Tier 1) or a runtime-adapter invocation (Tier 2+) playing the role of an expert in one domain.
@@ -294,4 +294,4 @@ Finding-driven mode performs up to four checks (resolution, regression, design-d
 - `uacp-council/SKILL.md` — the unified, tier-parameterized council skill
 - `uacp-bridge/SKILL.md` — the shared contract all runtime adapters implement
 - `uacp-bridge/references/{claude,codex,gemini,kimi,opencode}.md` — runtime adapter specs
-- `domain-registry/README.md` — domain definitions and trigger signals
+- `uacp-core/references/domains/README.md` — domain definitions and trigger signals

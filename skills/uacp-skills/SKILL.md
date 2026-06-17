@@ -21,8 +21,7 @@ skills/<kebab-name>/
 └── assets/           (optional) — templates, fixtures
 ```
 
-- Names are **kebab-case**. UACP skills are prefixed `uacp-` unless they are a
-  shared reference library consumed by name (e.g. `domain-registry`).
+- Names are **kebab-case**. UACP skills are prefixed `uacp-`.
 - **SKILL.md target: < 500 lines.** When you approach it, move detail into
   `references/` and leave a "Read when…" pointer. Reference files > 300 lines get
   a table of contents.
@@ -59,7 +58,7 @@ decorative.
 |---|---|---|
 | `kernel` | imported by runtime adapters; not invoked as a skill | `uacp-core` |
 | `lifecycle` | a phase skill; behavior gated by the codified grammar | triage, propose, plan, execute, verify, resolve |
-| `reference` | read via the Read tool; never invoked standalone | `domain-registry`, `uacp-skills` (and `uacp-bridge`, planned) |
+| `reference` | read via the Read tool; never invoked standalone | `uacp-bridge`, `uacp-skills` |
 | `orchestration` | invocable helpers around the lifecycle | council, debate, parallel, context, web, brainstorm |
 
 > **Status: rollout complete.** Every skill in the library now declares `kind`; lifecycle skills no longer carry `allowed_tools` / `forbidden_tools` / `phase_exit_invariants` mirrors. Enforced by `tests/unit/skills/test_plugin_readiness.py`.

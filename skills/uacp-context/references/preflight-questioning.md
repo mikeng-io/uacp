@@ -19,6 +19,6 @@ If `preflight_needed: true`, ask up to 3 targeted questions **one at a time** to
 
 **Q3 — Domain focus** (if `domains_detectable: false` and artifact is ambiguous):
 > "Any particular areas to focus on?"
-> Options: (generate from domain-registry signals based on what's known so far)
+> Options: (generate from domain registry signals based on what's known so far)
 
 After questions are answered, re-run signal resolution and update confidence.

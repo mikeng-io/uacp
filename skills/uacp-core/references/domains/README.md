@@ -2,13 +2,13 @@
 
 Reference library of domain definitions used by UACP lifecycle skills and bridge adapters to select appropriate expert agents for a given artifact type.
 
-**This is a REFERENCE LIBRARY.** Skills read it via the `Read` tool to determine which domain experts to spawn. It is never invoked directly.
+**This is a REFERENCE LIBRARY.** Skills read it via the `Read` tool to determine which domain experts to spawn. It is never invoked directly. It lives under `skills/uacp-core/references/domains/` (the shared canonical reference home); skills cite it as `../uacp-core/references/domains/`.
 
 ---
 
 ## Overview
 
-The Domain Registry enables intelligent selection of domain-specific expert roles for code review, analysis, and verification tasks. It domain has:
+The Domain Registry enables intelligent selection of domain-specific expert roles for code review, analysis, and verification tasks. Each domain has:
 
 - **Trigger signals** — keywords that indicate this domain is relevant
 - **Focus areas** — what the expert looks for
@@ -21,13 +21,13 @@ The Domain Registry enables intelligent selection of domain-specific expert role
 
 | File                   | Categories                                                                                                                                                                       |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `domains/technical.md` | Security, Database, API, Async-Queue, Performance, Infrastructure, Crypt, Code Quality, Architecture, Testing, Error Handling, Concurrency, TypeScript, Frontend, Data Integrity |
-| `domains/business.md`  | Finance, Product, Marketing, Operations, Compliance, Analytics                                                                                                                   |
-| `domains/creative.md`  | UX Design, Visual Design, Copywriting                                                                                                                                            |
+| `technical.md` | Security, Database, API, Async-Queue, Performance, Infrastructure, Crypt, Code Quality, Architecture, Testing, Error Handling, Concurrency, TypeScript, Frontend, Data Integrity |
+| `business.md`  | Finance, Product, Marketing, Operations, Compliance, Analytics                                                                                                                   |
+| `creative.md`  | UX Design, Visual Design, Copywriting                                                                                                                                            |
 
 ---
 
-## Domain Selection Protocol
+## Domain Selection Protocol (Lookup Protocol)
 
 ### Tier 1: Exact Match
 
@@ -103,13 +103,13 @@ expert_role:
     {standards}
 
     ## Output Format
-    Return findings as json with severity, affected areas, 
+    Return findings as json with severity, affected areas,
     impact, remediation, and confidence level.
 ```
 
 ### Using Expert Roles
 
-Skills using domain-registry should:
+Skills using the domain registry should:
 
 1. Read the appropriate `domains/*.md` file(s)
 2. Match context signals against domain `trigger_signals`
@@ -122,18 +122,15 @@ Skills using domain-registry should:
 
 ---
 
-## Skills Using Domain Registry
+## Skills Using the Domain Registry
 
 | Skill           | Usage                                        |
 | --------------- | -------------------------------------------- |
-| `agent-council` | Select expert roles for local role-diverse council |
-| `uacp-triage`   | Domain detection for intake classification   |
-| `uacp-propose`  | Domain experts for proposal critique         |
-| `uacp-plan`     | Domain experts for plan review               |
-| `uacp-execute`  | Domain experts for implementation council    |
-| `uacp-verify`   | Domain experts for verification audit        |
-| `uacp-resolve`  | Domain experts for closure synthesis         |
-| `context`       | Domain detection for context building        |
+| `uacp-council`  | Select expert roles for role-diverse council |
+| `uacp-debate`   | Domain experts for adversarial investigation |
+| `uacp-context`  | Domain detection for context building        |
+| `uacp-bridge`   | Resolve expert role / focus / standards per runtime |
+| lifecycle skills | Domain experts for phase councils (triage→resolve) |
 
 ---
 
@@ -142,64 +139,9 @@ Skills using domain-registry should:
 To add a new domain:
 
 1. Choose the appropriate file (`technical.md`, `business.md`, or `creative.md`)
-2. Add domain entry following the schema:
-
-````yaml
-### {domain-name}
-
-```yaml
-name: {domain-name}
-trigger_signals:
-  - signal1
-  - signal2
-  - signal3
-expert_role:
-  title: "Expert Title"
-  lens: "One-sentence lens"
-  prompt_template: |
-    You are a {title} reviewing: {scope}
-
-    ## Your Lens
-    {lens}
-
-    ## Context
-    {context_summary}
-
-    ## Your Focus Areas
-    - focus_area_1
-    - focus_area_2
-
-    ## Standards to Apply
-    - standard 1
-    - standard 2
-
-    ## Output Format
-    Return findings as json with severity, affected areas,
-    impact, remediation, and confidence level.
-focus_areas:
-  - focus_area_1
-  - focus_area_2
-standards:
-  - standard 1
-  - standard 2
-````
-
+2. Add a domain entry following the schema (`name`, `trigger_signals`, `expert_role`, `focus_areas`, `standards`)
 3. Ensure `trigger_signals` are lowercase and distinctive
 4. Ensure `expert_role` has all required fields
-
----
-
-## Files
-
-```
-domain-registry/
-├── SKILL.md              # Skill definition
-├── README.md              # This file
-└── domains/
-    ├── technical.md       # Technical domains
-    ├── business.md        # Business domains
-    └── creative.md        # Creative domains
-```
 
 ---
 

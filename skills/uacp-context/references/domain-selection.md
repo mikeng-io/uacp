@@ -1,11 +1,11 @@
-# Phase 5: Select Domains from Domain-Registry
+# Phase 5: Select Domains from the Domain Registry
 
-Read domain-registry files:
+Read the domain registry files:
 
 ```bash
-Read: [skills-root]/domain-registry/domains/technical.md
-Read: [skills-root]/domain-registry/domains/business.md
-Read: [skills-root]/domain-registry/domains/creative.md
+Read: [skills-root]/uacp-core/references/domains/technical.md
+Read: [skills-root]/uacp-core/references/domains/business.md
+Read: [skills-root]/uacp-core/references/domains/creative.md
 ```
 
 For each domain in registry:

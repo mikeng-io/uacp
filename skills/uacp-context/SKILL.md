@@ -2,14 +2,14 @@
 name: uacp-context
 description: >
   Deep context analyzer for UACP. Extracts conversation signals, classifies artifacts,
-  detects domains from domain-registry, reads active UACP run state, optionally enriches
+  detects domains from the domain registry, reads active UACP run state, optionally enriches
   via web backends (Tavily/Firecrawl/Context7), assesses confidence, and produces a
   structured context report. Includes inline preflight questioning when confidence is low.
   Every major UACP operation should start here.
 kind: orchestration
 location: managed
 dependencies:
-  - domain-registry
+  - uacp-core   # domain registry: uacp-core/references/domains/
   - uacp-web
   - uacp-state
   - uacp-bridge
@@ -38,14 +38,14 @@ Execute this skill to analyze the current conversation and project state, classi
 Before executing, verify required skills are present:
 
 ```
-[skills-root]/domain-registry/README.md
+[skills-root]/uacp-core/references/domains/README.md
 [skills-root]/uacp-core/references/council-taxonomy.md
 [skills-root]/uacp-bridge/SKILL.md
 ```
 
 If `uacp-web` is present, web enrichment is available. If `uacp-state` is present, active-run context is available. Neither is blocking — the skill degrades gracefully.
 
-If `domain-registry` is missing → stop immediately and emit an install advisory.
+If the domain registry (`uacp-core/references/domains/`) is missing → stop immediately and emit an install advisory.
 
 ## Execution Flow
 

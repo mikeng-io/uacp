@@ -1,6 +1,6 @@
 # Bridge: Gemini (Google) — uacp-bridge reference
 
-*Per-runtime reference for [uacp-bridge](../SKILL.md). Depends on: uacp-bridge, domain-registry.*
+*Per-runtime reference for [uacp-bridge](../SKILL.md). Depends on: uacp-bridge, the domain registry (uacp-core/references/domains/).*
 
 ---
 
