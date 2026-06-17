@@ -85,6 +85,16 @@ from .phase_graph import LIFECYCLE_GRAPH
 # allowed_tools — consumed by Guardian Layer-B (all phases) and Heartgate
 # _validate_scope_artifact (execute only).
 STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
+    "brainstorm": [
+        "Read",
+        "Glob",
+        "Grep",
+        "Task",
+        "Write",
+        "uacp_state_write",
+        "uacp_artifact_write",
+        "uacp_heartgate_check",
+    ],
     "triage": [
         "uacp_artifact_write",
         "uacp_state_write",
@@ -150,6 +160,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
 # an explicit EMPTY list in the pre-slim YAML (terminal/execute_code are allowed
 # there), so it must remain present-and-empty, not absent.
 STAGE_FORBIDDEN_TOOLS: dict[str, list[str]] = {
+    "brainstorm": ["terminal", "execute_code"],
     "triage": ["terminal", "execute_code"],
     "propose": ["terminal", "execute_code"],
     "plan": ["terminal", "execute_code"],
@@ -216,6 +227,7 @@ STAGE_PHASE_EXIT_INVARIANTS: dict[str, list[dict[str, Any]]] = {
 # pin can assert field-by-field. These do not drive behavior.
 # ---------------------------------------------------------------------------
 STAGE_PURPOSE: dict[str, str] = {
+    "brainstorm": "Exploration and scope clarification before entering UACP governance.",
     "triage": "Calibrate scope, score granularity, and route the request.",
     "propose": "Establish authority, scope, context, risk, and proposal viability.",
     "plan": "Convert approved proposal into bounded execution and verification strategy.",
@@ -229,7 +241,8 @@ STAGE_PURPOSE: dict[str, str] = {
 }
 
 STAGE_ENTERS_FROM: dict[str, list[str]] = {
-    "triage": ["none"],
+    "brainstorm": ["none"],
+    "triage": ["none", "brainstorm"],
     "propose": ["triage"],
     "plan": ["propose"],
     "execute": ["plan"],
@@ -317,7 +330,7 @@ def council_synthesis_required_fields() -> list[str]:
 
 
 # Stable phase ordering for the reconstructed mapping (matches pre-slim YAML).
-_PHASE_ORDER: tuple[str, ...] = ("triage", "propose", "plan", "execute", "verify", "resolve")
+_PHASE_ORDER: tuple[str, ...] = ("brainstorm", "triage", "propose", "plan", "execute", "verify", "resolve")
 
 
 def _exits_to(phase: str) -> list[str]:
