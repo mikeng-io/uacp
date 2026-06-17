@@ -3,9 +3,22 @@
 The aggregator is the main entry point for oracle_query(). It:
 1. Looks up the OracleMode for the requested phase via PHASE_TIERS
 2. For NONE/WRITEBACK modes, returns empty packets with metadata note
-3. For FULL/ADVISORY modes, collects packets from all enabled sources
-4. _semantic_packets is a stub that raises NotImplementedError (C-semantic tasks
-   are deferred) — the aggregator wraps it in try/except and adds to sources_skipped
+3. For FULL/ADVISORY modes, collects packets from all enabled sources:
+     - runstate (deterministic, always available)
+     - honcho   (advisory, optional — skipped when disabled or unreachable)
+     - semantic  (C-semantic: pipeline over .uacp/lessons + .uacp/knowledge)
+4. Each source is wrapped in try/except — failures append to sources_skipped,
+   never raise to the caller.
+
+Semantic source (Task 8b):
+  _semantic_packets resolves the store + embedding/rerank clients via resolve_role()
+  and get_store(). When the store is unavailable (lancedb absent / enabled=false) it
+  returns [] and the aggregator records "semantic" in sources_skipped — NOT an error.
+  When available, it runs the pipeline (engines.oracle.pipeline.semantic_retrieve)
+  over the workspace corpus and returns ranked ProviderPackets (advisory trust class).
+
+Floor guarantee: the aggregator must import and run clean with lancedb, llama_cpp,
+and httpx all poisoned. All heavy imports are lazy (inside _semantic_packets).
 """
 from __future__ import annotations
 
@@ -24,6 +37,31 @@ from engines.oracle.packets import ProviderPacket  # noqa: E402
 from engines.oracle.tier_config import OracleMode, mode_for_phase  # noqa: E402
 
 
+def _get_oracle_store(oracle_cfg: dict, workspace: Path) -> Any:
+    """Resolve and return the configured vector store. Lazy import — never raises.
+
+    Returns a store object (which may have available()==False) or None on
+    any configuration/import error.
+    """
+    try:
+        from engines.oracle.store import get_store
+
+        backend = oracle_cfg.get("store", "lancedb")
+        raw_index = oracle_cfg.get("index_path", ".uacp/knowledge/indexes/")
+        index_path = str(workspace / raw_index)
+        return get_store(backend, index_path=index_path)
+    except Exception:
+        return None
+
+
+class _SemanticUnavailable(RuntimeError):
+    """Raised by _semantic_packets when the vector store is unavailable.
+
+    The aggregator catches this (as Exception) and records "semantic" in
+    sources_skipped — NOT an error, but a graceful degradation signal.
+    """
+
+
 def _semantic_packets(
     workspace: Path,
     phase: str,
@@ -32,13 +70,86 @@ def _semantic_packets(
     query: str = "",
     oracle_cfg: dict | None = None,
 ) -> list[ProviderPacket]:
-    """Stub for C-semantic sources (Tasks 4/6/7/8 deferred).
+    """Run the semantic retrieval pipeline and return ranked ProviderPackets.
 
-    Raises NotImplementedError always — the aggregator catches this and adds
-    "semantic" to sources_skipped. When C-semantic tasks are implemented,
-    this function will import and call the semantic pipeline.
+    Behaviour by case:
+      - oracle disabled (enabled=false) → return [] silently (aggregator already
+        short-circuited before calling us when oracle is disabled; this guard is
+        here for callers that invoke _semantic_packets directly).
+      - store unavailable (lancedb absent / index not built) → raise
+        _SemanticUnavailable so the aggregator records "semantic" in sources_skipped.
+      - any other transient failure → same raise path (aggregator catches Exception).
+      - store available → run pipeline, return ProviderPackets.
+
+    Floor guarantee: all heavy imports are lazy; this function must import clean
+    with lancedb, llama_cpp, and httpx all poisoned.
     """
-    raise NotImplementedError("C-semantic tasks not yet implemented")
+    cfg = oracle_cfg or {}
+    if not cfg.get("enabled", False):
+        return []
+
+    # Lazy imports — all heavy deps guarded here
+    try:
+        from engines.oracle.pipeline import semantic_retrieve
+        from engines.oracle.serving import ServingMode, resolve_role
+    except Exception as exc:
+        raise _SemanticUnavailable(f"semantic pipeline import failed: {exc}") from exc
+
+    # Resolve store — unavailable store raises so aggregator records sources_skipped
+    store = _get_oracle_store(cfg, workspace)
+    if store is None or not store.available():
+        raise _SemanticUnavailable(
+            "semantic store unavailable (deps absent or backend not ready)"
+        )
+
+    # Resolve embedding client (FLOOR -> None, pipeline skips dense leg)
+    embedding = None
+    try:
+        emb_serving = resolve_role("embedding", cfg)
+        if emb_serving.mode is not ServingMode.FLOOR:
+            from engines.oracle.clients.embedding import embed_texts
+
+            class _EmbedAdapter:
+                def __init__(self, serving: Any) -> None:
+                    self._serving = serving
+
+                def embed(self, texts: list[str]) -> list[list[float]]:
+                    return embed_texts(texts, self._serving)
+
+            embedding = _EmbedAdapter(emb_serving)
+    except Exception:
+        embedding = None  # degrade: dense leg skipped, FTS still runs
+
+    # Resolve rerank client (FLOOR -> None, pipeline keeps RRF order)
+    reranker = None
+    try:
+        rr_serving = resolve_role("rerank", cfg)
+        if rr_serving.mode is not ServingMode.FLOOR:
+            from engines.oracle.clients.rerank import rerank
+
+            class _RerankAdapter:
+                def __init__(self, serving: Any) -> None:
+                    self._serving = serving
+
+                def rerank(
+                    self, query: str, docs: list[dict[str, Any]]
+                ) -> list[dict[str, Any]]:
+                    return rerank(query, docs, self._serving)
+
+            reranker = _RerankAdapter(rr_serving)
+    except Exception:
+        reranker = None  # degrade: RRF order kept
+
+    # Run pipeline (never raises)
+    packets = semantic_retrieve(
+        query=query,
+        store=store,
+        domains=list(domains or []),
+        invariants=[],
+        embedding=embedding,
+        reranker=reranker,
+    )
+    return packets
 
 
 def oracle_query(
