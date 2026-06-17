@@ -2,10 +2,24 @@
 
 Resolves the endpoint URL for a given oracle service and role using a three-level
 priority: explicit url-override > embedded workspace config > floor default.
+
+Two surfaces:
+  * ``resolve_serving_url(workspace, role, url_override=...)`` — the original
+    workspace-config URL lookup (preserved verbatim for existing callers).
+  * ``resolve_role(role, oracle_cfg, deps_present=...)`` — the per-role serving
+    decision the clients consume. Precedence: ``url override > embedded > floor``.
+    Per role it is exactly one mode, never both. ``enabled=false`` forces FLOOR
+    for every role; ``query_expansion`` additionally honors its own ``enabled``
+    flag. The embedded default needs the optional in-process llama.cpp binding;
+    absent it (and with no URL) the role degrades to the FLOOR (keyword + BES,
+    zero models). The binding is resolved lazily and never imported at top level.
 """
 from __future__ import annotations
 
+import enum
+import importlib
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 _SERVING_DIR = Path(__file__).resolve().parent
@@ -60,3 +74,69 @@ def resolve_serving_url(
         pass
 
     return _FLOOR_DEFAULTS.get(role, "")
+
+
+class ServingMode(enum.Enum):
+    URL = "url"
+    EMBEDDED = "embedded"
+    FLOOR = "floor"
+
+
+@dataclass(frozen=True)
+class RoleServing:
+    """Resolved serving decision for one role. Exactly one mode, never both."""
+
+    role: str
+    mode: ServingMode
+    model: str = ""
+    url: str = ""
+
+
+def embedded_runtime_present() -> bool:
+    """True iff the in-process llama.cpp binding can be imported. Lazy, never raises."""
+    for cand in ("llama_cpp",):  # exact binding settled at impl; kept behind this helper
+        try:
+            importlib.import_module(cand)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def resolve_role(
+    role: str,
+    oracle_cfg: dict,
+    *,
+    deps_present: bool | None = None,
+) -> RoleServing:
+    """Resolve the serving mode for a role: url override > embedded > floor.
+
+    Args:
+        role: "embedding", "rerank", or "query_expansion"
+        oracle_cfg: the [oracle] config dict
+        deps_present: override the embedded-binding probe (None = probe lazily)
+
+    Returns:
+        RoleServing with exactly one mode. enabled=false (oracle or, for
+        query_expansion, the role's own flag) forces FLOOR.
+    """
+    if not oracle_cfg.get("enabled", False):
+        return RoleServing(role, ServingMode.FLOOR)
+
+    role_cfg = oracle_cfg.get(role) or {}
+    if not isinstance(role_cfg, dict):
+        role_cfg = {}
+
+    # query_expansion is optional and carries its own enable switch.
+    if role == "query_expansion" and not role_cfg.get("enabled", True):
+        return RoleServing(role, ServingMode.FLOOR)
+
+    url = str(role_cfg.get("url") or "").strip()
+    model = str(role_cfg.get("model") or "")
+    if url:
+        return RoleServing(role, ServingMode.URL, model=model, url=url)
+
+    present = embedded_runtime_present() if deps_present is None else deps_present
+    if present:
+        return RoleServing(role, ServingMode.EMBEDDED, model=model)
+    return RoleServing(role, ServingMode.FLOOR, model=model)
