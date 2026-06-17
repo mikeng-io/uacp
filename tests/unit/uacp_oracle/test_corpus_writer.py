@@ -133,3 +133,33 @@ def test_resolver_import_failure_degrades_to_error_dict(
     assert result.get("ok") is False
     assert "error" in result
     assert "uacp_guardian" in result["error"] or "handler" in result["error"].lower()
+
+
+def test_governed_write_restores_prior_policy_and_env(
+    temp_uacp_root: Path, monkeypatch
+):
+    """The writer must restore the PREVIOUS plugin._POLICY object and the previous
+    UACP_ROOT env after the call — not leave them as None / clobbered (no race
+    fallout for a concurrent context that already cached a policy).
+    """
+    _handler, plugin = corpus_writer._resolve_handler()
+
+    sentinel_policy = object()
+    plugin._POLICY = sentinel_policy
+    monkeypatch.setenv("UACP_ROOT", "/some/other/root")
+
+    result = corpus_writer.persist_lesson(
+        temp_uacp_root,
+        _lesson(),
+        run_id="uacp-test-r1",
+        phase="resolve",
+        reason="restore check",
+        authority_artifact="resolutions/uacp-test-r1-lessons.yaml",
+    )
+    assert result.get("ok") is True
+
+    # Prior cache + env restored exactly (not None, not the workspace).
+    assert plugin._POLICY is sentinel_policy
+    import os
+
+    assert os.environ.get("UACP_ROOT") == "/some/other/root"

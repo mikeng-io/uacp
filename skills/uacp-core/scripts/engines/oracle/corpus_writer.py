@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,11 @@ from engines.domain.corpus import (
     load_knowledge_dir,
     load_lessons_dir,
 )
+
+# Serializes the env-pin + policy-cache-reset + handler-call + restore sequence
+# in _governed_artifact_write. Without it, concurrent corpus writes would race on
+# the shared UACP_ROOT env and the plugin's module-level _POLICY cache (Gemini #4).
+_WRITE_LOCK = threading.Lock()
 
 
 def _governed_artifact_write(args: dict[str, Any]) -> dict[str, Any]:
@@ -47,21 +53,28 @@ def _governed_artifact_write(args: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "error": f"governed writer unavailable: {exc}"}
     workspace = str(args["workspace"])
 
-    prev_root = os.environ.get("UACP_ROOT")
-    os.environ["UACP_ROOT"] = workspace
-    # The plugin caches the GuardianPolicy at module level keyed off UACP_ROOT;
-    # reset it so the handler binds to the workspace we are writing into.
-    if plugin is not None:
-        plugin._POLICY = None
-    try:
-        raw = handler(args)
-    finally:
-        if prev_root is None:
-            os.environ.pop("UACP_ROOT", None)
-        else:
-            os.environ["UACP_ROOT"] = prev_root
+    # Guard the whole env-pin + cache-reset + call + restore sequence so that
+    # concurrent writes do not clobber each other's UACP_ROOT env or the plugin's
+    # module-level _POLICY cache. On exit we restore the PREVIOUS policy object and
+    # the PREVIOUS env value (not None) so any context that had already cached a
+    # policy keeps it intact (Gemini #4).
+    with _WRITE_LOCK:
+        prev_root = os.environ.get("UACP_ROOT")
+        prev_policy = getattr(plugin, "_POLICY", None) if plugin is not None else None
+        os.environ["UACP_ROOT"] = workspace
+        # The plugin caches the GuardianPolicy at module level keyed off UACP_ROOT;
+        # reset it so the handler binds to the workspace we are writing into.
         if plugin is not None:
             plugin._POLICY = None
+        try:
+            raw = handler(args)
+        finally:
+            if prev_root is None:
+                os.environ.pop("UACP_ROOT", None)
+            else:
+                os.environ["UACP_ROOT"] = prev_root
+            if plugin is not None:
+                plugin._POLICY = prev_policy
 
     try:
         return json.loads(raw)
