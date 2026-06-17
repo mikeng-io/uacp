@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Adaptive Package Backfill Pattern
+description: Procedure for reconstructing missing human-readable PROPOSE/PLAN packages when a run has only YAML lifecycle envelopes
+tags: [adaptive-packages, backfill, lifecycle, artifacts]
+timestamp: 2026-06-17
+---
+
 # Adaptive Package Backfill Pattern
 
 Use when a UACP run has already produced lifecycle YAML envelopes but the human-readable adaptive PROPOSE or PLAN package is missing.

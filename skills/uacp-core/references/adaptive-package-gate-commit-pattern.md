@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Adaptive Package Gate Commit Pattern
+description: How to settle a large UACP working tree after governed design/runtime work by committing with a durable explanation surface
+tags: [adaptive-packages, commit, lifecycle, governance]
+timestamp: 2026-06-17
+---
+
 # Adaptive package gate commit pattern — 2026-05-19
 
 ## Trigger

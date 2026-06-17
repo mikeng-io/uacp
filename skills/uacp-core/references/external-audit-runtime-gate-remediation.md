@@ -1,3 +1,11 @@
+---
+type: pattern
+title: External Audit Runtime Gate Remediation
+description: Pattern for closing external auditor findings when docs/config pass but runtime enforcement is incomplete
+tags: [audit, runtime, remediation, guardian]
+timestamp: 2026-06-17
+---
+
 # External audit remediation pattern for UACP lifecycle gates
 
 Use this reference when an external auditor (Codex/Kimi/etc.) reviews UACP lifecycle hardening and finds that docs/config/offline validators pass but runtime enforcement is incomplete.

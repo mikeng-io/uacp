@@ -1,5 +1,7 @@
 Shared/kernel operational reference docs for the UACP skill tree. Per the reference-document policy (skills/uacp-skills), every doc here is cited by ≥1 skill and listed below; extend an existing doc before creating a new one.
 
+This is the OKF bundle index for the `skills/uacp-core/references/` directory. Each document carries YAML frontmatter conforming to the Open Knowledge Format convention (type, title, description, tags, timestamp). The index itself is exempt from frontmatter.
+
 | Reference | Purpose | Cited by |
 |---|---|---|
 | [adaptive-package-backfill-pattern.md](adaptive-package-backfill-pattern.md) | Procedure for reconstructing missing human-readable PROPOSE/PLAN packages when a run has only YAML lifecycle envelopes | uacp |

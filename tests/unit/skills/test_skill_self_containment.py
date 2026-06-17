@@ -12,11 +12,11 @@ This test enforces:
   2. No ``ADR-<number>`` citation in SKILL.md bodies — cite the concise
      ``uacp-core/references/`` digest, not a sprawling ADR. (*.py files may cite ADRs
      as provenance and are NOT scanned.)
-  3. Anti-proliferation: every skills/uacp-core/references/*.md (except README.md) must
+  3. Anti-proliferation: every skills/uacp-core/references/*.md (except index.md) must
      be cited by ≥1 skills/*/SKILL.md.  An uncited reference doesn't belong in the
      skill tree; move to docs/ or delete.
-  4. Index completeness: every skills/uacp-core/references/*.md (except README.md) must
-     appear in the README.md index; the README must not list a file that doesn't exist.
+  4. Index completeness: every skills/uacp-core/references/*.md (except index.md) must
+     appear in the index.md index; the index must not list a file that doesn't exist.
   5. docs/ citation ban (rooted form): no skills/*/SKILL.md body may contain
      ``UACP_ROOT/docs/``.  Bare ``docs/`` prose mentions are still allowed (the
      convention/router skills legitimately describe docs/).
@@ -110,9 +110,9 @@ def test_skill_md_no_dump_relative_pointer(skill_md: Path) -> None:
 
 
 def _reference_docs() -> list[Path]:
-    """Return all *.md files in skills/uacp-core/references/ except README.md."""
+    """Return all *.md files in skills/uacp-core/references/ except index.md."""
     return sorted(
-        p for p in REFERENCES_DIR.glob("*.md") if p.name != "README.md"
+        p for p in REFERENCES_DIR.glob("*.md") if p.name != "index.md"
     )
 
 
@@ -132,25 +132,25 @@ def test_reference_doc_cited_by_at_least_one_skill(ref_doc: Path) -> None:
 
 
 def test_reference_index_complete() -> None:
-    """Every skills/uacp-core/references/*.md (except README.md) must appear in README.md;
-    README.md must not list a file that doesn't exist on disk.
+    """Every skills/uacp-core/references/*.md (except index.md) must appear in index.md;
+    index.md must not list a file that doesn't exist on disk.
     """
-    readme_text = (REFERENCES_DIR / "README.md").read_text(encoding="utf-8")
-    ref_files = {p.name for p in REFERENCES_DIR.glob("*.md") if p.name != "README.md"}
+    readme_text = (REFERENCES_DIR / "index.md").read_text(encoding="utf-8")
+    ref_files = {p.name for p in REFERENCES_DIR.glob("*.md") if p.name != "index.md"}
 
     missing_from_readme = sorted(f for f in ref_files if f not in readme_text)
     assert not missing_from_readme, (
         f"The following reference docs exist on disk but are missing from "
-        f"skills/uacp-core/references/README.md index: {missing_from_readme}. "
+        f"skills/uacp-core/references/index.md index: {missing_from_readme}. "
         f"Add an entry for each."
     )
 
-    # Find .md filenames referenced in README that do not exist on disk
+    # Find .md filenames referenced in index that do not exist on disk
     mentioned = set(re.findall(r"\b([\w-]+\.md)\b", readme_text))
-    mentioned.discard("README.md")
+    mentioned.discard("index.md")
     extra_in_readme = sorted(f for f in mentioned if f not in ref_files)
     assert not extra_in_readme, (
-        f"The following filenames appear in skills/uacp-core/references/README.md "
+        f"The following filenames appear in skills/uacp-core/references/index.md "
         f"but do not exist on disk: {extra_in_readme}. Remove the stale entries."
     )
 

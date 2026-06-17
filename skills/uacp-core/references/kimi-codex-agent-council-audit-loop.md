@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Kimi + Codex Agent Council Audit Loop
+description: Procedure for dispatching Kimi + Codex as an Agent Council audit loop for UACP runtime-gate remediation
+tags: [kimi, codex, council, audit]
+timestamp: 2026-06-17
+---
+
 # Kimi + Codex Agent Council audit loop for UACP runtime-gate remediation
 
 Use this reference when Mike asks for Kimi Code and Codex to perform full-perspective UACP reviews, especially after Heartgate/Guardian/runtime-gate patches.

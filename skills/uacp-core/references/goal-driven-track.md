@@ -1,3 +1,12 @@
+---
+type: digest
+title: Goal-Driven Track — Kernel Contract
+description: "Shipped kernel-contract mirror for the goal-driven lifecycle track; read when operating a run with track: goal-driven"
+tags: [goal-driven, lifecycle, track, kernel]
+timestamp: 2026-06-17
+resource: docs/architecture/0016-goal-driven-track.md
+---
+
 # Goal-Driven Track — Kernel Contract (mirror)
 
 > **Read when** a lifecycle skill is operating a run whose `track: goal-driven`.
