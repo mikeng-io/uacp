@@ -107,7 +107,8 @@ not necessity — `docs/` ships either way.
 > The CC plugin spec disproves that — the whole plugin ships. So there is **no
 > `docs/`-citation prohibition** and the lint is **not** widened to forbid `docs/`.
 > `tests/unit/skills/test_skill_self_containment.py` enforces two real hygiene
-> rules: (1) no citation of the **abolished `skills/references/` dump** (it's gone);
+> rules: (1) no citation of the **abolished top-level shared references dump** (the
+> former `references/` directory that sat directly under the skills root, now gone);
 > (2) no `ADR-<number>` citation in `SKILL.md` bodies — kept as a **style
 > preference** (cite the concise `uacp-core/references/` digest, not the ADR), now
 > that ADRs are known to ship. The genuine guarantee — stay inside the plugin
