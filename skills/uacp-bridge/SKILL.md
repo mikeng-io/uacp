@@ -19,6 +19,13 @@ Bridges are reference adapters — they define how to dispatch tasks to specific
 - Returns a **structured report** conforming to this contract
 - Is **non-blocking** — unavailability produces `SKIPPED`, not a failure
 
+### Per-Runtime References
+
+Each runtime adapter spec lives in this skill's `references/` directory:
+
+- `references/claude.md`, `references/codex.md`, `references/gemini.md`, `references/kimi.md`, `references/opencode.md` — per-runtime dispatch specs.
+- `references/kimi-codex-agent-council-audit-loop.md` — **read when** Mike asks for both Kimi Code and Codex to review UACP changes: the prompt skeleton, Kimi coding-model invocation, command-level timeouts, and contamination checks for running them as a bounded read-only Agent Council audit loop.
+
 ---
 
 ## Pre-Flight SOP
