@@ -18,12 +18,28 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 from pathlib import Path
 from typing import Any
 
 from engines.domain.corpus import KnowledgeItem, Lesson
 from engines.oracle.corpus_io import load_knowledge_dir, load_lessons_dir
+
+# Corpus item ids become a path component (``<id>.md``) under the corpus root, so
+# they must be a safe single segment: lowercase alnum start, then alnum / '_' /
+# '-'. This forbids '/', '..', leading dots, and any traversal/separator (LOW-1).
+_CORPUS_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+
+
+def _validate_item_id(item_id: Any) -> str | None:
+    """Return an error message if ``item_id`` is not a safe corpus id, else None."""
+    if not isinstance(item_id, str) or not _CORPUS_ID_RE.match(item_id):
+        return (
+            f"invalid corpus id {item_id!r}: must match {_CORPUS_ID_RE.pattern} "
+            f"(lowercase alphanumeric start; no '/', '..', or leading dot)"
+        )
+    return None
 
 # Serializes the env-pin + policy-cache-reset + handler-call + restore sequence
 # in _governed_artifact_write. Without it, concurrent corpus writes would race on
@@ -173,6 +189,9 @@ def persist_lesson(
     rejection). Never raises for a rejected write — the governed writer's
     error is surfaced in the result.
     """
+    id_error = _validate_item_id(lesson.id)
+    if id_error is not None:
+        return {"ok": False, "error": id_error}
     return _write_okf(
         workspace,
         path_key="lessons",
@@ -198,6 +217,9 @@ def persist_knowledge(
 
     Routes through the governed artifact writer (Guardian-audited).
     """
+    id_error = _validate_item_id(item.id)
+    if id_error is not None:
+        return {"ok": False, "error": id_error}
     return _write_okf(
         workspace,
         path_key="knowledge",

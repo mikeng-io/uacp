@@ -142,6 +142,58 @@ def test_persist_lesson_failure_surfaces_error(temp_uacp_root: Path):
     assert not (temp_uacp_root.parent / "escape.md").exists()
 
 
+def test_persist_lesson_rejects_malicious_id(temp_uacp_root: Path):
+    """LOW-1: a lesson id with a path separator ('a/b') is rejected by id
+    validation in the writer (before the governed call) — not written."""
+    bad = _lesson()
+    bad.id = "a/b"
+    result = corpus_writer.persist_lesson(
+        temp_uacp_root,
+        bad,
+        run_id="uacp-test-r1",
+        phase="resolve",
+        reason="x",
+        authority_artifact="resolutions/uacp-test-r1-lessons.yaml",
+    )
+    assert result.get("ok") is not True
+    assert "error" in result
+    assert "id" in result["error"].lower()
+    assert not (temp_uacp_root / ".uacp" / "lessons" / "a").exists()
+
+
+def test_persist_knowledge_rejects_malicious_id(temp_uacp_root: Path):
+    """LOW-1: a knowledge id with a path separator is rejected by id validation."""
+    bad = _knowledge()
+    bad.id = "a/b"
+    result = corpus_writer.persist_knowledge(
+        temp_uacp_root,
+        bad,
+        run_id="uacp-test-r1",
+        phase="resolve",
+        reason="x",
+        authority_artifact="resolutions/uacp-test-r1-lessons.yaml",
+    )
+    assert result.get("ok") is not True
+    assert "error" in result
+    assert "id" in result["error"].lower()
+
+
+def test_persist_lesson_rejects_parent_traversal_id(temp_uacp_root: Path):
+    """LOW-1: a '..' traversal id is rejected by id validation."""
+    bad = _lesson()
+    bad.id = ".."
+    result = corpus_writer.persist_lesson(
+        temp_uacp_root,
+        bad,
+        run_id="uacp-test-r1",
+        phase="resolve",
+        reason="x",
+        authority_artifact="resolutions/uacp-test-r1-lessons.yaml",
+    )
+    assert result.get("ok") is not True
+    assert "error" in result
+
+
 def test_resolver_import_failure_degrades_to_error_dict(
     temp_uacp_root: Path, monkeypatch
 ):
