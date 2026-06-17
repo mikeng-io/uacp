@@ -176,3 +176,45 @@ def test_bes_bonus_chronic_penalty():
     assert bes_bonus(bes=0.30, severity="LOW", eligible=4) == 1
     # a CRITICAL chronic lesson: tier 1 +1 (sev) -2 (chronic) = 0
     assert bes_bonus(bes=0.30, severity="CRITICAL", eligible=8) == 0
+
+
+from engines.domain.corpus import count_eligibility
+
+
+def _run(run_id, started_at, domains, findings=None):
+    # findings: list of (invariant, domain)
+    return {
+        "run_id": run_id,
+        "started_at": started_at,
+        "domains": domains,
+        "findings": [{"invariant": i, "domain": d} for (i, d) in (findings or [])],
+    }
+
+
+def test_eligibility_counts_later_overlapping_runs():
+    lesson = Lesson.from_okf(_lesson_md())  # domains=[kanban,runtime], invariants=[no-main-writes], extracted 2026-05-14
+    runs = [
+        _run("before", "2026-05-01T00:00:00+00:00", ["kanban"]),          # earlier -> not eligible
+        _run("no-overlap", "2026-06-01T00:00:00+00:00", ["docs"]),        # later, no domain overlap -> not eligible
+        _run("eligible-clean", "2026-06-01T00:00:00+00:00", ["kanban"]),  # later + overlap -> eligible, no recurrence
+        _run("eligible-recur", "2026-06-02T00:00:00+00:00", ["runtime"],
+             findings=[("no-main-writes", "runtime")]),                   # eligible + recurrence
+    ]
+    eligible, recurrences = count_eligibility(lesson, runs)
+    assert eligible == 2
+    assert recurrences == 1
+
+
+def test_recurrence_requires_both_invariant_and_domain():
+    lesson = Lesson.from_okf(_lesson_md())
+    runs = [
+        # right invariant, wrong domain -> NOT a recurrence (but still eligible via domain overlap)
+        _run("r1", "2026-06-01T00:00:00+00:00", ["kanban"],
+             findings=[("no-main-writes", "docs")]),
+        # right domain, wrong invariant -> NOT a recurrence
+        _run("r2", "2026-06-01T00:00:00+00:00", ["runtime"],
+             findings=[("some-other", "runtime")]),
+    ]
+    eligible, recurrences = count_eligibility(lesson, runs)
+    assert eligible == 2
+    assert recurrences == 0
