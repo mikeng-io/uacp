@@ -8,7 +8,7 @@ Verify required skills are present:
 
 ```
 [skills-root]/uacp-core/references/council-taxonomy.md
-[skills-root]/domain-registry/README.md
+[skills-root]/uacp-core/references/domains/README.md
 [skills-root]/uacp-bridge/SKILL.md
 ```
 
@@ -43,7 +43,7 @@ If the `uacp-context` skill is available, invoke it:
 Skill("uacp-context")
 ```
 
-`uacp-context` classifies the artifact, detects domains from `domain-registry`, and assesses confidence. If `uacp-context` is not available, the caller must provide `working_scope` directly — see below.
+`uacp-context` classifies the artifact, detects domains from the domain registry (`uacp-core/references/domains/`), and assesses confidence. If `uacp-context` is not available, the caller must provide `working_scope` directly — see below.
 
 **Conditionally invoke `uacp-preflight`** when context confidence is `low` OR `missing_signals` is non-empty. Preflight asks at most 3 targeted questions to fill exactly the gaps context could not resolve. If `uacp-preflight` is not available, proceed with caller-provided scope and mark `confidence: medium`.
 

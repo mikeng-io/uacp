@@ -4,7 +4,7 @@ description: Unified multi-agent orchestration skill for UACP. Takes a tier para
 kind: orchestration
 location: managed
 dependencies:
-  - domain-registry
+  - uacp-core   # domain registry: uacp-core/references/domains/
   - uacp-bridge
 allowed-tools:
   - Read

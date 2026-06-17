@@ -94,7 +94,7 @@ ls -t .uacp/context/ | head -1
 # Notes
 
 - **Pre-flight pattern:** Other skills can call this at the start to determine routing before spawning agents
-- **Progressive enhancement:** If domain-registry is not found, fall back to basic artifact type detection
+- **Progressive enhancement:** If the domain registry is not found, fall back to basic artifact type detection
 - **Non-blocking:** Always produces a result, even with low confidence
 - **Model-agnostic:** Works in any Claude, Gemini, Codex, Kimi, or OpenCode context
 - **Web enrichment is optional:** Only invoked when local signals are genuinely insufficient

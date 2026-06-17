@@ -19,6 +19,13 @@ Bridges are reference adapters — they define how to dispatch tasks to specific
 - Returns a **structured report** conforming to this contract
 - Is **non-blocking** — unavailability produces `SKIPPED`, not a failure
 
+### Per-Runtime References
+
+Each runtime adapter spec lives in this skill's `references/` directory:
+
+- `references/claude.md`, `references/codex.md`, `references/gemini.md`, `references/kimi.md`, `references/opencode.md` — per-runtime dispatch specs.
+- `references/kimi-codex-agent-council-audit-loop.md` — **read when** Mike asks for both Kimi Code and Codex to review UACP changes: the prompt skeleton, Kimi coding-model invocation, command-level timeouts, and contamination checks for running them as a bounded read-only Agent Council audit loop.
+
 ---
 
 ## Pre-Flight SOP
@@ -220,7 +227,7 @@ For brainstorm/design mode, bridges emit proposals and questions in addition to 
 
 ## Agent Prompt Template
 
-Construct one prompt per domain in `bridge_input.domains`. Resolve `{expert_role}`, `{focus_areas}`, and `{standards}` from domain-registry using the **Lookup Protocol** in `domain-registry/README.md`. If no registry entry substantially covers the domain concern, synthesize a session-based virtual expert rather than falling back to a mismatched role. Adapt framing based on `task_type`:
+Construct one prompt per domain in `bridge_input.domains`. Resolve `{expert_role}`, `{focus_areas}`, and `{standards}` from the domain registry using the **Lookup Protocol** in `../uacp-core/references/domains/README.md`. If no registry entry substantially covers the domain concern, synthesize a session-based virtual expert rather than falling back to a mismatched role. Adapt framing based on `task_type`:
 
 ```
 You are a {expert_role}.
@@ -413,9 +420,9 @@ Spawn these roles in parallel at the start of each round:
 
 | Role | Count | Source | Purpose |
 |------|-------|--------|---------|
-| **Domain Expert** | One per domain in `bridge_input.domains` | domain-registry — expert role, focus areas, and standards per domain | Subject-matter analysis; defends and revises findings across rounds |
-| **Challenger** | 1 (always) | Fixed role — no domain-registry lookup | Cross-domain challenge — Devil's Advocate equivalent; escalates or withdraws challenges each round |
-| **Integration Checker** | 1 (always) | Fixed role — no domain-registry lookup | Surfaces cross-component issues; adds new findings as debates reveal interface gaps |
+| **Domain Expert** | One per domain in `bridge_input.domains` | the domain registry (`uacp-core/references/domains/`) — expert role, focus areas, and standards per domain | Subject-matter analysis; defends and revises findings across rounds |
+| **Challenger** | 1 (always) | Fixed role — domain registry not consulted | Cross-domain challenge — Devil's Advocate equivalent; escalates or withdraws challenges each round |
+| **Integration Checker** | 1 (always) | Fixed role — domain registry not consulted | Surfaces cross-component issues; adds new findings as debates reveal interface gaps |
 
 The total number of parallel agents per round = `len(active_domains) + 2` (one expert per domain, plus Challenger and Integration Checker).
 

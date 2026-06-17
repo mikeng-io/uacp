@@ -21,7 +21,7 @@ Multiple sub-agents within the current runtime — `Task` in Claude Code, `task`
 
 | Role | Count | Source |
 |------|-------|--------|
-| Domain Expert | One per domain in `council_context.domains` | `domain-registry` |
+| Domain Expert | One per domain in `council_context.domains` | `uacp-core/references/domains/` |
 | Devil's Advocate | 1 | fixed role |
 | Integration Checker | 1 | fixed role |
 

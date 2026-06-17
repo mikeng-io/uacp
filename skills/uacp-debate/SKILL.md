@@ -4,7 +4,7 @@ description: Generic structured adversarial protocol for review, audit, research
 kind: orchestration
 location: managed
 dependencies:
-  - domain-registry
+  - uacp-core   # domain registry: uacp-core/references/domains/
   - uacp-bridge
 allowed-tools:
   - Read
@@ -36,7 +36,7 @@ debate_input:
   review_id: ""          # Unique ID for this debate session (generate UUID if not provided)
   review_scope: ""       # What is being reviewed, researched, or designed
   mode: "review"         # review | audit | brainstorm | design | research | synthesis
-  domains: []            # Domains selected (from domain-registry or caller)
+  domains: []            # Domains selected (from the domain registry or caller)
   intensity: "standard"  # quick | standard | thorough
   context_summary: ""    # Neutral context summary
   context_policy: "minimal-non-leading" # Round 1 policy for discovery/brainstorm
@@ -54,7 +54,7 @@ Run the phases below in order. At each phase, Read the corresponding reference f
 
 ### Execution
 
-4. **Phase 1 — Independent Investigation:** Read `references/phase-1-investigation.md`. Spawn one domain expert per domain (from `domain-registry`), one Devil's Advocate, and one Integration Checker in isolated parallel Task agents. No participant sees another's work.
+4. **Phase 1 — Independent Investigation:** Read `references/phase-1-investigation.md`. Spawn one domain expert per domain (from `uacp-core/references/domains/`), one Devil's Advocate, and one Integration Checker in isolated parallel Task agents. No participant sees another's work.
 5. **Phase 2 — Finding Publication:** Read `references/phase-2-publication.md`. Collect findings, assign unique IDs (F001, F002, ...), and broadcast the complete inventory to all participants. No responses yet.
 6. **Phase 3 — Challenge Round:** Read `references/phase-3-challenge.md`. Run up to `max_rounds` of adversarial challenge. Devil's Advocate MUST challenge every CRITICAL/HIGH finding not originated by DA. Valid challenges must identify a missing assumption, propose an alternative explanation, or surface a non-applicability scenario.
 7. **Phase 4 — Synthesis:** Read `references/phase-4-synthesis.md`. Merge findings with >70% description overlap, update states (`confirmed`, `withdrawn`, `disputed`, `merged`, `discovered`), and resolve cross-domain duplicates.
@@ -85,7 +85,7 @@ Do not fabricate participant voices. Every `messages[]` entry must correspond to
 
 ## Integration Notes
 
-- Domain experts are resolved through `domain-registry` using exact match, adapted match, or session-based virtual expert selection.
+- Domain experts are resolved through the domain registry (`uacp-core/references/domains/`) using exact match, adapted match, or session-based virtual expert selection.
 - Council taxonomy and role contracts are sourced from `../uacp-core/references/council-taxonomy.md`.
 - Shared bridge conventions (packet schemas, envelope formats) are inherited from `uacp-bridge`.
 - Do not change existing path references (`.agents/skills/state/schemas/gate_1_debate_log.schema.json`, `.uacp/debate/`, etc.).

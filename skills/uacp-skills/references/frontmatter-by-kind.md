@@ -49,8 +49,8 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 
 ## `kind: reference`
 ```yaml
-name: domain-registry
-description: Reference library of domain definitions used by lifecycle and bridge skills to select expert agents. Read via the Read tool; not invocable standalone.
+name: uacp-bridge
+description: Per-runtime dispatch contract and adapter specs consumed by lifecycle and orchestration skills. Read via the Read tool; not invocable standalone.
 kind: reference
 ```
 

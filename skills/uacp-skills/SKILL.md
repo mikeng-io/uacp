@@ -21,8 +21,7 @@ skills/<kebab-name>/
 └── assets/           (optional) — templates, fixtures
 ```
 
-- Names are **kebab-case**. UACP skills are prefixed `uacp-` unless they are a
-  shared reference library consumed by name (e.g. `domain-registry`).
+- Names are **kebab-case**. UACP skills are prefixed `uacp-`.
 - **SKILL.md target: < 500 lines.** When you approach it, move detail into
   `references/` and leave a "Read when…" pointer. Reference files > 300 lines get
   a table of contents.
@@ -59,7 +58,7 @@ decorative.
 |---|---|---|
 | `kernel` | imported by runtime adapters; not invoked as a skill | `uacp-core` |
 | `lifecycle` | a phase skill; behavior gated by the codified grammar | triage, propose, plan, execute, verify, resolve |
-| `reference` | read via the Read tool; never invoked standalone | `domain-registry`, `uacp-skills` (and `uacp-bridge`, planned) |
+| `reference` | read via the Read tool; never invoked standalone | `uacp-bridge`, `uacp-skills` |
 | `orchestration` | invocable helpers around the lifecycle | council, debate, parallel, context, web, brainstorm |
 
 > **Status: rollout complete.** Every skill in the library now declares `kind`; lifecycle skills no longer carry `allowed_tools` / `forbidden_tools` / `phase_exit_invariants` mirrors. Enforced by `tests/unit/skills/test_plugin_readiness.py`.
@@ -137,7 +136,7 @@ If any fails → extend an existing doc (or, for non-cited material, put it in `
 
 ### OKF frontmatter
 
-Every doc in `uacp-core/references/` and `docs/knowledge/` carries Open-Knowledge-Format
+Every doc in `uacp-core/references/` and `.uacp/knowledge/` carries Open-Knowledge-Format
 frontmatter so the reference/knowledge layer is interoperable across runtimes and tooling:
 
 ```yaml
@@ -194,7 +193,7 @@ Content shared across skills lives once under **`uacp-core/references/`** (the k
 ### Where a shared/reference doc lives
 - Cited by exactly ONE skill → that skill's own `references/`.
 - Shared across many skills, or a kernel-level contract → `uacp-core/references/`.
-- Dated session-history / one-off lessons / external analysis cited by no skill → `docs/knowledge/` (reading + provenance; it ships with the plugin, but it is *not* the operational contract — point skill instruction at the `uacp-core/references/` digest, not at history).
+- Dated session-history / one-off lessons / external analysis cited by no skill → `.uacp/knowledge/` (the single Oracle-owned knowledge corpus — reading + provenance; it ships with the plugin, but it is *not* the operational contract — point skill instruction at the `uacp-core/references/` digest, not at history).
 
 ## Plugin-readiness checklist
 1. Skill is at `skills/<dir>/SKILL.md`; the dir name is the intended `/uacp:<dir>` invocation name.

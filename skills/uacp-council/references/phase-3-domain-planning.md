@@ -1,15 +1,15 @@
 ## Phase 3: Domain & Prompt Planning
 
-Read domain definitions from `domain-registry`:
+Read domain definitions from the domain registry (`uacp-core/references/domains/`):
 
 ```
-Read: [skills-root]/domain-registry/domains/technical.md
-Read: [skills-root]/domain-registry/domains/business.md
-Read: [skills-root]/domain-registry/domains/creative.md
+Read: [skills-root]/uacp-core/references/domains/technical.md
+Read: [skills-root]/uacp-core/references/domains/business.md
+Read: [skills-root]/uacp-core/references/domains/creative.md
 ```
 
 For each domain in `council_manifest.domains`, resolve:
-- `expert_role` — domain-registry's named expert
+- `expert_role` — the domain registry's named expert
 - `focus_areas` — what the expert should focus on
 - `standards` — what standards or references apply
 

@@ -1,6 +1,6 @@
 # Bridge: Codex (OpenAI) — uacp-bridge reference
 
-*Per-runtime reference for [uacp-bridge](../SKILL.md). Depends on: uacp-bridge, domain-registry.*
+*Per-runtime reference for [uacp-bridge](../SKILL.md). Depends on: uacp-bridge, the domain registry (uacp-core/references/domains/).*
 
 ---
 
@@ -248,7 +248,7 @@ Tier: {tier}
 
 Domains to analyze (spawn one agent per domain):
 {for each domain:
-  "- {domain_name}: focus on {focus_areas from domain-registry}"}
+  "- {domain_name}: focus on {focus_areas from the domain registry}"}
 
 Each agent must return outputs using the schema from uacp-bridge:
 {

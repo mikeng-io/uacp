@@ -8,7 +8,7 @@ Spawn all participants in parallel using Task tool. Each receives the same `scop
 
 | Role | Count | Source |
 |------|-------|--------|
-| Domain expert | One per domain in `debate_input.domains` | domain-registry Lookup Protocol — exact match, adapted match, or session-based virtual expert |
+| Domain expert | One per domain in `debate_input.domains` | domain registry Lookup Protocol (`uacp-core/references/domains/`) — exact match, adapted match, or session-based virtual expert |
 | Devil's Advocate | 1 (always) | `uacp-debate/experts/devils-advocate.md` |
 | Integration Checker | 1 (always) | `uacp-debate/experts/integration-checker.md` |
 

@@ -1,6 +1,6 @@
 # Bridge: Claude (Anthropic) — uacp-bridge reference
 
-*Per-runtime reference for [uacp-bridge](../SKILL.md). Depends on: uacp-bridge, domain-registry, debate-protocol (Claude-only Layer-2 supersession of the Post-Analysis Protocol).*
+*Per-runtime reference for [uacp-bridge](../SKILL.md). Depends on: uacp-bridge, the domain registry (uacp-core/references/domains/), debate-protocol (Claude-only Layer-2 supersession of the Post-Analysis Protocol).*
 
 ---
 
@@ -276,7 +276,7 @@ Teammates communicate findings and challenges directly without routing through t
 ```
 You are a {expert_role}. Your task: {task_description}
 Scope: {scope} | Context: {context_summary} | Intensity: {intensity} | Tier: {tier}
-Focus: {focus_areas from domain-registry}
+Focus: {focus_areas from the domain registry}
 Return your output as the JSON structure defined in uacp-bridge/SKILL.md Agent Prompt Template.
 ```
 

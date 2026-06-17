@@ -6,7 +6,7 @@ Check each signal explicitly:
 signal_resolution:
   artifact_identified: true | false    # specific files/paths/topics clearly present?
   intent_clear: true | false          # review? audit? verify? research? implement? plan?
-  domains_detectable: true | false    # can domains be matched from domain-registry?
+  domains_detectable: true | false    # can domains be matched from the domain registry?
   scope_bounded: true | false         # is scope narrow enough to proceed without clarification?
   uacp_state_clear: true | false      # does active UACP state constrain or inform this work?
 ```
