@@ -134,3 +134,16 @@ def test_bes_smoothed_posterior_with_recurrences():
 def test_bes_all_recurrences_floor_not_zero():
     # eligible=3, recurrences=3 -> successes=0 ; smoothed=(0+1)/(3+2)=0.2
     assert bes_score(eligible=3, recurrences=3, days_since_extracted=0) == 0.2
+
+
+def test_bes_recency_floor_at_half():
+    # eligible=8, recurrences=0, smoothed=0.9.
+    # days=365 -> recency = max(0.5, 1-0.5) = 0.5 -> bes=0.45
+    assert bes_score(eligible=8, recurrences=0, days_since_extracted=365) == 0.45
+    # days far past 2*365 must NOT drop below floor: recency clamps to 0.5 -> 0.45
+    assert bes_score(eligible=8, recurrences=0, days_since_extracted=100000) == 0.45
+
+
+def test_bes_recency_partial_decay():
+    # days=182.5 -> recency = 1-0.5*(0.5) = 0.75 ; smoothed=0.9 -> 0.675
+    assert bes_score(eligible=8, recurrences=0, days_since_extracted=182.5) == 0.675
