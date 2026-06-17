@@ -4,11 +4,15 @@ The aggregator is the main entry point for oracle_query(). It:
 1. Looks up the OracleMode for the requested phase via PHASE_TIERS
 2. For NONE/WRITEBACK modes, returns empty packets with metadata note
 3. For FULL/ADVISORY modes, collects packets from all enabled sources:
-     - runstate (deterministic, always available)
      - honcho   (advisory, optional — skipped when disabled or unreachable)
      - semantic  (C-semantic: pipeline over .uacp/lessons + .uacp/knowledge)
 4. Each source is wrapped in try/except — failures append to sources_skipped,
    never raise to the caller.
+
+Data-ownership boundary: the Oracle reads ONLY the knowledge/lesson corpus
+(via the semantic pipeline over engines.domain.corpus) and the advisory honcho
+memory. It does NOT read run-state or manifests — that boundary belongs to the
+state engine. No run-state/deterministic tier exists here by design.
 
 Semantic source (Task 8b):
   _semantic_packets resolves the store + embedding/rerank clients via resolve_role()
@@ -218,15 +222,7 @@ def oracle_query(
     packets: list[ProviderPacket] = []
     sources_skipped: list[str] = []
 
-    # Source 1: run-state (deterministic, always available)
-    try:
-        from engines.oracle.sources.runstate import query_runstate
-        rs_packets = query_runstate(workspace, project=project, phase=None, limit=limit)
-        packets.extend(rs_packets)
-    except Exception:
-        sources_skipped.append("runstate")
-
-    # Source 2: honcho memory (advisory, optional)
+    # Source 1: honcho memory (advisory, optional)
     try:
         honcho_cfg = oracle_cfg.get("honcho", {})
         if isinstance(honcho_cfg, dict) and honcho_cfg.get("enabled", False):
@@ -242,7 +238,7 @@ def oracle_query(
     except Exception:
         sources_skipped.append("honcho")
 
-    # Source 3: semantic — runs the pipeline when the store is available;
+    # Source 2: semantic — runs the pipeline when the store is available;
     # records "semantic" in sources_skipped when the store is unavailable
     # (lancedb absent, index not built, or oracle.enabled=false).
     try:
