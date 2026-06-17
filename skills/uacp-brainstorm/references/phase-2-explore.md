@@ -41,7 +41,7 @@ Every tool invocation during exploration must leave a trace in `manifest.yaml`:
   result_count: 3
   key_findings:
     - "Referenced in uacp-brainstorm phase-8-admission.md"
-    - "Guardian script at skills/uacp-core/scripts/guardian.py"
+    - "Guardian implemented in skills/uacp-core/scripts/core.py"
   phase: 2
   timestamp: "{ISO-8601}"
 ```
