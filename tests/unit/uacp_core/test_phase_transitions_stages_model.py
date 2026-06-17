@@ -34,6 +34,16 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 # Pre-slim production stages values (literals from 1c281bc).
 # ---------------------------------------------------------------------------
 _PRESLIM_ALLOWED_TOOLS = {
+    "brainstorm": [
+        "Read",
+        "Glob",
+        "Grep",
+        "Task",
+        "Write",
+        "uacp_state_write",
+        "uacp_artifact_write",
+        "uacp_heartgate_check",
+    ],
     "triage": [
         "uacp_artifact_write",
         "uacp_state_write",
@@ -96,6 +106,7 @@ _PRESLIM_ALLOWED_TOOLS = {
 }
 
 _PRESLIM_FORBIDDEN_TOOLS = {
+    "brainstorm": ["terminal", "execute_code"],
     "triage": ["terminal", "execute_code"],
     "propose": ["terminal", "execute_code"],
     "plan": ["terminal", "execute_code"],
@@ -105,6 +116,7 @@ _PRESLIM_FORBIDDEN_TOOLS = {
 }
 
 _PRESLIM_EXITS_TO = {
+    "brainstorm": ["triage"],  # this slice only; explore-and-bail is a follow-up
     "triage": ["propose", "terminal"],  # sorted; YAML had [propose, terminal]
     "propose": ["plan"],
     "plan": ["execute"],
@@ -114,6 +126,18 @@ _PRESLIM_EXITS_TO = {
 }
 
 _PRESLIM_PHASE_EXIT_INVARIANTS = {
+    "brainstorm": [
+        {
+            "artifact_glob": "brainstorm/*/07-scope-package.yaml",
+            "required": True,
+            "description": (
+                "Brainstorm admission contract: a selected scope-package artifact must "
+                "exist with non-empty title/description/in_scope, declared_side_effects "
+                "present, authority.source documented, and a valid routing_advisory. "
+                "Promoted from references/phase-8-admission.md."
+            ),
+        },
+    ],
     "triage": [
         {"artifact_glob": "proposals/{run_id}-triage*.yaml", "required": True},
         {"gate_ledger_entry": "TRIAGE_COMPLETE", "required": True},
@@ -161,6 +185,7 @@ _PRESLIM_PHASE_EXIT_INVARIANTS = {
 }
 
 _PRESLIM_PURPOSE = {
+    "brainstorm": "Exploration and scope clarification before entering UACP governance.",
     "triage": "Calibrate scope, score granularity, and route the request.",
     "propose": "Establish authority, scope, context, risk, and proposal viability.",
     "plan": "Convert approved proposal into bounded execution and verification strategy.",
@@ -174,7 +199,8 @@ _PRESLIM_PURPOSE = {
 }
 
 _PRESLIM_ENTERS_FROM = {
-    "triage": ["none"],
+    "brainstorm": ["none"],
+    "triage": ["none", "brainstorm"],
     "propose": ["triage"],
     "plan": ["propose"],
     "execute": ["plan"],
@@ -190,7 +216,7 @@ _PRESLIM_TRIAGE_ROUTING_OUTCOMES = {
     "block_or_clarify": "terminal_blocked",
 }
 
-_PHASES = ("triage", "propose", "plan", "execute", "verify", "resolve")
+_PHASES = ("brainstorm", "triage", "propose", "plan", "execute", "verify", "resolve")
 
 
 @pytest.fixture(scope="module")
@@ -243,7 +269,7 @@ def test_triage_routing_outcomes_and_terminate_flag_pin(stages: dict) -> None:
     assert stages["triage"]["routing_outcomes"] == _PRESLIM_TRIAGE_ROUTING_OUTCOMES
     assert stages["triage"]["can_terminate_without_full_lifecycle"] is True
     # routing_outcomes / can_terminate are triage-only; absent on other phases.
-    for phase in ("propose", "plan", "execute", "verify", "resolve"):
+    for phase in ("brainstorm", "propose", "plan", "execute", "verify", "resolve"):
         assert "routing_outcomes" not in stages[phase]
         assert "can_terminate_without_full_lifecycle" not in stages[phase]
 
