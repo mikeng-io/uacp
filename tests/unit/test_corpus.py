@@ -319,3 +319,23 @@ def test_knowledge_path_resolves_under_uacp(tmp_path):
     cfg = config.get_config(tmp_path)
     p = cfg.resolve(tmp_path, "knowledge", "my-item.md")
     assert p == (tmp_path / ".uacp" / "knowledge" / "my-item.md")
+
+from engines.domain.corpus import lessons_for_project, knowledge_for_project
+
+
+def test_lessons_filtered_to_project():
+    a = Lesson.from_okf(_lesson_md())               # project=uacp
+    b = Lesson.from_okf(_lesson_md().replace("project: uacp", "project: other"))
+    b.id = "other-lesson"
+    assert [l.id for l in lessons_for_project([a, b], "uacp")] == [a.id]
+
+
+def test_knowledge_includes_shared_plus_project():
+    from engines.domain.corpus import KnowledgeItem
+    shared = KnowledgeItem.from_okf(_knowledge_md())                       # scope=shared
+    local = KnowledgeItem.from_okf(_knowledge_md().replace("scope: shared", "scope: uacp"))
+    local.id = "uacp-local"
+    other = KnowledgeItem.from_okf(_knowledge_md().replace("scope: shared", "scope: other"))
+    other.id = "other-local"
+    got = {k.id for k in knowledge_for_project([shared, local, other], "uacp")}
+    assert got == {shared.id, "uacp-local"}
