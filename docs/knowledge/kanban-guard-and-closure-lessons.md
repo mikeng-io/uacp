@@ -1,3 +1,11 @@
+---
+type: lessons
+title: Kanban Guard and Closure Lessons
+description: 7-step closure evidence pattern, workspace-separation boundary, completion metadata field list, completion_blocked_uacp_metadata event, 5-case verification shape, and non-goals for Kanban guard phases.
+tags: [kanban, closure, evidence, coordination]
+timestamp: 2026-06-17
+---
+
 # Kanban Guard and Closure Lessons
 
 Durable lessons for UACP-bound Kanban completion guard semantics, phase closure evidence patterns, and the workspace-separation boundary. Drawn from Phase 4B resolve lessons and Phase 5 Kanban guard work (2026-05-14).

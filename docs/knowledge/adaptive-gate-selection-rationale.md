@@ -1,3 +1,11 @@
+---
+type: analysis
+title: Adaptive Gate Selection Rationale
+description: "Why UACP uses domain-adaptive gates instead of a fixed checklist; meta-gate flow, domain-specific VERIFY examples (software/marketing/research/productivity), non-waivable invariants. Live implementation: `config/gate-selection.yaml`."
+tags: [guardian, gate-selection, adaptive, verification]
+timestamp: 2026-06-17
+---
+
 # Adaptive Gate Selection Rationale
 
 UACP cannot inherit Trustless ACP's fixed software-engineering gate checklist. Trustless ACP worked in a constrained domain, so predefined gates were reasonable. UACP is universal and must adapt across software, infra, research, marketing, productivity, lifestyle, creative, operations, and mixed-domain work.

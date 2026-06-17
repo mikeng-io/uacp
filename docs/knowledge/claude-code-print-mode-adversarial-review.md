@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Claude Code Print-Mode Adversarial Review
+description: "3-line recipe: pipe design docs into `claude -p --effort high --max-turns 1` for adversarial architecture/security review."
+tags: [claude-code, review, adversarial, security]
+timestamp: 2026-06-17
+---
+
 # Claude Code Print-Mode Adversarial Review
 
 For design/architecture documents, use Claude Code print mode (`-p`) with `--effort high` for adversarial review. Pipe the document via stdin:

@@ -1,5 +1,7 @@
 # UACP Knowledge
 
+This is the OKF bundle index for the `docs/knowledge/` directory — each `.md` file (except this index) carries Open Knowledge Format YAML frontmatter.
+
 Durable run-lessons, design rationale, and history — relocated from the former
 `skills/references/` shared dump (abolished in the skill-convention application,
 ADR-0017 / Step 2 Slice 3).

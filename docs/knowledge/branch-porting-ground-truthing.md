@@ -1,3 +1,11 @@
+---
+type: lessons
+title: Branch Porting Ground Truthing
+description: Read-canon-first rule, four-category diff classification (already-present/missing/conflicting/impl-detail-only), canon read order, "skills are implementation surfaces; UACP is the authority layer" pitfall.
+tags: [branch-porting, canon, doctrine, workflow]
+timestamp: 2026-06-17
+---
+
 # Branch Porting Ground Truthing
 
 Use this workflow when porting doctrine changes from a skills branch, a council-taxonomy refactor, or any other implementation-side change set into UACP.

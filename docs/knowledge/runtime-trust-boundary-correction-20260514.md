@@ -1,3 +1,11 @@
+---
+type: lessons
+title: Runtime Trust Boundary Correction — 2026-05-14
+description: "Operator-preference pattern (pause and reframe authority boundary when solution feels fuzzy), 4 out-of-band mutation examples, 3-step correct response. Canonical doctrine: `docs/runtime/runtime-enforcement.md` §Runtime Trust Boundary."
+tags: [runtime, trust-boundary, guardian, doctrine]
+timestamp: 2026-05-14
+---
+
 # Runtime Trust Boundary Correction — 2026-05-14
 
 ## Why This Exists

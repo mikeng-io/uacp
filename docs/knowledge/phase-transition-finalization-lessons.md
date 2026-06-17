@@ -1,3 +1,11 @@
+---
+type: lessons
+title: Phase Transition Finalization Lessons
+description: "9-step finalization sequence, Guardian env-var binding template, PYTHONDONTWRITEBYTECODE/pytest `-c /dev/null` fallbacks, transition-artifact field reminders, operator reporting with explicit non-actions."
+tags: [phase-transitions, heartgate, finalization, lifecycle]
+timestamp: 2026-06-17
+---
+
 # Phase Transition Finalization Lessons
 
 Use this reference when a UACP run is moving from EXECUTE toward VERIFY or from VERIFY toward RESOLVE after runtime/docs/config changes.
