@@ -1,17 +1,21 @@
-"""Reference-hygiene tripwire for UACP skill instruction bodies.
+"""Reference-boundary tripwire for UACP skill instruction bodies.
 
-Convention (skills/uacp-skills, "in-plugin reference rule"): a CC plugin install
-copies the WHOLE plugin (docs/ included) to disk, so docs/ citations do NOT dangle
-— the earlier "installed agent only gets the skill dir" premise was disproven (see
-ADR-0017 §Context correction). This test therefore does NOT forbid docs/ citations.
+Convention (skills/uacp-skills, "reference boundary — one-directional"): references
+flow one way. A skill cites only the SKILL TREE (uacp-core/references + its own
+references/); ``docs/`` is the authority/rationale/history layer that governs skills
+but is never cited by them. (Not about dangling — a CC plugin install copies the
+whole repo, docs/ included; the rule is boundary cleanliness / no divergence.)
 
-It enforces two hygiene rules:
-  1. No citation of the abolished top-level ``skills/references/`` dump (it's gone;
-     shared refs live in ``uacp-core/references/``) — see the guards below.
-  2. No ``ADR-<number>`` citation in SKILL.md bodies — a STYLE preference: cite the
-     concise ``uacp-core/references/`` digest, not a sprawling ADR. (ADRs ship too,
-     so this is hygiene, not a dangling fix.) Source files (*.py) may cite ADRs as
-     provenance and are NOT scanned.
+This test enforces:
+  1. No citation of the abolished top-level shared references dump (gone; shared refs
+     live in ``uacp-core/references/``).
+  2. No ``ADR-<number>`` citation in SKILL.md bodies — cite the concise
+     ``uacp-core/references/`` digest, not a sprawling ADR. (*.py files may cite ADRs
+     as provenance and are NOT scanned.)
+
+NOT YET enforced here: the ``docs/``-back-pointer ban. The ~60 pre-existing docs/
+pointers in lifecycle skills are resolved in a dedicated cleanup slice (drop/digest),
+after which this test widens to forbid ``docs/`` in SKILL.md bodies.
 """
 
 from __future__ import annotations

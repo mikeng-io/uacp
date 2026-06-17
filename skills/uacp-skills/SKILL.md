@@ -75,44 +75,50 @@ Layer-B and Heartgate). A SKILL.md copy is a descriptive mirror that drifts and
 falsely looks authoritative. Declare `authority_source` (a pointer to the codified
 grammar) and stop there.
 
-## In-plugin reference rule (load-bearing)
+## Reference boundary (load-bearing) — one-directional
 
-A Claude Code plugin install copies the **entire plugin directory** to disk
-(`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/…`) — `skills/`,
-`docs/`, `config/`, everything at the root. Hermes likewise loads from a full
-repo/skill-store. So a skill body may reference **any file bundled inside the
-plugin/repo** — its own `references/`/`scripts/`/`assets/`, another skill's shipped
-paths, and the repo's `docs/`/`config/` — because they ship.
+There are two reference layers, and references flow **one way** between them. This
+is what keeps documentation from diverging into a tangle of cross-pointers.
 
-The real constraint:
-- **Reference only files INSIDE the plugin/repo root.** Files outside it are not
-  copied on install (path-traversal `../` outside the root fails). Stay in-tree.
-- **Use the runtime-neutral root token `UACP_ROOT/…`** for root-relative paths.
-  Each runtime resolves it: Claude Code → the plugin root (conceptually
-  `${CLAUDE_PLUGIN_ROOT}`); Hermes → the repo/skill-store root. (Note: CC documents
-  `${CLAUDE_PLUGIN_ROOT}` for hooks/MCP/LSP config, not skill-markdown prose — so a
-  `docs/` pointer in a skill body is best-effort context the agent resolves against
-  the install root, not a hard dependency. A skill must stay usable if such a
-  pointer can't be followed.)
-- Source `*.py` files MAY cite ADRs in comments (provenance in code).
+| Layer | Holds | Read by | Direction |
+|---|---|---|---|
+| **skill tree** — `uacp-core/references/` (shared) + each skill's own `references/` | everything a skill *instruction* cites: operational contracts, patterns, schemas | the installed skill, at runtime | skills cite **only** here |
+| **`docs/`** — ADRs, decision-log, policy, lifecycle/orchestration reference, `knowledge/` | authority · rationale · canonical reference · history | humans + in-repo authoring | `docs/` **may** point at skills; **skills never point back into `docs/`** |
 
-**Preference (DRY + focus, not a dangling fix):** keep durable shared contracts in
-`uacp-core/references/` as a **concise digest**, and point skill instruction there
-rather than at a sprawling `docs/` ADR/decision-log. A `references/` mirror MAY
-carry one "Origin of record" provenance line to its `docs/` source. This is style,
-not necessity — `docs/` ships either way.
+**The rule:** a skill body (and any instructing `references/` file) cites **only the
+skill tree** — its own `references/`/`scripts/`/`assets/`, or another skill's shipped
+paths (`uacp-core/references/…`, `uacp-core/scripts/…`). It does **not** cite `docs/`.
+`docs/` is one-directional: it governs/describes skills; skills do not depend on it.
 
-> **Enforcement scope (corrected).** Earlier convention text claimed installed
-> skills "receive only the skill dir, not `docs/`, so `docs/` citations dangle."
-> The CC plugin spec disproves that — the whole plugin ships. So there is **no
-> `docs/`-citation prohibition** and the lint is **not** widened to forbid `docs/`.
-> `tests/unit/skills/test_skill_self_containment.py` enforces two real hygiene
-> rules: (1) no citation of the **abolished top-level shared references dump** (the
-> former `references/` directory that sat directly under the skills root, now gone);
-> (2) no `ADR-<number>` citation in `SKILL.md` bodies — kept as a **style
-> preference** (cite the concise `uacp-core/references/` digest, not the ADR), now
-> that ADRs are known to ship. The genuine guarantee — stay inside the plugin
-> root — holds by construction.
+This is **not** about dangling — a CC plugin install copies the whole repo (`docs/`
+included) to disk, and Hermes loads the full repo, so `docs/` is present either way.
+The rule exists for **boundary cleanliness**: one home per kind of content, no
+back-pointers, no divergence.
+
+**Two-layer (digest) pattern — the standard way to handle a `docs/` contract a skill
+needs:** keep the full authority/rationale in `docs/` (origin of record) and put a
+**concise operational digest** in `uacp-core/references/`; the skill cites the digest.
+Not duplication — two purposes (rationale vs operational contract). The goal-driven
+mirror (`uacp-core/references/goal-driven-track.md`, which digests the goal-driven
+track's ADR) is the template. A
+digest MAY carry one "Origin of record" provenance line naming its `docs/` source.
+
+**Decision test for any new reference doc** — *"Will a skill's instructions cite it
+to operate?"* Yes → skill tree (shared/kernel → `uacp-core/references/`; single-skill
+→ that skill's `references/`). No (authority / rationale / history) → `docs/`.
+
+**Paths:** use the runtime-neutral `UACP_ROOT/…` token for skill-tree paths (CC → the
+plugin root ≈ `${CLAUDE_PLUGIN_ROOT}`; Hermes → the repo/skill-store root). Source
+`*.py` files MAY cite ADRs in comments (provenance in code).
+
+> **Enforcement.** `tests/unit/skills/test_skill_self_containment.py` enforces: no
+> citation of the abolished top-level shared references dump (gone), and no
+> `ADR-<number>` in `SKILL.md` bodies (cite the `uacp-core/references/` digest). The
+> `docs/`-back-pointer ban is being applied to the existing lifecycle skills in a
+> dedicated cleanup slice (drop "further reading" pointers; digest the
+> operationally-needed ones) and the lint widens to enforce it once that lands.
+> Until then, ~60 pre-existing `docs/` pointers in lifecycle skills are known
+> transition debt. **New/refactored skills must follow the rule now.**
 
 ## DRY shared content
 
