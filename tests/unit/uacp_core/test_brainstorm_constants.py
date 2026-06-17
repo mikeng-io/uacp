@@ -41,3 +41,30 @@ def test_brainstorm_enters_from_none() -> None:
 
 def test_triage_enters_from_includes_brainstorm() -> None:
     assert set(STAGE_ENTERS_FROM["triage"]) == {"none", "brainstorm"}
+
+
+from engines.domain.phase_transitions import STAGE_PHASE_EXIT_INVARIANTS, stages_default
+
+
+def test_brainstorm_phase_exit_invariant_present() -> None:
+    assert "brainstorm" in STAGE_PHASE_EXIT_INVARIANTS
+    invs = STAGE_PHASE_EXIT_INVARIANTS["brainstorm"]
+    assert isinstance(invs, list) and len(invs) >= 1
+
+    # The scope-package artifact glob is required.
+    scope_inv = next(
+        (i for i in invs if "artifact_glob" in i and "brainstorm" in i["artifact_glob"]),
+        None,
+    )
+    assert scope_inv is not None, "No artifact_glob invariant for brainstorm scope-package"
+    assert scope_inv["required"] is True
+
+
+def test_stages_default_includes_brainstorm() -> None:
+    stages = stages_default()
+    assert "brainstorm" in stages
+    body = stages["brainstorm"]
+    assert body["enters_from"] == ["none"]
+    assert set(body["exits_to"]) == {"triage"}
+    assert body["allowed_tools"]
+    assert "terminal" in body["forbidden_tools"]

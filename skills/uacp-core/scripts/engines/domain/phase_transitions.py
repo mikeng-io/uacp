@@ -174,6 +174,18 @@ STAGE_FORBIDDEN_TOOLS: dict[str, list[str]] = {
 # that was in the pre-slim YAML (artifact_glob/package_directory/gate_ledger_entry,
 # required, applies_when, description) so behavior and observability are unchanged.
 STAGE_PHASE_EXIT_INVARIANTS: dict[str, list[dict[str, Any]]] = {
+    "brainstorm": [
+        {
+            "artifact_glob": "brainstorm/*/07-scope-package.yaml",
+            "required": True,
+            "description": (
+                "Brainstorm admission contract: a selected scope-package artifact must "
+                "exist with non-empty title/description/in_scope, declared_side_effects "
+                "present, authority.source documented, and a valid routing_advisory. "
+                "Promoted from references/phase-8-admission.md."
+            ),
+        },
+    ],
     "triage": [
         {"artifact_glob": "proposals/{run_id}-triage*.yaml", "required": True},
         {"gate_ledger_entry": "TRIAGE_COMPLETE", "required": True},
