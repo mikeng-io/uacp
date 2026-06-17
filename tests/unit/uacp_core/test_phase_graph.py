@@ -90,8 +90,17 @@ def test_state_machine_terminal_phases_matches_runtime_terminal_set() -> None:
 
 
 def test_projection_reproduces_the_historic_five_edges() -> None:
-    """The projection must reproduce the exact historic 5-edge graph."""
+    """The projection must reproduce the canonical 6-edge state-machine graph.
+
+    Updated in Brainstorm-phase slice: brainstorm->triage is a new edge.
+    The `historic five edges` comment is updated to reflect the current graph.
+    triage->terminal is dropped (terminal sink rule);
+    resolve->resolved is the phase-collapse rule.
+    brainstorm->terminal is not in LIFECYCLE_GRAPH for this slice
+    (explore-and-bail is a tracked follow-up).
+    """
     assert phase_graph.state_machine_projection() == {
+        "brainstorm": {"triage"},
         "triage": {"propose"},
         "propose": {"plan"},
         "plan": {"execute"},
