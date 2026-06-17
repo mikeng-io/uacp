@@ -1,0 +1,175 @@
+{
+  "_meta": {
+    "description": "Bootstrap eval set for the Oracle reranker bake-off (Task 14). SYNTHETIC — these query/doc pairs were hand-crafted to cover the four scenario dimensions named in the plan. Replace with real labeled data once RESOLVE-phase lessons accumulate enough volume (target: ≥50 query/doc pairs from real runs). Doc bodies are intentionally minimal; a real eval set would embed the full chunk text.",
+    "version": "0.1.0-synthetic",
+    "created": "2026-06-17",
+    "scenarios": [
+      "short_query",
+      "long_doc_chunk",
+      "multilingual_cjk",
+      "keyword_vs_paraphrase"
+    ]
+  },
+  "entries": [
+    {
+      "query_id": "sq-001",
+      "query": "worktree isolation",
+      "scenario": "short_query",
+      "relevant_doc_ids": ["lesson-worktree-001", "lesson-worktree-002"],
+      "candidate_doc_ids": [
+        "lesson-worktree-001",
+        "lesson-worktree-002",
+        "lesson-branch-protocol-003",
+        "knowledge-git-ops-004",
+        "lesson-council-005"
+      ],
+      "docs": {
+        "lesson-worktree-001": "Use isolation: worktree on Agent tool calls that mutate files in parallel. Unchanged worktrees are auto-removed.",
+        "lesson-worktree-002": "Parallel agents mutating the same file without worktree isolation cause merge conflicts. Always set isolation: worktree for multi-agent file writes.",
+        "lesson-branch-protocol-003": "All active runs must use a branch or worktree — no direct writes to main during a run.",
+        "knowledge-git-ops-004": "Git operations: git checkout -b creates a new branch. git worktree add creates an isolated working tree.",
+        "lesson-council-005": "Council review must precede PLAN exit when kernel or policy YAML is changed."
+      }
+    },
+    {
+      "query_id": "sq-002",
+      "query": "council gate",
+      "scenario": "short_query",
+      "relevant_doc_ids": ["knowledge-council-001", "lesson-council-002"],
+      "candidate_doc_ids": [
+        "knowledge-council-001",
+        "lesson-council-002",
+        "lesson-heartgate-003",
+        "knowledge-evidence-004",
+        "lesson-worktree-005"
+      ],
+      "docs": {
+        "knowledge-council-001": "Council gate: any change to kernel code, policy YAML, or canonical docs requires council review before PLAN exits. Zero material findings must be unresolved.",
+        "lesson-council-002": "Skipping the council gate on a policy YAML change caused a silent regression in Guardian Layer-B. Always invoke uacp-council before PLAN exits on config/ changes.",
+        "lesson-heartgate-003": "Heartgate checks PLAN_VALIDATION ledger entry before allowing PLAN → EXECUTE transition.",
+        "knowledge-evidence-004": "Evidence must be produced. 'Done' without a backing artifact and ledger entry is a Heartgate blocker.",
+        "lesson-worktree-005": "Worktree cleanup is automatic for unchanged trees but must be explicit for trees with uncommitted changes."
+      }
+    },
+    {
+      "query_id": "ld-001",
+      "query": "how does the Guardian classify tool calls and what happens when a tool is not in the allowed list for the current phase",
+      "scenario": "long_doc_chunk",
+      "relevant_doc_ids": ["knowledge-guardian-classify-001", "knowledge-guardian-layer-b-002"],
+      "candidate_doc_ids": [
+        "knowledge-guardian-classify-001",
+        "knowledge-guardian-layer-b-002",
+        "lesson-allowlist-miss-003",
+        "knowledge-heartgate-phase-004",
+        "lesson-read-local-005"
+      ],
+      "docs": {
+        "knowledge-guardian-classify-001": "The Guardian classifies every tool call before allowing it. Classification sources (in priority order): [guardian.tool_classification] TOML table (explicit entry wins), provider heuristics (mcp__ prefix → mcp.*, write-pattern names → write.*), then runtime.extension fallback. The classification determines which Layer-B check applies.",
+        "knowledge-guardian-layer-b-002": "Layer-B enforcement: if the tool's classification is not in the phase's allowed_tools set, the Guardian emits an allowlist_miss block. Tools classified read.local bypass the allowlist check entirely — they are always permitted. Tools classified write.* require an explicit entry in allowed_tools for the phase.",
+        "lesson-allowlist-miss-003": "A custom plugin tool was blocked with allowlist_miss during propose because it lacked a classification entry. Fix: add tool_name = 'read.local' under [guardian.tool_classification] in uacp.toml.",
+        "knowledge-heartgate-phase-004": "Heartgate validates phase transitions, not individual tool calls. Guardian handles per-tool-call policy; Heartgate handles PHASE → PHASE boundary crossing.",
+        "lesson-read-local-005": "Read-only tools that query local state (oracle, config, file reads) should be classified read.local so Guardian Layer-B's 'reads pass' guard skips them without requiring an allowed_tools entry."
+      }
+    },
+    {
+      "query_id": "ld-002",
+      "query": "what is the authority chain when layers conflict and how do I override a policy decision that was set in a higher-priority layer",
+      "scenario": "long_doc_chunk",
+      "relevant_doc_ids": ["knowledge-authority-chain-001", "knowledge-decision-log-002"],
+      "candidate_doc_ids": [
+        "knowledge-authority-chain-001",
+        "knowledge-decision-log-002",
+        "lesson-layer-conflict-003",
+        "knowledge-config-collapse-004",
+        "lesson-council-override-005"
+      ],
+      "docs": {
+        "knowledge-authority-chain-001": "UACP authority chain (earlier layers win): 1. docs/INDEX.md (document registry and canonical agent read order). 2. docs/ (intent, principles, lifecycle, policy). 3. config/ (machine-readable rules derived from docs). 4. state/ (current lifecycle position and run pointers). 5. skills/ (implement the documented rules). An explicit entry in docs/decisions/decision-log.md is the only mechanism to override this order.",
+        "knowledge-decision-log-002": "To override a higher-priority layer decision: record the decision in docs/decisions/decision-log.md with the date, the layers involved, the rationale, and the council finding (if any). The decision-log entry is the authoritative record — without it, the higher-priority layer wins.",
+        "lesson-layer-conflict-003": "Attempting to override a docs/ policy by editing only config/ failed silently. The docs/ layer won. Correct approach: update docs/ first, derive config/ from it, record in decision-log.md.",
+        "knowledge-config-collapse-004": "Config collapse: grammar from docs/ is codified to Python (engines/domain/) as the code default; project knobs live in uacp.toml. Doctrine (the 'why') stays in YAML docs. Never let config/ become the authority for doctrine.",
+        "lesson-council-override-005": "Council finding M-1 (doc, not block) was overridden without a decision-log entry. Audit caught the discrepancy at VERIFY. Always log M-1 resolutions in decision-log.md."
+      }
+    },
+    {
+      "query_id": "cjk-001",
+      "query": "ワークツリーの分離と並列エージェント",
+      "scenario": "multilingual_cjk",
+      "relevant_doc_ids": ["lesson-worktree-001", "lesson-worktree-002"],
+      "candidate_doc_ids": [
+        "lesson-worktree-001",
+        "lesson-worktree-002",
+        "lesson-branch-protocol-003",
+        "knowledge-git-ops-004",
+        "lesson-council-005"
+      ],
+      "docs": {
+        "lesson-worktree-001": "Use isolation: worktree on Agent tool calls that mutate files in parallel. Unchanged worktrees are auto-removed.",
+        "lesson-worktree-002": "Parallel agents mutating the same file without worktree isolation cause merge conflicts. Always set isolation: worktree for multi-agent file writes.",
+        "lesson-branch-protocol-003": "All active runs must use a branch or worktree — no direct writes to main during a run.",
+        "knowledge-git-ops-004": "Git operations: git checkout -b creates a new branch. git worktree add creates an isolated working tree.",
+        "lesson-council-005": "Council review must precede PLAN exit when kernel or policy YAML is changed."
+      }
+    },
+    {
+      "query_id": "cjk-002",
+      "query": "守护者如何分类工具调用",
+      "scenario": "multilingual_cjk",
+      "relevant_doc_ids": ["knowledge-guardian-classify-001", "knowledge-guardian-layer-b-002"],
+      "candidate_doc_ids": [
+        "knowledge-guardian-classify-001",
+        "knowledge-guardian-layer-b-002",
+        "lesson-allowlist-miss-003",
+        "knowledge-heartgate-phase-004",
+        "lesson-read-local-005"
+      ],
+      "docs": {
+        "knowledge-guardian-classify-001": "The Guardian classifies every tool call before allowing it. Classification sources (in priority order): [guardian.tool_classification] TOML table (explicit entry wins), provider heuristics (mcp__ prefix → mcp.*, write-pattern names → write.*), then runtime.extension fallback. The classification determines which Layer-B check applies.",
+        "knowledge-guardian-layer-b-002": "Layer-B enforcement: if the tool's classification is not in the phase's allowed_tools set, the Guardian emits an allowlist_miss block. Tools classified read.local bypass the allowlist check entirely — they are always permitted. Tools classified write.* require an explicit entry in allowed_tools for the phase.",
+        "lesson-allowlist-miss-003": "A custom plugin tool was blocked with allowlist_miss during propose because it lacked a classification entry. Fix: add tool_name = 'read.local' under [guardian.tool_classification] in uacp.toml.",
+        "knowledge-heartgate-phase-004": "Heartgate validates phase transitions, not individual tool calls. Guardian handles per-tool-call policy; Heartgate handles PHASE → PHASE boundary crossing.",
+        "lesson-read-local-005": "Read-only tools that query local state (oracle, config, file reads) should be classified read.local so Guardian Layer-B's 'reads pass' guard skips them without requiring an allowed_tools entry."
+      }
+    },
+    {
+      "query_id": "kp-001",
+      "query": "worktree isolation",
+      "scenario": "keyword_vs_paraphrase",
+      "relevant_doc_ids": ["lesson-worktree-001", "lesson-worktree-002"],
+      "candidate_doc_ids": [
+        "lesson-worktree-001",
+        "lesson-worktree-002",
+        "lesson-branch-protocol-003",
+        "knowledge-git-ops-004",
+        "lesson-council-005"
+      ],
+      "docs": {
+        "lesson-worktree-001": "Use isolation: worktree on Agent tool calls that mutate files in parallel. Unchanged worktrees are auto-removed.",
+        "lesson-worktree-002": "Parallel agents mutating the same file without worktree isolation cause merge conflicts. Always set isolation: worktree for multi-agent file writes.",
+        "lesson-branch-protocol-003": "All active runs must use a branch or worktree — no direct writes to main during a run.",
+        "knowledge-git-ops-004": "Git operations: git checkout -b creates a new branch. git worktree add creates an isolated working tree.",
+        "lesson-council-005": "Council review must precede PLAN exit when kernel or policy YAML is changed."
+      }
+    },
+    {
+      "query_id": "kp-002",
+      "query": "how do I make sure that agents working on the same repo at the same time do not overwrite each other's changes",
+      "scenario": "keyword_vs_paraphrase",
+      "relevant_doc_ids": ["lesson-worktree-001", "lesson-worktree-002"],
+      "candidate_doc_ids": [
+        "lesson-worktree-001",
+        "lesson-worktree-002",
+        "lesson-branch-protocol-003",
+        "knowledge-git-ops-004",
+        "lesson-council-005"
+      ],
+      "docs": {
+        "lesson-worktree-001": "Use isolation: worktree on Agent tool calls that mutate files in parallel. Unchanged worktrees are auto-removed.",
+        "lesson-worktree-002": "Parallel agents mutating the same file without worktree isolation cause merge conflicts. Always set isolation: worktree for multi-agent file writes.",
+        "lesson-branch-protocol-003": "All active runs must use a branch or worktree — no direct writes to main during a run.",
+        "knowledge-git-ops-004": "Git operations: git checkout -b creates a new branch. git worktree add creates an isolated working tree.",
+        "lesson-council-005": "Council review must precede PLAN exit when kernel or policy YAML is changed."
+      }
+    }
+  ]
+}
