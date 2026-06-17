@@ -821,7 +821,10 @@ def _oracle_query_schema() -> dict:
         "description": (
             "Read-only oracle retrieval aggregator. Returns prior-art packets from "
             "run-state, Honcho memory, and (when configured) semantic sources for the "
-            "given phase and project. Classified as read.local — no side effects."
+            "given phase and project. Classified as external.network_read — it "
+            "performs a network read via Honcho when enabled; no mutations. Both "
+            "external.network_read and read.local are unprotected, so the tool is "
+            "never blocked (allow_with_audit)."
         ),
         "parameters": {
             "type": "object",

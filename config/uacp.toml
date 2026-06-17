@@ -311,7 +311,10 @@ terminal = "exec.shell"
 execute_code = "exec.code_with_tool_proxy"
 send_message = "external.message"
 cronjob = "external.message"
-uacp_oracle_query = "read.local"
+# uacp_oracle_query performs a NETWORK read via Honcho when enabled, so it is
+# external.network_read (not read.local). Both categories are UNPROTECTED in
+# core._is_protected, so the tool is still never blocked (allow_with_audit).
+uacp_oracle_query = "external.network_read"
 
 # --- Tool pattern classification (glob -> category) ------------------------
 [guardian.tool_pattern_classification]
