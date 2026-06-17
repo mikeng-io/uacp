@@ -305,3 +305,17 @@ def test_already_promoted_is_not_a_candidate():
     lesson = _scored_lesson(0.90, 6, 0)
     lesson.promoted_to = "governed-writer-discipline"
     assert promotion_candidate(lesson, PROMOTION_DEFAULTS) is None
+
+import config
+
+
+def test_lessons_path_resolves_under_uacp(tmp_path):
+    cfg = config.get_config(tmp_path)
+    p = cfg.resolve(tmp_path, "lessons", "my-lesson.md")
+    assert p == (tmp_path / ".uacp" / "lessons" / "my-lesson.md")
+
+
+def test_knowledge_path_resolves_under_uacp(tmp_path):
+    cfg = config.get_config(tmp_path)
+    p = cfg.resolve(tmp_path, "knowledge", "my-item.md")
+    assert p == (tmp_path / ".uacp" / "knowledge" / "my-item.md")

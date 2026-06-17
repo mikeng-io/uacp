@@ -24,6 +24,7 @@ executions = "executions"
 verification = "verification"
 resolutions = "resolutions"   # replaces the old .outputs/
 knowledge = "knowledge"
+lessons = "lessons"
 config = "config.toml"
 
 [paths.bridge_artifacts]
