@@ -18,11 +18,12 @@ This skill closes the run, captures lessons, decides what belongs in memory, and
 - Keep the learning artifact compact.
 - Separate useful lessons from one-off noise.
 - Do not put high-volume gate-learning into personal memory.
-- Use `knowledge/` for durable run learning.
+- Write lessons to `.uacp/lessons/<id>.md` and distilled knowledge to `.uacp/knowledge/<id>.md` via `uacp_artifact_write`.
 
 ## Typical outputs
 - resolutions/
-- knowledge/
+- `.uacp/lessons/` (OKF lesson corpus)
+- `.uacp/knowledge/` (distilled knowledge items)
 - lesson artifact or run summary
 
 ## Updated doctrine alignment
@@ -180,6 +181,26 @@ Lesson dispositions must be explicit: `memory`, `skill`, `docs`, `knowledge`, or
 ## VERIFY evidence intake before RESOLVE
 
 Before RESOLVE accepts a governed/non-trivial run, read `verification/{run_id}-resolve-readiness.yaml` when present. RESOLVE must not close a run if VERIFY reports open blockers, unowned assumptions/deferred items, failed Heartgate coherence, missing required PIV assessment, or self-approval guard failure. RESOLVE consumes VERIFY's evidence judgment; it does not convert unresolved VERIFY risks into closure prose.
+
+## Lesson corpus + distillation
+
+Read `references/lesson-corpus-extraction.md` when extracting lessons at RESOLVE. This reference contains the full operational procedure; this section is a pointer and summary.
+
+After the gate artifact `resolutions/{run_id}-lessons.yaml` exists, RESOLVE performs three corpus steps:
+
+**Step 1 — Extract to OKF.** Each durable lesson in the gate artifact is written to `.uacp/lessons/<id>.md` (OKF frontmatter + body) via `uacp_artifact_write`. The `id` is kebab-case by lesson *topic* (not run/date), so re-extraction overwrites stably.
+
+**Step 2 — Recompute BES.** After extraction, `engines.domain.corpus.recompute_bes` is called for every project lesson, using the resolved-run manifests under `.uacp/state/runs/` as eligibility evidence. Updated lessons are re-written via `uacp_artifact_write`.
+
+**Step 3 — Promote candidates.** `engines.domain.corpus.promotion_candidate` (thresholds from `config/uacp.toml [memory.distillation]`) identifies `"effective"` or `"chronic"` lessons. For each candidate:
+- Gather the related lesson cluster + existing `.uacp/knowledge/` docs on the topic.
+- Dispatch an **Agent Council synthesis** (per `../uacp-core/references/agent-council-followthrough.md`) to abstract a generalized pattern.
+- **Extend-over-create**: update an existing knowledge doc if it owns the topic; otherwise create one. Write via `uacp_artifact_write` to `.uacp/knowledge/`.
+- Set backlinks: `derived_from` on the knowledge doc (lesson ids used as input) and `promoted_to` on each source lesson (knowledge id).
+
+**Top-down intake**: design docs, ADR digests, and research/analysis may author `.uacp/knowledge/` directly with no lesson behind them — use `KnowledgeItem.from_okf` / `to_okf` and `uacp_artifact_write`.
+
+Path resolution always goes through `get_config(root).resolve(root, "lessons")` / `get_config(root).resolve(root, "knowledge")` — never hard-code `.uacp/` paths.
 
 ## Operator phase-return presentation
 
