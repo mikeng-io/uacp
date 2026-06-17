@@ -1,3 +1,11 @@
+---
+type: lessons
+title: Agent Council Integration and Operationalization Lessons
+description: Split-plan shape, cognitive-plane anti-patterns, phase-local granularity fields, surface taxonomy, skill/validator propagation, and PLAN→EXECUTE checklist for Agent Council work.
+tags: [agent-council, lifecycle, planning, operationalization]
+timestamp: 2026-06-17
+---
+
 # Agent Council Integration and Operationalization Lessons
 
 Durable lessons for UACP work touching Agent Council integration, council synthesis schemas, orchestration topology, and phase-transition evidence. Drawn from Slice integration work and Phase 6 operationalization (2026-05-15).

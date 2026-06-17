@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Runtime Adapter Construction Guidelines
+description: Inventory-first, neutral-kernel-must-not-import-host-modules, UACP-leakage anti-pattern, governed writer scope, DB-migration sequencing, do-not-amend-mixed-commits.
+tags: [runtime, adapter, construction, guardian]
+timestamp: 2026-06-17
+---
+
 # Runtime Adapter Construction Guidelines
 
 Use when moving UACP Guardian/Heartgate work from planning into runtime implementation in any host runtime.

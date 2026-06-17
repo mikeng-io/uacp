@@ -1,3 +1,11 @@
+---
+type: lessons
+title: Filesystem Containment Phase Lessons
+description: Evidence-vs-execution distinction, boundary-correction principle, bwrap design, write-probe requirement, Heartgate YAML shape, and 10-step phase-start sequence for filesystem containment phases.
+tags: [filesystem, containment, security, heartgate]
+timestamp: 2026-06-17
+---
+
 # Filesystem Containment Phase Lessons
 
 Durable lessons for UACP-bound filesystem containment design, contained shell execution seams, and security-sensitive runtime phases. Anchored by the 2026-05-14 containment seam notes and the 2026-05-13 phase-start pattern.

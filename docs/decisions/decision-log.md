@@ -6,6 +6,24 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-06-17 — Open Knowledge Format (OKF) alignment of the reference/knowledge layer (Step 2 Slice 7)
+
+Decision: Adopted the **Open Knowledge Format** (OKF — markdown + YAML frontmatter, per-directory `index.md`, cross-linked graph) for UACP's reference/knowledge layer. Every `skills/uacp-core/references/*.md` and `docs/knowledge/*.md` doc (per-dir `index.md` exempt) carries OKF frontmatter: `type` (UACP 5-type vocab — `contract` | `pattern` | `digest` | `lessons` | `analysis`), `title`, `description`, `tags`, `timestamp`, and `resource:` on `digest` docs. Each dir's `README.md` was renamed to `index.md` and `docs/INDEX.md` repointed. The shared council vocabulary `uacp-council-taxonomy` (a skill read by 6 skills as a reference, never as a true dependency) was folded into `uacp-core/references/council-taxonomy.md` (`type: contract`). Enforced by `tests/unit/skills/test_okf_frontmatter.py` (mutation-verified non-vacuous). OKF applies to the reference/knowledge layer only — SKILL.md files keep the Claude Code plugin frontmatter.
+
+Rationale: UACP had independently converged on OKF's model (frontmatter-tagged markdown knowledge docs with per-dir indexes). Adopting the named, vendor-neutral format makes UACP knowledge interoperable and externally legible at near-zero cost, and the typed frontmatter gives lint a stable contract to enforce. Folding `uacp-council-taxonomy` into the reference home removes a category error — a read-only shared vocabulary was masquerading as a skill.
+
+Status: accepted.
+
+Canonical targets:
+
+- `docs/architecture/0017-skill-authoring-convention.md` (Status / next step → OKF alignment)
+- `skills/uacp-core/references/` + `skills/uacp-core/references/index.md`
+- `docs/knowledge/` + `docs/knowledge/index.md`
+- `skills/uacp-skills/SKILL.md` (reference-document policy → OKF frontmatter)
+- `tests/unit/skills/test_okf_frontmatter.py`
+
+Follow-up: distribution (Hermes sync + CC marketplace) remains deferred; the pre-existing `uacp-core/SKILL.md` Scripts-table drift and a ruff F401/E501 in `skills/scripts/hermes_symlink_plugin_probe.py` are separate out-of-scope cleanups.
+
 ### 2026-06-17 — Reference-document policy + docs/ back-pointer cleanup (Step 2 Slice 5)
 
 Decision: Codified a strict reference-document policy for the skill tree and resolved the last `docs/` back-pointers, making the one-directional boundary self-enforcing. **Policy:** the default is **EXTEND an existing reference, not create** — each reference doc owns a topic; new material folds into the topic's existing doc; a new file is the rare exception meeting a 4-point gate (a skill instruction needs it; no existing doc owns the topic; durable/reusable; too large to fold without muddying). Naming = topic/contract, kebab-case, no date suffix. `uacp-core/references/README.md` indexes every doc. **Cleanup:** the ~60 `docs/` read-pointers in lifecycle skills resolved — operator-phase-return-schema repointed to the existing presentation digest; INDEX/constitution/lifecycle-reference pointers dropped (authority/navigation already covered); orchestration-model's operational half digested into the existing `agent-council-followthrough.md` (extend-over-create), authority half left in `docs/`.

@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Skills and Artifact Validator Alignment Workflow
+description: "7 trigger categories, 5-phase alignment workflow, validator scope minimum, canonical finding-state list, EDR `not_runtime_active` check, 4 pitfalls."
+tags: [skills, validators, alignment, workflow]
+timestamp: 2026-06-17
+---
+
 # Skills and Artifact Validator Alignment Workflow
 
 Use when UACP canonical docs/config have changed and the executable skill layer may be stale.

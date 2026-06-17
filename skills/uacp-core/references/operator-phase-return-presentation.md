@@ -1,3 +1,11 @@
+---
+type: contract
+title: Operator Phase-Return Presentation
+description: Rule for separating evidence layer from operator summary layer in phase returns to human control channels
+tags: [operator, presentation, phase-return, reporting]
+timestamp: 2026-06-17
+---
+
 # Operator phase-return presentation
 
 Session learning: Mike corrected UACP reporting style. Phase returns to Telegram/Discord must provide information, not raw audit data.

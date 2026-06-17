@@ -1,5 +1,7 @@
 Shared/kernel operational reference docs for the UACP skill tree. Per the reference-document policy (skills/uacp-skills), every doc here is cited by ≥1 skill and listed below; extend an existing doc before creating a new one.
 
+This is the OKF bundle index for the `skills/uacp-core/references/` directory. Each document carries YAML frontmatter conforming to the Open Knowledge Format convention (type, title, description, tags, timestamp). The index itself is exempt from frontmatter.
+
 | Reference | Purpose | Cited by |
 |---|---|---|
 | [adaptive-package-backfill-pattern.md](adaptive-package-backfill-pattern.md) | Procedure for reconstructing missing human-readable PROPOSE/PLAN packages when a run has only YAML lifecycle envelopes | uacp |
@@ -13,4 +15,5 @@ Shared/kernel operational reference docs for the UACP skill tree. Per the refere
 | [lexa-first-principles-review-sliced-continuation.md](lexa-first-principles-review-sliced-continuation.md) | Pattern for continuing a LEXA first-principles documentation review under UACP discipline after an authority reset | uacp |
 | [lifecycle-semantic-gates.md](lifecycle-semantic-gates.md) | Authoritative reference for hardening UACP lifecycle phase gates and auditing whether a phase is genuinely complete | uacp-resolve, uacp-verify, uacp |
 | [operator-phase-return-presentation.md](operator-phase-return-presentation.md) | Rule for separating evidence layer from operator summary layer in phase returns to human control channels | uacp |
+| [council-taxonomy.md](council-taxonomy.md) | Canonical Agent-Council vocabulary — modes, tiers, roles, and dispatch surfaces that lifecycle/orchestration skills must use | uacp-council, uacp-debate, uacp-context, uacp-parallel, uacp-brainstorm |
 | [semantic-package-and-operator-return-lessons.md](semantic-package-and-operator-return-lessons.md) | Lessons for work touching adaptive packages, Markdown semantic substrate, validator gates, and operator-channel returns | uacp |

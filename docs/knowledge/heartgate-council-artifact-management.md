@@ -1,3 +1,11 @@
+---
+type: lessons
+title: Heartgate Council Artifact Management
+description: Phase-local council vs Heartgate Council distinction, retrieval-led reasoning requirement, artifact placement, 6 required Heartgate lenses, runtime/script alignment checklist, session-proven blocker patterns.
+tags: [heartgate, council, artifacts, lifecycle]
+timestamp: 2026-06-17
+---
+
 # Heartgate Council Artifact Management
 
 Use when UACP work touches Agent Council, Heartgate, phase transitions, runtime enforcement, artifact validators, or lifecycle coherence checks.

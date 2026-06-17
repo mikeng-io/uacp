@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Semantic Package and Operator Return Lessons
+description: Lessons for work touching adaptive packages, Markdown semantic substrate, validator gates, and operator-channel returns
+tags: [semantic, packages, operator, lessons]
+timestamp: 2026-06-17
+---
+
 # Semantic Package and Operator Return Lessons
 
 Reference for UACP work touching adaptive PROPOSE/PLAN packages, Markdown semantic substrate, validator gates, operator-channel returns, or council verification loops.

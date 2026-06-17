@@ -1,3 +1,11 @@
+---
+type: contract
+title: Agent Council Follow-Through Procedure
+description: Execution procedure every lifecycle skill must follow when a council or gate review reports blockers, failures, or material warnings
+tags: [council, lifecycle, execution, blockers]
+timestamp: 2026-06-17
+---
+
 # Agent Council Follow-Through Procedure
 
 Use this reference from every UACP lifecycle skill when a council, Heartgate Council, evidence cluster, invariant check, or transition review reports blockers, concerns, invariant failures, negative findings, or material warnings.

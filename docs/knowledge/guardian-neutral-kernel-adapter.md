@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Guardian Neutral Kernel + Runtime Adapter Pattern
+description: "Neutral-kernel→adapter-contract→runtime-plugin→generic-seams principle, 7-step neutralization checklist, 5-item pitfall list. Cross-ref: `docs/runtime/runtime-enforcement.md`."
+tags: [guardian, kernel, adapter, runtime]
+timestamp: 2026-06-17
+---
+
 # Guardian Neutral Kernel + Runtime Adapter Pattern
 
 Use when UACP Guardian/Heartgate work moves from planning into runtime implementation across any host runtime (Hermes, Codex, OpenCode, etc.).

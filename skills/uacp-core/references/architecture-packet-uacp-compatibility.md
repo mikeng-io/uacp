@@ -1,3 +1,11 @@
+---
+type: analysis
+title: Architecture Packet UACP-Compatibility Pattern
+description: How to classify existing architecture/design packets and decide whether they need full UACP lifecycle machinery
+tags: [architecture, classification, lifecycle, compatibility]
+timestamp: 2026-06-17
+---
+
 # Architecture Packet UACP-Compatibility Pattern
 
 Use this when Mike asks whether existing design/architecture documents need to be revisited so they comply with UACP, especially when the docs are not yet an active UACP run package.

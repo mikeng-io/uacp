@@ -4,7 +4,6 @@ description: Generic structured adversarial protocol for review, audit, research
 kind: orchestration
 location: managed
 dependencies:
-  - uacp-council-taxonomy
   - domain-registry
   - uacp-bridge
 allowed-tools:
@@ -87,7 +86,7 @@ Do not fabricate participant voices. Every `messages[]` entry must correspond to
 ## Integration Notes
 
 - Domain experts are resolved through `domain-registry` using exact match, adapted match, or session-based virtual expert selection.
-- Council taxonomy and role contracts are sourced from `uacp-council-taxonomy`.
+- Council taxonomy and role contracts are sourced from `../uacp-core/references/council-taxonomy.md`.
 - Shared bridge conventions (packet schemas, envelope formats) are inherited from `uacp-bridge`.
 - Do not change existing path references (`.agents/skills/state/schemas/gate_1_debate_log.schema.json`, `.uacp/debate/`, etc.).
 

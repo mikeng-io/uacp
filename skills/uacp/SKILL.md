@@ -22,7 +22,6 @@ metadata:
       - uacp-brainstorm
       - uacp-council
       - uacp-debate
-      - uacp-council-taxonomy
       - uacp-parallel
 ---
 

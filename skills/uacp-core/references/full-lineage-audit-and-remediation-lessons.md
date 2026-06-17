@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Full-Lineage Audit and Remediation Lessons
+description: Rules for auditing the full change lineage across multiple commits or phases rather than only the latest commit
+tags: [audit, lineage, remediation, governance]
+timestamp: 2026-06-17
+---
+
 # Full-Lineage Audit and Remediation Lessons
 
 Reference for UACP governance work spanning multiple commits or lifecycle phases — when Mike asks for coherence, consistency, or full review rather than a point fix.

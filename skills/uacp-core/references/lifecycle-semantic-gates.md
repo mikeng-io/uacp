@@ -1,3 +1,11 @@
+---
+type: contract
+title: Lifecycle Semantic Gates
+description: Authoritative reference for hardening UACP lifecycle phase gates and auditing whether a phase is genuinely complete
+tags: [lifecycle, gates, heartgate, verification]
+timestamp: 2026-06-17
+---
+
 # Lifecycle Semantic Gates
 
 Authoritative reference for hardening UACP lifecycle phases, validating gate completeness, and auditing whether a phase is genuinely done — not just nominally closed.

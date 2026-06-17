@@ -1,3 +1,11 @@
+---
+type: contract
+title: Lifecycle Skill Contract — YAML Field Schema
+description: YAML field schema for phase-local granularity and human-involvement fields, shared rules for phase skills, boundary rule (phase skills write only their declared artifact class), and doctrine contract (skills implement docs/config; they do not define doctrine).
+tags: [lifecycle, skills, contract, schema]
+timestamp: 2026-06-17
+---
+
 # Lifecycle Skill Contract — YAML Field Schema
 
 *Distilled from the abolished `skills/references/lifecycle-skill-contract.md`. Canonical authority remains in `docs/lifecycle/lifecycle-reference.md` and the UACP constitution.*

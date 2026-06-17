@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Guardian Hook Audit Pattern
+description: "7-step hook-audit procedure, single-fire contract (`skip_pre_tool_call_hook` semantics), `_AGENT_LOOP_TOOLS` bypass risk, 4-level risk classification, known safe patterns and pitfalls."
+tags: [guardian, hooks, audit, security]
+timestamp: 2026-06-17
+---
+
 # Guardian Hook Audit Pattern
 
 Reusable methodology for auditing whether the Guardian `pre_tool_call` hook (or any plugin hook) is correctly fired across all execution paths — sequential, concurrent, and subagent/delegation.

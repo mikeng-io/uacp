@@ -1,3 +1,11 @@
+---
+type: pattern
+title: Operational Dashboard and Live Proof
+description: Two-surface pattern (dashboard YAML + probe script + proof YAML), 7-item safe-probe checklist, operator approval/authority convention, 3 pitfalls.
+tags: [dashboard, operations, verification, runtime]
+timestamp: 2026-06-17
+---
+
 # Operational Dashboard and Live Proof
 
 Use this note when UACP has live runtime adapter bindings and the next session needs a compact, verified re-entry point instead of rediscovering status from scattered docs/logs.

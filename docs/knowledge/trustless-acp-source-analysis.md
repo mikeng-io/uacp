@@ -1,3 +1,11 @@
+---
+type: analysis
+title: Trustless ACP → UACP Source Analysis
+description: "\"What's Universal\" 14-pattern table, 6 architectural derivation decisions for UACP, bridge-name reference table (claude/codex/opencode/gemini/kimi). Historical reference only."
+tags: [trustless-acp, history, architecture, analysis]
+timestamp: 2026-06-17
+---
+
 # Trustless ACP → UACP: Source Analysis
 
 Historical reference only. This file explains what was extracted from Trustless ACP and what was left behind; it is not current UACP authority.
