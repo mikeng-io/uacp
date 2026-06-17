@@ -38,7 +38,13 @@ def _governed_artifact_write(args: dict[str, Any]) -> dict[str, Any]:
     the ``UACP_ROOT`` env / cached policy, so we pin the env to the workspace and
     reset the cached policy before calling.
     """
-    handler, plugin = _resolve_handler()
+    try:
+        handler, plugin = _resolve_handler()
+    except Exception as exc:
+        # The plugin could not be located/imported (e.g. ModuleNotFoundError
+        # under a pip-install layout where the parents[..] path math is wrong).
+        # Degrade to a compliant error dict — never raise to the caller.
+        return {"ok": False, "error": f"governed writer unavailable: {exc}"}
     workspace = str(args["workspace"])
 
     prev_root = os.environ.get("UACP_ROOT")

@@ -107,3 +107,29 @@ def test_persist_lesson_failure_surfaces_error(temp_uacp_root: Path):
     assert "error" in result
     # nothing escaped the governed namespace
     assert not (temp_uacp_root.parent / "escape.md").exists()
+
+
+def test_resolver_import_failure_degrades_to_error_dict(
+    temp_uacp_root: Path, monkeypatch
+):
+    """If the governed-writer handler cannot be resolved (e.g. ModuleNotFoundError
+    under a pip-install layout where the path math is wrong), the writer must
+    DEGRADE to a compliant error dict — never raise to the caller (floor-safety).
+    """
+
+    def _boom():
+        raise ModuleNotFoundError("uacp_guardian")
+
+    monkeypatch.setattr(corpus_writer, "_resolve_handler", _boom)
+
+    result = corpus_writer.persist_lesson(
+        temp_uacp_root,
+        _lesson(),
+        run_id="uacp-test-r1",
+        phase="resolve",
+        reason="x",
+        authority_artifact="resolutions/uacp-test-r1-lessons.yaml",
+    )
+    assert result.get("ok") is False
+    assert "error" in result
+    assert "uacp_guardian" in result["error"] or "handler" in result["error"].lower()
