@@ -12,8 +12,6 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 This skill closes the run, captures lessons, decides what belongs in memory, and determines whether a new skill or doc update is warranted.
 
 ## Read first
-- `UACP_ROOT/docs/INDEX.md`
-- `UACP_ROOT/docs/lifecycle/lifecycle-reference.md`
 - `UACP_ROOT/config/uacp.toml [memory]` (operational boundaries; schema: `docs/reference/learning-artifact-schema.md`)
 
 ## Rules
@@ -31,7 +29,7 @@ This skill closes the run, captures lessons, decides what belongs in memory, and
 
 Read additionally:
 
-- `UACP_ROOT/docs/lifecycle/orchestration-model.md`
+- `UACP_ROOT/skills/uacp-core/references/agent-council-followthrough.md` (council dispatch protocol, modes, tiers, retrieval-led rule, finding schema, mid-phase escalation)
 - `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`)
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/phase_graph.py` — codified valid transitions (`LIFECYCLE_GRAPH`)
 
@@ -185,7 +183,7 @@ Before RESOLVE accepts a governed/non-trivial run, read `verification/{run_id}-r
 
 ## Operator phase-return presentation
 
-Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/docs/reference/operator-phase-return-schema.md`. Return information, not raw data.
+Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/skills/uacp-core/references/operator-phase-return-presentation.md`. Return information, not raw data.
 
 Required shape:
 

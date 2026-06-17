@@ -33,8 +33,6 @@ The six pv checks (codified in `engines/domain/gate_rules.py` — `PLAN_VALIDATI
 Per-record DoS resistance (Phase 3 R2 / SKEP-R1-007): Heartgate scans ALL `PLAN_VALIDATION` pass records and accepts if any one satisfies the full contract; earlier-rejected records surface as warnings, not blockers.
 
 ## Read first
-- `UACP_ROOT/docs/INDEX.md`
-- `UACP_ROOT/docs/lifecycle/lifecycle-reference.md`
 - `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`; `plan_validation_gate` grammar in `engines/domain/gate_rules.py`)
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified `plan_validation_gate_default()` and PLAN_VALIDATION pv-check list
 - `UACP_ROOT/config/uacp.toml` (`[heartgate.*]` — operator-tunable knobs)
@@ -107,7 +105,7 @@ Standard-track PLAN is unchanged.
 
 Read additionally:
 
-- `UACP_ROOT/docs/lifecycle/orchestration-model.md`
+- `UACP_ROOT/skills/uacp-core/references/agent-council-followthrough.md` (council dispatch protocol, modes, tiers, retrieval-led rule, finding schema, mid-phase escalation)
 - `UACP_ROOT/config/evidence-clusters.yaml`
 
 PLAN is where execution topology is selected.
@@ -243,7 +241,7 @@ The PIV contract must define phase intent, neutral `work_units`, evidence obliga
 
 ## Operator phase-return presentation
 
-Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/docs/reference/operator-phase-return-schema.md`. Return information, not raw data.
+Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/skills/uacp-core/references/operator-phase-return-presentation.md`. Return information, not raw data.
 
 Required shape:
 

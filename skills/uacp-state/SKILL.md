@@ -36,9 +36,6 @@ Phase 3 R2 hardening:
 Heartgate consults `state/run-registry.yaml` at every PLAN→EXECUTE to detect cross-run `write_paths` overlap; runs are expected to `register` after PLAN_VALIDATION and `deregister` at RESOLVE.
 
 ## Read first
-- `UACP_ROOT/docs/INDEX.md`
-- `UACP_ROOT/docs/policy/constitution.md`
-- `UACP_ROOT/docs/lifecycle/lifecycle-reference.md`
 - `UACP_ROOT/config/state.yaml`
 - `UACP_ROOT/config/uacp.toml` (`[paths]` / `base_dir` resolver) — path-root authority (roots.yaml deleted Slice 5 W3)
 - `references/state-mutation-protocol.md`
