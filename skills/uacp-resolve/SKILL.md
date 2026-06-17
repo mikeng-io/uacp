@@ -44,7 +44,7 @@ Resolution should record:
 
 - final phase-local and composite granularity,
 - remaining accepted risks and owners,
-- lessons for `knowledge/`,
+- lessons written to `.uacp/lessons/` (OKF, BES-scored),
 - whether UACP skills or validators need updates,
 - whether any skill updates happened outside the UACP repo boundary (for example Hermes skill storage),
 - whether downstream agent-skills extraction should happen now or remain deferred.

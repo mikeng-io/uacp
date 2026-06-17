@@ -13,11 +13,6 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-# Subdirectories at knowledge/ root that are NOT part of this migration.
-# Their [memory.local_knowledge_locations] entries remain unchanged.
-_SKIP_SUBDIRS = {"lessons", "scenarios", "gate-templates"}
-
-
 def _is_lesson_file(path: Path) -> bool:
     """True if a root-level file should be classified as a lesson (FIX 1)."""
     return "-lessons" in path.name
