@@ -1,7 +1,6 @@
 """Unit tests for brainstorm phase_transitions constants (T2)."""
 from __future__ import annotations
 
-import pytest
 from engines.domain.phase_transitions import (
     STAGE_ALLOWED_TOOLS,
     STAGE_ENTERS_FROM,

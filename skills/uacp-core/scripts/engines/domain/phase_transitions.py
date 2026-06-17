@@ -342,7 +342,9 @@ def council_synthesis_required_fields() -> list[str]:
 
 
 # Stable phase ordering for the reconstructed mapping (matches pre-slim YAML).
-_PHASE_ORDER: tuple[str, ...] = ("brainstorm", "triage", "propose", "plan", "execute", "verify", "resolve")
+_PHASE_ORDER: tuple[str, ...] = (
+    "brainstorm", "triage", "propose", "plan", "execute", "verify", "resolve"
+)
 
 
 def _exits_to(phase: str) -> list[str]:

@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import sys
-import tempfile
 from pathlib import Path
 
-import pytest
 
 _CORE_SCRIPTS = Path(__file__).resolve().parents[3] / "skills" / "uacp-core" / "scripts"
 if str(_CORE_SCRIPTS) not in sys.path:
