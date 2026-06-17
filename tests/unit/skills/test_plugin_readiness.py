@@ -8,10 +8,14 @@ SKILL.md has a usable description.
 Step-2 / Slice-4 scope: frontmatter conformance for one-level-deep skills —
 valid kind classifier, no authority mirrors on lifecycle skills, no reserved-key
 context misuse.
+
+Step-2 / Slice-5 scope: reference-doc naming — filenames in
+skills/uacp-core/references/ must be kebab-case with no date suffix.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -19,7 +23,11 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SKILLS_DIR = REPO_ROOT / "skills"
+REFERENCES_DIR = SKILLS_DIR / "uacp-core" / "references"
 DESCRIPTION_BUDGET = 1536
+
+_KEBAB_CASE_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*\.md$")
+_DATE_SUFFIX_RE = re.compile(r"-\d{8}\.")
 
 _VALID_KINDS = {"kernel", "lifecycle", "reference", "orchestration"}
 _LIFECYCLE_AUTHORITY_KEYS = {"allowed_tools", "forbidden_tools", "phase_exit_invariants"}
@@ -132,4 +140,35 @@ def test_no_reserved_key_context_misuse(skill_md: Path) -> None:
     assert value == "fork", (
         f"{skill_name}: reserved frontmatter key 'context' has disallowed value "
         f"'{value}'; only 'fork' is valid (Claude Code's fork-context semantic)."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Reference-doc naming (Slice-5)
+# ---------------------------------------------------------------------------
+
+
+def _reference_docs() -> list[Path]:
+    """Return all *.md files in skills/uacp-core/references/ except README.md."""
+    return sorted(
+        p for p in REFERENCES_DIR.glob("*.md") if p.name != "README.md"
+    )
+
+
+@pytest.mark.parametrize("ref_doc", _reference_docs(), ids=lambda p: p.name)
+def test_reference_doc_kebab_case_no_date_suffix(ref_doc: Path) -> None:
+    """Reference doc filenames must be kebab-case with no -YYYYMMDD date suffix.
+
+    Allowed:  agent-council-followthrough.md
+    Rejected: Agent_Council.md, goal-driven-track-20240115.md
+    README.md is excluded from this check.
+    """
+    name = ref_doc.name
+    assert _KEBAB_CASE_RE.match(name), (
+        f"skills/uacp-core/references/{name} has a non-kebab-case filename; "
+        f"rename to lowercase-hyphenated form (e.g. my-reference.md)."
+    )
+    assert not _DATE_SUFFIX_RE.search(name), (
+        f"skills/uacp-core/references/{name} has a -YYYYMMDD date suffix in the "
+        f"filename; remove it (dates belong in the doc body, not the filename)."
     )
