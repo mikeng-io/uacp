@@ -21,7 +21,12 @@ import os
 from pathlib import Path
 from typing import Any
 
-from engines.domain.corpus import KnowledgeItem, Lesson
+from engines.domain.corpus import (
+    KnowledgeItem,
+    Lesson,
+    load_knowledge_dir,
+    load_lessons_dir,
+)
 
 
 def _governed_artifact_write(args: dict[str, Any]) -> dict[str, Any]:
@@ -110,6 +115,28 @@ def _write_okf(
         "declared_side_effects": [f"write {target_path}"],
     }
     return _governed_artifact_write(args)
+
+
+def _corpus_dir(workspace: Path | str, path_key: str) -> Path:
+    """Resolve the corpus directory via the config resolver (never hard-coded)."""
+    root = Path(workspace)
+    try:
+        from config import get_config
+
+        return get_config(root).resolve(root, path_key)
+    except Exception:
+        # Floor fallback: governed default namespace.
+        return root / ".uacp" / path_key
+
+
+def load_lessons(workspace: Path | str) -> list[Lesson]:
+    """Read the lesson corpus through the Oracle (single corpus owner). Never raises."""
+    return load_lessons_dir(_corpus_dir(workspace, "lessons"))
+
+
+def load_knowledge(workspace: Path | str) -> list[KnowledgeItem]:
+    """Read the knowledge corpus through the Oracle (single corpus owner). Never raises."""
+    return load_knowledge_dir(_corpus_dir(workspace, "knowledge"))
 
 
 def persist_lesson(

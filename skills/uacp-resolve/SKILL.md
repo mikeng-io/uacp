@@ -18,7 +18,7 @@ This skill closes the run, captures lessons, decides what belongs in memory, and
 - Keep the learning artifact compact.
 - Separate useful lessons from one-off noise.
 - Do not put high-volume gate-learning into personal memory.
-- Write lessons to `.uacp/lessons/<id>.md` and distilled knowledge to `.uacp/knowledge/<id>.md` via `uacp_artifact_write`.
+- Persist lessons to `.uacp/lessons/<id>.md` and distilled knowledge to `.uacp/knowledge/<id>.md` **through the Oracle corpus-write surface** (`engines.oracle.corpus_writer.persist_lesson` / `persist_knowledge`), which serializes the OKF doc and routes it through the governed artifact writer. The Oracle is the single owner of corpus read and write — do not call `uacp_artifact_write` or touch `.uacp/lessons/` / `.uacp/knowledge/` directly.
 
 ## Typical outputs
 - resolutions/
@@ -188,19 +188,19 @@ Read `references/lesson-corpus-extraction.md` when extracting lessons at RESOLVE
 
 After the gate artifact `resolutions/{run_id}-lessons.yaml` exists, RESOLVE performs three corpus steps:
 
-**Step 1 — Extract to OKF.** Each durable lesson in the gate artifact is written to `.uacp/lessons/<id>.md` (OKF frontmatter + body) via `uacp_artifact_write`. The `id` is kebab-case by lesson *topic* (not run/date), so re-extraction overwrites stably.
+**Step 1 — Extract to OKF.** Each durable lesson in the gate artifact is persisted to `.uacp/lessons/<id>.md` (OKF frontmatter + body) through the Oracle corpus-write surface (`engines.oracle.corpus_writer.persist_lesson`), which serializes the `Lesson` and routes it through the governed artifact writer. The `id` is kebab-case by lesson *topic* (not run/date), so re-extraction overwrites stably.
 
-**Step 2 — Recompute BES.** After extraction, `engines.domain.corpus.recompute_bes` is called for every project lesson, using the resolved-run manifests under `.uacp/state/runs/` as eligibility evidence. Updated lessons are re-written via `uacp_artifact_write`.
+**Step 2 — Recompute BES.** After extraction, `engines.domain.corpus.recompute_bes` is called for every project lesson, using the resolved-run manifests under `.uacp/state/runs/` as eligibility evidence (manifests are read by the state engine and handed to RESOLVE — they are not Oracle inputs). Updated lessons are re-persisted via `engines.oracle.corpus_writer.persist_lesson`.
 
 **Step 3 — Promote candidates.** `engines.domain.corpus.promotion_candidate` (thresholds from `config/uacp.toml [memory.distillation]`) identifies `"effective"` or `"chronic"` lessons. For each candidate:
 - Gather the related lesson cluster + existing `.uacp/knowledge/` docs on the topic.
 - Dispatch an **Agent Council synthesis** (per `../uacp-core/references/agent-council-followthrough.md`) to abstract a generalized pattern.
-- **Extend-over-create**: update an existing knowledge doc if it owns the topic; otherwise create one. Write via `uacp_artifact_write` to `.uacp/knowledge/`.
-- Set backlinks: `derived_from` on the knowledge doc (lesson ids used as input) and `promoted_to` on each source lesson (knowledge id).
+- **Extend-over-create**: update an existing knowledge doc if it owns the topic; otherwise create one. Persist via `engines.oracle.corpus_writer.persist_knowledge` to `.uacp/knowledge/`.
+- Set backlinks: `derived_from` on the knowledge doc (lesson ids used as input) and `promoted_to` on each source lesson (knowledge id) — re-persist each modified lesson via `engines.oracle.corpus_writer.persist_lesson`.
 
-**Top-down intake**: design docs, ADR digests, and research/analysis may author `.uacp/knowledge/` directly with no lesson behind them — use `KnowledgeItem.from_okf` / `to_okf` and `uacp_artifact_write`.
+**Top-down intake**: design docs, ADR digests, and research/analysis may author `.uacp/knowledge/` directly with no lesson behind them — build a `KnowledgeItem` and persist it via `engines.oracle.corpus_writer.persist_knowledge`.
 
-Path resolution always goes through `get_config(root).resolve(root, "lessons")` / `get_config(root).resolve(root, "knowledge")` — never hard-code `.uacp/` paths.
+Path resolution is owned by the Oracle corpus-write surface (`engines.oracle.corpus_writer` resolves `lessons` / `knowledge` via the config resolver internally) — RESOLVE routes all corpus read/write through it and never hard-codes `.uacp/` paths or loads the corpus directories directly.
 
 ## Operator phase-return presentation
 
