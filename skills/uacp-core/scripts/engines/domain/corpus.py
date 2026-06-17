@@ -1,9 +1,11 @@
 """Lesson & knowledge corpora — OKF dataclasses, BES scorer, recurrence math.
 
-Pure, side-effect-free. No disk writes here (governed writers handle that) and
-no exceptions escape the loaders; only the explicit parse helpers raise, and
-callers that load from disk catch and degrade. Mirrors engines/io/loaders.py
-discipline.
+Pure, side-effect-free: ONLY the dataclasses, ``parse_okf``, the BES math, and
+the in-memory ``*_for_project`` filters live here. No disk I/O — the disk corpus
+loaders live in :mod:`engines.oracle.corpus_io` (inside the oracle package that
+owns the corpus) and the writers in :mod:`engines.oracle.corpus_writer`, so the
+corpus-ownership boundary is structural, not merely grep-enforced. Only the
+explicit ``parse_okf`` / ``from_okf`` helpers raise.
 """
 
 from __future__ import annotations
@@ -11,7 +13,6 @@ from __future__ import annotations
 import dataclasses
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 import yaml
@@ -247,35 +248,6 @@ def recompute_bes(lesson: Lesson, resolved_runs: list[dict], *, now: str) -> Les
         lesson, eligible=eligible, recurrences=recurrences, bes=round(bes, 6)
     )
     return updated
-
-
-def load_lessons_dir(directory: Path) -> list[Lesson]:
-    """Load every ``*.md`` lesson in ``directory``; skip malformed; never raise."""
-    out: list[Lesson] = []
-    if not directory.is_dir():
-        return out
-    for path in sorted(directory.glob("*.md")):
-        try:
-            out.append(Lesson.from_okf(path.read_text(encoding="utf-8")))
-        except (OKFParseError, KeyError, ValueError, OSError):
-            continue
-    return out
-
-
-def load_knowledge_dir(directory: Path) -> list[KnowledgeItem]:
-    """Load every ``*.md`` knowledge item in ``directory``; skip malformed; never raise.
-
-    Subdirectories (e.g. ``indexes/``) are ignored by the ``*.md`` glob.
-    """
-    out: list[KnowledgeItem] = []
-    if not directory.is_dir():
-        return out
-    for path in sorted(directory.glob("*.md")):
-        try:
-            out.append(KnowledgeItem.from_okf(path.read_text(encoding="utf-8")))
-        except (OKFParseError, KeyError, ValueError, OSError):
-            continue
-    return out
 
 
 PROMOTION_DEFAULTS = {

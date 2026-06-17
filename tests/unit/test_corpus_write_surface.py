@@ -15,3 +15,27 @@ def test_artifact_category_description_mentions_lessons():
     cfg = tomllib.loads((ROOT / "config" / "uacp.toml").read_text())
     desc = cfg["guardian"]["protected_categories"]["artifact.uacp"]["description"]
     assert "lessons/" in desc
+
+
+def test_artifact_handler_allowed_roots_includes_lessons():
+    """Direct unit-localized assertion: the in-code allowed_roots set in
+    _handle_uacp_artifact_write admits 'lessons' (the Oracle corpus write surface).
+
+    Reads the handler source rather than the config so a regression that drops
+    'lessons' from the literal set is caught here, localized to the adapter code.
+    """
+    import re
+
+    handler_src = (
+        ROOT
+        / "runtime-adapters"
+        / "hermes"
+        / "plugins"
+        / "uacp_guardian"
+        / "__init__.py"
+    ).read_text()
+    match = re.search(r"allowed_roots\s*=\s*\{([^}]*)\}", handler_src)
+    assert match, "allowed_roots literal set not found in artifact-write handler"
+    roots = {tok.strip().strip("\"'") for tok in match.group(1).split(",")}
+    assert "lessons" in roots, f"'lessons' missing from allowed_roots: {roots}"
+    assert "knowledge" in roots  # sibling corpus root, must remain

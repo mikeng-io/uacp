@@ -23,7 +23,7 @@ class ProviderPacket:
     """A single result from a retrieval source.
 
     Attributes:
-        source: identifier of the source (e.g. "runstate", "honcho", "corpus")
+        source: identifier of the source (e.g. "honcho", "corpus")
         trust_class: how much weight this packet should carry
         payload: the retrieved content (string or mapping)
         score: relevance score [0.0, 1.0], 0.0 when scoring not available

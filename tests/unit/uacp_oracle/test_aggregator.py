@@ -19,7 +19,7 @@ def test_disabled_oracle_serves_floor(temp_uacp_root):
 
 
 def test_none_mode_phase_returns_empty(temp_uacp_root):
-    # "execute" maps to WRITEBACK which has no external retrieval
+    # "execute" maps to NONE which has no external retrieval
     result = agg.oracle_query(
         temp_uacp_root,
         phase="execute",
@@ -55,7 +55,14 @@ def test_advisory_phase_returns_metadata_mode(temp_uacp_root):
     assert result["metadata"]["mode"] == OracleMode.ADVISORY.value
 
 
-def test_full_phase_collects_runstate(temp_uacp_root):
+def test_full_phase_never_reads_run_state(temp_uacp_root):
+    """Boundary: the oracle must NOT surface run-state packets.
+
+    Run manifests under .uacp/state/runs/ belong to the state engine, not the
+    Oracle. A FULL-tier query with manifests present must still emit zero
+    'runstate' packets — the only sources are honcho (advisory) and the semantic
+    corpus pipeline (skipped here: no vector store in the floor env).
+    """
     import yaml
     runs_dir = temp_uacp_root / ".uacp" / "state" / "runs"
     (runs_dir / "run-001.yaml").write_text(yaml.dump({
@@ -70,5 +77,5 @@ def test_full_phase_collects_runstate(temp_uacp_root):
         project="proj",
         oracle_cfg={"enabled": True},
     )
-    assert len(result["packets"]) >= 1
-    assert any(p.source == "runstate" for p in result["packets"])
+    assert not any(p.source == "runstate" for p in result["packets"])
+    assert "runstate" not in result["metadata"]["sources_skipped"]
