@@ -236,3 +236,39 @@ def test_recompute_bes_updates_lesson_fields():
     assert updated.bes == 0.75
     # original is not mutated (pure)
     assert lesson.eligible == 0
+
+
+from engines.domain.corpus import load_lessons_dir, load_knowledge_dir
+
+
+def test_load_lessons_dir(tmp_path):
+    d = tmp_path / "lessons"
+    d.mkdir()
+    (d / "kanban-guard-resolve-bypass.md").write_text(_lesson_md(), encoding="utf-8")
+    (d / "not-a-lesson.txt").write_text("ignored", encoding="utf-8")
+    lessons = load_lessons_dir(d)
+    assert len(lessons) == 1
+    assert lessons[0].id == "kanban-guard-resolve-bypass"
+
+
+def test_load_lessons_dir_skips_malformed(tmp_path):
+    d = tmp_path / "lessons"
+    d.mkdir()
+    (d / "good.md").write_text(_lesson_md(), encoding="utf-8")
+    (d / "bad.md").write_text("no frontmatter\n", encoding="utf-8")
+    lessons = load_lessons_dir(d)  # must NOT raise
+    assert [l.id for l in lessons] == ["kanban-guard-resolve-bypass"]
+
+
+def test_load_lessons_dir_missing_is_empty(tmp_path):
+    assert load_lessons_dir(tmp_path / "nonexistent") == []
+
+
+def test_load_knowledge_dir(tmp_path):
+    d = tmp_path / "knowledge"
+    d.mkdir()
+    (d / "governed-writer-discipline.md").write_text(_knowledge_md(), encoding="utf-8")
+    (d / "indexes").mkdir()  # subdir must be ignored, not crash
+    items = load_knowledge_dir(d)
+    assert len(items) == 1
+    assert items[0].id == "governed-writer-discipline"
