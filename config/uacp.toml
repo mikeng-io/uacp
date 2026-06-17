@@ -200,6 +200,9 @@ council_mode = "audit"
 [phases.resolve]
 council_mode = "resolve"
 
+[phases.brainstorm]
+council_mode = "research"  # reusing 'research' until council_mode gains a 'brainstorm' value
+
 # =============================================================================
 # GUARDIAN & HEARTGATE
 # =============================================================================
@@ -375,6 +378,7 @@ required_lenses = ["authority", "side_effects", "evidence", "rollback"]
 # From guardian-policy.yaml heartgate block (validator needs allowed_transitions).
 transition_config = "config/phase-transitions.yaml"
 allowed_transitions = [
+    "brainstorm->triage",
     "execute->verify",
     "plan->execute",
     "propose->plan",
