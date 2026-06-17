@@ -22,12 +22,8 @@ import threading
 from pathlib import Path
 from typing import Any
 
-from engines.domain.corpus import (
-    KnowledgeItem,
-    Lesson,
-    load_knowledge_dir,
-    load_lessons_dir,
-)
+from engines.domain.corpus import KnowledgeItem, Lesson
+from engines.oracle.corpus_io import load_knowledge_dir, load_lessons_dir
 
 # Serializes the env-pin + policy-cache-reset + handler-call + restore sequence
 # in _governed_artifact_write. Without it, concurrent corpus writes would race on

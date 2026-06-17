@@ -4,11 +4,23 @@ This test scans the repository's Python source and enforces the data-ownership
 boundary that the Oracle refactor establishes:
 
   1. CORPUS OWNERSHIP — Only code inside the oracle package
-     (skills/uacp-core/scripts/engines/oracle/) may import the corpus
-     loaders/writers from engines.domain.corpus (load_lessons_dir,
-     load_knowledge_dir, persist_lesson/persist_knowledge helpers) or write to
-     .uacp/lessons/ / .uacp/knowledge/.  The corpus module itself
-     (engines/domain/corpus.py) is the only other allowlisted source.
+     (skills/uacp-core/scripts/engines/oracle/) may touch the corpus.  This is
+     enforced STRUCTURALLY (not merely grep-only) along three axes:
+       (a) IMPORT-SCAN — no module outside the oracle package may import
+           engines.oracle.corpus_io or engines.oracle.corpus_writer (the disk
+           loaders and the governed writer now live INSIDE the oracle package, so
+           any out-of-package import of them is the violation, robust against the
+           loaders being callable under any local alias).
+       (b) LOADER/PATH LITERAL SCAN — no out-of-package module may reference the
+           loader/writer tokens (load_lessons_dir, load_knowledge_dir,
+           persist_lesson, persist_knowledge) or hard-code a .uacp/lessons /
+           .uacp/knowledge path literal.
+       (c) PATH-INDIRECTION SCAN — no out-of-package module may build a corpus
+           path indirectly via `.resolve(..., "lessons")` / `.resolve(...,
+           "knowledge")` or write into `.uacp/lessons` / `.uacp/knowledge`.
+     The corpus dataclass module (engines/domain/corpus.py) is allowlisted (it is
+     PURE now — it holds no loaders/writers — but stays on the allowlist as it is
+     the canonical corpus type module).
 
   2. NO STATE IN THE ORACLE — The oracle package imports NO state/manifest
      reader: no engines.oracle.sources.runstate, no state_machine, and no
@@ -58,11 +70,34 @@ _CORPUS_LOADER_TOKENS = (
     "persist_knowledge",
 )
 
+# Import-scan patterns: the disk loaders + governed writer now live INSIDE the
+# oracle package.  Any out-of-package module that imports either module is, by
+# construction, reaching into the oracle's corpus-ownership surface — regardless
+# of what local alias it binds the loaders to.  This catches import-evasion that
+# the token scan alone would miss.
+_CORPUS_MODULE_IMPORT_PATTERNS = (
+    re.compile(r"engines\.oracle\.corpus_io"),
+    re.compile(r"engines\.oracle\.corpus_writer"),
+    re.compile(r"from\s+engines\.oracle\s+import\s+[^\n]*\bcorpus_io\b"),
+    re.compile(r"from\s+engines\.oracle\s+import\s+[^\n]*\bcorpus_writer\b"),
+)
+
 # Regexes that denote a direct write to the corpus directories.  We look for the
 # governed-namespace corpus paths as string literals.
 _CORPUS_PATH_PATTERNS = (
     re.compile(r"\.uacp/lessons"),
     re.compile(r"\.uacp/knowledge"),
+)
+
+# Path-INDIRECTION patterns: a module that does not name a .uacp/lessons literal
+# can still reach the corpus by resolving a path key through the config resolver
+# (`get_config(root).resolve(root, "lessons")`) or by joining the governed
+# namespace at runtime.  Flag any out-of-package module that resolves the
+# "lessons"/"knowledge" path keys or writes a .uacp / "lessons" | "knowledge"
+# path component.
+_CORPUS_PATH_INDIRECTION_PATTERNS = (
+    re.compile(r"""\.resolve\([^)]*["'](?:lessons|knowledge)["']"""),
+    re.compile(r"""\.uacp["']?\s*[/,]\s*["'](?:lessons|knowledge)["']"""),
 )
 
 # Tokens that denote a state/manifest reader the oracle must NOT import.
@@ -115,6 +150,18 @@ def test_corpus_loaders_only_referenced_inside_oracle_package():
             if _is_allowlisted_for_corpus(path):
                 continue
             text = _read(path)
+            # (a) import-scan: importing the oracle's corpus_io / corpus_writer
+            # modules from outside the package is a violation no matter what
+            # alias the loaders are bound to.
+            for pattern in _CORPUS_MODULE_IMPORT_PATTERNS:
+                if pattern.search(text):
+                    violations.append(
+                        f"{path} imports the oracle corpus module "
+                        f"'{pattern.pattern}' but is outside the oracle package "
+                        f"(corpus access must go through engines.oracle, "
+                        f"not by importing its private loader/writer modules)"
+                    )
+            # (b) loader/writer token + path-literal scan.
             for token in _CORPUS_LOADER_TOKENS:
                 if token in text:
                     violations.append(
@@ -128,6 +175,16 @@ def test_corpus_loaders_only_referenced_inside_oracle_package():
                         f"{path} hard-codes corpus path "
                         f"'{pattern.pattern}' but is outside the oracle package "
                         f"(corpus writes must go through engines.oracle)"
+                    )
+            # (c) path-indirection scan: resolving the lessons/knowledge path
+            # keys or joining the governed namespace at runtime.
+            for pattern in _CORPUS_PATH_INDIRECTION_PATTERNS:
+                if pattern.search(text):
+                    violations.append(
+                        f"{path} resolves a corpus path indirectly "
+                        f"(matched '{pattern.pattern}') but is outside the oracle "
+                        f"package (corpus path resolution must go through "
+                        f"engines.oracle)"
                     )
 
     assert not violations, "Corpus-ownership boundary violations:\n" + "\n".join(

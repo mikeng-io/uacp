@@ -14,13 +14,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from engines.domain.corpus import (
-    KnowledgeItem,
-    Lesson,
-    load_knowledge_dir,
-    load_lessons_dir,
-)
+from engines.domain.corpus import KnowledgeItem, Lesson
 from engines.oracle import corpus_writer
+from engines.oracle.corpus_io import load_knowledge_dir, load_lessons_dir
 
 
 def _lesson() -> Lesson:

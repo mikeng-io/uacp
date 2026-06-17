@@ -37,9 +37,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from engines.domain.corpus import Lesson, load_lessons_dir, parse_okf
+from engines.domain.corpus import Lesson, parse_okf
 from engines.oracle import corpus_writer
 from engines.oracle.aggregator import oracle_query
+from engines.oracle.corpus_io import load_lessons_dir
 
 
 # -- Fixture helpers ----------------------------------------------------------

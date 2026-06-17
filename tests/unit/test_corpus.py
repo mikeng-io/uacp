@@ -238,7 +238,7 @@ def test_recompute_bes_updates_lesson_fields():
     assert lesson.eligible == 0
 
 
-from engines.domain.corpus import load_lessons_dir, load_knowledge_dir
+from engines.oracle.corpus_io import load_lessons_dir, load_knowledge_dir
 
 
 def test_load_lessons_dir(tmp_path):
