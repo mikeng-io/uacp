@@ -24,6 +24,7 @@ executions = "executions"
 verification = "verification"
 resolutions = "resolutions"   # replaces the old .outputs/
 knowledge = "knowledge"
+lessons = "lessons"
 config = "config.toml"
 
 [paths.bridge_artifacts]
@@ -199,6 +200,9 @@ council_mode = "audit"
 [phases.resolve]
 council_mode = "resolve"
 
+[phases.brainstorm]
+council_mode = "research"  # reusing 'research' until council_mode gains a 'brainstorm' value
+
 # =============================================================================
 # GUARDIAN & HEARTGATE
 # =============================================================================
@@ -248,7 +252,7 @@ default_decision = "block"
 allowed_tools = ["uacp_contained_shell"]
 
 [guardian.protected_categories."artifact.uacp"]
-description = "Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml."
+description = "Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml."
 default_decision = "block"
 allowed_tools = ["uacp_artifact_write"]
 
@@ -307,6 +311,7 @@ terminal = "exec.shell"
 execute_code = "exec.code_with_tool_proxy"
 send_message = "external.message"
 cronjob = "external.message"
+uacp_oracle_query = "read.local"
 
 # --- Tool pattern classification (glob -> category) ------------------------
 [guardian.tool_pattern_classification]
@@ -374,6 +379,7 @@ required_lenses = ["authority", "side_effects", "evidence", "rollback"]
 # From guardian-policy.yaml heartgate block (validator needs allowed_transitions).
 transition_config = "config/phase-transitions.yaml"
 allowed_transitions = [
+    "brainstorm->triage",
     "execute->verify",
     "plan->execute",
     "propose->plan",
@@ -549,10 +555,23 @@ boundary = "May consume or produce through APIs; should not own all UACP knowled
 # --- Local knowledge locations ------------------------------------------------
 # Relative paths under UACP_ROOT for knowledge artifacts produced during runs.
 [memory.local_knowledge_locations]
-scenarios = "knowledge/scenarios/"
-gate_templates = "knowledge/gate-templates/"
-lessons = "knowledge/lessons/"
-indexes = "knowledge/indexes/"
+scenarios = "knowledge/scenarios/"       # NOT moved — config path unchanged (FIX 5)
+gate_templates = "knowledge/gate-templates/"  # NOT moved — config path unchanged (FIX 5)
+lessons = "lessons/"                     # -> .uacp/lessons/ (canonical key: [paths].lessons)
+# NOTE: the canonical authority for the lessons path is [paths].lessons above.
+#       Confirm the memory reader prepends ".uacp/" to these values
+#       (i.e. "lessons/" -> .uacp/lessons/, not repo-root/lessons/).
+indexes = "knowledge/indexes/"           # index home owned by Plan C [oracle] index_path; not a [paths] key
+
+# --- Distillation / promotion thresholds (lesson -> knowledge) ----------------
+# Recurrence-gated promotion knobs consumed by engines/domain/corpus.py
+# (promotion_candidate). Code defaults in PROMOTION_DEFAULTS mirror these; the
+# kernel falls back to those when this table is absent (fail-open: no promotion
+# is non-destructive). Start conservative — design B "Open items".
+[memory.distillation]
+effective_bes_min = 0.85       # "consistently effective": BES cutoff
+effective_eligible_min = 5     # N: eligible later runs required
+chronic_recurrence_min = 3     # K: distinct recurrences -> "keeps biting us"
 
 # =============================================================================
 # AUTONOMY
@@ -1048,7 +1067,7 @@ critical = 1.0
 uacp_state_write = ["state/"]
 uacp_doc_write = ["docs/"]
 uacp_config_write = ["config/"]
-uacp_artifact_write = ["plans/", "proposals/", "executions/", "verification/", "resolutions/", "knowledge/"]
+uacp_artifact_write = ["plans/", "proposals/", "executions/", "verification/", "resolutions/", "knowledge/", "lessons/"]
 uacp_gate_ledger_append = ["state/gate-ledger/"]
 # Global review R1 (TECH-G-002): governed append-only writers for run registry
 # and escalation events; scope.write_paths may reference these surfaces in
@@ -1063,3 +1082,26 @@ uacp_state_write = ["state/gate-ledger/", "state/run-registry.yaml", "state/esca
 # part of the scope.write_paths footprint (any scope entry pointing here is a
 # laundering attempt).
 uacp_gate_ledger_append = ["state/gate-ledger/"]
+
+# =============================================================================
+# ORACLE — retrieval aggregator config (Plan C)
+# =============================================================================
+[oracle]
+enabled = false
+store = "lancedb"
+index_path = ".uacp/knowledge/indexes/"
+
+[oracle.embedding]
+model = "bge-m3"
+url = ""
+
+[oracle.rerank]
+model = "qwen3-reranker-0.6b"
+url = ""
+
+[oracle.query_expansion]
+enabled = true
+
+[oracle.honcho]
+enabled = false
+url = ""

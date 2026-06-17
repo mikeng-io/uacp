@@ -234,3 +234,20 @@ Suppress by default: full edited-file lists, newly-created-file lists, raw `git 
 
 This is a presentation rule only. Preserve complete raw evidence in UACP artifacts, gate ledgers, commits, and verification records.
 
+---
+
+## Retrieval-led prior-art (Oracle)
+
+When the Oracle engine is enabled (`oracle.enabled=true` in `.uacp/config.toml`), call
+`uacp_oracle_query` at the start of verification to surface the active run's execution
+history and any relevant prior verification outcomes.
+
+```
+uacp_oracle_query(phase=verify, project=<project-id>)
+```
+
+Results at `phase=verify` are **FULL** mode — run-state packets are `trust_class=authoritative`
+and can be used as ground-truth evidence for checklist synthesis. Corpus and Honcho packets
+are `trust_class=normative` or `advisory` and require corroboration before being cited as
+verification proof. If oracle is disabled or returns no packets, proceed without retrieval.
+

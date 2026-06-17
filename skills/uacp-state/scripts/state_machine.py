@@ -202,6 +202,13 @@ def handle_init(args: dict[str, Any]) -> str:
                 if k in parent.artifacts
             }
 
+        # Optional initial_phase: allows a run to start at 'brainstorm' instead
+        # of the default 'triage'. Fail closed on unknown phases.
+        initial_phase = str(args.get("initial_phase") or "triage").strip()
+        _VALID_INITIAL_PHASES = {"triage", "brainstorm"}
+        if initial_phase not in _VALID_INITIAL_PHASES:
+            return json.dumps({"error": f"invalid initial_phase '{initial_phase}': must be one of {sorted(_VALID_INITIAL_PHASES)}"})
+
         authority = Authority(source=source, status="pass")
         # Attach optional metadata to authority
         for key in ("scope", "granularity", "risk", "domains"):
@@ -219,6 +226,7 @@ def handle_init(args: dict[str, Any]) -> str:
 
         manifest = RunManifest(
             run_id=run_id,
+            current_phase=initial_phase,
             authority=authority,
             workspace=workspace_obj,
             track=track,

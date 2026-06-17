@@ -84,6 +84,7 @@ from __future__ import annotations
 # config/uacp.toml [heartgate].allowed_transitions exactly. The agreement test
 # enforces that equality against the production config files.
 LIFECYCLE_GRAPH: dict[str, set[str]] = {
+    "brainstorm": {"triage"},
     "triage": {"propose", "terminal"},
     "propose": {"plan"},
     "plan": {"execute"},

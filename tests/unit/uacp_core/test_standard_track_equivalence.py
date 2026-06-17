@@ -41,9 +41,14 @@ from state_machine import Authority, RunManifest, _save_manifest
 
 
 class TestPhaseGraphUnmutated:
-    """Pin the full LIFECYCLE_GRAPH and VALID_TRANSITIONS to their pre-feature values."""
+    """Pin the full LIFECYCLE_GRAPH and VALID_TRANSITIONS to their canonical values.
+
+    Updated in Brainstorm-phase slice: brainstorm->triage is a new edge.
+    The brainstorm node is an optional entry phase prepended to the lifecycle graph.
+    """
 
     EXPECTED_LIFECYCLE_GRAPH: dict[str, set[str]] = {
+        "brainstorm": {"triage"},
         "triage": {"propose", "terminal"},
         "propose": {"plan"},
         "plan": {"execute"},
@@ -53,6 +58,7 @@ class TestPhaseGraphUnmutated:
     }
 
     EXPECTED_VALID_TRANSITIONS: dict[str, set[str]] = {
+        "brainstorm": {"triage"},
         "triage": {"propose"},
         "propose": {"plan"},
         "plan": {"execute"},
@@ -61,33 +67,33 @@ class TestPhaseGraphUnmutated:
     }
 
     def test_lifecycle_graph_node_count_unchanged(self) -> None:
-        """LIFECYCLE_GRAPH must have exactly 6 nodes (no goal-driven node was added)."""
-        assert len(phase_graph.LIFECYCLE_GRAPH) == 6, (
-            f"expected 6 nodes, got {len(phase_graph.LIFECYCLE_GRAPH)}: "
+        """LIFECYCLE_GRAPH must have exactly 7 nodes (brainstorm added as optional entry phase)."""
+        assert len(phase_graph.LIFECYCLE_GRAPH) == 7, (
+            f"expected 7 nodes, got {len(phase_graph.LIFECYCLE_GRAPH)}: "
             f"{sorted(phase_graph.LIFECYCLE_GRAPH)}"
         )
 
     def test_lifecycle_graph_edge_set_unchanged(self) -> None:
-        """LIFECYCLE_GRAPH edge set is byte-identical to the pre-feature canonical set."""
+        """LIFECYCLE_GRAPH edge set is byte-identical to the canonical set including brainstorm."""
         assert phase_graph.LIFECYCLE_GRAPH == self.EXPECTED_LIFECYCLE_GRAPH, (
             "LIFECYCLE_GRAPH was mutated — goal-driven track must NOT add new lifecycle edges"
         )
 
     def test_valid_transitions_is_exactly_five_edges(self) -> None:
-        """VALID_TRANSITIONS runtime projection must have exactly 5 source nodes."""
-        assert len(state_machine.VALID_TRANSITIONS) == 5, (
-            f"expected 5 source nodes in VALID_TRANSITIONS, got "
+        """VALID_TRANSITIONS runtime projection must have exactly 6 source nodes (brainstorm added)."""
+        assert len(state_machine.VALID_TRANSITIONS) == 6, (
+            f"expected 6 source nodes in VALID_TRANSITIONS, got "
             f"{len(state_machine.VALID_TRANSITIONS)}: {sorted(state_machine.VALID_TRANSITIONS)}"
         )
 
     def test_valid_transitions_unchanged(self) -> None:
-        """VALID_TRANSITIONS is the unchanged 5-edge runtime projection."""
+        """VALID_TRANSITIONS is the canonical 6-edge runtime projection including brainstorm."""
         assert state_machine.VALID_TRANSITIONS == self.EXPECTED_VALID_TRANSITIONS, (
             "VALID_TRANSITIONS was mutated — goal-driven track must NOT add new runtime transitions"
         )
 
     def test_lifecycle_graph_has_no_extra_nodes(self) -> None:
-        """No new phase node was introduced by the goal-driven track."""
+        """No unexpected phase node beyond the canonical brainstorm-phase set."""
         expected_nodes = frozenset(self.EXPECTED_LIFECYCLE_GRAPH)
         actual_nodes = frozenset(phase_graph.LIFECYCLE_GRAPH)
         assert actual_nodes == expected_nodes, (

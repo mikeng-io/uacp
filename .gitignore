@@ -4,7 +4,7 @@ __pycache__/
 
 # UACP runtime artifacts — generated during execution, not source of truth.
 # Under the .uacp/ namespace, the per-phase run dirs are runtime; config.toml
-# (knob overrides) and knowledge/ (project-learned) are project-level and tracked.
+# (knob overrides) and knowledge/ + lessons/ (project-learned corpora) are project-level and tracked.
 .uacp/state/
 .uacp/proposals/
 .uacp/plans/
@@ -13,6 +13,7 @@ __pycache__/
 .uacp/resolutions/
 .uacp/bridges/
 .uacp/councils/
+.uacp/knowledge/indexes/
 
 # Legacy pre-.uacp/ output dir (kept until scratch is cleaned)
 .outputs/*

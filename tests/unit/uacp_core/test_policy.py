@@ -26,8 +26,8 @@ class TestGuardianPolicyLoad:
         assert len(policy.self_attesting_tools) == 10, policy.self_attesting_tools
         assert "uacp_doc_write" in policy.self_attesting_tools
         assert "uacp_contained_shell" in policy.self_attesting_tools
-        # tool_classification-backed: the full policy classifies all 23 tools.
-        assert len(policy.tool_classification) == 23, policy.tool_classification
+        # tool_classification-backed: the full policy classifies all 24 tools.
+        assert len(policy.tool_classification) == 24, policy.tool_classification
 
     def test_override_mode_is_honored(self, tmp_path: Path):
         # Proves the live reader actually flows through config.py's deep-merge:
