@@ -27,3 +27,13 @@ def test_unknown_phase_returns_none():
 def test_oracle_mode_values_are_strings():
     for mode in OracleMode:
         assert isinstance(mode.value, str)
+
+
+def test_execute_has_no_external_retrieval():
+    """execute phase must map to NONE — no external retrieval during execution."""
+    assert PHASE_TIERS["execute"] == OracleMode.NONE
+
+
+def test_resolve_is_writeback():
+    """resolve phase must map to WRITEBACK — the only phase that writes back."""
+    assert PHASE_TIERS["resolve"] == OracleMode.WRITEBACK

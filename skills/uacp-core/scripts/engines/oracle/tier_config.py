@@ -23,7 +23,7 @@ PHASE_TIERS: dict[str, OracleMode] = {
     "triage": OracleMode.ADVISORY,
     "propose": OracleMode.FULL,
     "plan": OracleMode.FULL,
-    "execute": OracleMode.WRITEBACK,
+    "execute": OracleMode.NONE,
     "verify": OracleMode.FULL,
     "resolve": OracleMode.WRITEBACK,
 }
