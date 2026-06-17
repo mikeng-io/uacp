@@ -311,6 +311,7 @@ terminal = "exec.shell"
 execute_code = "exec.code_with_tool_proxy"
 send_message = "external.message"
 cronjob = "external.message"
+uacp_oracle_query = "read.local"
 
 # --- Tool pattern classification (glob -> category) ------------------------
 [guardian.tool_pattern_classification]
@@ -1081,3 +1082,26 @@ uacp_state_write = ["state/gate-ledger/", "state/run-registry.yaml", "state/esca
 # part of the scope.write_paths footprint (any scope entry pointing here is a
 # laundering attempt).
 uacp_gate_ledger_append = ["state/gate-ledger/"]
+
+# =============================================================================
+# ORACLE — retrieval aggregator config (Plan C)
+# =============================================================================
+[oracle]
+enabled = false
+store = "lancedb"
+index_path = ".uacp/knowledge/indexes/"
+
+[oracle.embedding]
+model = "bge-m3"
+url = ""
+
+[oracle.rerank]
+model = "qwen3-reranker-0.6b"
+url = ""
+
+[oracle.query_expansion]
+enabled = true
+
+[oracle.honcho]
+enabled = false
+url = ""

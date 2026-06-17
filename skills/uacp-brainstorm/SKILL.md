@@ -79,4 +79,20 @@ BRAINSTORM → TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE
 - **Explore alternatives** — always sketch 2-3 approaches before settling
 - **The vault is supporting evidence** — it is raw thinking material; the scope package is the governed artifact
 - **Only selected scope enters TRIAGE** — Heartgate checks the admission boundary
+
+---
+
+## Advisory prior-art (Oracle)
+
+When the Oracle engine is enabled (`oracle.enabled=true` in `.uacp/config.toml`), call
+`uacp_oracle_query` early in the brainstorm phase to surface relevant prior-art before
+opening the exploration vault.
+
+```
+uacp_oracle_query(phase=brainstorm, project=<project-id>)
+```
+
+Results are **advisory** (`trust_class=advisory`, `evidence_required=true`). Use them
+to seed the vault and inform scope calibration — never treat them as authoritative.
+If oracle is disabled or returns no packets, proceed without retrieval.
 - **Anti-collapse** — one phase = one markdown file. Never merge phases.

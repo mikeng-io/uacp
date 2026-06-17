@@ -181,3 +181,19 @@ Suppress by default: full edited-file lists, newly-created-file lists, raw `git 
 
 This is a presentation rule only. Preserve complete raw evidence in UACP artifacts, gate ledgers, commits, and verification records.
 
+---
+
+## Advisory prior-art (Oracle)
+
+When the Oracle engine is enabled (`oracle.enabled=true` in `.uacp/config.toml`), call
+`uacp_oracle_query` at the start of triage to surface prior runs and context before
+scope-calibration scoring.
+
+```
+uacp_oracle_query(phase=triage, project=<project-id>)
+```
+
+Results are **advisory** (`trust_class=advisory`, `evidence_required=true`). Use them
+to inform granularity scoring and routing — they do not override triage invariants.
+If oracle is disabled or returns no packets, proceed without retrieval.
+

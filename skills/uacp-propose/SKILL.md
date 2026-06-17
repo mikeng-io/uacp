@@ -262,3 +262,20 @@ For any selected adaptive proposal package, Markdown artifacts are mandatory sem
 
 `proposals/{run_id}-proposal.yaml` remains a machine lifecycle envelope. It is not sufficient as the semantic substrate for STANDARD/FULL governance work. If a proposal package is selected, `proposals/{run_id}/` must contain Markdown documents with concrete headings and explanatory prose, and `proposals/{run_id}-package-selection.yaml` must map every universal core concern to those documents. Placeholder Markdown or one-line stubs are blockers.
 
+---
+
+## Retrieval-led prior-art (Oracle)
+
+When the Oracle engine is enabled (`oracle.enabled=true` in `.uacp/config.toml`), call
+`uacp_oracle_query` before authoring the proposal to surface relevant run history,
+prior decisions, and corpus context.
+
+```
+uacp_oracle_query(phase=propose, project=<project-id>)
+```
+
+Results at `phase=propose` are **FULL** mode — run-state packets are `trust_class=authoritative`;
+corpus and Honcho packets are `trust_class=normative` or `advisory`. Reference retrieved packets
+in the proposal's rationale section and cite their `source` field. If oracle is disabled or
+returns no packets, proceed without retrieval.
+

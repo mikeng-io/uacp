@@ -31,6 +31,11 @@ _STATE_SCRIPTS = Path(__file__).resolve().parents[4] / "skills" / "uacp-state" /
 if str(_STATE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_STATE_SCRIPTS))
 
+# Add uacp-core/scripts to path so we can import engines.oracle.
+_CORE_SCRIPTS = Path(__file__).resolve().parents[4] / "skills" / "uacp-core" / "scripts"
+if str(_CORE_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_CORE_SCRIPTS))
+
 from state import (
     _handle_uacp_state_write,
     _handle_uacp_gate_ledger_append,
@@ -809,6 +814,83 @@ def _write_tool_schema(name: str, description: str) -> dict[str, Any]:
     }
 
 
+def _oracle_query_schema() -> dict:
+    """JSON schema for the uacp_oracle_query read-only governed tool."""
+    return {
+        "name": "uacp_oracle_query",
+        "description": (
+            "Read-only oracle retrieval aggregator. Returns prior-art packets from "
+            "run-state, Honcho memory, and (when configured) semantic sources for the "
+            "given phase and project. Classified as read.local — no side effects."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "phase": {
+                    "type": "string",
+                    "description": "Current UACP lifecycle phase (e.g. 'plan', 'propose').",
+                },
+                "project": {
+                    "type": "string",
+                    "description": "Project identifier to scope the retrieval.",
+                },
+                "domains": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional domain filter list.",
+                },
+                "query": {
+                    "type": "string",
+                    "description": "Optional search query string.",
+                },
+            },
+            "required": ["phase", "project"],
+        },
+    }
+
+
+def _handle_uacp_oracle_query(args: dict, **_: Any) -> str:
+    """Handler for the uacp_oracle_query read-only tool.
+
+    Validates required args, calls the oracle aggregator, and serializes the
+    result to JSON. Returns an error JSON string on validation failure.
+    """
+    phase = args.get("phase")
+    project = args.get("project")
+
+    if not phase:
+        return json.dumps({"error": "missing required argument: phase"})
+    if not project:
+        return json.dumps({"error": "missing required argument: project"})
+
+    try:
+        from engines.oracle.aggregator import oracle_query
+        result = oracle_query(
+            workspace=_policy().uacp_root,
+            phase=phase,
+            project=project,
+            domains=args.get("domains"),
+            query=args.get("query", ""),
+        )
+        # Serialize ProviderPackets to plain dicts
+        packets_out = []
+        for p in result.get("packets", []):
+            packets_out.append({
+                "source": p.source,
+                "trust_class": p.trust_class.value,
+                "payload": p.payload,
+                "score": p.score,
+                "evidence_required": p.evidence_required,
+                "metadata": p.metadata,
+            })
+        return json.dumps({
+            "packets": packets_out,
+            "metadata": result.get("metadata", {}),
+        })
+    except Exception as exc:
+        return json.dumps({"error": f"oracle_query failed: {exc}"})
+
+
 def register(ctx) -> None:
     ctx.register_hook("pre_tool_call", on_pre_tool_call)
     ctx.register_hook("post_tool_call", on_post_tool_call)
@@ -1108,4 +1190,11 @@ def register(ctx) -> None:
         },
         handler=_handle_uacp_heartgate_check,
         description="UACP Heartgate transition checker",
+    )
+    ctx.register_tool(
+        name="uacp_oracle_query",
+        toolset="uacp_guardian",
+        schema=_oracle_query_schema(),
+        handler=_handle_uacp_oracle_query,
+        description="UACP Oracle read-only retrieval aggregator",
     )

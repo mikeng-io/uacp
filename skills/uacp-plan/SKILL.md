@@ -268,3 +268,20 @@ For any selected adaptive PLAN package, Markdown artifacts are mandatory semanti
 
 `plans/{run_id}-plan.yaml` and `plans/{run_id}-scope.yaml` remain machine lifecycle envelopes. They are not sufficient as the semantic substrate for STANDARD/FULL governance work. If a PLAN package is selected, `plans/{run_id}/` must contain Markdown documents with concrete headings and explanatory prose for work breakdown, dependencies, authority/side effects, tool/runtime selection, artifact write surfaces, verification strategy, rollback/recovery, council/review topology, and transition readiness. Placeholder Markdown or one-line stubs are blockers.
 
+---
+
+## Retrieval-led prior-art (Oracle)
+
+When the Oracle engine is enabled (`oracle.enabled=true` in `.uacp/config.toml`), call
+`uacp_oracle_query` before completing the plan to surface prior execution patterns,
+scope decisions, and relevant council findings.
+
+```
+uacp_oracle_query(phase=plan, project=<project-id>)
+```
+
+Results at `phase=plan` are **FULL** mode — run-state packets are `trust_class=authoritative`;
+corpus and Honcho packets are `trust_class=normative` or `advisory`. Use retrieved packets to
+inform work breakdown, risk assessment, and tool selection. Cite relevant `source` values in
+the plan's rationale. If oracle is disabled or returns no packets, proceed without retrieval.
+
