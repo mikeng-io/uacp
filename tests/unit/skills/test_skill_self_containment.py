@@ -1,12 +1,17 @@
-"""Self-containment tripwire for UACP skill instruction bodies (Step 1).
+"""Reference-hygiene tripwire for UACP skill instruction bodies.
 
-Convention (skills/uacp-skills): a SKILL.md body must reference only files that
-ship with some skill. An installed coding agent receives the skill directory,
-NOT the repo's docs/ tree, so an ADR citation in instruction prose dangles.
+Convention (skills/uacp-skills, "in-plugin reference rule"): a CC plugin install
+copies the WHOLE plugin (docs/ included) to disk, so docs/ citations do NOT dangle
+— the earlier "installed agent only gets the skill dir" premise was disproven (see
+ADR-0017 §Context correction). This test therefore does NOT forbid docs/ citations.
 
-Scope (Step 1): forbid ``ADR-<number>`` citations in SKILL.md bodies. Source
-files (*.py) may cite ADRs as origin-of-record provenance and are NOT scanned.
-The broader docs/ self-containment sweep is Step 2.
+It enforces two hygiene rules:
+  1. No citation of the abolished top-level ``skills/references/`` dump (it's gone;
+     shared refs live in ``uacp-core/references/``) — see the guards below.
+  2. No ``ADR-<number>`` citation in SKILL.md bodies — a STYLE preference: cite the
+     concise ``uacp-core/references/`` digest, not a sprawling ADR. (ADRs ship too,
+     so this is hygiene, not a dangling fix.) Source files (*.py) may cite ADRs as
+     provenance and are NOT scanned.
 """
 
 from __future__ import annotations

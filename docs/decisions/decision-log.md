@@ -6,6 +6,16 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-06-17 — Skill convention correction: the whole plugin ships (docs/ does not dangle)
+
+Decision: Corrected the ADR-0017 self-containment rule, which was built on a disproven premise. The Claude Code plugin spec confirms that installing a plugin copies the **entire plugin directory** (`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/…`, `docs/`/`config/` included) to disk; Hermes loads the full repo. So skill-body `docs/` citations do **not** dangle. The rule is reframed as the **in-plugin reference rule**: a skill may reference any in-tree file via the runtime-neutral `UACP_ROOT/…` token (CC → plugin root / `${CLAUDE_PLUGIN_ROOT}`; Hermes → repo root); the only hard constraint is staying inside the plugin/repo root (path-traversal outside it fails on install).
+
+Consequences: the ~60 `docs/` read-pointers in skill bodies are kept as-is (no mass mirror, no drop). The self-containment lint is **not** widened to forbid `docs/`; it keeps two hygiene rules — no citation of the abolished `skills/references/` dump, and no `ADR-<number>` in SKILL.md bodies (demoted to a style preference: prefer the concise `uacp-core/references/` digest, since ADRs ship too). The Step-2 cleanup (bridge collapse, dump abolition, frontmatter/kind) stands on its own merits; only the docs/-prohibition *justification* was wrong.
+
+Status: accepted; ADR-0017 (Context correction + in-plugin reference rule + `docs/`-class RESOLVED), `skills/uacp-skills/SKILL.md`, and the lint docstring updated.
+
+Canonical targets: docs/architecture/0017-skill-authoring-convention.md; skills/uacp-skills/SKILL.md; tests/unit/skills/test_skill_self_containment.py.
+
 ### 2026-06-17 — Bridge Skill Collapse: bridge-* → uacp-bridge
 
 Decision: Collapsed `skills/bridge-*` (commons + 5 adapters: bridge-claude, bridge-codex, bridge-gemini, bridge-kimi, bridge-opencode) into a single `skills/uacp-bridge/` skill. `skills/uacp-bridge/SKILL.md` is the former `bridge-commons/SKILL.md` shared contract (verbatim content); per-runtime adapter specifics live in `skills/uacp-bridge/references/<runtime>.md` (claude, codex, gemini, kimi, opencode). All citers have been rewired to the new paths. Part of the ADR-0017 skill-authoring-convention application (Step 2 Slice 2).

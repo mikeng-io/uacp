@@ -75,24 +75,43 @@ Layer-B and Heartgate). A SKILL.md copy is a descriptive mirror that drifts and
 falsely looks authoritative. Declare `authority_source` (a pointer to the codified
 grammar) and stop there.
 
-## Self-containment rule (load-bearing)
+## In-plugin reference rule (load-bearing)
 
-A skill instruction body (`SKILL.md`, and any `references/` file that *instructs*)
-may reference only files that ship with **some** skill:
-- its own `references/` / `scripts/` / `assets/`, or
-- another skill's shipped paths (e.g. `uacp-core/scripts/...`,
-  `uacp-core/references/...`).
+A Claude Code plugin install copies the **entire plugin directory** to disk
+(`~/.claude/plugins/cache/<marketplace>/<plugin>/<version>/…`) — `skills/`,
+`docs/`, `config/`, everything at the root. Hermes likewise loads from a full
+repo/skill-store. So a skill body may reference **any file bundled inside the
+plugin/repo** — its own `references/`/`scripts/`/`assets/`, another skill's shipped
+paths, and the repo's `docs/`/`config/` — because they ship.
 
-**Do not cite `docs/` (ADRs, decision-log, lifecycle docs) from a skill body** — an
-installed coding agent receives the skill directory, not the repo's `docs/` tree, so
-the reference dangles. When a skill must cite a durable contract that lives in
-`docs/`, **mirror the contract into `uacp-core/references/`** and cite the mirror.
-The `docs/` original remains the origin of record; the mirror is the shipped,
-citable copy. (Source `*.py` files MAY cite ADRs in comments — that is provenance
-in code, not instruction prose.) A `references/` mirror MAY carry a single "Origin of record" provenance line naming the `docs/` original it mirrors (e.g. the goal-driven mirror's header), provided the file is fully usable without following that link. Enforced by
-`tests/unit/skills/test_skill_self_containment.py`.
+The real constraint:
+- **Reference only files INSIDE the plugin/repo root.** Files outside it are not
+  copied on install (path-traversal `../` outside the root fails). Stay in-tree.
+- **Use the runtime-neutral root token `UACP_ROOT/…`** for root-relative paths.
+  Each runtime resolves it: Claude Code → the plugin root (conceptually
+  `${CLAUDE_PLUGIN_ROOT}`); Hermes → the repo/skill-store root. (Note: CC documents
+  `${CLAUDE_PLUGIN_ROOT}` for hooks/MCP/LSP config, not skill-markdown prose — so a
+  `docs/` pointer in a skill body is best-effort context the agent resolves against
+  the install root, not a hard dependency. A skill must stay usable if such a
+  pointer can't be followed.)
+- Source `*.py` files MAY cite ADRs in comments (provenance in code).
 
-> **Enforcement scope.** The regression test enforces the `ADR-<number>` citation class in `SKILL.md` bodies. The broader `docs/` citation class (e.g. `docs/INDEX.md`, `docs/lifecycle/...` read-pointers) is an **open operator decision** — approximately 60 `docs/` read-pointers remain in skill bodies (mostly "Read first/additionally" canonical-doc pointers). The options are: mirror durable docs into `uacp-core/references/` and cite the mirror; drop the "additional reading" pointers; or formally accept canonical-doc pointers as a named carve-out. This is the one remaining convention-application item after Step 2 Slices 1–4; the test will widen once the operator decides. New/refactored skills must follow the full rule now (no new `docs/` citations).
+**Preference (DRY + focus, not a dangling fix):** keep durable shared contracts in
+`uacp-core/references/` as a **concise digest**, and point skill instruction there
+rather than at a sprawling `docs/` ADR/decision-log. A `references/` mirror MAY
+carry one "Origin of record" provenance line to its `docs/` source. This is style,
+not necessity — `docs/` ships either way.
+
+> **Enforcement scope (corrected).** Earlier convention text claimed installed
+> skills "receive only the skill dir, not `docs/`, so `docs/` citations dangle."
+> The CC plugin spec disproves that — the whole plugin ships. So there is **no
+> `docs/`-citation prohibition** and the lint is **not** widened to forbid `docs/`.
+> `tests/unit/skills/test_skill_self_containment.py` enforces two real hygiene
+> rules: (1) no citation of the **abolished `skills/references/` dump** (it's gone);
+> (2) no `ADR-<number>` citation in `SKILL.md` bodies — kept as a **style
+> preference** (cite the concise `uacp-core/references/` digest, not the ADR), now
+> that ADRs are known to ship. The genuine guarantee — stay inside the plugin
+> root — holds by construction.
 
 ## DRY shared content
 
@@ -103,15 +122,16 @@ Content shared across skills lives once under **`uacp-core/references/`** (the k
 1. Pick `kind`; create `skills/<kebab-name>/SKILL.md` with the minimum frontmatter
    for that kind (`references/frontmatter-by-kind.md`).
 2. Write the body imperative and < 500 lines; move detail to `references/`.
-3. Cite only shipped files (self-containment). Mirror any `docs/` contract into
-   `uacp-core/references/` first.
+3. Reference only in-plugin files (stay inside the plugin/repo root; use the
+   `UACP_ROOT/…` root token). Prefer a concise `uacp-core/references/` digest for a
+   durable shared contract over pointing instruction at a sprawling `docs/` ADR.
 4. Do not inline content that already exists under `uacp-core/references/`.
 5. Run `python3 -m pytest tests/unit/skills/ -q` before committing.
 
 ### Where a shared/reference doc lives
 - Cited by exactly ONE skill → that skill's own `references/`.
 - Shared across many skills, or a kernel-level contract → `uacp-core/references/`.
-- Dated session-history / one-off lessons / external analysis cited by no skill → `docs/knowledge/` (human/agent reading + provenance; **not** skill-citable — skills must not cite `docs/`).
+- Dated session-history / one-off lessons / external analysis cited by no skill → `docs/knowledge/` (reading + provenance; it ships with the plugin, but it is *not* the operational contract — point skill instruction at the `uacp-core/references/` digest, not at history).
 
 ## Plugin-readiness checklist
 1. Skill is at `skills/<dir>/SKILL.md`; the dir name is the intended `/uacp:<dir>` invocation name.
