@@ -120,6 +120,35 @@ plugin root ≈ `${CLAUDE_PLUGIN_ROOT}`; Hermes → the repo/skill-store root). 
 > Until then, ~60 pre-existing `docs/` pointers in lifecycle skills are known
 > transition debt. **New/refactored skills must follow the rule now.**
 
+## Reference-document policy
+
+The reference layer must not balloon into a second dumping ground. **The default is
+EXTEND, not create.** Each reference doc owns a **topic**; when a skill needs reference
+material, first find the existing doc that owns that topic and **fold the material into
+it**. Creating a *new* file is the rare exception. Check `uacp-core/references/README.md`
+(the index) first — it answers "which doc owns this topic?" in seconds.
+
+**Creation gate — a NEW reference doc is allowed only if ALL hold:**
+1. A skill *instruction* actually needs to cite it (else it belongs in `docs/`, not the skill tree).
+2. **No existing reference doc owns the topic** (you checked the index). If one does, EXTEND it — one topic = one doc; do not fragment into near-synonyms.
+3. It is a distinct, durable, reusable contract/pattern — not a one-off or session artifact.
+4. It is large/standalone enough that folding it into an existing doc would bloat or muddy that doc's single topic.
+If any fails → extend an existing doc (or, for non-cited material, put it in `docs/`).
+
+**Naming:** kebab-case; named by the **contract/topic**, never by date, run-id, or event;
+no `-YYYYMMDD` suffixes; one canonical name per topic.
+
+**Two-layer digest pattern** (when a `docs/` contract is what a skill needs): keep the full
+rationale in `docs/` (origin of record); put a **concise operational digest** in
+`uacp-core/references/`; the skill cites the digest. (See the reference-boundary section.)
+
+**Index:** every doc in `uacp-core/references/` is listed in `uacp-core/references/README.md`
+(filename → one-line purpose → citing skill[s]); update it on every add/remove.
+
+**Enforced (lint):** every `uacp-core/references/*.md` is cited by ≥1 skill (an uncited
+reference does not belong in the skill tree); every such doc is listed in the index;
+filenames are kebab-case with no date suffix. See `tests/unit/skills/`.
+
 ## DRY shared content
 
 Content shared across skills lives once under **`uacp-core/references/`** (the kernel skill every skill may cite) and is cited with a "Read when…" pointer, not re-inlined. There is no top-level shared dump under `skills/` outside a skill dir.

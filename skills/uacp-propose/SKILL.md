@@ -13,9 +13,6 @@ This skill creates the proposal artifact that states why the work exists,
 who authorized it, what changes are in scope, and what side effects are declared.
 
 ## Read first
-- `UACP_ROOT/docs/INDEX.md`
-- `UACP_ROOT/docs/policy/constitution.md`
-- `UACP_ROOT/docs/lifecycle/lifecycle-reference.md`
 - `UACP_ROOT/config/evidence-clusters.yaml`
 
 ## Rules
@@ -125,7 +122,7 @@ For the standard track, none of the above applies; the normal proposal flow is u
 
 ## Updated doctrine alignment
 Read additionally:
-`UACP_ROOT/docs/lifecycle/orchestration-model.md`,
+`UACP_ROOT/skills/uacp-core/references/agent-council-followthrough.md` (council dispatch protocol, modes, tiers, retrieval-led rule, finding schema, mid-phase escalation),
 `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`),
 `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`; operator knobs in `config/uacp.toml [heartgate.*]`).
 
@@ -237,7 +234,7 @@ For any selected adaptive proposal package, Markdown artifacts are mandatory sem
 
 ## Operator phase-return presentation
 
-Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/docs/reference/operator-phase-return-schema.md`. Return information, not raw data.
+Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/skills/uacp-core/references/operator-phase-return-presentation.md`. Return information, not raw data.
 
 Required shape:
 

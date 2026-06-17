@@ -12,8 +12,6 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 This skill executes the approved plan by routing bounded work through Kanban or other delegated workers while keeping the active run traceable.
 
 ## Read first
-- `UACP_ROOT/docs/INDEX.md`
-- `UACP_ROOT/docs/lifecycle/lifecycle-reference.md`
 - `UACP_ROOT/config/state.yaml`
 
 ## Execution Posture (Critical)
@@ -113,7 +111,7 @@ Standard-track EXECUTE (PIV contract + `executions/{run_id}` package) is unchang
 
 Read additionally:
 
-- `UACP_ROOT/docs/lifecycle/orchestration-model.md`
+- `UACP_ROOT/skills/uacp-core/references/agent-council-followthrough.md` (council dispatch protocol, modes, tiers, retrieval-led rule, finding schema, mid-phase escalation)
 - `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`)
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/checkpoint.py` — codified `CheckpointEntry` schema (goal-driven checkpoint manifest)
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/budget.py` — codified `ConvergenceBudget` schema (goal-driven cap)
@@ -234,7 +232,7 @@ YAML-only execution checkpoints are insufficient for selected medium/high conseq
 
 ## Operator phase-return presentation
 
-Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/docs/reference/operator-phase-return-schema.md`. Return information, not raw data.
+Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/skills/uacp-core/references/operator-phase-return-presentation.md`. Return information, not raw data.
 
 Required shape:
 
