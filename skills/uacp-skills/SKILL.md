@@ -125,7 +125,7 @@ plugin root ≈ `${CLAUDE_PLUGIN_ROOT}`; Hermes → the repo/skill-store root). 
 The reference layer must not balloon into a second dumping ground. **The default is
 EXTEND, not create.** Each reference doc owns a **topic**; when a skill needs reference
 material, first find the existing doc that owns that topic and **fold the material into
-it**. Creating a *new* file is the rare exception. Check `uacp-core/references/README.md`
+it**. Creating a *new* file is the rare exception. Check `uacp-core/references/index.md`
 (the index) first — it answers "which doc owns this topic?" in seconds.
 
 **Creation gate — a NEW reference doc is allowed only if ALL hold:**
@@ -135,6 +135,33 @@ it**. Creating a *new* file is the rare exception. Check `uacp-core/references/R
 4. It is large/standalone enough that folding it into an existing doc would bloat or muddy that doc's single topic.
 If any fails → extend an existing doc (or, for non-cited material, put it in `docs/`).
 
+### OKF frontmatter
+
+Every doc in `uacp-core/references/` and `docs/knowledge/` carries Open-Knowledge-Format
+frontmatter so the reference/knowledge layer is interoperable across runtimes and tooling:
+
+```yaml
+---
+type: contract | pattern | digest | lessons | analysis
+title: <Human Title>
+description: <one-line purpose / trigger>
+tags: [<topical>, ...]
+timestamp: <ISO date>
+resource: <docs/ origin>   # optional; for `type: digest`
+---
+```
+
+The five `type` values and when to use each:
+
+- **contract** — an operational contract a skill follows; must be followed precisely at runtime.
+- **pattern** — a reusable how-to procedure or approach referenced by skill instructions.
+- **digest** — a concise mirror of a canonical authority/rationale document (the two-layer pattern).
+- **lessons** — distilled session history or post-hoc learning that informs future skill behaviour.
+- **analysis** — research or external-source study cited as evidence by a skill instruction.
+
+The per-directory index file is `index.md` (OKF convention). This aligns the reference/knowledge
+layer to the Open Knowledge Format for interop.
+
 **Naming:** kebab-case; named by the **contract/topic**, never by date, run-id, or event;
 no `-YYYYMMDD` suffixes; one canonical name per topic.
 
@@ -142,7 +169,7 @@ no `-YYYYMMDD` suffixes; one canonical name per topic.
 rationale in `docs/` (origin of record); put a **concise operational digest** in
 `uacp-core/references/`; the skill cites the digest. (See the reference-boundary section.)
 
-**Index:** every doc in `uacp-core/references/` is listed in `uacp-core/references/README.md`
+**Index:** every doc in `uacp-core/references/` is listed in `uacp-core/references/index.md`
 (filename → one-line purpose → citing skill[s]); update it on every add/remove.
 
 **Enforced (lint):** every `uacp-core/references/*.md` is cited by ≥1 skill (an uncited
