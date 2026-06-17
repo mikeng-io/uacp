@@ -1,68 +1,69 @@
 # UACP State Mutation Protocol
 
-## The problem
+## The boundary
 
-After bootstrap closes (`bootstrap_closed: true`, `governed_mutation_active: true`), UACP state writes are governed. Direct `write_file` tool calls to `~/.hermes/uacp/state/` are blocked by the UACP Guardian.
+After bootstrap closes (`bootstrap_closed: true`, `governed_mutation_active: true`),
+all UACP state writes are governed. Direct `write_file` calls into the governed
+namespace are blocked by the UACP Guardian:
 
-Error: "UACP Guardian blocked state.uacp: direct UACP state writes must use uacp_state_write"
+> UACP Guardian blocked state.uacp: direct UACP state writes must use uacp_state_write
 
-## Current workaround
+The governed namespace root is resolved at runtime — it is **not** a hardcoded
+path. `config.py` defines `base: str = ".uacp"` and `base_dir(root)` returns
+`<root>/<paths.base>` (default `.uacp/`, overridable via a project-local
+`.uacp/config.toml [paths]`). State lives under that resolved base, e.g.
+`<UACP_ROOT>/.uacp/state/`. Never write `~/.hermes/...` or any absolute root.
 
-Use `terminal` tool with heredoc to write state files:
+## The governed primary path
 
-```bash
-cat > ~/.hermes/uacp/state/runs/<run-id>.md << 'EOF'
----
-kind: uacp.run_manifest
-schema_version: "0.1"
-run_id: <run-id>
-status: active
----
-...content...
-EOF
-```
+`uacp_state_write` is the live, governed primary path for state mutation — not a
+future fix and not a workaround. Route every state write through it (or the
+runtime's guarded state-mutation surface) carrying full UACP context: run id,
+phase, policy version, authority, declared side effects, and workspace policy.
+The Guardian checks the target path class, so the writer — not the method — is
+what keeps the mutation in policy.
 
-The Guardian checks the write path, not the write method. Terminal writes trigger the approval prompt (dotfile overwrite detection) but succeed after user approval.
+Two state surfaces are mechanically protected even from `uacp_state_write` and
+have dedicated writers:
+
+- `state/gate-ledger/{run_id}.jsonl` → `uacp_gate_ledger_append`
+- `state/run-registry.yaml` → `uacp_run_registry_update`
 
 ## What goes where
 
 | Artifact | Path | Writer |
 |---|---|---|
-| Run manifest | `state/runs/<run-id>.md` | uacp-execute |
-| Triage artifact | `state/runs/<run-id>-triage.md` | uacp-triage |
-| Proposal artifact | `state/runs/<run-id>-propose.md` | uacp-propose |
-| Transition artifact | `state/runs/<run-id>-<from>-to-<to>-transition.md` | uacp-state |
+| Run manifest | `state/runs/{run_id}.yaml` | uacp-state |
+| Transition artifact | `state/runs/{run_id}-{from}-to-{to}-transition.yaml` | uacp-state |
 | Current pointer | `state/current.yaml` | uacp-state only |
+| Gate ledger | `state/gate-ledger/{run_id}.jsonl` | `uacp_gate_ledger_append` |
+| Run registry | `state/run-registry.yaml` | `uacp_run_registry_update` |
 
-## Why not just use terminal always?
-
-Terminal heredocs work but:
-- Trigger security approval prompts (dotfile overwrite)
-- Don't validate YAML before writing
-- Can't do atomic read-modify-write
-
-The proper fix is to implement `uacp_state_write` as a registered tool in Hermes. Until then, terminal heredocs are the operational workaround.
+Manifests and transition artifacts are YAML (`state_machine.py` serializes the
+`RunManifest` with `yaml.safe_dump` to `state/runs/{run_id}.yaml`). Triage,
+proposal, and plan artifacts are produced by their own phase skills under the
+governed namespace and linked into the manifest's `artifacts` map via
+`register-artifact`; they are not state-mutator outputs.
 
 ## Non-waivable invariants for state writes
 
-Even when using terminal workaround:
-1. Record provenance (who wrote, why, from which phase)
-2. Use UACP_ROOT-relative or absolute paths
-3. Don't mutate canonical docs from state writes
-4. Keep state changes narrow and traceable
+1. Record provenance (who wrote, why, from which phase) in `state_history`.
+2. Use `UACP_ROOT`-relative or symbolic paths; never cwd-dependent paths.
+3. Don't mutate canonical docs or config from a state write.
+4. Keep state changes narrow and traceable.
 
 ## Inputs
 
-- `UACP_ROOT/docs/index.md`
-- `UACP_ROOT/docs/lifecycle-reference.md`
 - `UACP_ROOT/config/state.yaml`
-- `UACP_ROOT/config/uacp.toml` (`[paths]` / `base_dir` resolver) — path-root authority (roots.yaml deleted in Slice 5 W3; canonical resolver is `config.py` + `config/uacp.toml [paths]`)
+- `UACP_ROOT/config/uacp.toml` (`[paths]` / `base_dir` resolver) — path-root
+  authority (roots.yaml deleted in Slice 5 W3; canonical resolver is `config.py`
+  + `config/uacp.toml [paths]`)
 - current `state/current.yaml`
-- target `state/runs/<run>.yaml`
+- target `state/runs/{run_id}.yaml`
 
 ## Mutation order
 
-1. Read the authoritative docs and state contract.
+1. Read the authoritative state contract and path policy.
 2. Resolve the current run and mutation mode.
 3. Validate authority, scope, and path policy.
 4. Update only owned state fields.
@@ -80,7 +81,8 @@ Even when using terminal workaround:
 ### Governed mutation
 
 - Becomes mandatory after bootstrap closes.
-- All state changes must route through `uacp-state`.
+- All state changes route through `uacp_state_write` (or the dedicated protected
+  writers above).
 - Every mutation must carry traceable authority and provenance.
 
 ## Owned fields
@@ -101,7 +103,11 @@ Even when using terminal workaround:
 - Never use cwd-dependent paths.
 - Prefer symbolic roots and `UACP_ROOT`-relative references.
 - Keep high-volume evidence out of state; store paths, not payloads.
-- If a mutation would change governance rules, write the state pointer first and escalate the doc change separately.
+- If a mutation would change governance rules, write the state pointer first and
+  escalate the doc change separately.
+- The knowledge/lesson corpus (`.uacp/lessons/`, `.uacp/knowledge/`) is owned
+  exclusively by the Oracle engine and is NOT a uacp-state surface; never write
+  it via `uacp_state_write`.
 
 ## Verification
 

@@ -29,6 +29,24 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 No `allowed_tools` / `forbidden_tools` / `phase_exit_invariants` — codified grammar
 is authoritative (see `../SKILL.md` → "no authority mirrors").
 
+### Sanctioned variant: cross-phase lifecycle skill
+
+A `lifecycle` skill that is **the** cross-phase state mutator (not bound to a
+single phase) MAY use `phase: '*'` plus an optional `cross_phase: true` flag, and
+MAY add a one-line `note:` justifying the wildcard. This is reserved for the
+single skill that owns state mutation across every phase (`uacp-state`); ordinary
+lifecycle skills stay bound to their one `phase`.
+
+```yaml
+name: uacp-state
+description: Use when mutating UACP state, updating run manifests, current pointers, or tombstones.
+kind: lifecycle
+phase: '*'
+cross_phase: true
+note: single cross-phase state mutator; per-phase admissibility comes from the active phase's allowed_tools.
+authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
+```
+
 ## `kind: reference`
 ```yaml
 name: domain-registry

@@ -11,7 +11,7 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 ## Purpose
 This skill turns an approved proposal into an executable graph with explicit dependencies, review checkpoints, and verification targets.
 
-## PLAN_VALIDATION ledger contract (Phase 3.1 / R1 / R2)
+## PLAN_VALIDATION ledger contract
 
 Before requesting PLAN→EXECUTE, this skill MUST append a `gate: PLAN_VALIDATION` record to the run's gate ledger via `uacp_gate_ledger_append`. Heartgate blocks the transition otherwise (see `engines/domain/gate_rules.py` — `plan_validation_gate_default()`).
 
@@ -30,7 +30,7 @@ The six pv checks (codified in `engines/domain/gate_rules.py` — `PLAN_VALIDATI
 - `pv_5` rollback_path_declared — a rollback_path is declared (even if `"none--write-only-artifact"`)
 - `pv_6` cluster_artifacts_referenced — all required cluster artifacts from PROPOSE→PLAN are referenced in plan
 
-Per-record DoS resistance (Phase 3 R2 / SKEP-R1-007): Heartgate scans ALL `PLAN_VALIDATION` pass records and accepts if any one satisfies the full contract; earlier-rejected records surface as warnings, not blockers.
+Per-record DoS resistance: Heartgate scans ALL `PLAN_VALIDATION` pass records and accepts if any one satisfies the full contract; earlier-rejected records surface as warnings, not blockers.
 
 ## Read first
 - `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`; `plan_validation_gate` grammar in `engines/domain/gate_rules.py`)
@@ -134,7 +134,7 @@ For runtime-permission or containment plans, separate **mechanism evidence** fro
 - Plan terminal/shell containment separately from `execute_code`; keep `execute_code` out of scope unless its backend-specific containment can be proven.
 - Require positive and negative live probes plus Agent Council review before claiming any allow path is enabled.
 
-For plans that cross lifecycle boundaries, include the target transition artifact and call out that `uacp_heartgate_check` is required before the next phase is accepted. Separate phase-local council review from Heartgate transition coherence: phase-local council checks the plan/work product; Heartgate checks lifecycle contract satisfaction, docs/config/state/runtime consistency, warning/deferred-item honesty, authority-plane integrity, and next-phase readiness. If Agent Council is selected for governance/runtime/artifact-management work, require retrieval-led review and a `uacp.council_synthesis` artifact with `inspected_paths`. If the plan includes canonical docs/config mutations, make `uacp_doc_write` / `uacp_config_write` the required write surfaces and explicitly check whether protected filesystem containment is available. If governed writers fail closed on containment, plan to record an EXECUTE checkpoint and route containment repair or explicit manual recovery; do not fall back to generic patch/terminal writes by default.
+For plans that cross lifecycle boundaries, include the target transition artifact and call out that `uacp_heartgate_check` is required before the next phase is accepted. Separate phase-local council review from Heartgate transition coherence: phase-local council checks the plan/work product; Heartgate checks lifecycle contract satisfaction, docs/config/state/runtime consistency, warning/deferred-item honesty, authority-plane integrity, and next-phase readiness. If Agent Council is selected for governance/runtime/artifact-management work, require retrieval-led review and a `uacp.council_synthesis` artifact with `inspected_paths`. If the plan includes canonical docs/config mutations, make `uacp_doc_write` / `uacp_config_write` the required write surfaces (EXECUTE will use these — PLAN names them but does not call them) and explicitly check whether protected filesystem containment is available. If governed writers fail closed on containment, plan to record an EXECUTE checkpoint and route containment repair or explicit manual recovery; do not fall back to generic patch/terminal writes by default.
 
 For UACP self-repair plans that must touch skill exports, validator scripts, or runtime-adapter source paths not reachable by existing governed writers, do **not** broaden `terminal`, `patch`, or generic shell into universal governed writers. Instead, require a narrow `self_patch_write_authority` block in the scope artifact with explicit reason, authority artifact, owner, rollback path, safe allowed prefixes, and verification obligations. See `references/adaptive-plan-package-enforcement-20260518.md`. Treat source-level Heartgate success, live `uacp_heartgate_check` success, and Guardian hard-interception proof as separate claims; after kernel/plugin patches, a runtime reload may be required before live tools reflect source behavior.
 
@@ -199,7 +199,7 @@ When this skill invokes or consumes Agent Council during skill-library repair, g
 
 During this skill-library refactor specifically, do **not** use UACP protected writers, Heartgate, MEMEX/BES, or `uacp-verify` as self-approval authority. Use normal file/git workflow, deterministic audits, Agent Council, and Kimi verification. A skill is considered repaired only after its implementation audit and end-of-implementation council/audit return `PASS` with no material concerns.
 
-## mode_behavior (Phase 4.3 stub)
+## mode_behavior
 
 This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
@@ -215,15 +215,8 @@ require operator confirmation per the active `state.current.uacp_mode`.
 
 **Mechanism**: when an escalation trigger fires, this skill emits a
 `uacp_escalation_event` record into `state/escalations/{run_id}.jsonl`
-(severity ∈ {info, warn, block}). Operators poll the file (push-notify
-is Phase 5). See `config/uacp.toml [autonomy.escalation_triggers]` for
+(severity ∈ {info, warn, block}). Operators poll the file. See `config/uacp.toml [autonomy.escalation_triggers]` for
 the registered triggers.
-
-## Semantic package requirement
-
-For any selected adaptive PLAN package, Markdown artifacts are mandatory semantic context, not optional human-facing decoration. The package must let a future agent reconstruct, one month later, without relying on chat history: why this execution topology was selected, how the work will execute, and the intention/rationale/decision behind tools, boundaries, verification, rollback, and review.
-
-`plans/{run_id}-plan.yaml` and `plans/{run_id}-scope.yaml` remain machine lifecycle envelopes. They are not sufficient as the semantic substrate for STANDARD/FULL governance work. If a PLAN package is selected, `plans/{run_id}/` must contain Markdown documents with concrete headings and explanatory prose for work breakdown, dependencies, authority/side effects, tool/runtime selection, artifact write surfaces, verification strategy, rollback/recovery, council/review topology, and transition readiness. Placeholder Markdown or one-line stubs are blockers.
 
 ## Phase Intent Verification contract
 
@@ -272,7 +265,7 @@ For any selected adaptive PLAN package, Markdown artifacts are mandatory semanti
 
 ## Retrieval-led prior-art (Oracle)
 
-When the Oracle engine is enabled (`oracle.enabled=true` in `.uacp/config.toml`), call
+When the Oracle engine is enabled (`[oracle] enabled = true` in `config/uacp.toml` (overridable per-project via `.uacp/config.toml`)), call
 `uacp_oracle_query` before completing the plan to surface prior execution patterns,
 scope decisions, and relevant council findings.
 

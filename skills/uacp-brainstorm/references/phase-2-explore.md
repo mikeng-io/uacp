@@ -23,25 +23,25 @@ Every tool invocation during exploration must leave a trace in `manifest.yaml`:
 **File reads:**
 ```yaml
 # manifest.yaml → exploration.files_read
-- path: "config/phase-transitions.yaml"
-  purpose: "Check if brainstorm->triage transition exists"
+- path: "skills/uacp-core/scripts/engines/domain/phase_graph.py"
+  purpose: "Confirm the brainstorm->triage transition is codified"
   key_findings:
-    - "Valid transitions start at triage->propose"
-    - "No pre-triage state modeled"
+    - "LIFECYCLE_GRAPH models brainstorm with sole onward edge brainstorm->triage"
+    - "brainstorm is a registered phase, not a pre-triage informal state"
   phase: 2
   timestamp: "{ISO-8601}"
 ```
 
-**Codebase searches (Grep, Glob, Bash):**
+**Codebase searches (Grep, Glob):**
 ```yaml
 # manifest.yaml → exploration.searches_performed
 - tool: Grep
-  pattern: "check-preflight"
-  path: "skills/"
-  result_count: 3
+  pattern: "STAGE_PHASE_EXIT_INVARIANTS"
+  path: "skills/uacp-core/scripts/engines/domain/"
+  result_count: 1
   key_findings:
-    - "Referenced in uacp-brainstorm phase-8-admission.md"
-    - "Guardian implemented in skills/uacp-core/scripts/core.py"
+    - "brainstorm exit invariant requires brainstorm/*/07-scope-package.yaml"
+    - "Codified grammar lives in engines/domain/phase_transitions.py"
   phase: 2
   timestamp: "{ISO-8601}"
 ```
@@ -56,12 +56,12 @@ Every tool invocation during exploration must leave a trace in `manifest.yaml`:
   timestamp: "{ISO-8601}"
 ```
 
-### 2.2 Update references/ YAML files
+### 2.2 Update the session-vault references YAML files
 
-Mirror the manifest entries into discrete files for external tooling:
+Mirror the manifest entries into discrete files in the session vault's references directory `.uacp/brainstorm/{session_id}/references/` (the per-session vault, NOT this skill's own `references/` docs):
 
-- `references/files-read.yaml` — all `files_read` entries
-- `references/searches.yaml` — all `searches_performed` entries
-- `references/web-queries.yaml` — all `web_queries` entries
+- `.uacp/brainstorm/{session_id}/references/files-read.yaml` — all `files_read` entries
+- `.uacp/brainstorm/{session_id}/references/searches.yaml` — all `searches_performed` entries
+- `.uacp/brainstorm/{session_id}/references/web-queries.yaml` — all `web_queries` entries
 
-**Output of this phase:** candidate directions, early eliminations, and populated `manifest.yaml` + `references/` evidence files.
+**Output of this phase:** candidate directions, early eliminations, and populated `manifest.yaml` + `.uacp/brainstorm/{session_id}/references/` evidence files.

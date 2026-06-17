@@ -11,7 +11,7 @@ Use this pattern when reviewing UACP runtime enforcement for bypasses, authority
 
 ## Review methodology
 
-1. **Load the design docs** (`docs/runtime-enforcement.md`, `config/guardian-policy.yaml`) and confirm stated invariants.
+1. **Load the design docs** (`docs/runtime/runtime-enforcement.md`, `config/uacp.toml [guardian]`) and confirm stated invariants.
 2. **Trace the host-runtime hook path** in the actual source (e.g., `run_agent.py`, `hermes_cli/plugins.py`). Look for:
    - `skip_pre_tool_call_hook=True` or equivalent bypass flags.
    - Direct registry dispatch that bypasses plugin hooks.

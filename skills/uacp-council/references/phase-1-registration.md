@@ -87,21 +87,22 @@ Read `uacp-bridge/SKILL.md` for the canonical capability profile mapping. `task_
 
 ### Guardian registration enforcement
 
-If Guardian is present, run registration checks against the manifest before selecting a tier or dispatching any agent:
+If Guardian is present, run registration checks against the manifest before selecting a tier or dispatching any agent. Use the `uacp_heartgate_check` tool (Guardian preflight surface — `core.py` exposes no CLI):
 
-```bash
-python3 {guardian_path} check-preflight uacp-council \
-  --scope-set true \
-  --task-type {council_manifest.task_type} \
-  --mode {council_manifest.mode} \
-  --findings-count {len(findings) if council_manifest.mode == "finding-driven" else 0} \
-  --domains-set {true if council_manifest.domains else false}
-
-python3 {guardian_path} check-session-id {council_manifest.session_id}
+```yaml
+# uacp_heartgate_check preflight call
+check_type: preflight
+skill: uacp-council
+scope_set: true
+task_type: "{council_manifest.task_type}"
+mode: "{council_manifest.mode}"
+findings_count: 0          # len(findings) if mode == "finding-driven", else 0
+domains_set: true          # true if council_manifest.domains is non-empty, else false
+session_id: "{council_manifest.session_id}"
 ```
 
-If Guardian exits `2`, stop and surface the BLOCK message. Do not route, dispatch, or write an artifact. If session ID uniqueness fails, generate a new `session_id` and retry once; if the retry fails, stop.
+If the tool returns `status: block`, stop and surface the BLOCK message. Do not route, dispatch, or write an artifact. If session ID uniqueness fails, generate a new `session_id` and retry once; if the retry fails, stop.
 
-If Guardian exits `1`, continue but record the warning in `guardian_warnings`. If Guardian is absent, continue and keep `guardian_enforced: false`.
+If the tool returns `status: warn`, continue but record the warning in `guardian_warnings`. If Guardian is absent, continue and keep `guardian_enforced: false`.
 
 The manifest is the shared registration object for the rest of the run. Runtime adapters receive a projection of it as `runtime_input`; output artifacts preserve it so Guardian can validate the completed registration.

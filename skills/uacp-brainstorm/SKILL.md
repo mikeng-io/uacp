@@ -4,22 +4,15 @@ description: >
   Optional UACP entry phase for exploration and scope clarification. Registers a
   formal run at phase=brainstorm, writes the scope package as a governed artifact,
   and runs Heartgate to validate brainstorm->triage admission before handing off.
-kind: orchestration
-location: managed
-dependencies:
-  - uacp-context
-  - domain-registry
-  - uacp-bridge
+phase: brainstorm
+kind: lifecycle
+authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative; brainstorm enters_from none, only exit is triage, STAGE_ALLOWED_TOOLS[brainstorm], phase_exit_invariant brainstorm/*/07-scope-package.yaml); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 allowed-tools:
   - Read
   - Glob
   - Grep
-  - Bash(ls *)
-  - Bash(git log *)
-  - Bash(git diff *)
   - Task
   - Write
-  - Bash(mkdir *)
   - uacp_state_write
   - uacp_artifact_write
   - uacp_heartgate_check
@@ -65,10 +58,10 @@ BRAINSTORM → TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE
  entry phase
 ```
 
-- A run may begin at `brainstorm` (optional) or at `triage` (direct entry).
-- Brainstorm **always precedes** TRIAGE — it never skips it.
-- `brainstorm → triage` is the only exit in this slice. Explore-and-bail (stopping before any formal artifact) is a follow-up requiring the `aborted`-status path.
-- Scope package path: `.uacp/brainstorm/{session_id}/07-scope-package.yaml` (registered via `uacp_artifact_write`).
+- Brainstorm is **optional**. A run may begin at `brainstorm`, or TRIAGE may be entered directly with no brainstorm at all (the codified `enters_from` for triage is `none | brainstorm`).
+- When brainstorm IS present, its **only exit is TRIAGE** (`brainstorm` enters_from `none`; its sole onward transition in the phase graph is `brainstorm → triage`). Brainstorm never skips TRIAGE and never routes anywhere else.
+- Explore-and-bail (stopping before any formal artifact) is a follow-up requiring the `aborted`-status path.
+- Scope package path: `.uacp/brainstorm/{session_id}/07-scope-package.yaml` (written via `uacp_artifact_write`). The codified exit-invariant glob `brainstorm/*/07-scope-package.yaml` is relative to the `.uacp/` namespace root.
 
 ---
 
@@ -79,12 +72,13 @@ BRAINSTORM → TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE
 - **Explore alternatives** — always sketch 2-3 approaches before settling
 - **The vault is supporting evidence** — it is raw thinking material; the scope package is the governed artifact
 - **Only selected scope enters TRIAGE** — Heartgate checks the admission boundary
+- **Anti-collapse** — one phase = one markdown file. Never merge phases.
 
 ---
 
 ## Advisory prior-art (Oracle)
 
-When the Oracle engine is enabled (`oracle.enabled=true` in `.uacp/config.toml`), call
+When the Oracle engine is enabled (`[oracle] enabled = true` in `config/uacp.toml`, overridable per-project via `.uacp/config.toml`), call
 `uacp_oracle_query` early in the brainstorm phase to surface relevant prior-art before
 opening the exploration vault.
 
@@ -95,4 +89,3 @@ uacp_oracle_query(phase=brainstorm, project=<project-id>)
 Results are **advisory** (`trust_class=advisory`, `evidence_required=true`). Use them
 to seed the vault and inform scope calibration — never treat them as authoritative.
 If oracle is disabled or returns no packets, proceed without retrieval.
-- **Anti-collapse** — one phase = one markdown file. Never merge phases.

@@ -5,8 +5,7 @@ description: Use when mutating UACP state, updating run manifests, current point
 phase: '*'
 kind: lifecycle
 cross_phase: true
-note: uacp-state is the exclusive mutator for state/. Invoked from any phase; per-phase
-  admissibility comes from the active phase's allowed_tools.
+note: single cross-phase state mutator; per-phase admissibility comes from the active phase's allowed_tools.
 authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py (phase graph + stages + gate grammar, code-authoritative); config/uacp.toml [heartgate.*] (operator knobs); config/phase-transitions.yaml (LLM-read adaptive-gate doctrine + artifact schemas only)"
 ---
 # UACP State
@@ -60,6 +59,8 @@ Heartgate consults `state/run-registry.yaml` at every PLAN→EXECUTE to detect c
 - `state/runs/<run>.yaml`
 - `state/runs/<run>-transition.yaml`
 
+A run's `current_phase` may initialize to either `triage` (default) or `brainstorm` — `state_machine.handle_init` accepts `initial_phase ∈ {triage, brainstorm}` and fails closed on anything else. When a run starts in `brainstorm`, the sole valid exit is `brainstorm → triage` (per `engines/domain/phase_graph.py` `brainstorm: {triage}`); do not move a brainstorm run directly into `propose` or any later phase.
+
 ## Pitfalls
 
 ### Guardian blocks direct or under-context UACP state writes
@@ -110,7 +111,7 @@ Known Guardian bypass gaps must be recorded as HIGH accepted risk or blocker in 
 - **What this skill does:** mutate UACP runtime state, current pointers, manifests, and state records only through the governed state boundary.
 - **Why it does it:** state is the lifecycle memory that later phases and Heartgate rely on; casual edits would make phase truth unverifiable.
 - **How it does it:** load canonical state/path policy, verify the authority artifact, validate any transition with Heartgate before pointer movement, write bounded state records, and preserve provenance.
-- **Constraints:** do not write docs/config/artifacts through the state boundary; do not move phase pointers when transition evidence is missing; do not repair artifacts by silently editing state.
+- **Constraints:** do not write docs/config/artifacts through the state boundary; do not move phase pointers when transition evidence is missing; do not repair artifacts by silently editing state. The knowledge/lesson corpus (`.uacp/lessons/`, `.uacp/knowledge/`) is owned exclusively by the Oracle engine and is NOT a uacp-state surface; never write it via `uacp_state_write`.
 - **Reason / rational intent / decisions:** intent is truthful lifecycle bookkeeping; decisions are whether state mutation is authorized, whether transition evidence is sufficient, and whether current pointers may move.
 - **Tools to use / not use:** use `uacp_state_write`, `uacp_heartgate_check`, read/validator tools; avoid generic file mutation for protected state, docs/config writers, production tools, and external messaging.
 
@@ -133,19 +134,9 @@ When this phase invokes or consumes Agent Council output, execute `../uacp-core/
 
 ## Autonomous self-closing loop
 
-When this skill invokes or consumes Agent Council during skill-library repair, governance/runtime work, lifecycle state movement, or any other phase-local closure task, it must close the loop without external prompting:
+When state movement consumes Agent Council output, close the loop without external prompting per `../uacp-core/references/agent-council-followthrough.md` (already cited above) — including its recursion cap and the requirement to record `handled_findings_chain`, `source_negative_findings_present`, and `followup_depth` in the transition artifact.
 
-1. Save the pre-change checkpoint and backup before implementation or state movement.
-2. Run deterministic validation before council review so council participants inspect concrete evidence rather than intentions.
-3. Run a full-perspective Agent Council and, when runtime/model diversity is requested or materially useful, an independent Kimi Code / Kimi K2.6 audit.
-4. Classify every blocker, concern, invariant failure, negative finding, and material warning into the handled-findings matrix.
-5. Remediate concrete findings with the smallest sufficient patch, then rerun focused verification until the result is `PASS` / no material concerns or a refusal condition is reached.
-6. Preserve the recursion cap from `../uacp-core/references/agent-council-followthrough.md`: at most one focused follow-up council for the same finding chain unless the operator explicitly authorizes deeper recursion; unresolved material findings after the cap block closure or require recorded accepted risk/deferment with owner and condition.
-7. Record `handled_findings_chain`, `source_negative_findings_present`, `followup_depth`, inspected paths, commands, and residual risks in the relevant checkpoint or transition artifact.
-
-During this skill-library refactor specifically, do **not** use UACP protected writers, Heartgate, MEMEX/BES, or `uacp-verify` as self-approval authority. Use normal file/git workflow, deterministic audits, Agent Council, and Kimi verification. A skill is considered repaired only after its implementation audit and end-of-implementation council/audit return `PASS` with no material concerns.
-
-## mode_behavior (Phase 4.3 stub)
+## mode_behavior
 
 This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
@@ -154,8 +145,10 @@ require operator confirmation per the active `state.current.uacp_mode`.
 |---|---|---|
 | manual | every action requires operator confirmation | yes (all transitions) |
 | semi_auto | autonomous within-phase actions; operator confirms transitions | yes (transitions only) |
-| supervised_auto | Mutate state pointer; append gate-ledger; register/deregister via uacp_run_registry_update, autonomous | only on escalation triggers (see below) |
+| supervised_auto | autonomous through the lifecycle until a registered escalation trigger fires | only on escalation triggers (see below) |
 | full_auto | as supervised_auto, plus auto-confirming non-irreversible decisions | only on `trigger_irreversible_write` or `escalation_triggered` |
+
+In `supervised_auto` (and `full_auto`) this skill performs its state work autonomously: it mutates the current pointer, appends to the gate-ledger via `uacp_gate_ledger_append`, and registers/deregisters the run via `uacp_run_registry_update`. Those writers each carry full UACP context; only the listed triggers pause for the operator.
 
 **Escalates when**: any attempt to mutate state outside the run's declared write surface.
 

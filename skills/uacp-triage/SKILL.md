@@ -16,6 +16,13 @@ It does not design the proposal.
 Use for unclear scope, governance-depth decisions, granularity scoring, phase admission, or deciding routing depth.
 Routing depth may be direct, lightweight, standard, full-governance, or block/clarify.
 
+TRIAGE may be entered cold (`predecessor: none`) or from an upstream `brainstorm` run.
+When entered from brainstorm, the run carries a selected scope-package and a `routing_advisory`
+produced by that run — TRIAGE must CONSUME that package (use its scoped request summary, domain
+list, and routing hint as input to scoring) rather than re-scoping from zero.
+"TRIAGE-first" remains intact: brainstorm is an optional upstream step that precedes TRIAGE,
+it does not skip or substitute for it.
+
 ## Read when needed
 - `UACP_ROOT/config/gate-selection.yaml` — scoring factors (descriptive) and artifact schemas; scoring weights/method/route-bands in `config/uacp.toml [gates.scoring]`
 - `UACP_ROOT/config/review-routing.yaml` — council/review doctrine, grammar, and surfaces; operator knobs (operating_mode, escalation_rules, followthrough depth) in `config/uacp.toml [review]`
@@ -132,17 +139,7 @@ Agent Council synthesis is evidence, not transition approval.
 
 Before advancing, classify material blockers/concerns and record handled findings in transition evidence.
 
-## Self-repair caveat
-During this skill-library refactor, do not use UACP protected writers, Heartgate, MEMEX/BES, or `uacp-verify`
-as self-approval authority. Use normal file/git workflow plus Hermes/Kimi council verification.
-
-For normal UACP operation, TRIAGE-local council is for admission, routing, and granularity.
-Full Agent Council is reserved for lifecycle semantics, Guardian/Heartgate uncertainty,
-or high-impact governance ambiguity.
-A skill is considered repaired only after its own implementation audit and end-of-implementation council
-return PASS/no concerns.
-
-## mode_behavior (Phase 4.3 stub)
+## mode_behavior
 
 This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
@@ -185,7 +182,8 @@ This is a presentation rule only. Preserve complete raw evidence in UACP artifac
 
 ## Advisory prior-art (Oracle)
 
-When the Oracle engine is enabled (`oracle.enabled=true` in `.uacp/config.toml`), call
+When the Oracle engine is enabled (`[oracle] enabled = true` in `config/uacp.toml`,
+overridable per-project via `.uacp/config.toml`), call
 `uacp_oracle_query` at the start of triage to surface prior runs and context before
 scope-calibration scoring.
 
@@ -193,7 +191,9 @@ scope-calibration scoring.
 uacp_oracle_query(phase=triage, project=<project-id>)
 ```
 
-Results are **advisory** (`trust_class=advisory`, `evidence_required=true`). Use them
-to inform granularity scoring and routing — they do not override triage invariants.
+Results are **advisory in TRIAGE regardless of source trust class** — treat all retrieved
+packets as advisory (`evidence_required=true`) even when the Oracle engine tags them with a
+higher trust class. Use them to inform granularity scoring and routing; they do not override
+triage invariants.
 If oracle is disabled or returns no packets, proceed without retrieval.
 
