@@ -54,3 +54,15 @@ def test_lesson_from_okf_round_trip_fields():
     assert lesson.bes == 0.5
     assert lesson.promoted_to is None
     assert "Do not do X." in lesson.body
+
+
+def test_lesson_to_okf_round_trips():
+    original = Lesson.from_okf(_lesson_md())
+    serialized = original.to_okf()
+    reparsed = Lesson.from_okf(serialized)
+    assert reparsed == original
+
+
+def test_lesson_to_okf_emits_type_lesson_first():
+    serialized = Lesson.from_okf(_lesson_md()).to_okf()
+    assert serialized.startswith("---\ntype: lesson\n")
