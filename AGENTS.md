@@ -1,6 +1,6 @@
 # UACP — Universal Agent Control Plane
 
-Runtime-neutral governance framework for AI agent work. Six-phase lifecycle: **TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE**.
+Runtime-neutral governance framework for AI agent work. Lifecycle: **(optional) BRAINSTORM →** **TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE**.
 
 ---
 
@@ -26,6 +26,7 @@ When layers conflict, earlier layers win. An explicit entry in `docs/decisions/d
 
 | Phase | Responsibility |
 |---|---|
+| (optional) BRAINSTORM | Pre-governance exploration; must exit to TRIAGE before any governed work begins |
 | TRIAGE | Scope calibration, granularity scoring, governance routing |
 | PROPOSE | Declare intent, authority, constraints, evidence obligations |
 | PLAN | Produce a council-reviewed execution plan with PLAN_VALIDATION ledger entry |
@@ -41,7 +42,7 @@ Every transition is validated by **Heartgate**. Direct phase-skipping is a block
 
 These rules are non-negotiable. Violations are Heartgate blockers or Guardian blocks.
 
-1. **TRIAGE-first** — All non-trivial work enters via TRIAGE. No phase-skipping.
+1. **TRIAGE-first** — All non-trivial work enters formal governance via TRIAGE. An optional BRAINSTORM phase may precede it (brainstorm→triage); it never skips TRIAGE.
 2. **No main writes** — No active run writes directly to `main`/`master`. Use `worktree` or `branch` (see `docs/lifecycle/worktree-protocol.md`).
 3. **Governed writers only** — No raw filesystem writes during a run. Use:
    - `uacp_doc_write` — canonical docs (`docs/`)

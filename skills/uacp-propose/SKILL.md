@@ -29,11 +29,10 @@ who authorized it, what changes are in scope, and what side effects are declared
   If proposal artifacts were drafted early, mark them provisional and adopt/patch
   them only after TRIAGE→PROPOSE transition.
 - **Reference the triage artifact** — Every proposal must link to its originating
-  triage artifact (`state/runs/*-triage.yaml`) to maintain traceability.
+  triage artifact (`proposals/{run_id}-triage*.yaml`) to maintain traceability.
 - **Scope must be implementable** — If the user says "this is a medium spec",
   treat it as a signal to keep the proposal bounded and avoid over-engineering.
-- **MUST create gate-selection artifact** — Per `lifecycle-reference.md`,
-  PROPOSE requires an `initial gate-selection artifact` with:
+- **MUST create gate-selection artifact** — PROPOSE requires an `initial gate-selection artifact` with:
   - `selection_id`, `run_id`, `phase`
   - `domains`, `artifact_types`
   - `risk_level`, `granularity_level`
@@ -206,7 +205,7 @@ When this phase invokes or consumes Agent Council output, execute
 as prose advice. PROPOSE council reviews proposal authority, scope, and artifact
 viability. PLAN/VERIFY councils review implementation and evidence.
 
-## mode_behavior (Phase 4.3 stub)
+## mode_behavior
 
 This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
@@ -222,15 +221,9 @@ require operator confirmation per the active `state.current.uacp_mode`.
 
 **Mechanism**: when an escalation trigger fires, this skill emits a
 `uacp_escalation_event` record into `state/escalations/{run_id}.jsonl`
-(severity ∈ {info, warn, block}). Operators poll the file (push-notify
-is Phase 5). See `config/uacp.toml [autonomy.escalation_triggers]` for
+(severity ∈ {info, warn, block}). Operators poll the file. See
+`config/uacp.toml [autonomy.escalation_triggers]` for
 the registered triggers.
-
-## Semantic package requirement
-
-For any selected adaptive proposal package, Markdown artifacts are mandatory semantic context, not optional human-facing decoration. The package must let a future agent reconstruct, one month later, without relying on chat history: why the work exists, how the proposed mechanism works, the intention/rationale/decision, and the authority/scope/containment/risks/verification/transition boundary.
-
-`proposals/{run_id}-proposal.yaml` remains a machine lifecycle envelope. It is not sufficient as the semantic substrate for STANDARD/FULL governance work. If a proposal package is selected, `proposals/{run_id}/` must contain Markdown documents with concrete headings and explanatory prose, and `proposals/{run_id}-package-selection.yaml` must map every universal core concern to those documents. Placeholder Markdown or one-line stubs are blockers.
 
 ## Operator phase-return presentation
 
@@ -266,7 +259,7 @@ For any selected adaptive proposal package, Markdown artifacts are mandatory sem
 
 ## Retrieval-led prior-art (Oracle)
 
-When the Oracle engine is enabled (`oracle.enabled=true` in `.uacp/config.toml`), call
+When the Oracle engine is enabled (`[oracle] enabled = true` in `config/uacp.toml` (overridable per-project via `.uacp/config.toml`)), call
 `uacp_oracle_query` before authoring the proposal to surface relevant run history,
 prior decisions, and corpus context.
 

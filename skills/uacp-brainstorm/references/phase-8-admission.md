@@ -1,60 +1,46 @@
 ## Phase 8: Admission Check Before TRIAGE
 
-Brainstorm is informal, but the boundary into TRIAGE is not. Before handing the scope package to TRIAGE, verify that it is coherent enough to enter UACP governance.
+Brainstorm is a **registered lifecycle phase**, and the `brainstorm → triage` transition is a real governed boundary. The run was registered at `phase: brainstorm` on entry (Phase 0/Quick-Start step 1), and the scope package is a governed artifact written with `uacp_artifact_write`. Before transitioning forward to TRIAGE, validate that the scope package satisfies the codified brainstorm exit invariant.
 
-### Step 8.1: Guardian admission check
+### Step 8.1: Validate the brainstorm exit invariant via `uacp_heartgate_check`
 
-Guardian ensures the scope package contains the minimum fields required to enter TRIAGE. This is a transition-enforcement check, not a full lifecycle gate.
+`core.py` has **no CLI**. Phase-transition validation is performed by calling the `uacp_heartgate_check` TOOL with a transition artifact. Heartgate enforces the codified `brainstorm` phase-exit invariant from `skills/uacp-core/scripts/engines/domain/phase_transitions.py` (`STAGE_PHASE_EXIT_INVARIANTS["brainstorm"]`): the selected scope-package artifact must exist at `brainstorm/*/07-scope-package.yaml` (relative to the `.uacp/` namespace root) with non-empty `title`/`description`/`in_scope`, `declared_side_effects` present, `authority.source` documented, and a valid `routing_advisory`.
 
-```bash
-python3 skills/uacp-core/scripts/core.py check-preflight uacp-brainstorm \
-  --scope-set true \
-  --task-type planning \
-  --mode brainstorm \
-  --findings-count 0 \
-  --domains-set {true if scope_package.signals.domains else false}
+Call the tool for the `brainstorm → triage` transition:
+
+```
+uacp_heartgate_check(
+  from_phase = "brainstorm",
+  to_phase   = "triage",
+  artifact   = ".uacp/brainstorm/{session_id}/07-scope-package.yaml",
+  declared_side_effects = {declared_side_effects},
+)
 ```
 
-Guardian evaluates:
+Heartgate checks, among the coherence rules:
+
 - `selected_scope.title` and `selected_scope.description` are non-empty
 - `in_scope` is non-empty
-- `declared_side_effects` is present (may be empty list)
+- `declared_side_effects` is present (may be an empty list)
 - `authority.source` is documented
 - `estimated_governance.routing_advisory` is valid
-
-**Exit codes:**
-- `0` (PASS) → proceed to Heartgate
-- `1` (WARN) → record warnings, proceed if user accepts
-- `2` (BLOCK) → return to Phase 5 to refine scope. Do NOT enter TRIAGE.
-
-### Step 8.2: Heartgate coherence check (conditional)
-
-Heartgate checks whether the proposed scope conflicts with existing UACP state. This is optional for brand-new work with no active runs. Run it when:
-
-- An active UACP run exists in `state/current.yaml`
-- The scope touches protected state, public/private boundaries, or shared infrastructure
-- The user explicitly asks for coherence checking
-
-```bash
-python3 skills/uacp-core/scripts/core.py heartgate \
-  --proposed-phase triage \
-  --artifact-path .uacp/brainstorm/{session_id}/07-scope-package.yaml \
-  --side-effects {declared_side_effects}
-```
+- the proposed scope does not conflict with any active UACP run in `state/current.yaml`
 
 **Results:**
-- `COHERENT` → proceed to TRIAGE
-- `INCOHERENT` → surface findings to user; trim scope further or accept as recorded risk before entering TRIAGE
 
-### 8.3 Record admission result in manifest.yaml
+- **pass** (no blockers) → proceed to Phase 9 and transition forward to TRIAGE.
+- **warn** → record warnings; proceed only if the user accepts the recorded risk.
+- **block** → return to Phase 5 to refine scope. Do NOT transition to TRIAGE.
+
+Fail-closed: a missing or unreadable scope-package artifact is a blocker, not a warning.
+
+### 8.2 Record the admission result in `manifest.yaml`
 
 ```yaml
 admission:
-  guardian_status: pass | warn | block
-  guardian_findings: []
-  heartgate_status: coherent | incoherent | skipped
+  heartgate_status: pass | warn | block
   heartgate_findings: []
   final_decision: proceed_to_triage | stop | refine_scope
 ```
 
-**Note:** Brainstorm artifacts themselves are NOT registered in `uacp-state`. Only official lifecycle artifacts (starting from TRIAGE) are state-persistent.
+The scope package itself is a governed lifecycle artifact (written via `uacp_artifact_write`) and the run is already state-registered at `phase: brainstorm`. There is no separate "informal, not registered" tier — brainstorm participates in UACP governance like any other phase; the difference is only that it is optional and its sole exit is TRIAGE.

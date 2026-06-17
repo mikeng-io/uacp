@@ -12,7 +12,7 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 This skill closes the run, captures lessons, decides what belongs in memory, and determines whether a new skill or doc update is warranted.
 
 ## Read first
-- `UACP_ROOT/config/uacp.toml [memory]` (operational boundaries; schema: `docs/reference/learning-artifact-schema.md`)
+- `UACP_ROOT/config/uacp.toml [memory]` (operational boundaries; consult the learning-artifact schema for artifact shape)
 
 ## Rules
 - Keep the learning artifact compact.
@@ -85,7 +85,6 @@ Heartgate schema pitfalls found in practice:
 - After Heartgate returns `warn` with no blockers, write a compact run manifest or resolution pointer so future sessions can see the run is resolved for its declared scope without replaying the full conversation.
 
 Reference: `references/phase-resolution-heartgate.md` captures a concrete closure pattern and schema example.
-- Evidence-only closure is valid only when the resolution states what was *not* enabled and carries the remaining allow-path work into an owned deferred item.
 
 Do not store high-volume gate outcomes in personal memory. Use durable UACP artifacts/knowledge.
 
@@ -131,7 +130,7 @@ When this skill invokes or consumes Agent Council during skill-library repair, g
 
 During this skill-library refactor specifically, do **not** use UACP protected writers, Heartgate, MEMEX/BES, or `uacp-verify` as self-approval authority. Use normal file/git workflow, deterministic audits, Agent Council, and Kimi verification. A skill is considered repaired only after its implementation audit and end-of-implementation council/audit return `PASS` with no material concerns.
 
-## mode_behavior (Phase 4.3 stub)
+## mode_behavior
 
 This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
@@ -140,15 +139,15 @@ require operator confirmation per the active `state.current.uacp_mode`.
 |---|---|---|
 | manual | every action requires operator confirmation | yes (all transitions) |
 | semi_auto | autonomous within-phase actions; operator confirms transitions | yes (transitions only) |
-| supervised_auto | Outputs, structured lessons artifact with ledger_citations, run-registry deregistration, autonomous | only on escalation triggers (see below) |
+| supervised_auto | Autonomous: produces structured lessons artifact (with ledger citations) and run-registry deregistration | only on escalation triggers (see below) |
 | full_auto | as supervised_auto, plus auto-confirming non-irreversible decisions | only on `trigger_irreversible_write` or `escalation_triggered` |
 
 **Escalates when**: lessons artifact incomplete or unexpected residual blockers.
 
 **Mechanism**: when an escalation trigger fires, this skill emits a
 `uacp_escalation_event` record into `state/escalations/{run_id}.jsonl`
-(severity ∈ {info, warn, block}). Operators poll the file (push-notify
-is Phase 5). See `config/uacp.toml [autonomy.escalation_triggers]` for
+(severity ∈ {info, warn, block}). Operators poll the file. See
+`config/uacp.toml [autonomy.escalation_triggers]` for
 the registered triggers.
 
 

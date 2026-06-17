@@ -11,6 +11,12 @@ context misuse.
 
 Step-2 / Slice-5 scope: reference-doc naming — filenames in
 skills/uacp-core/references/ must be kebab-case with no date suffix.
+
+Slice-phase-hygiene scope: regression guards added after the phase-skill
+hygiene pass —
+  (a) lifecycle skills must carry 'phase' AND 'authority_source' in frontmatter;
+  (b) no SKILL.md or references/*.md may reference the dead 'check-preflight'
+      CLI sub-command (it does not exist in core.py).
 """
 
 from __future__ import annotations
@@ -171,4 +177,93 @@ def test_reference_doc_kebab_case_no_date_suffix(ref_doc: Path) -> None:
     assert not _DATE_SUFFIX_RE.search(name), (
         f"skills/uacp-core/references/{name} has a -YYYYMMDD date suffix in the "
         f"filename; remove it (dates belong in the doc body, not the filename)."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Phase-skill hygiene regression guards (Slice-phase-hygiene)
+# ---------------------------------------------------------------------------
+
+
+def _lifecycle_skill_md_files() -> list[Path]:
+    """Return SKILL.md files whose frontmatter declares kind: lifecycle."""
+    return sorted(
+        p
+        for p in SKILLS_DIR.glob("*/SKILL.md")
+        if _parse_frontmatter(p).get("kind") == "lifecycle"
+    )
+
+
+@pytest.mark.parametrize(
+    "skill_md", _lifecycle_skill_md_files(), ids=lambda p: p.parent.name
+)
+def test_lifecycle_skill_declares_phase(skill_md: Path) -> None:
+    """Every lifecycle skill MUST declare a non-empty 'phase' key.
+
+    The value may be a concrete phase name (e.g. 'triage') or '*' (the
+    cross-phase state-mutator convention). The check guards against skills that
+    drift from lifecycle kind without updating their frontmatter.
+    """
+    fm = _parse_frontmatter(skill_md)
+    skill_name = skill_md.relative_to(REPO_ROOT)
+    assert "phase" in fm, (
+        f"{skill_name} (kind: lifecycle) is missing the required 'phase' key in "
+        f"frontmatter. Add 'phase: <phase-name>' (or 'phase: \"*\"' for cross-phase)."
+    )
+    phase_val = fm["phase"]
+    assert phase_val not in (None, ""), (
+        f"{skill_name} (kind: lifecycle) has an empty 'phase' value; "
+        f"set it to a concrete phase name or '*'."
+    )
+
+
+@pytest.mark.parametrize(
+    "skill_md", _lifecycle_skill_md_files(), ids=lambda p: p.parent.name
+)
+def test_lifecycle_skill_declares_authority_source(skill_md: Path) -> None:
+    """Every lifecycle skill MUST declare a non-empty 'authority_source' key.
+
+    This guards against skills that name concrete phases but omit the pointer to
+    the codified grammar that actually enforces them — the drift pattern seen in
+    uacp-brainstorm before the hygiene pass.
+    """
+    fm = _parse_frontmatter(skill_md)
+    skill_name = skill_md.relative_to(REPO_ROOT)
+    assert "authority_source" in fm, (
+        f"{skill_name} (kind: lifecycle) is missing the required 'authority_source' "
+        f"key in frontmatter. Add a pointer to the codified grammar "
+        f"(e.g. engines/domain/phase_graph.py)."
+    )
+    src_val = fm["authority_source"]
+    assert src_val not in (None, ""), (
+        f"{skill_name} (kind: lifecycle) has an empty 'authority_source' value; "
+        f"point it at the codified grammar files."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Dead CLI guard: 'check-preflight' does not exist in core.py
+# ---------------------------------------------------------------------------
+
+
+def _all_skill_markdown_files() -> list[Path]:
+    """Return every *.md under skills/ (SKILL.md files and references)."""
+    return sorted(SKILLS_DIR.rglob("*.md"))
+
+
+@pytest.mark.parametrize(
+    "md_file", _all_skill_markdown_files(), ids=lambda p: str(p.relative_to(SKILLS_DIR))
+)
+def test_no_dead_check_preflight_cli(md_file: Path) -> None:
+    """No skills markdown file may reference the dead 'check-preflight' CLI.
+
+    The sub-command 'check-preflight' does not exist in
+    skills/uacp-core/scripts/core.py. Any reference to it is stale and must be
+    removed to prevent agents from invoking a non-existent tool.
+    """
+    text = md_file.read_text(encoding="utf-8")
+    assert "check-preflight" not in text, (
+        f"{md_file.relative_to(REPO_ROOT)} contains a reference to the dead "
+        f"'check-preflight' CLI sub-command, which does not exist in core.py. "
+        f"Remove or replace the reference."
     )

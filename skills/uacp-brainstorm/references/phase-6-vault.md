@@ -1,13 +1,15 @@
-## Phase 6: Write the Obsidian Vault
+## Phase 6: Write the Session Vault
 
-Dump the raw thinking material into `.uacp/brainstorm/` as an Obsidian-style vault. This is disposable documentation, not canonical state.
+Dump the raw thinking material into the session vault at `.uacp/brainstorm/{session_id}/`. The vault is supporting evidence — raw thinking material for the governed scope package — not canonical lifecycle state. (The run itself is already registered at `phase: brainstorm`; the vault is its working scratch, the scope package is its governed exit artifact.)
 
 **Anti-collapse rule:** One phase = one markdown file. Never merge phases into a single document. The vault exists so each phase's reasoning remains separable and inspectable.
+
+**Session-id convention:** use a single stable `{session_id}` directory name across phases 6–9 and SKILL.md — `.uacp/brainstorm/{session_id}/`. The codified exit-invariant glob `brainstorm/*/07-scope-package.yaml` (relative to the `.uacp/` namespace root) matches this directory.
 
 **Vault path:**
 
 ```
-.uacp/brainstorm/{YYYYMMDD-HHMMSS}-{session_id}/
+.uacp/brainstorm/{session_id}/
 ├── manifest.yaml              # Machine-readable index of the entire brainstorm
 ├── 00-index.md                # Human-readable map of the vault
 ├── 01-signals.md              # Phase 1: what the user signaled
@@ -16,11 +18,14 @@ Dump the raw thinking material into `.uacp/brainstorm/` as an Obsidian-style vau
 ├── 04-approaches.md           # Phase 4: candidate sketches
 ├── 05-selected-scope.md       # Phase 5: agreed scope
 ├── 06-next-steps.md           # Phase 6+: handoff notes
-└── references/
+├── 07-scope-package.yaml      # Phase 7: governed exit artifact (uacp_artifact_write)
+└── references/                # SESSION VAULT references (vault-local evidence)
     ├── files-read.yaml        # Every file read during exploration
     ├── searches.yaml          # Every search command and result summary
     └── web-queries.yaml       # Every web query and result summary
 ```
+
+> Note: `references/` here means the per-session vault directory `.uacp/brainstorm/{session_id}/references/` — vault-local evidence files, NOT this skill's own `references/` documentation directory.
 
 ### 6.1 Machine-readable manifest (`manifest.yaml`)
 
@@ -122,12 +127,12 @@ See also: [[00-index]], [[04-approaches]]
 - If false: stop here; vault remains for reference
 ```
 
-### 6.3 References subdirectory
+### 6.3 Vault references subdirectory
 
-Every search, file read, and web query during Phases 1–2 must leave a trace in `references/`:
+Every search, file read, and web query during Phases 1–2 must leave a trace in the session vault's `.uacp/brainstorm/{session_id}/references/` directory:
 
 - **`files-read.yaml`** — path, purpose, key takeaway, timestamp
 - **`searches.yaml`** — tool, pattern/command, path, result count, timestamp
 - **`web-queries.yaml`** — query string, source backend, result summary, timestamp
 
-**Output of this phase:** a complete Obsidian vault under `.uacp/brainstorm/` with both human narrative (markdown) and machine-readable evidence (YAML).
+**Output of this phase:** a complete session vault under `.uacp/brainstorm/{session_id}/` with both human narrative (markdown) and machine-readable evidence (YAML).

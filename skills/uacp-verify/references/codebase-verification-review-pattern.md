@@ -71,7 +71,7 @@ Use this pattern when:
 - **Reading design docs but not the code.** The design may claim a gate exists, but the code may not wire it. Always ground-truth the implementation.
 - **Assuming dry_run safety from a flag check.** A single `test_dry_run_flag_defaults_false` does not prove side effects are skipped. Prove the actual sinks (DB write, Discord post, API call) are bypassed.
 - **Listing gaps without specifying the test/fixture shape.** A gap without a concrete test definition is not actionable for PLAN.
-- **Forgetting to cross-reference invariants.** If the codebase has documented invariants (e.g. `CLAUDE.md` invariant #6), verify they are actually enforced in the code under review.
+- **Forgetting to cross-reference invariants.** If the codebase has documented invariants (e.g. the `AGENTS.md` evidence-must-be-produced invariant), verify they are actually enforced in the code under review.
 - **Not running existing tests.** Always run the existing test suite before claiming coverage is understood. A failing test may indicate the codebase is in a dirty state that invalidates the review.
 
 ## Example: Cortex x-casual verification review

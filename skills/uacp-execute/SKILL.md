@@ -29,21 +29,21 @@ This skill executes the approved plan by routing bounded work through Kanban or 
 
 **Guardian-blocked shell/tool fallback:** If `exec.shell` is blocked by missing UACP context fields, or a newly registered UACP writer tool is misclassified in the current long-running session as `external.unknown_mutator`, prefer a narrow `execute_code` automation that invokes the UACP-owned guarded handler directly with full UACP context and writes only declared evidence/artifact paths. Record authority, side effects, and the fact that this was a manual-drill fallback in the artifact; verify YAML/git state afterward. Do not generalize this into a permanent bypass or present it as normal enforcement — schedule fresh-session/runtime reload verification for the exposed tool path.
 
-**The "no permission" trap:** If a concern about gh/GitHub access was raised previously, always resolve it by checking `gh auth status` and `git remote -v` before declaring the action impossible. The gh CLI uses HTTPS tokens for PR creation — Phase 1 PRs (#4–#6) were created this way even when SSH deploy keys were not configured. Verify before you stop.
+**The "no permission" trap:** If a concern about gh/GitHub access was raised previously, always resolve it by checking `gh auth status` and `git remote -v` before declaring the action impossible. The gh CLI uses HTTPS tokens for PR creation even when SSH deploy keys are not configured. Verify before you stop.
 
 ## Finding the Correct Python Runtime
 
-Many of Mike's repos place a `.venv` at the repo root. This is the canonical runtime — not the hermes-agent venv and not the system python.
+Many repos place a `.venv` at the repo root. This is the canonical runtime — not a venv belonging to another agent and not the system python.
 
 ```
 # Always check for a local .venv before using the default python
 cd /path/to/repo && .venv/bin/python -m pytest ...
 
-# Wrong: python3 or hermes-agent venv may lack project dependencies
+# Wrong: system python3 may lack project dependencies
 # (e.g. temporalio, psycopg2, etc. are in .venv, not the system path)
 ```
 
-This applies to any repo with: `pyproject.toml` + `.venv/` + a dependency on Temporal, PostgreSQL libs, or other project-specific packages.
+This applies to any repo with: `pyproject.toml` + `.venv/` + a dependency on project-specific packages.
 
 ## Rules
 - Current-stage UACP is manual/semi-auto first: use Kanban/coordination primarily for non-trivial EXECUTE, not by default for TRIAGE/PROPOSE/PLAN/VERIFY/RESOLVE.
@@ -120,10 +120,8 @@ Read additionally:
 - `UACP_ROOT/config/uacp.toml` (`[heartgate.*]` — operator-tunable coherence thresholds and enforcement mode)
 - `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`)
 - `references/current-semi-auto-orchestration.md` when deciding whether EXECUTE really needs Kanban/coordination or can stay synchronous
-- `references/self-patch-write-authority-gap-20260518.md` when EXECUTE touches UACP skills, validators, Heartgate/Guardian runtime adapters, or other self-patch governance surfaces
-- `references/phase-intent-verification-execute-evidence.md` when EXECUTE needs PIV-backed semantic evidence and VERIFY handoff
-- `references/phase-intent-verification-execute-evidence-20260519.md` when EXECUTE needs PIV-backed evidence, semantic execution packages, checkpoint validators, or expected-fail fixtures
-- `references/piv-execution-evidence-contract.md` when EXECUTE needs to record semantic evidence/checkpoints against a PLAN-authored PIV contract rather than ad hoc YAML-only summaries
+- `references/self-patch-write-authority-gap.md` when EXECUTE touches UACP skills, validators, Heartgate/Guardian runtime adapters, or other self-patch governance surfaces
+- `references/phase-intent-verification.md` when EXECUTE needs PIV-backed evidence, semantic execution packages, checkpoint validators, expected-fail fixtures, or a PLAN-authored PIV contract rather than ad hoc YAML-only summaries
 
 EXECUTE follows the topology selected in PLAN:
 
@@ -194,7 +192,7 @@ When this skill invokes or consumes Agent Council during skill-library repair, g
 
 During this skill-library refactor specifically, do **not** use UACP protected writers, Heartgate, MEMEX/BES, or `uacp-verify` as self-approval authority. Use normal file/git workflow, deterministic audits, Agent Council, and Kimi verification. A skill is considered repaired only after its implementation audit and end-of-implementation council/audit return `PASS` with no material concerns.
 
-## mode_behavior (Phase 4.3 stub)
+## mode_behavior
 
 This skill consults `config/uacp.toml [autonomy]` to decide which actions
 require operator confirmation per the active `state.current.uacp_mode`.
@@ -210,8 +208,7 @@ require operator confirmation per the active `state.current.uacp_mode`.
 
 **Mechanism**: when an escalation trigger fires, this skill emits a
 `uacp_escalation_event` record into `state/escalations/{run_id}.jsonl`
-(severity ∈ {info, warn, block}). Operators poll the file (push-notify
-is Phase 5). See `config/uacp.toml [autonomy.escalation_triggers]` for
+(severity ∈ {info, warn, block}). See `config/uacp.toml [autonomy.escalation_triggers]` for
 the registered triggers.
 
 ## Phase Intent Verification (PIV) execution evidence

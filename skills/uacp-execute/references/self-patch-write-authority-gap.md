@@ -1,4 +1,4 @@
-# UACP self-patch write-authority gap — session lesson
+# UACP self-patch write-authority gap
 
 ## Trigger
 
