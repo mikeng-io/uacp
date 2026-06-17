@@ -13,6 +13,7 @@ __pycache__/
 .uacp/resolutions/
 .uacp/bridges/
 .uacp/councils/
+.uacp/knowledge/indexes/
 
 # Legacy pre-.uacp/ output dir (kept until scratch is cleaned)
 .outputs/*

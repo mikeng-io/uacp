@@ -550,10 +550,13 @@ boundary = "May consume or produce through APIs; should not own all UACP knowled
 # --- Local knowledge locations ------------------------------------------------
 # Relative paths under UACP_ROOT for knowledge artifacts produced during runs.
 [memory.local_knowledge_locations]
-scenarios = "knowledge/scenarios/"
-gate_templates = "knowledge/gate-templates/"
-lessons = "knowledge/lessons/"
-indexes = "knowledge/indexes/"
+scenarios = "knowledge/scenarios/"       # NOT moved — config path unchanged (FIX 5)
+gate_templates = "knowledge/gate-templates/"  # NOT moved — config path unchanged (FIX 5)
+lessons = "lessons/"                     # -> .uacp/lessons/ (canonical key: [paths].lessons)
+# NOTE: the canonical authority for the lessons path is [paths].lessons above.
+#       Confirm the memory reader prepends ".uacp/" to these values
+#       (i.e. "lessons/" -> .uacp/lessons/, not repo-root/lessons/).
+indexes = "knowledge/indexes/"           # index home owned by Plan C [oracle] index_path; not a [paths] key
 
 # --- Distillation / promotion thresholds (lesson -> knowledge) ----------------
 # Recurrence-gated promotion knobs consumed by engines/domain/corpus.py
