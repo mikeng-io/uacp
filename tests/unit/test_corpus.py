@@ -218,3 +218,21 @@ def test_recurrence_requires_both_invariant_and_domain():
     eligible, recurrences = count_eligibility(lesson, runs)
     assert eligible == 2
     assert recurrences == 0
+
+
+from engines.domain.corpus import recompute_bes
+
+
+def test_recompute_bes_updates_lesson_fields():
+    lesson = Lesson.from_okf(_lesson_md())
+    runs = [
+        _run("e1", "2026-06-01T00:00:00+00:00", ["kanban"]),
+        _run("e2", "2026-06-02T00:00:00+00:00", ["runtime"]),
+    ]
+    updated = recompute_bes(lesson, runs, now="2026-05-14T00:00:00+00:00")
+    assert updated.eligible == 2
+    assert updated.recurrences == 0
+    # eligible=2,rec=0,days=0 -> smoothed=(2+1)/(2+2)=0.75 ; recency=1 ; bes=0.75
+    assert updated.bes == 0.75
+    # original is not mutated (pure)
+    assert lesson.eligible == 0
