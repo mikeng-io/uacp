@@ -9,13 +9,15 @@ Drives:
   - state_machine.handle_transition  brainstorm→triage  (REAL handler)
   - assert manifest.current_phase == "triage"
 
-Seam used: the scope-package artifact is written DIRECTLY to the resolved
-governed path (.uacp/brainstorm/<run_id>/07-scope-package.yaml) because
-`uacp_artifact_write` does not support the `brainstorm/` root (its allowed
-set is plans/proposals/executions/verification/resolutions/knowledge).  This
-is intentional test scaffolding — the real handler boundary is Heartgate's
-`_validate_phase_exit_invariants` which globs the file; we prove it gates the
-real transition by showing BLOCK without the file and PASS with it.
+Seam used: the scope-package artifact is written THROUGH the governed
+`uacp_artifact_write` handler (the same boundary Guardian audits) to the path
+brainstorm/<run_id>/07-scope-package.yaml.  This proves end-to-end that the
+brainstorm exit invariant (HIGH-2) is SATISFIABLE via the governed writer — the
+writer admits the `brainstorm/` root, so Heartgate's
+`_validate_phase_exit_invariants` (which globs the file) gates the real
+transition on an artifact that was itself produced through the governed path,
+not a raw filesystem write.  We prove the gate works by showing BLOCK without
+the file and PASS with it.
 
 Config note: the conftest's minimal phase-transitions.yaml provides a `stages`
 block that only covers triage→resolved, so the code-default brainstorm stage
@@ -29,6 +31,7 @@ affected.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import state_machine
@@ -37,6 +40,16 @@ from core import Heartgate
 from state import _handle_uacp_gate_ledger_append
 
 from tests.e2e.driver import Driver
+
+# Import the governed artifact-write handler as a package (the conftest puts the
+# uacp_guardian package DIR on sys.path for `from state import ...`; importing the
+# package by name needs its PARENT, the plugins/ dir, on the path).
+_PLUGINS_DIR = (
+    Path(__file__).resolve().parents[2] / "runtime-adapters" / "hermes" / "plugins"
+)
+if str(_PLUGINS_DIR) not in sys.path:
+    sys.path.insert(0, str(_PLUGINS_DIR))
+import uacp_guardian  # noqa: E402  (path bootstrap above is required first)
 
 # ── Config helpers ──────────────────────────────────────────────────────────
 
@@ -63,34 +76,70 @@ def _write_brainstorm_config(root: Path) -> None:
 
 # ── Artifact seeders ─────────────────────────────────────────────────────────
 
-def _seed_scope_package(root: Path, run_id: str) -> Path:
-    """Write a minimal but valid 07-scope-package.yaml to the governed path that
-    the brainstorm exit invariant globs: brainstorm/<run_id>/07-scope-package.yaml.
+def _seed_scope_package(driver: Driver, root: Path, run_id: str) -> Path:
+    """Write a minimal but valid 07-scope-package.yaml THROUGH the governed
+    artifact writer to the path the brainstorm exit invariant globs:
+    brainstorm/<run_id>/07-scope-package.yaml.
 
-    Written DIRECTLY to the resolved path because uacp_artifact_write does not
-    support the brainstorm/ root (allowed: plans/proposals/executions/verification
-    /resolutions/knowledge).  This is the resolved-path seam documented in the
-    module docstring.
+    Routed through `uacp_artifact_write` (via the Driver, which asserts Guardian
+    does not false-block the call) so the test proves end-to-end that the
+    brainstorm exit invariant is SATISFIABLE via the governed writer — the writer
+    admits the brainstorm/ root (HIGH-2).
     """
-    pkg_dir = root / ".uacp" / "brainstorm" / run_id
-    pkg_dir.mkdir(parents=True, exist_ok=True)
-    scope_pkg = pkg_dir / "07-scope-package.yaml"
-    scope_pkg.write_text(
-        yaml.safe_dump(
-            {
-                "kind": "uacp.brainstorm.scope_package",
-                "run_id": run_id,
-                "title": "E2E brainstorm scope package",
-                "description": "Minimal scope package for the brainstorm entry e2e test.",
-                "in_scope": ["verify brainstorm→triage gate with real handler"],
-                "declared_side_effects": [],
-                "authority": {"source": "e2e-test-harness"},
-                "routing_advisory": "standard",
-            },
-            sort_keys=False,
-        )
+    target_path = f"brainstorm/{run_id}/07-scope-package.yaml"
+    content = yaml.safe_dump(
+        {
+            "kind": "uacp.brainstorm.scope_package",
+            "run_id": run_id,
+            "title": "E2E brainstorm scope package",
+            "description": "Minimal scope package for the brainstorm entry e2e test.",
+            "in_scope": ["verify brainstorm→triage gate with real handler"],
+            "declared_side_effects": [],
+            "authority": {"source": "e2e-test-harness"},
+            "routing_advisory": "standard",
+        },
+        sort_keys=False,
     )
-    return scope_pkg
+    args = {
+        "target_path": target_path,
+        "content": content,
+        "reason": "seed brainstorm scope-package for brainstorm->triage gate",
+        "authority_artifact": "brainstorm/test.yaml",
+        "workspace": str(root),
+        "uacp_run_id": run_id,
+        "uacp_phase": "brainstorm",
+        "policy_version": "0.1",
+        "declared_side_effects": [f"write {target_path}"],
+    }
+
+    # The governed handler resolves its write root from the cached GuardianPolicy
+    # (UACP_ROOT env), not from the `workspace` arg, so pin the env to the temp
+    # root and reset the module-level _POLICY cache for the duration of the call
+    # (restoring both afterward), the same discipline engines.oracle.corpus_writer
+    # uses when it routes through this handler.
+    import os
+
+    prev_root = os.environ.get("UACP_ROOT")
+    prev_policy = getattr(uacp_guardian, "_POLICY", None)
+    os.environ["UACP_ROOT"] = str(root)
+    uacp_guardian._POLICY = None
+    try:
+        result = driver.call(
+            "uacp_artifact_write",
+            uacp_guardian._handle_uacp_artifact_write,
+            args,
+            phase="brainstorm",
+        )
+    finally:
+        if prev_root is None:
+            os.environ.pop("UACP_ROOT", None)
+        else:
+            os.environ["UACP_ROOT"] = prev_root
+        uacp_guardian._POLICY = prev_policy
+
+    assert result.get("ok") is True, f"governed scope-package write failed: {result}"
+    assert result.get("path") == target_path, result
+    return root / ".uacp" / "brainstorm" / run_id / "07-scope-package.yaml"
 
 
 # ── Tests ────────────────────────────────────────────────────────────────────
@@ -170,7 +219,8 @@ class TestBrainstormEntryLifecycle:
                 "initial_phase": "brainstorm",
             }
         )
-        _seed_scope_package(temp_uacp_root, valid_run_id)
+        d = Driver(temp_uacp_root, valid_run_id)
+        _seed_scope_package(d, temp_uacp_root, valid_run_id)
         heartgate = Heartgate.load(str(temp_uacp_root))
         decision = heartgate.validate_transition(
             {
@@ -225,8 +275,10 @@ class TestBrainstormEntryLifecycle:
         )
         assert ledger.get("ok") is True, ledger
 
-        # 3. Seed the scope-package — the real invariant requires it
-        _seed_scope_package(temp_uacp_root, valid_run_id)
+        # 3. Seed the scope-package THROUGH the governed writer — the real
+        # invariant requires it, and the governed writer must admit the brainstorm/
+        # root for the produce step to succeed (HIGH-2).
+        _seed_scope_package(d, temp_uacp_root, valid_run_id)
 
         # 4. Validate the transition through the real Heartgate
         hg = heartgate.validate_transition(

@@ -1,11 +1,11 @@
 """Architectural boundary test: the Oracle owns the knowledge/lesson corpus.
 
-This test scans the repository's Python source and enforces the data-ownership
-boundary that the Oracle refactor establishes:
+This test scans Python source under skills/, runtime-adapters/, and scripts/ and
+enforces the data-ownership boundary that the Oracle refactor establishes:
 
   1. CORPUS OWNERSHIP — Only code inside the oracle package
      (skills/uacp-core/scripts/engines/oracle/) may touch the corpus.  This is
-     enforced STRUCTURALLY (not merely grep-only) along three axes:
+     enforced STRUCTURALLY (not merely grep-only) along these axes:
        (a) IMPORT-SCAN — no module outside the oracle package may import
            engines.oracle.corpus_io or engines.oracle.corpus_writer (the disk
            loaders and the governed writer now live INSIDE the oracle package, so
@@ -18,18 +18,38 @@ boundary that the Oracle refactor establishes:
        (c) PATH-INDIRECTION SCAN — no out-of-package module may build a corpus
            path indirectly via `.resolve(..., "lessons")` / `.resolve(...,
            "knowledge")` or write into `.uacp/lessons` / `.uacp/knowledge`.
+       (d) PURE-ACCESSOR SCAN — no out-of-package module may call the pure corpus
+           OKF accessors (`<X>.from_okf(...)` / `.to_okf()`) on the corpus types,
+           nor a corpus dir-builder (`dir_for(...)` / `base_dir(...)` joined with
+           a "lessons"/"knowledge" component).  These accessors live on the PURE
+           corpus dataclasses, so calling them outside the oracle is a way to
+           round-trip the corpus while bypassing the oracle's single-owner read
+           surface (corpus_io) — this axis closes that bypass.
      The corpus dataclass module (engines/domain/corpus.py) is allowlisted (it is
      PURE now — it holds no loaders/writers — but stays on the allowlist as it is
-     the canonical corpus type module).
+     the canonical corpus type module that DEFINES from_okf/to_okf).
 
   2. NO STATE IN THE ORACLE — The oracle package imports NO state/manifest
      reader: no engines.oracle.sources.runstate, no state_machine, and no
      core/state manifest-path readers (load_manifest / state/runs reads).
 
-Scan scope: production Python under skills/ and runtime-adapters/.  Tests
-(tests/) and the one-time migration script (scripts/migrate_knowledge_corpus.py)
-are intentionally excluded — they are data-movement / verification surfaces, not
-runtime consumers of the corpus, and are allowlisted by path with a comment.
+Scan scope: production + maintenance Python under skills/, runtime-adapters/, and
+scripts/.  Allowlisted by path (with a comment at the allowlist):
+  - the oracle package and engines/domain/corpus.py (they OWN / DEFINE the corpus);
+  - scripts/migrate_knowledge_corpus.py — one-time data-movement migration;
+  - scripts/phase{1,2,3}_verify.py — phase verification harnesses that only
+    `mkdir` a .uacp/knowledge directory as test-root scaffolding (read-only
+    maintenance: they do NOT read/write corpus documents through the loaders).
+The tests/ tree is NOT scanned (test scaffolding legitimately constructs corpus
+paths and documents).
+
+LIMITATION — this is a PURELY STATIC source scan.  It cannot catch dynamic
+corpus access: e.g. `getattr(corpus_mod, "from_okf")`, an importlib-resolved
+module, or a path assembled from runtime-computed string fragments.  A complete
+guarantee would require a RUNTIME guard at the corpus read/write surface; that is
+a documented follow-up, intentionally NOT built here.  This test therefore
+asserts the boundary over the *statically analyzable* source, not a repo-wide
+dynamic-proof ownership claim.
 
 Failure messages name the offending file and the offending token precisely.
 """
@@ -44,22 +64,32 @@ _CORPUS_MODULE = (
     _REPO_ROOT / "skills" / "uacp-core" / "scripts" / "engines" / "domain" / "corpus.py"
 )
 
-# Directories scanned for boundary violations (production source only).
+# Directories scanned for boundary violations (production + maintenance source).
+# scripts/ IS scanned (MED-2): the migration + phase-verify scripts are real
+# corpus-adjacent surfaces and must obey the boundary (with explicit allowlist
+# entries for the legitimate exceptions below).
 _SCAN_ROOTS = (
     _REPO_ROOT / "skills",
     _REPO_ROOT / "runtime-adapters",
+    _REPO_ROOT / "scripts",
 )
 
-# Path-based allowlist: these files MAY touch the corpus loaders/writers or
-# the corpus directories without being a boundary violation.
+# Path-based allowlist: these files MAY touch the corpus loaders/writers/accessors
+# or the corpus directories without being a boundary violation.
 #   - the oracle package: it OWNS the corpus.
-#   - engines/domain/corpus.py: it IS the corpus module.
+#   - engines/domain/corpus.py: it IS the corpus module (it DEFINES from_okf/to_okf).
 #   - scripts/migrate_knowledge_corpus.py: one-time data-movement migration.
+#   - scripts/phase{1,2,3}_verify.py: phase verification harnesses that only
+#     `mkdir` a .uacp/knowledge directory as test-root scaffolding — read-only
+#     maintenance, NOT corpus document reads/writes through the loaders.
 # (tests/ are excluded from the scan entirely.)
 _CORPUS_ALLOWLIST = (
     _ORACLE_PKG,
     _CORPUS_MODULE,
     _REPO_ROOT / "scripts" / "migrate_knowledge_corpus.py",
+    _REPO_ROOT / "scripts" / "phase1_verify.py",
+    _REPO_ROOT / "scripts" / "phase2_verify.py",
+    _REPO_ROOT / "scripts" / "phase3_verify.py",
 )
 
 # Tokens that denote reading/writing the corpus via the domain module.
@@ -98,6 +128,20 @@ _CORPUS_PATH_PATTERNS = (
 _CORPUS_PATH_INDIRECTION_PATTERNS = (
     re.compile(r"""\.resolve\([^)]*["'](?:lessons|knowledge)["']"""),
     re.compile(r"""\.uacp["']?\s*[/,]\s*["'](?:lessons|knowledge)["']"""),
+)
+
+# Pure-accessor patterns (MED-2): the corpus dataclasses expose pure OKF
+# (de)serializers `from_okf` / `to_okf`.  An out-of-package module can round-trip
+# the corpus by calling these on a resolved corpus path, bypassing the oracle's
+# single-owner read surface (corpus_io).  Flag any `.from_okf(` / `.to_okf(` call
+# outside the oracle package + corpus module.  Also flag a corpus dir-builder
+# (`dir_for(...)` / `base_dir(...)`) joined with a lessons/knowledge component —
+# the structural form a helper would take to assemble a corpus directory.
+_CORPUS_ACCESSOR_PATTERNS = (
+    re.compile(r"\.from_okf\s*\("),
+    re.compile(r"\.to_okf\s*\("),
+    re.compile(r"""(?:dir_for|base_dir)\s*\([^)]*\)\s*/\s*["'](?:lessons|knowledge)["']"""),
+    re.compile(r"""(?:dir_for|base_dir)\s*\(\s*["'](?:lessons|knowledge)["']"""),
 )
 
 # Tokens that denote a state/manifest reader the oracle must NOT import.
@@ -185,6 +229,18 @@ def test_corpus_loaders_only_referenced_inside_oracle_package():
                         f"(matched '{pattern.pattern}') but is outside the oracle "
                         f"package (corpus path resolution must go through "
                         f"engines.oracle)"
+                    )
+            # (d) pure-accessor scan: calling the corpus OKF (de)serializers
+            # from_okf/to_okf, or a corpus dir-builder, outside the oracle package
+            # is a bypass of the oracle's single-owner corpus read/write surface.
+            for pattern in _CORPUS_ACCESSOR_PATTERNS:
+                if pattern.search(text):
+                    violations.append(
+                        f"{path} calls a pure corpus accessor / dir-builder "
+                        f"(matched '{pattern.pattern}') but is outside the oracle "
+                        f"package (corpus (de)serialization must go through "
+                        f"engines.oracle, not direct from_okf/to_okf on the "
+                        f"corpus types)"
                     )
 
     assert not violations, "Corpus-ownership boundary violations:\n" + "\n".join(

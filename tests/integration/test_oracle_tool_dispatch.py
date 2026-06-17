@@ -19,7 +19,8 @@ Two complementary exercises:
    - `uacp_oracle_query` is registered
    - its toolset is `uacp_guardian` (NOT in a writer-only toolset)
    - its handler IS `_handle_uacp_oracle_query` (read-only handler, not a writer)
-   - it is classified as `read.local` by the Guardian policy
+   - it is classified as `external.network_read` by the Guardian policy (MED-4:
+     a network read via Honcho; unprotected, so non-blocking — allow_with_audit)
 
 Adapter import strategy: the conftest puts
 `runtime-adapters/hermes/plugins/uacp_guardian` (the package directory) on
@@ -266,16 +267,23 @@ class TestOracleToolDispatch:
             f"got {oracle_reg['handler']!r}"
         )
 
-    def test_oracle_classified_as_read_local_by_guardian_policy(
+    def test_oracle_classified_as_network_read_by_guardian_policy(
         self, temp_uacp_root: Path
     ) -> None:
-        """The Guardian policy classifies uacp_oracle_query as 'read.local' (read-only).
+        """The Guardian policy classifies uacp_oracle_query as 'external.network_read'.
 
-        This is the policy-layer proof that the tool is non-mutating: Guardian
-        evaluates it as 'read.local' which maps to DECISION_ALLOW (no audit
-        required), not DECISION_ALLOW_WITH_AUDIT like state-mutation tools.
+        MED-4: the tool performs a network read via Honcho when enabled, so it is
+        external.network_read (not read.local).  Both categories are UNPROTECTED in
+        core._is_protected, so the verdict is non-blocking — allow_with_audit (a
+        network read is audited), not block like state-mutation tools.
         """
-        from core import Guardian, GuardianEvent, GuardianPolicy, DECISION_ALLOW
+        from core import (
+            DECISION_ALLOW,
+            DECISION_ALLOW_WITH_AUDIT,
+            Guardian,
+            GuardianEvent,
+            GuardianPolicy,
+        )
 
         _seed_guardian_policy(temp_uacp_root)
         policy = GuardianPolicy.load(str(temp_uacp_root))
@@ -297,12 +305,16 @@ class TestOracleToolDispatch:
         )
         decision = guardian.evaluate(event)
 
-        assert decision.category == "read.local", (
-            f"uacp_oracle_query must be classified as 'read.local', "
+        assert decision.category == "external.network_read", (
+            f"uacp_oracle_query must be classified as 'external.network_read', "
             f"got category={decision.category!r}"
         )
-        assert decision.decision == DECISION_ALLOW, (
-            f"read.local must get DECISION_ALLOW (not audit), "
+        assert not decision.blocks_execution, (
+            f"external.network_read is unprotected and must not block, "
+            f"got {decision.decision!r}"
+        )
+        assert decision.decision in {DECISION_ALLOW, DECISION_ALLOW_WITH_AUDIT}, (
+            f"expected a non-blocking verdict for uacp_oracle_query, "
             f"got {decision.decision!r}"
         )
 

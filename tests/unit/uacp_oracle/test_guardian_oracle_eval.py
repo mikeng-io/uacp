@@ -3,8 +3,11 @@
 Behavioral guard: constructs the real Guardian from the production policy
 (config/uacp.toml [guardian]) and the production phase-config
 (config/phase-transitions.yaml with codified stages injected by the loader),
-then asserts that a uacp_oracle_query tool-call event is ALLOWED — not blocked
-— for each of the three read-heavy phases: propose, plan, verify.
+then asserts that a uacp_oracle_query tool-call event is NOT BLOCKED (verdict
+allow / allow_with_audit) for each of the three read-heavy phases: propose, plan,
+verify.  The tool is classified external.network_read (MED-4: it performs a
+network read via Honcho when enabled); like read.local it is unprotected, so the
+verdict is non-blocking (allow_with_audit, since a network read is audited).
 
 The mutation assertion (documented below) confirmed that removing
 uacp_oracle_query from [guardian.tool_classification] in uacp.toml causes
@@ -20,6 +23,7 @@ import pytest
 
 from core import (
     DECISION_ALLOW,
+    DECISION_ALLOW_WITH_AUDIT,
     DECISION_BLOCK,
     Guardian,
     GuardianEvent,
@@ -60,10 +64,12 @@ def _build_guardian() -> Guardian:
 def test_oracle_query_allowed_in_read_phases(phase: str) -> None:
     """Guardian Layer-B must NOT block uacp_oracle_query in propose/plan/verify.
 
-    uacp_oracle_query is classified as read.local — a non-protected category.
-    Layer-B's allowlist guard only restricts protected categories, so a read
-    tool must always pass regardless of the phase allowlist.  This test
-    locks that invariant against config regressions.
+    uacp_oracle_query is classified as external.network_read (MED-4: it performs a
+    network read via Honcho when enabled) — a non-protected category, exactly like
+    read.local (core._is_protected treats both as unprotected).  Layer-B's
+    allowlist guard only restricts protected categories, so this tool must always
+    pass regardless of the phase allowlist.  This test locks that invariant
+    against config regressions.
     """
     guardian = _build_guardian()
     decision = guardian.evaluate(_make_oracle_event(phase))
@@ -72,8 +78,12 @@ def test_oracle_query_allowed_in_read_phases(phase: str) -> None:
         f"decision={decision.decision!r}, reason={decision.reason!r}, "
         f"category={decision.category!r}, evidence={decision.evidence}"
     )
-    assert decision.decision == DECISION_ALLOW, (
-        f"Expected ALLOW for uacp_oracle_query in '{phase}', got {decision.decision!r}"
+    # external.network_read is unprotected, so the verdict is non-blocking; the
+    # category's default_decision is allow_with_audit (a network read is audited),
+    # which is still a "may proceed" verdict (MED-4).
+    assert decision.decision in {DECISION_ALLOW, DECISION_ALLOW_WITH_AUDIT}, (
+        f"Expected a non-blocking verdict for uacp_oracle_query in '{phase}', "
+        f"got {decision.decision!r}"
     )
 
 

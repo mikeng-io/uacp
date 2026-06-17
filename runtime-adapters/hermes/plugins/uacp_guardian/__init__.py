@@ -633,14 +633,14 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
         rel = target.relative_to(base_dir(root))
         if not rel.parts:
             return json.dumps({"error": "target_path must point to an artifact file"})
-        allowed_roots = {"plans", "proposals", "executions", "verification", "resolutions", "knowledge", "lessons"}
+        allowed_roots = {"plans", "proposals", "executions", "verification", "resolutions", "knowledge", "lessons", "brainstorm"}
         forbidden_roots = {"state", "docs", "config"}
         top = rel.parts[0]
         if top in forbidden_roots:
             return json.dumps({"error": f"uacp_artifact_write may not write under {top}/"})
         if top not in allowed_roots:
             return json.dumps(
-                {"error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, or lessons/"}
+                {"error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/, or brainstorm/"}
             )
         if target.name in {"", ".", ".."}:
             return json.dumps({"error": "target_path must point to a file"})
@@ -821,7 +821,10 @@ def _oracle_query_schema() -> dict:
         "description": (
             "Read-only oracle retrieval aggregator. Returns prior-art packets from "
             "run-state, Honcho memory, and (when configured) semantic sources for the "
-            "given phase and project. Classified as read.local — no side effects."
+            "given phase and project. Classified as external.network_read — it "
+            "performs a network read via Honcho when enabled; no mutations. Both "
+            "external.network_read and read.local are unprotected, so the tool is "
+            "never blocked (allow_with_audit)."
         ),
         "parameters": {
             "type": "object",

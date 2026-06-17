@@ -252,7 +252,7 @@ default_decision = "block"
 allowed_tools = ["uacp_contained_shell"]
 
 [guardian.protected_categories."artifact.uacp"]
-description = "Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml."
+description = "Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/, brainstorm/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, brainstorm scope-package directories under brainstorm/{run_id}/ (e.g. brainstorm/{run_id}/07-scope-package.yaml), and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml."
 default_decision = "block"
 allowed_tools = ["uacp_artifact_write"]
 
@@ -311,7 +311,10 @@ terminal = "exec.shell"
 execute_code = "exec.code_with_tool_proxy"
 send_message = "external.message"
 cronjob = "external.message"
-uacp_oracle_query = "read.local"
+# uacp_oracle_query performs a NETWORK read via Honcho when enabled, so it is
+# external.network_read (not read.local). Both categories are UNPROTECTED in
+# core._is_protected, so the tool is still never blocked (allow_with_audit).
+uacp_oracle_query = "external.network_read"
 
 # --- Tool pattern classification (glob -> category) ------------------------
 [guardian.tool_pattern_classification]
@@ -1067,7 +1070,7 @@ critical = 1.0
 uacp_state_write = ["state/"]
 uacp_doc_write = ["docs/"]
 uacp_config_write = ["config/"]
-uacp_artifact_write = ["plans/", "proposals/", "executions/", "verification/", "resolutions/", "knowledge/", "lessons/"]
+uacp_artifact_write = ["plans/", "proposals/", "executions/", "verification/", "resolutions/", "knowledge/", "lessons/", "brainstorm/"]
 uacp_gate_ledger_append = ["state/gate-ledger/"]
 # Global review R1 (TECH-G-002): governed append-only writers for run registry
 # and escalation events; scope.write_paths may reference these surfaces in
