@@ -554,6 +554,16 @@ gate_templates = "knowledge/gate-templates/"
 lessons = "knowledge/lessons/"
 indexes = "knowledge/indexes/"
 
+# --- Distillation / promotion thresholds (lesson -> knowledge) ----------------
+# Recurrence-gated promotion knobs consumed by engines/domain/corpus.py
+# (promotion_candidate). Code defaults in PROMOTION_DEFAULTS mirror these; the
+# kernel falls back to those when this table is absent (fail-open: no promotion
+# is non-destructive). Start conservative — design B "Open items".
+[memory.distillation]
+effective_bes_min = 0.85       # "consistently effective": BES cutoff
+effective_eligible_min = 5     # N: eligible later runs required
+chronic_recurrence_min = 3     # K: distinct recurrences -> "keeps biting us"
+
 # =============================================================================
 # AUTONOMY
 # =============================================================================

@@ -272,3 +272,36 @@ def test_load_knowledge_dir(tmp_path):
     items = load_knowledge_dir(d)
     assert len(items) == 1
     assert items[0].id == "governed-writer-discipline"
+
+
+from engines.domain.corpus import promotion_candidate, PROMOTION_DEFAULTS
+
+
+def _scored_lesson(bes, eligible, recurrences):
+    lesson = Lesson.from_okf(_lesson_md())
+    lesson.bes = bes
+    lesson.eligible = eligible
+    lesson.recurrences = recurrences
+    return lesson
+
+
+def test_promotion_consistently_effective():
+    # bes>=.85 and eligible>=5 with defaults -> "effective" candidate
+    cand = promotion_candidate(_scored_lesson(0.90, 6, 0), PROMOTION_DEFAULTS)
+    assert cand == "effective"
+
+
+def test_promotion_chronically_recurring():
+    # recurrences >= K (default 3) -> "chronic" candidate
+    cand = promotion_candidate(_scored_lesson(0.30, 8, 3), PROMOTION_DEFAULTS)
+    assert cand == "chronic"
+
+
+def test_promotion_none_when_below_thresholds():
+    assert promotion_candidate(_scored_lesson(0.60, 2, 1), PROMOTION_DEFAULTS) is None
+
+
+def test_already_promoted_is_not_a_candidate():
+    lesson = _scored_lesson(0.90, 6, 0)
+    lesson.promoted_to = "governed-writer-discipline"
+    assert promotion_candidate(lesson, PROMOTION_DEFAULTS) is None
