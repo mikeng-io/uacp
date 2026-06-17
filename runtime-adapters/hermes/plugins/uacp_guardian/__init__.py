@@ -633,14 +633,14 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
         rel = target.relative_to(base_dir(root))
         if not rel.parts:
             return json.dumps({"error": "target_path must point to an artifact file"})
-        allowed_roots = {"plans", "proposals", "executions", "verification", "resolutions", "knowledge", "lessons"}
+        allowed_roots = {"plans", "proposals", "executions", "verification", "resolutions", "knowledge", "lessons", "brainstorm"}
         forbidden_roots = {"state", "docs", "config"}
         top = rel.parts[0]
         if top in forbidden_roots:
             return json.dumps({"error": f"uacp_artifact_write may not write under {top}/"})
         if top not in allowed_roots:
             return json.dumps(
-                {"error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, or lessons/"}
+                {"error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/, or brainstorm/"}
             )
         if target.name in {"", ".", ".."}:
             return json.dumps({"error": "target_path must point to a file"})

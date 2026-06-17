@@ -252,7 +252,7 @@ default_decision = "block"
 allowed_tools = ["uacp_contained_shell"]
 
 [guardian.protected_categories."artifact.uacp"]
-description = "Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml."
+description = "Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/, brainstorm/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, brainstorm scope-package directories under brainstorm/{run_id}/ (e.g. brainstorm/{run_id}/07-scope-package.yaml), and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml."
 default_decision = "block"
 allowed_tools = ["uacp_artifact_write"]
 
@@ -1067,7 +1067,7 @@ critical = 1.0
 uacp_state_write = ["state/"]
 uacp_doc_write = ["docs/"]
 uacp_config_write = ["config/"]
-uacp_artifact_write = ["plans/", "proposals/", "executions/", "verification/", "resolutions/", "knowledge/", "lessons/"]
+uacp_artifact_write = ["plans/", "proposals/", "executions/", "verification/", "resolutions/", "knowledge/", "lessons/", "brainstorm/"]
 uacp_gate_ledger_append = ["state/gate-ledger/"]
 # Global review R1 (TECH-G-002): governed append-only writers for run registry
 # and escalation events; scope.write_paths may reference these surfaces in
