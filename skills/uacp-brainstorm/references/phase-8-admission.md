@@ -7,7 +7,7 @@ Brainstorm is informal, but the boundary into TRIAGE is not. Before handing the 
 Guardian ensures the scope package contains the minimum fields required to enter TRIAGE. This is a transition-enforcement check, not a full lifecycle gate.
 
 ```bash
-python3 skills/uacp-guardian/scripts/guardian.py check-preflight uacp-brainstorm \
+python3 skills/uacp-core/scripts/guardian.py check-preflight uacp-brainstorm \
   --scope-set true \
   --task-type planning \
   --mode brainstorm \
@@ -36,7 +36,7 @@ Heartgate checks whether the proposed scope conflicts with existing UACP state. 
 - The user explicitly asks for coherence checking
 
 ```bash
-python3 skills/uacp-guardian/scripts/guardian.py heartgate \
+python3 skills/uacp-core/scripts/guardian.py heartgate \
   --proposed-phase triage \
   --artifact-path .uacp/brainstorm/{session_id}/07-scope-package.yaml \
   --side-effects {declared_side_effects}

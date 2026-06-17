@@ -66,9 +66,9 @@ These rules are non-negotiable. Violations are Heartgate blockers or Guardian bl
 | EXECUTE | `uacp-execute` | Bounded work with PIV evidence |
 | VERIFY | `uacp-verify` | Evidence synthesis, gate checklist |
 | RESOLVE | `uacp-resolve` | Lessons, closure, state release |
-| Guardian | `uacp-guardian` | Pre-tool-call policy enforcement |
+| Guardian | runtime (kernel + adapter) | Pre-tool-call policy enforcement — `config/uacp.toml` `[guardian]`, `skills/uacp-core/scripts/guardian.py` |
 | Council | `uacp-council` | Multi-agent deliberation (any phase) |
-| Heartgate | `uacp-heartgate` | Phase-transition validation |
+| Heartgate | `uacp_heartgate_check` (tool) | Phase-transition validation — `skills/uacp-core/scripts/heartgate.py`, `config/uacp.toml` `[heartgate.*]` |
 
 ---
 

@@ -11,8 +11,6 @@ metadata:
     tags: [uacp, core, guardian, heartgate, policy, audit]
     related_skills:
       - uacp-state
-      - uacp-guardian
-      - uacp-heartgate
 ---
 
 # UACP Core

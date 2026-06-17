@@ -10,8 +10,6 @@ location: managed
 dependencies:
   - uacp-context
   - uacp-council-taxonomy
-  - uacp-guardian
-  - uacp-heartgate
   - domain-registry
   - uacp-bridge
 allowed-tools:
