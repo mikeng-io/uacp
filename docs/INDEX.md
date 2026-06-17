@@ -31,7 +31,6 @@ Structural navigation map for `docs/`. For project overview, see [`/PROJECT.md`]
 | [`decisions/`](decisions/INDEX.md) | [INDEX.md](decisions/INDEX.md) | Operational decision-log (lighter than ADRs). |
 | [`plans/`](plans/INDEX.md) | [INDEX.md](plans/INDEX.md) | Forward-looking phase plans, reserved slots. |
 | [`archived/`](archived/INDEX.md) | [INDEX.md](archived/INDEX.md) | Superseded docs kept for traceability. |
-| [`knowledge/`](knowledge/index.md) | [index.md](knowledge/index.md) | Durable run-lessons + history relocated from skills/references/ (not skill-citable). |
 | [`arc42-index.md`](arc42-index.md) | — | Partial ARC42 mapping of UACP architecture. |
 
 ## Repository inventory (non-docs)
