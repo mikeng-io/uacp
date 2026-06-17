@@ -106,6 +106,71 @@ def test_rrf_k60_constant_affects_score():
            [d["id"] for d in fused_60][:2] == ["B", "A"]
 
 
+def test_rrf_exact_fused_order():
+    """RRF produces the exact expected order based on rank-weighted scores (k=60).
+
+    Inputs:
+      dense = [X(rank 0), Y(rank 1), Z(rank 2)]
+      fts   = [Z(rank 0), X(rank 1), Y(rank 2)]
+
+    Hand-computed RRF scores (formula: score += 1/(k + rank + 1)):
+      X: 1/(60+0+1) + 1/(60+1+1) = 1/61 + 1/62 ≈ 0.032522  (rank 0 dense, rank 1 fts)
+      Z: 1/(60+2+1) + 1/(60+0+1) = 1/63 + 1/61 ≈ 0.032266  (rank 2 dense, rank 0 fts)
+      Y: 1/(60+1+1) + 1/(60+2+1) = 1/62 + 1/63 ≈ 0.032002  (rank 1 dense, rank 2 fts)
+
+    Expected order: X > Z > Y (strictly distinct scores — no ties).
+
+    This test catches the denominator mutation (k+1) because that makes all three
+    scores equal (2/(k+1)), collapsing the ordering to insertion order [X, Y, Z].
+    """
+    from engines.oracle.pipeline import rrf_fuse
+
+    dense = [{"id": "X"}, {"id": "Y"}, {"id": "Z"}]
+    fts   = [{"id": "Z"}, {"id": "X"}, {"id": "Y"}]
+    fused = rrf_fuse(dense, fts, k=60)
+    ids = [d["id"] for d in fused]
+    assert ids == ["X", "Z", "Y"], (
+        f"Expected exact RRF order ['X', 'Z', 'Y'] but got {ids}. "
+        "Check that the denominator is (k+rank+1), not (k+1)."
+    )
+
+
+def test_rrf_cross_leg_accumulation():
+    """A doc present in BOTH legs must outrank a doc that is rank-1 in only one leg.
+
+    Inputs:
+      dense = [A(rank 0), B(rank 1), C(rank 2)]
+      fts   = [D(rank 0), E(rank 1), A(rank 2)]
+
+    Hand-computed scores:
+      A: 1/61 + 1/63 ≈ 0.032266   (both legs — scores ACCUMULATE via +=)
+      D: 1/61         ≈ 0.016393   (fts rank 0 only)
+      B: 1/62         ≈ 0.016129   (dense rank 1 only)
+      E: 1/62         ≈ 0.016129   (fts rank 1 only)
+      C: 1/63         ≈ 0.015873   (dense rank 2 only)
+
+    A must rank first, beating D (fts rank-0-only) by > 2×.
+
+    This test catches the accumulation mutation (= instead of +=) because that
+    overwrites A's dense score with the fts score (1/63), making D (1/61) beat A.
+    """
+    from engines.oracle.pipeline import rrf_fuse
+
+    dense = [{"id": "A"}, {"id": "B"}, {"id": "C"}]
+    fts   = [{"id": "D"}, {"id": "E"}, {"id": "A"}]
+    fused = rrf_fuse(dense, fts, k=60)
+    ids = [d["id"] for d in fused]
+    assert ids[0] == "A", (
+        f"Expected A first (present in both legs) but got {ids}. "
+        "Check that scores accumulate with += across both legs."
+    )
+    # Verify A beats D (fts rank-0 only) — the key cross-leg invariant
+    assert ids.index("A") < ids.index("D"), (
+        f"A (both legs) must outrank D (fts rank-0 only): {ids}. "
+        "Scores must accumulate (+=), not overwrite (=)."
+    )
+
+
 # ---------------------------------------------------------------------------
 # BES overlay tests
 # ---------------------------------------------------------------------------
