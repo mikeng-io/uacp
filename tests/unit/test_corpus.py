@@ -147,3 +147,32 @@ def test_bes_recency_floor_at_half():
 def test_bes_recency_partial_decay():
     # days=182.5 -> recency = 1-0.5*(0.5) = 0.75 ; smoothed=0.9 -> 0.675
     assert bes_score(eligible=8, recurrences=0, days_since_extracted=182.5) == 0.675
+
+
+from engines.domain.corpus import bes_bonus
+
+
+def test_bes_bonus_base_tiers():
+    assert bes_bonus(bes=0.90, severity="LOW", eligible=10) == 5
+    assert bes_bonus(bes=0.85, severity="LOW", eligible=10) == 5   # boundary inclusive
+    assert bes_bonus(bes=0.70, severity="LOW", eligible=10) == 4   # boundary inclusive
+    assert bes_bonus(bes=0.69, severity="LOW", eligible=10) == 3
+    assert bes_bonus(bes=0.55, severity="LOW", eligible=10) == 3   # boundary inclusive
+    assert bes_bonus(bes=0.40, severity="LOW", eligible=10) == 2   # boundary inclusive
+    assert bes_bonus(bes=0.39, severity="LOW", eligible=3) == 1    # eligible<5 so no -2
+
+
+def test_bes_bonus_severity_modifier():
+    # +1 for CRITICAL/HIGH, applied on top of the tier
+    assert bes_bonus(bes=0.90, severity="CRITICAL", eligible=10) == 6
+    assert bes_bonus(bes=0.55, severity="HIGH", eligible=10) == 4
+    assert bes_bonus(bes=0.55, severity="MEDIUM", eligible=10) == 3
+
+
+def test_bes_bonus_chronic_penalty():
+    # BES<.4 AND eligible>=5 -> -2, stacking with the base tier of 1
+    assert bes_bonus(bes=0.30, severity="LOW", eligible=8) == -1
+    # penalty does not apply below the eligibility floor
+    assert bes_bonus(bes=0.30, severity="LOW", eligible=4) == 1
+    # a CRITICAL chronic lesson: tier 1 +1 (sev) -2 (chronic) = 0
+    assert bes_bonus(bes=0.30, severity="CRITICAL", eligible=8) == 0
