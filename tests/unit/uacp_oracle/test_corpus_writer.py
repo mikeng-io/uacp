@@ -45,6 +45,43 @@ def _knowledge() -> KnowledgeItem:
     )
 
 
+def test_corpus_writer_declared_side_effects_match_schema_type(monkeypatch):
+    """MED-1: the corpus writer must pass declared_side_effects as the type the
+    registered uacp_artifact_write schema declares (string), not a list — so a
+    schema-validating runtime won't reject the corpus write.
+
+    Intercepts the governed handler and inspects the args it was called with.
+    """
+    captured: dict = {}
+
+    def _fake_handler(args):
+        captured.update(args)
+        import json
+
+        return json.dumps({"ok": True, "path": args["target_path"]})
+
+    # _resolve_handler returns (handler, plugin); plugin=None is tolerated by the
+    # writer's env/policy restore branch.
+    monkeypatch.setattr(
+        corpus_writer, "_resolve_handler", lambda: (_fake_handler, None)
+    )
+
+    corpus_writer.persist_lesson(
+        Path("/tmp/ws"),
+        _lesson(),
+        run_id="uacp-test-r1",
+        phase="resolve",
+        reason="x",
+        authority_artifact="resolutions/uacp-test-r1-lessons.yaml",
+    )
+
+    assert "declared_side_effects" in captured
+    assert isinstance(captured["declared_side_effects"], str), (
+        "declared_side_effects must be a str to match the uacp_artifact_write "
+        f"schema; got {type(captured['declared_side_effects']).__name__}"
+    )
+
+
 def test_persist_lesson_round_trips_through_governed_writer(temp_uacp_root: Path):
     lesson = _lesson()
     result = corpus_writer.persist_lesson(

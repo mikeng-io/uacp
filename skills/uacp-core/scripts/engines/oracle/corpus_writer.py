@@ -127,7 +127,10 @@ def _write_okf(
         "uacp_run_id": run_id,
         "uacp_phase": phase,
         "policy_version": "",
-        "declared_side_effects": [f"write {target_path}"],
+        # declared_side_effects is a STRING in the uacp_artifact_write schema (and
+        # in every other governed writer's schema); pass a string so a
+        # schema-validating runtime does not reject the corpus write (MED-1).
+        "declared_side_effects": f"write {target_path}",
     }
     return _governed_artifact_write(args)
 
