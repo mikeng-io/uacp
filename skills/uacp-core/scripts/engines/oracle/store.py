@@ -13,6 +13,7 @@ dep: ``available()`` returns ``False``.
 No top-level ``import lancedb`` — it is resolved lazily inside ``_lancedb()`` so
 the FLOOR (keyword + structured + BES, zero ML deps) imports and runs clean.
 """
+
 from __future__ import annotations
 
 import importlib
@@ -153,9 +154,7 @@ class LanceDBStore:
         rows = table.search(query).limit(k).to_list()
         return [_row_to_dict(r) for r in rows]
 
-    def rrf_hybrid(
-        self, vector: list[float] | None, query: str, k: int
-    ) -> list[dict[str, Any]]:
+    def rrf_hybrid(self, vector: list[float] | None, query: str, k: int) -> list[dict[str, Any]]:
         # NOTE: this method does NOT implement real RRF fusion. It issues a single
         # table.search() call — either vector search (when vector is provided) or
         # FTS (when vector is None). True RRF fusion across both legs is performed
@@ -194,9 +193,7 @@ class SqliteVecStore:
     def fts_search(self, query: str, k: int) -> list[dict[str, Any]]:
         raise StoreUnavailable("sqlite-vec store not yet implemented")
 
-    def rrf_hybrid(
-        self, vector: list[float] | None, query: str, k: int
-    ) -> list[dict[str, Any]]:
+    def rrf_hybrid(self, vector: list[float] | None, query: str, k: int) -> list[dict[str, Any]]:
         raise StoreUnavailable("sqlite-vec store not yet implemented")
 
 

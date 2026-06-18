@@ -14,6 +14,7 @@ data-ownership boundary intact (see tests/unit/uacp_oracle/test_corpus_boundary.
 
 This module performs NO heavy/ML imports — it is part of the floor.
 """
+
 from __future__ import annotations
 
 import json
@@ -40,6 +41,7 @@ def _validate_item_id(item_id: Any) -> str | None:
             f"(lowercase alphanumeric start; no '/', '..', or leading dot)"
         )
     return None
+
 
 # Serializes the env-pin + policy-cache-reset + handler-call + restore sequence
 # in _governed_artifact_write. Without it, concurrent corpus writes would race on

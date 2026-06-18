@@ -51,6 +51,7 @@ Models land in the HuggingFace cache (``~/.cache/huggingface``), never the repo.
 The LanceDB index lives in a pytest tmp dir and is removed after the run; the
 real project index dir ``.uacp/knowledge/indexes/`` is gitignored.
 """
+
 from __future__ import annotations
 
 import json
@@ -245,9 +246,7 @@ def _make_rerank_server(model: CrossEncoder) -> tuple[HTTPServer, str]:
             query = body.get("query", "")
             texts = body.get("texts") or []
             scores = model.predict([(query, t) for t in texts])
-            data = [
-                {"index": i, "score": float(s)} for i, s in enumerate(scores)
-            ]
+            data = [{"index": i, "score": float(s)} for i, s in enumerate(scores)]
             payload = json.dumps(data).encode()  # TEI returns a bare list
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -447,8 +446,7 @@ def test_rerank_url_client_real(serve, rerank_model: CrossEncoder) -> None:
         serving,
     )
     assert [d["id"] for d in reranked][0] == "lesson-worktree-001", (
-        f"real reranker should pull the worktree doc to the top, "
-        f"got {[d['id'] for d in reranked]}"
+        f"real reranker should pull the worktree doc to the top, got {[d['id'] for d in reranked]}"
     )
 
 

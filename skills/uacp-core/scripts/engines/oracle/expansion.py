@@ -14,6 +14,7 @@ FLOOR:     Always returns [raw_query] — no expansion model available.
 The original query is ALWAYS included in the returned list so the pipeline
 has at least one query to search with.
 """
+
 from __future__ import annotations
 
 from engines.oracle.serving import RoleServing, ServingMode

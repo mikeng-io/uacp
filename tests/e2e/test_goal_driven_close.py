@@ -146,9 +146,7 @@ def _closure_blockers(blockers: list[str]) -> list[str]:
     return [
         b
         for b in blockers
-        if "checkpoint" in b.lower()
-        or "manifest" in b.lower()
-        or "goal-driven" in b.lower()
+        if "checkpoint" in b.lower() or "manifest" in b.lower() or "goal-driven" in b.lower()
     ]
 
 
@@ -163,9 +161,7 @@ def _verify_evidence_blockers(blockers: list[str]) -> list[str]:
 
 
 class TestCoherentManifestAllowsClose:
-    def test_coherent_manifest_no_closure_blocker(
-        self, temp_uacp_root: Path, valid_run_id: str
-    ):
+    def test_coherent_manifest_no_closure_blocker(self, temp_uacp_root: Path, valid_run_id: str):
         goal_id = "g1"
         _seed_manifest(temp_uacp_root, valid_run_id, goal_id=goal_id)
         _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 5})
@@ -173,12 +169,20 @@ class TestCoherentManifestAllowsClose:
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         ev2 = _seed_evidence(temp_uacp_root, "executions/c2.txt")
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
-            checkpoint_id="ckpt-001", evidence=ev1, verdict="keep",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
         )
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
-            checkpoint_id="ckpt-002", evidence=ev2, verdict="keep",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-002",
+            evidence=ev2,
+            verdict="keep",
         )
 
         blockers = _gate_blockers(temp_uacp_root, valid_run_id)
@@ -206,12 +210,20 @@ class TestDanglingVerdictBlocksClose:
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         ev2 = _seed_evidence(temp_uacp_root, "executions/c2.txt")
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
-            checkpoint_id="ckpt-001", evidence=ev1, verdict="keep",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
         )
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
-            checkpoint_id="ckpt-002", evidence=ev2, verdict="roll_back",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-002",
+            evidence=ev2,
+            verdict="roll_back",
         )
 
         blockers = _gate_blockers(temp_uacp_root, valid_run_id)
@@ -224,8 +236,12 @@ class TestDanglingVerdictBlocksClose:
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
-            checkpoint_id="ckpt-001", evidence=ev1, verdict="restart",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="restart",
         )
 
         blockers = _gate_blockers(temp_uacp_root, valid_run_id)
@@ -238,31 +254,34 @@ class TestDanglingVerdictBlocksClose:
 
 
 class TestMissingEvidenceBlocksClose:
-    def test_final_evidence_missing_blocks(
-        self, temp_uacp_root: Path, valid_run_id: str
-    ):
+    def test_final_evidence_missing_blocks(self, temp_uacp_root: Path, valid_run_id: str):
         goal_id = "g1"
         _seed_manifest(temp_uacp_root, valid_run_id, goal_id=goal_id)
         _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 5})
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
-            checkpoint_id="ckpt-001", evidence=ev1, verdict="keep",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
         )
         # final checkpoint's evidence path does NOT resolve to a real artifact
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
             checkpoint_id="ckpt-002",
-            evidence="executions/does-not-exist.txt", verdict="keep",
+            evidence="executions/does-not-exist.txt",
+            verdict="keep",
         )
 
         blockers = _gate_blockers(temp_uacp_root, valid_run_id)
         assert _closure_blockers(blockers), blockers
 
-    def test_final_evidence_not_bound_to_goal_blocks(
-        self, temp_uacp_root: Path, valid_run_id: str
-    ):
+    def test_final_evidence_not_bound_to_goal_blocks(self, temp_uacp_root: Path, valid_run_id: str):
         """O5: the promoted (final) checkpoint's evidence must be bound to the
         run's goal. A final keep whose goal_id is a DIFFERENT goal is not a
         result for THIS goal and must not close the run."""
@@ -273,8 +292,12 @@ class TestMissingEvidenceBlocksClose:
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         # final keep has real evidence but is bound to a DIFFERENT goal
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id="some-other-goal",
-            checkpoint_id="ckpt-001", evidence=ev1, verdict="keep",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id="some-other-goal",
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
         )
 
         blockers = _gate_blockers(temp_uacp_root, valid_run_id)
@@ -288,9 +311,7 @@ class TestMissingEvidenceBlocksClose:
 
 
 class TestStandardInvariantsStillFireOnClose:
-    def test_escaping_final_evidence_still_blocks(
-        self, temp_uacp_root: Path, valid_run_id: str
-    ):
+    def test_escaping_final_evidence_still_blocks(self, temp_uacp_root: Path, valid_run_id: str):
         """no-fabrication / containment: final-checkpoint evidence that escapes
         the governed root is not a real artifact and must block close even with
         an otherwise-coherent (final keep) manifest."""
@@ -299,9 +320,12 @@ class TestStandardInvariantsStillFireOnClose:
         _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 5})
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
             checkpoint_id="ckpt-001",
-            evidence="../../../etc/passwd", verdict="keep",
+            evidence="../../../etc/passwd",
+            verdict="keep",
         )
 
         blockers = _gate_blockers(temp_uacp_root, valid_run_id)
@@ -320,8 +344,12 @@ class TestStandardInvariantsStillFireOnClose:
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
-            checkpoint_id="ckpt-001", evidence=ev1, verdict="keep",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
         )
 
         hg = Heartgate.load(str(temp_uacp_root))
@@ -332,13 +360,9 @@ class TestStandardInvariantsStillFireOnClose:
         decision = hg.validate_transition(artifact)
 
         assert decision.decision == "block"
-        assert any("warnings require owner" in b for b in decision.blockers), (
-            decision.blockers
-        )
+        assert any("warnings require owner" in b for b in decision.blockers), decision.blockers
 
-    def test_invariant_summary_failure_still_blocks(
-        self, temp_uacp_root: Path, valid_run_id: str
-    ):
+    def test_invariant_summary_failure_still_blocks(self, temp_uacp_root: Path, valid_run_id: str):
         """A failed invariant_summary entry (a computed/declared invariant) still
         blocks close — the coherent manifest does not paper over it."""
         goal_id = "g1"
@@ -347,8 +371,12 @@ class TestStandardInvariantsStillFireOnClose:
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id=goal_id,
-            checkpoint_id="ckpt-001", evidence=ev1, verdict="keep",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
         )
 
         hg = Heartgate.load(str(temp_uacp_root))
@@ -374,8 +402,12 @@ class TestStandardTrackCloseUnchanged:
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         # Even a coherent-looking manifest must be IGNORED on the standard track.
         _append_checkpoint(
-            temp_uacp_root, valid_run_id, goal_id="g1",
-            checkpoint_id="ckpt-001", evidence=ev1, verdict="keep",
+            temp_uacp_root,
+            valid_run_id,
+            goal_id="g1",
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
         )
 
         blockers = _gate_blockers(temp_uacp_root, valid_run_id)
@@ -386,9 +418,7 @@ class TestStandardTrackCloseUnchanged:
         # The manifest must NOT be consulted on the standard track: no checkpoint/
         # manifest/goal-driven blocker may appear.
         assert not [
-            b
-            for b in blockers
-            if "checkpoint" in b.lower() or "goal-driven" in b.lower()
+            b for b in blockers if "checkpoint" in b.lower() or "goal-driven" in b.lower()
         ], blockers
 
     def test_standard_no_manifest_still_demands_verify_evidence(

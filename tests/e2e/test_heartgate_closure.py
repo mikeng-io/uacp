@@ -160,8 +160,7 @@ def test_scope_registry_disagreement_collapses_to_one_blocker(
         if b.startswith("SC_SCOPE_REGISTRY_DISAGREE") and "write_paths" in b
     ]
     assert sc_writepath_blockers == [], (
-        f"expected the SC write_paths finding to be deduped into C6, got: "
-        f"{sc_writepath_blockers}"
+        f"expected the SC write_paths finding to be deduped into C6, got: {sc_writepath_blockers}"
     )
     # And exactly ONE write_paths blocker total for the one problem.
     write_path_blockers = [b for b in decision.blockers if "write_paths" in b]
@@ -174,6 +173,4 @@ def test_validate_closure_never_raises_on_missing_run(temp_uacp_root: Path):
     # A decision, not an exception. A missing run has no coherent state, so the
     # engines surface block-severity violations -> decision is "block" (or "warn").
     assert decision.decision in {"block", "warn"}, decision
-    assert isinstance(
-        decision, type(Heartgate.load(str(temp_uacp_root)).validate_transition({}))
-    )
+    assert isinstance(decision, type(Heartgate.load(str(temp_uacp_root)).validate_transition({})))

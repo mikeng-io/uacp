@@ -16,6 +16,7 @@ test forbids.
 No heavy/ML imports here — this module is part of the floor. Never raises: a
 missing directory yields ``[]`` and malformed documents are skipped.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -12,6 +12,7 @@ latency_percentile(timings, p)
     p-th percentile of a list of latency timings (seconds or ms).
     Supports p=50 (median) and p=95 as the primary use-cases.
 """
+
 from __future__ import annotations
 
 import math

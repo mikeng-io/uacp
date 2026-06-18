@@ -95,12 +95,14 @@ class TestBudgetRequiredAtProposeToPlan:
         _seed_budget(temp_uacp_root, valid_run_id, None)  # artifact present, key absent
 
         hg = Heartgate.load(str(temp_uacp_root))
-        decision = hg.validate_transition({
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": valid_run_id,
-            "artifact_path": "plans/test.yaml",
-        })
+        decision = hg.validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": valid_run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
 
         assert decision.decision == "block"
         assert _budget_blockers(decision.blockers), decision.blockers
@@ -110,12 +112,14 @@ class TestBudgetRequiredAtProposeToPlan:
         # No -convergence-budget.yaml written at all.
 
         hg = Heartgate.load(str(temp_uacp_root))
-        decision = hg.validate_transition({
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": valid_run_id,
-            "artifact_path": "plans/test.yaml",
-        })
+        decision = hg.validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": valid_run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
 
         assert decision.decision == "block"
         assert _budget_blockers(decision.blockers), decision.blockers
@@ -125,12 +129,14 @@ class TestBudgetRequiredAtProposeToPlan:
         _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 0})
 
         hg = Heartgate.load(str(temp_uacp_root))
-        decision = hg.validate_transition({
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": valid_run_id,
-            "artifact_path": "plans/test.yaml",
-        })
+        decision = hg.validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": valid_run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
 
         assert decision.decision == "block"
         assert _budget_blockers(decision.blockers), decision.blockers
@@ -149,12 +155,14 @@ class TestValidBudgetPasses:
         _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 5})
 
         hg = Heartgate.load(str(temp_uacp_root))
-        decision = hg.validate_transition({
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": valid_run_id,
-            "artifact_path": "plans/test.yaml",
-        })
+        decision = hg.validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": valid_run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
 
         # The budget must not be the thing that blocks. (The adaptive proposal-
         # package gate fails closed in this fixture and may block on its own
@@ -171,12 +179,14 @@ class TestValidBudgetPasses:
         )
 
         hg = Heartgate.load(str(temp_uacp_root))
-        decision = hg.validate_transition({
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": valid_run_id,
-            "artifact_path": "plans/test.yaml",
-        })
+        decision = hg.validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": valid_run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
 
         assert not _budget_blockers(decision.blockers), decision.blockers
 
@@ -187,19 +197,19 @@ class TestValidBudgetPasses:
 
 
 class TestStandardTrackUnaffected:
-    def test_standard_run_no_budget_not_blocked(
-        self, temp_uacp_root: Path, valid_run_id: str
-    ):
+    def test_standard_run_no_budget_not_blocked(self, temp_uacp_root: Path, valid_run_id: str):
         _seed_manifest(temp_uacp_root, valid_run_id, track="standard", goal_id=None)
         # No budget artifact at all.
 
         hg = Heartgate.load(str(temp_uacp_root))
-        decision = hg.validate_transition({
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": valid_run_id,
-            "artifact_path": "plans/test.yaml",
-        })
+        decision = hg.validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": valid_run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
 
         # A standard run never enters the budget gate (track-gated), so the
         # budget is never a blocker — regardless of any other gate's verdict.
@@ -210,12 +220,14 @@ class TestStandardTrackUnaffected:
     ):
         # No manifest at all -> track unknown -> treated as standard -> no budget gate.
         hg = Heartgate.load(str(temp_uacp_root))
-        decision = hg.validate_transition({
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": valid_run_id,
-            "artifact_path": "plans/test.yaml",
-        })
+        decision = hg.validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": valid_run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
 
         assert not _budget_blockers(decision.blockers), decision.blockers
 
@@ -237,12 +249,14 @@ class TestTrackBoundToTriage:
     TRIAGE artifact did NOT decide goal-driven is blocked fail-closed."""
 
     def _propose_to_plan(self, hg: Heartgate, run_id: str):
-        return hg.validate_transition({
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": run_id,
-            "artifact_path": "plans/test.yaml",
-        })
+        return hg.validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
 
     def test_forged_goal_driven_track_blocks(self, temp_uacp_root: Path, valid_run_id: str):
         """Manifest track=goal-driven but TRIAGE track=standard -> BLOCKED with a
@@ -301,9 +315,7 @@ class TestTrackBoundToTriage:
 
         assert not _track_mismatch_blockers(decision.blockers), decision.blockers
 
-    def test_standard_run_unaffected_by_track_check(
-        self, temp_uacp_root: Path, valid_run_id: str
-    ):
+    def test_standard_run_unaffected_by_track_check(self, temp_uacp_root: Path, valid_run_id: str):
         """A standard-track manifest never reaches the track-vs-triage check
         (it's behind the goal-driven branch) -> no track-mismatch blocker even
         with no triage artifact."""

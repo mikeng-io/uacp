@@ -14,6 +14,7 @@ Two surfaces:
     absent it (and with no URL) the role degrades to the FLOOR (keyword + BES,
     zero models). The binding is resolved lazily and never imported at top level.
 """
+
 from __future__ import annotations
 
 import enum

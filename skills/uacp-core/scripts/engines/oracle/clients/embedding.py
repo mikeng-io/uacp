@@ -12,6 +12,7 @@ Both deps are lazy: no top-level httpx / llama binding import, so the floor
 imports clean with neither installed. The API key is read from the named env
 var in URL mode only — the key value itself is never logged or stored.
 """
+
 from __future__ import annotations
 
 import os

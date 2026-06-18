@@ -44,14 +44,13 @@ from tests.e2e.driver import Driver
 # Import the governed artifact-write handler as a package (the conftest puts the
 # uacp_guardian package DIR on sys.path for `from state import ...`; importing the
 # package by name needs its PARENT, the plugins/ dir, on the path).
-_PLUGINS_DIR = (
-    Path(__file__).resolve().parents[2] / "runtime-adapters" / "hermes" / "plugins"
-)
+_PLUGINS_DIR = Path(__file__).resolve().parents[2] / "runtime-adapters" / "hermes" / "plugins"
 if str(_PLUGINS_DIR) not in sys.path:
     sys.path.insert(0, str(_PLUGINS_DIR))
 import uacp_guardian  # noqa: E402  (path bootstrap above is required first)
 
 # ── Config helpers ──────────────────────────────────────────────────────────
+
 
 def _write_brainstorm_config(root: Path) -> None:
     """Rewrite config/phase-transitions.yaml WITHOUT a 'stages' key so that
@@ -75,6 +74,7 @@ def _write_brainstorm_config(root: Path) -> None:
 
 
 # ── Artifact seeders ─────────────────────────────────────────────────────────
+
 
 def _seed_scope_package(driver: Driver, root: Path, run_id: str) -> Path:
     """Write a minimal but valid 07-scope-package.yaml THROUGH the governed
@@ -143,6 +143,7 @@ def _seed_scope_package(driver: Driver, root: Path, run_id: str) -> Path:
 
 
 # ── Tests ────────────────────────────────────────────────────────────────────
+
 
 class TestBrainstormEntryLifecycle:
     """A run starting at brainstorm advances to triage through real handlers."""
@@ -289,9 +290,7 @@ class TestBrainstormEntryLifecycle:
                 "artifact_path": "brainstorm/test.yaml",
             }
         )
-        assert hg.decision == "pass", (
-            f"Heartgate blocked legit brainstorm→triage: {hg.blockers}"
-        )
+        assert hg.decision == "pass", f"Heartgate blocked legit brainstorm→triage: {hg.blockers}"
 
         # 5. Advance to triage through the real state machine
         tr = d.call(

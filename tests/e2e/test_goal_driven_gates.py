@@ -126,11 +126,7 @@ def _transition(run_id: str) -> dict:
 
 def _piv_blockers(blockers: list[str]) -> list[str]:
     """Blockers sourced from the deterministic PIV/execute-evidence gate."""
-    return [
-        b
-        for b in blockers
-        if "adaptive_execute_evidence_gate" in b or "piv" in b.lower()
-    ]
+    return [b for b in blockers if "adaptive_execute_evidence_gate" in b or "piv" in b.lower()]
 
 
 def _checkpoint_blockers(blockers: list[str]) -> list[str]:
@@ -150,10 +146,22 @@ class TestCoherentManifestSatisfiesGate:
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         ev2 = _seed_evidence(temp_uacp_root, "executions/c2.txt")
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-001", evidence=ev1, verdict="keep")
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-002", evidence=ev2, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
+        )
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-002",
+            evidence=ev2,
+            verdict="keep",
+        )
 
         hg = Heartgate.load(str(temp_uacp_root))
         decision = hg.validate_transition(_transition(valid_run_id))
@@ -176,9 +184,14 @@ class TestIncoherentManifestBlocks:
         _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 5})
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
         # evidence path that does not resolve to a real artifact
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-001",
-                           evidence="executions/does-not-exist.txt", verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence="executions/does-not-exist.txt",
+            verdict="keep",
+        )
 
         hg = Heartgate.load(str(temp_uacp_root))
         decision = hg.validate_transition(_transition(valid_run_id))
@@ -193,11 +206,23 @@ class TestIncoherentManifestBlocks:
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         ev2 = _seed_evidence(temp_uacp_root, "executions/c2.txt")
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-001", evidence=ev1, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
+        )
         # final verdict is roll_back -> not converged -> incoherent for promotion
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-002", evidence=ev2, verdict="roll_back")
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-002",
+            evidence=ev2,
+            verdict="roll_back",
+        )
 
         hg = Heartgate.load(str(temp_uacp_root))
         decision = hg.validate_transition(_transition(valid_run_id))
@@ -260,18 +285,28 @@ class TestOverBudgetKeepBlocks:
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         ev2 = _seed_evidence(temp_uacp_root, "executions/c2.txt")
         # 2 keep checkpoints recorded, cap is 1 -> the manifest is over budget.
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-001", evidence=ev1, verdict="keep")
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-002", evidence=ev2, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
+        )
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-002",
+            evidence=ev2,
+            verdict="keep",
+        )
 
         hg = Heartgate.load(str(temp_uacp_root))
         decision = hg.validate_transition(_transition(valid_run_id))
 
         assert decision.decision == "block"
-        cap_blockers = [
-            b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()
-        ]
+        cap_blockers = [b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()]
         assert cap_blockers, decision.blockers
 
 
@@ -314,9 +349,7 @@ class TestConvergenceCapBoundary:
         hg = Heartgate.load(str(temp_uacp_root))
         decision = hg.validate_transition(_transition(valid_run_id))
 
-        cap_blockers = [
-            b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()
-        ]
+        cap_blockers = [b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()]
         assert not cap_blockers, (
             f"expected no cap blocker for exactly max_checkpoints={max_cp} entries, "
             f"got: {cap_blockers}"
@@ -346,9 +379,7 @@ class TestConvergenceCapBoundary:
         decision = hg.validate_transition(_transition(valid_run_id))
 
         assert decision.decision == "block"
-        cap_blockers = [
-            b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()
-        ]
+        cap_blockers = [b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()]
         assert cap_blockers, (
             f"expected a cap blocker for max_checkpoints+1={max_cp + 1} entries, "
             f"got: {decision.blockers}"
@@ -368,9 +399,14 @@ class TestInvariantsStillFireGoalDriven:
         _seed_manifest(temp_uacp_root, valid_run_id, goal_id=goal_id)
         _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 5})
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-001",
-                           evidence="../../../etc/passwd", verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence="../../../etc/passwd",
+            verdict="keep",
+        )
 
         hg = Heartgate.load(str(temp_uacp_root))
         decision = hg.validate_transition(_transition(valid_run_id))
@@ -386,8 +422,14 @@ class TestInvariantsStillFireGoalDriven:
         _seed_budget(temp_uacp_root, valid_run_id, {"max_checkpoints": 5})
         _register_run_for_goal(temp_uacp_root, valid_run_id, goal_id)
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-001", evidence=ev1, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
+        )
 
         hg = Heartgate.load(str(temp_uacp_root))
         artifact = _transition(valid_run_id)
@@ -412,8 +454,14 @@ class TestStandardTrackUnchanged:
         _seed_manifest(temp_uacp_root, valid_run_id, track="standard", goal_id=None)
         ev1 = _seed_evidence(temp_uacp_root, "executions/c1.txt")
         # Even seed a coherent-looking manifest — it must be ignored on standard.
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id="g1",
-                           checkpoint_id="ckpt-001", evidence=ev1, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id="g1",
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
+        )
 
         hg = Heartgate.load(str(temp_uacp_root))
         decision = hg.validate_transition(_transition(valid_run_id))
@@ -466,10 +514,22 @@ class TestCrossChainCapEvasionClosed:
         _seed_budget(temp_uacp_root, r1, {"max_checkpoints": 2})
         ev1 = _seed_evidence(temp_uacp_root, "executions/r1-c1.txt")
         ev2 = _seed_evidence(temp_uacp_root, "executions/r1-c2.txt")
-        _append_checkpoint(temp_uacp_root, r1, goal_id=goal_id,
-                           checkpoint_id="r1-ckpt-001", evidence=ev1, verdict="keep")
-        _append_checkpoint(temp_uacp_root, r1, goal_id=goal_id,
-                           checkpoint_id="r1-ckpt-002", evidence=ev2, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            r1,
+            goal_id=goal_id,
+            checkpoint_id="r1-ckpt-001",
+            evidence=ev1,
+            verdict="keep",
+        )
+        _append_checkpoint(
+            temp_uacp_root,
+            r1,
+            goal_id=goal_id,
+            checkpoint_id="r1-ckpt-002",
+            evidence=ev2,
+            verdict="keep",
+        )
 
         # r2: forward run bound to g1 by MANIFEST, with its own budget, 1 more
         # keep checkpoint -- but deliberately NOT registered under g1 (the
@@ -477,8 +537,14 @@ class TestCrossChainCapEvasionClosed:
         _seed_manifest(temp_uacp_root, r2, goal_id=goal_id)
         _seed_budget(temp_uacp_root, r2, {"max_checkpoints": 2})
         ev3 = _seed_evidence(temp_uacp_root, "executions/r2-c1.txt")
-        _append_checkpoint(temp_uacp_root, r2, goal_id=goal_id,
-                           checkpoint_id="r2-ckpt-001", evidence=ev3, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            r2,
+            goal_id=goal_id,
+            checkpoint_id="r2-ckpt-001",
+            evidence=ev3,
+            verdict="keep",
+        )
         # NOTE: no _register_run_for_goal call at all -> registry has NO g1 entry.
 
         hg = Heartgate.load(str(temp_uacp_root))
@@ -486,9 +552,7 @@ class TestCrossChainCapEvasionClosed:
 
         # The manifest scan counts r1(2) + r2(1) = 3 > cap 2 -> over budget.
         assert decision.decision == "block"
-        cap_blockers = [
-            b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()
-        ]
+        cap_blockers = [b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()]
         assert cap_blockers, decision.blockers
         # And the count attributed to the goal is the full chain total (3).
         assert hg._goal_checkpoint_count(goal_id) == 3
@@ -507,16 +571,34 @@ class TestCrossChainCapEvasionClosed:
         _seed_budget(temp_uacp_root, r1, {"max_checkpoints": 2})
         ev1 = _seed_evidence(temp_uacp_root, "executions/r1-c1.txt")
         ev2 = _seed_evidence(temp_uacp_root, "executions/r1-c2.txt")
-        _append_checkpoint(temp_uacp_root, r1, goal_id=goal_id,
-                           checkpoint_id="r1-ckpt-001", evidence=ev1, verdict="keep")
-        _append_checkpoint(temp_uacp_root, r1, goal_id=goal_id,
-                           checkpoint_id="r1-ckpt-002", evidence=ev2, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            r1,
+            goal_id=goal_id,
+            checkpoint_id="r1-ckpt-001",
+            evidence=ev1,
+            verdict="keep",
+        )
+        _append_checkpoint(
+            temp_uacp_root,
+            r1,
+            goal_id=goal_id,
+            checkpoint_id="r1-ckpt-002",
+            evidence=ev2,
+            verdict="keep",
+        )
 
         _seed_manifest(temp_uacp_root, r2, goal_id=goal_id)
         _seed_budget(temp_uacp_root, r2, {"max_checkpoints": 2})
         ev3 = _seed_evidence(temp_uacp_root, "executions/r2-c1.txt")
-        _append_checkpoint(temp_uacp_root, r2, goal_id=goal_id,
-                           checkpoint_id="r2-ckpt-001", evidence=ev3, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            r2,
+            goal_id=goal_id,
+            checkpoint_id="r2-ckpt-001",
+            evidence=ev3,
+            verdict="keep",
+        )
         # Registry mis-attribution: r2 registered under g-other, NOT g1.
         _register_run_for_goal(temp_uacp_root, r2, "g-other")
 
@@ -524,9 +606,7 @@ class TestCrossChainCapEvasionClosed:
         decision = hg.validate_transition(_transition(r2))
 
         assert decision.decision == "block"
-        cap_blockers = [
-            b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()
-        ]
+        cap_blockers = [b for b in decision.blockers if "budget" in b.lower() or "cap" in b.lower()]
         assert cap_blockers, decision.blockers
         assert hg._goal_checkpoint_count(goal_id) == 3
 
@@ -576,10 +656,22 @@ class TestGoalDrivenUnderProductionPivLedger:
         # A coherent manifest: real evidence, final verdict keep, within budget.
         ev1 = _seed_evidence(temp_uacp_root, "executions/prod-c1.txt")
         ev2 = _seed_evidence(temp_uacp_root, "executions/prod-c2.txt")
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-001", evidence=ev1, verdict="keep")
-        _append_checkpoint(temp_uacp_root, valid_run_id, goal_id=goal_id,
-                           checkpoint_id="ckpt-002", evidence=ev2, verdict="keep")
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-001",
+            evidence=ev1,
+            verdict="keep",
+        )
+        _append_checkpoint(
+            temp_uacp_root,
+            valid_run_id,
+            goal_id=goal_id,
+            checkpoint_id="ckpt-002",
+            evidence=ev2,
+            verdict="keep",
+        )
 
         # Production-default PIV ledger gate ON (no PIV pass record is seeded —
         # only CHECKPOINT records exist, which are NOT PIV pass records).

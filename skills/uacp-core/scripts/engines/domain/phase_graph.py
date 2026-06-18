@@ -107,9 +107,9 @@ _ABORTED_STATUS: str = "aborted"
 # Belt-and-suspenders: keep the named tokens honest against the graph literal so
 # a future edit to LIFECYCLE_GRAPH cannot silently desync the projection.
 assert _RESOLVE_PHASE in LIFECYCLE_GRAPH, "_RESOLVE_PHASE must be a lifecycle phase"
-assert any(
-    TERMINAL_SINK in targets for targets in LIFECYCLE_GRAPH.values()
-), "TERMINAL_SINK must appear as an exits_to target"
+assert any(TERMINAL_SINK in targets for targets in LIFECYCLE_GRAPH.values()), (
+    "TERMINAL_SINK must appear as an exits_to target"
+)
 
 
 def lifecycle_edges() -> set[tuple[str, str]]:

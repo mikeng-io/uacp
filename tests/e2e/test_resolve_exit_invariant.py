@@ -65,9 +65,7 @@ def _satisfy_resolve_ledger_gate(root: Path, run_id: str) -> None:
     required gate so the LEDGER invariant is satisfied and the ARTIFACT-glob token
     is the only variable this test exercises."""
     ledger_path = root / ".uacp" / "state" / "gate-ledger" / f"{run_id}.jsonl"
-    line = json.dumps(
-        {"gate": "VERIFY->RESOLVE", "run_id": run_id, "ts": 0, "result": "pass"}
-    )
+    line = json.dumps({"gate": "VERIFY->RESOLVE", "run_id": run_id, "ts": 0, "result": "pass"})
     with ledger_path.open("a", encoding="utf-8") as fh:
         fh.write(line + "\n")
 
@@ -112,9 +110,7 @@ def test_resolve_invariant_satisfied_by_resolutions_artifact(
 
 
 # --------------------------------------------------------------- negative (teeth)
-def test_resolve_invariant_blocks_when_artifact_absent(
-    temp_uacp_root: Path, valid_run_id: str
-):
+def test_resolve_invariant_blocks_when_artifact_absent(temp_uacp_root: Path, valid_run_id: str):
     """With the resolve exit artifact ABSENT, the same invariant DOES block — the
     "no self-attesting closure" guarantee still bites against the real config."""
     _resolved_run_against_real_config(temp_uacp_root, valid_run_id)

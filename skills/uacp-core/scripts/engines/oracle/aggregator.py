@@ -24,6 +24,7 @@ Semantic source (Task 8b):
 Floor guarantee: the aggregator must import and run clean with lancedb, llama_cpp,
 and httpx all poisoned. All heavy imports are lazy (inside _semantic_packets).
 """
+
 from __future__ import annotations
 
 import sys
@@ -102,9 +103,7 @@ def _semantic_packets(
     # Resolve store — unavailable store raises so aggregator records sources_skipped
     store = _get_oracle_store(cfg, workspace)
     if store is None or not store.available():
-        raise _SemanticUnavailable(
-            "semantic store unavailable (deps absent or backend not ready)"
-        )
+        raise _SemanticUnavailable("semantic store unavailable (deps absent or backend not ready)")
 
     # Resolve embedding client (FLOOR -> None, pipeline skips dense leg)
     embedding = None
@@ -135,9 +134,7 @@ def _semantic_packets(
                 def __init__(self, serving: Any) -> None:
                     self._serving = serving
 
-                def rerank(
-                    self, query: str, docs: list[dict[str, Any]]
-                ) -> list[dict[str, Any]]:
+                def rerank(self, query: str, docs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     return rerank(query, docs, self._serving)
 
             reranker = _RerankAdapter(rr_serving)
@@ -188,6 +185,7 @@ def oracle_query(
     if oracle_cfg is None:
         try:
             from config import get_config
+
             oracle_cfg = get_config(workspace).model_extra.get("oracle", {"enabled": False})
         except Exception:
             oracle_cfg = {"enabled": False}
@@ -228,6 +226,7 @@ def oracle_query(
         if isinstance(honcho_cfg, dict) and honcho_cfg.get("enabled", False):
             honcho_url = honcho_cfg.get("url", "")
             from engines.oracle.sources.honcho import packets_from_honcho
+
             h_packets = packets_from_honcho(
                 url=honcho_url,
                 project=project,
@@ -243,8 +242,12 @@ def oracle_query(
     # (lancedb absent, index not built, or oracle.enabled=false).
     try:
         sem_packets = _semantic_packets(
-            workspace, phase, project,
-            domains=domains, query=query, oracle_cfg=oracle_cfg,
+            workspace,
+            phase,
+            project,
+            domains=domains,
+            query=query,
+            oracle_cfg=oracle_cfg,
         )
         packets.extend(sem_packets)
     except Exception:

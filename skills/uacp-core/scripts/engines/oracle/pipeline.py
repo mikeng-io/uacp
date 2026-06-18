@@ -15,6 +15,7 @@ Pipeline steps:
   6. BES overlay       (lessons only: gate relevance>=1, then rank by relevance + bes_bonus)
      Knowledge items skip BES; they pass through as normative packets.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,6 +26,7 @@ from engines.oracle.packets import ProviderPacket, TrustClass
 # ---------------------------------------------------------------------------
 # RRF fusion (pure, testable independently)
 # ---------------------------------------------------------------------------
+
 
 def rrf_fuse(
     dense: list[dict[str, Any]],
@@ -132,6 +134,7 @@ def apply_bes_overlay(
 # ---------------------------------------------------------------------------
 # Main pipeline entry point
 # ---------------------------------------------------------------------------
+
 
 def semantic_retrieve(
     query: str,
