@@ -67,7 +67,7 @@ Save execution report to `.uacp/workflow/`:
 └── YYYYMMDD-HHMMSS-workflow-execution.json
 ```
 
-JSON format follows schema in `schemas/workflow-execution-schema.json`.
+The JSON report captures the same data as the markdown report — see `references/report-format.md`: status/totals, execution timeline, per-task results, and performance analysis.
 
 **No symlinks.** To find the latest artifact:
 ```bash
@@ -100,7 +100,7 @@ Before finishing a parallel workflow run, confirm:
 - [ ] DAG has no cycles
 - [ ] Every task appears in exactly one wave
 - [ ] Failed tasks triggered correct skip/continue behavior
-- [ ] JSON report conforms to `schemas/workflow-execution-schema.json`
+- [ ] JSON report follows the contract in `references/report-format.md`
 - [ ] Markdown report includes execution timeline and performance analysis
 
 ## Notes

@@ -6,4 +6,4 @@ If TeamCreate fails (not available in context):
 - Phases 4 and 5 proceed as normal.
 - Emit the JSON log with `"mode": "adversarial_subagents"` and NO `team_session_id` field (or `team_session_id: null`).
 
-Do NOT emit `"mode": "debate"` for a fallback run. When consumed by `record_gate_1_result`, the `adversarial_subagents` mode is tagged `confidence_class: "reduced"`; a mislabelled log is fabrication.
+Do NOT emit `"mode": "debate"` for a fallback run. A parallel-subagents fallback is lower-assurance than a real TeamCreate debate, so it must be labelled `adversarial_subagents` honestly; a mislabelled log is fabrication.

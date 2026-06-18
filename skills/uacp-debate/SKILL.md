@@ -74,11 +74,10 @@ Load these before spawning Phase 1 participants:
 
 ## Output
 
-Save two artifacts per run. Read `references/artifact-output.md` for the full contract, schema requirements, and frontmatter format.
+Save two artifacts per run. Read `references/artifact-output.md` for the full field contract and frontmatter format.
 
 - JSON log: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.json`
-  - MUST conform to `.agents/skills/state/schemas/gate_1_debate_log.schema.json` (v1.0)
-  - Consumed by `record_gate_1_result`; do not recompute derived fields downstream
+  - MUST carry the fields defined in `references/artifact-output.md` (the authoritative debate-log contract).
 - Markdown summary: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md`
 
 Do not fabricate participant voices. Every `messages[]` entry must correspond to a real Task-agent or TeamCreate-session message that actually happened.
@@ -88,7 +87,7 @@ Do not fabricate participant voices. Every `messages[]` entry must correspond to
 - Domain experts are resolved through the domain registry (`uacp-core/references/domains/`) using exact match, adapted match, or session-based virtual expert selection.
 - Council taxonomy and role contracts are sourced from `../uacp-core/references/council-taxonomy.md`.
 - Shared bridge conventions (packet schemas, envelope formats) are inherited from `uacp-bridge`.
-- Do not change existing path references (`.agents/skills/state/schemas/gate_1_debate_log.schema.json`, `.uacp/debate/`, etc.).
+- Artifact paths under `.uacp/debate/` are canonical; the debate-log field contract lives in `references/artifact-output.md`.
 
 ## Verification Checklist
 
@@ -97,7 +96,7 @@ Before finishing a debate run, confirm:
 - [ ] `mode` is correctly labelled (`debate` vs `adversarial_subagents`)
 - [ ] `team_session_id` matches the TeamCreate session when `mode: debate`
 - [ ] `messages[]` contains only real participant messages
-- [ ] JSON log conforms to `gate_1_debate_log.schema.json` v1.0
+- [ ] JSON log carries all fields defined in `references/artifact-output.md`
 - [ ] Markdown frontmatter includes all required fields
 
 **No symlinks.** To find the latest artifact:
