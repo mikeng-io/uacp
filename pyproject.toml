@@ -25,6 +25,21 @@ dev = [
 mcp = [
     "mcp>=1.0",
 ]
+# Optional heavy deps for the GATED Oracle real-model e2e
+# (tests/e2e/test_oracle_realmodel_e2e.py). Kept out of core `dependencies` so
+# the kernel stays installable on pydantic + pyyaml alone, and the core suite
+# stays green when these are absent (the e2e SKIPS unless UACP_ORACLE_E2E=1 and
+# these import). Install with: pip install -e ".[oracle-e2e]"
+# - lancedb: real on-disk vector + FTS store (prebuilt wheels).
+# - sentence-transformers: small real models (all-MiniLM-L6-v2 embed,
+#   ms-marco-MiniLM-L-6-v2 cross-encoder rerank) — ~80MB each, downloaded to
+#   the HF cache, never committed. httpx (already a transitive dep) drives the
+#   real URL-mode embedding/rerank clients against in-process model stubs.
+oracle-e2e = [
+    "lancedb",
+    "sentence-transformers",
+    "httpx",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
