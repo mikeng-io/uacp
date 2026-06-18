@@ -30,7 +30,7 @@ def test_claude_mcp_json_points_at_server() -> None:
     servers = manifest["mcpServers"]
     assert "uacp" in servers, "Claude .mcp.json missing 'uacp' server"
     entry = servers["uacp"]
-    assert entry["command"] == "python"
+    assert entry["command"] == "python3"
     args = entry["args"]
     assert len(args) == 1, f"expected a single server-path arg, got {args}"
     arg = args[0]
@@ -50,7 +50,7 @@ def test_kimi_plugin_json_points_at_server() -> None:
     servers = manifest["mcpServers"]
     assert "uacp" in servers, "kimi.plugin.json missing 'uacp' server"
     entry = servers["uacp"]
-    assert entry["command"] == "python"
+    assert entry["command"] == "python3"
     # Kimi requires cwd to be a ./-relative path within the plugin root.
     assert entry["cwd"] == "./", f"Kimi cwd must be './', got {entry['cwd']!r}"
     args = entry["args"]

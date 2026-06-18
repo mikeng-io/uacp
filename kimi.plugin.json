@@ -4,7 +4,7 @@
   "skills": "./skills/",
   "mcpServers": {
     "uacp": {
-      "command": "python",
+      "command": "python3",
       "args": ["./runtime-adapters/mcp/uacp_mcp_server.py"],
       "cwd": "./"
     }
