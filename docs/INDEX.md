@@ -29,8 +29,8 @@ Structural navigation map for `docs/`. For project overview, see [`/PROJECT.md`]
 | [`reference/`](reference/INDEX.md) | [INDEX.md](reference/INDEX.md) | Schemas + per-skill authority records (proposal-schema, skill-enforcement-spec, lifecycle-trace-table). |
 | [`architecture/`](architecture/INDEX.md) | [INDEX.md](architecture/INDEX.md) | ADRs (numbered, with template + status lifecycle). |
 | [`decisions/`](decisions/INDEX.md) | [INDEX.md](decisions/INDEX.md) | Operational decision-log (lighter than ADRs). |
-| [`plans/`](plans/INDEX.md) | [INDEX.md](plans/INDEX.md) | Forward-looking phase plans, reserved slots. |
-| [`archived/`](archived/INDEX.md) | [INDEX.md](archived/INDEX.md) | Superseded docs kept for traceability. |
+| [`plans/`](plans/INDEX.md) | [INDEX.md](plans/INDEX.md) | Forward-looking plans only. Completed phase/feature plans were archived to `archived/`; `plans/` now holds the reserved slot (`phase5-reserved-slot.md`). |
+| [`archived/`](archived/INDEX.md) | [INDEX.md](archived/INDEX.md) | Superseded docs + completed plans/designs kept for traceability. |
 | [`arc42-index.md`](arc42-index.md) | — | Partial ARC42 mapping of UACP architecture. |
 
 ## Repository inventory (non-docs)
@@ -72,7 +72,7 @@ When approaching UACP cold, this order minimizes back-tracking:
 
 1. [`/PROJECT.md`](../PROJECT.md) — what UACP is.
 2. [`policy/constitution.md`](policy/constitution.md) + [`policy/first-principles.md`](policy/first-principles.md) — non-negotiables.
-3. [`lifecycle/lifecycle-reference.md`](lifecycle/lifecycle-reference.md) — phase semantics.
+3. [`lifecycle/lifecycle-reference.md`](lifecycle/lifecycle-reference.md) — phase semantics + the **single source of truth for the verification & review model** (six mechanisms / three layers: Guardian, Agent Council, exit invariants/PLAN_VALIDATION, Heartgate, PIV, the VERIFY phase; plus the PIV-acronym disambiguation).
 4. [`reference/proposal-schema.md`](reference/proposal-schema.md) + [`reference/skill-enforcement-spec.md`](reference/skill-enforcement-spec.md) + [`reference/lifecycle-trace-table.md`](reference/lifecycle-trace-table.md) — canonical schemas.
 5. [`runtime/runtime-enforcement.md`](runtime/runtime-enforcement.md) — how Guardian + Heartgate enforce.
 6. [`guides/lifecycle-hardening/00-index.md`](guides/lifecycle-hardening/00-index.md) — readable guide to semantic packages, PIV, VERIFY/RESOLVE, runtime parity, and full-lineage audit remediation.
