@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Config Collapse — Slice 5 (validator dedup + final codification + cleanup) Implementation Plan"
+description: "Slice 5 plan to dedup validator copies, codify remaining phase-transitions grammar, and finalize the config-collapse refactor"
+tags: ["config-collapse", "validator", "dedup", "cleanup"]
+timestamp: 2026-06-16
+status: archived
+---
+
 # Config Collapse — Slice 5 (validator dedup + final codification + cleanup) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development (two-stage review per task). This slice touches IN-PROCESS ENFORCEMENT (the validator Heartgate loads + the last consumed schema grammar). Smallest steps, behavior-preserving. Suite green after every wave (baseline **504 passed, 2 skipped**).

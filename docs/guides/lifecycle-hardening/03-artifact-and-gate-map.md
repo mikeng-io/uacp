@@ -1,8 +1,9 @@
 ---
 type: guide
+title: "Artifact and Gate Map"
+description: "Shows where meaning and enforcement live per phase: machine envelopes, semantic packages, key enforcement files, fixtures, and critical invariants."
 tags: [artifact-map, gates, validator, heartgate, guardian]
-status: living-document
-canonical_authority: false
+timestamp: 2026-06-18
 ---
 
 # Artifact and Gate Map

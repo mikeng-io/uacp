@@ -1,3 +1,11 @@
+---
+type: decision
+title: UACP Decision Log
+description: Durable record of UACP operational governance decisions with rationale, status, and canonical targets; newest entries first.
+tags: [decisions, governance, operational, log]
+timestamp: 2026-06-18
+---
+
 # UACP Decision Log
 
 This file is the durable record of UACP **operational** governance decisions. Each entry records a decision, rationale, status, and canonical targets affected. Decisions are listed most-recent first within the file but ordered chronologically. This log is maintained by the document registry in `docs/INDEX.md`.

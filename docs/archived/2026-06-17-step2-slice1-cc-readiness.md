@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Step 2 · Slice 1 — Claude Code plugin readiness + convention re-grounding"
+description: "Slice 1 plan to make the UACP skills library an installable Claude Code plugin with manifest and readiness lint"
+tags: ["step2", "claude-code", "plugin", "convention"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Step 2 · Slice 1 — Claude Code plugin readiness + convention re-grounding
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

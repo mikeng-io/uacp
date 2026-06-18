@@ -1,3 +1,12 @@
+---
+type: design
+title: "UACP — Claude-Code-First Hardening & Simplification (Design)"
+description: "Design for making UACP provably work end-to-end under Claude Code with a behavioral E2E test harness"
+tags: ["claude-code", "hardening", "testing", "simplification"]
+timestamp: 2026-06-14
+status: archived
+---
+
 # UACP — Claude-Code-First Hardening & Simplification (Design)
 
 > **For Claude:** REQUIRED NEXT STEP: hand this to `superpowers:writing-plans` to produce a task-by-task implementation plan. Do not implement directly from this doc.

@@ -1,3 +1,12 @@
+---
+type: plan
+title: "`.uacp/` Namespace — Slice 2 (Relocate runtime dirs) Implementation Plan"
+description: "Slice 2 plan to relocate UACP runtime dirs (`state/`, `.outputs/`) under `.uacp/` via config-backed resolver"
+tags: ["namespace", "config-collapse", "runtime-dirs", "paths"]
+timestamp: 2026-06-15
+status: archived
+---
+
 # `.uacp/` Namespace — Slice 2 (Relocate runtime dirs) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

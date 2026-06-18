@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Step 2 · Slice 7 — OKF frontmatter alignment + council-taxonomy → reference"
+description: "Slice 7 plan to align the reference/knowledge layer to OKF frontmatter and fold `uacp-council-taxonomy` into the reference home"
+tags: ["step2", "okf", "frontmatter", "knowledge"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Step 2 · Slice 7 — OKF frontmatter alignment + council-taxonomy → reference
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

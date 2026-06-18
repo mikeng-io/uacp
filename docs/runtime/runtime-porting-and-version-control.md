@@ -1,3 +1,11 @@
+---
+type: spec
+title: Runtime Porting And Version Control
+description: UACP runtime adapter ownership policy, version-control binding authority chain, and binding sequence for current and future runtime targets.
+tags: [runtime-adapter, porting, version-control, authority-chain]
+timestamp: 2026-06-18
+---
+
 # Runtime Porting And Version Control
 
 This document defines UACP's runtime adapter ownership policy, version-control binding, and binding sequence for all current and future runtime targets.

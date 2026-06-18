@@ -1,5 +1,9 @@
 ---
 type: adr
+title: Phase 2 — structured artifact schemas with Heartgate enforcement
+description: Declare config-driven artifact schemas for scope, intent, evidence-disposition, and lessons artifacts, each enforced by Heartgate validators.
+tags: [heartgate, artifact-schemas, enforcement, config]
+timestamp: 2026-05-15
 status: accepted
 ---
 

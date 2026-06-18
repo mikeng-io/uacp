@@ -1,3 +1,12 @@
+---
+type: design
+title: "Design: CLAUDE.md and AGENTS.md for UACP Root"
+description: "Design for adding runtime instruction files at the UACP root to orient Claude Code and Codex agents"
+tags: ["claude-code", "agents", "governance", "runtime"]
+timestamp: 2026-06-09
+status: archived
+---
+
 # Design: CLAUDE.md and AGENTS.md for UACP Root
 
 **Date:** 2026-06-09  

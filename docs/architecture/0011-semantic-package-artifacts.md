@@ -1,3 +1,12 @@
+---
+type: adr
+title: Treat UACP package Markdown as semantic substrate
+description: Mandate that adaptive PROPOSE and PLAN package directories contain semantically recoverable Markdown, not placeholder stubs, so future agents can recover intent without chat history.
+tags: [markdown, semantic-substrate, packages, recoverability]
+timestamp: 2026-05-19
+status: accepted
+---
+
 # ADR 0011: Treat UACP Package Markdown as Semantic Substrate
 
 Status: accepted

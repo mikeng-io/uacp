@@ -1,3 +1,12 @@
+---
+type: design
+title: "`.uacp/` Namespace + Config Collapse (Design)"
+description: "Design for consolidating UACP's per-project footprint under `.uacp/` and collapsing 13 config YAMLs into one `uacp.toml`"
+tags: ["namespace", "config-collapse", "uacp-toml", "architecture"]
+timestamp: 2026-06-15
+status: archived
+---
+
 # `.uacp/` Namespace + Config Collapse (Design)
 
 > **For Claude:** after approval, drive via `superpowers:writing-plans` → `superpowers:subagent-driven-development`.

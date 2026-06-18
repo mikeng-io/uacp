@@ -1,3 +1,11 @@
+---
+type: spec
+title: UACP Lifecycle Reference
+description: Canonical phase semantics, transition rules, and coordination-adapter binding contract for the six-phase UACP lifecycle.
+tags: [lifecycle, phases, heartgate, triage]
+timestamp: 2026-06-18
+---
+
 # UACP Lifecycle Reference
 
 UACP governs work through a triage entry stage followed by a stable five-phase lifecycle:
@@ -87,6 +95,77 @@ Each phase should record:
 - `downstream_projection`: updates to expected complexity for later phases.
 
 Composite granularity should consider the maximum phase score, accumulated phase scores, unresolved findings carried forward, side effects, runtime/domain diversity, and coupling between phases. Composite granularity should be recalculated after each phase exit so downstream phases inherit the best current estimate.
+
+## Verification & Review Model
+
+This section is the single source of truth for how UACP verifies and reviews work. Verification in UACP is not one thing in one place — it is **six mechanisms across three layers**. They are deliberately separated so that no single mechanism can both *produce* work and *bless* it. The load-bearing rule that ties them together:
+
+> **Agent Council synthesis is evidence, not transition approval; Heartgate validates independently.**
+
+A council can fan out, critique, and synthesize, but its synthesis is consumed as an *input* to the boundary gate. Heartgate re-derives transition coherence from doctrine, artifacts, state, and the gate ledger — it does not trust the council's verdict as a pass.
+
+### Six mechanisms, three layers
+
+| Layer | Mechanism | What it DOES | What it does NOT do |
+|---|---|---|---|
+| Within-phase | **Guardian** | Per-tool-call gate. Classifies every tool call against `[guardian]` protected categories (Layer A) and per-phase `allowed_tools`/`forbidden_tools` (Layer B, from `phase_transitions.py STAGE_ALLOWED_TOOLS`/`STAGE_FORBIDDEN_TOOLS`). Blocks ungoverned writes, enforces write-containment and UACP-context invariants. Implemented in `core.py` `Guardian.evaluate`. | Does not reason about phase transitions, plan intent, or evidence sufficiency. It is a per-call admissibility check, not a lifecycle judgment. |
+| Within-phase | **Agent Council** (phase-local) | Deliberative review *inside* a phase, run in the phase's council mode (`[phases.<phase>].council_mode`). Critiques artifact quality, implementation correctness, role-specific risk, and local consistency. Answers "did this phase team do its work properly?" Synthesis is written as `kind: uacp.council_synthesis` under `verification/`. | Does **not** decide the phase transition. Council synthesis is EVIDENCE referenced by the transition artifact (`council_synthesis_artifact`); it is not a Heartgate pass. |
+| Phase exit | **Exit invariants / gate_rules (incl. PLAN_VALIDATION)** | Deterministic, structural pre-flight at phase exit. `phase_exit_invariants` (per phase, in `phase_transitions.py STAGE_PHASE_EXIT_INVARIANTS`) require the phase's artifacts + gate-ledger entries to exist. `PLAN_VALIDATION` (`gate_rules.py`) is the deterministic structural check at PLAN→EXECUTE (scope artifact parses, allowed_tools registered, write-paths ⊆ proposal side-effects, blast-radius human approval, rollback path, cluster artifacts referenced), recorded as `gate: PLAN_VALIDATION` with `result: pass`. | Explicitly **"not a council"** — no deliberation, no judgment calls. Pure structural truth: artifact present? ledger entry present? fields well-formed? It cannot weigh trade-offs or accept residual risk. |
+| Phase boundary | **Heartgate** | Per-phase-transition gate. Validates the transition artifact: transition is allowed (`exits_to`), exit invariants met, required gate-ledger predecessors present, PIV contract / execution checkpoint coherent (`_validate_adaptive_execute_evidence_gate`), council synthesis and coherence evidence referenced. **Consumes** the exit gates and council synthesis as inputs and re-derives coherence independently. Implemented in `core.py` (`uacp_heartgate_check`). | Does not perform the phase's work or duplicate phase-local code review. Does **not** rubber-stamp council verdicts — it can still block when a council passed. |
+| Cross-phase | **PIV — Phase Intent Verification** | The cross-phase spine: PLAN authors a `uacp.phase_intent_verification_contract`, EXECUTE produces evidence against it, VERIFY judges whether intent was met. Carried through the PLAN→EXECUTE→VERIFY transitions and checked at the EXECUTE→VERIFY evidence gate. | Does not replace per-phase review. It is the contract that makes "did we build what we planned?" answerable across phases, not a within-phase check. |
+| Dedicated phase | **The VERIFY phase** | The dedicated evidence-synthesis phase — the truth boundary before RESOLVE. Selects context-appropriate evidence clusters (tests, diff review, static analysis, source grounding, claim grounding, etc.) and produces the verification package that supports pass / accepted-warn / block. | Does not author or fix the work (that is EXECUTE), and does not close the run or extract lessons (that is RESOLVE). It judges; it does not remediate. |
+
+### Per-phase review map
+
+`council_mode` is read from `config/uacp.toml [phases.<phase>]`. Exit invariant/gate is from `phase_transitions.py STAGE_PHASE_EXIT_INVARIANTS` plus `gate_rules.py` for PLAN→EXECUTE. The Heartgate out-transition is the boundary Heartgate validates on phase exit.
+
+| Phase | `council_mode` | Exit invariant / gate | Heartgate out-transition |
+|---|---|---|---|
+| brainstorm | `research` (placeholder until a `brainstorm` mode exists) | scope-package artifact (`brainstorm/*/07-scope-package.yaml`) present + valid | brainstorm → triage |
+| triage | `research` | triage artifact + `TRIAGE_COMPLETE` ledger entry | triage → propose (or terminal: `direct` / `block_or_clarify`) |
+| propose | `design` | proposal artifact(s) + `TRIAGE->PROPOSE` ledger entry (package-selection when adaptive package selected) | propose → plan |
+| plan | `plan` | plan artifact + `PROPOSE->PLAN` ledger entry; **`PLAN_VALIDATION`** deterministic pre-flight (result=pass) required for PLAN→EXECUTE | plan → execute |
+| execute | `implement` | execution artifact + `PLAN->EXECUTE` ledger entry; adaptive-execute evidence gate (PIV contract + execution checkpoint coherent) for EXECUTE→VERIFY | execute → verify |
+| verify | `audit` | verification artifact + `EXECUTE->VERIFY` ledger entry | verify → resolve |
+| resolve | `resolve` | resolution artifact + `VERIFY->RESOLVE` ledger entry | resolve → terminal |
+
+The legacy post-phase-verification ledger rule (recorded as `gate: PIV`, see disambiguation below) is a deterministic 5-check self-eval that runs at the end of *every* phase before Heartgate is invoked.
+
+### Run-level graph
+
+```text
+           PIV (Phase Intent Verification): plan authors --> execute produces --> verify judges
+          ┌──────────────────────────────────────────────────────────────────────────────┐
+          │                                                                                │
+  TRIAGE ───▶ PROPOSE ───▶ PLAN ═══════════▶ EXECUTE ═══════════▶ VERIFY ───▶ RESOLVE
+   │  ▲        │  ▲         │  ▲                │  ▲                │  ▲          │  ▲
+   │  │ council│  │ council │  │ council        │  │ council        │  │ council  │  │ council   (within-phase deliberation; mode per [phases.*])
+   │  │        │  │         │  │                │  │                │  │          │  │            synthesis = EVIDENCE
+   │  ●        │  ●         │  ●                │  ●                │  ●          │  ●          exit invariants / gate_rules
+   │           │            └ PLAN_VALIDATION ──┘                  └ VERIFY = dedicated evidence-synthesis phase
+   ▼           ▼            ▼                   ▼                   ▼            ▼
+  [Heartgate] [Heartgate]  [Heartgate]        [Heartgate]         [Heartgate]  [Heartgate]   (per-transition; consumes gates + council evidence, validates independently)
+
+  ─────────────────────────── Guardian under EVERY tool call, in every phase ───────────────────────────
+```
+
+Reading the graph:
+
+- **Guardian** sits underneath every tool call in every phase (the bottom rail).
+- **Agent Council** runs *within* each phase (the `●` markers); its synthesis is evidence, never the transition decision.
+- **Exit invariants / PLAN_VALIDATION** fire at phase exit as deterministic structural pre-flight (PLAN_VALIDATION specifically guards PLAN→EXECUTE).
+- **Heartgate** sits *between* phases (the `[Heartgate]` boxes), consuming the exit gates and council evidence and re-deriving coherence on its own.
+- **PIV** spans PLAN→EXECUTE→VERIFY (the top bracket): plan authors the contract, execute produces evidence, verify judges.
+- **VERIFY** is the dedicated evidence-synthesis phase — the truth boundary before RESOLVE.
+
+### PIV disambiguation
+
+> **The acronym "PIV" collides. Two distinct mechanisms share it.**
+>
+> 1. **Phase Intent Verification** *(newer, preferred meaning)* — the PLAN-authored cross-phase contract, `kind: uacp.phase_intent_verification_contract`. PLAN declares the intent, EXECUTE produces evidence against it, VERIFY judges it. This is the cross-phase spine described above and validated at the EXECUTE→VERIFY evidence gate.
+> 2. **Legacy post-phase-verification ledger rule** *(older meaning)* — the `piv_rule` in `gate_rules.py` (checks `piv_1..piv_5`), a generic deterministic 5-check self-evaluation run at the end of *every* phase before Heartgate, recorded in the gate ledger as `gate: PIV`. It asks: artifacts produced? satisfies plan? findings classified? non-waivable invariants intact? no new unresolved findings?
+>
+> **To avoid the collision in new artifacts and prose, call mechanism (2) the `post_phase_verification_ledger` rule.** It remains recorded as `gate: PIV` in the gate ledger for backward compatibility. This is a documentation-level disambiguation only — **the code is not renamed** (the ledger gate name, the `piv_*` check ids, and `uacp.phase_intent_verification_contract` all stay as-is). The `gate_rules.py PIV_DESCRIPTION` already states this distinction at the source.
 
 ## TRIAGE
 

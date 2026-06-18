@@ -1,3 +1,12 @@
+---
+type: plan
+title: "CLAUDE.md and AGENTS.md Implementation Plan"
+description: "Task-by-task plan to create AGENTS.md and the thin CLAUDE.md adapter at the UACP repo root"
+tags: ["claude-code", "agents", "governance", "runtime"]
+timestamp: 2026-06-09
+status: archived
+---
+
 # CLAUDE.md and AGENTS.md Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

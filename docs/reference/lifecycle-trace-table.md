@@ -1,3 +1,11 @@
+---
+type: reference
+title: UACP Lifecycle Trace Table
+description: Cross-phase artifact dependency map listing required inputs, outputs, Heartgate checks, and gate-ledger entries for each phase transition.
+tags: [lifecycle, trace, artifact-dependencies, heartgate]
+timestamp: 2026-06-18
+---
+
 # UACP Lifecycle Trace Table
 
 This document is the cross-phase artifact dependency map for UACP. For each phase transition, it lists required inputs, required outputs, Heartgate checks, and the gate-ledger entry that records the transition's evaluation.

@@ -1,5 +1,9 @@
 ---
 type: adr
+title: Phase 4 — uacp_mode, autonomy-policy, escalation-event stub
+description: Wire the operating-mode framework (uacp_mode field, autonomy-policy config, escalation-event tool) as honest stubs ahead of Phase 5 kernel activation.
+tags: [autonomy, escalation, uacp-mode, stub]
+timestamp: 2026-05-16
 status: accepted
 ---
 

@@ -10,9 +10,9 @@ Lighter-weight decisions that don't warrant a full ADR. The continuous log forma
 
 ## Documents
 
-| File | Purpose |
-|---|---|
-| [decision-log.md](decision-log.md) | Continuous log of UACP operational decisions, scope adjustments, deployment-specific choices. Major architectural decisions have been promoted to ADRs (see related). |
+| Doc | Type | Purpose |
+|---|---|---|
+| [decision-log.md](decision-log.md) | decision | Continuous log of UACP operational decisions, scope adjustments, deployment-specific choices. Major architectural decisions have been promoted to ADRs (see related). |
 
 ## When to log here vs author an ADR
 

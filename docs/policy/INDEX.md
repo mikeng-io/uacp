@@ -10,11 +10,11 @@ Foundational rules that the rest of UACP descends from. These documents define *
 
 ## Documents
 
-| File | Purpose |
-|---|---|
-| [constitution.md](constitution.md) | The non-waivable invariants — authority, side-effect declaration, write containment, evidence honesty, traceability, conservative failure. |
-| [first-principles.md](first-principles.md) | The reasoning principles UACP enforces: governance vs deliberation vs coordination vs execution separation; explicit-over-implicit; mechanical-over-prose. |
-| [alignment-spec.md](alignment-spec.md) | Operator preferences and deployment-specific alignment notes (Hermes/Norty-specific sections labeled as such). |
+| Doc | Type | Purpose |
+|---|---|---|
+| [constitution.md](constitution.md) | policy | The non-waivable invariants — authority, side-effect declaration, write containment, evidence honesty, traceability, conservative failure. |
+| [first-principles.md](first-principles.md) | policy | The reasoning principles UACP enforces: governance vs deliberation vs coordination vs execution separation; explicit-over-implicit; mechanical-over-prose. |
+| [alignment-spec.md](alignment-spec.md) | policy | Operator preferences and deployment-specific alignment notes (Hermes/Norty-specific sections labeled as such). |
 
 ## Related
 

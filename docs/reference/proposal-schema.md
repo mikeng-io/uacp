@@ -1,3 +1,11 @@
+---
+type: reference
+title: UACP Proposal Schema
+description: Canonical field-level reference for the uacp.propose artifact — types, semantics, validation rules, and routing-outcome examples.
+tags: [proposal, schema, artifact, lifecycle]
+timestamp: 2026-06-18
+---
+
 # UACP Proposal Schema
 
 This document is the canonical reference for the `uacp.propose` artifact. It complements `skills/devops/uacp/uacp-propose/SKILL.md` (which is the operational instruction) by defining every field's type, semantics, validation rules, and the relationship between proposal fields and downstream artifacts.

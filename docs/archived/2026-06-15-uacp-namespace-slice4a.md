@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Config Collapse — Slice 4a (grammar schemas → code) Implementation Plan"
+description: "Slice 4a plan to move validator-enforced schemas and enums from YAML into Pydantic models in `engines/domain`"
+tags: ["config-collapse", "schemas", "pydantic", "codify"]
+timestamp: 2026-06-15
+status: archived
+---
+
 # Config Collapse — Slice 4a (grammar schemas → code) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Checkbox (`- [ ]`) tracking.

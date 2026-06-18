@@ -1,3 +1,11 @@
+---
+type: policy
+title: UACP Constitution v2.0
+description: Inviolable invariants governing all UACP skills, runtime adapters, state mutations, and lifecycle artifacts.
+tags: [constitution, governance, invariants, authority]
+timestamp: 2026-06-08
+---
+
 # UACP Constitution v2.0
 
 **Status**: Enforced  

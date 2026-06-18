@@ -1,3 +1,12 @@
+---
+type: design
+title: "Oracle Retrieval Engine — Design"
+description: "Design for a config-gated Python retrieval aggregator composing run-state lookup, semantic search, and Honcho memory"
+tags: ["oracle", "retrieval", "semantic-search", "knowledge"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Oracle Retrieval Engine — Design
 
 > Design doc C of three. A = brainstorm phase · B = lesson/knowledge corpus + distillation · **C = this**.

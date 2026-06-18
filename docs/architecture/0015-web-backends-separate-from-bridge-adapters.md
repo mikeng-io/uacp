@@ -1,7 +1,10 @@
 ---
 type: adr
+title: Web backends remain separate from bridge-* runtime adapters
+description: Keep web-evidence backends (Tavily, Firecrawl, Devin, Context7) in a dedicated uacp-web skill rather than embedding them inside each bridge-* runtime adapter.
+tags: [web-backends, bridge, uacp-web, separation-of-concerns]
+timestamp: 2026-06-08
 status: accepted
-date: 2026-06-08
 ---
 
 # Web Backends Remain Separate from Bridge-* Runtime Adapters

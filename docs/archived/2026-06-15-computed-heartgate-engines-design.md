@@ -1,3 +1,12 @@
+---
+type: design
+title: "Computed Heartgate Engines (Design)"
+description: "Design for replacing Heartgate's honor-system coherence lens with deterministic computed enforcement engines"
+tags: ["heartgate", "enforcement", "engines", "computed"]
+timestamp: 2026-06-15
+status: archived
+---
+
 # Computed Heartgate Engines (Design)
 
 > **For Claude:** after approval, drive via `superpowers:subagent-driven-development`.

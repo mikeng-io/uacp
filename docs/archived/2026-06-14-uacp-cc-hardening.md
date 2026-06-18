@@ -1,3 +1,12 @@
+---
+type: plan
+title: "UACP Claude-Code-First Hardening — Implementation Plan"
+description: "Implementation plan for a no-LLM behavioral E2E harness driving a full UACP run through Guardian and Heartgate"
+tags: ["claude-code", "hardening", "testing", "guardian"]
+timestamp: 2026-06-14
+status: archived
+---
+
 # UACP Claude-Code-First Hardening — Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

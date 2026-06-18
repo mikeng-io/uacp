@@ -1,5 +1,9 @@
 ---
 type: adr
+title: Phase 1 — mechanical pre-flight contracts (gate ledger, Layer B, phase exit invariants, PIV)
+description: Introduce the append-only gate ledger, per-phase Layer B tool allowlist, phase-exit invariants, and PIV as the mechanical pre-flight substrate for Heartgate.
+tags: [heartgate, gate-ledger, layer-b, piv]
+timestamp: 2026-05-15
 status: accepted
 ---
 

@@ -1,7 +1,10 @@
 ---
 type: adr
+title: UACP skill-authoring convention
+description: Establish a single enforced convention for the skills/ library covering directory shape, frontmatter, kind taxonomy, self-containment, and reference boundaries.
+tags: [skills, convention, self-containment, okf]
+timestamp: 2026-06-16
 status: accepted
-date: 2026-06-16
 ---
 
 # UACP Skill-Authoring Convention

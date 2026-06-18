@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Brainstorm Optional Kernel Phase — Implementation Plan"
+description: "Implementation plan to add `brainstorm` as a formal entry phase in the lifecycle graph with governed-writer access"
+tags: ["brainstorm", "lifecycle", "phase-graph", "kernel"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Brainstorm Optional Kernel Phase — Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

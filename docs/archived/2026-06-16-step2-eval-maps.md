@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Step 2 Evaluation Maps — bridge collapse + references relocation"
+description: "19-agent deep-evaluation output mapping what moves where in the bridge-collapse and references-relocation slices"
+tags: ["step2", "bridge", "references", "evaluation"]
+timestamp: 2026-06-16
+status: archived
+---
+
 # Step 2 Evaluation Maps — bridge collapse + references relocation
 
 > Read-only deep-evaluation output (19-agent workflow `step2-skill-eval`, 2026-06-16). This is the **design input** for the Step 2 implementation plan — the grounded map of what moves where, what merges, what context must survive, and the operator decisions still open. Nothing here has been executed.

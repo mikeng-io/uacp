@@ -1,3 +1,11 @@
+---
+type: policy
+title: UACP Alignment Spec
+description: Canonical artifact root layout, gate selection model, review routing alignment, and deployment-specific operator preferences.
+tags: [alignment, artifact-layout, gate-selection, deployment]
+timestamp: 2026-06-18
+---
+
 # UACP Alignment Spec
 
 This spec defines the canonical artifact root layout and generic alignment conventions for UACP. It covers artifact directory layout, gate selection model, review routing alignment, and knowledge alignment — these are generic UACP conventions that apply regardless of host runtime.

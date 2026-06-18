@@ -1,3 +1,11 @@
+---
+type: policy
+title: UACP First Principles
+description: Foundational reasoning axioms that all UACP governance, orchestration, and execution decisions derive from.
+tags: [first-principles, governance, cognitive-separation, evidence]
+timestamp: 2026-06-18
+---
+
 # UACP First Principles
 
 ## Triage First, Then Stable Phases

@@ -1,3 +1,11 @@
+---
+type: spec
+title: UACP Orchestration Model
+description: Runtime-neutral multi-agent orchestration vocabulary including Agent Council modes, tiers, and cognitive-plane separation.
+tags: [orchestration, agent-council, cognitive-planes, runtime]
+timestamp: 2026-06-18
+---
+
 # UACP Orchestration Model
 
 This document defines UACP's runtime-neutral multi-agent orchestration vocabulary. It is canonical for Agent Council, council modes, council tiers, runtime adapters, and the relationship between orchestration depth and UACP lifecycle granularity.

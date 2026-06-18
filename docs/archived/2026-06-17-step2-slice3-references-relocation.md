@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Step 2 · Slice 3 — References relocation (abolish `skills/references/`)"
+description: "Slice 3 plan to empty the top-level `skills/references/` dump by routing each doc to its correct canonical home"
+tags: ["step2", "references", "relocation", "skills"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Step 2 · Slice 3 — References relocation (abolish `skills/references/`)
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

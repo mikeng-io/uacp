@@ -1,3 +1,11 @@
+---
+type: spec
+title: UACP Worktree Isolation Protocol
+description: Protocol preventing active UACP runs from writing directly to main/master, defining workspace kinds and their lifetimes.
+tags: [worktree, isolation, branching, write-containment]
+timestamp: 2026-06-18
+---
+
 # UACP Worktree Isolation Protocol
 
 Version: 1.0  

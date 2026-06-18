@@ -1,7 +1,10 @@
 ---
 type: adr
+title: Goal-driven track — second lifecycle track for semantic/exploratory work
+description: Add a goal-driven track alongside the standard track so semantic/exploratory work is governable under the same lifecycle without forking the phase graph.
+tags: [goal-driven, lifecycle, tracks, exploratory]
+timestamp: 2026-06-16
 status: accepted
-date: 2026-06-16
 ---
 
 # Goal-Driven Track: A Second Lifecycle Track for Semantic / Exploratory Work

@@ -1,9 +1,9 @@
 ---
-type: index
-tags: [index, arc42, architecture]
-status: living-document
-arc42_version: "8.0"
-project_version: post-phase-4
+type: reference
+title: "UACP ARC42 Architecture Documentation Index"
+description: "ARC42-structured index mapping each architecture section to its authoritative UACP document, with honesty notes where ARC42 sections don't map cleanly to a governance framework."
+tags: [arc42, architecture, reference, index]
+timestamp: 2026-05-17
 ---
 
 # UACP ARC42 Architecture Documentation Index

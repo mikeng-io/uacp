@@ -1,7 +1,9 @@
 ---
 type: reference
+title: Operator Phase-Return Schema
+description: Presentation contract for operator phase summaries — conclusion-first summaries with evidence pointers, not raw data dumps.
 tags: [operator-interface, presentation, schema, lifecycle]
-status: canonical
+timestamp: 2026-06-18
 ---
 
 # Operator Phase-Return Schema

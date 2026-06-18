@@ -1,3 +1,11 @@
+---
+type: spec
+title: UACP Runtime Integration Guide
+description: Complete specification for building a UACP-aware runtime adapter — schemas, hooks, tool registrations, policy loading, binding sequence, and audit requirements.
+tags: [runtime-adapter, integration, guardian, heartgate]
+timestamp: 2026-06-18
+---
+
 # UACP Runtime Integration Guide
 
 This guide specifies everything a runtime implementer must build to integrate a new agent runtime with the Universal Agent Control Plane (UACP). A runtime adapter is a thin, runtime-specific translation layer that receives events from the host runtime, normalizes them into UACP's runtime-neutral schemas, routes them through Guardian and Heartgate, and returns decisions in the form the host runtime expects. This document covers the adapter authority model, required schemas, hook and tool registrations, policy loading, binding procedure, audit requirements, and common implementation pitfalls. It is written for implementers who are not familiar with any existing adapter.
