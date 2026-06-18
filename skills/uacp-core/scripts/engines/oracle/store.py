@@ -1,11 +1,14 @@
 """Vector+FTS store behind a thin interface for the Oracle semantic leg.
 
 LanceDB is the default backend; sqlite-vec + FTS5 is the documented lighter
-swap-in behind the SAME interface (brute-force KNN suffices there). The store
-dep is OPTIONAL + lazily imported — ``available()`` is the single gate the
-resolver/pipeline checks before using the semantic legs. The index lives at
-``.uacp/knowledge/indexes/`` and is DERIVED/REBUILDABLE from the OKF corpus
-files. Never raises on a missing dep: ``available()`` returns ``False``.
+swap-in behind the SAME interface (brute-force KNN suffices there).
+``alibaba/zvec`` (an embedded C++ vector DB, Apache-2.0, with dense + FTS +
+hybrid search built in) is another candidate to evaluate behind this same
+``VectorStore`` protocol once it matures. The store dep is OPTIONAL + lazily
+imported — ``available()`` is the single gate the resolver/pipeline checks
+before using the semantic legs. The index lives at ``.uacp/knowledge/indexes/``
+and is DERIVED/REBUILDABLE from the OKF corpus files. Never raises on a missing
+dep: ``available()`` returns ``False``.
 
 No top-level ``import lancedb`` — it is resolved lazily inside ``_lancedb()`` so
 the FLOOR (keyword + structured + BES, zero ML deps) imports and runs clean.
@@ -81,11 +84,64 @@ class LanceDBStore:
     def _open_table(self) -> Any:
         return self._conn().open_table(self.table)
 
+    def _table_names(self) -> Any:
+        return self._conn().table_names()
+
     def upsert(self, rows: list[dict[str, Any]]) -> None:
-        # Full index build/add is the hybrid-pipeline task's concern; the lazy
-        # connection + native FTS index land there. The dep-gate is enforced here.
-        self._conn()
-        raise StoreUnavailable("lancedb upsert not yet implemented (semantic build task)")
+        """Populate (or refresh) the corpus table from ``rows`` and ensure FTS.
+
+        Behaviour:
+          * Empty ``rows`` is a no-op (nothing to build).
+          * If the table does NOT exist, it is created from ``rows`` — LanceDB
+            infers the Arrow schema (incl. the ``vector`` fixed-size-list dim)
+            from the data, exactly like the e2e harness's ``create_table``.
+          * If the table EXISTS, rows are upserted by ``id`` via
+            ``merge_insert("id")`` (update-matched + insert-not-matched), i.e.
+            true upsert-by-id semantics: re-indexing the same corpus replaces
+            each item in place rather than appending duplicates.
+          * After populating, the native FTS index on the ``text`` column is
+            (re)built so ``fts_search`` works. Index creation is wrapped to be
+            idempotent across LanceDB versions (older builds raise if an index
+            already exists; we fall back to ``replace=True`` then swallow).
+
+        Dep-gated: ``_conn()`` raises ``StoreUnavailable`` when lancedb is absent.
+        """
+        if not rows:
+            return
+        db = self._conn()
+
+        if self.table in self._table_names():
+            table = db.open_table(self.table)
+            # True upsert-by-id: update rows whose id matches, insert the rest.
+            (
+                table.merge_insert("id")
+                .when_matched_update_all()
+                .when_not_matched_insert_all()
+                .execute(rows)
+            )
+        else:
+            # Infer schema (incl. vector dim) from the first row's data.
+            table = db.create_table(self.table, data=rows)
+
+        self._ensure_fts_index(table)
+
+    @staticmethod
+    def _ensure_fts_index(table: Any) -> None:
+        """Build the native FTS index on ``text`` idempotently across versions."""
+        try:
+            table.create_fts_index("text", replace=True)
+            return
+        except TypeError:
+            # Older LanceDB: no ``replace`` kwarg.
+            pass
+        except Exception:
+            # Some versions raise when the index already exists; that's fine.
+            return
+        try:
+            table.create_fts_index("text")
+        except Exception:
+            # Index already present (or unsupported) — leave the existing one.
+            pass
 
     def dense_search(self, vector: list[float], k: int) -> list[dict[str, Any]]:
         table = self._open_table()

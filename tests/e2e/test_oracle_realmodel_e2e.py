@@ -181,7 +181,6 @@ def rerank_model() -> CrossEncoder:
 @pytest.fixture(scope="module")
 def lance_store(tmp_path_factory: pytest.TempPathFactory, embed_model: SentenceTransformer):
     index_path = tmp_path_factory.mktemp("oracle-index")
-    db = lancedb.connect(str(index_path))
 
     vectors = embed_model.encode([d["text"] for d in _CORPUS], normalize_embeddings=True)
     rows = []
@@ -190,12 +189,12 @@ def lance_store(tmp_path_factory: pytest.TempPathFactory, embed_model: SentenceT
         row["vector"] = [float(x) for x in vec]
         rows.append(row)
 
-    table = db.create_table("corpus", data=rows)
-    table.create_fts_index("text")  # native FTS -> store.fts_search works for real
-
-    # The store object the pipeline/tests drive (real LanceDBStore).
+    # Drive the REAL LanceDBStore.upsert (create-from-rows + native FTS index),
+    # closing the gap this module used to paper over with a hand-built
+    # create_table()/create_fts_index() — that build path now exists in code.
     store = get_store("lancedb", index_path=str(index_path))
     assert store.available()
+    store.upsert(rows)
     return store
 
 
