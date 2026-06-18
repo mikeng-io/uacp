@@ -2,11 +2,11 @@
 
 Save **two** artifacts per run.
 
-## 1. JSON log — conforms to Gate 1 schema
+## 1. JSON log
 
 Path: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.json`
 
-This file is the authoritative proof-of-execution artifact and MUST conform to `.agents/skills/state/schemas/gate_1_debate_log.schema.json` (v1.0). It is consumed by `record_gate_1_result`, which parses it and derives `challenge_stats` / `finding_summary` from its message counts — downstream callers do not recompute these.
+This file is the authoritative proof-of-execution artifact for a debate run; the required-fields list below **is** its contract. (A formal JSON-Schema file and an automated consumer are not built today — if added later, they belong under this skill's own `references/`/`schemas/`, not a centralized state location.)
 
 Required top-level fields:
 - `schema_version: "1.0"`
