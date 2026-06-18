@@ -1,11 +1,3 @@
----
-type: guide
-title: Claude Code / Kimi Code PreToolUse Guardian Hook
-description: Install and operate the UACP Guardian PreToolUse companion that brings runtime tool-call enforcement to Claude Code and Kimi Code — defense-in-depth atop the authoritative MCP governed handlers.
-tags: [guardian, hook, claude-code, kimi-code, enforcement, runtime]
-timestamp: 2026-06-18
----
-
 # Claude Code / Kimi Code PreToolUse Guardian Hook
 
 This guide documents the UACP Guardian **PreToolUse hook companion** — a CLI shim

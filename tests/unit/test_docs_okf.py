@@ -26,6 +26,29 @@ DOCS_DIR = REPO_ROOT / "docs"
 
 VALID_TYPES = {"adr", "policy", "spec", "reference", "guide", "plan", "design", "decision"}
 
+# The allowed top-level governance taxonomy under docs/. A new top-level category
+# must be a deliberate change (update this set AND the policy in CONTRIBUTING.md
+# "Documentation — what belongs in docs/"), never an ad-hoc drop.
+ALLOWED_SUBDIRS = {
+    "policy",
+    "lifecycle",
+    "runtime",
+    "reference",
+    "architecture",
+    "decisions",
+    "guides",
+    "plans",
+    "archived",
+}
+
+# Per-subdir type constraints (only where the policy makes it unambiguous).
+# docs/runtime/ holds runtime-NEUTRAL normative contracts (type: spec). A runtime
+# how-to (type: guide — install/wire a specific runtime) belongs with the adapter
+# (runtime-adapters/<x>/README.md), NOT in docs/. See CONTRIBUTING.md.
+SUBDIR_ALLOWED_TYPES = {
+    "runtime": {"spec"},
+}
+
 # Minimum expected doc count — guards against an empty glob silently vacuousing the suite.
 # There are 69 docs in docs/ as of the doc-architecture-refresh branch.
 MIN_DOC_COUNT = 60
@@ -38,6 +61,11 @@ def _docs_okf_files() -> list[Path]:
         for p in DOCS_DIR.rglob("*.md")
         if p.name != "INDEX.md"
     )
+
+
+def _all_docs_markdown() -> list[Path]:
+    """Every *.md under docs/ (including INDEX.md) — for location/placement checks."""
+    return sorted(DOCS_DIR.rglob("*.md"))
 
 
 # ---------------------------------------------------------------------------
@@ -107,4 +135,54 @@ def test_docs_okf_frontmatter_present_and_valid(doc: Path) -> None:
     )
     assert isinstance(fm["description"], str) and fm["description"].strip(), (
         f"{rel}: 'description' must be a non-empty string"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Placement policy: allowed subdirs + per-subdir type constraints
+# (mechanical enforcement of CONTRIBUTING.md "what belongs in docs/")
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "doc",
+    _all_docs_markdown(),
+    ids=lambda p: str(p.relative_to(DOCS_DIR)),
+)
+def test_docs_file_in_allowed_subdir(doc: Path) -> None:
+    """Every docs/*.md is a top-level file (e.g. INDEX.md, arc42-index.md) or lives
+    under an allowed governance subdir. Blocks ad-hoc new categories and
+    runtime/skill/corpus material being dropped into docs/."""
+    rel = doc.relative_to(DOCS_DIR)
+    if len(rel.parts) == 1:
+        return  # top-level docs/ file — allowed
+    top = rel.parts[0]
+    assert top in ALLOWED_SUBDIRS, (
+        f"docs/{rel}: '{top}/' is not an allowed docs/ subdirectory "
+        f"{sorted(ALLOWED_SUBDIRS)}. Runtime/skill/corpus material does not belong "
+        f"in docs/ — see CONTRIBUTING.md 'what belongs in docs/'."
+    )
+
+
+@pytest.mark.parametrize(
+    "doc",
+    _docs_okf_files(),
+    ids=lambda p: str(p.relative_to(REPO_ROOT)),
+)
+def test_docs_subdir_type_constraint(doc: Path) -> None:
+    """Subdirs with a pinned type set only accept those types. docs/runtime/ holds
+    runtime-NEUTRAL specs; a runtime how-to (type: guide) belongs with the adapter,
+    not in docs/runtime/."""
+    rel = doc.relative_to(DOCS_DIR)
+    if len(rel.parts) < 2:
+        return
+    top = rel.parts[0]
+    allowed = SUBDIR_ALLOWED_TYPES.get(top)
+    if allowed is None:
+        return
+    fm = yaml.safe_load(doc.read_text(encoding="utf-8").split("---", 2)[1])
+    assert fm.get("type") in allowed, (
+        f"docs/{rel}: type {fm.get('type')!r} not allowed in docs/{top}/ "
+        f"(allowed: {sorted(allowed)}). A runtime-specific how-to belongs in "
+        f"runtime-adapters/, not docs/runtime/ — see CONTRIBUTING.md."
     )

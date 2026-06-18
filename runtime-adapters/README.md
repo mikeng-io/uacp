@@ -1,11 +1,3 @@
----
-type: guide
-title: Installing the UACP Plugin in Claude Code
-description: Step-by-step guide to installing UACP as a Claude Code plugin via the marketplace, including MCP server setup and enforcement notes.
-tags: [install, plugin, claude-code, marketplace, mcp, guardian]
-timestamp: 2026-06-18
----
-
 # Installing the UACP Plugin in Claude Code
 
 UACP ships as a first-class Claude Code plugin. Installing it wires up 17 skills,
@@ -68,7 +60,7 @@ the call proceeds, because the MCP governed handlers provide the authoritative
 containment.
 
 For Kimi Code, use the Kimi installer documented in
-[cc-kimi-pretooluse-hook.md](cc-kimi-pretooluse-hook.md).
+[hooks/README.md](hooks/README.md).
 
 ## Verifying the install
 
