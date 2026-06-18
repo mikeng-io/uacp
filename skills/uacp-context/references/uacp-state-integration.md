@@ -1,9 +1,9 @@
 # Phase 2: Read Active UACP State
 
-If `uacp-state` is available and `state/current.yaml` exists, read it to enrich context:
+If `uacp-state` is available and `.uacp/state/current.yaml` exists, read it to enrich context:
 
 ```bash
-cat state/current.yaml
+cat .uacp/state/current.yaml
 ```
 
 Merge relevant fields into context:

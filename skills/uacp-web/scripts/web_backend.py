@@ -19,7 +19,7 @@ from typing import Any
 
 # Prefer Pydantic v2; fall back to v1 for compatibility.
 try:
-    from pydantic import BaseModel, Field, field_validator
+    from pydantic import BaseModel, Field
 except Exception as exc:  # pragma: no cover
     raise ImportError("Pydantic is required for web_backend") from exc
 

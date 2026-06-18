@@ -44,4 +44,4 @@ Read: [skills-root]/uacp-core/references/council-taxonomy.md
 5. **Synthesize** — read `phase-7-synthesis.md` to merge outputs and apply verdicts.
 6. **Save** — read `phase-8-artifact.md` and write the artifact to `.uacp/councils/`.
 
-Also read `modes.md`, `finding-driven-mode.md`, `tier-reference.md`, `devils-advocate.md`, and `integration-checker.md` before constructing role prompts or interpreting results.
+Also read `references/modes.md`, `references/finding-driven-mode.md`, `references/tier-reference.md`, `experts/devils-advocate.md`, and `experts/integration-checker.md` before constructing role prompts or interpreting results.
