@@ -12,7 +12,7 @@ Run challenge rounds up to `max_rounds`. Each round:
 
 ## Challenge Message Format
 
-Send via Task agent communication (embed in follow-up Task prompts):
+Send via sub-agent communication (embed in follow-up sub-agent prompts):
 
 ```json
 {
@@ -37,7 +37,7 @@ Send via Task agent communication (embed in follow-up Task prompts):
 ## Challenge Loop
 
 Repeat for up to `max_rounds` rounds:
-1. Spawn DA Task agent with all current findings + challenge obligations
+1. Spawn DA sub-agent with all current findings + challenge obligations
 2. Spawn all other participants with challenges directed at them
 3. Collect responses
 4. Update finding states

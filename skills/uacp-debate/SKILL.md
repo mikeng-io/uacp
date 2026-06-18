@@ -54,7 +54,7 @@ Run the phases below in order. At each phase, Read the corresponding reference f
 
 ### Execution
 
-4. **Phase 1 — Independent Investigation:** Read `references/phase-1-investigation.md`. Spawn one domain expert per domain (from `uacp-core/references/domains/`), one Devil's Advocate, and one Integration Checker in isolated parallel Task agents. No participant sees another's work.
+4. **Phase 1 — Independent Investigation:** Read `references/phase-1-investigation.md`. Spawn one domain expert per domain (from `uacp-core/references/domains/`), one Devil's Advocate, and one Integration Checker in isolated, concurrent sub-agents (via the runtime's native sub-agent dispatch — see `uacp-bridge`). No participant sees another's work.
 5. **Phase 2 — Finding Publication:** Read `references/phase-2-publication.md`. Collect findings, assign unique IDs (F001, F002, ...), and broadcast the complete inventory to all participants. No responses yet.
 6. **Phase 3 — Challenge Round:** Read `references/phase-3-challenge.md`. Run up to `max_rounds` of adversarial challenge. Devil's Advocate MUST challenge every CRITICAL/HIGH finding not originated by DA. Valid challenges must identify a missing assumption, propose an alternative explanation, or surface a non-applicability scenario.
 7. **Phase 4 — Synthesis:** Read `references/phase-4-synthesis.md`. Merge findings with >70% description overlap, update states (`confirmed`, `withdrawn`, `disputed`, `merged`, `discovered`), and resolve cross-domain duplicates.
@@ -67,9 +67,11 @@ Load these before spawning Phase 1 participants:
 - `experts/devils-advocate.md` — adversarial challenge obligations, valid challenge types, and message formats
 - `experts/integration-checker.md` — cross-domain coupling checks and integration-specific response guidance
 
-## Fallback and Packet Contracts
+## Dispatch and Packet Contracts
 
-- If TeamCreate is unavailable, Read `references/fallback-mode.md` and run parallel Task sub-agents. Emit `"mode": "adversarial_subagents"` and omit or null `team_session_id`. Never label a fallback run as `"mode": "debate"`.
+- **Default path:** run the protocol on the runtime's native sub-agent dispatch (see `uacp-bridge`). Read `references/fallback-mode.md` for the per-phase sub-agent flow. Emit `"mode": "independent_subagents"` and omit `session_id`.
+- **Optional enhancement:** if the runtime offers a shared live multi-agent session (Claude Code TeamCreate / Hermes·Kimi Swarm), it MAY use that for richer multi-turn exchange. When one is used, emit `"mode": "shared_session"` and record its `session_id`.
+- `mode` records WHICH mechanism actually ran — neither is "the real one"; both must honestly reflect what happened.
 - For nested councils or auditability requirements, Read `references/packet-contract.md` for `CouncilTaskPacket`, `ExchangeEnvelope`, and brainstorm proposal schemas. Round 1 discovery/brainstorm must use `context_policy: minimal-non-leading`.
 
 ## Output
@@ -80,7 +82,7 @@ Save two artifacts per run. Read `references/artifact-output.md` for the full fi
   - MUST carry the fields defined in `references/artifact-output.md` (the authoritative debate-log contract).
 - Markdown summary: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md`
 
-Do not fabricate participant voices. Every `messages[]` entry must correspond to a real Task-agent or TeamCreate-session message that actually happened.
+Do not fabricate participant voices. Every `messages[]` entry must correspond to a real sub-agent (or shared-session) message that actually happened.
 
 ## Integration Notes
 
@@ -93,8 +95,8 @@ Do not fabricate participant voices. Every `messages[]` entry must correspond to
 
 Before finishing a debate run, confirm:
 - [ ] `review_id` is set and consistent across both artifacts
-- [ ] `mode` is correctly labelled (`debate` vs `adversarial_subagents`)
-- [ ] `team_session_id` matches the TeamCreate session when `mode: debate`
+- [ ] `mode` honestly records which mechanism ran (`independent_subagents` vs `shared_session`)
+- [ ] `session_id` matches the shared live session when one was used (absent otherwise)
 - [ ] `messages[]` contains only real participant messages
 - [ ] JSON log carries all fields defined in `references/artifact-output.md`
 - [ ] Markdown frontmatter includes all required fields

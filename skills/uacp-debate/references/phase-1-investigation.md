@@ -2,7 +2,7 @@
 
 **Rationale:** Isolation prevents anchoring bias. If experts see each other's findings first, they pattern-match and corroborate rather than independently discover. Phase 1 ensures each participant forms their view from the evidence alone — not from social agreement with the first finding published.
 
-Spawn all participants in parallel using Task tool. Each receives the same `scope` and `context_summary` but NO communication with other participants.
+Spawn all participants in parallel using the runtime's sub-agent dispatch (see `uacp-bridge`). Each receives the same `scope` and `context_summary` but NO communication with other participants.
 
 ## Participant Roster
 
