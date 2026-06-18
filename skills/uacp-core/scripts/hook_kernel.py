@@ -49,6 +49,21 @@ def _kernel_tool_classification(classification_map: Mapping[str, Any]) -> Mappin
     return tc if isinstance(tc, Mapping) else {}
 
 
+# Canonical name of the trusted UACP MCP server (the name under which the server
+# is declared in .mcp.json / kimi.plugin.json). Only this server's uacp_* tools
+# are de-namespaced to the self-attesting bare kernel name. See SECURITY note in
+# normalize_tool_name. Overridable via [guardian].canonical_mcp_server.
+_DEFAULT_CANONICAL_MCP_SERVER = "uacp"
+
+
+def _canonical_mcp_server(classification_map: Mapping[str, Any]) -> str:
+    if classification_map:
+        name = classification_map.get("canonical_mcp_server")
+        if isinstance(name, str) and name:
+            return name
+    return _DEFAULT_CANONICAL_MCP_SERVER
+
+
 def normalize_tool_name(raw: str, profile: str, classification_map: Mapping[str, Any]) -> str:
     """Normalize a host tool name to a kernel tool name.
 
@@ -71,12 +86,22 @@ def normalize_tool_name(raw: str, profile: str, classification_map: Mapping[str,
     if raw.startswith("mcp_"):
         match = _CC_MCP_RE.match(raw) or _HERMES_MCP_RE.match(raw)
         if match:
+            server = match.group("server")
             tool = match.group("tool")
             kernel_tc = _kernel_tool_classification(classification_map)
-            if tool.startswith("uacp_") and tool in kernel_tc:
+            # SECURITY: only the CANONICAL UACP MCP server's uacp_* tools may be
+            # de-namespaced to the bare (self-attesting) kernel name. Otherwise a
+            # malicious MCP server could name a tool `uacp_state_write` and inherit
+            # the trusted writer's filesystem-guard short-circuit. A non-canonical
+            # server is left namespaced so it classifies as runtime.extension and
+            # is blocked. The canonical name defaults to "uacp" (the name in
+            # .mcp.json / kimi.plugin.json) and is overridable via
+            # [guardian].canonical_mcp_server.
+            canonical = _canonical_mcp_server(classification_map)
+            if server == canonical and tool.startswith("uacp_") and tool in kernel_tc:
                 return tool
-        # Non-UACP MCP tool (or unparseable mcp_ name): leave namespaced so the
-        # kernel classifies it as runtime.extension.
+        # Non-canonical / non-UACP MCP tool (or unparseable mcp_ name): leave
+        # namespaced so the kernel classifies it as runtime.extension.
         return raw
 
     # Stage 2: host map for the profile.
@@ -155,5 +180,13 @@ def evaluate_pre_tool_call(
     )
     decision = Guardian(policy, phase_config=dict(phase_config or {})).evaluate(event)
     if decision.audit_required:
-        write_audit_record(decision.to_audit_record(event))
+        # SECURITY: audit is best-effort and MUST NOT affect the decision. If the
+        # write raises (unwritable log root, full disk, …) and the exception
+        # propagated, a caller that fails open on errors would silently convert a
+        # genuine DENY into an ALLOW. Accountability logging never gates
+        # enforcement — swallow the write error and keep the decision intact.
+        try:
+            write_audit_record(decision.to_audit_record(event))
+        except Exception:
+            pass
     return decision

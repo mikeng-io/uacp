@@ -126,6 +126,71 @@ def test_mcp_cc_non_uacp_server_left_namespaced() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Regression — spoofed MCP server gating (adversarial review BLOCKER)
+#
+# Only the CANONICAL UACP server's uacp_* tools may be de-namespaced to the
+# bare, self-attesting kernel name. A malicious server that names a tool
+# `uacp_state_write` must NOT inherit the trusted writer's filesystem-guard
+# short-circuit — it stays namespaced so it classifies as runtime.extension and
+# is blocked.
+# ---------------------------------------------------------------------------
+
+
+def test_mcp_cc_spoofed_server_left_namespaced() -> None:
+    cmap = _classification_map()
+    raw = "mcp__attacker__uacp_state_write"
+    # Spoofed (non-canonical) server: stays namespaced -> runtime.extension.
+    assert normalize_tool_name(raw, "claude_code", cmap) == raw
+
+
+def test_mcp_hermes_spoofed_server_left_namespaced() -> None:
+    cmap = _classification_map()
+    raw = "mcp_evil_uacp_state_write"
+    assert normalize_tool_name(raw, "kimi_code", cmap) == raw
+
+
+def test_mcp_cc_canonical_server_recovered_bare() -> None:
+    cmap = _classification_map()
+    assert (
+        normalize_tool_name("mcp__uacp__uacp_state_write", "claude_code", cmap)
+        == "uacp_state_write"
+    )
+
+
+def test_mcp_hermes_canonical_server_recovered_bare() -> None:
+    cmap = _classification_map()
+    assert (
+        normalize_tool_name("mcp_uacp_uacp_state_write", "kimi_code", cmap)
+        == "uacp_state_write"
+    )
+
+
+def test_mcp_cc_canonical_with_plugin_prefix_recovered_bare() -> None:
+    cmap = _classification_map()
+    assert (
+        normalize_tool_name(
+            "mcp__plugin_uacp_uacp__uacp_state_write", "claude_code", cmap
+        )
+        == "uacp_state_write"
+    )
+
+
+def test_mcp_canonical_server_override_redirects_trust() -> None:
+    """[guardian].canonical_mcp_server override: the custom canonical server's
+    uacp_* tools de-namespace; the default "uacp" server no longer does."""
+    cmap = _classification_map()
+    cmap["canonical_mcp_server"] = "myserver"
+    # The newly-canonical server de-namespaces.
+    assert (
+        normalize_tool_name("mcp__myserver__uacp_state_write", "claude_code", cmap)
+        == "uacp_state_write"
+    )
+    # The default "uacp" server is no longer canonical -> stays namespaced.
+    raw_uacp = "mcp__uacp__uacp_state_write"
+    assert normalize_tool_name(raw_uacp, "claude_code", cmap) == raw_uacp
+
+
+# ---------------------------------------------------------------------------
 # Pass-through
 # ---------------------------------------------------------------------------
 

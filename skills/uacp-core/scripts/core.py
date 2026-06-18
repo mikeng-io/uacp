@@ -516,7 +516,7 @@ class Guardian:
         args = event.tool_args or {}
         paths: list[str] = []
         context_paths: list[Path] = []
-        for key in ("path", "file_path", "target_path", "workdir", "cwd", "workspace"):
+        for key in ("path", "file_path", "target_path", "notebook_path", "workdir", "cwd", "workspace"):
             value = args.get(key) or (event.workspace if key == "workspace" else "")
             if isinstance(value, str) and value:
                 paths.append(value)

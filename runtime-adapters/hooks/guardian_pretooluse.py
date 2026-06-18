@@ -203,16 +203,23 @@ def main(argv: list[str] | None = None) -> int:
         # root as a UACP-binding signal. A host runtime's cwd is frequently the
         # repo root itself — which for a UACP-governed repo IS the UACP root — so
         # forwarding cwd-as-workspace would make EVERY ordinary edit look
-        # UACP-bound and block it. Instead, bind on the THING being acted on: set
-        # workspace to the parent dir of the primary path arg, falling back to the
-        # payload cwd. A write/edit/shell targeting the governed .uacp/ namespace
-        # still binds (its target path is under root) and is hard-blocked; an
-        # ordinary edit of a project file outside .uacp/ does not bind and defers
-        # to the runtime's normal approval. The kernel's file_path/command-based
-        # .uacp/ detection is independent of workspace, so governed blocks hold.
+        # UACP-bound. Instead, bind on the THING being acted on: set workspace to
+        # the parent dir of the primary path arg, falling back to the payload cwd.
+        #
+        # IMPORTANT — this only governs the NO-ACTIVE-RUN case. Once a run is
+        # active, the kernel's `is_uacp_bound` short-circuits on the presence of
+        # uacp_run_id/uacp_phase (injected just above), so EVERY host write/exec
+        # (Edit/Write/Bash) is UACP-bound and blocked for missing UACP context —
+        # regardless of this workspace value. That is intended: native host tools
+        # carry no UACP context, so during a governed run they must route through
+        # the uacp_* governed writers (or the MCP server). The workspace rebind
+        # matters only outside a run, where it lets an ordinary project-file edit
+        # defer to the runtime's normal approval while a write targeting the
+        # governed .uacp/ namespace still hard-blocks (its target path is under
+        # root, detected independently of workspace).
         if "workspace" not in tool_args:
             primary = ""
-            for key in ("file_path", "path", "target_path"):
+            for key in ("file_path", "path", "target_path", "notebook_path"):
                 value = tool_args.get(key)
                 if isinstance(value, str) and value:
                     primary = value
