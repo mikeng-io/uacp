@@ -19,16 +19,16 @@ def _make_heartgate(uacp_root: Path) -> Heartgate:
     """Construct Heartgate with the real signature: Heartgate(config, *, uacp_root=None).
     governed_root is derived internally as uacp_root/.uacp — do NOT pass governed_root=.
 
-    Disables piv_rule.ledger_required so the test focuses on the brainstorm
-    exit-invariant (scope-package glob) rather than PIV ledger presence.
-    The piv_rule is a separate concern; its non-vacuousness is tested in
-    test_gate_rules_model.py::test_piv_rule_fires_when_block_absent.
+    Disables ppv_rule.ledger_required so the test focuses on the brainstorm
+    exit-invariant (scope-package glob) rather than PPV ledger presence.
+    The ppv_rule is a separate concern; its non-vacuousness is tested in
+    test_gate_rules_model.py::test_ppv_rule_fires_when_block_absent.
     """
     loaded = load_phase_transitions(REPO_ROOT)
     assert loaded.error is None
     config = dict(loaded.value or {})
-    # Opt out of piv_rule enforcement for this test (mirrors the conftest fixture approach).
-    config["piv_rule"] = {"ledger_required": False}
+    # Opt out of ppv_rule enforcement for this test (mirrors the conftest fixture approach).
+    config["ppv_rule"] = {"ledger_required": False}
     return Heartgate(config, uacp_root=uacp_root)
 
 

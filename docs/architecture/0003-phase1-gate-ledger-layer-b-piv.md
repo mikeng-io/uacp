@@ -65,6 +65,6 @@ Chosen option: **Option 1**. Phase 1 ships the kernel-level machinery; Phase 2 b
 ## References
 
 - Implementation commit: `49d8929`.
-- Kernel: `runtime-adapters/hermes/plugins/uacp_guardian/kernel.py` (`_validate_phase_exit_invariants`, `_validate_piv_record`).
+- Kernel: `runtime-adapters/hermes/plugins/uacp_guardian/kernel.py` (`_validate_phase_exit_invariants`, `_validate_ppv_record`).
 - Adapter: `runtime-adapters/hermes/plugins/uacp_guardian/__init__.py` (`_handle_uacp_gate_ledger_append`).
-- Config: `config/phase-transitions.yaml#stages` (Layer B), `config/phase-transitions.yaml#piv_rule`.
+- Config: `config/phase-transitions.yaml#stages` (Layer B), `config/phase-transitions.yaml#ppv_rule`.

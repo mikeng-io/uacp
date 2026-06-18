@@ -129,7 +129,7 @@ A council can fan out, critique, and synthesize, but its synthesis is consumed a
 | verify | `audit` | verification artifact + `EXECUTE->VERIFY` ledger entry | verify → resolve |
 | resolve | `resolve` | resolution artifact + `VERIFY->RESOLVE` ledger entry | resolve → terminal |
 
-The legacy post-phase-verification ledger rule (recorded as `gate: PIV`, see disambiguation below) is a deterministic 5-check self-eval that runs at the end of *every* phase before Heartgate is invoked.
+The legacy post-phase-verification ledger rule (recorded as `gate: PPV`, see disambiguation below) is a deterministic 5-check self-eval that runs at the end of *every* phase before Heartgate is invoked.
 
 ### Run-level graph
 
@@ -158,14 +158,14 @@ Reading the graph:
 - **PIV** spans PLAN→EXECUTE→VERIFY (the top bracket): plan authors the contract, execute produces evidence, verify judges.
 - **VERIFY** is the dedicated evidence-synthesis phase — the truth boundary before RESOLVE.
 
-### PIV disambiguation
+### PIV vs PPV disambiguation
 
-> **The acronym "PIV" collides. Two distinct mechanisms share it.**
+> **The acronym "PIV" historically collided with a second mechanism. The collision is now resolved by a rename: the legacy mechanism uses the `ppv` token (PPV), and "PIV" now means Phase Intent Verification only.**
 >
-> 1. **Phase Intent Verification** *(newer, preferred meaning)* — the PLAN-authored cross-phase contract, `kind: uacp.phase_intent_verification_contract`. PLAN declares the intent, EXECUTE produces evidence against it, VERIFY judges it. This is the cross-phase spine described above and validated at the EXECUTE→VERIFY evidence gate.
-> 2. **Legacy post-phase-verification ledger rule** *(older meaning)* — the `piv_rule` in `gate_rules.py` (checks `piv_1..piv_5`), a generic deterministic 5-check self-evaluation run at the end of *every* phase before Heartgate, recorded in the gate ledger as `gate: PIV`. It asks: artifacts produced? satisfies plan? findings classified? non-waivable invariants intact? no new unresolved findings?
+> 1. **PIV — Phase Intent Verification** *(the only current meaning of "PIV")* — the PLAN-authored cross-phase contract, `kind: uacp.phase_intent_verification_contract`. PLAN declares the intent, EXECUTE produces evidence against it, VERIFY judges it. This is the cross-phase spine described above and validated at the EXECUTE→VERIFY evidence gate. Its artifacts (`plans/{run_id}-piv.yaml`, `verification/{run_id}-piv-assessment.yaml`) keep the `piv` token — they are the contract, not the legacy ledger rule.
+> 2. **PPV — Legacy post-phase-verification ledger rule** *(renamed from `piv` to `ppv`)* — the `ppv_rule` in `gate_rules.py` (checks `ppv_1..ppv_5`, field `ppv_attempt`), a generic deterministic 5-check self-evaluation run at the end of *every* phase before Heartgate, recorded in the gate ledger as `gate: PPV`. It asks: artifacts produced? satisfies plan? findings classified? non-waivable invariants intact? no new unresolved findings?
 >
-> **To avoid the collision in new artifacts and prose, call mechanism (2) the `post_phase_verification_ledger` rule.** It remains recorded as `gate: PIV` in the gate ledger for backward compatibility. This is a documentation-level disambiguation only — **the code is not renamed** (the ledger gate name, the `piv_*` check ids, and `uacp.phase_intent_verification_contract` all stay as-is). The `gate_rules.py PIV_DESCRIPTION` already states this distinction at the source.
+> **The rename.** This mechanism (2) was previously named `piv_rule` / `piv_1..piv_5` / `gate: PIV`, which collided with Phase Intent Verification. It is now `ppv_rule` / `ppv_1..ppv_5` / `gate: PPV` ("PPV" = post-phase verification ledger). If you find old `gate: PIV` records in run history that carry `piv_attempt` / `piv_1..piv_5` per-check evidence, they are this legacy ledger rule under its former name. Note `ppv_*` is intentionally distinct from the PLAN_VALIDATION `pv_1..pv_6` ids (a separate mechanism). The `gate_rules.py PPV_DESCRIPTION` records this distinction at the source. **Going forward: PIV = Phase Intent Verification; PPV = the legacy end-of-phase self-eval ledger rule.**
 
 ## TRIAGE
 

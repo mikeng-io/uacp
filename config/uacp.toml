@@ -789,18 +789,18 @@ modes = ["supervised_auto", "full_auto"]
 reason = "another active run claims overlapping write_paths"
 
 [[autonomy.escalation_triggers.triggers]]
-id = "trigger_piv_first_failure"
-condition = "first PIV attempt failed"
+id = "trigger_ppv_first_failure"
+condition = "first PPV attempt failed"
 severity = "warn"
 modes = ["supervised_auto", "full_auto"]
-reason = "PIV failure may indicate phase work is incomplete"
+reason = "PPV failure may indicate phase work is incomplete"
 
 [[autonomy.escalation_triggers.triggers]]
-id = "trigger_piv_second_failure"
-condition = "second PIV attempt failed (unconditional block)"
+id = "trigger_ppv_second_failure"
+condition = "second PPV attempt failed (unconditional block)"
 severity = "block"
 modes = ["semi_auto", "supervised_auto", "full_auto"]   # non-waivable across all non-manual modes
-reason = "PIV second failure is non-waivable"
+reason = "PPV second failure is non-waivable"
 
 # --- Hermes core seam (stub_only_phase_4) ------------------------------------
 # Describes the current operator-polling mechanism and the Phase 5 push target.

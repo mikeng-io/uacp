@@ -24,7 +24,7 @@ class TestGateLedgerAppend:
             "policy_version": "0.1",
             "declared_side_effects": [],
             "gate": "EXECUTE->VERIFY",
-            "record": {"result": "pass", "check": "piv_1"},
+            "record": {"result": "pass", "check": "ppv_1"},
             "authority_artifact": "plans/test-plan.yaml",
         }))
         assert result["ok"] is True

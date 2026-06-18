@@ -827,7 +827,7 @@ class Heartgate:
         self._validate_adaptive_execute_evidence_gate(artifact, blockers)
         self._validate_adaptive_verify_evidence_gate(artifact, blockers)
         self._validate_adaptive_resolve_closure_gate(artifact, blockers)
-        self._validate_piv_record(artifact, blockers)
+        self._validate_ppv_record(artifact, blockers)
         # Phase 2: per-transition artifact-structure checks.
         self._validate_intent_doc(artifact, blockers)
         self._validate_scope_artifact(artifact, blockers, warnings)
@@ -2041,68 +2041,71 @@ class Heartgate:
         if not self._dir_under_root_exists(package_rel):
             blockers.append(f"adaptive_resolve_closure_gate: missing resolve package directory {package_rel}/")
 
-    def _piv_rule(self) -> Mapping[str, Any]:
-        """Resolve the piv_rule.
+    def _ppv_rule(self) -> Mapping[str, Any]:
+        """Resolve the ppv_rule.
 
-        Slice 4b T4c-2: the rule grammar (ledger_required, the piv_* check ids,
+        Slice 4b T4c-2: the rule grammar (ledger_required, the ppv_* check ids,
         ledger_required_fields, max_attempts, second_failure_action) is codified
         in engines.domain.gate_rules. The block is read from the loaded
         phase-transitions config WHEN PRESENT (production behavior, unchanged);
         when ABSENT it falls back to the code default whose ``ledger_required``
-        is True (enforce-by-default / fail-closed: a PIV pass record is required
+        is True (enforce-by-default / fail-closed: a PPV pass record is required
         on every transition). No operator-tunable knob this wave.
 
-        A test fixture may opt OUT by supplying ``piv_rule: {ledger_required:
+        A test fixture may opt OUT by supplying ``ppv_rule: {ledger_required:
         false}``: present-with-falsy-ledger_required is read as the loaded value,
-        so the reader's ``not piv_rule.get("ledger_required")`` short-circuits the
+        so the reader's ``not ppv_rule.get("ledger_required")`` short-circuits the
         gate exactly as the pre-T4c-2 absent block did.
         """
-        if "piv_rule" in self.config:
-            return self.config.get("piv_rule") or {}
-        from engines.domain.gate_rules import piv_rule_default
+        if "ppv_rule" in self.config:
+            return self.config.get("ppv_rule") or {}
+        from engines.domain.gate_rules import ppv_rule_default
 
-        return piv_rule_default()
+        return ppv_rule_default()
 
-    def _validate_piv_record(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
-        """Phase 1 / Item 1.4: require a PIV pass record in the ledger before
-        Heartgate accepts a transition for which piv_rule applies.
+    def _validate_ppv_record(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Phase 1 / Item 1.4: require a PPV pass record in the ledger before
+        Heartgate accepts a transition for which ppv_rule applies.
+
+        (PPV = the legacy post-phase-verification ledger rule; distinct from the
+        newer Phase Intent Verification contract.)
 
         Tech-F1 remediation: sanitize run_id before constructing the ledger
         path (reject path-traversal characters and resolve under
         state/gate-ledger/ only). Skeptic F5 remediation: tolerate malformed
-        piv_rule fields with explicit blockers instead of crashing.
+        ppv_rule fields with explicit blockers instead of crashing.
 
         Global review R1 (SKEP-G-002): generalize the per-check pass
         evidence pattern Phase 3 R1 introduced for PLAN_VALIDATION.
-        piv_rule declares `ledger_required_fields: [piv_attempt, result,
+        ppv_rule declares `ledger_required_fields: [ppv_attempt, result,
         checks]`; when present, the kernel verifies each declared
-        piv_check_id appears in the ledger record's `checks` list AND
+        ppv_check_id appears in the ledger record's `checks` list AND
         has explicit per-check pass evidence (mapping-form or sibling
-        `check_results: {piv_id: pass}`).
+        `check_results: {ppv_id: pass}`).
         """
-        piv_rule = self._piv_rule()
-        if not isinstance(piv_rule, Mapping) or not piv_rule.get("ledger_required"):
+        ppv_rule = self._ppv_rule()
+        if not isinstance(ppv_rule, Mapping) or not ppv_rule.get("ledger_required"):
             return
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
-            blockers.append("piv_rule requires run_id to verify ledger record")
+            blockers.append("ppv_rule requires run_id to verify ledger record")
             return
         if not _is_safe_run_id(run_id):
-            blockers.append("piv_rule: unsafe run_id rejected for ledger lookup")
+            blockers.append("ppv_rule: unsafe run_id rejected for ledger lookup")
             return
         ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
         if not ledger_path.exists():
-            blockers.append(f"piv_rule unmet: no gate ledger at {ledger_path.relative_to(self.governed_root)}")
+            blockers.append(f"ppv_rule unmet: no gate ledger at {ledger_path.relative_to(self.governed_root)}")
             return
         from_phase = str(artifact.get("from_phase") or "")
-        # Precompute declared piv_ids when piv_rule.checks is present.
+        # Precompute declared ppv_ids when ppv_rule.checks is present.
         declared_check_ids: set[str] = set()
-        for c in (piv_rule.get("checks") or []):
+        for c in (ppv_rule.get("checks") or []):
             if isinstance(c, Mapping):
                 cid = str(c.get("id") or "").strip()
                 if cid:
                     declared_check_ids.add(cid)
-        ledger_required_fields = [str(f) for f in (piv_rule.get("ledger_required_fields") or []) if isinstance(f, str)]
+        ledger_required_fields = [str(f) for f in (ppv_rule.get("ledger_required_fields") or []) if isinstance(f, str)]
         passing_attempts: list[int] = []
         failing_attempts: list[int] = []
         passing_record_defects: list[str] = []
@@ -2115,20 +2118,20 @@ class Heartgate:
                     rec = json.loads(line)
                 except Exception as exc:
                     # Phase 3 (pc_p2_minor): fail-closed on corrupted ledger.
-                    blockers.append(f"piv_rule: gate ledger line {lineno} unparseable: {type(exc).__name__}: {exc}")
+                    blockers.append(f"ppv_rule: gate ledger line {lineno} unparseable: {type(exc).__name__}: {exc}")
                     return
-                if str(rec.get("gate") or "") != "PIV":
+                if str(rec.get("gate") or "") != "PPV":
                     continue
                 if from_phase and str(rec.get("phase") or "") != from_phase:
                     continue
                 try:
-                    attempt = int(rec.get("piv_attempt") or 0)
+                    attempt = int(rec.get("ppv_attempt") or 0)
                 except (TypeError, ValueError):
-                    blockers.append(f"piv_rule: gate ledger line {lineno} has non-integer piv_attempt")
+                    blockers.append(f"ppv_rule: gate ledger line {lineno} has non-integer ppv_attempt")
                     return
                 result = str(rec.get("result") or "")
                 if result == "pass":
-                    # SKEP-G-002: when piv_rule declares checks + required fields,
+                    # SKEP-G-002: when ppv_rule declares checks + required fields,
                     # this pass record must carry per-check evidence. If it doesn't,
                     # it's treated as a per-record defect and not counted as
                     # passing (multi-record DoS resistance mirrors PLAN_VALIDATION).
@@ -2163,9 +2166,9 @@ class Heartgate:
                             extra_ids = recorded_ids - declared_check_ids
                             unproven = declared_check_ids - ids_with_pass
                             if missing_ids:
-                                defect = f"line {lineno}: missing required piv_ids {sorted(missing_ids)}"
+                                defect = f"line {lineno}: missing required ppv_ids {sorted(missing_ids)}"
                             elif extra_ids:
-                                defect = f"line {lineno}: unknown piv_ids {sorted(extra_ids)}"
+                                defect = f"line {lineno}: unknown ppv_ids {sorted(extra_ids)}"
                             elif unproven:
                                 defect = f"line {lineno}: missing per-check pass evidence for {sorted(unproven)}"
                     if defect:
@@ -2175,33 +2178,33 @@ class Heartgate:
                 elif result in {"warn", "block", "fail"}:
                     failing_attempts.append(attempt)
         except Exception as exc:
-            blockers.append(f"piv_rule ledger read failed: {type(exc).__name__}: {exc}")
+            blockers.append(f"ppv_rule ledger read failed: {type(exc).__name__}: {exc}")
             return
-        raw_max = piv_rule.get("max_attempts")
+        raw_max = ppv_rule.get("max_attempts")
         if raw_max is None:
             raw_max = 2
         try:
             max_attempts = int(raw_max)
         except (TypeError, ValueError):
-            blockers.append("piv_rule.max_attempts must be a positive integer")
+            blockers.append("ppv_rule.max_attempts must be a positive integer")
             return
         if max_attempts <= 0:
-            blockers.append("piv_rule.max_attempts must be >= 1")
+            blockers.append("ppv_rule.max_attempts must be >= 1")
             return
         # Skeptic F2 remediation: second-failure block is the default action.
         # Only an explicit known relaxation value bypasses it.
-        action = str(piv_rule.get("second_failure_action") or "block_unconditional")
+        action = str(ppv_rule.get("second_failure_action") or "block_unconditional")
         if action not in {"block_unconditional", "warn"}:
-            blockers.append(f"piv_rule.second_failure_action unknown value '{action}'")
+            blockers.append(f"ppv_rule.second_failure_action unknown value '{action}'")
             return
         if len(failing_attempts) >= max_attempts and action == "block_unconditional":
             blockers.append(
-                f"piv_rule: {len(failing_attempts)} failed PIV attempts for phase '{from_phase}' — second-failure unconditional block"
+                f"ppv_rule: {len(failing_attempts)} failed PPV attempts for phase '{from_phase}' — second-failure unconditional block"
             )
             return
         if not passing_attempts:
             detail = f" (per-record defects: {passing_record_defects})" if passing_record_defects else ""
-            blockers.append(f"piv_rule unmet: no PIV pass record in ledger for phase '{from_phase}'{detail}")
+            blockers.append(f"ppv_rule unmet: no PPV pass record in ledger for phase '{from_phase}'{detail}")
 
     def _glob_matches_any(self, pattern: str) -> bool:
         """Phase 1 remediation (skeptic F3): reject symlinks and out-of-root
@@ -2718,7 +2721,7 @@ class Heartgate:
                 cid = str(c.get("id") or "").strip()
                 if cid:
                     declared_check_ids.add(cid)
-        # Required-field policy for the ledger record (mirrors piv_rule.ledger_required_fields).
+        # Required-field policy for the ledger record (mirrors ppv_rule.ledger_required_fields).
         ledger_required_fields = [str(f) for f in (rule.get("ledger_required_fields") or ["phase", "checks", "result"]) if isinstance(f, str)]
         required_phase = str(rule.get("ledger_required_phase") or "plan")
         ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"

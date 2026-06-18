@@ -63,7 +63,7 @@ def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Viola
 def _transition_edge(gate: Any) -> tuple[str, str] | None:
     """Parse a phase-transition gate like 'TRIAGE->PROPOSE' into (from, to).
 
-    Returns None for gates that are not phase-transition gates (e.g. 'PIV',
+    Returns None for gates that are not phase-transition gates (e.g. 'PPV',
     'PLAN_VALIDATION'), so only transition gates participate in the duplicate
     check — non-transition gates legitimately repeat.
     """

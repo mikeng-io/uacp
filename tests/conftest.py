@@ -133,16 +133,16 @@ heartgate_coherence_required_when: {}
 # reader's `if not required_for: return` keeps the gate OFF, exactly as before.
 plan_validation_gate: {}
 # Slice 4b T4c-2 opt-out stub — PRESERVES PRIOR TEST LAXITY.
-# Before T4c-2 this synthetic config OMITTED piv_rule, so the gate was OFF in
-# tests (the reader did `piv_rule = self.config.get(...) or {}; if not
-# piv_rule.get("ledger_required"): return`). After T4c-2 an ABSENT block becomes
-# the CODE DEFAULT (ON: ledger_required true -> EVERY transition demands a PIV
+# Before T4c-2 this synthetic config OMITTED ppv_rule, so the gate was OFF in
+# tests (the reader did `ppv_rule = self.config.get(...) or {}; if not
+# ppv_rule.get("ledger_required"): return`). After T4c-2 an ABSENT block becomes
+# the CODE DEFAULT (ON: ledger_required true -> EVERY transition demands a PPV
 # pass record in the gate ledger), which no test seeds -> all transition tests
 # would block. Providing the block present with ledger_required false is read as
-# the loaded value, so `not piv_rule.get("ledger_required")` keeps the gate OFF,
+# the loaded value, so `not ppv_rule.get("ledger_required")` keeps the gate OFF,
 # exactly as before. Production ships NO block and gets the enforce-by-default
 # code default; only this test fixture opts out.
-piv_rule:
+ppv_rule:
   ledger_required: false
 # Slice 5 W2 opt-out stub (closes T4d-2) — PRESERVES PRIOR TEST LAXITY.
 # Enforcement of artifact_schema.required_fields now falls back to the codified

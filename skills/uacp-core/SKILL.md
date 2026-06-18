@@ -60,6 +60,6 @@ decision = guardian.evaluate(event)
 - `config/uacp.toml` (`[guardian]` section — policy collapsed from legacy guardian-policy.yaml in Slice 3; `[heartgate.*]` — operator-tunable knobs)
 - `scripts/engines/domain/phase_graph.py` — codified phase graph (`LIFECYCLE_GRAPH`, valid transitions)
 - `scripts/engines/domain/phase_transitions.py` — codified stages grammar (`allowed_tools`, `forbidden_tools`, `phase_exit_invariants`)
-- `scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (heartgate_coherence, run_registry, plan_validation_gate, piv_rule)
+- `scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (heartgate_coherence, run_registry, plan_validation_gate, ppv_rule)
 - `config/phase-transitions.yaml` (LLM-read adaptive-gate doctrine + artifact schemas; grammar above is now code-authoritative)
 - `docs/runtime/runtime-integration-guide.md`

@@ -116,7 +116,7 @@ Read additionally:
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/checkpoint.py` — codified `CheckpointEntry` schema (goal-driven checkpoint manifest)
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/budget.py` — codified `ConvergenceBudget` schema (goal-driven cap)
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/phase_graph.py` — codified valid transitions (`LIFECYCLE_GRAPH`)
-- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (piv_rule, heartgate_coherence, run_registry)
+- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (ppv_rule, heartgate_coherence, run_registry)
 - `UACP_ROOT/config/uacp.toml` (`[heartgate.*]` — operator-tunable coherence thresholds and enforcement mode)
 - `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`)
 - `references/current-semi-auto-orchestration.md` when deciding whether EXECUTE really needs Kanban/coordination or can stay synchronous

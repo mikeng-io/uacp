@@ -22,7 +22,7 @@ purpose: 'Defines stable lifecycle phase envelopes and the adaptive transition a
 # ---------------------------------------------------------------------------
 # CODIFIED-GATE RESOLUTION SEMANTIC (operator-facing — read before editing)
 # ---------------------------------------------------------------------------
-# The gate/rule grammar that used to live here (plan_validation_gate, piv_rule,
+# The gate/rule grammar that used to live here (plan_validation_gate, ppv_rule,
 # run_registry_rule, heartgate_coherence_required_when, the Pattern-A
 # required_universal_core lists) is now codified in
 # skills/uacp-core/scripts/engines/domain/gate_rules.py. The kernel resolves each
@@ -34,7 +34,7 @@ purpose: 'Defines stable lifecycle phase envelopes and the adaptive transition a
 # block that is empty or sets a disabling field turns that gate OFF:
 #   * `plan_validation_gate: {}`  (no required_ledger_gate_for_transition) -> off
 #   * `heartgate_coherence_required_when: {}`                              -> off
-#   * `piv_rule: {ledger_required: false}`                                 -> off
+#   * `ppv_rule: {ledger_required: false}`                                 -> off
 # This is DELIBERATE — it is the explicit opt-out the test fixture
 # (tests/conftest.py) uses to preserve lightweight test runs. It is also why the
 # semantic is ASYMMETRIC with `stages` above: stages are load-bearing for the
@@ -229,10 +229,10 @@ adaptive_verify_evidence_gate:
 # [heartgate.run_registry]. Heartgate reads the code default when this block is
 # absent, so behavior is unchanged.
 
-# piv_rule: codified to code in Slice 4b T4c-2. The full rule grammar
-# (ledger_required=true, the piv_1..piv_5 checks, ledger_required_fields,
+# ppv_rule: codified to code in Slice 4b T4c-2. The full rule grammar
+# (ledger_required=true, the ppv_1..ppv_5 checks, ledger_required_fields,
 # max_attempts=2, second_failure_action=block_unconditional) now lives in
-# skills/uacp-core/scripts/engines/domain/gate_rules.py (piv_rule_default).
+# skills/uacp-core/scripts/engines/domain/gate_rules.py (ppv_rule_default).
 # There is no operator knob — the grammar is non-tunable. Heartgate reads the
 # code default (enforce-by-default) when this block is absent, so behavior is
 # unchanged.
