@@ -2,6 +2,13 @@
 
 Save **two** artifacts per run.
 
+For `standard`/`thorough` runs these two timestamped artifacts are a **roll-up of
+`manifest.json`** and the per-round files written during the run — see
+`references/round-state-manifest.md` for the durable round state. The manifest +
+`round-k/` directories are the auditable source of truth; the artifacts below are
+the closing summary derived from them. (`quick` runs have no manifest; the
+artifacts are written directly from the single in-memory pass.)
+
 ## 1. JSON log
 
 Path: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.json`

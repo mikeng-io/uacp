@@ -19,6 +19,17 @@ thorough:
   budget: "5 * reviewer_count + 10 tasks"
 ```
 
+## Round-State Mechanism
+
+- **`quick`** — single in-memory pass (phases 1, 2, 5; `max_rounds: 0`). Writes
+  NO `manifest.json` and NO `round-k/` directories. Only the final timestamped
+  artifacts are written.
+- **`standard` / `thorough`** — file-based round state per
+  `references/round-state-manifest.md`. Each round persists to
+  `.uacp/debate/{review_id}/round-k/`, durable state lives in `manifest.json`,
+  and the coordinator hands out file POINTERS to the next round's sub-agents
+  instead of re-embedding the inventory in every prompt.
+
 ## Parameter Presets
 
 ```yaml
