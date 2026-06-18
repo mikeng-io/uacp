@@ -66,6 +66,14 @@ select = ["E", "F", "I", "UP", "B"]
 # Legacy kernel + adapter modules: pyflakes (F) only; silence E/I/UP/B.
 "skills/uacp-core/scripts/core.py" = ["E", "I", "UP", "B"]
 "skills/uacp-core/scripts/filesystem.py" = ["E", "I", "UP", "B"]
+# Neutral governed-tool layer: handlers + tool-spec registry moved verbatim out
+# of the (already-relaxed) hermes adapter so an MCP server can share them. The
+# governed-tool descriptions/schemas are carried byte-identically (the Hermes
+# register() output must stay wire-identical), so the long-line/style findings
+# cannot be reflowed away — relax E/I/UP/B (keep pyflakes F) like core.py.
+"skills/uacp-core/scripts/governed_handlers.py" = ["E", "I", "UP", "B"]
+"skills/uacp-core/scripts/tool_specs.py" = ["E", "I", "UP", "B"]
+"skills/uacp-core/scripts/contracts.py" = ["E", "I", "UP", "B"]
 "skills/uacp-state/scripts/state_machine.py" = ["E", "I", "UP", "B"]
 "skills/uacp-state/scripts/state.py" = ["E", "I", "UP", "B"]
 "skills/uacp-web/scripts/web_backend.py" = ["E", "I", "UP", "B"]
