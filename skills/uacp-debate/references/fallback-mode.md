@@ -1,9 +1,10 @@
-# Fallback Mode
+# Default Sub-Agent Path
 
-If TeamCreate fails (not available in context):
-- Spawn independent Task sub-agents
-- Run a cross-visibility challenge round (Phase 3) explicitly: each reviewer receives the other reviewers' Phase 2 findings and issues challenges through a second Task invocation. Challenges and responses must flow through real agent messages — the coordinator must NOT synthesize them.
+This is the **primary, runtime-neutral** path: run the protocol on the runtime's native sub-agent dispatch (see `uacp-bridge` for the per-runtime primitive). A shared live multi-agent session, where the runtime offers one, is an optional enhancement — not a precondition.
+
+- Spawn independent sub-agents (one per participant), each in isolation with no inter-agent communication.
+- Run a cross-visibility challenge round (Phase 3) explicitly: each reviewer receives the other reviewers' Phase 2 findings and issues challenges through a second sub-agent dispatch. Challenges and responses must flow through real sub-agent messages — the coordinator must NOT synthesize them.
 - Phases 4 and 5 proceed as normal.
-- Emit the JSON log with `"mode": "adversarial_subagents"` and NO `team_session_id` field (or `team_session_id: null`).
+- Emit the JSON log with `"mode": "independent_subagents"` and NO `session_id` field (or `session_id: null`).
 
-Do NOT emit `"mode": "debate"` for a fallback run. A parallel-subagents fallback is lower-assurance than a real TeamCreate debate, so it must be labelled `adversarial_subagents` honestly; a mislabelled log is fabrication.
+`mode` records which mechanism actually ran. A run on independent sub-agents is labelled `independent_subagents`; a run that used a shared live session is labelled `shared_session`. Neither is "the real one" — but the label must honestly match what happened; a mislabelled log is fabrication.

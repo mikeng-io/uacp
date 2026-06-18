@@ -26,6 +26,23 @@ Each runtime adapter spec lives in this skill's `references/` directory:
 - `references/claude.md`, `references/codex.md`, `references/gemini.md`, `references/kimi.md`, `references/opencode.md` — per-runtime dispatch specs.
 - `references/kimi-codex-agent-council-audit-loop.md` — **read when** Mike asks for both Kimi Code and Codex to review UACP changes: the prompt skeleton, Kimi coding-model invocation, command-level timeouts, and contamination checks for running them as a bounded read-only Agent Council audit loop.
 
+### Sub-agent dispatch primitive per runtime
+
+Orchestration skills (e.g. `uacp-debate`, `uacp-council`) describe dispatch in **runtime-neutral** terms and resolve the concrete primitive here rather than naming a specific runtime's call in their bodies. Two mechanisms exist:
+
+- **The runtime's native sub-agent dispatch** — spawn one independent worker in isolation (the neutral unit; reports to the parent only, no inter-agent communication). This is the **default, always-available** path.
+- **A shared live multi-agent session** — an optional richer mechanism for multi-turn, async exchange between live agents. Use only when the runtime offers it.
+
+| Runtime | Native sub-agent dispatch | Shared live multi-agent session |
+|---|---|---|
+| Claude Code | `Task` (the Task tool) | `TeamCreate` / Agent Teams |
+| Hermes | `delegate_task` | Swarm (with a Kanban coordination board) |
+| Kimi | sub-agent / "core agent" (Agent tool) | Swarm |
+| Codex | native multi-agent dispatch (one sub-agent per domain) | — |
+| Gemini / OpenCode | native subagent dispatch | — |
+
+Detect the available primitive by tool availability; fall back to native sub-agent dispatch (and then to CLI re-prompting) when a shared live session is not offered.
+
 ---
 
 ## Pre-Flight SOP

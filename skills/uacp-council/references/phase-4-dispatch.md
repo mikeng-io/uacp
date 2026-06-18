@@ -8,7 +8,7 @@ Dispatch branches first on **mode**, then on **tier**.
 
 Single agent, no diversity. Use only when the scope is trivial (1 domain, no integration concerns). Allowed modes: open-ended only (not `finding-driven` — see Step 6.0).
 
-1. Spawn one Task agent with the domain expert's prompt (constructed using the Agent Prompt Template from `uacp-bridge`).
+1. Spawn one sub-agent with the domain expert's prompt (constructed using the Agent Prompt Template from `uacp-bridge`).
 2. Wait for completion.
 3. Skip debate (no DA, no IC).
 4. Output conforms to `uacp-bridge` output schema; `debate_rounds: 0`; `diversity_sources: ["role"]`.
@@ -30,7 +30,7 @@ Total parallel agents = `len(domains) + 2`. If `domains > 5`, group related doma
 **Dispatch protocol:**
 
 1. Construct one prompt per role using the template selected in Step 6.0. For `finding-driven` mode, use the prompt templates from the Finding-Driven Mode reference (`[skills-root]/uacp-council/references/finding-driven-mode.md` and `[skills-root]/uacp-council/experts/integration-checker.md`) instead of the generic Agent Prompt Template.
-2. Spawn all agents in parallel using the runtime's native dispatch mechanism. Detect the mechanism by tool availability (Task tool, Agent Teams, Workflows, MCP, CLI — in that priority order).
+2. Spawn all agents in parallel using the runtime's native sub-agent dispatch (see `uacp-bridge` for the per-runtime primitive). Detect the mechanism by availability (Claude Code Task / Agent Teams · Hermes delegate_task / Swarm · Kimi sub-agent / Swarm · MCP · CLI).
 3. After all complete, run the Post-Analysis Protocol from `uacp-bridge`:
    - `intensity: quick` → 1 consolidation pass, 0 debate rounds
    - `intensity: standard` → 1 challenge + 1 response round
@@ -79,9 +79,9 @@ Read: [skills-root]/uacp-bridge/references/opencode.md
 Read: [skills-root]/uacp-bridge/references/kimi.md
 ```
 
-**Step 6.2.3: Dispatch one Task agent per enabled adapter in parallel.**
+**Step 6.2.3: Dispatch one sub-agent per enabled adapter in parallel.**
 
-For each enabled adapter, spawn a Task agent (the "runtime executor") with the adapter's instructions embedded verbatim and the `runtime_input` JSON:
+For each enabled adapter, spawn a sub-agent (the "runtime executor") with the adapter's instructions embedded verbatim and the `runtime_input` JSON:
 
 ```json
 {
@@ -135,7 +135,7 @@ After collecting all runtime reports:
 
 **Step 6.3.2: Cross-runtime debate.**
 
-Spawn a **Debate Coordinator** Task agent with:
+Spawn a **Debate Coordinator** sub-agent with:
 - All runtime reports
 - Deduplication output
 - This prompt:
