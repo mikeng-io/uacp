@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/runtime-adapters/hooks/guardian_pretooluse.py\" --profile claude",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

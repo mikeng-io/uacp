@@ -603,12 +603,14 @@ def make_event(
     session_id: str = "",
     tool_call_id: str = "",
     filesystem_guard_verified: bool = False,
+    runtime: str = "hermes",
+    adapter: str = "uacp_guardian",
 ) -> GuardianEvent:
     tool_args = dict(args or {})
     provider = infer_tool_provider(tool_name, tool_provider)
     return GuardianEvent(
-        runtime="hermes",
-        adapter="uacp_guardian",
+        runtime=runtime,
+        adapter=adapter,
         event_type=event_type,
         tool_provider=provider,
         tool_name=tool_name,

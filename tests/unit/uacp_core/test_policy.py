@@ -26,8 +26,12 @@ class TestGuardianPolicyLoad:
         assert len(policy.self_attesting_tools) == 10, policy.self_attesting_tools
         assert "uacp_doc_write" in policy.self_attesting_tools
         assert "uacp_contained_shell" in policy.self_attesting_tools
-        # tool_classification-backed: the full policy classifies all 24 tools.
-        assert len(policy.tool_classification) == 24, policy.tool_classification
+        # tool_classification-backed: the full policy classifies all 27 tools.
+        # (24 original + write_file/web_fetch/web_search added for the Claude/Kimi
+        # PreToolUse hook host-tool normalization: host Edit/Write/MultiEdit/
+        # NotebookEdit -> write_file (file.write), host WebFetch/WebSearch ->
+        # web_fetch/web_search (external.network_read).)
+        assert len(policy.tool_classification) == 27, policy.tool_classification
 
     def test_override_mode_is_honored(self, tmp_path: Path):
         # Proves the live reader actually flows through config.py's deep-merge:

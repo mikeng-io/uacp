@@ -308,6 +308,17 @@ uacp_gate_ledger_append = "state.uacp"
 uacp_run_registry_update = "state.uacp"
 uacp_escalation_event = "state.uacp"
 terminal = "exec.shell"
+# Raw filesystem write surface (host Edit/Write/MultiEdit/NotebookEdit normalize
+# here via host_tool_classification). file.write defaults to require_approval, so
+# ordinary project edits pass through to the runtime's own approval prompt while
+# the kernel's direct-write/root-touch rules still HARD-BLOCK writes targeting
+# the governed .uacp/ namespace. NOT a governed/self-attesting writer.
+write_file = "file.write"
+# Web read surface for host WebFetch/WebSearch normalization. web_* already
+# classifies as external.network_read via tool_pattern_classification; this
+# explicit entry documents the normalized name and keeps it stable.
+web_fetch = "external.network_read"
+web_search = "external.network_read"
 execute_code = "exec.code_with_tool_proxy"
 send_message = "external.message"
 cronjob = "external.message"
@@ -362,6 +373,48 @@ names = [
     "uacp_run_registry_update",
     "uacp_escalation_event",
 ]
+
+# --- Host tool classification (host tool name -> KERNEL tool name) ---------
+# Maps a host runtime's native tool names onto the kernel tool names the
+# Guardian classifier already understands. The PreToolUse shim
+# (runtime-adapters/hooks/guardian_pretooluse.py via hook_kernel.normalize_tool_name)
+# rewrites the incoming host tool name to the kernel name BEFORE classify() runs,
+# so host tools resolve to a real category instead of falling through to
+# external.unknown_mutator (which would brick the agent's read/exec tools during a
+# run). The mapped value is a KERNEL tool name from [guardian.tool_classification]
+# (or a name matched by [guardian.tool_pattern_classification]); classify() then
+# resolves it to a category. Unmapped host names pass through unchanged.
+[guardian.host_tool_classification.claude_code]
+Read = "read_file"
+Grep = "read_file"
+Glob = "read_file"
+LS = "read_file"
+NotebookRead = "read_file"
+Bash = "terminal"
+BashOutput = "terminal"
+KillBash = "terminal"
+Edit = "write_file"
+Write = "write_file"
+MultiEdit = "write_file"
+NotebookEdit = "write_file"
+WebFetch = "web_fetch"
+WebSearch = "web_search"
+
+[guardian.host_tool_classification.kimi_code]
+Read = "read_file"
+Grep = "read_file"
+Glob = "read_file"
+LS = "read_file"
+NotebookRead = "read_file"
+Bash = "terminal"
+BashOutput = "terminal"
+KillBash = "terminal"
+Edit = "write_file"
+Write = "write_file"
+MultiEdit = "write_file"
+NotebookEdit = "write_file"
+WebFetch = "web_fetch"
+WebSearch = "web_search"
 
 # --- Runtime modes ---------------------------------------------------------
 [guardian.runtime_modes.observe]
