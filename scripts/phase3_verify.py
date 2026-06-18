@@ -10,7 +10,7 @@ Exercises:
       pc_p2_t4 assumptions table column-count mismatch produces blocker
       pc_p2_t5 intent doc section regex anchored + fence-aware
       pc_p2_n1 "*" sentinel in tool_path_capabilities dropped
-      pc_p2_minor PIV ledger fail-closed on bad JSONL; PIPE_BUF record bound
+      pc_p2_minor PPV ledger fail-closed on bad JSONL; PIPE_BUF record bound
 """
 from __future__ import annotations
 
@@ -103,26 +103,26 @@ def main() -> int:
 
             # Seed ledger helper.
             PV_IDS = ["pv_1", "pv_2", "pv_3", "pv_4", "pv_5", "pv_6"]
-            PIV_IDS = ["piv_1", "piv_2", "piv_3", "piv_4", "piv_5"]
-            def _append(gate: str, phase: str, result: str = "pass", piv_attempt: int | None = None, run_id_override: str | None = None, checks: list | None = None, check_results: dict | None = None):
+            PPV_IDS = ["ppv_1", "ppv_2", "ppv_3", "ppv_4", "ppv_5"]
+            def _append(gate: str, phase: str, result: str = "pass", ppv_attempt: int | None = None, run_id_override: str | None = None, checks: list | None = None, check_results: dict | None = None):
                 rid = run_id_override or run_id
                 record = {"gate": gate, "run_id": rid, "phase": phase, "result": result, "ts": int(time.time())}
-                if piv_attempt is not None:
-                    record["piv_attempt"] = piv_attempt
+                if ppv_attempt is not None:
+                    record["ppv_attempt"] = ppv_attempt
                 # Phase 3 R1: PLAN_VALIDATION ledger record must carry pv_ids.
                 if gate == "PLAN_VALIDATION" and checks is None:
                     checks = list(PV_IDS)
-                # Global review R1 (SKEP-G-002): PIV ledger records must
-                # also carry per-check evidence (piv_1..piv_5) when seeded
+                # Global review R1 (SKEP-G-002): PPV ledger records must
+                # also carry per-check evidence (ppv_1..ppv_5) when seeded
                 # as result=pass.
-                if gate == "PIV" and result == "pass" and checks is None:
-                    checks = list(PIV_IDS)
+                if gate == "PPV" and result == "pass" and checks is None:
+                    checks = list(PPV_IDS)
                 if checks is not None:
                     record["checks"] = checks
                 # Phase 3 R2 (SKEP-R1-003): PLAN_VALIDATION needs per-check
                 # pass evidence — sibling check_results mapping when checks
                 # is a flat list of strings.
-                if gate in ("PLAN_VALIDATION", "PIV") and result == "pass" and check_results is None and checks and all(isinstance(c, str) for c in checks):
+                if gate in ("PLAN_VALIDATION", "PPV") and result == "pass" and check_results is None and checks and all(isinstance(c, str) for c in checks):
                     check_results = {c: "pass" for c in checks}
                 if check_results is not None:
                     record["check_results"] = check_results
@@ -133,7 +133,7 @@ def main() -> int:
 
             # Common seed for transitions used below.
             _append("PROPOSE->PLAN", "plan")
-            _append("PIV", "plan", piv_attempt=1)
+            _append("PPV", "plan", ppv_attempt=1)
             (tmp / f".uacp/plans/{run_id}-plan.yaml").write_text("a: 1\n")
             (tmp / f".uacp/plans/{run_id}-scope.yaml").write_text(_y.safe_dump({
                 "run_id": run_id,
@@ -190,7 +190,7 @@ def main() -> int:
 
             # --- Check 5: pc_p2_t3 empty cluster_summary blocks VERIFY->RESOLVE ---
             _append("EXECUTE->VERIFY", "verify")
-            _append("PIV", "verify", piv_attempt=1)
+            _append("PPV", "verify", ppv_attempt=1)
             (tmp / f".uacp/verification/{run_id}-v.yaml").write_text("a: 1\n")
             (tmp / f".uacp/resolutions/{run_id}-lessons.yaml").write_text(_y.safe_dump({"run_id": run_id, "lessons": []}))
             d = heartgate.validate_transition(_full_artifact(run_id, "verify", "resolve"))
@@ -220,7 +220,7 @@ def main() -> int:
             # --- Check 7: pc_p2_t5 fenced ## Section does NOT satisfy intent check ---
             triage_run = run_id + "-intent-fence"
             _append("TRIAGE_COMPLETE", "triage", run_id_override=triage_run)
-            _append("PIV", "triage", piv_attempt=1, run_id_override=triage_run)
+            _append("PPV", "triage", ppv_attempt=1, run_id_override=triage_run)
             (tmp / f".uacp/proposals/{triage_run}-triage.yaml").write_text("a: 1\n")
             (tmp / f".uacp/proposals/{triage_run}-intent.md").write_text(
                 "# Intent\n\n```\n## Success Definition\n## Explicit Out-of-Scope\n## Termination Condition\n## Authority Source\n```\n"
@@ -345,7 +345,7 @@ def main() -> int:
                 "| disposition reviewed | pending | | |\n"
             )
             _append("EXECUTE->VERIFY", "verify", run_id_override=sk5_run)
-            _append("PIV", "verify", piv_attempt=1, run_id_override=sk5_run)
+            _append("PPV", "verify", ppv_attempt=1, run_id_override=sk5_run)
             artifact_sk5 = {**_full_artifact(sk5_run, "verify", "resolve"), "cluster_summary": [{"cluster_id": "scope", "state": "pass"}]}
             d = heartgate.validate_transition(artifact_sk5)
             unowned = [b for b in d.blockers if "unowned 'pending'" in b]
@@ -358,7 +358,7 @@ def main() -> int:
             # --- Check 16 (SKEP-006): all clusters not_applicable bypass is blocked ---
             sk6_run = run_id + "-sk6"
             _append("EXECUTE->VERIFY", "verify", run_id_override=sk6_run)
-            _append("PIV", "verify", piv_attempt=1, run_id_override=sk6_run)
+            _append("PPV", "verify", ppv_attempt=1, run_id_override=sk6_run)
             (tmp / f".uacp/resolutions/{sk6_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk6_run, "lessons": []}))
             artifact_sk6 = {
                 **_full_artifact(sk6_run, "verify", "resolve"),
@@ -381,7 +381,7 @@ def main() -> int:
             bare_ledger.parent.mkdir(parents=True, exist_ok=True)
             bare_ledger.write_text(
                 json.dumps({"gate": "PROPOSE->PLAN", "run_id": bare_run, "phase": "plan", "result": "pass", "ts": 0}) + "\n"
-                + json.dumps({"gate": "PIV", "run_id": bare_run, "phase": "plan", "result": "pass", "piv_attempt": 1, "ts": 0}) + "\n"
+                + json.dumps({"gate": "PPV", "run_id": bare_run, "phase": "plan", "result": "pass", "ppv_attempt": 1, "ts": 0}) + "\n"
                 + json.dumps({"gate": "PLAN_VALIDATION", "run_id": bare_run, "phase": "plan", "result": "pass", "ts": 0}) + "\n"
             )
             (tmp / f".uacp/plans/{bare_run}-plan.yaml").write_text("a: 1\n")
@@ -415,7 +415,7 @@ def main() -> int:
                 "run_id": sk3_run, "write_paths": ["plans/"], "blast_radius": "low", "rollback_path": "none",
             }))
             _append("PROPOSE->PLAN", "plan", run_id_override=sk3_run)
-            _append("PIV", "plan", piv_attempt=1, run_id_override=sk3_run)
+            _append("PPV", "plan", ppv_attempt=1, run_id_override=sk3_run)
             _append("PLAN_VALIDATION", "plan", run_id_override=sk3_run)
             (tmp / ".uacp/state/run-registry.yaml").write_text(_y.safe_dump({
                 "schema_version": "0.1",
@@ -465,7 +465,7 @@ def main() -> int:
                 "run_id": sk8_run, "write_paths": ["state/gate-ledger/forged.jsonl"], "blast_radius": "low", "rollback_path": "none",
             }))
             _append("PROPOSE->PLAN", "plan", run_id_override=sk8_run)
-            _append("PIV", "plan", piv_attempt=1, run_id_override=sk8_run)
+            _append("PPV", "plan", ppv_attempt=1, run_id_override=sk8_run)
             _append("PLAN_VALIDATION", "plan", run_id_override=sk8_run)
             d = heartgate.validate_transition(_full_artifact(sk8_run, "plan", "execute"))
             launder = [b for b in d.blockers if "scope.write_paths cross-check" in b and "state/gate-ledger" in b]
@@ -503,7 +503,7 @@ def main() -> int:
             # --- Check 25 (SKEP-R1-002): bogus handled_findings_chain doesn't bypass all-NA block ---
             sk2_run = run_id + "-sk2"
             _append("EXECUTE->VERIFY", "verify", run_id_override=sk2_run)
-            _append("PIV", "verify", piv_attempt=1, run_id_override=sk2_run)
+            _append("PPV", "verify", ppv_attempt=1, run_id_override=sk2_run)
             (tmp / f".uacp/resolutions/{sk2_run}-lessons.yaml").write_text(_y.safe_dump({"run_id": sk2_run, "lessons": []}))
             artifact_sk2 = {
                 **_full_artifact(sk2_run, "verify", "resolve"),
@@ -525,7 +525,7 @@ def main() -> int:
             flat_ledger.parent.mkdir(parents=True, exist_ok=True)
             flat_ledger.write_text(
                 json.dumps({"gate": "PROPOSE->PLAN", "run_id": flat_run, "phase": "plan", "result": "pass", "ts": 0}) + "\n"
-                + json.dumps({"gate": "PIV", "run_id": flat_run, "phase": "plan", "result": "pass", "piv_attempt": 1, "ts": 0}) + "\n"
+                + json.dumps({"gate": "PPV", "run_id": flat_run, "phase": "plan", "result": "pass", "ppv_attempt": 1, "ts": 0}) + "\n"
                 # NOTE: flat list of pv_ids WITHOUT check_results sibling → must be rejected.
                 + json.dumps({"gate": "PLAN_VALIDATION", "run_id": flat_run, "phase": "plan", "result": "pass", "checks": ["pv_1","pv_2","pv_3","pv_4","pv_5","pv_6"], "ts": 0}) + "\n"
             )
@@ -548,7 +548,7 @@ def main() -> int:
                 "run_id": empty_run, "write_paths": [], "blast_radius": "low", "rollback_path": "none",
             }))
             _append("PROPOSE->PLAN", "plan", run_id_override=empty_run)
-            _append("PIV", "plan", piv_attempt=1, run_id_override=empty_run)
+            _append("PPV", "plan", ppv_attempt=1, run_id_override=empty_run)
             _append("PLAN_VALIDATION", "plan", run_id_override=empty_run)
             d = heartgate.validate_transition(_full_artifact(empty_run, "plan", "execute"))
             empty_block = [b for b in d.blockers if "scope.write_paths is empty" in b]
@@ -564,7 +564,7 @@ def main() -> int:
             dos_ledger.parent.mkdir(parents=True, exist_ok=True)
             dos_ledger.write_text(
                 json.dumps({"gate": "PROPOSE->PLAN", "run_id": dos_run, "phase": "plan", "result": "pass", "ts": 0}) + "\n"
-                + json.dumps({"gate": "PIV", "run_id": dos_run, "phase": "plan", "result": "pass", "piv_attempt": 1, "ts": 0}) + "\n"
+                + json.dumps({"gate": "PPV", "run_id": dos_run, "phase": "plan", "result": "pass", "ppv_attempt": 1, "ts": 0}) + "\n"
                 # Bad: missing checks
                 + json.dumps({"gate": "PLAN_VALIDATION", "run_id": dos_run, "phase": "plan", "result": "pass", "ts": 0}) + "\n"
                 # Good: full contract

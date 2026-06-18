@@ -128,7 +128,7 @@ def main() -> int:
             # --- Check 4 (Item 4.2): escalation triggers registered ---
             triggers = (ap.get("escalation_triggers") or {}).get("triggers") or []
             trigger_ids = [str(t.get("id") or "") for t in triggers if isinstance(t, dict)]
-            ok4 = "trigger_blast_radius_high" in trigger_ids and "trigger_piv_second_failure" in trigger_ids
+            ok4 = "trigger_blast_radius_high" in trigger_ids and "trigger_ppv_second_failure" in trigger_ids
             report["checks"].append({
                 "name": "item42_escalation_triggers_present",
                 "status": "pass" if ok4 else "fail",

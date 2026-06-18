@@ -260,18 +260,18 @@ transition_readiness:
                 "gate": "PROPOSE->PLAN",
                 "record": {"result": "pass", "phase": "plan"},
             })
-            # And a PIV pass for plan phase.
-            # Global review R1 (SKEP-G-002): PIV ledger records must carry
-            # explicit piv_id coverage with per-check pass evidence.
+            # And a PPV pass for plan phase.
+            # Global review R1 (SKEP-G-002): PPV ledger records must carry
+            # explicit ppv_id coverage with per-check pass evidence.
             plugin._handle_uacp_gate_ledger_append({
                 **_common_args(tmp, phase="plan"),
-                "gate": "PIV",
+                "gate": "PPV",
                 "record": {
                     "phase": "plan",
                     "result": "pass",
-                    "piv_attempt": 1,
-                    "checks": ["piv_1", "piv_2", "piv_3", "piv_4", "piv_5"],
-                    "check_results": {"piv_1": "pass", "piv_2": "pass", "piv_3": "pass", "piv_4": "pass", "piv_5": "pass"},
+                    "ppv_attempt": 1,
+                    "checks": ["ppv_1", "ppv_2", "ppv_3", "ppv_4", "ppv_5"],
+                    "check_results": {"ppv_1": "pass", "ppv_2": "pass", "ppv_3": "pass", "ppv_4": "pass", "ppv_5": "pass"},
                 },
             })
             # Phase 3.1: PLAN_VALIDATION gate (plan->execute transitions now require this).
@@ -295,9 +295,9 @@ transition_readiness:
                 "decision": d.decision,
             })
 
-            # --- Check 8: PIV double-failure unconditional block ---
-            # Append 2 failing PIV attempts for execute phase, then check
-            # plan→execute? No — PIV is checked for from_phase. Use execute→verify.
+            # --- Check 8: PPV double-failure unconditional block ---
+            # Append 2 failing PPV attempts for execute phase, then check
+            # plan→execute? No — PPV is checked for from_phase. Use execute→verify.
             (tmp / ".uacp/executions/phase1-verify-exec.yaml").write_text("a: 1\n")
             plugin._handle_uacp_gate_ledger_append({
                 **_common_args(tmp, phase="execute"),
@@ -306,18 +306,18 @@ transition_readiness:
             })
             plugin._handle_uacp_gate_ledger_append({
                 **_common_args(tmp, phase="execute"),
-                "gate": "PIV",
-                "record": {"phase": "execute", "result": "fail", "piv_attempt": 1, "checks": ["piv_2 failed"]},
+                "gate": "PPV",
+                "record": {"phase": "execute", "result": "fail", "ppv_attempt": 1, "checks": ["ppv_2 failed"]},
             })
             plugin._handle_uacp_gate_ledger_append({
                 **_common_args(tmp, phase="execute"),
-                "gate": "PIV",
-                "record": {"phase": "execute", "result": "fail", "piv_attempt": 2, "checks": ["piv_2 failed again"]},
+                "gate": "PPV",
+                "record": {"phase": "execute", "result": "fail", "ppv_attempt": 2, "checks": ["ppv_2 failed again"]},
             })
             artifact_e2v = _full_artifact("execute", "verify")
             d = heartgate.validate_transition(artifact_e2v)
             report["checks"].append({
-                "name": "piv_double_failure_blocks_unconditionally",
+                "name": "ppv_double_failure_blocks_unconditionally",
                 "status": "pass" if (d.blocks_transition and any("second-failure" in b for b in d.blockers)) else "fail",
                 "blockers": d.blockers,
             })
@@ -385,7 +385,7 @@ transition_readiness:
                 **_common_args(tmp, phase="execute"),
                 "reason": "phase1 verify R1 forge attempt",
                 "target_path": "state/gate-ledger/forged.jsonl",
-                "content": json.dumps({"gate": "PIV", "result": "pass", "phase": "execute", "piv_attempt": 1, "run_id": "phase1-verify"}) + "\n",
+                "content": json.dumps({"gate": "PPV", "result": "pass", "phase": "execute", "ppv_attempt": 1, "run_id": "phase1-verify"}) + "\n",
             }))
             err = forge.get("error") or ""
             report["checks"].append({
@@ -453,11 +453,11 @@ transition_readiness:
                 "blockers": [b for b in d.blockers if "run_id" in b.lower()],
             })
 
-            # --- Remediation R5 (skeptic F5): malformed piv_rule does not crash ---
+            # --- Remediation R5 (skeptic F5): malformed ppv_rule does not crash ---
             pt_path = tmp / "config/phase-transitions.yaml"
             pt = _y.safe_load(pt_path.read_text())
-            saved_piv = pt.get("piv_rule")
-            pt["piv_rule"]["max_attempts"] = "bogus"
+            saved_piv = pt.get("ppv_rule")
+            pt["ppv_rule"]["max_attempts"] = "bogus"
             pt_path.write_text(_y.safe_dump(pt, sort_keys=False))
             heartgate = Heartgate.load(tmp)
             artifact = _full_artifact("plan", "execute")
@@ -473,11 +473,11 @@ transition_readiness:
                 "status": "pass" if (not crashed and helpful_blocker) else "fail",
             })
             # Restore.
-            pt["piv_rule"] = saved_piv
+            pt["ppv_rule"] = saved_piv
             pt_path.write_text(_y.safe_dump(pt, sort_keys=False))
 
             # --- Remediation R6 (skeptic F6): max_attempts <= 0 produces a blocker ---
-            pt["piv_rule"]["max_attempts"] = 0
+            pt["ppv_rule"]["max_attempts"] = 0
             pt_path.write_text(_y.safe_dump(pt, sort_keys=False))
             heartgate = Heartgate.load(tmp)
             d = heartgate.validate_transition(_full_artifact("plan", "execute"))
@@ -485,7 +485,7 @@ transition_readiness:
                 "name": "remediation_R6_max_attempts_zero_produces_blocker",
                 "status": "pass" if any("max_attempts must be" in b for b in d.blockers) else "fail",
             })
-            pt["piv_rule"] = saved_piv
+            pt["ppv_rule"] = saved_piv
             pt_path.write_text(_y.safe_dump(pt, sort_keys=False))
 
             # --- Remediation R7 (skeptic F5b): malformed stages config does not crash ---

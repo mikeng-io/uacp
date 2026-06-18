@@ -107,7 +107,7 @@ class TestGateLedgerWithGuardian:
             "policy_version": "0.1",
             "declared_side_effects": [],
             "gate": "PLAN->EXECUTE",
-            "record": {"result": "pass", "piv": "piv_1"},
+            "record": {"result": "pass", "ppv": "ppv_1"},
             "authority_artifact": "plans/test-plan.yaml",
         }))
         assert result["ok"] is True
@@ -121,7 +121,7 @@ class TestGateLedgerWithGuardian:
             "policy_version": "0.1",
             "declared_side_effects": [],
             "gate": "EXECUTE->VERIFY",
-            "record": {"result": "pass", "piv": "piv_2"},
+            "record": {"result": "pass", "ppv": "ppv_2"},
             "authority_artifact": "plans/test-plan.yaml",
         }))
         assert result2["ok"] is True

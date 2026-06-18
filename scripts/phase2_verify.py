@@ -87,30 +87,30 @@ def main() -> int:
             import yaml as _yaml
 
             # Seed the gate ledger so phase_exit_invariants do not fire spurious blockers.
-            # Global review R1 (SKEP-G2-001): PIV pass records must carry
-            # explicit piv_id coverage + check_results sibling per the
-            # SKEP-G-002 contract. Without these, _validate_piv_record now
+            # Global review R1 (SKEP-G2-001): PPV pass records must carry
+            # explicit ppv_id coverage + check_results sibling per the
+            # SKEP-G-002 contract. Without these, _validate_ppv_record now
             # treats the record as a defect.
-            PIV_IDS = ["piv_1", "piv_2", "piv_3", "piv_4", "piv_5"]
-            def _seed_ledger(phase: str, gate: str, piv_pass: bool = True):
+            PPV_IDS = ["ppv_1", "ppv_2", "ppv_3", "ppv_4", "ppv_5"]
+            def _seed_ledger(phase: str, gate: str, ppv_pass: bool = True):
                 ledger_dir = tmp / ".uacp/state/gate-ledger"
                 ledger_dir.mkdir(parents=True, exist_ok=True)
                 path = ledger_dir / f"{run_id}.jsonl"
                 import time as _t
                 with path.open("a", encoding="utf-8") as fh:
                     fh.write(json.dumps({"gate": gate, "run_id": run_id, "phase": phase, "result": "pass", "ts": int(_t.time())}, sort_keys=True) + "\n")
-                    if piv_pass:
-                        piv_record = {
-                            "gate": "PIV",
+                    if ppv_pass:
+                        ppv_record = {
+                            "gate": "PPV",
                             "run_id": run_id,
                             "phase": phase,
                             "result": "pass",
-                            "piv_attempt": 1,
-                            "checks": list(PIV_IDS),
-                            "check_results": {pid: "pass" for pid in PIV_IDS},
+                            "ppv_attempt": 1,
+                            "checks": list(PPV_IDS),
+                            "check_results": {pid: "pass" for pid in PPV_IDS},
                             "ts": int(_t.time()),
                         }
-                        fh.write(json.dumps(piv_record, sort_keys=True) + "\n")
+                        fh.write(json.dumps(ppv_record, sort_keys=True) + "\n")
 
             # --- Check 1: scope artifact missing blocks PLAN->EXECUTE ---
             _seed_ledger("plan", "PROPOSE->PLAN")
@@ -272,7 +272,7 @@ def main() -> int:
                         "applies_to_future_runs": True,
                         "knowledge_path": "knowledge/lessons/universal-governance-lessons.yaml",
                         "ledger_citations": [
-                            {"run_id": run_id, "gate": "PIV", "ts": 0, "byte_offset": 0, "reviewer": "codex"},
+                            {"run_id": run_id, "gate": "PPV", "ts": 0, "byte_offset": 0, "reviewer": "codex"},
                         ],
                     }
                 ],

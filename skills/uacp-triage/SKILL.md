@@ -29,7 +29,7 @@ it does not skip or substitute for it.
 - `UACP_ROOT/skills/uacp-core/references/agent-council-followthrough.md` — council dispatch protocol, modes, tiers, retrieval-led rule, finding schema, mid-phase escalation
 - `UACP_ROOT/config/phase-transitions.yaml` — adaptive-gate doctrine (LLM-read; `selected_when_any`/`block_when`/`required_artifacts` blocks) + artifact schemas
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/phase_graph.py` — codified valid transitions (`LIFECYCLE_GRAPH`)
-- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (heartgate_coherence, run_registry, piv_rule)
+- `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (heartgate_coherence, run_registry, ppv_rule)
 - `UACP_ROOT/config/uacp.toml` (`[heartgate.*]` — operator-tunable coherence thresholds and enforcement mode)
 
 ## Rules

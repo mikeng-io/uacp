@@ -44,7 +44,7 @@ When adding a new adaptive gate for a phase transition:
 
 UACP currently has two historically overlapping concepts:
 
-- legacy **Post-Phase Verification** ledger rule (`piv_rule`, recorded as `gate: PIV` for compatibility);
+- legacy **Post-Phase Verification** ledger rule (`ppv_rule`, recorded as `gate: PPV` (formerly `gate: PIV`) for compatibility);
 - newer **Phase Intent Verification** contract (`uacp.phase_intent_verification_contract`) authored by PLAN for EXECUTE evidence.
 
 Keep them explicitly disambiguated in docs/config/prompts. Do not let `PIV` shorthand hide which one is being audited.

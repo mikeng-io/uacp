@@ -24,7 +24,7 @@ block that only covers triage→resolved, so the code-default brainstorm stage
 (with its 07-scope-package.yaml exit invariant) would be absent.  This test
 therefore rewrites the config file to OMIT the `stages` key entirely, which
 triggers load_phase_transitions to inject stages_default() — the full codified
-grammar including the brainstorm invariant.  All other opt-out keys (piv_rule,
+grammar including the brainstorm invariant.  All other opt-out keys (ppv_rule,
 plan_validation_gate, etc.) are preserved so no other lifecycle test is
 affected.
 """
@@ -57,7 +57,7 @@ def _write_brainstorm_config(root: Path) -> None:
     load_phase_transitions injects stages_default() (which includes brainstorm
     with the 07-scope-package.yaml exit invariant).
 
-    The opt-out knobs that test_full_lifecycle relies on (piv_rule,
+    The opt-out knobs that test_full_lifecycle relies on (ppv_rule,
     plan_validation_gate, heartgate_coherence_required_when, artifact_schema)
     are reproduced verbatim so this rewrite does not perturb any other test.
     """
@@ -66,7 +66,7 @@ def _write_brainstorm_config(root: Path) -> None:
         # Opt-out knobs preserved from conftest to keep other lifecycle tests green.
         "heartgate_coherence_required_when": {},
         "plan_validation_gate": {},
-        "piv_rule": {"ledger_required": False},
+        "ppv_rule": {"ledger_required": False},
         "artifact_schema": {"required_fields": []},
     }
     phase_path = root / "config" / "phase-transitions.yaml"

@@ -46,12 +46,12 @@ Slice 4b T4c-2 adds two more codified blocks (pre-slim production literals):
     ledger_required_phase: plan
     checks: [pv_1..pv_6] (id/name/description each)
 
-  piv_rule:
+  ppv_rule:
     ledger_required: true
     max_attempts: 2
     second_failure_action: block_unconditional
-    ledger_required_fields: [piv_attempt, result, checks]
-    checks: [piv_1..piv_5] (id/name/description each)
+    ledger_required_fields: [ppv_attempt, result, checks]
+    checks: [ppv_1..ppv_5] (id/name/description each)
 """
 
 from __future__ import annotations
@@ -64,10 +64,10 @@ from engines.domain.gate_rules import (
     HEARTGATE_COHERENCE_REQUIRED_FIELD,
     HEARTGATE_COHERENCE_REQUIRED_LENSES,
     HEARTGATE_COHERENCE_SELECTORS_DEFAULT,
-    PIV_LEDGER_REQUIRED,
-    PIV_LEDGER_REQUIRED_FIELDS,
-    PIV_MAX_ATTEMPTS,
-    PIV_SECOND_FAILURE_ACTION,
+    PPV_LEDGER_REQUIRED,
+    PPV_LEDGER_REQUIRED_FIELDS,
+    PPV_MAX_ATTEMPTS,
+    PPV_SECOND_FAILURE_ACTION,
     PLAN_NOT_APPLICABLE_REQUIRED_FIELDS,
     PLAN_REQUIRED_UNIVERSAL_CORE,
     PLAN_VALIDATION_LEDGER_GATE_NAME,
@@ -77,8 +77,8 @@ from engines.domain.gate_rules import (
     PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS,
     PROPOSAL_REQUIRED_UNIVERSAL_CORE,
     heartgate_coherence_required_when_default,
-    piv_rule_default,
     plan_validation_gate_default,
+    ppv_rule_default,
     run_registry_rule_default,
 )
 
@@ -179,34 +179,34 @@ _PROD_PLAN_VALIDATION = {
     "enforcement": "heartgate blocker on PLAN->EXECUTE if PLAN_VALIDATION ledger entry is absent or its result is not 'pass'",
 }
 
-_PROD_PIV = {
+_PROD_PPV = {
     "ledger_required": True,
     "max_attempts": 2,
     "second_failure_action": "block_unconditional",
-    "ledger_required_fields": ["piv_attempt", "result", "checks"],
+    "ledger_required_fields": ["ppv_attempt", "result", "checks"],
     "checks": [
         {
-            "id": "piv_1",
+            "id": "ppv_1",
             "name": "artifacts_produced",
             "description": "Did the phase produce all artifacts declared in phase_exit_invariants?",
         },
         {
-            "id": "piv_2",
+            "id": "ppv_2",
             "name": "satisfies_plan",
             "description": "Do produced artifacts satisfy the proposal/plan that authorized this phase?",
         },
         {
-            "id": "piv_3",
+            "id": "ppv_3",
             "name": "handled_findings_chain",
             "description": "Are all material council/review findings classified in handled_findings_chain?",
         },
         {
-            "id": "piv_4",
+            "id": "ppv_4",
             "name": "non_waivable_invariants_intact",
             "description": "Authority explicit, write containment honored, traceable state, conservative failure preserved.",
         },
         {
-            "id": "piv_5",
+            "id": "ppv_5",
             "name": "no_new_unresolved_findings",
             "description": "Did the phase introduce any new material findings still unresolved?",
         },
@@ -365,27 +365,27 @@ def test_plan_validation_gate_check_ids_equal_production():
     assert [c["id"] for c in rule["checks"]] == ["pv_1", "pv_2", "pv_3", "pv_4", "pv_5", "pv_6"]
 
 
-# E. piv_rule (Slice 4b T4c-2) ------------------------------------------------
+# E. ppv_rule (Slice 4b T4c-2) ------------------------------------------------
 
-def test_piv_rule_code_default_equals_pre_slim_production():
-    rule = piv_rule_default()
-    assert rule["ledger_required"] == _PROD_PIV["ledger_required"]
-    assert rule["max_attempts"] == _PROD_PIV["max_attempts"]
-    assert rule["second_failure_action"] == _PROD_PIV["second_failure_action"]
-    assert rule["ledger_required_fields"] == _PROD_PIV["ledger_required_fields"]
-    assert rule["checks"] == _PROD_PIV["checks"]
-
-
-def test_piv_rule_grammar_constants():
-    assert PIV_LEDGER_REQUIRED is True
-    assert PIV_MAX_ATTEMPTS == 2
-    assert PIV_SECOND_FAILURE_ACTION == "block_unconditional"
-    assert PIV_LEDGER_REQUIRED_FIELDS == ["piv_attempt", "result", "checks"]
+def test_ppv_rule_code_default_equals_pre_slim_production():
+    rule = ppv_rule_default()
+    assert rule["ledger_required"] == _PROD_PPV["ledger_required"]
+    assert rule["max_attempts"] == _PROD_PPV["max_attempts"]
+    assert rule["second_failure_action"] == _PROD_PPV["second_failure_action"]
+    assert rule["ledger_required_fields"] == _PROD_PPV["ledger_required_fields"]
+    assert rule["checks"] == _PROD_PPV["checks"]
 
 
-def test_piv_rule_check_ids_equal_production():
-    rule = piv_rule_default()
-    assert [c["id"] for c in rule["checks"]] == ["piv_1", "piv_2", "piv_3", "piv_4", "piv_5"]
+def test_ppv_rule_grammar_constants():
+    assert PPV_LEDGER_REQUIRED is True
+    assert PPV_MAX_ATTEMPTS == 2
+    assert PPV_SECOND_FAILURE_ACTION == "block_unconditional"
+    assert PPV_LEDGER_REQUIRED_FIELDS == ["ppv_attempt", "result", "checks"]
+
+
+def test_ppv_rule_check_ids_equal_production():
+    rule = ppv_rule_default()
+    assert [c["id"] for c in rule["checks"]] == ["ppv_1", "ppv_2", "ppv_3", "ppv_4", "ppv_5"]
 
 
 # Enforce-by-default behavior for the two new blocks --------------------------
@@ -415,9 +415,9 @@ def test_plan_validation_gate_fires_when_block_absent(temp_uacp_root, valid_run_
     assert any("plan_validation_gate" in b for b in blockers), blockers
 
 
-def test_piv_rule_fires_when_block_absent(temp_uacp_root, valid_run_id):
-    """With NO piv_rule in config (the production slimmed state), the code default
-    applies (ledger_required true) and a transition with no PIV pass record in
+def test_ppv_rule_fires_when_block_absent(temp_uacp_root, valid_run_id):
+    """With NO ppv_rule in config (the production slimmed state), the code default
+    applies (ledger_required true) and a transition with no PPV pass record in
     the ledger is BLOCKED. The conftest fixture's `ledger_required: false`
     opt-out is what keeps the lifecycle tests lax; here we delete that stub to
     exercise the production enforce-by-default path."""
@@ -425,12 +425,12 @@ def test_piv_rule_fires_when_block_absent(temp_uacp_root, valid_run_id):
 
     hg = Heartgate.load(str(temp_uacp_root))
     # Drop the fixture's opt-out stub so an ABSENT block exercises the code default.
-    hg.config.pop("piv_rule", None)
-    assert "piv_rule" not in hg.config
-    assert hg._piv_rule()["ledger_required"] is True
+    hg.config.pop("ppv_rule", None)
+    assert "ppv_rule" not in hg.config
+    assert hg._ppv_rule()["ledger_required"] is True
 
     blockers: list[str] = []
-    hg._validate_piv_record(
+    hg._validate_ppv_record(
         {
             "from_phase": "execute",
             "to_phase": "verify",
@@ -438,4 +438,4 @@ def test_piv_rule_fires_when_block_absent(temp_uacp_root, valid_run_id):
         },
         blockers,
     )
-    assert any("piv_rule" in b for b in blockers), blockers
+    assert any("ppv_rule" in b for b in blockers), blockers

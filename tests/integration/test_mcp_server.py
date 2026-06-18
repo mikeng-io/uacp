@@ -162,7 +162,7 @@ async def test_call_writer_appends_to_gate_ledger(
                 "policy_version": "0.1",
                 "workspace": str(temp_uacp_root),
                 "gate": "EXECUTE->VERIFY",
-                "record": {"result": "pass", "check": "piv_1"},
+                "record": {"result": "pass", "check": "ppv_1"},
                 "authority_artifact": "plans/test-plan.yaml",
             },
         )

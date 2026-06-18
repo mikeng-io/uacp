@@ -37,7 +37,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **Write surfaces (Layer A)**: `state/`, `plans/`, `proposals/`, `executions/`, `verification/`, `.outputs/`, `knowledge/`, `docs/`, `config/`. (Triage is permitted to update governance docs/configs.)
 
-**PIV obligation**: run PIV at end of TRIAGE; append `gate: PIV, phase: triage, result: pass|fail` to the gate ledger.
+**PPV obligation**: run the post-phase verification (PPV) self-eval at end of TRIAGE; append `gate: PPV, phase: triage, result: pass|fail` to the gate ledger. (PPV is the legacy end-of-phase ledger rule, formerly recorded as `gate: PIV`; distinct from Phase Intent Verification.)
 
 **Phase exit invariants**: `proposals/{run_id}-triage*.yaml`, ledger entry `TRIAGE_COMPLETE`.
 
@@ -143,7 +143,7 @@ uacp-state has no Layer B entry of its own (it's `phase: '*'` / cross-phase); ad
 | Per-category writer (Layer A) | `Guardian.evaluate()` reads `config/uacp.toml [guardian] protected_categories.<cat>.allowed_tools` |
 | Self-attesting containment | `Guardian._filesystem_guard_verified` reads `config/uacp.toml [guardian] self_attesting_tools.names` |
 | Phase exit invariants | `Heartgate._validate_phase_exit_invariants` reads `stages.<phase>.phase_exit_invariants` |
-| PIV obligation | `Heartgate._validate_piv_record` reads `piv_rule` + run gate-ledger; enforces per-check pass evidence (each piv_id ∈ {piv_1..piv_5} carrying explicit `result: pass` either as a mapping entry in `checks[]` or via sibling `check_results: {piv_id: pass}`) — Global review SKEP-G-002 generalized the Phase 3 R1 PLAN_VALIDATION pattern to PIV |
+| PPV obligation (legacy post-phase verification ledger rule; formerly "PIV") | `Heartgate._validate_ppv_record` reads `ppv_rule` + run gate-ledger; enforces per-check pass evidence (each ppv_id ∈ {ppv_1..ppv_5} carrying explicit `result: pass` either as a mapping entry in `checks[]` or via sibling `check_results: {ppv_id: pass}`) — Global review SKEP-G-002 generalized the Phase 3 R1 PLAN_VALIDATION pattern to PPV |
 | Plan validation | `Heartgate._validate_plan_validation_gate` reads `plan_validation_gate` (incl. `ledger_required_fields`, `ledger_required_phase`, declared `checks`) + run gate-ledger; enforces per-check pass evidence (Phase 3 R1/R2) |
 | Run registry | `Heartgate._validate_run_registry_overlap` reads `run_registry_rule` + `state/run-registry.yaml`; uses `_canon_write_path`/`_paths_overlap` (PurePosixPath segment match, Phase 3 R1) |
 | Run registry mutation | `uacp_run_registry_update` enforces caller-binding + write-path canonicalization; `uacp_state_write` refuses direct writes to `state/run-registry.yaml` (Phase 3 R1/R2) |
