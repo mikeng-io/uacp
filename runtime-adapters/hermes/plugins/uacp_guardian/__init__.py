@@ -52,6 +52,7 @@ from governed_handlers import (  # noqa: F401  (re-exported for tests)
     _validate_contained_shell_attestation,
 )
 from tool_specs import hermes_schema, tool_specs
+from hook_kernel import evaluate_pre_tool_call  # noqa: E402  (sys.path set above)
 
 # State handlers stay sourced from uacp-state; re-exported here for tests.
 from state import (  # noqa: F401  (re-exported for tests)
@@ -177,29 +178,34 @@ def on_pre_tool_call(
     tool_provider: str = "",
     **_: Any,
 ) -> dict[str, str] | None:
+    # Delegates to the runtime-neutral evaluate_pre_tool_call (uacp-core
+    # hook_kernel). Hermes passes normalize=False plus its own inferred
+    # tool_provider so its established classification (mcp_/plugin provenance,
+    # core tool names) is preserved byte-for-byte; the host_tool_classification
+    # normalization is a hook-only (Claude/Kimi) concern. The audit-write and
+    # self-attesting/attestation containment wiring move into the shared kernel,
+    # producing the same audit record and the same hook result this adapter
+    # returned before.
     try:
         if not tool_provider:
             tool_provider = _infer_hermes_tool_provider(tool_name)
-        event = make_event(
+        decision = evaluate_pre_tool_call(
             tool_name=tool_name,
             args=args or {},
-            event_type="pre_tool_call",
-            tool_provider=tool_provider,
-            task_id=task_id,
+            runtime="hermes",
+            adapter="uacp_guardian",
             session_id=session_id,
+            task_id=task_id,
             tool_call_id=tool_call_id,
-            filesystem_guard_verified=_filesystem_guard_verified(tool_name, args),
+            policy=_policy(),
+            phase_config=_phase_config(),
+            self_attesting=_self_attesting_tools(),
+            profile="",
+            classification_map={},
+            normalize=False,
+            tool_provider=tool_provider,
+            verify_attestation=lambda name, a: _filesystem_guard_verified(name, a),
         )
-        decision = _decision_for_event(event)
-        if decision.audit_required:
-            write_audit_record(decision.to_audit_record(event))
-            decision = GuardianDecision(
-                decision.decision,
-                decision.category,
-                decision.reason,
-                decision.evidence,
-                decision.audit_required,
-            )
         if decision.blocks_execution:
             return decision.to_hook_result()
         return None
