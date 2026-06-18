@@ -166,9 +166,7 @@ def test_sc_blast_radius_valid_value_is_ok(temp_uacp_root: Path, valid_run_id: s
 # --------------------------------------------------- SC_WRITE_PATH_ESCAPES_WORKSPACE
 def test_sc_write_path_escapes_workspace(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)
-    assert "SC_WRITE_PATH_ESCAPES_WORKSPACE" not in _codes(
-        validate(temp_uacp_root, valid_run_id)
-    )
+    assert "SC_WRITE_PATH_ESCAPES_WORKSPACE" not in _codes(validate(temp_uacp_root, valid_run_id))
 
     # Declare a write_path that traverses out of the workspace. Mirror it in the
     # registry so the divergence under test is the escape, not a scope/registry

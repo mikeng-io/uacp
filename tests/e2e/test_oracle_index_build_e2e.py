@@ -30,6 +30,7 @@ RUN IT
     uv pip install -e ".[oracle-e2e]"
     UACP_ORACLE_E2E=1 pytest tests/e2e/test_oracle_index_build_e2e.py -q
 """
+
 from __future__ import annotations
 
 import threading

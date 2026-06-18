@@ -6,6 +6,7 @@ PHASE_TIERS maps each UACP lifecycle phase to its retrieval mode:
   FULL      — full retrieval + semantic search
   ADVISORY  — retrieval enabled but results are advisory, non-blocking
 """
+
 from __future__ import annotations
 
 from enum import StrEnum

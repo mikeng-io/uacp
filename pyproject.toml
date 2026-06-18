@@ -2,6 +2,15 @@
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+# UACP is not an importable library: its code lives under skills/uacp-core/scripts
+# (+ runtime-adapters/) and is loaded via sys.path (see tests/conftest.py), not as
+# an installed package. `pip install -e .` exists only to install dependencies +
+# project metadata. Declare no packages so setuptools' flat-layout autodiscovery
+# does not error on the multiple top-level dirs (hooks/, skills/, config/,
+# runtime-adapters/, …) — that error was breaking the CI editable install.
+[tool.setuptools]
+packages = []
+
 [project]
 name = "uacp"
 version = "0.1.0"

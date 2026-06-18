@@ -6,6 +6,7 @@ how the aggregator and skill consumers should treat the payload:
   normative     — advisory prior-art that shapes reasoning but requires corroboration
   advisory      — context from heuristic or external sources; informational only
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -30,6 +31,7 @@ class ProviderPacket:
         evidence_required: when True, callers must corroborate before treating as proof
         metadata: optional extra context (source-specific)
     """
+
     source: str
     trust_class: TrustClass
     payload: str | dict

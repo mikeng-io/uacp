@@ -162,8 +162,7 @@ def _check_item_fields(item: DeferredItem, label: str, source: str) -> list[Viol
             out.append(
                 _v(
                     code,
-                    f"deferred item '{label}' in {source} lacks required field "
-                    f"'{field}'",
+                    f"deferred item '{label}' in {source} lacks required field '{field}'",
                     deferred_item=label,
                     field=field,
                     source=source,

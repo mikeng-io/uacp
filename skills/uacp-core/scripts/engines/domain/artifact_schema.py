@@ -46,6 +46,7 @@ BLAST_RADIUS_VALUES: frozenset[str] = frozenset({"low", "medium", "high", "criti
 # Transition schema models
 # ---------------------------------------------------------------------------
 
+
 class IntentSchema(BaseModel):
     """Phase 2.3: triage->propose intent doc (proposals/{run_id}-intent.md)."""
 
@@ -152,6 +153,7 @@ _RUN_REGISTRY: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 # Builder — reproduces the dict shape _load_artifact_schemas() used to return
 # ---------------------------------------------------------------------------
+
 
 def artifact_schemas_dict() -> dict[str, Any]:
     """Return a dict structurally equivalent to the old yaml.safe_load output.

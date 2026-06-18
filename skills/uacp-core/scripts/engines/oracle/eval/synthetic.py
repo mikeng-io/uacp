@@ -18,6 +18,7 @@ seed)`` therefore yields byte-identical files and an identical relevance map.
 The frontmatter is emitted by hand (stable key order, no ``yaml.safe_dump`` set
 ordering) to keep bytes reproducible across Python/yaml versions.
 """
+
 from __future__ import annotations
 
 import random

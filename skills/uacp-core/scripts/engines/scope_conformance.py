@@ -95,6 +95,7 @@ _ALLOWED_OUTPUT_PREFIXES = ("resolutions", "state", "verification")
 # codified in Slice 4a to eliminate the live YAML read.
 try:
     from engines.domain.artifact_schema import BLAST_RADIUS_VALUES
+
     _FALLBACK_BLAST_RADIUS: frozenset[str] = BLAST_RADIUS_VALUES
 except Exception:
     _FALLBACK_BLAST_RADIUS = frozenset({"low", "medium", "high", "critical"})
@@ -114,6 +115,7 @@ def _load_blast_radius_enum(root: Path) -> frozenset[str]:  # noqa: ARG001
     Never raises: on any failure fall back to the hardcoded frozenset."""
     try:
         from engines.domain.artifact_schema import BlastRadius  # noqa: PLC0415
+
         values = frozenset(_get_args(BlastRadius))
         return values if values else _FALLBACK_BLAST_RADIUS
     except Exception:
@@ -175,9 +177,7 @@ def validate(workspace: str | Path, run_id: str) -> list[Violation]:
 
     violations.extend(_check_write_paths_escape(root, scope_rel, scope_wps))
     violations.extend(_check_blast_radius(root, scope_rel, scope))
-    violations.extend(
-        _check_scope_registry(root, run_id, scope_rel, scope_wps, scope.write_paths)
-    )
+    violations.extend(_check_scope_registry(root, run_id, scope_rel, scope_wps, scope.write_paths))
     violations.extend(_check_artifact_containment(root, scope_rel, scope_wps, artifacts))
 
     return violations
@@ -310,11 +310,7 @@ def _check_scope_registry(
     if isinstance(reg_scope_path, str) and reg_scope_path:
         man_resolved = resolve_in_workspace(root, scope_rel)
         reg_resolved = resolve_in_workspace(root, reg_scope_path)
-        if (
-            man_resolved is not None
-            and reg_resolved is not None
-            and man_resolved != reg_resolved
-        ):
+        if man_resolved is not None and reg_resolved is not None and man_resolved != reg_resolved:
             out.append(
                 _v(
                     "SC_SCOPE_REGISTRY_DISAGREE",

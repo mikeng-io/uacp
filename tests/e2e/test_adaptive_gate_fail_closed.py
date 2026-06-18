@@ -39,9 +39,7 @@ def _gate_blockers(blockers: list[str], label: str) -> list[str]:
     return [b for b in blockers if label in b]
 
 
-def test_execute_gate_fails_closed_on_absent_config(
-    temp_uacp_root: Path, valid_run_id: str
-):
+def test_execute_gate_fails_closed_on_absent_config(temp_uacp_root: Path, valid_run_id: str):
     """execute->verify: config key absent + no PIV/checkpoint seeded -> BLOCKS.
 
     Driven through the public validate_transition (the fixture graph allows
@@ -73,9 +71,7 @@ def test_execute_gate_fails_closed_on_absent_config(
     )
 
 
-def test_verify_gate_fails_closed_on_absent_config(
-    temp_uacp_root: Path, valid_run_id: str
-):
+def test_verify_gate_fails_closed_on_absent_config(temp_uacp_root: Path, valid_run_id: str):
     """verify->resolve: config key absent + no evidence -> gate emits blockers.
 
     Invoked directly (the fixture graph uses verify->resolved, so
@@ -97,9 +93,7 @@ def test_verify_gate_fails_closed_on_absent_config(
     )
 
 
-def test_resolve_gate_fails_closed_on_absent_config(
-    temp_uacp_root: Path, valid_run_id: str
-):
+def test_resolve_gate_fails_closed_on_absent_config(temp_uacp_root: Path, valid_run_id: str):
     """resolve->*: config key absent + no evidence -> gate emits blockers."""
     hg = Heartgate.load(str(temp_uacp_root))
     assert hg.config.get("adaptive_resolve_closure_gate") is None

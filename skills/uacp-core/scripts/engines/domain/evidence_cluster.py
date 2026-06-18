@@ -38,14 +38,16 @@ ClusterPhase = Literal["triage", "propose", "plan", "execute", "verify", "resolv
 # INVARIANT_CLUSTER_FAMILIES — the 6 families with invariant: true in the YAML
 # ---------------------------------------------------------------------------
 
-INVARIANT_CLUSTER_FAMILIES: frozenset[str] = frozenset({
-    "authority",
-    "side_effects",
-    "write_containment",
-    "privacy_safety",
-    "traceable_state",
-    "conservative_failure",
-})
+INVARIANT_CLUSTER_FAMILIES: frozenset[str] = frozenset(
+    {
+        "authority",
+        "side_effects",
+        "write_containment",
+        "privacy_safety",
+        "traceable_state",
+        "conservative_failure",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # EvidenceCluster model

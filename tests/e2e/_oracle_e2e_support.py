@@ -15,6 +15,7 @@ Provides:
 These were previously inlined in test_oracle_realmodel_e2e.py; extracted so the
 index-build e2e reuses the exact same plumbing rather than reinventing it.
 """
+
 from __future__ import annotations
 
 import json

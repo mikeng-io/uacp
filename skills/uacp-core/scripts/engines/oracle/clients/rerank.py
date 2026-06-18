@@ -13,6 +13,7 @@ Cross-encoder / LLM rerank, selected by serving.resolve_role():
 Both deps are lazy: no top-level httpx / binding import, so the floor imports
 clean with neither installed.
 """
+
 from __future__ import annotations
 
 import os
@@ -96,9 +97,7 @@ class _Qwen3GenerativeReranker:
         'only be "yes" or "no".<|im_end|>\n<|im_start|>user\n'
     )
     _SUFFIX = "<|im_end|>\n<|im_start|>assistant\n<think>\n\n</think>\n\n"
-    _INSTRUCT = (
-        "Given a web search query, retrieve relevant passages that answer the query"
-    )
+    _INSTRUCT = "Given a web search query, retrieve relevant passages that answer the query"
 
     def __init__(self, repo_id: str) -> None:
         import torch  # noqa: F401
@@ -112,9 +111,7 @@ class _Qwen3GenerativeReranker:
         self._no_id = self._tok.convert_tokens_to_ids("no")
 
     def _format(self, query: str, doc: str) -> str:
-        body = (
-            f"<Instruct>: {self._INSTRUCT}\n<Query>: {query}\n<Document>: {doc}"
-        )
+        body = f"<Instruct>: {self._INSTRUCT}\n<Query>: {query}\n<Document>: {doc}"
         return self._PREFIX + body + self._SUFFIX
 
     def score(self, query: str, texts: list[str]) -> list[float]:

@@ -7,6 +7,7 @@ not block the aggregator.
 Heavy dependency (httpx) is lazily imported so the floor (no ML deps) works
 without httpx installed.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -16,6 +17,7 @@ def _httpx_client(*a: Any, **k: Any) -> Any:
     """Create an httpx client. Lazy import — returns None if httpx is not installed."""
     try:
         import httpx
+
         return httpx.Client(*a, **k)
     except ImportError:
         return None

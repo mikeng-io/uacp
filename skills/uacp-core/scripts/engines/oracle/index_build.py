@@ -46,6 +46,7 @@ The ``text`` field is BOTH what the dense leg embeds at build time AND what the
 native FTS index covers AND what a reranker scores against — one canonical text
 per item keeps build and retrieval consistent.
 """
+
 from __future__ import annotations
 
 import logging
