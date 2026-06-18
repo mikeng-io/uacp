@@ -4,6 +4,22 @@
 
 Spawn all participants in parallel using the runtime's sub-agent dispatch (see `uacp-bridge`). Each receives the same `scope` and `context_summary` but NO communication with other participants.
 
+## Round-1 State (standard/thorough)
+
+For `standard`/`thorough` intensity, Phase 1 IS round 1 of the persisted round
+state (see `references/round-state-manifest.md`). Sub-agents get **no priors**
+(`context_policy: minimal-non-leading`) — independent discovery is preserved, so
+no prior-round file pointers exist yet. Then:
+
+1. Write each sub-agent's raw output to `round-1/participants/{participant_id}.json`.
+2. Assemble the findings/candidates into `round-1/inventory.json`, assigning ids
+   (F001… for findings; P001… for brainstorm/design candidates).
+3. Write `manifest.json` — `current_round: 1`, `status: running`, the `rounds[0]`
+   entry, and one `items` entry per assembled item (`state: discovered` for
+   findings / starting `maturity` for candidates; `first_round: 1`; empty lineage).
+
+`quick` intensity skips all of this — single in-memory pass, no files.
+
 ## Participant Roster
 
 | Role | Count | Source |

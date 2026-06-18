@@ -46,6 +46,14 @@ debate_input:
 
 Run the phases below in order. At each phase, Read the corresponding reference file before constructing participant prompts.
 
+**Round state.** `standard` and `thorough` intensity persist round state to disk
+per `references/round-state-manifest.md`: each round's output is written under
+`.uacp/debate/{review_id}/round-k/`, the durable state lives in `manifest.json`,
+and the coordinator hands out file POINTERS to the next round's sub-agents (they
+READ the prior round's files) rather than re-embedding the inventory into every
+prompt. `quick` intensity stays a single in-memory pass — no manifest, no round
+directories.
+
 ### Setup
 
 1. **Read `references/what-debate-is-for.md`** — confirm mode and whether brainstorm or review lifecycle applies.
@@ -82,6 +90,11 @@ Save two artifacts per run. Read `references/artifact-output.md` for the full fi
   - MUST carry the fields defined in `references/artifact-output.md` (the authoritative debate-log contract).
 - Markdown summary: `.uacp/debate/{YYYYMMDD-HHMMSS}-debate-{review_id}.md`
 
+For `standard`/`thorough` runs the final JSON/Markdown log is a roll-up of
+`manifest.json` and the per-round files written during the run (see
+`references/round-state-manifest.md`); `manifest.json` + `round-k/` are the
+durable, auditable state, and the timestamped log is the closing summary.
+
 Do not fabricate participant voices. Every `messages[]` entry must correspond to a real sub-agent (or shared-session) message that actually happened.
 
 ## Integration Notes
@@ -100,6 +113,8 @@ Before finishing a debate run, confirm:
 - [ ] `messages[]` contains only real participant messages
 - [ ] JSON log carries all fields defined in `references/artifact-output.md`
 - [ ] Markdown frontmatter includes all required fields
+- [ ] (standard/thorough) `manifest.json` exists with `status: complete`, and each round has its `round-k/` files (`participants/` + `inventory.json` for round 1; `challenges.json` + `inventory.json` for round k≥2), per `references/round-state-manifest.md`
+- [ ] (quick) no manifest / round directories were written — single in-memory pass
 
 **No symlinks.** To find the latest artifact:
 ```bash
