@@ -16,9 +16,11 @@ The goal is not to add overhead. It is to ensure that when something goes wrong,
 
 ## Lifecycle
 
-The UACP lifecycle has six phases: **TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE**
+The UACP lifecycle has seven phases: **(optional) BRAINSTORM → TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE**
 
-**TRIAGE** is the entry point. It calibrates scope, scores granularity, and routes the request before any lifecycle commitment is made. Triage can route work directly (bypassing the full lifecycle) or block it pending authority or clarification.
+**BRAINSTORM** is an optional pre-governance exploration phase. Use it when the request is vague, has ambiguous scope, or spans multiple possible directions. BRAINSTORM is a governed phase — it registers a formal run, writes a scope package, and runs Heartgate for the `brainstorm→triage` transition before handing off. It never skips TRIAGE.
+
+**TRIAGE** is the mandatory entry point for all governed work. It calibrates scope, scores granularity, and routes the request before any lifecycle commitment is made. Triage can route work directly (bypassing the full lifecycle) or block it pending authority or clarification.
 
 ### Triage Routing Outcomes
 
@@ -36,7 +38,9 @@ For the human-readable guide to the semantic package, PIV, VERIFY/RESOLVE, Guard
 
 ```mermaid
 flowchart TD
+    BRAINSTORM([BRAINSTORM\noptional])
     TRIAGE([TRIAGE])
+    BRAINSTORM -->|scope-package + heartgate| TRIAGE
     TRIAGE -->|direct| DIRECT([Handle Directly])
     TRIAGE -->|block_or_clarify| BLOCK([Block / Clarify])
     TRIAGE -->|lightweight| PROPOSE
@@ -54,12 +58,17 @@ flowchart TD
 
 | Phase | Responsibility |
 |---|---|
+| (optional) BRAINSTORM | Pre-governance exploration; must exit to TRIAGE before any governed work begins |
 | TRIAGE | Scope calibration, granularity scoring, governance routing |
 | PROPOSE | Declare intent, authority, constraints, and evidence obligations |
 | PLAN | Produce a verified, council-reviewed execution plan |
 | EXECUTE | Perform bounded work through runtimes and tools within Guardian policy |
 | VERIFY | Produce and synthesize evidence that the plan was executed correctly |
 | RESOLVE | Close the run, record lessons, and release all held state |
+
+### Two Lifecycle Tracks
+
+UACP supports two tracks. The **standard track** is the default: fixed phases, structured artifacts, deterministic gate checks. The **goal-driven track** (ADR-0016) is for semantic or exploratory work — it adds a persistent goal artifact and a checkpoint manifest; otherwise it is byte-identical to the standard track. See [`docs/architecture/0016-goal-driven-track.md`](docs/architecture/0016-goal-driven-track.md).
 
 ---
 
@@ -95,7 +104,7 @@ graph TD
 | UACP | Governance cognition: should / may / must / under what risk | This repository |
 | Agent Council | Deliberative cognition: think together / design / challenge / synthesize | Role-diverse agents configured per run |
 | Coordination Adapter | Coordination memory: remember / coordinate / track / hand off | Kanban, issue trackers, custom queues (replaceable) |
-| Agent Runtimes | Worker cognition: reason locally / perform bounded work | Hermes, Claude Code, Codex, OpenCode, Kimi, Gemini |
+| Agent Runtimes | Worker cognition: reason locally / perform bounded work | Hermes (host), Claude Code, Codex, OpenCode, Kimi, Gemini |
 | Tool Adapters + Evidence Services | Actuation and observation: observe / act / produce evidence | Web search, browser automation, scraping APIs |
 | Guardian + Heartgate | Boundary enforcement: enforce the separation between all other planes | Guardian (tool calls), Heartgate (phase transitions) |
 
@@ -125,30 +134,29 @@ The Coordination Adapter is intentionally replaceable. Kanban is the current imp
 ```
 uacp/
 ├── README.md                          ← you are here (public-facing overview)
+├── AGENTS.md                          ← authority chain + lifecycle summary for agents
+├── CLAUDE.md                          ← Claude Code runtime entry (points to AGENTS.md)
 ├── PROJECT.md                         ← project identity (audience-keyed entry points)
-├── ROADMAP.md                         ← completed phases + Phase 5 reserved-slot backlog
+├── ROADMAP.md                         ← completed phases + reserved-slot backlog
 ├── CONTRIBUTING.md                    ← authoring contract (how to open a UACP run)
 ├── COMMANDS.md                        ← verify scripts, live probe, validator commands
 │
-├── docs/                              ← canonical prose authority
+├── docs/                              ← canonical prose authority (OKF-formatted)
 │   ├── INDEX.md                       ← structural navigation (start here as an agent)
 │   ├── arc42-index.md                 ← partial ARC42 architecture mapping
 │   ├── policy/                        ← foundational doctrine
-│   │   ├── INDEX.md
 │   │   ├── constitution.md            ← non-waivable invariants
 │   │   ├── first-principles.md        ← reasoning principles behind UACP
 │   │   └── alignment-spec.md          ← artifact roots + deployment-specific alignment
-│   ├── lifecycle/                     ← six-phase lifecycle model
-│   │   ├── INDEX.md
+│   ├── lifecycle/                     ← seven-phase lifecycle model
 │   │   ├── lifecycle-reference.md     ← phases, granularity, state, skill contracts
-│   │   └── orchestration-model.md     ← Agent Council, tiers, roles, execution profiles
+│   │   ├── orchestration-model.md     ← Agent Council, tiers, roles, execution profiles
+│   │   └── worktree-protocol.md       ← branch/worktree isolation rules
 │   ├── runtime/                       ← Guardian + Heartgate enforcement
-│   │   ├── INDEX.md
 │   │   ├── runtime-enforcement.md
 │   │   ├── runtime-integration-guide.md
 │   │   └── runtime-porting-and-version-control.md
 │   ├── guides/                        ← curated human/agent reading paths
-│   │   ├── INDEX.md
 │   │   └── lifecycle-hardening/
 │   │       ├── 00-index.md
 │   │       ├── 01-human-overview.md
@@ -156,65 +164,99 @@ uacp/
 │   │       ├── 03-artifact-and-gate-map.md
 │   │       └── 04-audit-and-remediation-history.md
 │   ├── reference/                     ← canonical schemas + per-skill authority
-│   │   ├── INDEX.md
 │   │   ├── proposal-schema.md
 │   │   ├── skill-enforcement-spec.md
-│   │   └── lifecycle-trace-table.md
-│   ├── architecture/                  ← numbered ADRs (status lifecycle)
-│   │   ├── INDEX.md
+│   │   ├── lifecycle-trace-table.md
+│   │   ├── learning-artifact-schema.md
+│   │   └── operator-phase-return-schema.md
+│   ├── architecture/                  ← numbered ADRs 0001–0017 (status lifecycle)
 │   │   ├── 0000-template.md
-│   │   └── 0001-…0008-*.md
+│   │   └── 0001-…0017-*.md
 │   ├── decisions/                     ← operational decision-log (lighter than ADRs)
-│   │   ├── INDEX.md
 │   │   └── decision-log.md
 │   ├── plans/                         ← forward plans + reserved slots
-│   │   ├── INDEX.md
 │   │   └── phase5-reserved-slot.md
-│   └── archived/                      ← superseded docs (currently empty)
-│       └── INDEX.md
+│   └── archived/                      ← completed plans and superseded docs
 │
 ├── config/                            ← machine-readable policy derived from docs
-│   ├── uacp.toml                      ← collapsed config: [guardian] [autonomy] [memory] [models] [runtime_bindings] [version_control] [scope] + knobs (Slice 3+)
-│   ├── phase-transitions.yaml
+│   ├── uacp.toml                      ← collapsed config: [guardian] [autonomy] [memory]
+│   │                                     [models] [runtime_bindings] [version_control]
+│   │                                     [scope] [oracle] [heartgate.*] [paths] + knobs
+│   ├── phase-transitions.yaml         ← doctrine layer (LLM-read); grammar codified to
+│   │                                     skills/uacp-core/scripts/engines/domain/
 │   ├── state.yaml
 │   ├── evidence-clusters.yaml
 │   ├── gate-selection.yaml
-│   └── review-routing.yaml
+│   ├── review-routing.yaml
+│   └── hooks/                         ← hook definitions
 │
-├── state/                             ← mutable runtime state (governed writers only)
-│   ├── current.yaml                   ← active-run pointer (caller-bound)
-│   ├── kanban.yaml                    ← coordination adapter state
-│   ├── runs/                          ← per-run state records
-│   ├── gate-ledger/                   ← append-only JSONL (uacp_gate_ledger_append)
-│   ├── run-registry.yaml              ← Phase 3.2 active-run registry
-│   └── escalations/                   ← Phase 4.4 stub: append-only escalations
+├── .uacp/                             ← runtime namespace (config base = ".uacp")
+│   ├── knowledge/                     ← Oracle corpus (TRACKED in git)
+│   ├── lessons/                       ← Oracle lessons corpus (TRACKED in git)
+│   ├── knowledge/indexes/             ← built vector index (gitignored)
+│   │   [runtime-created on first run — not present in a fresh clone:]
+│   ├── state/                         ← mutable runtime state (governed writers only)
+│   │   ├── current.yaml              ← active-run pointer
+│   │   ├── kanban.yaml               ← coordination adapter state
+│   │   ├── runs/                     ← per-run state records
+│   │   ├── gate-ledger/              ← append-only JSONL
+│   │   ├── run-registry.yaml
+│   │   └── escalations/
+│   ├── proposals/                     ← PROPOSE phase artifacts
+│   ├── plans/                         ← PLAN phase artifacts
+│   ├── executions/                    ← EXECUTE phase records
+│   ├── verification/                  ← VERIFY evidence + council synthesis
+│   ├── resolutions/                   ← RESOLVE closure artifacts
+│   ├── bridges/                       ← runtime bridge state
+│   └── councils/                      ← council session artifacts
 │
-├── proposals/                         ← PROPOSE phase artifacts
-├── plans/                             ← PLAN phase artifacts (including scope artifacts)
-├── executions/                        ← EXECUTE phase records
-├── verification/                      ← VERIFY evidence and council synthesis artifacts
-├── .outputs/                           ← lessons artifacts and resolution outputs
-│
-├── knowledge/                         ← reusable scenarios, templates, lessons, indexes
-│   ├── gate-templates/
-│   ├── indexes/
-│   ├── lessons/
-│   └── scenarios/
+├── skills/                            ← versioned in this repo (not under HERMES_ROOT)
+│   ├── uacp/                          ← umbrella entry skill
+│   ├── uacp-brainstorm/               ← BRAINSTORM phase
+│   ├── uacp-triage/                   ← TRIAGE phase
+│   ├── uacp-propose/                  ← PROPOSE phase
+│   ├── uacp-plan/                     ← PLAN phase
+│   ├── uacp-execute/                  ← EXECUTE phase
+│   ├── uacp-verify/                   ← VERIFY phase
+│   ├── uacp-resolve/                  ← RESOLVE phase
+│   ├── uacp-council/                  ← multi-agent deliberation (cross-cutting)
+│   ├── uacp-debate/                   ← structured debate primitive
+│   ├── uacp-parallel/                 ← parallel dispatch
+│   ├── uacp-context/                  ← context management
+│   ├── uacp-web/                      ← web-backend tool adapter
+│   ├── uacp-core/                     ← kernel: scripts/engines + references/contracts
+│   │   └── scripts/engines/
+│   │       ├── domain/               ← codified phase-transition grammar (code-authoritative)
+│   │       └── oracle/               ← Oracle retrieval engine implementation
+│   ├── uacp-bridge/                   ← runtime dispatch contracts
+│   │   └── references/               ← claude.md, codex.md, kimi.md, opencode.md, gemini.md
+│   ├── uacp-state/                    ← state-mutation contracts
+│   └── uacp-skills/                   ← skill-authoring meta-skill (ADR-0017)
 │
 ├── runtime-adapters/                  ← UACP-owned adapter source per runtime
 │   └── hermes/
 │
-└── scripts/                           ← verification and probe scripts
-    ├── phase0_verify.py               ← Phase 0 deterministic checks (14)
-    ├── phase1_verify.py               ← Phase 1 deterministic checks (23)
-    ├── phase2_verify.py               ← Phase 2 deterministic checks (18)
-    ├── phase3_verify.py               ← Phase 3 deterministic checks (30)
-    ├── phase4_verify.py               ← Phase 4 deterministic checks (20)
-    ├── live_guardian_probe.py
-    └── validate_uacp_artifacts.py
+├── scripts/                           ← verification and probe scripts
+│   ├── phase0_verify.py … phase4_verify.py
+│   ├── live_guardian_probe.py
+│   └── validate_uacp_artifacts.py
+│
+└── tests/                             ← automated test suite
 ```
 
-`docs/` is the authority layer. `config/` is derived from `docs/`. `state/` is the only mutable layer during a run. Everything else is append-only artifact storage.
+`docs/` is the authority layer. `config/` is derived from `docs/`. `.uacp/state/` is the only mutable layer during a run. Run artifacts (proposals, plans, executions, verification, resolutions) land under `.uacp/` and are gitignored — they are runtime-created. The Oracle corpus (`.uacp/knowledge/` and `.uacp/lessons/`) is the exception: it is tracked in git as the durable learning record.
+
+> **Fresh clone note:** `.uacp/state/`, `.uacp/proposals/`, and other per-run dirs are runtime-created and will not exist in a fresh clone. An agent bootstrapping cold should treat a missing `.uacp/state/` as "no active run" rather than an error.
+
+---
+
+## Oracle / Knowledge Engine
+
+UACP includes an **Oracle** retrieval engine that is the sole reader and writer of the `.uacp/knowledge` and `.uacp/lessons` corpus. This clean data-ownership boundary means the state engine owns state/manifest, and Oracle owns the knowledge corpus — no other subsystem reads or writes corpus content directly.
+
+Oracle **ships inert** (`[oracle] enabled = false` in `config/uacp.toml`). When enabled it performs hybrid retrieval: BGE-M3 dense embedding, keyword search, Qwen3-Reranker reranking, and QMD-credited query expansion, with LanceDB as the vector store. A Bayesian Effectiveness Score (BES) overlay ranks lessons by past utility. Models default to locally embedded; optional per-role OpenAI-standard URL overrides allow swapping in hosted endpoints per role. A zero-ML-dependency floor mode (keyword + structured + BES) remains functional when Oracle is disabled.
+
+Retrieval is exposed read-only via the `uacp_oracle_query` tool. Engine implementation lives in `skills/uacp-core/scripts/engines/oracle/`. Design documentation is in `docs/archived/2026-06-17-oracle-engine-design.md`.
 
 ---
 
@@ -227,13 +269,13 @@ uacp/
 `docs/INDEX.md` is the canonical read order. Start there. It specifies which documents to load in which sequence for a given run type.
 
 **To integrate a new runtime:**
-`docs/runtime/runtime-integration-guide.md` — defines the adapter contract, normalization requirements, and Guardian/Heartgate integration points.
+`docs/runtime/runtime-integration-guide.md` — defines the adapter contract, normalization requirements, and Guardian/Heartgate integration points. Bridge contracts for existing runtimes (Codex, Kimi, Claude, OpenCode, Gemini) are in `skills/uacp-bridge/references/`.
 
 **To understand runtime enforcement (Guardian / Heartgate):**
 `docs/runtime/runtime-enforcement.md` — covers the enforcement model, event normalization, policy evaluation order, and failure modes.
 
 **To understand design history and major decisions:**
-`docs/decisions/decision-log.md` — durable record of decisions that shaped the current design, including alternatives considered and why they were rejected.
+`docs/decisions/decision-log.md` — durable record of decisions that shaped the current design, including alternatives considered and why they were rejected. ADRs 0001–0017 are in `docs/architecture/`.
 
 ---
 
@@ -246,7 +288,7 @@ When a conflict exists between layers, earlier layers win. An explicit entry in 
 | 1 | `docs/INDEX.md` | Document registry and canonical read order |
 | 2 | Canonical prose docs (`docs/`) | Intent, principles, lifecycle, and policy |
 | 3 | YAML config (`config/`) | Machine-readable rules derived from docs |
-| 4 | Runtime state (`state/`) | Current lifecycle position and run pointers |
+| 4 | Runtime state (`.uacp/state/`) | Current lifecycle position and run pointers |
 | 5 | Skills and runtime behavior | Implement the documented rules |
 | 6 | Execution artifacts | Record what happened in a specific run |
 
@@ -256,7 +298,7 @@ Skills and runtimes do not override docs. Config does not override docs. If a YA
 
 ## Runtime Support
 
-UACP is designed to be runtime-neutral. The current host runtime is **Hermes**. Planned future runtimes: Claude Code, Codex, OpenCode, Kimi, Gemini.
+UACP is designed to be runtime-neutral. The current host runtime is **Hermes**. Adapter bridge contracts exist for: **Claude Code**, **Codex**, **Kimi**, **OpenCode**, and **Gemini** — see `skills/uacp-bridge/references/` for the dispatch contracts for each.
 
 Each runtime requires a thin adapter that translates runtime-specific events into normalized Guardian and Heartgate contracts. The adapter is policy-free: it translates events but does not evaluate them. UACP-owned adapter source lives under `runtime-adapters/<runtime>/`.
 

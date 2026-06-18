@@ -15,6 +15,19 @@ For each phase's deliverables, see the corresponding ADR in [`docs/architecture/
 | 4 | uacp_mode, autonomy-policy, escalation-event stub | [ADR-0006](docs/architecture/0006-phase4-autonomous-mode-stub.md) | `3c48406` | 2026-05-16 |
 | — | Global cross-phase audit + R1/R2 remediation | [ADR-0007](docs/architecture/0007-global-review-cross-phase-remediation.md) | `93dba83` / `da5c15f` | 2026-05-17 |
 | — | Doc subdirectory + ADR restructure | [ADR-0008](docs/architecture/0008-doc-structure-and-adr-adoption.md) | 8 commits: `d6efc43` through `fec2c8d` inclusive | 2026-05-17 |
+| — | Adaptive proposal & plan packages | [ADR-0009](docs/architecture/0009-adaptive-proposal-and-plan-packages.md) | `f1256ae` | 2026-05-19 |
+| — | Operator phase-return presentation | [ADR-0010](docs/architecture/0010-operator-phase-return-presentation.md) | `01a441e` | 2026-05-19 |
+| — | Semantic-package artifacts | [ADR-0011](docs/architecture/0011-semantic-package-artifacts.md) | `600e82d` | 2026-05-19 |
+| — | Phase Intent Verification (PIV) — execute evidence gate | [ADR-0012](docs/architecture/0012-phase-intent-verification.md) | `a7648d0` | 2026-05-19 |
+| — | Adaptive VERIFY evidence | [ADR-0013](docs/architecture/0013-adaptive-verify-evidence.md) | `cc39deb` | 2026-05-20 |
+| — | Adaptive RESOLVE closure | [ADR-0014](docs/architecture/0014-adaptive-resolve-closure.md) | `2926ae0` | 2026-05-20 |
+| — | Web backends separate from bridge adapters | [ADR-0015](docs/architecture/0015-web-backends-separate-from-bridge-adapters.md) | `e925e28` | 2026-06-08 |
+| — | Config-collapse (Slices 2–5): phase-transition grammar codified into `skills/uacp-core/scripts/engines/domain/`; knobs in `config/uacp.toml`; doctrine stays YAML | — | `b4acb36` (Slice 5 merge) | 2026-06-16 |
+| — | Goal-driven track — second lifecycle track (semantic/exploratory work) | [ADR-0016](docs/architecture/0016-goal-driven-track.md) | `418cb93` | 2026-06-16 |
+| — | Skill-authoring convention | [ADR-0017](docs/architecture/0017-skill-authoring-convention.md) | `57ed772` | 2026-06-16 |
+| — | Skill structure cleanup: phase skills split into `SKILL.md` (lean conductor) + `references/` + `schemas/` + `scripts/`; uacp-verify decomposed as template; `domain-registry` folded into `uacp-core/references/domains/`; ADR-0017 codified the convention | [ADR-0017](docs/architecture/0017-skill-authoring-convention.md) | `86d99e9` (Step 2 complete) | 2026-06-17 |
+| — | Brainstorm optional phase + lesson/knowledge corpus + Oracle retrieval engine — built & merged; Oracle ships inert (`[oracle] enabled = false` in `config/uacp.toml`); knowledge/lessons corpora live under `.uacp/` | — | `5abe0f4` (C-floor merge) / `1bf68d3` (C-semantic merge) | 2026-06-17 |
+| — | docs/ OKF frontmatter enforcement + doc-architecture refresh (in progress) | — | `b66c5e7` | 2026-06-18 |
 
 ## 🚧 Reserved (not scheduled)
 
@@ -24,16 +37,16 @@ For each phase's deliverables, see the corresponding ADR in [`docs/architecture/
 
 #### Phase 5 backlog (propagated constraints)
 
-The canonical Phase 5 backlog is composed of constraints propagated from the prior phases. Source of truth:
+The canonical Phase 5 backlog is composed of constraints propagated from the prior phases. Source of truth: the verification YAMLs were previously under `verification/` and `executions/`; those top-level directories have been migrated to `.uacp/` (see `.uacp/lessons/` for active artifacts). The snapshot counts below remain valid; consult `git log` for the originating commits if a precise pointer is needed.
 
 | Source | Constraints |
 |---|---|
-| Phase 3 review | 18 pc_p3_* items declared; 9 reclassified DEFERRED_TO_PHASE_5 after Phase 4 (`verification/uacp-patch-plan-20260515-phase3-codex-review.yaml#propagated_constraints.to_phase_4`; deferral classification in `executions/uacp-patch-plan-20260515-phase4-drift-reconciliation.yaml#classification`) |
-| Phase 4 review | 19 pc_p4_* items (`verification/uacp-patch-plan-20260515-phase4-codex-review.yaml#propagated_constraints.to_phase_5`) |
-| Global review | 15 pc_g_* items (`verification/uacp-patch-plan-20260515-global-review.yaml#deferred_to_phase_5_with_evidence_pointer`) |
+| Phase 3 review | 18 pc_p3_* items declared; 9 reclassified DEFERRED_TO_PHASE_5 after Phase 4 |
+| Phase 4 review | 19 pc_p4_* items |
+| Global review | 15 pc_g_* items |
 | Phase 0 carry-overs | pc_7, pc_8 (live_guardian_probe failures — see [`docs/plans/phase5-reserved-slot.md`](docs/plans/phase5-reserved-slot.md)) |
 
-The YAMLs are the source of truth for the live list and counts; the table above is a snapshot.
+The counts above are snapshots. The live list and any reclassifications live in the originating commits; the `.uacp/lessons/` corpus is the active runtime home.
 
 #### Phase 5 thematic groupings
 
@@ -43,16 +56,11 @@ The propagated backlog clusters into five themes:
 2. **Run-registry atomicity** — atomic-rename + advisory locking + scope-existence precheck before supervised_auto runs are activated.
 3. **Drift detection** — `scripts/check_authority_mirror.py` enforcing tool / config / SKILL.md / spec coherence; pinned drift-classification vocabulary.
 4. **Doctrine completeness** — Phase 4 surface coverage in `runtime-enforcement.md`, `proposal-schema.md`, `lifecycle-reference.md`, `orchestration-model.md`; complete `_advisory` audit.
-5. **Phase 5 entry gate** — mechanical refusal of Phase 5 EXECUTE until three supervised-auto runs are recorded in `state/runs/`.
-
-### Skill structure cleanup (out-of-band, identified during global review)
-
-Hermes audit (2026-05-17) flagged the post-restructure skill SKILL.md files at `HERMES_ROOT/skills/devops/uacp/uacp-*/SKILL.md` as still 11–15KB each — too large for ACP-style lean conductors. Recommendation: split each phase skill into `SKILL.md` (lean conductor) + `references/` (contract, checklist, pitfalls, mode-behavior) + `schemas/` + `scripts/`. Start with uacp-verify as the template since it's both large and authority-sensitive.
-
-This is **out-of-band** for the UACP_ROOT-versioned codebase (skills live under HERMES_ROOT). Track as: `pc_g_skill_structure_cleanup`.
+5. **Phase 5 entry gate** — mechanical refusal of Phase 5 EXECUTE until three supervised-auto runs are recorded in `.uacp/state/runs/`.
 
 ## 🔭 Speculative (not yet scoped)
 
-- **Cross-runtime adapters**: OpenCode, Codex, Gemini Code Assist. Independent of Phase 5; would benefit from the kernel readers Phase 5 lands.
+- **Cross-runtime adapters**: Bridge contracts for Claude Code, Codex, Kimi, Gemini, and OpenCode now exist under `skills/uacp-bridge/references/`. All five runtimes have substantive reference docs. No further adapter work is currently scoped.
+- **Oracle live mode**: Oracle ships inert (`[oracle] enabled = false`). A live model run + reranker bake-off script (`skills/uacp-core/scripts/oracle/`) are implemented but not activated. Enabling in production requires an operator decision.
 - **Operator UI / dashboard**: not scoped. UACP is runtime-neutral; a dashboard is a deployment concern, not a core deliverable.
-- **Knowledge Bank promotion beyond `lessons.applies_to_future_runs`**: the auto-copy mechanism was scoped to Phase 2 but landed as schema-only. Phase 5 (or a separate run) could complete it.
+- **Knowledge Bank promotion beyond `lessons.applies_to_future_runs`**: the auto-copy mechanism was scoped to Phase 2 but landed as schema-only. The Oracle corpus-ownership boundary (`.uacp/knowledge/`, `.uacp/lessons/`) is now established; promotion logic could be completed in Phase 5 or a separate run.
