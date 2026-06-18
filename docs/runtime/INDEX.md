@@ -16,6 +16,7 @@ How Guardian (pre-tool-call) and Heartgate (phase-transition) actually enforce p
 | [runtime-integration-guide.md](runtime-integration-guide.md) | spec | Integration contract for building a UACP-aware runtime adapter (hooks, tools, configuration entry points). |
 | [runtime-porting-and-version-control.md](runtime-porting-and-version-control.md) | spec | Runtime-adapter authority chain, symlink/export binding, version-control SOP, future runtime targets. |
 | [cc-kimi-pretooluse-hook.md](cc-kimi-pretooluse-hook.md) | guide | Install + operate the Claude Code / Kimi Code Guardian PreToolUse hook companion (defense-in-depth atop the MCP governed handlers); tool-name normalization, env contract, security decisions D1-D6. |
+| [installing-the-plugin.md](installing-the-plugin.md) | guide | End-to-end install of the UACP Claude Code plugin via marketplace (marketplace add, plugin install), MCP [mcp] extra, enforcement overview, and smoke-test verification. |
 
 ## Related
 

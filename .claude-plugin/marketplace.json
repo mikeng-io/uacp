@@ -1,0 +1,26 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "uacp",
+  "owner": {
+    "name": "nortrix-labs"
+  },
+  "metadata": {
+    "description": "Universal Agent Control Plane — runtime-neutral governance with an optional-brainstorm seven-phase lifecycle, Guardian/Heartgate enforcement, and Agent Council orchestration.",
+    "homepage": "https://github.com/nortrix-labs/uacp"
+  },
+  "plugins": [
+    {
+      "name": "uacp",
+      "source": "./",
+      "description": "Universal Agent Control Plane — runtime-neutral governance with an optional-brainstorm seven-phase lifecycle ((BRAINSTORM)→TRIAGE→PROPOSE→PLAN→EXECUTE→VERIFY→RESOLVE), Guardian/Heartgate enforcement, and Agent Council orchestration, as installable skills.",
+      "version": "0.1.0",
+      "author": {
+        "name": "nortrix-labs"
+      },
+      "repository": "https://github.com/nortrix-labs/uacp",
+      "license": "MIT",
+      "category": "governance",
+      "tags": ["governance", "lifecycle", "guardian", "heartgate", "agent", "council"]
+    }
+  ]
+}
