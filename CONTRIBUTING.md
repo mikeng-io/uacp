@@ -77,15 +77,46 @@ Per-phase reviews are recorded under `verification/{run_id}-phaseN-codex-review.
 - Path comparisons **must** use `_canon_write_path` / `_paths_overlap` (PurePosixPath segment normalization), not raw string startswith.
 - YAML fields that LOOK like enforcement but have no kernel reader **must** carry `enforcement_status: stub_only_phase_N` or the `_advisory` suffix.
 
-### Documentation
+### Documentation — what belongs in `docs/` (and what does not)
 
-- Architectural decisions → ADRs in `docs/architecture/` (numbered, with template).
-- Operational decisions → `docs/decisions/decision-log.md` (continuous log).
-- Schema / spec → `docs/reference/`.
-- Doctrine → `docs/policy/`.
-- Lifecycle / orchestration → `docs/lifecycle/`.
-- Runtime enforcement → `docs/runtime/`.
-- Forward plans / reserved slots → `docs/plans/`.
+`docs/` is the **canonical, runtime-neutral governance authority** (Authority-Chain
+layer 2): *normative* prose only — intent, principles, the lifecycle model,
+doctrine, architecture decisions, canonical schemas, and curated reading guides.
+Every file carries OKF frontmatter with `type ∈ {adr, policy, spec, reference,
+guide, plan, design, decision}`. Do not add files to `docs/` outside this scope.
+
+**Belongs in `docs/`:**
+
+| Subdir | Holds |
+|---|---|
+| `policy/` | Non-waivable doctrine, first principles, alignment spec |
+| `lifecycle/` | Phase model, transitions, verification & review model |
+| `runtime/` | Runtime-**neutral, normative** enforcement contracts (the spec *every* adapter must satisfy) |
+| `reference/` | Canonical schemas & specs (proposal schema, skill-enforcement spec, …) |
+| `architecture/` | ADRs (numbered, with template) |
+| `decisions/` | Operational decision log (continuous) |
+| `guides/` | Curated human/agent reading paths synthesizing the above |
+| `plans/`, `archived/` | Forward plans / reserved slots; superseded docs |
+
+**Does NOT belong in `docs/` → correct home:**
+
+| Kind | Goes to |
+|---|---|
+| Runtime/adapter-**specific** how-to (install steps, per-runtime dispatch, hook wiring, MCP setup) | `runtime-adapters/<x>/README.md` or `skills/uacp-bridge/references/` |
+| Skill-specific contracts/usage | the skill's `SKILL.md` + `skills/<skill>/references/`; shared kernel contracts → `skills/uacp-core/references/` |
+| Lesson/knowledge **corpus** | `.uacp/knowledge/` + `.uacp/lessons/` (Oracle-owned; different OKF vocab) |
+| Code/module READMEs | co-located with the code |
+| Project orientation (front door, identity, roadmap) | root `README.md` / `PROJECT.md` / `ROADMAP.md` |
+| Run artifacts, generated content, indexes, fixtures | `.uacp/…` (gitignored), `tests/` |
+
+**The neutral-vs-specific line for runtime material:** a runtime-**neutral
+normative contract** (what *all* adapters must do) lives in `docs/runtime/`; a
+runtime-**specific operational how-to** (how to install/wire Claude Code or Kimi)
+lives *with the adapter* (`runtime-adapters/`), never in `docs/`.
+
+The allowed `docs/` subdir set and the `type` vocab are mechanically enforced by
+`tests/unit/test_docs_okf.py`; the neutral-vs-specific content judgment is a
+human/agent rule.
 
 ### Tests
 

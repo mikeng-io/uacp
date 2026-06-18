@@ -54,7 +54,7 @@ UACP enforces strict separation between cognitive planes — do not use Agent Co
 
 ## Further Reading
 
-- Full authoring contract: `CONTRIBUTING.md`
+- Full authoring contract, incl. **what belongs in `docs/`** (and what must not): `CONTRIBUTING.md`
 - Canonical agent read order, skill map, and cognitive planes: `docs/INDEX.md`
 - Lifecycle and tracks: `docs/lifecycle/lifecycle-reference.md`
 - Proposal schema: `docs/reference/proposal-schema.md`
