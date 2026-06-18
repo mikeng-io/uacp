@@ -10,12 +10,13 @@ Canonical schemas and per-skill authority records. These are the machine-readabl
 
 ## Documents
 
-| File | Purpose |
-|---|---|
-| [proposal-schema.md](proposal-schema.md) | Canonical reference for the `uacp.propose` artifact (fields, semantics, validation rules, routing-outcome examples). |
-| [skill-enforcement-spec.md](skill-enforcement-spec.md) | Per-skill authority record: allowed_tools, forbidden_tools, write surfaces, PIV obligations, mechanical-enforcement table. |
-| [lifecycle-trace-table.md](lifecycle-trace-table.md) | Per-transition table (TRIAGE→…→RESOLVE) listing required inputs, required outputs, Heartgate checks, gate-ledger entry. Cross-phase dependency graph. |
-| [operator-phase-return-schema.md](operator-phase-return-schema.md) | Presentation contract for Telegram/Discord phase returns: conclusion-first summaries with evidence pointers, not raw data dumps. |
+| Doc | Type | Purpose |
+|---|---|---|
+| [proposal-schema.md](proposal-schema.md) | reference | Canonical reference for the `uacp.propose` artifact (fields, semantics, validation rules, routing-outcome examples). |
+| [skill-enforcement-spec.md](skill-enforcement-spec.md) | reference | Per-skill authority record: allowed_tools, forbidden_tools, write surfaces, PIV obligations, mechanical-enforcement table. |
+| [lifecycle-trace-table.md](lifecycle-trace-table.md) | reference | Per-transition table (TRIAGE→…→RESOLVE) listing required inputs, required outputs, Heartgate checks, gate-ledger entry. Cross-phase dependency graph. |
+| [learning-artifact-schema.md](learning-artifact-schema.md) | reference | Canonical schema and example for the uacp.learning_artifact kind (preserved from config/memory-policy.yaml Slice 3). |
+| [operator-phase-return-schema.md](operator-phase-return-schema.md) | reference | Presentation contract for Telegram/Discord phase returns: conclusion-first summaries with evidence pointers, not raw data dumps. |
 
 ## Related
 

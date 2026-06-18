@@ -1,8 +1,10 @@
 ---
 type: adr
+title: Phase Intent Verification
+description: Adopt PIV as the phase-local evidence contract binding a phase's intended work to concrete evidence, semantic recovery, authority boundaries, and next-phase readiness.
+tags: [piv, execute, evidence, lifecycle]
+timestamp: 2026-05-19
 status: accepted
-date: 2026-05-19
-tags: [uacp, piv, execute, evidence, lifecycle]
 ---
 
 # ADR 0012 — Phase Intent Verification

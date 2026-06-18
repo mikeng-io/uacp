@@ -10,10 +10,11 @@ The six-phase UACP lifecycle (**TRIAGE → PROPOSE → PLAN → EXECUTE → VERI
 
 ## Documents
 
-| File | Purpose |
-|---|---|
-| [lifecycle-reference.md](lifecycle-reference.md) | Canonical phase semantics, transition rules, coordination-adapter binding contract. |
-| [orchestration-model.md](orchestration-model.md) | Cognitive planes (governance / deliberation / coordination / execution), Agent Council protocol, profile/runtime separation, escalation semantics. |
+| Doc | Type | Purpose |
+|---|---|---|
+| [lifecycle-reference.md](lifecycle-reference.md) | spec | Canonical phase semantics, transition rules, coordination-adapter binding contract. |
+| [orchestration-model.md](orchestration-model.md) | spec | Cognitive planes (governance / deliberation / coordination / execution), Agent Council protocol, profile/runtime separation, escalation semantics. |
+| [worktree-protocol.md](worktree-protocol.md) | spec | Workspace isolation rules preventing active runs from writing to main/master; workspace kinds and lifetimes. |
 
 ## Related
 

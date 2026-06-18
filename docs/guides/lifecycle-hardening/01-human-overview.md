@@ -1,8 +1,9 @@
 ---
 type: guide
+title: "Human Overview — What Changed and Why"
+description: "Human-readable explanation of the UACP lifecycle-hardening series: what changed, why, and what coherence means."
 tags: [human-readable, overview, lifecycle-hardening]
-status: living-document
-canonical_authority: false
+timestamp: 2026-06-18
 ---
 
 # Human Overview — What Changed and Why

@@ -1,5 +1,9 @@
 ---
 type: adr
+title: Global review — cross-phase audit and R1/R2 remediation
+description: Record the end-to-end cross-phase council audit of Phases 0–4 and the resulting R1/R2 remediation batch.
+tags: [council-review, audit, remediation, governance]
+timestamp: 2026-05-17
 status: accepted
 ---
 

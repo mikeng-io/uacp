@@ -8,11 +8,13 @@ status: living-document
 
 Forward-looking documents: phase plans not yet authorized, reserved slots, design notes for work expected but not scheduled.
 
+> **Note:** Completed phase plans (Phases 0–4 of `uacp-patch-plan-20260515`) were archived to `docs/archived/` at the end of the patch-plan RESOLVE. Only reserved/future-facing plans are listed here.
+
 ## Documents
 
-| File | Purpose |
-|---|---|
-| [phase5-reserved-slot.md](phase5-reserved-slot.md) | Phase 5 (full autonomous mode) reserved-slot doc. Documents prerequisites, deliverables, and the propagated-constraint backlog inherited from Phases 0–4. |
+| File | Title | Description | Status |
+|---|---|---|---|
+| [phase5-reserved-slot.md](phase5-reserved-slot.md) | Phase 5 Reserved Slot — Full Autonomous Mode | Canonical placeholder for Phase 5 of the UACP patch plan: prerequisites, deliverables, propagated constraints, and activation procedure. | reserved |
 
 ## Related
 

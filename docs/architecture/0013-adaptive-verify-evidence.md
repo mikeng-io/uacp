@@ -1,8 +1,10 @@
 ---
 type: adr
+title: Adaptive VERIFY evidence gate
+description: Add an adaptive VERIFY evidence gate that separates verified facts from assumptions, requires finding dispositions, and produces a machine-checkable resolve-readiness artifact.
+tags: [verify, evidence, resolve-readiness, heartgate]
+timestamp: 2026-05-19
 status: accepted
-date: 2026-05-19
-tags: [uacp, verify, evidence, resolve-readiness, heartgate]
 ---
 
 # ADR 0013 — Adaptive VERIFY Evidence Gate

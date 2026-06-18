@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Lesson & Knowledge Corpus + Distillation — Implementation Plan"
+description: "Implementation plan for the governed lessons/knowledge corpora in `.uacp/`, BES scorer, and RESOLVE-phase extraction"
+tags: ["knowledge", "lessons", "corpus", "bes"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Lesson & Knowledge Corpus + Distillation — Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

@@ -1,9 +1,9 @@
 ---
-type: guide-index
-tags: [uacp, lifecycle, semantic-packages, heartgate, guardian, documentation]
-status: living-document
-owner: UACP documentation
-canonical_authority: false
+type: guide
+title: "Lifecycle Hardening Guide — Reading Order"
+description: "Conductor index for the UACP lifecycle-hardening series: reading order, canonical sources, and anti-fracture rules."
+tags: [uacp, lifecycle, semantic-packages, heartgate, guardian]
+timestamp: 2026-06-18
 ---
 
 # Lifecycle Hardening Guide — Reading Order

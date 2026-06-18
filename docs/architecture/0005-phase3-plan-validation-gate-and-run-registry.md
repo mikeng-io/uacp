@@ -1,5 +1,9 @@
 ---
 type: adr
+title: Phase 3 — plan_validation_gate, run_registry, authority docs
+description: Add the plan-validation pre-flight gate, a run registry for concurrent-run write-path overlap detection, and three canonical authority docs.
+tags: [heartgate, run-registry, plan-validation, authority]
+timestamp: 2026-05-15
 status: accepted
 ---
 

@@ -1,3 +1,11 @@
+---
+type: reference
+title: UACP Skill Enforcement Spec
+description: Authoritative per-skill authority record listing allowed tools, forbidden tools, write surfaces, and PIV obligations enforced by the kernel.
+tags: [skill, enforcement, guardian, authority]
+timestamp: 2026-06-18
+---
+
 # UACP Skill Enforcement Spec
 
 This is the authoritative authority record for what each UACP skill is allowed to do at runtime. It is the **source of truth** that the per-skill `SKILL.md` YAML frontmatter mirrors and that the kernel enforces from the codified stages grammar in `engines/domain/phase_transitions.py` (`stages_default()`; `load_phase_transitions` injects it as the effective `stages` since `config/phase-transitions.yaml` no longer carries a `stages` block — slimmed Slice 4b). When the spec and the mirror disagree, this spec and the codified grammar win.

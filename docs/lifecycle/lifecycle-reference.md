@@ -1,3 +1,11 @@
+---
+type: spec
+title: UACP Lifecycle Reference
+description: Canonical phase semantics, transition rules, and coordination-adapter binding contract for the six-phase UACP lifecycle.
+tags: [lifecycle, phases, heartgate, triage]
+timestamp: 2026-06-18
+---
+
 # UACP Lifecycle Reference
 
 UACP governs work through a triage entry stage followed by a stable five-phase lifecycle:

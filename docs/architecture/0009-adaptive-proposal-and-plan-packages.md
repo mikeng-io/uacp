@@ -1,3 +1,12 @@
+---
+type: adr
+title: Adaptive PROPOSE and PLAN documentation packages
+description: Introduce adaptive package gates for PROPOSE and PLAN phases so medium/high-consequence work produces human-reviewable documentation packages rather than single YAML envelopes.
+tags: [propose, plan, adaptive-packages, heartgate]
+timestamp: 2026-05-18
+status: accepted
+---
+
 # ADR 0009: Adaptive PROPOSE and PLAN Documentation Packages
 
 Status: accepted

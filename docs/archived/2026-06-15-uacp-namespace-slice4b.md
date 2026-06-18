@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Config Collapse — Slice 4b (phase-transitions.yaml → code) Implementation Plan"
+description: "Slice 4b plan to move the phase graph and gate grammar into code, fixing three enforcement landmines including F-T3-01 fail-closed"
+tags: ["config-collapse", "phase-transitions", "heartgate", "fail-closed"]
+timestamp: 2026-06-15
+status: archived
+---
+
 # Config Collapse — Slice 4b (phase-transitions.yaml → code) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Checkbox tracking. THIS SLICE TOUCHES GUARDIAN/HEARTGATE ENFORCEMENT — smallest steps, heaviest review, behavior-preserving unless explicitly changing (F-T3-01).

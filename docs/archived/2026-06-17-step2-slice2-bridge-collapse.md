@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Step 2 · Slice 2 — Bridge collapse (`bridge-*` → `uacp-bridge`)"
+description: "Slice 2 plan to collapse six `bridge-*` skills into one `uacp-bridge` skill with per-runtime reference files"
+tags: ["step2", "bridge", "collapse", "skills"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Step 2 · Slice 2 — Bridge collapse (`bridge-*` → `uacp-bridge`)
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

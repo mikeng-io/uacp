@@ -1,5 +1,9 @@
 ---
 type: adr
+title: ADR Template
+description: Blank template for authoring new Architecture Decision Records in UACP.
+tags: [template, adr, process, governance]
+timestamp: 2026-06-18
 status: template
 ---
 

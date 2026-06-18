@@ -1,3 +1,12 @@
+---
+type: adr
+title: Separate operator phase returns from raw evidence
+description: Define a two-layer presentation model so operator channel phase returns are conclusion-first and decision-grade while full evidence remains accessible by pointer.
+tags: [operator, phase-return, presentation, evidence]
+timestamp: 2026-05-19
+status: accepted
+---
+
 # ADR 0010: Separate Operator Phase Returns from Raw Evidence
 
 Status: accepted

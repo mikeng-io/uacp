@@ -1,8 +1,10 @@
 ---
 type: adr
+title: Adaptive RESOLVE closure gate
+description: Add an adaptive RESOLVE closure gate that consumes VERIFY's readiness decision and produces a semantic closure package with lesson dispositions and operator handoff.
+tags: [resolve, closure, lessons, operator-handoff]
+timestamp: 2026-05-19
 status: accepted
-date: 2026-05-19
-tags: [uacp, resolve, closure, lessons, operator-handoff]
 ---
 
 # ADR 0014 — Adaptive RESOLVE Closure Gate

@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Oracle Retrieval Engine — Implementation Plan"
+description: "Implementation plan for `engines/oracle/` with QMD pipeline, LanceDB store, and the `uacp_oracle_query` governed tool"
+tags: ["oracle", "retrieval", "lancedb", "qmd"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Oracle Retrieval Engine — Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

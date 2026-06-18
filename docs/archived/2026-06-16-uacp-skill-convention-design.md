@@ -1,3 +1,12 @@
+---
+type: design
+title: "UACP Skill Convention — Design"
+description: "Design for the `uacp-skills` meta-skill defining a single enforced convention for every skill in the UACP library"
+tags: ["skills", "convention", "meta-skill", "frontmatter"]
+timestamp: 2026-06-16
+status: archived
+---
+
 # UACP Skill Convention — Design
 
 **Status:** approved (2026-06-16), pending implementation plan.

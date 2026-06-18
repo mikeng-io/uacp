@@ -1,5 +1,9 @@
 ---
 type: adr
+title: Record architecture decisions
+description: Adopt the ADR format for architectural decisions alongside the existing operational decision-log.
+tags: [adr, documentation, governance, process]
+timestamp: 2026-05-17
 status: accepted
 ---
 

@@ -1,3 +1,11 @@
+---
+type: spec
+title: UACP Runtime Enforcement
+description: Canonical design for Guardian and Heartgate runtime enforcement planes — how UACP policy is mechanically enforced before tool calls and at phase transitions.
+tags: [guardian, heartgate, enforcement, runtime]
+timestamp: 2026-06-18
+---
+
 # UACP Runtime Enforcement
 
 This document defines how UACP becomes mechanically enforced at runtime. It is the canonical design for Guardian and Heartgate. It does not replace the constitution, lifecycle reference, or config files; it explains how runtime adapters must implement them.

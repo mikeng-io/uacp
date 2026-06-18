@@ -1,5 +1,9 @@
 ---
 type: adr
+title: Adopt subdirectory + ADR documentation structure
+description: Reorganize docs/ into semantic subdirectories and formally adopt the ADR format for architectural decisions.
+tags: [documentation, structure, adr, refactor]
+timestamp: 2026-05-17
 status: accepted
 ---
 

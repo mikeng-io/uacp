@@ -1,3 +1,12 @@
+---
+type: design
+title: "Lesson & Knowledge Corpus + Distillation Loop — Design"
+description: "Design for UACP's two prior-art corpora (lessons and knowledge) with BES scoring and the distillation loop"
+tags: ["knowledge", "lessons", "corpus", "distillation"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Lesson & Knowledge Corpus + Distillation Loop — Design
 
 > Design doc B of three. A = brainstorm phase · **B = this** · C = Oracle retrieval engine.

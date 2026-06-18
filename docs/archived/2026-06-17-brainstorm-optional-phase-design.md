@@ -1,3 +1,12 @@
+---
+type: design
+title: "Brainstorm as an Optional Kernel Phase — Design"
+description: "Design for promoting `brainstorm` from an informal pre-TRIAGE skill to a formal, state-registered optional entry phase"
+tags: ["brainstorm", "lifecycle", "phase", "kernel"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Brainstorm as an Optional Kernel Phase — Design
 
 > Design doc (brainstorming output). One of three for this initiative:

@@ -1,3 +1,12 @@
+---
+type: plan
+title: "UACP Skills Convention — Step 1 Implementation Plan"
+description: "Step 1 plan to author the `uacp-skills` convention meta-skill and enforce self-containment via a regression test"
+tags: ["skills", "convention", "uacp-skills", "self-containment"]
+timestamp: 2026-06-16
+status: archived
+---
+
 # UACP Skills Convention — Step 1 Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

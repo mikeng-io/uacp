@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Step 2 · Slice 5 — Reference-document policy + `docs/` back-pointer cleanup"
+description: "Slice 5 plan to codify the anti-proliferation reference-doc policy and resolve remaining `docs/` back-pointers in lifecycle skills"
+tags: ["step2", "reference-policy", "docs", "skills"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Step 2 · Slice 5 — Reference-document policy + `docs/` back-pointer cleanup
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

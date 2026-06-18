@@ -1,5 +1,9 @@
 ---
 type: adr
+title: Phase 0 — wire filesystem_guard_verified, real policy.mode, classify governed tools
+description: Wire three latent Guardian enforcement gaps (filesystem guard flag, policy mode, governed-tool classification) in a single phase.
+tags: [guardian, policy, classification, enforcement]
+timestamp: 2026-05-15
 status: accepted
 ---
 

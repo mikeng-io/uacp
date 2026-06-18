@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Phase 5 Reserved Slot — Full Autonomous Mode"
+description: "Canonical placeholder for Phase 5 of the UACP patch plan: full autonomous mode prerequisites, deliverables, propagated constraints, and activation procedure."
+tags: [phase5, autonomous-mode, reserved, patch-plan]
+status: reserved
+timestamp: 2026-06-18
+---
+
 # Phase 5 Reserved Slot — Full Autonomous Mode
 
 This document is the canonical placeholder for Phase 5 of the UACP patch plan (`proposals/uacp-patch-plan-20260515.yaml`). Phase 5 is **reserved but not scheduled** — it is the natural successor to the Phase 4 autonomous-mode stub, and it must not be entered without explicit operator authorization.

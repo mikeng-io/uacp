@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Step 2 · Slice 4 — Frontmatter slim + `kind` rollout"
+description: "Slice 4 plan to drop vestigial authority mirrors from lifecycle skills and roll the `kind:` classifier to all 23 skills"
+tags: ["step2", "frontmatter", "kind", "skills"]
+timestamp: 2026-06-17
+status: archived
+---
+
 # Step 2 · Slice 4 — Frontmatter slim + `kind` rollout
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

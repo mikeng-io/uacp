@@ -1,8 +1,9 @@
 ---
 type: guide
+title: "Agent Operating Guide — How to Work in This Area"
+description: "Operating posture, required workflow, and completion standard for agents modifying UACP lifecycle gates, Heartgate, Guardian, or validator behavior."
 tags: [agent-operating-guide, uacp, lifecycle, validation]
-status: living-document
-canonical_authority: false
+timestamp: 2026-06-18
 ---
 
 # Agent Operating Guide — How to Work in This Area

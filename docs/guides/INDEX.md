@@ -10,9 +10,13 @@ Guides are curated reading paths for humans and agents. They explain how to read
 
 ## Available guides
 
-| Guide | Purpose | Start here when |
+| File | Title | Description |
 |---|---|---|
-| [lifecycle-hardening/](lifecycle-hardening/00-index.md) | Human and agent guide to the semantic package, PIV, VERIFY, RESOLVE, Guardian, Heartgate, and audit-remediation hardening series. | You need to understand why the recent lifecycle changes exist, how the pieces fit, or how to avoid fracturing documentation. |
+| [lifecycle-hardening/00-index.md](lifecycle-hardening/00-index.md) | Lifecycle Hardening Guide — Reading Order | Conductor index for the UACP lifecycle-hardening series: reading order, canonical sources, and anti-fracture rules. |
+| [lifecycle-hardening/01-human-overview.md](lifecycle-hardening/01-human-overview.md) | Human Overview — What Changed and Why | Human-readable explanation of the UACP lifecycle-hardening series: what changed, why, and what coherence means. |
+| [lifecycle-hardening/02-agent-operating-guide.md](lifecycle-hardening/02-agent-operating-guide.md) | Agent Operating Guide — How to Work in This Area | Operating posture, required workflow, and completion standard for agents modifying UACP lifecycle gates, Heartgate, Guardian, or validator behavior. |
+| [lifecycle-hardening/03-artifact-and-gate-map.md](lifecycle-hardening/03-artifact-and-gate-map.md) | Artifact and Gate Map | Shows where meaning and enforcement live per phase: machine envelopes, semantic packages, key enforcement files, fixtures, and critical invariants. |
+| [lifecycle-hardening/04-audit-and-remediation-history.md](lifecycle-hardening/04-audit-and-remediation-history.md) | Audit and Remediation History | Preserves the reasoning shape of the lifecycle-hardening audit loop: why external audits were required, themes, material remediations, and lessons learned. |
 
 ## Guide rules
 

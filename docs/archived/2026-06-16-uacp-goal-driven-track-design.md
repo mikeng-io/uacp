@@ -1,3 +1,12 @@
+---
+type: design
+title: "UACP Goal-Driven Track — Design"
+description: "Design for a second lifecycle track enabling semantic/exploratory work under the same UACP phases without forward-only constraints"
+tags: ["goal-driven", "lifecycle", "track", "exploratory"]
+timestamp: 2026-06-16
+status: archived
+---
+
 # UACP Goal-Driven Track — Design
 
 > **Status:** BUILT and merged to main (2026-06-16). Implemented per the 9-task plan (`2026-06-16-uacp-goal-driven-track-implementation.md`); P2 resolved = option (b); 2-lens council cleared after resolving 2 MATERIAL findings. See ADR-0016. This design doc is retained as the as-designed record.

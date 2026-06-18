@@ -1,3 +1,12 @@
+---
+type: plan
+title: "Config Collapse — Slice 3 (knob YAMLs → `uacp.toml`) Implementation Plan"
+description: "Slice 3 plan to collapse 8 knob config YAMLs into `config/uacp.toml` sections wired through `config.py`"
+tags: ["config-collapse", "uacp-toml", "guardian", "knobs"]
+timestamp: 2026-06-15
+status: archived
+---
+
 # Config Collapse — Slice 3 (knob YAMLs → `uacp.toml`) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Steps use checkbox (`- [ ]`) tracking.

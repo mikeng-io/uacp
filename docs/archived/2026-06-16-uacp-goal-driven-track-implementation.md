@@ -1,3 +1,12 @@
+---
+type: plan
+title: "UACP Goal-Driven Track — Implementation Plan"
+description: "9-task implementation plan for the `goal-driven` lifecycle track with persistent goal, checkpoint manifest, and convergence budget"
+tags: ["goal-driven", "lifecycle", "track", "checkpoint"]
+timestamp: 2026-06-16
+status: archived
+---
+
 # UACP Goal-Driven Track — Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: superpowers:executing-plans (or superpowers:subagent-driven-development for same-session). Two-stage review per task. This touches kernel enforcement — smallest steps, behavior-preserving for the **standard track** (production-equivalence bar, exactly like the config-collapse slices). Suite green after every task (current baseline: `python3 -m pytest tests/ -q` → 516 passed, 2 skipped).

@@ -1,8 +1,9 @@
 ---
 type: guide
+title: "Audit and Remediation History"
+description: "Preserves the reasoning shape of the lifecycle-hardening audit loop: why external audits were required, themes, material remediations, and lessons learned."
 tags: [audit-history, codex, kimi, remediation, lifecycle-hardening]
-status: living-document
-canonical_authority: false
+timestamp: 2026-06-18
 ---
 
 # Audit and Remediation History

@@ -1,3 +1,12 @@
+---
+type: plan
+title: "`.uacp/` Namespace + Config Collapse — Implementation Plan"
+description: "Master implementation plan for the `.uacp/` namespace relocation and config-collapse refactor across five slices"
+tags: ["namespace", "config-collapse", "uacp-toml", "slices"]
+timestamp: 2026-06-15
+status: archived
+---
+
 # `.uacp/` Namespace + Config Collapse — Implementation Plan
 
 > **STATUS: CONFIG-COLLAPSE COMPLETE (2026-06-16).** All five slices shipped. `config/phase-transitions.yaml` holds only LLM-read adaptive-gate doctrine + unconsumed schema-doctrine remnants. All consumed grammar is codified in `skills/uacp-core/scripts/engines/domain/` (`phase_graph.py`, `phase_transitions.py`, `gate_rules.py`, `artifact_schema.py`). Operator knobs in `config/uacp.toml [heartgate.*]`. `config/roots.yaml` and `config/artifact-schemas.yaml` deleted. One canonical validator at `scripts/validate_uacp_artifacts.py`. Suite: 513 passed, 2 skipped.

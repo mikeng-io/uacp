@@ -1,3 +1,11 @@
+---
+type: reference
+title: Learning Artifact Schema
+description: Canonical schema and example for the uacp.learning_artifact kind, preserved from config/memory-policy.yaml (Slice 3 config-collapse).
+tags: [learning, artifact, schema, memory]
+timestamp: 2026-06-18
+---
+
 # Learning Artifact Schema
 
 Preserved from `config/memory-policy.yaml` (Slice 3 config-collapse). Operational
