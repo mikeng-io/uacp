@@ -164,3 +164,57 @@ def test_compute_scores_with_mocked_rerank_client(monkeypatch):
     assert result["scenario"] == "short_query"
     assert 0.0 <= result["ndcg"] <= 1.0
     assert 0.0 <= result["mrr"] <= 1.0
+
+
+# ---------------------------------------------------------------------------
+# No-rerank baseline (scores the ORIGINAL candidate order; no model call)
+# ---------------------------------------------------------------------------
+
+
+def test_compute_scores_baseline_uses_original_order():
+    """The baseline scores candidate_doc_ids as-is, with no reranker call."""
+    import scripts.oracle_reranker_bakeoff as bakeoff
+
+    # Relevant docs are already first → perfect baseline metrics.
+    entry = {
+        "query_id": "b-001",
+        "scenario": "short_query",
+        "relevant_doc_ids": ["doc-a", "doc-b"],
+        "candidate_doc_ids": ["doc-a", "doc-b", "doc-c"],
+        "docs": {"doc-a": "x", "doc-b": "y", "doc-c": "z"},
+    }
+    result = bakeoff.compute_scores_baseline(entry, k=3)
+    assert result["ndcg"] == 1.0
+    assert result["mrr"] == 1.0
+    assert result["error"] is None
+    assert result["latency_ms"] == [0.0]  # no model call
+
+    # Relevant docs buried → baseline metrics drop (proves it reads the order).
+    entry2 = dict(entry, candidate_doc_ids=["doc-c", "doc-a", "doc-b"])
+    result2 = bakeoff.compute_scores_baseline(entry2, k=3)
+    assert result2["ndcg"] < 1.0
+    assert result2["mrr"] == 0.5  # first relevant at rank 2
+
+
+def test_run_bakeoff_baseline_model_skips_reranker(monkeypatch):
+    """'none' in the reranker list runs the baseline without touching the client."""
+    import scripts.oracle_reranker_bakeoff as bakeoff
+
+    def _boom(*a, **k):  # the reranker must never be called for the baseline
+        raise AssertionError("reranker should not be called for baseline 'none'")
+
+    monkeypatch.setattr(bakeoff, "_call_reranker", _boom)
+    eval_set = [
+        {
+            "query_id": "x-1",
+            "scenario": "short_query",
+            "relevant_doc_ids": ["a"],
+            "candidate_doc_ids": ["a", "b"],
+            "docs": {"a": "a", "b": "b"},
+        }
+    ]
+    rows = bakeoff.run_bakeoff(eval_set, rerankers=["none"], harness="direct", k=5)
+    assert len(rows) == 1
+    assert rows[0]["model"] == "none"
+    assert rows[0]["n_errors"] == 0
+    assert rows[0]["ndcg_mean"] == 1.0

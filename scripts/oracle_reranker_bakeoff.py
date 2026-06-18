@@ -218,6 +218,35 @@ def compute_scores(
 # ---------------------------------------------------------------------------
 
 
+# Sentinel model name: score the ORIGINAL candidate order with no reranking.
+# Lets a single bake-off run include a no-rerank baseline alongside real models,
+# answering "does reranking even help on this set?".
+_BASELINE_MODEL = "none"
+
+
+def compute_scores_baseline(entry: dict[str, Any], *, k: int = 5) -> dict[str, Any]:
+    """Score one eval entry using the ORIGINAL ``candidate_doc_ids`` order.
+
+    No reranker is invoked — this is the no-rerank baseline. Metrics are computed
+    with the exact same ``ndcg_at_k`` / ``mrr`` functions and aggregated the same
+    way as the reranked rows, so the comparison is apples-to-apples.
+    """
+    relevant_ids: set[str] = set(entry.get("relevant_doc_ids") or [])
+    candidate_ids: list[str] = entry.get("candidate_doc_ids") or []
+    ndcg_score = ndcg_at_k(candidate_ids, relevant_ids, k=k)
+    mrr_score = mrr(candidate_ids, relevant_ids)
+    return {
+        "query_id": entry.get("query_id", "?"),
+        "scenario": entry.get("scenario", "unknown"),
+        "ndcg": round(ndcg_score, 4),
+        "mrr": round(mrr_score, 4),
+        "latency_p50": None,
+        "latency_p95": None,
+        "latency_ms": [0.0],  # no model call; latency is definitionally ~0
+        "error": None,
+    }
+
+
 def _serving_for_model(model: str, harness: str, base_url: str, api_key_env: str | None) -> Any:
     """Build a RoleServing for the given model + harness combination.
 
@@ -261,14 +290,22 @@ def run_bakeoff(
     all_results: list[dict[str, Any]] = []
 
     for model in rerankers:
-        print(f"\n[bakeoff] model={model!r} harness={harness!r}")
-        serving = _serving_for_model(model, harness, base_url, api_key_env)
-        if serving is None:
-            continue
+        is_baseline = model.lower() == _BASELINE_MODEL
+        if is_baseline:
+            print(f"\n[bakeoff] model={model!r} (NO-RERANK baseline — original candidate order)")
+            serving = None
+        else:
+            print(f"\n[bakeoff] model={model!r} harness={harness!r}")
+            serving = _serving_for_model(model, harness, base_url, api_key_env)
+            if serving is None:
+                continue
 
         per_scenario: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for entry in eval_set:
-            result = compute_scores(entry, serving=serving, k=k)
+            if is_baseline:
+                result = compute_scores_baseline(entry, k=k)
+            else:
+                result = compute_scores(entry, serving=serving, k=k)
             result["model"] = model
             per_scenario[result["scenario"]].append(result)
 
