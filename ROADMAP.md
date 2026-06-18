@@ -27,7 +27,11 @@ For each phase's deliverables, see the corresponding ADR in [`docs/architecture/
 | — | Skill-authoring convention | [ADR-0017](docs/architecture/0017-skill-authoring-convention.md) | `57ed772` | 2026-06-16 |
 | — | Skill structure cleanup: phase skills split into `SKILL.md` (lean conductor) + `references/` + `schemas/` + `scripts/`; uacp-verify decomposed as template; `domain-registry` folded into `uacp-core/references/domains/`; ADR-0017 codified the convention | [ADR-0017](docs/architecture/0017-skill-authoring-convention.md) | `86d99e9` (Step 2 complete) | 2026-06-17 |
 | — | Brainstorm optional phase + lesson/knowledge corpus + Oracle retrieval engine — built & merged; Oracle ships inert (`[oracle] enabled = false` in `config/uacp.toml`); knowledge/lessons corpora live under `.uacp/` | — | `5abe0f4` (C-floor merge) / `1bf68d3` (C-semantic merge) | 2026-06-17 |
-| — | docs/ OKF frontmatter enforcement + doc-architecture refresh (in progress) | — | `b66c5e7` | 2026-06-18 |
+| — | docs/ OKF frontmatter enforcement + doc-architecture refresh (AGENTS/README/PROJECT/ROADMAP slimmed to their roles; docs/ OKF lint) | — | `250b788` (merge) | 2026-06-18 |
+| — | Cross-runtime packaging: shared `tool_specs` registry + MCP stdio server + Guardian PreToolUse hook (Claude Code + Kimi); CC `.claude-plugin/marketplace.json` + install verified live; Kimi GitHub-native install; repo home → `mikeng-io/uacp` | — | `c06d15d` / `326b061` / `674f8ec` / `28ff0b3` | 2026-06-18 |
+| — | Oracle index-build path (`LanceDBStore.upsert` + `build_index` + deterministic synthetic-corpus generator); gated real-model e2e; reranker bake-off (EMBEDDED rerank implemented; **Qwen3-Reranker-0.6B kept**) — Oracle still ships inert | — | `324cc3f` / `d8f4f55` / `db90a21` | 2026-06-18 |
+| — | Orchestration skills made runtime-neutral ("sub-agent" replaces CC "Task"; per-runtime primitive mapped in `uacp-bridge`); `uacp-debate` **file-based round-state manifest** (durable/auditable/resumable); de-phantom never-built schema refs | — | `e89850a` / `7b31ad9` / `27ad77e` | 2026-06-18 |
+| — | docs/ inclusion-exclusion policy codified (`CONTRIBUTING.md` + `test_docs_okf` lint); legacy `piv → ppv` rename (PIV now = Phase Intent Verification only); CI fixed (`[tool.setuptools] packages=[]` editable-install + ruff-format); legacy ruff F401 cleanup | — | `0202bec` / `4bbc6f1` / `cbbf373` / `9c95045` | 2026-06-18 |
 
 ## 🚧 Reserved (not scheduled)
 
@@ -61,6 +65,7 @@ The propagated backlog clusters into five themes:
 ## 🔭 Speculative (not yet scoped)
 
 - **Cross-runtime adapters**: Bridge contracts for Claude Code, Codex, Kimi, Gemini, and OpenCode now exist under `skills/uacp-bridge/references/`. All five runtimes have substantive reference docs. No further adapter work is currently scoped.
-- **Oracle live mode**: Oracle ships inert (`[oracle] enabled = false`). A live model run + reranker bake-off script (`skills/uacp-core/scripts/oracle/`) are implemented but not activated. Enabling in production requires an operator decision.
+- **Oracle go-live**: ships inert (`[oracle] enabled = false`). The index-build path (`LanceDBStore.upsert` + `build_index`) and the reranker bake-off have now run with real models (Qwen3-Reranker-0.6B kept). Remaining before enabling: a real ≥50-pair labeled eval set (the bundled seed set is synthetic — relevant docs pre-sorted), validating the embedded embedding mode (`llama_cpp`/BGE-M3 — URL mode proven), then flipping `[oracle] enabled` (operator decision).
+- **Explore-and-bail (brainstorm)**: let a BRAINSTORM run abort before TRIAGE without producing a governed artifact. Bounded — the `Status.aborted` terminal substrate already exists in `phase_graph.py`; open work = the abort trigger (tool call vs state write), run-registry handling for an aborted brainstorm-only run, and tests. Operator-deferred.
 - **Operator UI / dashboard**: not scoped. UACP is runtime-neutral; a dashboard is a deployment concern, not a core deliverable.
 - **Knowledge Bank promotion beyond `lessons.applies_to_future_runs`**: the auto-copy mechanism was scoped to Phase 2 but landed as schema-only. The Oracle corpus-ownership boundary (`.uacp/knowledge/`, `.uacp/lessons/`) is now established; promotion logic could be completed in Phase 5 or a separate run.
