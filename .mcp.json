@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "uacp": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/runtime-adapters/mcp/uacp_mcp_server.py"]
+    }
+  }
+}

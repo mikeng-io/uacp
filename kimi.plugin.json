@@ -1,5 +1,12 @@
 {
   "name": "uacp",
   "description": "Universal Agent Control Plane — runtime-neutral governance with an optional-brainstorm seven-phase lifecycle ((BRAINSTORM)→TRIAGE→PROPOSE→PLAN→EXECUTE→VERIFY→RESOLVE), Guardian/Heartgate enforcement, and Agent Council orchestration, as installable skills.",
-  "version": "0.1.0"
+  "skills": "./skills/",
+  "mcpServers": {
+    "uacp": {
+      "command": "python3",
+      "args": ["./runtime-adapters/mcp/uacp_mcp_server.py"],
+      "cwd": "./"
+    }
+  }
 }

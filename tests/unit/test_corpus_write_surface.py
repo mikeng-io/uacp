@@ -43,11 +43,10 @@ def test_artifact_handler_allowed_roots_includes_lessons():
 
     handler_src = (
         ROOT
-        / "runtime-adapters"
-        / "hermes"
-        / "plugins"
-        / "uacp_guardian"
-        / "__init__.py"
+        / "skills"
+        / "uacp-core"
+        / "scripts"
+        / "governed_handlers.py"
     ).read_text()
     match = re.search(r"allowed_roots\s*=\s*\{([^}]*)\}", handler_src)
     assert match, "allowed_roots literal set not found in artifact-write handler"
@@ -65,11 +64,10 @@ def test_artifact_handler_allowed_roots_includes_brainstorm():
 
     handler_src = (
         ROOT
-        / "runtime-adapters"
-        / "hermes"
-        / "plugins"
-        / "uacp_guardian"
-        / "__init__.py"
+        / "skills"
+        / "uacp-core"
+        / "scripts"
+        / "governed_handlers.py"
     ).read_text()
     match = re.search(r"allowed_roots\s*=\s*\{([^}]*)\}", handler_src)
     assert match, "allowed_roots literal set not found in artifact-write handler"

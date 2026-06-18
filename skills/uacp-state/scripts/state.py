@@ -17,10 +17,22 @@ if str(_CORE_DIR) not in sys.path:
     sys.path.insert(0, str(_CORE_DIR))
 
 from config import base_dir
+from contracts import _required_uacp_context_missing, _validate_common_write_args
 from core import GuardianPolicy, Heartgate, _is_safe_run_id
 from filesystem import _resolve_uacp_path, _write_uacp_file
 from engines.domain import EscalationMode, EscalationSeverity
 from typing import get_args as _get_args
+
+# Re-exported for backward compatibility: callers historically imported these
+# validators from `state`; they now live in the neutral `contracts` module.
+__all__ = [
+    "_required_uacp_context_missing",
+    "_validate_common_write_args",
+    "_handle_uacp_gate_ledger_append",
+    "_handle_uacp_state_write",
+    "_handle_uacp_run_registry_update",
+    "_handle_uacp_escalation_event",
+]
 
 
 def _run_manifest_goal_id(root: Path, run_id: str) -> str | None:
@@ -52,40 +64,6 @@ def _run_manifest_goal_id(root: Path, run_id: str) -> str | None:
         return None
     except Exception:
         return None
-
-
-def _required_uacp_context_missing(args: Mapping[str, Any]) -> list[str]:
-    # Use "in" not truthiness so empty lists (e.g. declared_side_effects=[])
-    # are accepted as present while missing keys are rejected.
-    return [
-        key
-        for key in (
-            "workspace",
-            "uacp_run_id",
-            "uacp_phase",
-            "policy_version",
-            "declared_side_effects",
-        )
-        if key not in args
-    ]
-
-
-def _validate_common_write_args(args: Mapping[str, Any]) -> tuple[str, str, str, str] | str:
-    target_path = str(args.get("target_path") or "")
-    content = args.get("content")
-    reason = str(args.get("reason") or "")
-    authority = str(args.get("authority_artifact") or args.get("declared_authority") or "")
-    if not target_path:
-        return "target_path is required"
-    if not isinstance(content, str):
-        return "content must be a string"
-    if not reason:
-        return "reason is required"
-    if not authority:
-        return "authority_artifact is required"
-    if missing_context := _required_uacp_context_missing(args):
-        return f"missing UACP context field(s): {', '.join(missing_context)}"
-    return target_path, content, reason, authority
 
 
 def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
