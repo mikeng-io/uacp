@@ -1,19 +1,21 @@
-# Installing the UACP Plugin in Claude Code
+# Installing the UACP Plugin
 
-UACP ships as a first-class Claude Code plugin. Installing it wires up 17 skills,
-the MCP governed-handler server, and the Guardian PreToolUse hook in one step.
+UACP ships as a plugin for both **Claude Code** and **Kimi Code** — skills + an
+MCP governed-tools server. Claude Code additionally bundles the Guardian
+PreToolUse hook automatically; on Kimi the hook is a one-time config edit. The
+Claude Code steps are first; for Kimi see [Kimi Code](#kimi-code).
 
 ## Prerequisites
 
-- Claude Code installed and on `PATH` (`claude --version`).
+- Claude Code (`claude --version`) and/or Kimi Code installed.
 - Python 3.11+ available as `python3`.
 - The UACP repository cloned or the GitHub repo URL to hand.
 
-## Install from the GitHub marketplace
+## Claude Code — install from the marketplace
 
 ```bash
 # 1. Register the UACP marketplace (do this once per machine).
-claude plugin marketplace add nortrix-labs/uacp
+claude plugin marketplace add mikeng-io/uacp
 
 # 2. Install the uacp plugin from that marketplace.
 claude plugin install uacp@uacp
@@ -59,8 +61,8 @@ executes on every tool call (`matcher: "*"`). It fails open: if the hook crashes
 the call proceeds, because the MCP governed handlers provide the authoritative
 containment.
 
-For Kimi Code, use the Kimi installer documented in
-[hooks/README.md](hooks/README.md).
+(That auto-bundling is Claude-Code-specific. On Kimi the hook is installed
+manually — see [Kimi Code](#kimi-code).)
 
 ## Verifying the install
 
@@ -84,3 +86,28 @@ claude plugin update uacp
 claude plugin uninstall uacp
 claude plugin marketplace remove uacp   # if you no longer need the marketplace entry
 ```
+
+## Kimi Code
+
+Kimi Code installs the plugin **natively from GitHub** — this wires up the 17
+skills + the MCP governed-tools server. (It does *not* carry the enforcement
+hook: Kimi's plugin manifest ignores a `hooks` field — that's a one-time config
+edit, below.) In the Kimi Code TUI, use a full HTTPS GitHub URL (shorthand like
+`owner/repo` is not accepted):
+
+```text
+# Install the plugin from GitHub (latest release, else default branch):
+/plugins install https://github.com/mikeng-io/uacp
+
+# A plugin's MCP servers start only in a NEW session — enable + restart:
+/plugins mcp enable uacp uacp
+/new
+```
+
+The MCP server needs the `[mcp]` extra installed in the clone Kimi created
+(`pip install -e ".[mcp]"` in the plugin directory).
+
+**Enforcement (one-time manual step).** The Guardian PreToolUse gate cannot ride
+in the Kimi plugin, so add it to `~/.kimi-code/config.toml` yourself — see
+[hooks/README.md → Kimi Code](hooks/README.md#kimi-code) for the `[[hooks]]`
+block. There is no install script, by design.

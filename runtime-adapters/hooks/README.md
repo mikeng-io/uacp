@@ -52,18 +52,11 @@ installed. The wired hook is:
 
 ### Kimi Code
 
-Kimi Code reads `~/.kimi-code/config.toml` and runs `[[hooks]]` blocks. Install
-with the bundled installer:
-
-```bash
-# Dry run — prints the block to add:
-python3 runtime-adapters/hooks/install_kimi_hook.py
-
-# Apply — appends idempotently, backing up the existing config first:
-python3 runtime-adapters/hooks/install_kimi_hook.py --apply
-```
-
-The installed block:
+The Kimi plugin (skills + the MCP governed-tools server) installs natively from
+GitHub — see [the adapter README](../README.md#kimi-code). Kimi's plugin manifest
+ignores a `hooks` field, so the enforcement hook **cannot** ship inside the
+plugin; it is a **one-time manual edit** to `~/.kimi-code/config.toml`. Add this
+`[[hooks]]` block, replacing `<abs>` with the absolute path to your clone:
 
 ```toml
 [[hooks]]
@@ -73,9 +66,8 @@ command = "python3 <abs>/runtime-adapters/hooks/guardian_pretooluse.py --profile
 timeout = 10
 ```
 
-`--apply` is idempotent (it will not append a duplicate if a PreToolUse hook
-already points at the shim) and writes a timestamped `.bak-<stamp>` backup before
-modifying an existing config.
+Then start a new session (`/new`). There is no install script — this is a single
+documented paste, by design (the gate can't ride in the plugin).
 
 ## Environment contract
 

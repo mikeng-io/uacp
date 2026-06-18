@@ -84,7 +84,7 @@ print(result)
 
 ## Git workflow
 
-UACP is versioned at `nortrix-labs/uacp` (GitHub). Local working tree at `UACP_ROOT`.
+UACP is versioned at `mikeng-io/uacp` (GitHub). Local working tree at `UACP_ROOT`.
 
 ```bash
 # Always commit through standard git (UACP enforces commit-boundary policy via
