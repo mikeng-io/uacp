@@ -146,7 +146,12 @@ def _filesystem_guard_verified(tool_name: str, args: Mapping[str, Any] | None) -
     if not attestation_id:
         return False
     try:
-        policy_version = str(_policy().version)
+        # Resolve the policy version from the same root the attestation was
+        # minted under (uacp_contained_shell loads policy from args["workspace"]).
+        # Using _policy() here (the env-rooted singleton) would reject a valid
+        # attestation whenever the workspace root's schema_version differs from
+        # the env root's — a fail-closed mint/validate mismatch. Match the mint.
+        policy_version = str(GuardianPolicy.load(args.get("workspace")).version)
     except GuardianPolicyError:
         return False
     ok, _ = _validate_contained_shell_attestation(attestation_id, policy_version)
