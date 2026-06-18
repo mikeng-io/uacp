@@ -19,6 +19,12 @@ dev = [
     "pytest-xdist",
     "ruff>=0.15",
 ]
+# Optional MCP stdio server adapter (runtime-adapters/mcp/uacp_mcp_server.py).
+# Kept out of core `dependencies` so the kernel stays installable on
+# pydantic + pyyaml alone; install with `pip install -e ".[mcp]"`.
+mcp = [
+    "mcp>=1.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
