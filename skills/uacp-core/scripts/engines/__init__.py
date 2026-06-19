@@ -15,6 +15,7 @@ from . import (
     coherence,  # noqa: F401
     deferral_completeness,  # noqa: F401
     evidence_completeness,  # noqa: F401
+    graph_projection,  # noqa: F401
     ledger_integrity,  # noqa: F401
     scope_conformance,  # noqa: F401
 )
