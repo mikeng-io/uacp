@@ -15,7 +15,7 @@ import sys, hashlib
 from pathlib import Path
 import yaml
 
-ROOT = Path(__file__).resolve().parents[4]  # spike -> graph-engine -> design -> docs -> repo
+ROOT = Path(__file__).resolve().parents[3]  # spike -> graph-engine -> design -> docs -> repo
 
 
 def synth_id(prefix: str, text: str, run: str) -> str:

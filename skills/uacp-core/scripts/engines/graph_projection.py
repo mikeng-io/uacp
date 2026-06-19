@@ -3,7 +3,7 @@
 Projects a run's manifest artifacts into an in-memory node/edge graph and asserts
 its STRUCTURAL integrity — the serialization invariant behind the "no phantom /
 no dropped intent" guarantee. This is the read-only ("Phase A") graduation of the
-design spike (``docs/design/graph-engine/spike/projector.py``); see decision ledger
+design spike (``design/graph-engine/spike/projector.py``); see decision ledger
 D20/D29/D32 and ``23-final-review.md``.
 
 Grounding (what the nodes/edges are):
