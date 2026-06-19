@@ -1,0 +1,10 @@
+# CASE: phantom edge — wu-2 derives_from a NON-EXISTENT scope_item (si-999).
+# Expect: phantom=[wu-2 -> si-999], uncovered=0, orphan=0.
+kind: uacp.plan
+run_id: phantom
+scope:
+  in_scope:
+    - {id: si-1, statement: "real intent"}
+work_units:
+  - {id: wu-1, title: "ok", derives_from: [si-1]}
+  - {id: wu-2, title: "points at a ghost intent", derives_from: [si-999]}

@@ -1,0 +1,7 @@
+# EXECUTE: a checkpoint per work_unit, linked by work_unit_id.
+kind: uacp.execution
+run_id: oauth-login
+checkpoints:
+  - {id: cp-1, work_unit_id: wu-1, result: pass}
+  - {id: cp-2, work_unit_id: wu-2, result: pass}
+  - {id: cp-3, work_unit_id: wu-3, result: pass}

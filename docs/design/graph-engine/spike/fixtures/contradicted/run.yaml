@@ -1,0 +1,16 @@
+# CASE: contradicted — the assessment claims PASS but its evidence checkpoint is FAIL (a lie).
+# Expect: contradicted=[as-1], unverified=0 (the lie fools unverified), structural BLOCK on contradicted.
+kind: uacp.plan
+run_id: contradicted
+scope:
+  in_scope:
+    - {id: si-1, statement: "intent"}
+  out_of_scope: []
+work_units:
+  - {id: wu-1, title: "task", derives_from: [si-1]}
+evidence_obligations:
+  - {id: ev-1, work_unit_id: wu-1}
+checkpoints:
+  - {id: cp-1, work_unit_id: wu-1, result: fail}     # ← evidence FAILED
+assessments:
+  - {id: as-1, obligation_id: ev-1, work_unit_id: wu-1, evidence_refs: [cp-1], result: pass}  # ← but claims PASS

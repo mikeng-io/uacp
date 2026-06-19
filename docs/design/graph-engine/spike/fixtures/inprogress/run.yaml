@@ -1,0 +1,12 @@
+# CASE: in-progress / half-done — proposal+plan exist, NO execution/verification yet.
+# Expect: STRUCTURALLY sound (uncovered=0, orphan=0, phantom=0) but unverified=[wu-1,wu-2]
+# -> unverified is EXPECTED mid-run, NOT a defect. (Surfaces structural-vs-progress distinction.)
+kind: uacp.plan
+run_id: inprogress
+scope:
+  in_scope:
+    - {id: si-1, statement: "intent A"}
+    - {id: si-2, statement: "intent B"}
+work_units:
+  - {id: wu-1, title: "A", derives_from: [si-1]}
+  - {id: wu-2, title: "B", derives_from: [si-2]}

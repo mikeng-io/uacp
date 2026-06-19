@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://uacp/schema/design-index.schema.json",
+  "title": "design_index",
+  "description": "Schema for a design-bundle `_index.yaml` (kind: design_index). WHAT IT IS: the aggregate root of a design bundle — the member list, the inter-node design graph, status, and scope guard. WHAT IT DOES: pins reading order and the design's own edges so the bundle is itself a validatable graph (dogfood). WHAT IT DOES NOT DO: it does not validate the member .md nodes (each has its own schema), does not check cross-node closure (that is the projection engine), and does not carry node-level manifest data.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "title", "description", "status", "governance", "timestamp", "members"],
+  "properties": {
+    "kind": {
+      "description": "Discriminator. Always the literal design_index.",
+      "const": "design_index"
+    },
+    "title": { "description": "Human title of the bundle.", "type": "string", "minLength": 1 },
+    "description": { "description": "One-paragraph purpose of the bundle.", "type": "string", "minLength": 1 },
+    "status": {
+      "description": "Lifecycle state of the design itself.",
+      "type": "string",
+      "enum": ["design", "proposed", "accepted", "building", "built"]
+    },
+    "governance": {
+      "description": "Governance standing. pre-governance-input = not yet entered a governed run; governed = under an active run; ratified = council-accepted into canon.",
+      "type": "string",
+      "enum": ["pre-governance-input", "governed", "ratified"]
+    },
+    "timestamp": {
+      "description": "ISO-8601 date (YYYY-MM-DD) the bundle was last revised. No fabricated per-edit times.",
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "origin": { "description": "Free-text provenance of the bundle (e.g. the session that produced it).", "type": "string" },
+    "schema_dir": { "description": "Relative dir holding the JSON-Schemas this bundle's YAML validates against.", "type": "string" },
+    "members": {
+      "description": "Ordered list of member node files (reading order). Filenames relative to the bundle root.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^[0-9A-Za-z._-]+\\.(md|yaml)$" },
+      "uniqueItems": true
+    },
+    "edges": {
+      "description": "The design bundle as a graph: typed, provenance-tagged edges between member nodes (dogfoods the edge schema the design specifies).",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["src", "dst", "rel", "provenance"],
+        "properties": {
+          "src": { "description": "Source node id (member basename without extension).", "type": "string", "minLength": 1 },
+          "dst": { "description": "Destination node id.", "type": "string", "minLength": 1 },
+          "rel": {
+            "description": "Relation type between design nodes (closed vocabulary).",
+            "type": "string",
+            "enum": ["motivated_by", "decides_on", "realizes", "depends_on", "consumes", "extends", "sequences"]
+          },
+          "provenance": {
+            "description": "How the edge is known. For a design bundle these are asserted (a human-made design link) or derived (a structural dependency).",
+            "type": "string",
+            "enum": ["derived", "parsed", "asserted", "inferred"]
+          }
+        }
+      }
+    },
+    "scope": {
+      "description": "v1 scope guard: what the design includes now vs. defers.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "v1": { "description": "Planes/capabilities in v1 scope.", "type": "array", "items": { "type": "string" } },
+        "deferred": { "description": "Explicitly deferred planes/capabilities.", "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
