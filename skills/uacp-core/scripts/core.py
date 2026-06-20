@@ -1098,9 +1098,15 @@ class Heartgate:
         """Phase 1 / Item 1.2: enforce phase_exit_invariants from config.
 
         For the transition's `from_phase`, load `stages.<from_phase>.phase_exit_invariants`
-        and check each: required artifact_glob entries must match at least one
-        file under UACP_ROOT; required gate_ledger_entry values must appear in
-        state/gate-ledger/{run_id}.jsonl.
+        and check each required invariant by its kind:
+        - `artifact_glob` — must match at least one file under UACP_ROOT;
+        - `gate_ledger_entry` — must appear in state/gate-ledger/{run_id}.jsonl;
+        - `graph_invariant` (D35) — runs the phase-scoped structural subset of the
+          graph_projection engine for this transition (scope = `<from_phase>_exit`,
+          e.g. `plan_exit`); any block-severity violation becomes a transition
+          blocker. This is what makes a dropped intent / orphan / missing coverage
+          fail at the boundary where its inputs first complete, instead of only at
+          terminal closure.
         """
         from_phase = str(artifact.get("from_phase") or "")
         run_id = str(artifact.get("run_id") or "")
@@ -1123,6 +1129,7 @@ class Heartgate:
                 continue
             glob_pattern = str(inv.get("artifact_glob") or "")
             ledger_gate = str(inv.get("gate_ledger_entry") or "")
+            graph_scope = str(inv.get("graph_invariant") or "")
             if glob_pattern:
                 if "{run_id}" in glob_pattern and not run_id:
                     blockers.append(f"phase_exit_invariant unmet: run_id required to resolve glob '{glob_pattern}'")
@@ -1135,6 +1142,19 @@ class Heartgate:
                     blockers.append(f"phase_exit_invariant unmet: run_id required to verify ledger entry '{ledger_gate}'")
                 elif not self._ledger_contains_gate(run_id, ledger_gate):
                     blockers.append(f"phase_exit_invariant unmet: gate ledger missing entry '{ledger_gate}'")
+            elif graph_scope:
+                if not run_id:
+                    blockers.append(f"phase_exit_invariant unmet: run_id required for graph_invariant '{graph_scope}'")
+                    continue
+                # D35: run the phase-scoped structural subset of graph_projection
+                # for this transition. The engine never raises; block-severity
+                # violations (dropped intent / orphan / phantom / missing coverage /
+                # contradiction) gate the phase exit.
+                from engines.graph_projection import validate_graph_invariants
+
+                for v in validate_graph_invariants(self.uacp_root, run_id, graph_scope):
+                    if v.severity == "block":
+                        blockers.append(f"phase_exit_invariant unmet: {v.code}: {v.message}")
 
     def _validate_adaptive_proposal_package_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Enforce adaptive proposal package selection for PROPOSE->PLAN.
