@@ -1,0 +1,23 @@
+This directory is THIRD-PARTY software VENDORED into UACP — not authored by UACP.
+
+  Source:   https://github.com/awesome-skills/code-review-skill
+  Commit:   17267ff26b95dcea28c3dae76f9931cdf9604520
+  License:  MIT (see ./LICENSE — retained verbatim; copyright remains the original authors')
+  Vendored: 2026-06-21
+
+UACP redistributes this under the MIT License with the following MINIMAL MODIFICATIONS
+(MIT-permitted), so that it installs as a first-class UACP skill via the plugin:
+  • Relocated to skills/code-review/ (depth-2) so the Claude Code plugin loader
+    auto-discovers it (it globs skills/*/SKILL.md) and it installs WITH the plugin.
+  • Renamed code-review-skill → code-review (directory + SKILL.md `name:`).
+The skill's CONTENT (methodology, language guides, scripts) is otherwise unmodified.
+
+To re-vendor / update:
+  git clone --depth 1 https://github.com/awesome-skills/code-review-skill /tmp/crs
+  rm -rf skills/code-review && cp -R /tmp/crs skills/code-review && rm -rf skills/code-review/.git
+  # then re-apply the two modifications above (rename `name:`, keep this NOTICE) and update the Commit sha
+
+This NOTICE file MARKS the directory as vendored: UACP's authored-skill lints
+(ADR-0017 / OKF / kind) exempt any skill dir that carries a NOTICE, because vendored
+skills follow their own upstream convention. UACP skills may REFERENCE it
+(one-directional). It still installs with the plugin like any other skill.

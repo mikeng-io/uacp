@@ -29,10 +29,18 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SKILLS_DIR = REPO_ROOT / "skills"
-# Vendored third-party skills (skills/vendor/**) follow their own UPSTREAM
-# convention (see skills/vendor/*/NOTICE + LICENSE), NOT UACP's authored-skill
-# convention (ADR-0017), so they are exempt from these authored-skill lints.
-_VENDOR_DIR = SKILLS_DIR / "vendor"
+# Vendored third-party skills are marked by a NOTICE file in their skill dir (a
+# direct child of skills/, e.g. skills/code-review/NOTICE). They follow their own
+# UPSTREAM convention (their LICENSE/NOTICE), NOT UACP's authored-skill convention
+# (ADR-0017), so the authored-skill lints exempt them. They still install with the
+# plugin (depth-2, auto-discovered) — exemption is from the *quality* lints only.
+_VENDORED_SKILL_DIRS = [d for d in SKILLS_DIR.iterdir() if d.is_dir() and (d / "NOTICE").is_file()]
+
+
+def _is_vendored(p: Path) -> bool:
+    return any(d == p or d in p.parents for d in _VENDORED_SKILL_DIRS)
+
+
 REFERENCES_DIR = SKILLS_DIR / "uacp-core" / "references"
 DESCRIPTION_BUDGET = 1536
 
@@ -44,13 +52,17 @@ _LIFECYCLE_AUTHORITY_KEYS = {"allowed_tools", "forbidden_tools", "phase_exit_inv
 
 
 def _skill_md_files() -> list[Path]:
-    return sorted(p for p in SKILLS_DIR.glob("**/SKILL.md") if _VENDOR_DIR not in p.parents)
+    return sorted(p for p in SKILLS_DIR.glob("**/SKILL.md") if not _is_vendored(p))
 
 
 def _one_level_skill_md_files() -> list[Path]:
-    """Return SKILL.md files that are exactly skills/<dir>/SKILL.md (one level deep)."""
+    """Return SKILL.md files that are exactly skills/<dir>/SKILL.md (one level deep),
+    excluding vendored third-party skills (those whose dir carries a NOTICE — they
+    follow their own upstream frontmatter convention, not UACP's kind/authority one)."""
     return sorted(
-        p for p in SKILLS_DIR.glob("*/SKILL.md") if len(p.relative_to(SKILLS_DIR).parts) == 2
+        p
+        for p in SKILLS_DIR.glob("*/SKILL.md")
+        if len(p.relative_to(SKILLS_DIR).parts) == 2 and not _is_vendored(p)
     )
 
 
@@ -252,8 +264,8 @@ def test_lifecycle_skill_declares_authority_source(skill_md: Path) -> None:
 
 def _all_skill_markdown_files() -> list[Path]:
     """Return every *.md under skills/ (SKILL.md files and references), EXCLUDING
-    vendored third-party skills (skills/vendor/** — exempt per their NOTICE)."""
-    return sorted(p for p in SKILLS_DIR.rglob("*.md") if _VENDOR_DIR not in p.parents)
+    vendored third-party skills (those whose skill dir carries a NOTICE)."""
+    return sorted(p for p in SKILLS_DIR.rglob("*.md") if not _is_vendored(p))
 
 
 @pytest.mark.parametrize(
