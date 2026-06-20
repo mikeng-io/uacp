@@ -108,6 +108,26 @@ def test_non_governed_root_registration_not_required(tmp_path):
     assert "AI_UNRECORDED" not in codes
 
 
+# --- #5: a watermark-record failure must be SURFACED at write time, not silent ---
+def test_write_surfaces_watermark_record_failure(temp_uacp_root):
+    # Force record_hash to fail: make .uacp/state/hashes a FILE so the dir mkdir raises.
+    hashes = temp_uacp_root / ".uacp" / "state" / "hashes"
+    hashes.parent.mkdir(parents=True, exist_ok=True)
+    hashes.write_text("not a dir", encoding="utf-8")
+    res = json.loads(_handle_uacp_artifact_write(_write_args(temp_uacp_root, "plans/x.yaml", "body")))
+    assert res.get("ok") is True                 # the artifact write itself succeeded
+    assert res.get("watermark") == "unrecorded"  # ...but the watermark failure is SURFACED
+    assert "warning" in res, res                 # ...not silently swallowed
+
+
+def test_write_reports_watermark_recorded_on_success(temp_uacp_root):
+    # Non-vacuous: a normal governed write reports the watermark as recorded.
+    res = json.loads(_handle_uacp_artifact_write(_write_args(temp_uacp_root, "plans/ok.yaml", "body")))
+    assert res.get("ok") is True
+    assert res.get("watermark") == "recorded"
+    assert "warning" not in res
+
+
 # --- writer integration (2c): the governed writer records the watermark --------
 def _write_args(root, rel, content):
     return {

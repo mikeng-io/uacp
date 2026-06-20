@@ -447,26 +447,36 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
         _write_uacp_file(target, content)
         # Detection watermark (D24/D25): record this artifact's content hash so an
         # out-of-band tamper — a write that bypasses this governed writer — is caught
-        # at the gate by the artifact_integrity engine. Best-effort: a hashing/IO
-        # failure must not fail an already-completed write (the artifact would simply
-        # read as unrecorded == unverified, never as falsely intact).
+        # at the gate by the artifact_integrity engine. The write itself already
+        # succeeded, so a record failure does NOT fail the write — but it is SURFACED
+        # (#5), never swallowed: the response reports watermark=unrecorded + a warning,
+        # and the artifact will read as AI_UNRECORDED at the next gate (the governed
+        # regime, #4), so the gap can never pass as falsely intact.
         run_id = str(args.get("uacp_run_id") or "")
+        watermark = "skipped"  # no run_id -> nothing to anchor to
+        watermark_error = None
         if run_id:
             try:
                 from engines.domain.artifact_hashes import record_hash
 
                 record_hash(root, run_id, str(rel), content)
-            except Exception:
-                pass
-        return json.dumps(
-            {
-                "ok": True,
-                "path": str(rel),
-                "reason": reason,
-                "authority_artifact": authority,
-            },
-            ensure_ascii=False,
-        )
+                watermark = "recorded"
+            except Exception as exc:
+                watermark = "unrecorded"
+                watermark_error = f"{type(exc).__name__}: {exc}"
+        result = {
+            "ok": True,
+            "path": str(rel),
+            "reason": reason,
+            "authority_artifact": authority,
+            "watermark": watermark,
+        }
+        if watermark_error is not None:
+            result["warning"] = (
+                f"artifact written but watermark NOT recorded ({watermark_error}); "
+                f"it will read as AI_UNRECORDED at the next gate"
+            )
+        return json.dumps(result, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"error": f"uacp_artifact_write failed: {type(exc).__name__}: {exc}"})
 
