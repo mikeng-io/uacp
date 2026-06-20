@@ -37,6 +37,20 @@ _UACP_ARTIFACT_ROOTS = (
     "resolutions", "knowledge", "lessons", "brainstorm",
 )
 
+# Categories that do NOT mutate the filesystem. A tool in one of these never
+# triggers the governed-path write block even if it carries a governed path (e.g.
+# reading a manifest). EVERYTHING ELSE is treated as mutation-capable — so an
+# unmapped/unknown tool (external.unknown_mutator, runtime.extension, an MCP tool,
+# apply_patch, …) targeting a governed root is hard-blocked by default (default-deny).
+# This closes the adversarial-review bypass where the block only fired for a fixed
+# 3-category allowlist and let every other mutator through.
+_READONLY_CATEGORIES = frozenset({
+    "read.local",
+    "evidence.containment",
+    "lifecycle.transition",
+    "external.network_read",
+})
+
 
 @dataclass(frozen=True)
 class GuardianEvent:
@@ -401,11 +415,14 @@ class Guardian:
             if event.tool_name in self.policy.tool_classification:
                 return str(self.policy.tool_classification[event.tool_name])
             return "runtime.extension"
-        if provider_category and provider_category not in {
-            "use_tool_classification",
-            "require_explicit_classification",
-            "require_control_plane_guard",
-        }:
+        # Only a REAL protected category may be returned here. A provider mapping
+        # whose value is a symbolic directive (use_tool_classification, …) OR a
+        # stray non-category string (e.g. the decision word "block_pending_heartgate",
+        # which an earlier config used) must NOT be returned as the category — that
+        # leaked an undefined category that defaulted to allow (adversarial review #7).
+        # Anything that is not a defined category falls through to tool/pattern/default
+        # classification (which resolves an unknown tool to runtime.extension).
+        if provider_category and provider_category in self.policy.protected_categories:
             return provider_category
 
         if event.tool_name in self.policy.tool_classification:
@@ -532,14 +549,14 @@ class Guardian:
     def _is_direct_uacp_state_write(self, event: GuardianEvent, category: str) -> bool:
         if category == "state.uacp":
             return True
-        if category not in {"file.write", "exec.shell", "exec.code_with_tool_proxy"}:
+        if category in _READONLY_CATEGORIES:  # reads pass; everything else is mutation-capable
             return False
         return any(self._path_is_under_state(path) for path in self._extract_paths(event))
 
     def _is_direct_uacp_artifact_write(self, event: GuardianEvent, category: str) -> bool:
         if category == "artifact.uacp":
             return True
-        if category not in {"file.write", "exec.shell", "exec.code_with_tool_proxy"}:
+        if category in _READONLY_CATEGORIES:  # reads pass; everything else is mutation-capable
             return False
         return any(self._path_is_under_artifact_root(path) for path in self._extract_paths(event))
 
@@ -559,6 +576,27 @@ class Guardian:
                         context_paths.append(Path(value).expanduser().resolve())
                     except Exception:
                         pass
+        # Defense in depth (adversarial review): a mutating tool can carry its target
+        # under ANY arg key (destination/dest/output_path/out/files/...), not just the
+        # well-known ones above. Scan every other string / list-of-string arg value as
+        # a candidate path; only values that resolve under a governed root actually
+        # trigger a block, so non-path args are harmless. The command-text keys are
+        # left to the shell scanner below.
+        def _path_shaped(s: str) -> bool:
+            # Only treat path-LIKE strings as candidate paths, so content args
+            # (old_string="a", a YAML body, a reason) are not mistaken for paths and
+            # do not falsely bind an edit to the UACP root. A governed-path target
+            # always carries a separator (e.g. ".uacp/plans/x.yaml" or an absolute
+            # path), so requiring one keeps the alt-key evasion closed.
+            return "/" in s or "\\" in s
+        for key, value in args.items():
+            if key in {"path", "file_path", "target_path", "notebook_path", "workdir",
+                       "cwd", "workspace", "command", "code", "script", "args"}:
+                continue
+            if isinstance(value, str) and _path_shaped(value):
+                paths.append(value)
+            elif isinstance(value, list):
+                paths.extend(v for v in value if isinstance(v, str) and _path_shaped(v))
         root_path = self.policy.uacp_root.resolve()
         root = str(root_path)
         uacp_env = os.getenv("UACP_ROOT") or root
