@@ -12,6 +12,7 @@ from __future__ import annotations
 
 # Importing the engine modules registers them into ENGINES as a side effect.
 from . import (
+    artifact_integrity,  # noqa: F401
     coherence,  # noqa: F401
     deferral_completeness,  # noqa: F401
     evidence_completeness,  # noqa: F401

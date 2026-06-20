@@ -445,6 +445,19 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
             return json.dumps({"error": "target_path must point to a file"})
 
         _write_uacp_file(target, content)
+        # Detection watermark (D24/D25): record this artifact's content hash so an
+        # out-of-band tamper — a write that bypasses this governed writer — is caught
+        # at the gate by the artifact_integrity engine. Best-effort: a hashing/IO
+        # failure must not fail an already-completed write (the artifact would simply
+        # read as unrecorded == unverified, never as falsely intact).
+        run_id = str(args.get("uacp_run_id") or "")
+        if run_id:
+            try:
+                from engines.domain.artifact_hashes import record_hash
+
+                record_hash(root, run_id, str(rel), content)
+            except Exception:
+                pass
         return json.dumps(
             {
                 "ok": True,
