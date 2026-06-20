@@ -172,9 +172,7 @@ def test_no_reserved_key_context_misuse(skill_md: Path) -> None:
 
 def _reference_docs() -> list[Path]:
     """Return all *.md files in skills/uacp-core/references/ except README.md."""
-    return sorted(
-        p for p in REFERENCES_DIR.glob("*.md") if p.name != "README.md"
-    )
+    return sorted(p for p in REFERENCES_DIR.glob("*.md") if p.name != "README.md")
 
 
 @pytest.mark.parametrize("ref_doc", _reference_docs(), ids=lambda p: p.name)
@@ -204,15 +202,11 @@ def test_reference_doc_kebab_case_no_date_suffix(ref_doc: Path) -> None:
 def _lifecycle_skill_md_files() -> list[Path]:
     """Return SKILL.md files whose frontmatter declares kind: lifecycle."""
     return sorted(
-        p
-        for p in SKILLS_DIR.glob("*/SKILL.md")
-        if _parse_frontmatter(p).get("kind") == "lifecycle"
+        p for p in SKILLS_DIR.glob("*/SKILL.md") if _parse_frontmatter(p).get("kind") == "lifecycle"
     )
 
 
-@pytest.mark.parametrize(
-    "skill_md", _lifecycle_skill_md_files(), ids=lambda p: p.parent.name
-)
+@pytest.mark.parametrize("skill_md", _lifecycle_skill_md_files(), ids=lambda p: p.parent.name)
 def test_lifecycle_skill_declares_phase(skill_md: Path) -> None:
     """Every lifecycle skill MUST declare a non-empty 'phase' key.
 
@@ -233,9 +227,7 @@ def test_lifecycle_skill_declares_phase(skill_md: Path) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "skill_md", _lifecycle_skill_md_files(), ids=lambda p: p.parent.name
-)
+@pytest.mark.parametrize("skill_md", _lifecycle_skill_md_files(), ids=lambda p: p.parent.name)
 def test_lifecycle_skill_declares_authority_source(skill_md: Path) -> None:
     """Every lifecycle skill MUST declare a non-empty 'authority_source' key.
 

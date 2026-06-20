@@ -121,9 +121,7 @@ def test_skill_md_no_dump_relative_pointer(skill_md: Path) -> None:
 
 def _reference_docs() -> list[Path]:
     """Return all *.md files in skills/uacp-core/references/ except index.md."""
-    return sorted(
-        p for p in REFERENCES_DIR.glob("*.md") if p.name != "index.md"
-    )
+    return sorted(p for p in REFERENCES_DIR.glob("*.md") if p.name != "index.md")
 
 
 @pytest.mark.parametrize("ref_doc", _reference_docs(), ids=lambda p: p.name)
