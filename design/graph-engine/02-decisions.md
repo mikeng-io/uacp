@@ -631,6 +631,18 @@ projects → gate it; attribution-as-boast → it's metadata, never overrides gr
 
 ## D35 — phase-keyed structural gates: run the seam check at EACH transition, not only at terminal closure
 
+> **BUILT (2026-06-20) — 3 increments on `slice1-foundation` (7ed22ce, 1acdd9e, cdabbf6).**
+> Engine: `graph_projection.validate_graph_invariants(ws, run, scope)` runs the phase-scoped
+> subset (+3 new coverage checks: `GP_WORK_UNIT_NO_OBLIGATION`/`_NO_CHECKPOINT`/`GP_UNVERIFIED`),
+> terminal `validate_graph_projection` unchanged (T2). Kernel: a `graph_invariant` phase-exit kind
+> in `Heartgate._validate_phase_exit_invariants` (evidence-completeness ignores it). Default-on via
+> `STAGE_PHASE_EXIT_INVARIANTS` (production omits `stages` → gets the default; the conftest fixture
+> ships its own `stages` so the suite is unaffected). Enforcement points are data-availability-correct:
+> the dropped-intent seam fires at **`plan`-exit (PLAN→EXECUTE)** — the earliest gate where
+> `derives_from` exists — not `propose`-exit. Full suite green (1704). Remaining: the broader runtime
+> must actually CALL `validate_transition` over a populated manifest (the pre-existing "enforcement not
+> yet implemented" gap) for the gate to bite end-to-end at runtime.
+
 **Context (verified vs `core.py`).** Today `validate_transition` (line 761) enforces `phase_exit_invariants`
 (line 823→1097) which check **artifact/ledger EXISTENCE only** — never graph STRUCTURE. The structural
 seam engine `graph_projection` (uncovered/orphan/phantom/contradicted) is invoked ONLY by
