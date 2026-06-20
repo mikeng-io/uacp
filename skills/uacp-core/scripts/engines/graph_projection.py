@@ -68,6 +68,7 @@ def _synth_id(prefix: str, text: str, run: str) -> str:
 
 def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
     """Extract nodes + typed edges from one artifact doc into the shared graph."""
+
     def add_node(nid: str, kind: str, **extra: Any) -> None:
         nodes.setdefault(nid, {"id": nid, "kind": kind, **extra})
 
@@ -76,9 +77,9 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
 
     scope = doc.get("scope") if isinstance(doc.get("scope"), dict) else {}
     for item in _aslist(scope.get("in_scope")):
-        if isinstance(item, dict) and item.get("id"):                 # new canonical form
+        if isinstance(item, dict) and item.get("id"):  # new canonical form
             add_node(item["id"], "scope_item", statement=item.get("statement", ""))
-        elif isinstance(item, str):                                   # legacy bare string
+        elif isinstance(item, str):  # legacy bare string
             add_node(_synth_id("si", item, run), "scope_item", statement=item)
 
     for wu in _aslist(doc.get("work_units")):
@@ -123,31 +124,47 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
 # by iterating only the nodes whose layer is present, so an empty/earlier-phase
 # graph yields no false positives.
 
+
 def _check_uncovered(nodes: dict, edges: list) -> list[Violation]:
     df_dst = {e["dst"] for e in edges if e["rel"] == "derives_from"}
-    return [_v("GP_UNCOVERED_INTENT",
-               f"scope_item '{n['id']}' has no work_unit deriving from it "
-               f"(dropped intent): «{(n.get('statement') or '')[:60]}»",
-               scope_item=n["id"])
-            for n in nodes.values()
-            if n["kind"] == "scope_item" and n["id"] not in df_dst]
+    return [
+        _v(
+            "GP_UNCOVERED_INTENT",
+            f"scope_item '{n['id']}' has no work_unit deriving from it "
+            f"(dropped intent): «{(n.get('statement') or '')[:60]}»",
+            scope_item=n["id"],
+        )
+        for n in nodes.values()
+        if n["kind"] == "scope_item" and n["id"] not in df_dst
+    ]
 
 
 def _check_orphan(nodes: dict, edges: list) -> list[Violation]:
     df_src = {e["src"] for e in edges if e["rel"] == "derives_from"}
-    return [_v("GP_ORPHAN_WORK_UNIT",
-               f"work_unit '{n['id']}' has no derives_from to any scope_item "
-               f"(unanchored task)", work_unit=n["id"])
-            for n in nodes.values()
-            if n["kind"] == "work_unit" and n["id"] not in df_src]
+    return [
+        _v(
+            "GP_ORPHAN_WORK_UNIT",
+            f"work_unit '{n['id']}' has no derives_from to any scope_item (unanchored task)",
+            work_unit=n["id"],
+        )
+        for n in nodes.values()
+        if n["kind"] == "work_unit" and n["id"] not in df_src
+    ]
 
 
 def _check_phantom(nodes: dict, edges: list) -> list[Violation]:
-    return [_v("GP_PHANTOM_EDGE",
-               f"edge {e['src']} --{e['rel']}--> {e['dst']} targets a node that "
-               f"does not exist (forged/dangling reference)",
-               src=e["src"], dst=e["dst"], rel=e["rel"])
-            for e in edges if e["dst"] not in nodes]
+    return [
+        _v(
+            "GP_PHANTOM_EDGE",
+            f"edge {e['src']} --{e['rel']}--> {e['dst']} targets a node that "
+            f"does not exist (forged/dangling reference)",
+            src=e["src"],
+            dst=e["dst"],
+            rel=e["rel"],
+        )
+        for e in edges
+        if e["dst"] not in nodes
+    ]
 
 
 def _check_contradicted(nodes: dict, edges: list) -> list[Violation]:
@@ -158,40 +175,62 @@ def _check_contradicted(nodes: dict, edges: list) -> list[Violation]:
             continue
         asmt = nodes.get(e["src"], {})
         if asmt.get("result") == "pass" and cp_result.get(e["dst"]) not in (None, "pass"):
-            out.append(_v("GP_CONTRADICTED",
-                          f"assessment '{e['src']}' claims pass but its evidence "
-                          f"checkpoint '{e['dst']}' is '{cp_result.get(e['dst'])}'",
-                          assessment=e["src"], checkpoint=e["dst"]))
+            out.append(
+                _v(
+                    "GP_CONTRADICTED",
+                    f"assessment '{e['src']}' claims pass but its evidence "
+                    f"checkpoint '{e['dst']}' is '{cp_result.get(e['dst'])}'",
+                    assessment=e["src"],
+                    checkpoint=e["dst"],
+                )
+            )
     return out
 
 
 def _check_obligation_coverage(nodes: dict, edges: list) -> list[Violation]:
     covered = {e["dst"] for e in edges if e["rel"] == "obligation_for"}
-    return [_v("GP_WORK_UNIT_NO_OBLIGATION",
-               f"work_unit '{n['id']}' has no evidence_obligation "
-               f"(nothing will be required of it at EXECUTE)", work_unit=n["id"])
-            for n in nodes.values()
-            if n["kind"] == "work_unit" and n["id"] not in covered]
+    return [
+        _v(
+            "GP_WORK_UNIT_NO_OBLIGATION",
+            f"work_unit '{n['id']}' has no evidence_obligation "
+            f"(nothing will be required of it at EXECUTE)",
+            work_unit=n["id"],
+        )
+        for n in nodes.values()
+        if n["kind"] == "work_unit" and n["id"] not in covered
+    ]
 
 
 def _check_checkpoint_coverage(nodes: dict, edges: list) -> list[Violation]:
     covered = {e["dst"] for e in edges if e["rel"] == "checkpoint_of"}
-    return [_v("GP_WORK_UNIT_NO_CHECKPOINT",
-               f"work_unit '{n['id']}' has no EXECUTE checkpoint "
-               f"(no evidence it was performed)", work_unit=n["id"])
-            for n in nodes.values()
-            if n["kind"] == "work_unit" and n["id"] not in covered]
+    return [
+        _v(
+            "GP_WORK_UNIT_NO_CHECKPOINT",
+            f"work_unit '{n['id']}' has no EXECUTE checkpoint (no evidence it was performed)",
+            work_unit=n["id"],
+        )
+        for n in nodes.values()
+        if n["kind"] == "work_unit" and n["id"] not in covered
+    ]
 
 
 def _check_unverified(nodes: dict, edges: list) -> list[Violation]:
     # A work_unit is verified iff some assessment with result==pass links to it.
-    passing = {e["dst"] for e in edges
-               if e["rel"] == "work_unit_id" and nodes.get(e["src"], {}).get("result") == "pass"}
-    return [_v("GP_UNVERIFIED",
-               f"work_unit '{n['id']}' has no passing assessment "
-               f"(claimed done without verified evidence)", work_unit=n["id"])
-            for n in nodes.values()
-            if n["kind"] == "work_unit" and n["id"] not in passing]
+    passing = {
+        e["dst"]
+        for e in edges
+        if e["rel"] == "work_unit_id" and nodes.get(e["src"], {}).get("result") == "pass"
+    }
+    return [
+        _v(
+            "GP_UNVERIFIED",
+            f"work_unit '{n['id']}' has no passing assessment "
+            f"(claimed done without verified evidence)",
+            work_unit=n["id"],
+        )
+        for n in nodes.values()
+        if n["kind"] == "work_unit" and n["id"] not in passing
+    ]
 
 
 # Terminal (closure) check set — STRUCTURAL only; the phase-gated coverage
@@ -267,9 +306,13 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
         return bad
     checks = _SCOPE_CHECKS.get(scope)
     if checks is None:
-        return [_v("GP0_UNKNOWN_SCOPE",
-                   f"unknown phase-gate scope: {scope!r} "
-                   f"(expected one of {sorted(_SCOPE_CHECKS)})", scope=scope)]
+        return [
+            _v(
+                "GP0_UNKNOWN_SCOPE",
+                f"unknown phase-gate scope: {scope!r} (expected one of {sorted(_SCOPE_CHECKS)})",
+                scope=scope,
+            )
+        ]
     graph = _load_and_project(workspace, run_id)
     if graph is None:
         return []

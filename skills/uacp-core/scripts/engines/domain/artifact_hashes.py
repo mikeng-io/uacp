@@ -16,6 +16,7 @@ hash must resist crafted collisions. Near-leaf: stdlib + the config base resolve
 only (so the index lands under the project's configured ``[paths].base``, matching
 where the governed writer actually writes — not a hardcoded ``.uacp``).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -35,6 +36,7 @@ def _base_dir(workspace: str | Path) -> Path:
     p = Path(str(workspace))
     try:
         from config import base_dir  # config-controlled <root>/<paths.base>
+
         return base_dir(p)
     except Exception:
         return p if p.name == ".uacp" else p / ".uacp"

@@ -21,6 +21,7 @@ Honest scope:
 Architecture: read-only; never raises (every failure is a Violation). Registered in
 ``ENGINES`` so it runs at closure via ``run_all_engines``.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -32,10 +33,18 @@ from engines.domain.artifact_hashes import content_hash, load_hash_index
 # Governed artifact roots (mirror core._UACP_ARTIFACT_ROOTS + governed_handlers
 # allowed_roots). A manifest-registered path under one of these is uacp_artifact_write's
 # responsibility, so in the governed regime it MUST carry a watermark.
-_GOVERNED_ARTIFACT_ROOTS = frozenset({
-    "plans", "proposals", "executions", "verification",
-    "resolutions", "knowledge", "lessons", "brainstorm",
-})
+_GOVERNED_ARTIFACT_ROOTS = frozenset(
+    {
+        "plans",
+        "proposals",
+        "executions",
+        "verification",
+        "resolutions",
+        "knowledge",
+        "lessons",
+        "brainstorm",
+    }
+)
 
 
 def _v(code: str, message: str, **detail: Any) -> Violation:
@@ -48,6 +57,7 @@ def _base_dir(workspace: str | Path) -> Path:
     p = Path(str(workspace))
     try:
         from config import base_dir
+
         return base_dir(p)
     except Exception:
         return p if p.name == ".uacp" else p / ".uacp"
@@ -64,8 +74,11 @@ def _registered_artifact_rels(workspace: str | Path, run_id: str) -> list[str]:
         artifacts = loaded.value.raw.get("artifacts")
         if not isinstance(artifacts, dict):
             return []
-        return [rel for rel in artifacts.values()
-                if isinstance(rel, str) and rel.split("/", 1)[0] in _GOVERNED_ARTIFACT_ROOTS]
+        return [
+            rel
+            for rel in artifacts.values()
+            if isinstance(rel, str) and rel.split("/", 1)[0] in _GOVERNED_ARTIFACT_ROOTS
+        ]
     except Exception:
         return []
 
@@ -87,21 +100,37 @@ def validate_artifact_integrity(workspace: str | Path, run_id: str) -> list[Viol
         path = base / rel
         try:
             if not path.is_file():
-                out.append(_v("AI_MISSING",
-                              f"recorded artifact '{rel}' is missing (its watermark "
-                              f"has no backing file)", artifact=rel))
+                out.append(
+                    _v(
+                        "AI_MISSING",
+                        f"recorded artifact '{rel}' is missing (its watermark has no backing file)",
+                        artifact=rel,
+                    )
+                )
                 continue
             current = content_hash(path.read_text(encoding="utf-8"))
         except Exception as exc:
-            out.append(_v("AI_UNREADABLE",
-                          f"recorded artifact '{rel}' could not be read for verification: "
-                          f"{type(exc).__name__}", artifact=rel))
+            out.append(
+                _v(
+                    "AI_UNREADABLE",
+                    f"recorded artifact '{rel}' could not be read for verification: "
+                    f"{type(exc).__name__}",
+                    artifact=rel,
+                )
+            )
             continue
         if current != recorded:
-            out.append(_v("AI_TAMPERED",
-                          f"artifact '{rel}' content hash {current[:12]}… does not match the "
-                          f"recorded {recorded[:12]}… — out-of-band write that bypassed the "
-                          f"governed writer", artifact=rel, current=current, recorded=recorded))
+            out.append(
+                _v(
+                    "AI_TAMPERED",
+                    f"artifact '{rel}' content hash {current[:12]}… does not match the "
+                    f"recorded {recorded[:12]}… — out-of-band write that bypassed the "
+                    f"governed writer",
+                    artifact=rel,
+                    current=current,
+                    recorded=recorded,
+                )
+            )
 
     # #4 (require-record): once the run has ANY watermark it is in the governed-writer
     # regime, so every manifest-registered artifact under a governed root MUST be
@@ -111,10 +140,15 @@ def validate_artifact_integrity(workspace: str | Path, run_id: str) -> list[Viol
     if index:
         for rel in _registered_artifact_rels(workspace, run_id):
             if rel not in index:
-                out.append(_v("AI_UNRECORDED",
-                              f"manifest-registered artifact '{rel}' has no watermark — written "
-                              f"outside the governed writer; the graph would trust an "
-                              f"unverifiable artifact", artifact=rel))
+                out.append(
+                    _v(
+                        "AI_UNRECORDED",
+                        f"manifest-registered artifact '{rel}' has no watermark — written "
+                        f"outside the governed writer; the graph would trust an "
+                        f"unverifiable artifact",
+                        artifact=rel,
+                    )
+                )
     return out
 
 

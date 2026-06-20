@@ -186,13 +186,25 @@ def test_dropped_intent_blocks_closure_with_gp(temp_uacp_root: Path, valid_run_i
     (base / "proposals").mkdir(parents=True, exist_ok=True)
     (base / "plans").mkdir(parents=True, exist_ok=True)
     # new canonical form: si-2 is declared but NO work_unit derives_from it -> uncovered
-    (base / "proposals" / f"{valid_run_id}-gp.yaml").write_text(yaml.safe_dump(
-        {"kind": "uacp.proposal", "scope": {
-            "in_scope": [{"id": "si-1", "statement": "A"},
-                         {"id": "si-2", "statement": "B dropped"}],
-            "out_of_scope": []}}))
-    (base / "plans" / f"{valid_run_id}-gp.yaml").write_text(yaml.safe_dump(
-        {"kind": "uacp.plan", "work_units": [{"id": "wu-1", "derives_from": ["si-1"]}]}))
+    (base / "proposals" / f"{valid_run_id}-gp.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.proposal",
+                "scope": {
+                    "in_scope": [
+                        {"id": "si-1", "statement": "A"},
+                        {"id": "si-2", "statement": "B dropped"},
+                    ],
+                    "out_of_scope": [],
+                },
+            }
+        )
+    )
+    (base / "plans" / f"{valid_run_id}-gp.yaml").write_text(
+        yaml.safe_dump(
+            {"kind": "uacp.plan", "work_units": [{"id": "wu-1", "derives_from": ["si-1"]}]}
+        )
+    )
     data = _load_manifest_raw(temp_uacp_root, valid_run_id)
     arts = data.setdefault("artifacts", {})
     arts["gp_proposal"] = f"proposals/{valid_run_id}-gp.yaml"
