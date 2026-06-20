@@ -1,0 +1,20 @@
+# Vendored third-party skills — manifest for the (deferred) `update-vendored-skills`
+# tooling. Each entry pins the upstream source + commit so the copy under
+# skills/<name>/ is auditable and upgradable. The copy ships WITH the UACP plugin
+# (depth-2, auto-discovered); this manifest is how it stays manageable. A skill dir
+# is recognized as vendored (and lint-exempt) by the presence of a NOTICE file.
+#
+# Backlog: see TASKS.jsonl T-001 (build the updater; evaluate the
+# vercel-labs/agent-skills + `npx skill` model as a management/source option).
+
+[code-review]
+source       = "https://github.com/awesome-skills/code-review-skill"
+commit       = "17267ff26b95dcea28c3dae76f9931cdf9604520"
+license      = "MIT"
+path         = "skills/code-review"
+vendored     = "2026-06-21"
+# MIT-permitted modifications applied at vendor time (see skills/code-review/NOTICE):
+modifications = [
+  "relocated to skills/code-review (depth-2) so it installs with the CC plugin",
+  "renamed code-review-skill -> code-review (dir + SKILL.md name)",
+]
