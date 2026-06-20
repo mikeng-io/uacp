@@ -20,4 +20,6 @@ Guard: always fall back to Agent Teams or Task tool if workflows are unavailable
 
 **Non-interactive (`claude -p`) mode:** Add `--dangerously-skip-permissions` for file writes — no user is present to approve tool calls.
 
+**Code intelligence — prefer the LSP tool over grep for *symbol-level* questions:** find-references, go-to-definition, call hierarchy (incoming/outgoing), implementations, and rename/impact analysis. The language server resolves across files and imports and never false-matches in comments or strings, where a text grep does. Keep using grep/Glob for non-symbol search — string literals, config keys, cross-language sweeps, file discovery, and any pattern the server can't model. The server must be installed and on `$PATH` (`pyright-langserver` for Python); if an LSP call errors with "Executable not found", fall back to grep and say so rather than retrying.
+
 Full dispatch contract: `skills/uacp-bridge/references/claude.md`
