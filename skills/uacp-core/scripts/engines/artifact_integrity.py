@@ -30,6 +30,15 @@ from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
 
 
+# Governed artifact roots (mirror core._UACP_ARTIFACT_ROOTS + governed_handlers
+# allowed_roots). A manifest-registered path under one of these is uacp_artifact_write's
+# responsibility, so in the governed regime it MUST carry a watermark.
+_GOVERNED_ARTIFACT_ROOTS = frozenset({
+    "plans", "proposals", "executions", "verification",
+    "resolutions", "knowledge", "lessons", "brainstorm",
+})
+
+
 def _v(code: str, message: str, **detail: Any) -> Violation:
     return Violation(code=code, severity="block", message=message, detail=detail)
 
@@ -37,6 +46,23 @@ def _v(code: str, message: str, **detail: Any) -> Violation:
 def _base_dir(workspace: str | Path) -> Path:
     p = Path(str(workspace))
     return p if p.name == ".uacp" else p / ".uacp"
+
+
+def _registered_artifact_rels(workspace: str | Path, run_id: str) -> list[str]:
+    """Manifest-registered artifact rels that fall under a governed root."""
+    try:
+        from engines.io import load_manifest
+
+        loaded = load_manifest(Path(str(workspace)).resolve(), run_id)
+        if loaded.error is not None or loaded.value is None:
+            return []
+        artifacts = loaded.value.raw.get("artifacts")
+        if not isinstance(artifacts, dict):
+            return []
+        return [rel for rel in artifacts.values()
+                if isinstance(rel, str) and rel.split("/", 1)[0] in _GOVERNED_ARTIFACT_ROOTS]
+    except Exception:
+        return []
 
 
 def validate_artifact_integrity(workspace: str | Path, run_id: str) -> list[Violation]:
@@ -71,6 +97,19 @@ def validate_artifact_integrity(workspace: str | Path, run_id: str) -> list[Viol
                           f"artifact '{rel}' content hash {current[:12]}… does not match the "
                           f"recorded {recorded[:12]}… — out-of-band write that bypassed the "
                           f"governed writer", artifact=rel, current=current, recorded=recorded))
+
+    # #4 (require-record): once the run has ANY watermark it is in the governed-writer
+    # regime, so every manifest-registered artifact under a governed root MUST be
+    # recorded. An unrecorded one was written outside the governed writer — a net-new
+    # forgery the graph would otherwise project and trust. A run with no index is
+    # legacy / non-governed → exempt (the engine stays a no-op for it).
+    if index:
+        for rel in _registered_artifact_rels(workspace, run_id):
+            if rel not in index:
+                out.append(_v("AI_UNRECORDED",
+                              f"manifest-registered artifact '{rel}' has no watermark — written "
+                              f"outside the governed writer; the graph would trust an "
+                              f"unverifiable artifact", artifact=rel))
     return out
 
 

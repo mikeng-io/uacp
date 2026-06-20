@@ -17,9 +17,17 @@ if str(_CORE_SCRIPTS) not in sys.path:
 
 import json
 
+import yaml
 from engines.artifact_integrity import validate_artifact_integrity
 from engines.domain.artifact_hashes import load_hash_index, record_hash
 from governed_handlers import _handle_uacp_artifact_write
+
+
+def _manifest(root: Path, run: str, artifacts: dict) -> None:
+    p = root / ".uacp" / "state" / "runs" / f"{run}.yaml"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(yaml.safe_dump({"kind": "uacp.run_state", "run_id": run, "artifacts": artifacts}),
+                 encoding="utf-8")
 
 
 def _seed(tmp_path: Path, rel: str, content: str, *, record: bool = True) -> Path:
@@ -61,6 +69,43 @@ def test_unrecorded_artifact_is_not_verified(tmp_path):
 
 def test_never_raises_on_missing_index(tmp_path):
     assert validate_artifact_integrity(tmp_path, "nope") == []
+
+
+# --- #4: require a watermark per manifest-registered artifact (governed regime) ---
+def test_registered_artifact_without_watermark_is_unrecorded(tmp_path):
+    # Governed regime (one artifact recorded) + a SECOND registered artifact that
+    # was written outside the governed writer (no watermark) -> net-new forgery.
+    _seed(tmp_path, "plans/a.yaml", "A")                       # records plans/a.yaml
+    (tmp_path / ".uacp" / "plans" / "b.yaml").write_text("B", encoding="utf-8")  # NOT recorded
+    _manifest(tmp_path, "r", {"a": "plans/a.yaml", "b": "plans/b.yaml"})
+    vs = validate_artifact_integrity(tmp_path, "r")
+    assert any(v.code == "AI_UNRECORDED" and v.detail.get("artifact") == "plans/b.yaml" for v in vs), vs
+
+
+def test_all_registered_artifacts_recorded_is_clean(tmp_path):
+    # Non-vacuous: the unrecorded sibling above fires; here every registered
+    # artifact has a watermark -> clean.
+    _seed(tmp_path, "plans/a.yaml", "A")
+    _manifest(tmp_path, "r", {"a": "plans/a.yaml"})
+    assert validate_artifact_integrity(tmp_path, "r") == []
+
+
+def test_no_index_exempts_unrecorded_check(tmp_path):
+    # Legacy run: manifest registers artifacts but the governed writer was never
+    # used (no index) -> the require-record check does NOT fire.
+    (tmp_path / ".uacp" / "plans").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".uacp" / "plans" / "a.yaml").write_text("A", encoding="utf-8")
+    _manifest(tmp_path, "r", {"a": "plans/a.yaml"})
+    assert validate_artifact_integrity(tmp_path, "r") == []
+
+
+def test_non_governed_root_registration_not_required(tmp_path):
+    # A registered path NOT under a governed artifact root (e.g. state/) is owned by
+    # a different writer and must not trip the artifact require-record check.
+    _seed(tmp_path, "plans/a.yaml", "A")  # establishes the governed regime
+    _manifest(tmp_path, "r", {"a": "plans/a.yaml", "s": "state/runs/r.yaml"})
+    codes = {v.code for v in validate_artifact_integrity(tmp_path, "r")}
+    assert "AI_UNRECORDED" not in codes
 
 
 # --- writer integration (2c): the governed writer records the watermark --------
