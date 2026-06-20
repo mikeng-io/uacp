@@ -905,6 +905,7 @@ class Heartgate:
         self._validate_heartgate_coherence(artifact, blockers, warnings)
         self._validate_heartgate_coherence_requirement(artifact, blockers)
         self._validate_phase_exit_invariants(artifact, blockers)
+        self._validate_artifact_integrity(artifact, blockers)
         self._validate_adaptive_proposal_package_gate(artifact, blockers)
         self._validate_convergence_budget_gate(artifact, blockers)
         self._validate_adaptive_plan_package_gate(artifact, blockers)
@@ -1239,6 +1240,21 @@ class Heartgate:
                 for v in validate_graph_invariants(self.uacp_root, run_id, graph_scope):
                     if v.severity == "block":
                         blockers.append(f"phase_exit_invariant unmet: {v.code}: {v.message}")
+
+    def _validate_artifact_integrity(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Hardening #6: run the artifact-integrity (SHA-256 watermark) check at
+        EVERY transition, not only at terminal closure, so an out-of-band tamper of
+        a recorded artifact is caught at the boundary instead of being swapped back
+        before RESOLVE. No-op on runs with no watermark index (legacy / non-governed-
+        writer runs). The engine never raises."""
+        run_id = str(artifact.get("run_id") or "")
+        if not run_id:
+            return
+        from engines.artifact_integrity import validate_artifact_integrity
+
+        for v in validate_artifact_integrity(self.uacp_root, run_id):
+            if v.severity == "block":
+                blockers.append(f"{v.code}: {v.message}")
 
     def _validate_adaptive_proposal_package_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Enforce adaptive proposal package selection for PROPOSE->PLAN.
