@@ -114,30 +114,45 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
                 add_edge(aid, ref, "evidence_refs")
 
 
-def _structural_violations(nodes: dict, edges: list) -> list[Violation]:
-    out: list[Violation] = []
+# --- individual checks (each operates on the projected (nodes, edges)) --------
+#
+# STRUCTURAL (always a defect, any phase): uncovered / orphan / phantom /
+# contradicted. PHASE-GATED coverage (a defect only once that layer's artifacts
+# exist — enforced at the transition where the inputs first complete, D35):
+# obligation-coverage / checkpoint-coverage / unverified. Each check self-gates
+# by iterating only the nodes whose layer is present, so an empty/earlier-phase
+# graph yields no false positives.
+
+def _check_uncovered(nodes: dict, edges: list) -> list[Violation]:
     df_dst = {e["dst"] for e in edges if e["rel"] == "derives_from"}
+    return [_v("GP_UNCOVERED_INTENT",
+               f"scope_item '{n['id']}' has no work_unit deriving from it "
+               f"(dropped intent): «{(n.get('statement') or '')[:60]}»",
+               scope_item=n["id"])
+            for n in nodes.values()
+            if n["kind"] == "scope_item" and n["id"] not in df_dst]
+
+
+def _check_orphan(nodes: dict, edges: list) -> list[Violation]:
     df_src = {e["src"] for e in edges if e["rel"] == "derives_from"}
+    return [_v("GP_ORPHAN_WORK_UNIT",
+               f"work_unit '{n['id']}' has no derives_from to any scope_item "
+               f"(unanchored task)", work_unit=n["id"])
+            for n in nodes.values()
+            if n["kind"] == "work_unit" and n["id"] not in df_src]
 
-    for n in nodes.values():
-        if n["kind"] == "scope_item" and n["id"] not in df_dst:
-            out.append(_v("GP_UNCOVERED_INTENT",
-                          f"scope_item '{n['id']}' has no work_unit deriving from it "
-                          f"(dropped intent): «{(n.get('statement') or '')[:60]}»",
-                          scope_item=n["id"]))
-        if n["kind"] == "work_unit" and n["id"] not in df_src:
-            out.append(_v("GP_ORPHAN_WORK_UNIT",
-                          f"work_unit '{n['id']}' has no derives_from to any scope_item "
-                          f"(unanchored task)", work_unit=n["id"]))
 
-    for e in edges:
-        if e["dst"] not in nodes:
-            out.append(_v("GP_PHANTOM_EDGE",
-                          f"edge {e['src']} --{e['rel']}--> {e['dst']} targets a node that "
-                          f"does not exist (forged/dangling reference)",
-                          src=e["src"], dst=e["dst"], rel=e["rel"]))
+def _check_phantom(nodes: dict, edges: list) -> list[Violation]:
+    return [_v("GP_PHANTOM_EDGE",
+               f"edge {e['src']} --{e['rel']}--> {e['dst']} targets a node that "
+               f"does not exist (forged/dangling reference)",
+               src=e["src"], dst=e["dst"], rel=e["rel"])
+            for e in edges if e["dst"] not in nodes]
 
+
+def _check_contradicted(nodes: dict, edges: list) -> list[Violation]:
     cp_result = {n["id"]: n.get("result") for n in nodes.values() if n["kind"] == "checkpoint"}
+    out: list[Violation] = []
     for e in edges:
         if e["rel"] != "evidence_refs":
             continue
@@ -150,24 +165,58 @@ def _structural_violations(nodes: dict, edges: list) -> list[Violation]:
     return out
 
 
-def validate_graph_projection(workspace: str | Path, run_id: str) -> list[Violation]:
-    """Project the run's manifest artifacts into a graph and assert structural
-    integrity. Returns a list of Violation (empty == sound). Never raises."""
-    try:
-        root = Path(str(workspace)).resolve()
-    except Exception as exc:
-        return [_v("GP0_WORKSPACE_INVALID", f"workspace path invalid: {type(exc).__name__}: {exc}")]
-    if not run_id or not isinstance(run_id, str):
-        return [_v("GP0_RUN_ID_INVALID", f"run_id invalid: {run_id!r}")]
+def _check_obligation_coverage(nodes: dict, edges: list) -> list[Violation]:
+    covered = {e["dst"] for e in edges if e["rel"] == "obligation_for"}
+    return [_v("GP_WORK_UNIT_NO_OBLIGATION",
+               f"work_unit '{n['id']}' has no evidence_obligation "
+               f"(nothing will be required of it at EXECUTE)", work_unit=n["id"])
+            for n in nodes.values()
+            if n["kind"] == "work_unit" and n["id"] not in covered]
 
+
+def _check_checkpoint_coverage(nodes: dict, edges: list) -> list[Violation]:
+    covered = {e["dst"] for e in edges if e["rel"] == "checkpoint_of"}
+    return [_v("GP_WORK_UNIT_NO_CHECKPOINT",
+               f"work_unit '{n['id']}' has no EXECUTE checkpoint "
+               f"(no evidence it was performed)", work_unit=n["id"])
+            for n in nodes.values()
+            if n["kind"] == "work_unit" and n["id"] not in covered]
+
+
+def _check_unverified(nodes: dict, edges: list) -> list[Violation]:
+    # A work_unit is verified iff some assessment with result==pass links to it.
+    passing = {e["dst"] for e in edges
+               if e["rel"] == "work_unit_id" and nodes.get(e["src"], {}).get("result") == "pass"}
+    return [_v("GP_UNVERIFIED",
+               f"work_unit '{n['id']}' has no passing assessment "
+               f"(claimed done without verified evidence)", work_unit=n["id"])
+            for n in nodes.values()
+            if n["kind"] == "work_unit" and n["id"] not in passing]
+
+
+# Terminal (closure) check set — STRUCTURAL only; the phase-gated coverage
+# checks are NOT run here (they have a transition-of-enforcement, final-review T2).
+_TERMINAL_CHECKS = (_check_uncovered, _check_orphan, _check_phantom, _check_contradicted)
+
+# Phase-keyed gates (D35): the subset enforced at each transition, keyed by the
+# `from_phase`-exit gate where each check's inputs first complete.
+_SCOPE_CHECKS = {
+    "plan_exit": (_check_uncovered, _check_orphan, _check_phantom, _check_obligation_coverage),
+    "execute_exit": (_check_checkpoint_coverage,),
+    "verify_exit": (_check_unverified, _check_contradicted),
+}
+
+
+def _load_and_project(workspace: str | Path, run_id: str) -> tuple[dict, list] | None:
+    """Load a run's manifest, project every artifact into one (nodes, edges)
+    graph. Returns None when there is no usable manifest (nothing to project)."""
+    root = Path(str(workspace)).resolve()
     loaded = load_manifest(root, run_id)
     if loaded.error is not None or loaded.value is None:
-        # No manifest -> nothing to project (other engines own "manifest missing").
-        return []
+        return None
     artifacts = loaded.value.raw.get("artifacts")
     if not isinstance(artifacts, dict):
-        return []
-
+        return None
     nodes: dict[str, dict] = {}
     edges: list[dict] = []
     for rel in artifacts.values():
@@ -176,8 +225,59 @@ def validate_graph_projection(workspace: str | Path, run_id: str) -> list[Violat
         doc = load_artifact(root, rel)
         if doc.error is None and isinstance(doc.value, dict):
             _project(doc.value, nodes, edges, run_id)
+    return nodes, edges
 
-    return _structural_violations(nodes, edges)
+
+def _validate_inputs(workspace: str | Path, run_id: str) -> list[Violation] | None:
+    """Shared input guard for the public entry points (None == inputs OK)."""
+    try:
+        Path(str(workspace)).resolve()
+    except Exception as exc:
+        return [_v("GP0_WORKSPACE_INVALID", f"workspace path invalid: {type(exc).__name__}: {exc}")]
+    if not run_id or not isinstance(run_id, str):
+        return [_v("GP0_RUN_ID_INVALID", f"run_id invalid: {run_id!r}")]
+    return None
+
+
+def validate_graph_projection(workspace: str | Path, run_id: str) -> list[Violation]:
+    """Project the run's manifest artifacts into a graph and assert structural
+    integrity (terminal / closure set). Returns a list of Violation (empty ==
+    sound). Never raises. The phase-gated coverage checks are NOT run here — they
+    are enforced at their transition via :func:`validate_graph_invariants`."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        # No manifest -> nothing to project (other engines own "manifest missing").
+        return []
+    nodes, edges = graph
+    out: list[Violation] = []
+    for check in _TERMINAL_CHECKS:
+        out.extend(check(nodes, edges))
+    return out
+
+
+def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) -> list[Violation]:
+    """Run the phase-scoped subset of structural checks for one transition gate
+    (D35). ``scope`` is the ``<from_phase>_exit`` key (``plan_exit`` /
+    ``execute_exit`` / ``verify_exit``); each check self-gates so a graph that
+    has not yet reached that layer yields no false positives. Returns a list of
+    Violation (empty == sound for this gate). Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    checks = _SCOPE_CHECKS.get(scope)
+    if checks is None:
+        return [_v("GP0_UNKNOWN_SCOPE",
+                   f"unknown phase-gate scope: {scope!r} "
+                   f"(expected one of {sorted(_SCOPE_CHECKS)})", scope=scope)]
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    nodes, edges = graph
+    out: list[Violation] = []
+    for check in checks:
+        out.extend(check(nodes, edges))
+    return out
 
 
 # Register this engine (guard against double-registration under alias imports).

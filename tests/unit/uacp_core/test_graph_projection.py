@@ -9,7 +9,10 @@ from pathlib import Path
 
 import yaml
 
-from engines.graph_projection import validate_graph_projection
+from engines.graph_projection import (
+    validate_graph_invariants,
+    validate_graph_projection,
+)
 
 
 def _prop(items: list) -> dict:
@@ -18,6 +21,18 @@ def _prop(items: list) -> dict:
 
 def _plan(wus: list) -> dict:
     return {"kind": "uacp.plan", "work_units": wus}
+
+
+def _piv(obls: list) -> dict:
+    return {"kind": "uacp.piv", "evidence_obligations": obls}
+
+
+def _exec(cps: list) -> dict:
+    return {"kind": "uacp.execution", "checkpoints": cps}
+
+
+def _verif(asmts: list) -> dict:
+    return {"kind": "uacp.piv_assessment", "assessments": asmts}
 
 
 def _ws(tmp_path: Path, run: str, proposal: dict, plan: dict, extra_docs: list | None = None) -> Path:
@@ -36,10 +51,6 @@ def _ws(tmp_path: Path, run: str, proposal: dict, plan: dict, extra_docs: list |
         yaml.safe_dump({"kind": "uacp.run_state", "run_id": run, "artifacts": arts})
     )
     return tmp_path
-
-
-def _codes(vs):
-    return sorted(v.code for v in vs)
 
 
 def test_clean_run_is_sound(tmp_path):
@@ -106,3 +117,150 @@ def test_legacy_bare_strings_read_as_uncovered(tmp_path):
 
 def test_never_raises_on_missing_manifest(tmp_path):
     assert validate_graph_projection(tmp_path, "nope") == []
+
+
+# ====================================================================
+# Phase-keyed structural gates (D35): validate_graph_invariants(ws, run, scope)
+# runs only the checks whose inputs first exist at that transition gate.
+#   plan_exit    -> uncovered / orphan / phantom + obligation-coverage
+#   execute_exit -> checkpoint-coverage
+#   verify_exit  -> unverified + contradicted
+# ====================================================================
+
+def _covered_run(tmp_path, *, obligation=True, checkpoint=True, assessment=True,
+                 checkpoint_result="pass", assessment_result="pass"):
+    """A run covered through whichever layers are requested (defaults: fully covered).
+
+    proposal si-1 <- plan wu-1 (derives_from) <- piv ev-1 <- exec cp-1 <- verify as-1.
+    """
+    extra: list = []
+    if obligation:
+        extra.append(_piv([{"id": "ev-1", "work_unit_id": "wu-1"}]))
+    if checkpoint:
+        extra.append(_exec([{"id": "cp-1", "work_unit_id": "wu-1", "result": checkpoint_result}]))
+    if assessment:
+        extra.append(_verif([{"id": "as-1", "work_unit_id": "wu-1",
+                              "evidence_refs": ["cp-1"], "result": assessment_result}]))
+    return _ws(tmp_path, "r", _prop([{"id": "si-1"}]),
+               _plan([{"id": "wu-1", "derives_from": ["si-1"]}]), extra_docs=extra)
+
+
+def _codes_set(vs):
+    return {v.code for v in vs}
+
+
+# ---------------------------------------------------------------- plan_exit
+def test_plan_exit_blocks_dropped_intent(tmp_path):
+    ws = _ws(tmp_path, "r", _prop([{"id": "si-1"}, {"id": "si-2"}]),
+             _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+             extra_docs=[_piv([{"id": "ev-1", "work_unit_id": "wu-1"}])])
+    vs = validate_graph_invariants(ws, "r", "plan_exit")
+    assert [v.detail.get("scope_item") for v in vs if v.code == "GP_UNCOVERED_INTENT"] == ["si-2"]
+    assert all(v.severity == "block" for v in vs)
+
+
+def test_plan_exit_flags_orphan_and_phantom(tmp_path):
+    ws = _ws(tmp_path, "r", _prop([{"id": "si-1"}]),
+             _plan([{"id": "wu-1", "derives_from": ["si-1"]},
+                    {"id": "wu-x"},                                  # orphan: no derives_from
+                    {"id": "wu-2", "derives_from": ["ghost"]}]),    # phantom: ghost si
+             extra_docs=[_piv([{"id": "ev-1", "work_unit_id": "wu-1"},
+                               {"id": "ev-2", "work_unit_id": "wu-x"},
+                               {"id": "ev-3", "work_unit_id": "wu-2"}])])
+    codes = _codes_set(validate_graph_invariants(ws, "r", "plan_exit"))
+    assert "GP_ORPHAN_WORK_UNIT" in codes
+    assert "GP_PHANTOM_EDGE" in codes
+
+
+def test_plan_exit_flags_work_unit_without_obligation(tmp_path):
+    ws = _ws(tmp_path, "r", _prop([{"id": "si-1"}]),
+             _plan([{"id": "wu-1", "derives_from": ["si-1"]}]))   # no evidence_obligation
+    vs = validate_graph_invariants(ws, "r", "plan_exit")
+    assert any(v.code == "GP_WORK_UNIT_NO_OBLIGATION" and v.detail.get("work_unit") == "wu-1"
+               for v in vs)
+
+
+def test_plan_exit_clean_passes_non_vacuously(tmp_path):
+    # Non-vacuity guard: the SAME fixture with the obligation removed DOES fire,
+    # proving the clean pass is a real pass over a populated graph, not "nothing
+    # to check". (The good run really carries si-1 <- wu-1 <- ev-1.)
+    broken = validate_graph_invariants(
+        _covered_run(tmp_path / "bad", obligation=False), "r", "plan_exit")
+    assert any(v.code == "GP_WORK_UNIT_NO_OBLIGATION" for v in broken)
+    assert validate_graph_invariants(_covered_run(tmp_path / "ok"), "r", "plan_exit") == []
+
+
+def test_plan_exit_ignores_later_layer_checks(tmp_path):
+    # A run covered through obligations but with NO checkpoint/assessment yet is
+    # SOUND at plan_exit — execute/verify-layer codes must NOT appear here.
+    ws = _covered_run(tmp_path, checkpoint=False, assessment=False)
+    codes = _codes_set(validate_graph_invariants(ws, "r", "plan_exit"))
+    assert codes == set()
+
+
+# ------------------------------------------------------------- execute_exit
+def test_execute_exit_flags_work_unit_without_checkpoint(tmp_path):
+    ws = _covered_run(tmp_path, checkpoint=False, assessment=False)
+    vs = validate_graph_invariants(ws, "r", "execute_exit")
+    assert any(v.code == "GP_WORK_UNIT_NO_CHECKPOINT" and v.detail.get("work_unit") == "wu-1"
+               for v in vs)
+
+
+def test_execute_exit_clean_passes_non_vacuously(tmp_path):
+    # break: drop the checkpoint -> fires; fix: checkpoint present -> silent.
+    broken = validate_graph_invariants(
+        _covered_run(tmp_path / "bad", checkpoint=False, assessment=False), "r", "execute_exit")
+    assert any(v.code == "GP_WORK_UNIT_NO_CHECKPOINT" for v in broken)
+    ws = _covered_run(tmp_path / "ok", assessment=False)  # checkpoint present; assessment not needed
+    assert validate_graph_invariants(ws, "r", "execute_exit") == []
+
+
+# -------------------------------------------------------------- verify_exit
+def test_verify_exit_flags_unverified(tmp_path):
+    # checkpoint present and passing, but NO passing assessment -> unverified
+    ws = _covered_run(tmp_path, assessment=False)
+    vs = validate_graph_invariants(ws, "r", "verify_exit")
+    assert any(v.code == "GP_UNVERIFIED" and v.detail.get("work_unit") == "wu-1" for v in vs)
+
+
+def test_verify_exit_failing_assessment_is_unverified(tmp_path):
+    # an assessment that did not pass does NOT satisfy verification
+    ws = _covered_run(tmp_path, assessment_result="fail", checkpoint_result="pass")
+    codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
+    assert "GP_UNVERIFIED" in codes
+
+
+def test_verify_exit_flags_contradicted(tmp_path):
+    # pass assessment over a FAILED evidence checkpoint -> contradicted
+    ws = _covered_run(tmp_path, checkpoint_result="fail", assessment_result="pass")
+    codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
+    assert "GP_CONTRADICTED" in codes
+
+
+def test_verify_exit_clean_passes_non_vacuously(tmp_path):
+    # break: drop the passing assessment -> fires unverified; fix -> silent.
+    broken = validate_graph_invariants(
+        _covered_run(tmp_path / "bad", assessment=False), "r", "verify_exit")
+    assert any(v.code == "GP_UNVERIFIED" for v in broken)
+    assert validate_graph_invariants(_covered_run(tmp_path / "ok"), "r", "verify_exit") == []
+
+
+# ------------------------------------------------------- scope / robustness
+def test_unknown_scope_is_a_block_violation(tmp_path):
+    vs = validate_graph_invariants(_covered_run(tmp_path), "r", "bogus_exit")
+    assert len(vs) == 1 and vs[0].severity == "block"
+    assert vs[0].code == "GP0_UNKNOWN_SCOPE"
+
+
+def test_invariants_never_raise_on_missing_manifest(tmp_path):
+    assert validate_graph_invariants(tmp_path, "nope", "plan_exit") == []
+
+
+def test_terminal_projection_unchanged_by_new_checks(tmp_path):
+    # validate_graph_projection (closure) must NOT emit the new phase-gated codes
+    # (obligation/checkpoint/unverified) — they are transition-gated, not terminal.
+    ws = _covered_run(tmp_path, obligation=False, checkpoint=False, assessment=False)
+    codes = _codes_set(validate_graph_projection(ws, "r"))
+    assert "GP_WORK_UNIT_NO_OBLIGATION" not in codes
+    assert "GP_WORK_UNIT_NO_CHECKPOINT" not in codes
+    assert "GP_UNVERIFIED" not in codes
