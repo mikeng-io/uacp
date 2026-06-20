@@ -29,7 +29,6 @@ from typing import Any
 from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
 
-
 # Governed artifact roots (mirror core._UACP_ARTIFACT_ROOTS + governed_handlers
 # allowed_roots). A manifest-registered path under one of these is uacp_artifact_write's
 # responsibility, so in the governed regime it MUST carry a watermark.
@@ -44,8 +43,14 @@ def _v(code: str, message: str, **detail: Any) -> Violation:
 
 
 def _base_dir(workspace: str | Path) -> Path:
+    # Config-backed (honors [paths].base) so verification looks where the governed
+    # writer actually wrote — not a hardcoded .uacp (Codex P2). Falls back on error.
     p = Path(str(workspace))
-    return p if p.name == ".uacp" else p / ".uacp"
+    try:
+        from config import base_dir
+        return base_dir(p)
+    except Exception:
+        return p if p.name == ".uacp" else p / ".uacp"
 
 
 def _registered_artifact_rels(workspace: str | Path, run_id: str) -> list[str]:

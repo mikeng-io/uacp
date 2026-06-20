@@ -12,7 +12,9 @@ the governed writer. Detection then compares an artifact's *current* content has
 its recorded hash — divergence means a tamper that did not go through the writer.
 
 SHA-256 (not MD5): the threat model is a deliberately adversarial producer, so the
-hash must resist crafted collisions. Pure-leaf: stdlib only, no kernel imports.
+hash must resist crafted collisions. Near-leaf: stdlib + the config base resolver
+only (so the index lands under the project's configured ``[paths].base``, matching
+where the governed writer actually writes — not a hardcoded ``.uacp``).
 """
 from __future__ import annotations
 
@@ -27,8 +29,15 @@ def content_hash(content: str) -> str:
 
 
 def _base_dir(workspace: str | Path) -> Path:
+    """The governed base for ``workspace`` — config-backed (honors ``[paths].base``),
+    matching where the governed writer writes. Falls back to ``<root>/.uacp`` if the
+    config resolver is unavailable."""
     p = Path(str(workspace))
-    return p if p.name == ".uacp" else p / ".uacp"
+    try:
+        from config import base_dir  # config-controlled <root>/<paths.base>
+        return base_dir(p)
+    except Exception:
+        return p if p.name == ".uacp" else p / ".uacp"
 
 
 def hash_index_path(workspace: str | Path, run_id: str) -> Path:

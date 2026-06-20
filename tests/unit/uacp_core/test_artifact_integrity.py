@@ -108,16 +108,17 @@ def test_non_governed_root_registration_not_required(tmp_path):
     assert "AI_UNRECORDED" not in codes
 
 
-# --- #5: a watermark-record failure must be SURFACED at write time, not silent ---
-def test_write_surfaces_watermark_record_failure(temp_uacp_root):
+# --- #5 / Codex P2: a watermark-record failure FAILS CLOSED (not best-effort) ---
+def test_write_fails_closed_when_watermark_cannot_persist(temp_uacp_root):
     # Force record_hash to fail: make .uacp/state/hashes a FILE so the dir mkdir raises.
     hashes = temp_uacp_root / ".uacp" / "state" / "hashes"
     hashes.parent.mkdir(parents=True, exist_ok=True)
     hashes.write_text("not a dir", encoding="utf-8")
     res = json.loads(_handle_uacp_artifact_write(_write_args(temp_uacp_root, "plans/x.yaml", "body")))
-    assert res.get("ok") is True                 # the artifact write itself succeeded
-    assert res.get("watermark") == "unrecorded"  # ...but the watermark failure is SURFACED
-    assert "warning" in res, res                 # ...not silently swallowed
+    assert res.get("ok") is not True, res                       # fail-closed: NOT a success
+    assert "watermark" in res.get("error", "").lower(), res     # the reason is surfaced
+    # ...and the freshly-created artifact is rolled back — no unwatermarked file left behind
+    assert not (temp_uacp_root / ".uacp" / "plans" / "x.yaml").exists()
 
 
 def test_write_reports_watermark_recorded_on_success(temp_uacp_root):
@@ -126,6 +127,23 @@ def test_write_reports_watermark_recorded_on_success(temp_uacp_root):
     assert res.get("ok") is True
     assert res.get("watermark") == "recorded"
     assert "warning" not in res
+
+
+def test_watermark_and_integrity_honor_configured_base(temp_uacp_root):
+    # Codex P2: a project that relocates [paths].base must still have its watermark
+    # index + integrity gate follow the governed writer — not a hardcoded .uacp.
+    cfg = temp_uacp_root / ".uacp" / "config.toml"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    cfg.write_text('[paths]\nbase = "governed"\n', encoding="utf-8")
+    res = json.loads(_handle_uacp_artifact_write(_write_args(temp_uacp_root, "plans/cfg.yaml", "body")))
+    assert res.get("ok") is True, res
+    # the watermark index landed under the CONFIGURED base, not .uacp
+    assert (temp_uacp_root / "governed" / "state" / "hashes" / "uacp-test-001.json").exists()
+    assert validate_artifact_integrity(temp_uacp_root, "uacp-test-001") == []  # clean, found there
+    # ...and tamper is detected there (the gate didn't silently miss the real artifact)
+    (temp_uacp_root / "governed" / "plans" / "cfg.yaml").write_text("FORGED", encoding="utf-8")
+    assert any(v.code == "AI_TAMPERED"
+               for v in validate_artifact_integrity(temp_uacp_root, "uacp-test-001"))
 
 
 # --- writer integration (2c): the governed writer records the watermark --------

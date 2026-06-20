@@ -188,7 +188,8 @@ def test_dropped_intent_blocks_closure_with_gp(temp_uacp_root: Path, valid_run_i
     # new canonical form: si-2 is declared but NO work_unit derives_from it -> uncovered
     (base / "proposals" / f"{valid_run_id}-gp.yaml").write_text(yaml.safe_dump(
         {"kind": "uacp.proposal", "scope": {
-            "in_scope": [{"id": "si-1", "statement": "A"}, {"id": "si-2", "statement": "B dropped"}],
+            "in_scope": [{"id": "si-1", "statement": "A"},
+                         {"id": "si-2", "statement": "B dropped"}],
             "out_of_scope": []}}))
     (base / "plans" / f"{valid_run_id}-gp.yaml").write_text(yaml.safe_dump(
         {"kind": "uacp.plan", "work_units": [{"id": "wu-1", "derives_from": ["si-1"]}]}))
