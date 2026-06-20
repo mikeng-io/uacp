@@ -1,0 +1,21 @@
+# NEW canonical form (Slice 1): work_units carry derives_from -> scope_item id (the missing edge).
+kind: uacp.plan
+plan_id: oauth-login
+run_id: oauth-login
+status: planned
+authority: {status: pass, source: "approved proposal"}
+work_units:
+  - id: wu-1
+    title: "Google OAuth provider config"
+    derives_from: [si-1]
+  - id: wu-2
+    title: "Token-exchange endpoint"
+    derives_from: [si-1]
+  - id: wu-3
+    title: "Regression test for password login"
+    derives_from: [si-2]
+# evidence obligations (PIV): each work_unit must produce evidence
+evidence_obligations:
+  - {id: ev-1, work_unit_id: wu-1}
+  - {id: ev-2, work_unit_id: wu-2}
+  - {id: ev-3, work_unit_id: wu-3}

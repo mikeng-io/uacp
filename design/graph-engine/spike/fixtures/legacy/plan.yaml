@@ -1,0 +1,63 @@
+kind: uacp.plan
+plan_id: uacp-governed-lifecycle-dry-run
+run_id: uacp-governed-lifecycle-dry-run
+status: planned
+authority:
+  status: pass
+  source: "approved proposal and conditional proposal-to-plan transition"
+objective: "Execute a full local UACP lifecycle dry run without external side effects."
+scope:
+  in_scope:
+    - "Finalize governed run state and transition traceability"
+    - "Keep Kanban unbound while dry-run artifacts are written"
+    - "Prepare execution, verification, and resolution artifacts"
+    - "Emit a learning artifact under knowledge/"
+  out_of_scope:
+    - "Binding Hermes Kanban"
+    - "Knowledge Bank service implementation"
+    - "Touching /private"
+    - "External runtime side effects"
+dependencies:
+  - "proposal approval record exists"
+  - "propose-to-plan transition artifact exists"
+  - "state/current.yaml points at the transition artifact"
+selected_clusters:
+  required:
+    - plan_structure
+    - state_traceability
+    - write_containment
+    - verification_strategy
+    - memory_lessons
+    - resolution_strategy
+  optional:
+    - adaptive_gate_selection
+    - hermes_kanban_boundary
+review_checkpoints:
+  - "verify plan artifact parses"
+  - "verify current state and run manifest point at the plan phase"
+  - "verify Kanban remains unbound"
+  - "verify execution scope remains inside UACP_ROOT"
+verification_targets:
+  - "YAML parse"
+  - "path hygiene"
+  - "state/run pointer coherence"
+  - "Kanban boundary preservation"
+  - "learning artifact path reserved"
+kanban_binding:
+  enabled: false
+  reason: "Dry run keeps Kanban unbound until execution binding is explicitly approved."
+work_units:
+  - id: plan.package
+    title: "Assemble dry-run execution package"
+    outputs:
+      - "executions/uacp-governed-lifecycle-dry-run.yaml"
+      - "verification/uacp-governed-lifecycle-dry-run-verification.yaml"
+  - id: resolve.package
+    title: "Prepare learning and resolution artifacts"
+    outputs:
+      - "outputs/uacp-governed-lifecycle-dry-run-summary.yaml"
+      - "knowledge/lessons/uacp-governed-lifecycle-dry-run.yaml"
+write_boundary: "UACP_ROOT"
+notes:
+  - "This plan is intentionally local-only."
+  - "Execution will begin only after the plan is verified."

@@ -27,6 +27,16 @@ Violations are recorded as `guardian.block` or `heartgate.blocker` depending on 
 
 ---
 
+## Placement (mandatory)
+
+> **A worktree MUST live under `$UACP_ROOT/.worktrees/<run-id>` — inside the repo. Never a sibling directory (`../uacp-<topic>`) and never an absolute path outside `$UACP_ROOT`.**
+
+**Why this is a hard rule, not a preference.** Code-intelligence tooling roots at `$UACP_ROOT` and only indexes paths *under* it: the editor/agent **LSP language server**, a **SCIP / code indexer**, test runners, and the future UACP **code plane**. A worktree created as a *sibling* is **invisible** to all of them — workspace-wide symbol search / find-references silently return results from the *main* checkout (often a stale branch), not your working tree, which is dangerous (you reason about the wrong code). Nesting the worktree under `$UACP_ROOT/.worktrees/` keeps it inside the single tooling root so symbol search, references, and indexing see the live work. `.worktrees/` is gitignored (see PROPOSE below), so the nested checkout is never committed.
+
+`.worktrees/` is **top-level by design — NOT under `.uacp/`**, which is the governed *runtime* namespace owned by the governed writers and the Guardian `state.uacp`/`artifact.uacp` path rules; developer checkouts must not be mixed into it.
+
+---
+
 ## Workspace Kinds
 
 | Kind | When to use | Lifetime |
@@ -53,7 +63,7 @@ The proposal artifact must contain:
 ```yaml
 workspace:
   kind: worktree | branch | dir | scratch
-  path: "UACP_ROOT-relative or absolute"
+  path: ".worktrees/<run-id>"   # MANDATORY: under $UACP_ROOT/.worktrees/ — never a sibling or an absolute path outside $UACP_ROOT (see Placement rule)
   branch: "uacp/<run-id>/<topic>"  # if kind == worktree or branch
   created_by: propose
   rationale: "Why this kind was selected"
@@ -163,7 +173,7 @@ workspace:
 ```bash
 # TRIAGE decides: this needs isolation
 # PROPOSE creates:
-cd /Users/mike/Workplace/uacp
+cd "$UACP_ROOT"
 git worktree add .worktrees/uacp-20260607-brainstorm-audit \
   -b uacp/uacp-20260607-brainstorm-audit/brainstorm-fixes
 
@@ -176,7 +186,7 @@ git add -A && git commit -m "brainstorm: add manifest.yaml and anti-collapse rul
 
 # VERIFY runs tests
 # RESOLVE merges (after operator approval):
-cd /Users/mike/Workplace/uacp
+cd "$UACP_ROOT"
 git merge --ff-only uacp/uacp-20260607-brainstorm-audit/brainstorm-fixes
 git worktree remove .worktrees/uacp-20260607-brainstorm-audit
 ```

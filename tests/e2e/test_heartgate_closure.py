@@ -174,3 +174,43 @@ def test_validate_closure_never_raises_on_missing_run(temp_uacp_root: Path):
     # engines surface block-severity violations -> decision is "block" (or "warn").
     assert decision.decision in {"block", "warn"}, decision
     assert isinstance(decision, type(Heartgate.load(str(temp_uacp_root)).validate_transition({})))
+
+
+# ------------------------------------------- teeth: graph_projection (Phase A)
+def test_dropped_intent_blocks_closure_with_gp(temp_uacp_root: Path, valid_run_id: str):
+    """A finalized run that closes with a DROPPED intent (a scope_item no work_unit
+    derives_from) is BLOCKED via the graph_projection engine through validate_closure.
+    Proves the Phase-A structural engine is enforced by the existing closure sweep."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    base = temp_uacp_root / ".uacp"
+    (base / "proposals").mkdir(parents=True, exist_ok=True)
+    (base / "plans").mkdir(parents=True, exist_ok=True)
+    # new canonical form: si-2 is declared but NO work_unit derives_from it -> uncovered
+    (base / "proposals" / f"{valid_run_id}-gp.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.proposal",
+                "scope": {
+                    "in_scope": [
+                        {"id": "si-1", "statement": "A"},
+                        {"id": "si-2", "statement": "B dropped"},
+                    ],
+                    "out_of_scope": [],
+                },
+            }
+        )
+    )
+    (base / "plans" / f"{valid_run_id}-gp.yaml").write_text(
+        yaml.safe_dump(
+            {"kind": "uacp.plan", "work_units": [{"id": "wu-1", "derives_from": ["si-1"]}]}
+        )
+    )
+    data = _load_manifest_raw(temp_uacp_root, valid_run_id)
+    arts = data.setdefault("artifacts", {})
+    arts["gp_proposal"] = f"proposals/{valid_run_id}-gp.yaml"
+    arts["gp_plan"] = f"plans/{valid_run_id}-gp.yaml"
+    _write_manifest_raw(temp_uacp_root, valid_run_id, data)
+
+    decision = _closure(temp_uacp_root, valid_run_id)
+    assert decision.decision == "block", decision.warnings
+    assert "GP_UNCOVERED_INTENT" in _blocker_codes(decision), _blocker_codes(decision)

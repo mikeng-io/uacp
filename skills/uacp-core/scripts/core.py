@@ -28,6 +28,29 @@ DECISION_REQUIRE_APPROVAL = "require_approval"
 DECISION_BLOCK = "block"
 DECISION_BLOCK_PENDING_HEARTGATE = "block_pending_heartgate"
 
+# Governed UACP artifact roots — uacp_artifact_write is the ONLY sanctioned writer
+# for these (mirrors governed_handlers allowed_roots + the config artifact.uacp
+# protected category). A raw write landing under any of them is hard-blocked (D25)
+# so a forged manifest edge can't be smuggled in by a native edit.
+_UACP_ARTIFACT_ROOTS = (
+    "plans", "proposals", "executions", "verification",
+    "resolutions", "knowledge", "lessons", "brainstorm",
+)
+
+# Categories that do NOT mutate the filesystem. A tool in one of these never
+# triggers the governed-path write block even if it carries a governed path (e.g.
+# reading a manifest). EVERYTHING ELSE is treated as mutation-capable — so an
+# unmapped/unknown tool (external.unknown_mutator, runtime.extension, an MCP tool,
+# apply_patch, …) targeting a governed root is hard-blocked by default (default-deny).
+# This closes the adversarial-review bypass where the block only fired for a fixed
+# 3-category allowlist and let every other mutator through.
+_READONLY_CATEGORIES = frozenset({
+    "read.local",
+    "evidence.containment",
+    "lifecycle.transition",
+    "external.network_read",
+})
+
 
 @dataclass(frozen=True)
 class GuardianEvent:
@@ -295,6 +318,24 @@ class Guardian:
                 )
             return self._block("state.uacp", "direct UACP state writes must use uacp_state_write", evidence)
 
+        # Direct writes landing under a governed artifact root (plans/, proposals/,
+        # executions/, verification/, resolutions/, knowledge/, lessons/, brainstorm/)
+        # via a non-uacp_artifact_write tool are a hard block (D25): the governed
+        # artifact writer must be the only path that serializes a manifest node, so a
+        # forged edge cannot be smuggled in by a native edit. Mirrors the state rule.
+        if self._is_direct_uacp_artifact_write(event, category):
+            if self.policy.is_allowed_tool_for_category("artifact.uacp", event.tool_name):
+                if missing := self._missing_context(event):
+                    return self._block(category, f"missing UACP context fields: {', '.join(missing)}", evidence)
+                return GuardianDecision(
+                    DECISION_ALLOW_WITH_AUDIT,
+                    "artifact.uacp",
+                    "authorized governed UACP artifact writer",
+                    evidence,
+                    True,
+                )
+            return self._block("artifact.uacp", "direct UACP artifact writes must use uacp_artifact_write", evidence)
+
         # Generalized allowed-tools branch for any protected category that
         # lists `allowed_tools` (block or allow_with_audit default — see
         # _category_has_governed_tool). pc_5: explicit guard so state.uacp
@@ -374,11 +415,14 @@ class Guardian:
             if event.tool_name in self.policy.tool_classification:
                 return str(self.policy.tool_classification[event.tool_name])
             return "runtime.extension"
-        if provider_category and provider_category not in {
-            "use_tool_classification",
-            "require_explicit_classification",
-            "require_control_plane_guard",
-        }:
+        # Only a REAL protected category may be returned here. A provider mapping
+        # whose value is a symbolic directive (use_tool_classification, …) OR a
+        # stray non-category string (e.g. the decision word "block_pending_heartgate",
+        # which an earlier config used) must NOT be returned as the category — that
+        # leaked an undefined category that defaulted to allow (adversarial review #7).
+        # Anything that is not a defined category falls through to tool/pattern/default
+        # classification (which resolves an unknown tool to runtime.extension).
+        if provider_category and provider_category in self.policy.protected_categories:
             return provider_category
 
         if event.tool_name in self.policy.tool_classification:
@@ -505,9 +549,16 @@ class Guardian:
     def _is_direct_uacp_state_write(self, event: GuardianEvent, category: str) -> bool:
         if category == "state.uacp":
             return True
-        if category not in {"file.write", "exec.shell", "exec.code_with_tool_proxy"}:
+        if category in _READONLY_CATEGORIES:  # reads pass; everything else is mutation-capable
             return False
         return any(self._path_is_under_state(path) for path in self._extract_paths(event))
+
+    def _is_direct_uacp_artifact_write(self, event: GuardianEvent, category: str) -> bool:
+        if category == "artifact.uacp":
+            return True
+        if category in _READONLY_CATEGORIES:  # reads pass; everything else is mutation-capable
+            return False
+        return any(self._path_is_under_artifact_root(path) for path in self._extract_paths(event))
 
     def _touches_uacp_root(self, event: GuardianEvent) -> bool:
         return any(self._path_is_under_root(path) for path in self._extract_paths(event))
@@ -525,6 +576,27 @@ class Guardian:
                         context_paths.append(Path(value).expanduser().resolve())
                     except Exception:
                         pass
+        # Defense in depth (adversarial review): a mutating tool can carry its target
+        # under ANY arg key (destination/dest/output_path/out/files/...), not just the
+        # well-known ones above. Scan every other string / list-of-string arg value as
+        # a candidate path; only values that resolve under a governed root actually
+        # trigger a block, so non-path args are harmless. The command-text keys are
+        # left to the shell scanner below.
+        def _path_shaped(s: str) -> bool:
+            # Only treat path-LIKE strings as candidate paths, so content args
+            # (old_string="a", a YAML body, a reason) are not mistaken for paths and
+            # do not falsely bind an edit to the UACP root. A governed-path target
+            # always carries a separator (e.g. ".uacp/plans/x.yaml" or an absolute
+            # path), so requiring one keeps the alt-key evasion closed.
+            return "/" in s or "\\" in s
+        for key, value in args.items():
+            if key in {"path", "file_path", "target_path", "notebook_path", "workdir",
+                       "cwd", "workspace", "command", "code", "script", "args"}:
+                continue
+            if isinstance(value, str) and _path_shaped(value):
+                paths.append(value)
+            elif isinstance(value, list):
+                paths.extend(v for v in value if isinstance(v, str) and _path_shaped(v))
         root_path = self.policy.uacp_root.resolve()
         root = str(root_path)
         uacp_env = os.getenv("UACP_ROOT") or root
@@ -575,6 +647,18 @@ class Guardian:
             path = self._resolve_path(raw_path)
             state_root = (base_dir(self.policy.uacp_root) / "state").resolve()
             return path == state_root or state_root in path.parents
+        except Exception:
+            return False
+
+    def _path_is_under_artifact_root(self, raw_path: str) -> bool:
+        try:
+            path = self._resolve_path(raw_path)
+            base = base_dir(self.policy.uacp_root)
+            for root in _UACP_ARTIFACT_ROOTS:
+                artifact_root = (base / root).resolve()
+                if path == artifact_root or artifact_root in path.parents:
+                    return True
+            return False
         except Exception:
             return False
 
@@ -821,6 +905,7 @@ class Heartgate:
         self._validate_heartgate_coherence(artifact, blockers, warnings)
         self._validate_heartgate_coherence_requirement(artifact, blockers)
         self._validate_phase_exit_invariants(artifact, blockers)
+        self._validate_artifact_integrity(artifact, blockers)
         self._validate_adaptive_proposal_package_gate(artifact, blockers)
         self._validate_convergence_budget_gate(artifact, blockers)
         self._validate_adaptive_plan_package_gate(artifact, blockers)
@@ -1098,9 +1183,15 @@ class Heartgate:
         """Phase 1 / Item 1.2: enforce phase_exit_invariants from config.
 
         For the transition's `from_phase`, load `stages.<from_phase>.phase_exit_invariants`
-        and check each: required artifact_glob entries must match at least one
-        file under UACP_ROOT; required gate_ledger_entry values must appear in
-        state/gate-ledger/{run_id}.jsonl.
+        and check each required invariant by its kind:
+        - `artifact_glob` — must match at least one file under UACP_ROOT;
+        - `gate_ledger_entry` — must appear in state/gate-ledger/{run_id}.jsonl;
+        - `graph_invariant` (D35) — runs the phase-scoped structural subset of the
+          graph_projection engine for this transition (scope = `<from_phase>_exit`,
+          e.g. `plan_exit`); any block-severity violation becomes a transition
+          blocker. This is what makes a dropped intent / orphan / missing coverage
+          fail at the boundary where its inputs first complete, instead of only at
+          terminal closure.
         """
         from_phase = str(artifact.get("from_phase") or "")
         run_id = str(artifact.get("run_id") or "")
@@ -1123,6 +1214,7 @@ class Heartgate:
                 continue
             glob_pattern = str(inv.get("artifact_glob") or "")
             ledger_gate = str(inv.get("gate_ledger_entry") or "")
+            graph_scope = str(inv.get("graph_invariant") or "")
             if glob_pattern:
                 if "{run_id}" in glob_pattern and not run_id:
                     blockers.append(f"phase_exit_invariant unmet: run_id required to resolve glob '{glob_pattern}'")
@@ -1135,6 +1227,34 @@ class Heartgate:
                     blockers.append(f"phase_exit_invariant unmet: run_id required to verify ledger entry '{ledger_gate}'")
                 elif not self._ledger_contains_gate(run_id, ledger_gate):
                     blockers.append(f"phase_exit_invariant unmet: gate ledger missing entry '{ledger_gate}'")
+            elif graph_scope:
+                if not run_id:
+                    blockers.append(f"phase_exit_invariant unmet: run_id required for graph_invariant '{graph_scope}'")
+                    continue
+                # D35: run the phase-scoped structural subset of graph_projection
+                # for this transition. The engine never raises; block-severity
+                # violations (dropped intent / orphan / phantom / missing coverage /
+                # contradiction) gate the phase exit.
+                from engines.graph_projection import validate_graph_invariants
+
+                for v in validate_graph_invariants(self.uacp_root, run_id, graph_scope):
+                    if v.severity == "block":
+                        blockers.append(f"phase_exit_invariant unmet: {v.code}: {v.message}")
+
+    def _validate_artifact_integrity(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+        """Hardening #6: run the artifact-integrity (SHA-256 watermark) check at
+        EVERY transition, not only at terminal closure, so an out-of-band tamper of
+        a recorded artifact is caught at the boundary instead of being swapped back
+        before RESOLVE. No-op on runs with no watermark index (legacy / non-governed-
+        writer runs). The engine never raises."""
+        run_id = str(artifact.get("run_id") or "")
+        if not run_id:
+            return
+        from engines.artifact_integrity import validate_artifact_integrity
+
+        for v in validate_artifact_integrity(self.uacp_root, run_id):
+            if v.severity == "block":
+                blockers.append(f"{v.code}: {v.message}")
 
     def _validate_adaptive_proposal_package_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Enforce adaptive proposal package selection for PROPOSE->PLAN.

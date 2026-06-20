@@ -1,0 +1,14 @@
+# NEW canonical form (Slice 1, clean break): scope.in_scope items are KEYED (id + statement).
+kind: uacp.proposal
+proposal_id: oauth-login
+run_id: oauth-login
+status: proposed
+authority: {status: pass, source: "spike new-form demo"}
+purpose: "Support OAuth (Google) login."
+scope:
+  in_scope:
+    - id: si-1
+      statement: "Users can sign in with Google"
+    - id: si-2
+      statement: "Existing password login keeps working"
+  out_of_scope: []

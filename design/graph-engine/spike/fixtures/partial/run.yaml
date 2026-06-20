@@ -1,0 +1,10 @@
+# CASE: partial coverage — si-2 is a DROPPED intent (no work_unit).
+# Expect: uncovered=[si-2] (precise), orphan=0.
+kind: uacp.plan
+run_id: partial
+scope:
+  in_scope:
+    - {id: si-1, statement: "covered intent"}
+    - {id: si-2, statement: "DROPPED intent — no work_unit serves it"}
+work_units:
+  - {id: wu-1, title: "task for si-1", derives_from: [si-1]}

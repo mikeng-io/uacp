@@ -1,0 +1,7 @@
+# VERIFY: an assessment per obligation, linking obligation + work_unit + the checkpoint evidence.
+kind: uacp.piv_assessment
+run_id: oauth-login
+assessments:
+  - {id: as-1, obligation_id: ev-1, work_unit_id: wu-1, evidence_refs: [cp-1], result: pass}
+  - {id: as-2, obligation_id: ev-2, work_unit_id: wu-2, evidence_refs: [cp-2], result: pass}
+  - {id: as-3, obligation_id: ev-3, work_unit_id: wu-3, evidence_refs: [cp-3], result: pass}
