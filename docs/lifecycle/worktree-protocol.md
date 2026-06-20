@@ -173,7 +173,7 @@ workspace:
 ```bash
 # TRIAGE decides: this needs isolation
 # PROPOSE creates:
-cd /Users/mike/Workplace/uacp
+cd "$UACP_ROOT"
 git worktree add .worktrees/uacp-20260607-brainstorm-audit \
   -b uacp/uacp-20260607-brainstorm-audit/brainstorm-fixes
 
@@ -186,7 +186,7 @@ git add -A && git commit -m "brainstorm: add manifest.yaml and anti-collapse rul
 
 # VERIFY runs tests
 # RESOLVE merges (after operator approval):
-cd /Users/mike/Workplace/uacp
+cd "$UACP_ROOT"
 git merge --ff-only uacp/uacp-20260607-brainstorm-audit/brainstorm-fixes
 git worktree remove .worktrees/uacp-20260607-brainstorm-audit
 ```

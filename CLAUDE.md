@@ -36,7 +36,7 @@ Route by the **question**, not the language. The repo's LSP servers cover its la
 
 **Trust & freshness (language-agnostic):**
 - LSP is **single-root** → keep the worktree UNDER the root (`$UACP_ROOT/.worktrees/`). After a **structural change** (worktree move, mass rename, many new files) **restart the LSP** before trusting `workspaceSymbol` / cross-file `findReferences`; file-scoped ops (`documentSymbol`, diagnostics, hover) tolerate staleness, workspace-wide ops don't.
-- **LSP ⊕ grep disagree → reconcile, don't trust blindly:** LSP may be stale (thin/empty cross-file results), grep may false-match in strings/comments. (Seen: `findReferences` returned only the def while grep found the real callers = stale index.) The test suite decides.
+- **LSP ⊕ grep disagree → reconcile, don't trust blindly:** LSP may be stale (e.g. thin/empty cross-file results after a structural change), grep may false-match in strings/comments. The test suite decides.
 - No server for the language / `Executable not found` → grep, and say so. SCIP (later) removes the root/freshness anxiety entirely.
 
 Full dispatch contract: `skills/uacp-bridge/references/claude.md`
