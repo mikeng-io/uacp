@@ -629,6 +629,35 @@ projects (same evidence-gate discipline as tier promotion). Risks: mis-tagged `u
 projects → gate it; attribution-as-boast → it's metadata, never overrides grounding; over-tagging → only
 `portability`+`generated_by` required.
 
+## D35 — phase-keyed structural gates: run the seam check at EACH transition, not only at terminal closure
+
+**Context (verified vs `core.py`).** Today `validate_transition` (line 761) enforces `phase_exit_invariants`
+(line 823→1097) which check **artifact/ledger EXISTENCE only** — never graph STRUCTURE. The structural
+seam engine `graph_projection` (uncovered/orphan/phantom/contradicted) is invoked ONLY by
+`validate_closure` (line 893) at terminal RESOLVE. **Consequence:** a dropped intent at PROPOSE→PLAN is not
+caught at that boundary — it surfaces 4 phases later at closure. **A structural gate is missing at each
+phase transition.**
+
+**Verdict.** Make the structural checks **phase-keyed**: each fires (as a BLOCK) at the transition where
+its inputs first exist and must be complete; informational before that:
+
+| transition | structural gate enforced |
+|---|---|
+| PROPOSE→PLAN | `uncovered` (every scope_item has `derives_from`), `orphan`, `phantom` |
+| PLAN→EXECUTE | every work_unit has an evidence_obligation |
+| EXECUTE→VERIFY | every work_unit/obligation has a checkpoint |
+| VERIFY→RESOLVE | `unverified` (passing assessment), `contradicted` |
+
+This is the concrete form of the T2 "phase-aware closure" finding (each check has a *phase-of-enforcement*,
+not just structural-vs-progress). **Mechanism already exists** — `phase_exit_invariants` is config-driven
+per `stages.<phase>`; add a new **`graph_invariant` kind** alongside the existing artifact-glob/ledger
+kinds, and have `validate_transition` run the phase-scoped subset of `graph_projection`. **No new engine** —
+re-use the Phase-A engine, scoped per transition.
+
+**Scope.** Next increment after Phase A (graph_projection currently terminal-only). It is what turns "the
+seam is *checkable*" into "the seam is *gated early*". Depends on runtime actually invoking
+`validate_transition` at transitions (the broader "enforcement not yet implemented" gap).
+
 ## D34 — code plane: evaluate adopting `codegraph` over a custom SCIP build (amends D12; deferred)
 
 **Context.** D12 / node-17 specced the deferred code plane as a custom **SCIP** (symbol-precise) indexer
@@ -651,3 +680,18 @@ on top, but heuristic resolution is less rigorous than typecheck-grade SCIP for 
 code plane** (not v1), so this is "leading candidate, verify-at-build-time", not an adoption now. Note: if
 adopted, codegraph's own SQLite is the CODE plane's index — it does NOT change the manifest plane
 (D29: plain-files + in-memory, no DB); the two planes stay separate.
+
+**Storage + LSP internals (verified 2026-06-20).** codegraph is **SQLite-only — NO vector DB, NO
+embeddings**: symbols + edges as relational tables + FTS5 keyword; retrieval is **exact graph traversal +
+keyword**, deterministic, not vector-ANN. This **independently validates D19/D29** (structure = exact graph,
+never embedded; vectors only for fuzzy) — a 52k-star code-intelligence tool made the same call.
+**vs LSP:** codegraph is NOT an LSP and uses none — edges are tagged `provenance:'heuristic'` (tree-sitter
++ a resolution pass), honest ceiling ~83% on convention-heavy frameworks (ASP.NET/Spring), misses dynamic
+dispatch. Three shapes for the code plane: **LSP** = typecheck-precise but on-demand/stateful, NOT a
+dumpable graph (wrong shape for a persistent index); **codegraph** = persistent SQLite graph + MCP, ready,
+but heuristic precision; **SCIP** = pre-built persistent AND typecheck-grade (SCIP indexers wrap the same
+typecheckers LSP uses, serialized in one shot). So the bake-off (above) is concretely **codegraph
+(heuristic, packaged) vs SCIP (typecheck-grade, build-it)** — and for UACP's actual need (anchor a
+checkpoint to a symbol+line on a concrete edit), tree-sitter nails the common case; the heuristic ceiling
+bites call-graph *completeness*, not *which-symbol-did-this-edit-touch*, so codegraph is plausibly
+sufficient for anchoring. Decide at build time on real repos.
