@@ -588,3 +588,66 @@ required**. **Council Integration-F2 (compat-shim) is RETIRED**; Slice 1 shrinks
 the projector now reads **both** forms — legacy run = 9 uncovered / 2 orphan / 0 edges (broken), new-form
 fixture (`spike/fixtures/oauth-login/`) = **0 uncovered / 0 orphan / 3 `derives_from` edges (CLOSED)**. The
 two keys fix the seam.
+
+## D33 — knowledge attribution: grounding ≠ authorship; an `attribution` block + a `portability` transfer axis (knowledge plane, deferred)
+
+**Context.** The design grounds knowledge artifacts by `derived_from` (*why is this true* → run evidence).
+A second, distinct provenance axis was missing: **attribution** (*who/what asserted it, under what
+conditions*). For AI-generated knowledge "author" is multi-dimensional; each layer is a different trust/
+transfer signal.
+
+**Verdict.** Add an `attribution` block to knowledge-plane artifacts (EXTENDS the as-built
+`Lesson`/`KnowledgeItem` — does NOT fork it):
+```yaml
+attribution:
+  generated_by: { agent: <id>, model: claude-opus-4-8, runtime: hermes }  # NET-NEW
+  authorized_by: <operator>     # REUSE authority.requested_by
+  source_run: <run_id>          # REUSE (exists in corpus)
+  project: <repo/project id>    # NET-NEW (ownership)
+  portability: project-local | transferable | universal   # NET-NEW — the transfer axis
+  # domain/tags + created_at: REUSE existing tags + git
+```
+- **Git reuse — one layer only.** Git supplies commit author + timestamp + content-hash + history *for
+  free* → reuse for the **commit-lineage** layer; do NOT duplicate it into frontmatter. But the **git
+  author is the committer (operator/CI), NOT the generating agent** — git cannot see agent/model/runtime/
+  scenario, so those live in frontmatter. Two layers, no overlap.
+- **Transferability (the prize, the `portability` axis).** `portability` turns "does this knowledge apply
+  to a NEW project?" into a deterministic **filter** (`portability != project-local AND domain matches`),
+  not a guess. `project-local` = grounded in this repo's specifics (a schema, a path) → does NOT transfer;
+  `transferable` = domain knowledge ("OAuth account-linking risk") → transfers within a domain;
+  `universal` = validated across N projects → transfers anywhere. Composes with the tier ladder (D30):
+  `episode`=project-local by default; a cross-run-validated `rule` promotes toward `universal`.
+  **Tier × portability = the transfer gate** — how a lesson graduates from owned-by-one-project to shared corpus.
+- **Attribution is descriptive, never a trust override.** `generated_by.model` does not make a claim more
+  true — grounding (`derived_from`) still does the proving. Model attribution is a historical fact (what
+  produced it *then*), never rewritten; supersede if re-derived.
+
+**Scope.** Knowledge-plane only (the manifest is not "authored knowledge"); **deferred from v1** with the
+rest of the context loop (D30). Required net-new = `generated_by` + `project` + `portability`; everything
+else reuses `source_run`/`authority`/`tags`/git. Promotion to `universal` needs validation across ≥N
+projects (same evidence-gate discipline as tier promotion). Risks: mis-tagged `universal` pollutes other
+projects → gate it; attribution-as-boast → it's metadata, never overrides grounding; over-tagging → only
+`portability`+`generated_by` required.
+
+## D34 — code plane: evaluate adopting `codegraph` over a custom SCIP build (amends D12; deferred)
+
+**Context.** D12 / node-17 specced the deferred code plane as a custom **SCIP** (symbol-precise) indexer
++ **SQLite** store. `github.com/colbymchenry/codegraph` (assessed 2026-06-20) is a packaged realization of
+almost exactly that shape: a pre-indexed **code knowledge graph** via **tree-sitter AST + cross-file
+symbol resolution** (calls→defs, imports→sources, extends/implements), stored in **SQLite + FTS5**,
+**embeddable in-process + MCP server**, 20+ languages, **MIT**, ~52k stars, v1.0 active, **built for AI
+coding agents incl. Hermes Agent** (UACP's runtime).
+
+**Verdict.** When the code plane is built, **evaluate adopting codegraph instead of a custom SCIP
+integration** — lean adopt. It satisfies every D12 constraint (symbol-precise, SQLite, embedded/MCP,
+permissive, agent-oriented) off-the-shelf; building bespoke would be NIH. **One gate before committing:**
+verify its resolution is **precise enough to anchor a task→symbol+lines** — D12 preferred SCIP precisely
+because tree-sitter *alone* was "too coarse" for cross-file resolution; codegraph adds a resolution layer
+on top, but heuristic resolution is less rigorous than typecheck-grade SCIP for ambiguous cases
+(overloads, dynamic dispatch). Bake codegraph vs SCIP on a real repo for anchor-precision before locking.
+
+**Rationale.** A 52k-star MIT in-process code-graph designed for the exact runtime, matching our store
+(SQLite) and constraints, likely **supersedes the "build SCIP custom" path** — but it is the **deferred
+code plane** (not v1), so this is "leading candidate, verify-at-build-time", not an adoption now. Note: if
+adopted, codegraph's own SQLite is the CODE plane's index — it does NOT change the manifest plane
+(D29: plain-files + in-memory, no DB); the two planes stay separate.

@@ -34,6 +34,16 @@ RESOLVE       → DISTILL → CONSOLIDATE vs corpus → promote tiers
 ```
 The manifest lifecycle **is** the injection schedule; each phase pulls its own tier.
 
+## 0. Attribution & portability (every artifact — D33)
+
+Distinct from grounding (`derived_from` = *why it's true*): an `attribution` block records *who/what
+asserted it, under what conditions* — `generated_by {agent, model, runtime}`, `authorized_by` (reuse
+`authority`), `source_run`, `project`, and a **`portability`** axis (`project-local | transferable |
+universal`). Portability makes "does this transfer to a NEW project?" a deterministic filter, and composes
+with the tiers below: **tier × portability = the transfer gate** (episode=project-local → cross-run
+`rule`=universal). Git supplies commit-lineage; frontmatter supplies what git can't see (agent/model/
+scenario). Attribution is descriptive — never overrides grounding. Full spec: [02-decisions](02-decisions.md) D33.
+
 ## 1. Extraction (RESOLVE — the 2nd judgment seam)
 
 Typed distillation questions over the run graph → candidates. Three rules:
