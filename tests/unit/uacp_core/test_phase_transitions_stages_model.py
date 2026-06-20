@@ -166,17 +166,24 @@ _PRESLIM_PHASE_EXIT_INVARIANTS = {
         },
         {"gate_ledger_entry": "TRIAGE->PROPOSE", "required": True},
     ],
+    # D35 (post-pre-slim, intentional): the graph_invariant kind was ADDED to
+    # plan/execute/verify exits to enforce the structural seam at each transition.
+    # This is a deliberate extension of the pre-slim grammar, not a regression; the
+    # pin still asserts exact equality so any FURTHER drift is caught.
     "plan": [
         {"artifact_glob": "plans/{run_id}*", "required": True},
         {"gate_ledger_entry": "PROPOSE->PLAN", "required": True},
+        {"graph_invariant": "plan_exit", "required": True},
     ],
     "execute": [
         {"artifact_glob": "executions/{run_id}*", "required": True},
         {"gate_ledger_entry": "PLAN->EXECUTE", "required": True},
+        {"graph_invariant": "execute_exit", "required": True},
     ],
     "verify": [
         {"artifact_glob": "verification/{run_id}*", "required": True},
         {"gate_ledger_entry": "EXECUTE->VERIFY", "required": True},
+        {"graph_invariant": "verify_exit", "required": True},
     ],
     "resolve": [
         {"artifact_glob": "resolutions/{run_id}*", "required": True},

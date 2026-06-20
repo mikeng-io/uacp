@@ -214,17 +214,27 @@ STAGE_PHASE_EXIT_INVARIANTS: dict[str, list[dict[str, Any]]] = {
         },
         {"gate_ledger_entry": "TRIAGE->PROPOSE", "required": True},
     ],
+    # graph_invariant (D35): a third invariant kind read by Heartgate
+    # _validate_phase_exit_invariants (ignored by the evidence-completeness engine,
+    # which only acts on artifact_glob/gate_ledger_entry). It runs the phase-scoped
+    # structural subset of the graph_projection engine at the transition where each
+    # check's inputs first complete, so a dropped intent / orphan / missing
+    # obligation-or-checkpoint coverage / contradiction fails at the boundary
+    # instead of only at terminal closure. The scope key is `<from_phase>_exit`.
     "plan": [
         {"artifact_glob": "plans/{run_id}*", "required": True},
         {"gate_ledger_entry": "PROPOSE->PLAN", "required": True},
+        {"graph_invariant": "plan_exit", "required": True},
     ],
     "execute": [
         {"artifact_glob": "executions/{run_id}*", "required": True},
         {"gate_ledger_entry": "PLAN->EXECUTE", "required": True},
+        {"graph_invariant": "execute_exit", "required": True},
     ],
     "verify": [
         {"artifact_glob": "verification/{run_id}*", "required": True},
         {"gate_ledger_entry": "EXECUTE->VERIFY", "required": True},
+        {"graph_invariant": "verify_exit", "required": True},
     ],
     "resolve": [
         {"artifact_glob": "resolutions/{run_id}*", "required": True},
