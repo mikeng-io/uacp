@@ -28,6 +28,15 @@ DECISION_REQUIRE_APPROVAL = "require_approval"
 DECISION_BLOCK = "block"
 DECISION_BLOCK_PENDING_HEARTGATE = "block_pending_heartgate"
 
+# Governed UACP artifact roots — uacp_artifact_write is the ONLY sanctioned writer
+# for these (mirrors governed_handlers allowed_roots + the config artifact.uacp
+# protected category). A raw write landing under any of them is hard-blocked (D25)
+# so a forged manifest edge can't be smuggled in by a native edit.
+_UACP_ARTIFACT_ROOTS = (
+    "plans", "proposals", "executions", "verification",
+    "resolutions", "knowledge", "lessons", "brainstorm",
+)
+
 
 @dataclass(frozen=True)
 class GuardianEvent:
@@ -295,6 +304,24 @@ class Guardian:
                 )
             return self._block("state.uacp", "direct UACP state writes must use uacp_state_write", evidence)
 
+        # Direct writes landing under a governed artifact root (plans/, proposals/,
+        # executions/, verification/, resolutions/, knowledge/, lessons/, brainstorm/)
+        # via a non-uacp_artifact_write tool are a hard block (D25): the governed
+        # artifact writer must be the only path that serializes a manifest node, so a
+        # forged edge cannot be smuggled in by a native edit. Mirrors the state rule.
+        if self._is_direct_uacp_artifact_write(event, category):
+            if self.policy.is_allowed_tool_for_category("artifact.uacp", event.tool_name):
+                if missing := self._missing_context(event):
+                    return self._block(category, f"missing UACP context fields: {', '.join(missing)}", evidence)
+                return GuardianDecision(
+                    DECISION_ALLOW_WITH_AUDIT,
+                    "artifact.uacp",
+                    "authorized governed UACP artifact writer",
+                    evidence,
+                    True,
+                )
+            return self._block("artifact.uacp", "direct UACP artifact writes must use uacp_artifact_write", evidence)
+
         # Generalized allowed-tools branch for any protected category that
         # lists `allowed_tools` (block or allow_with_audit default — see
         # _category_has_governed_tool). pc_5: explicit guard so state.uacp
@@ -509,6 +536,13 @@ class Guardian:
             return False
         return any(self._path_is_under_state(path) for path in self._extract_paths(event))
 
+    def _is_direct_uacp_artifact_write(self, event: GuardianEvent, category: str) -> bool:
+        if category == "artifact.uacp":
+            return True
+        if category not in {"file.write", "exec.shell", "exec.code_with_tool_proxy"}:
+            return False
+        return any(self._path_is_under_artifact_root(path) for path in self._extract_paths(event))
+
     def _touches_uacp_root(self, event: GuardianEvent) -> bool:
         return any(self._path_is_under_root(path) for path in self._extract_paths(event))
 
@@ -575,6 +609,18 @@ class Guardian:
             path = self._resolve_path(raw_path)
             state_root = (base_dir(self.policy.uacp_root) / "state").resolve()
             return path == state_root or state_root in path.parents
+        except Exception:
+            return False
+
+    def _path_is_under_artifact_root(self, raw_path: str) -> bool:
+        try:
+            path = self._resolve_path(raw_path)
+            base = base_dir(self.policy.uacp_root)
+            for root in _UACP_ARTIFACT_ROOTS:
+                artifact_root = (base / root).resolve()
+                if path == artifact_root or artifact_root in path.parents:
+                    return True
+            return False
         except Exception:
             return False
 
