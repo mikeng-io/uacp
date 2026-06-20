@@ -22,3 +22,9 @@ __pycache__/
 .worktrees/*
 
 .DS_Store
+# In-repo skill bridge: .claude/skills/ -> skills/ symlinks are a LOCAL dev aid so
+# Claude Code running in THIS repo discovers UACP's own skills. Not distributed.
+# Regenerate: mkdir -p .claude/skills && cd .claude/skills && \
+#   for d in ../../skills/uacp-*/; do n=$(basename $d); [ -f $d/SKILL.md ] && ln -sfn ../../skills/$n $n; done && \
+#   ln -sfn ../../skills/vendor/code-review-skill code-review-skill
+.claude/skills/
