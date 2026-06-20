@@ -695,3 +695,35 @@ typecheckers LSP uses, serialized in one shot). So the bake-off (above) is concr
 checkpoint to a symbol+line on a concrete edit), tree-sitter nails the common case; the heuristic ceiling
 bites call-graph *completeness*, not *which-symbol-did-this-edit-touch*, so codegraph is plausibly
 sufficient for anchoring. Decide at build time on real repos.
+
+## D36 — the code plane is for PREVENTION at PLAN, not validation at VERIFY; edges carry confidence; context is phase-keyed (deferred)
+
+**Context (Trustless lesson).** In a growing codebase the failure family is not *validation* (checking
+after) but *prevention*: the agent plans **blind to the existing wiring** → ungrounded schema refs, scope
+explosion, "margin trading before the order book." So the code plane's highest value is a **PLAN-side
+context source** ("what exists, what depends on what, what will I touch/break?"), at the FRONT of the
+lifecycle — not a VERIFY-side gate. (A bigger context window does not give this — dumping files ≠ knowing
+the wiring; you need the *structured* dependency graph, deterministically.)
+
+**Consequences for the substrate choice (refines D34):**
+1. **Prevention wants COMPLETENESS** — a missed dependency is an unforeseen break (the exact thing being
+   prevented). codegraph's ~83% heuristic ceiling bites here (missed edge = unseen blast radius); SCIP's
+   precision serves prevention. But SCIP is narrow (precise on some files, blind on the rest in a polyglot
+   repo), so "approximate coverage of everything" (codegraph) can beat "precise coverage of some + blind
+   elsewhere." → the **hybrid / degradation ladder is *motivated by prevention*, not just convenience**:
+   SCIP-precise for the major-language core, codegraph-heuristic for breadth, the `code_anchor` floor
+   (file+symbol+line from the diff — language-agnostic, needs no indexer) for the intent→code link.
+2. **Surface edge CONFIDENCE via provenance.** A codegraph edge is `provenance: heuristic`; a SCIP/LSP edge
+   is `provenance: parsed` (precise). The planning agent must KNOW "this *might* depend on X (heuristic)"
+   vs "*definitely* (precise)" — it calibrates planning risk. This is the manifest's provenance discipline
+   applied to code understanding: the agent plans with trust-awareness, never treating a guess as fact.
+
+**Phase-keyed code context (parallel to D30 knowledge injection):** PLAN → inject wiring + blast-radius of
+what the intent touches (**prevention**, the high-value use); EXECUTE → navigate locally + record the
+`code_anchor` (tracking); VERIFY → did the wiring break / dangling refs / broken callers (validation,
+secondary). The agent understands code by **querying the structured wiring at the phase where it matters**,
+confidence-tagged — not by reading files into context.
+
+**Scope.** Deferred code plane. All of LSP/codegraph/SCIP are EXTERNAL deps (UACP owns the `code_anchor` +
+the edge/provenance contract, never an indexer; skills reference the tool). The framing is load-bearing for
+when the code plane is built: front-load for prevention, hybrid-by-coverage, confidence-by-provenance.
