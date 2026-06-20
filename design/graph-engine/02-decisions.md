@@ -749,3 +749,63 @@ indexer (`scip-go`+`scip-typescript`+…; "coverage = which indexer package you 
 tree-sitter, one broad tool, heuristic. **Genuine either/or, decided at build time** — NOT "codegraph
 primary" (D34's earlier lean is softened). LSP stays out: live-parse is the wrong shape for a persistent
 queried index. Deferred — pick at code-plane build.
+
+## D38 — do NOT consolidate the per-plane stores; one index file per plane, partitioned by lifecycle (locking rationale; reaffirms D29)
+
+**Question (recurring).** SCIP brings its own SQLite → should we roll LanceDB into it / merge into one
+shared SQLite (sqlite-vec) so everything is one DB?
+
+**Verdict. No — keep one index file per plane, separate.** Three reasons:
+1. **SCIP's SQLite is the TOOL's file, not ours** — a rebuildable artifact SCIP owns/wipes. Co-tenanting
+   our durable knowledge vectors inside a third-party tool's index is fragile (it can rebuild it away).
+2. **SQLite locks the whole DATABASE FILE, single-writer** (not row/table-level). Default journal: a write
+   **blocks all reads** on that file; WAL helps (readers don't block the writer) but **writers still
+   serialize**. Co-located, a heavy **code re-index** (big write) would block/serialize concurrent
+   **knowledge vector search** in the same file. **Separate files = separate locks = zero cross-contention.**
+3. **Different rebuild lifecycles** — code index rebuilds per COMMIT; knowledge index at RESOLVE. Co-locating
+   couples independent cadences into one file (a code change touches the knowledge corpus's file).
+
+**Therefore: keep LanceDB** (do NOT switch to sqlite-vec) — the only justification for that switch was
+co-location (D16), which we are explicitly NOT doing; with no co-location benefit it just costs the rip-out
++ recall re-validation. D29 stands.
+
+**Principle — one index file per plane, partitioned by lifecycle:** manifest = in-memory graph (per-run,
+UACP) · knowledge = LanceDB (RESOLVE, UACP) · code = SCIP's own SQLite (per-commit, SCIP-owned, we query).
+Separate files → isolated locks, isolated rebuilds, clean ownership. SCIP bringing a SQLite **reinforces**
+separation, it does not pull toward consolidation.
+
+## D39 — the three-layer stack: UACP is the SEMANTIC layer ABOVE SCIP; domain knowledge is STRUCTURAL (external validation + sharpening of D36)
+
+**External reference (independent, ChatGPT, on Trustless's ~300k LOC).** Converges on D36 and frames it
+cleanly. The agent's hardest question in a domain-heavy system is NOT "where is `Transfer()`?" (ripgrep/
+LSP/SCIP all answer that) but **"why must it Journal → Settlement → Reconciliation, and which invariants
+cannot break?"** — and **SCIP knows NONE of this.** Static analysis cannot derive domain ordering,
+invariants, or capability dependencies; they come from architecture + domain knowledge.
+
+**The stack:**
+```
+Source Code → LSP → SCIP → UACP Semantic Graph → Coding Agent
+```
+- **LSP** = live editing (autocomplete/rename/diagnostics) → gopls, tsserver. External; UACP does not own it.
+- **SCIP** = static symbol graph (def/refs/impl/call-hierarchy). External; the code plane. Supporting, not the prize.
+- **UACP Semantic Graph** = the prize: "this function is in the Settlement phase; modifying it requires
+  checking Ledger invariants and re-validating the Reconciliation workflow." = our **manifest plane**
+  (intent→task→impl) + **knowledge plane** + a **domain layer**.
+
+**The sharpening (what this ADDS).** ChatGPT's "Layer 3" examples — workflow sequences (Journal *precedes*
+Settlement), invariants (transaction *must balance*; settlement *only once*; reconciliation *idempotent*),
+capability deps (Trading Engine *requires* Ledger+Registry+Identity) — are **STRUCTURAL, not semantic**:
+they are typed edges (`precedes`, `requires`, `must_satisfy`), deterministic and queryable, **the same
+relation-plane discipline (serialized edges) extended into the DOMAIN** — NOT fuzzy vectors. So domain
+knowledge lives in the **structural/relation plane**, queried by exact walk ("what must hold before I
+modify Settlement?" → walk the invariant/requires edges), and connects to SCIP via **`code_anchor`** (a
+code symbol ←→ its domain-semantic node). This reuses existing/planned node kinds: `rule`/`prohibition`
+(constraints plane D7) for invariants, `requires`/`precedes` edges for capability/workflow graphs.
+
+**Consequence.** The code plane (SCIP) is **supporting infrastructure**; the **domain semantic graph is the
+high-value layer** for domain-heavy systems (reaffirms D36: code plane = prevention support, not the
+prize). Prevention at PLAN = SCIP (who-references-what, structural code) + UACP (what-must-hold / what-
+depends-on-what at the domain level). Domain knowledge is **declared/authored architectural knowledge**
+(plus run-distilled lessons), eager-loaded as rules (D30 tier). Deferred with the code plane + constraints
+plane, but the framing locks UACP's position: **a semantic knowledge layer above SCIP, structural at its
+core.**
