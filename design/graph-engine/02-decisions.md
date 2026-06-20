@@ -727,3 +727,25 @@ confidence-tagged — not by reading files into context.
 **Scope.** Deferred code plane. All of LSP/codegraph/SCIP are EXTERNAL deps (UACP owns the `code_anchor` +
 the edge/provenance contract, never an indexer; skills reference the tool). The framing is load-bearing for
 when the code plane is built: front-load for prevention, hybrid-by-coverage, confidence-by-provenance.
+
+## D37 — the indexer is a CROSS-CUTTING layer, not a sibling plane; SCIP & codegraph are both index-first (clarifies D14/D17/D34)
+
+**Insight (refines the topology).** "Indexer plane" was a misnomer. There are **content planes** (WHAT) and
+**one indexer layer** (HOW) that cuts across them:
+- **content planes** — each = *(files = truth) + (an index)*: **manifest/relation** (index = in-memory
+  node/edge graph), **knowledge/doc** (index = LanceDB vectors), **code** (index = SCIP/codegraph SQLite).
+- **indexer** = the shared mechanism **project content → deterministic index → query it**, spanning all
+  content planes, with a **plane-specific backend adapter** (in-memory / LanceDB / SCIP-SQLite). This IS
+  the Index engine / Index port (D14) seen correctly: ONE projection+query layer, THREE contents, THREE
+  adapters. The same "serialize → project → query" discipline is identical across manifest (edges→graph),
+  code (symbols→graph), knowledge (text→vectors) — one mechanism, three contents (the unification).
+
+**Code-indexer framing corrected (amends D34).** The map/GPS metaphor blurred the mechanism. Precisely:
+**LSP** parses **live** per-query via a server; **SCIP** **indexes the whole codebase first, then queries
+the index** — and *that index-first model is exactly UACP's pattern*, so SCIP is architecturally aligned.
+BUT **codegraph is ALSO index-first** (builds SQLite, then queries) — so index-first is NOT the
+differentiator; both fit. The only real difference is index-BUILD: SCIP = typecheck-precise, per-language
+indexer (`scip-go`+`scip-typescript`+…; "coverage = which indexer package you install"); codegraph =
+tree-sitter, one broad tool, heuristic. **Genuine either/or, decided at build time** — NOT "codegraph
+primary" (D34's earlier lean is softened). LSP stays out: live-parse is the wrong shape for a persistent
+queried index. Deferred — pick at code-plane build.
