@@ -29,6 +29,10 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SKILLS_DIR = REPO_ROOT / "skills"
+# Vendored third-party skills (skills/vendor/**) follow their own UPSTREAM
+# convention (see skills/vendor/*/NOTICE + LICENSE), NOT UACP's authored-skill
+# convention (ADR-0017), so they are exempt from these authored-skill lints.
+_VENDOR_DIR = SKILLS_DIR / "vendor"
 REFERENCES_DIR = SKILLS_DIR / "uacp-core" / "references"
 DESCRIPTION_BUDGET = 1536
 
@@ -40,7 +44,7 @@ _LIFECYCLE_AUTHORITY_KEYS = {"allowed_tools", "forbidden_tools", "phase_exit_inv
 
 
 def _skill_md_files() -> list[Path]:
-    return sorted(SKILLS_DIR.glob("**/SKILL.md"))
+    return sorted(p for p in SKILLS_DIR.glob("**/SKILL.md") if _VENDOR_DIR not in p.parents)
 
 
 def _one_level_skill_md_files() -> list[Path]:
@@ -247,8 +251,9 @@ def test_lifecycle_skill_declares_authority_source(skill_md: Path) -> None:
 
 
 def _all_skill_markdown_files() -> list[Path]:
-    """Return every *.md under skills/ (SKILL.md files and references)."""
-    return sorted(SKILLS_DIR.rglob("*.md"))
+    """Return every *.md under skills/ (SKILL.md files and references), EXCLUDING
+    vendored third-party skills (skills/vendor/** — exempt per their NOTICE)."""
+    return sorted(p for p in SKILLS_DIR.rglob("*.md") if _VENDOR_DIR not in p.parents)
 
 
 @pytest.mark.parametrize(

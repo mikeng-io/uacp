@@ -36,8 +36,13 @@ ADR_CITATION = re.compile(r"ADR-\d")
 ROOTED_DOCS_CITATION = re.compile(r"UACP_ROOT/docs/")
 
 
+# Vendored third-party skills (skills/vendor/**) follow their own upstream
+# convention (see their NOTICE/LICENSE), not UACP's — exempt from these lints.
+_VENDOR_DIR = SKILLS_DIR / "vendor"
+
+
 def _skill_md_files() -> list[Path]:
-    return sorted(SKILLS_DIR.glob("**/SKILL.md"))
+    return sorted(p for p in SKILLS_DIR.glob("**/SKILL.md") if _VENDOR_DIR not in p.parents)
 
 
 def test_skills_dir_resolved() -> None:
@@ -69,7 +74,7 @@ DUMP_RELATIVE = re.compile(r"\.\./references/")
 
 
 def _all_skill_md_text() -> list[Path]:
-    return sorted(SKILLS_DIR.glob("**/*.md"))
+    return sorted(p for p in SKILLS_DIR.glob("**/*.md") if _VENDOR_DIR not in p.parents)
 
 
 @pytest.mark.parametrize("md", _all_skill_md_text(), ids=lambda p: str(p.relative_to(SKILLS_DIR)))
