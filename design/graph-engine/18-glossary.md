@@ -12,6 +12,12 @@ timestamp: 2026-06-20
 > (components that act). **Gates = enforcement** (governance checkpoints). **Stores = WHERE** (truth vs
 > derived indexes). If a term isn't here, it isn't canonical. Old/confusing names are mapped at the bottom.
 
+> **SCOPE (2026-06-22).** This node is the **design-era architecture vocabulary** (planes / engines /
+> gates / stores / OKF / data-model terms — D1–D29) and stays canonical for those. For the **as-built
+> artifact KINDS** the authoritative reference is **[26-nomenclature](26-nomenclature.md)** (this node's
+> "node kinds" list below is the *spike* form — superseded by 26's real document-kind/node-item/corpus
+> split); for the **directory & file layout** see **[27-directory-taxonomy](27-directory-taxonomy.md)**.
+
 ## Topology (the whole system on one screen)
 
 ```
