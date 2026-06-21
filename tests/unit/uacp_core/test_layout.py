@@ -69,9 +69,11 @@ def test_unknown_kind_template_is_none():
 # --- non-vacuity: the registry actually covers the real lifecycle document kinds ---
 def test_registry_covers_lifecycle_document_kinds():
     expected = [
+        "uacp.brainstorm_scope_package",
         "uacp.triage",
         "uacp.proposal_package_selection",
         "uacp.intent",
+        "uacp.convergence_budget",
         "uacp.plan_package_selection",
         "uacp.scope",
         "uacp.phase_intent_verification_contract",
@@ -85,3 +87,21 @@ def test_registry_covers_lifecycle_document_kinds():
     ]
     for k in expected:
         assert layout.template(k) is not None, f"{k} missing from the layout registry"
+
+
+def test_added_fixed_path_kinds_resolve():
+    # The two kinds the completeness audit found missing (both fixed-path, verified).
+    assert (
+        layout.relpath("uacp.convergence_budget", run_id="r1")
+        == "proposals/r1-convergence-budget.yaml"
+    )
+    assert (
+        layout.relpath("uacp.brainstorm_scope_package", run_id="r1")
+        == "brainstorm/r1/07-scope-package.yaml"
+    )
+
+
+def test_caller_provided_kinds_absent_from_fixed_registry():
+    # phase_transition + council_synthesis are caller-provided (runtime arg), not fixed paths.
+    assert layout.template("uacp.phase_transition") is None
+    assert layout.template("uacp.council_synthesis") is None

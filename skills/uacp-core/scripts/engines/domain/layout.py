@@ -59,6 +59,15 @@ class Entry:
 # resolves most-specific-first regardless.
 _ENTRIES: tuple[Entry, ...] = (
     # --- relation plane: lifecycle documents ---
+    # NOTE: "brainstorm" is an artifact root that is NOT yet in config [paths] (only in
+    # uacp_artifact_write's allowed_roots) — a [paths] gap worth closing.
+    Entry(
+        "uacp.brainstorm_scope_package",
+        RELATION,
+        "brainstorm",
+        "{run_id}/07-scope-package.yaml",
+        YAML,
+    ),
     Entry("uacp.triage", RELATION, "proposals", "{run_id}-triage.yaml", YAML),
     Entry(
         "uacp.proposal_package_selection",
@@ -68,6 +77,9 @@ _ENTRIES: tuple[Entry, ...] = (
         YAML,
     ),
     Entry("uacp.intent", RELATION, "proposals", "{run_id}-intent.md", MARKDOWN),
+    Entry(
+        "uacp.convergence_budget", RELATION, "proposals", "{run_id}-convergence-budget.yaml", YAML
+    ),
     Entry("uacp.plan_package_selection", RELATION, "plans", "{run_id}-plan-selection.yaml", YAML),
     Entry("uacp.scope", RELATION, "plans", "{run_id}-scope.yaml", YAML),
     Entry("uacp.phase_intent_verification_contract", RELATION, "plans", "{run_id}-piv.yaml", YAML),
@@ -100,13 +112,10 @@ _ENTRIES: tuple[Entry, ...] = (
     Entry("uacp.resolve_closure", RELATION, "resolutions", "{run_id}-closure.yaml", YAML),
     Entry("uacp.lessons", RELATION, "resolutions", "{run_id}-lessons.yaml", YAML),
     # --- state plane ---
-    Entry(
-        "uacp.phase_transition",
-        STATE,
-        "state",
-        "runs/{run_id}-transition-{from_phase}-to-{to_phase}.yaml",
-        YAML,
-    ),
+    # NOTE: uacp.phase_transition + uacp.council_synthesis are CALLER-PROVIDED paths (passed
+    # as a `transition_path` / council arg, under state/runs/ and verification|resolutions/
+    # respectively) — NOT fixed templates. They are documented in node 27 but intentionally
+    # NOT in this fixed-path registry (there is no fixed path to enforce on a runtime arg).
     Entry("uacp.run_manifest", STATE, "state", "runs/{run_id}.yaml", YAML),
     Entry("uacp.run_registry", STATE, "state", "run-registry.yaml", YAML),
     Entry("uacp.current_state", STATE, "state", "current.yaml", YAML),
