@@ -33,6 +33,7 @@ members:
   - 14-projection-engine.md
   - 15-constraints-metrics.md
   - 16-schema-registry.md
+  - 16a-control-plane-schema.md
   - 17-codeplane-substrate-bakeoff.md
   - 18-glossary.md
   - 19-storage-summary.md
@@ -55,6 +56,7 @@ edges:
   - {src: 14-projection-engine, dst: 10-edge-schema, rel: consumes, provenance: derived}
   - {src: 15-constraints-metrics, dst: 11-node-taxonomy, rel: extends, provenance: derived}
   - {src: 16-schema-registry, dst: 10-edge-schema, rel: realizes, provenance: asserted}
+  - {src: 16a-control-plane-schema, dst: 16-schema-registry, rel: extends, provenance: asserted}
   - {src: 17-codeplane-substrate-bakeoff, dst: 02-decisions, rel: realizes, provenance: derived}
   - {src: 19-storage-summary, dst: 14-projection-engine, rel: depends_on, provenance: derived}
   - {src: 19a-operational-flows, dst: 14-projection-engine, rel: depends_on, provenance: derived}

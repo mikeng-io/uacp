@@ -821,3 +821,13 @@ depends-on-what at the domain level). Domain knowledge is **declared/authored ar
 (plus run-distilled lessons), eager-loaded as rules (D30 tier). Deferred with the code plane + constraints
 plane, but the framing locks UACP's position: **a semantic knowledge layer above SCIP, structural at its
 core.**
+
+## D40 — control-plane-wide schema: every non-code artifact validated by ONE registry; YAML-only gradient-by-discipline; unify the two validators (2026-06-21 brainstorm)
+
+Brainstormed + approved 2026-06-21 (detail + catalog: [16a-control-plane-schema](16a-control-plane-schema.md)). Three decisions:
+
+1. **Scope = every non-code control-plane artifact.** Any file that is not code and belongs to the control plane carries a registered schema, validated on write — manifest documents + nodes + indexes + knowledge/OKF + runtime state + config + doctrine docs. Not just the governance manifest (broadens 16-schema-registry's catalog).
+2. **Format = one YAML structural form, gradient by discipline, NO JSON.** YAML standalone (manifests/state/config) + as OKF `.md` frontmatter (knowledge/doctrine/design). The mix that's rejected is two *structural data* formats (JSON **and** YAML); YAML + Markdown-with-frontmatter is one structural form (Markdown only wraps prose). Rigor is **tooling-imposed** (strict loader killing YAML implicit typing + schema types/enums/required-FKs + canonical `uacp-fmt`); prose stays human (Markdown / block scalars). Validation is **format-agnostic** — `validate_file` resolves kind (the `kind:` field or a path→kind map) + extracts the structural dict (whole YAML / `.md` frontmatter) → `validate(kind, dict)`.
+3. **Unify to ONE registry, ONE paradigm.** `engines/domain/schema.py` (JSON-Schema, per D9/D10) becomes the single source; migrate `artifact_schema.py` (Pydantic transition artifacts) in + fold `test_okf_frontmatter` (the OKF lint) into knowledge/doctrine schema entries. No Pydantic + JSON-Schema mix (the same anti-mix instinct, one level up).
+
+Re-scopes Slice 1b inc 3 (3a node kinds done → 3b loader/kind-resolution → 3c documents + indexes → 3d migrate `artifact_schema.py` → 3e knowledge/OKF + retire the OKF lint → 3f state/config/doctrine → `uacp-lint`/`uacp-fmt`). Builds on D8/D9/D10 + nodes 13/16/16a.
