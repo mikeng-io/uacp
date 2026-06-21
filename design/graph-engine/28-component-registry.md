@@ -16,21 +16,38 @@ edges:
 > aspiration). [26-nomenclature](26-nomenclature.md) = artifact kinds; [27-directory-taxonomy](27-directory-taxonomy.md)
 > = file layout; [29-31] = the modular architecture this realizes. Supersedes [18-glossary](18-glossary.md).
 
-## The load-bearing rule: only 3 engines touch storage
+## The load-bearing rule: one engine per plane; only engines touch storage
 
-**An *engine* owns ONE domain's persistence — and the three engines are the ONLY components that
-read or write the file system or LanceDB. Everything else goes *through* them.** That single
-chokepoint per domain is what makes governance real (validate-on-write, project-on-read, unbypassable).
+**Each PLANE is owned by exactly ONE storage-owning *engine*, and those engines are the ONLY
+components that read or write the file system or LanceDB. Everything else goes *through* them.**
+That single chokepoint per plane is what makes governance real (validate-on-write, project-on-read,
+unbypassable). The count is **one engine per plane** — three today, a fourth (Code) when the code
+plane lands — *not* a fixed three.
 
-| Engine | Owns (its storage) | Script |
-|---|---|---|
-| **State engine** (`uacp-state`) | run lifecycle **state** + the document **index** — `state/` (RunManifest = phase/status + `artifacts` index, run-registry, current pointer, gate ledger) | `state.py`, `state_machine.py` |
-| **Manifest engine** (D43 — being built) | the manifest **documents** — proposals / plans / executions / verification / resolutions | `engines/manifest/` |
-| **Oracle engine** | the **knowledge** corpus + vectors — `.uacp/{lessons,knowledge}/` + **LanceDB** | `engines/oracle/*.py` |
+> **TARGET vs as-built.** This is the **target** invariant. Today it is NOT fully true — two known
+> leaks: **Guardian** (a gate) writes its operational audit log, and **`artifact_hashes`** (a leaf)
+> writes the watermark under `state/`. Both are **migration debts** (route the audit + watermark
+> through the **State engine** — both belong under `state/`) or an accepted named exception
+> (operational audit = telemetry, not governed data). The **path-boundary lint (Phase D)** is what
+> makes this invariant real; until it lands, treat this as the goal, not the state.
 
-An engine is **invoked** (called to read/write its domain); it does **not drive**. Like a car
-engine: it runs when the driver presses the pedal — it doesn't choose the destination. The
-*drivers* are the Skills (below); the engine executes the governed I/O when called.
+### Engine ↔ plane boundaries
+
+| Plane | Engine | OWNS (storage + responsibility) | Does NOT own | Seam |
+|---|---|---|---|---|
+| **Run-state** | **State engine** (`uacp-state`) | `state/`: RunManifest (phase/status), run-registry, current pointer, gate ledger, escalations, **+ the artifact INDEX** `{type→path}` | document *content*; embeddings; policy | Manifest engine **registers** doc paths into State's index → State knows *that*+*where*, not *what* |
+| **Manifest** | **Manifest engine** (D43, building) | the documents (`proposals/`…`resolutions/`) **+ their in-memory structural graph** | lifecycle phase/status (State); embeddings (Oracle); gate *decisions* (Heartgate) | write → registers path in State; provenance edges **out** to Oracle (`derived_from`) + Code (`code_anchor`); Heartgate invokes its projection as a Check |
+| **Knowledge** | **Oracle engine** | `.uacp/{lessons,knowledge}/` + **LanceDB**: corpus + semantic index (build = embed/upsert; query = semantic + keyword + rerank) | run-state; manifest *structure* (manifest **never embedded**) | knowledge `derived_from` manifest nodes (edge **in**); semantic entry → cross into the manifest graph at query time |
+| **Code** *(future, 4th)* | **Code engine** | the symbol/ref index: **SCIP** (persistent, per-commit) + **LSP** (live) | manifest / knowledge / state | manifest `code_anchor` → symbol |
+
+**Indexing is each engine's own build+query capability, NOT a separate engine** (D44): the
+query/read side is **read-only over truth** everywhere; the *build* side is a persisted write only
+where the plane needs one (Oracle / Code) and **in-memory** for the manifest (D29). Caching is
+allowed but **derived + rebuildable + engine-owned + never authoritative + deferred** (D44).
+
+**An engine is invoked, not driving.** Like a car engine: it runs when the driver presses the
+pedal — it doesn't choose the destination. The *drivers* are the Skills (below); the engine
+executes the governed I/O when called.
 
 ## The six component kinds
 
@@ -57,10 +74,12 @@ engine: it runs when the driver presses the pedal — it doesn't choose the dest
 ### Checks — read-only, run by the Heartgate gate
 `graph_projection` (structural graph) · `scope_conformance` · `evidence_completeness` · `deferral_completeness` · `coherence` · `artifact_integrity` · `ledger_integrity` — registered in `engines/base.py::ENGINES`.
 > **Legacy misnomer:** the code dir is `engines/` and the registry is `ENGINES`, but conceptually these are **Checks**, not engines (they own no storage; a gate runs them). The dir name predates this taxonomy; rename is a later cleanup, not a blocker.
+> **`graph_projection` ownership (one owner, one invoker):** it is the **Manifest engine's read-side projection** *exposed as* a Check — the Manifest engine hosts the implementation; Heartgate invokes it. Not double-owned (D44).
 
 ### Leaves — pure rules, the dependency sink — `engines/domain/*.py`.
 
 ### Skills — the drivers — the 7 lifecycle phase skills + orchestration (council/debate/parallel/bridge) + the router/surface skills. They DRIVE the work and call the engines; they hold no kernel logic.
+- **`uacp-lint` / `uacp-fmt`** = a *tool* **Skill** (the CLI surface) over a **Leaf** (the rules in `schema.py`), per D8 — one skill, two subcommands. The **Manifest engine *applies* the leaf rules** on write; humans/CI *run* the skill. (So lint/fmt straddle Skill+Leaf, not a new kind.)
 
 ### Adapters — the Governed writers (`governed_handlers.py` + `tool_specs.py`), `io/loaders.py`, `config.py`, `contracts.py`, `hook_kernel.py`, `runtime-adapters/`, `filesystem.py`.
 
@@ -73,5 +92,5 @@ engine: it runs when the driver presses the pedal — it doesn't choose the dest
 | Manifest engine as "schema + layout + lint + fmt + projection" (a bag) | it's a **door** that *uses* those leaves/tools. |
 | any non-engine reading/writing the FS or LanceDB directly | route it through **State / Manifest / Oracle** — no exceptions. |
 | "manifest engine" == "state engine" | distinct engines: State = the *index* of which docs exist; Manifest = the *documents*. |
-| "indexer engine" / "the projection engine" | `graph_projection` = a **Check**. |
+| "Indexer engine" / "Index port" (D14/D17/D37) | **no such engine** (D44) — indexing is each engine's internal build+query capability; `graph_projection` = a **Check** hosted by the Manifest read-side |
 | "uacp-schema" as a package | the `schema` **Leaf** (`engines/domain/schema.py`). |

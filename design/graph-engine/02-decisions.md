@@ -246,6 +246,8 @@ maturity; DuckDB-over-files is the noted fallback if avoiding a separate index b
 
 ## D14 — the `Index` port: one abstraction composing the hybrid backends, adapter-swappable
 
+> **SUPERSEDED by D44** — no Index port; indexing is folded into each engine's own read-side.
+
 **Verdict.** The system depends on a single **`Index` port** — `sync()` (build/project), `resolve()`
 (fuzzy entry), `search()` (fuzzy search), `walk()` (exact CTE traversal), `lookup()` (hybrid:
 resolve ∘ walk). The **default adapter** composes SQLite(+sqlite-vec) + LanceDB(Oracle). No caller
@@ -311,6 +313,8 @@ human-readable OKF truth for columnar files); (2) an **analytics/reporting lens*
 columnar scans handle far better than SQLite). Not the default; decided later if a need appears.
 
 ## D17 — two engines (Manifest + Indexer); "planes" are data categories, not engines
+
+> **SUPERSEDED by D44** — no separate Indexer engine; one storage-owning engine per plane, whose read-side IS the index.
 
 **Correction.** An earlier draft conflated "knowledge plane" with the manifest. Fixed: the **manifest is
 pure structural data (relation plane) — NO vectors**; the **knowledge plane is strictly knowledge +
@@ -742,6 +746,8 @@ when the code plane is built: front-load for prevention, hybrid-by-coverage, con
 
 ## D37 — the indexer is a CROSS-CUTTING layer, not a sibling plane; SCIP & codegraph are both index-first (clarifies D14/D17/D34)
 
+> **SUPERSEDED by D44** (the indexer as a *component*) — the serialize→project→query *pattern* survives, but the indexer is NOT a cross-cutting component; each engine owns its own build+query.
+
 **Insight (refines the topology).** "Indexer plane" was a misnomer. There are **content planes** (WHAT) and
 **one indexer layer** (HOW) that cuts across them:
 - **content planes** — each = *(files = truth) + (an index)*: **manifest/relation** (index = in-memory
@@ -889,3 +895,22 @@ Re-scopes Slice 1b inc 3 — **schemas BEFORE the file-validator** (you cannot v
 **Location.** Recommend a cohesive subpackage **`skills/uacp-core/scripts/engines/manifest/`** (the pieces already live under `uacp-core/engines`; least churn) — promotable to a sibling package `uacp-manifest` later if strict package symmetry with `uacp-state` is wanted.
 
 **Consequence.** Reframes the schema/lint/fmt/layout work as **building out the Manifest engine**, and its **entity-writer is the wiring** that finally makes `layout`+`schema` live — directly answering the lite-council's "unwired" BLOCKER. The Governed writers remain the low-level primitive; the Manifest engine is the domain layer above them. node 28 updated to add the Manifest engine + recast manifest-document ownership from "Governed writers (smeared)" to "Manifest engine (cohesive)".
+
+## D44 — indexing is an engine capability, not a separate engine (supersedes D14 / D17 / D37's Indexer engine + Index port)
+
+**Context.** The six-kind model ([28-component-registry](28-component-registry.md)) sets "only storage-owning engines touch the FS / LanceDB." A pre-lock review (2026-06-22, architect lens) caught that this **silently reverses** three live decisions: **D14** (the `Index` port — "the only component that touches a backend"), **D17** (CQRS as TWO engines — Manifest write-model + a *separate* Indexer read-model), **D37** (the Indexer as a CROSS-CUTTING layer spanning all three planes). The bundle self-contradicted (ledger said 4 components, node 28 said 3).
+
+**Verdict.** There is **no separate Indexer engine and no Index port.** Indexing is an **internal build+query capability of each storage-owning engine** over its OWN plane:
+- **Manifest engine** — build = project the YAML documents into the node/edge graph (**in-memory**, D29, no persistent index); query = graph walk / closure. Read-side is **read-only over truth** (never mutates source, persists nothing).
+- **Oracle engine** — build = embed + upsert vectors to **LanceDB** (at RESOLVE); query = hybrid semantic + keyword + reranker. Its index **is persisted** → the build side is a real write.
+- **Code engine** (future, the 4th) — build = **SCIP** per-commit (persisted) + **LSP** live; query = symbol/reference lookup.
+
+**Why the Indexer dissolves.** The three planes' indexes are radically different (in-memory graph vs LanceDB vectors vs SCIP symbols), with different build lifecycles (per-run vs RESOLVE vs per-commit, D38) and query shapes. They share a **pattern** (serialize → project → query), **not a component**. With **D27** (Index port deferred) + **D29** (no manifest DB), a standalone cross-cutting Indexer has no substrate to own. D37's cross-cutting framing is right as a *discipline*, wrong as a *component*.
+
+**Consequences.**
+- **Engine count = one storage-owning engine per plane** (State, Manifest, Oracle today; Code later) — NOT a fixed three.
+- **Cross-plane** is by **edge** (provenance / `code_anchor`) + a **query-time join in the calling skill** (Oracle semantic entry → walk the Manifest graph → Code blast-radius) — never one engine reaching into another's storage.
+- **Caching** of a read-side is allowed but: **derived + rebuildable + never authoritative** (files = truth; gates re-verify) + **owned by the engine that owns the data** + **deferred** (v1 = in-memory recompute, D29; a persistent SQLite cache is the scale-trigger, D11).
+- **`graph_projection` is a Check whose implementation the Manifest engine's read-side hosts**; Heartgate invokes it **through** the engine — one owner (Manifest read-side), one invoker (Heartgate).
+
+**Supersedes** D14 (Index port), D17 (separate Indexer engine), D37 (Indexer-as-component) — D37's serialize→project→query *pattern* survives. Consistent with D27 / D29 / D38.

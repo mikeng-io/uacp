@@ -16,7 +16,7 @@ Grounded in `skills/uacp-core/scripts/core.py` (**3,178 lines**), `governed_hand
 ## What's already CLEAN (keep as-is)
 
 - **`engines/domain/*`** (~18 leaf modules) — pure rules/schemas; the dependency sink. ✅
-- **The registered validation engines** (`engines/{graph_projection,scope_conformance,evidence_completeness,deferral_completeness,coherence,artifact_integrity,ledger_integrity}.py` + `base.py`) — read-only, pluggable via `ENGINES`. ✅
+- **The registered Checks** (the `ENGINES` registry — `engines/{graph_projection,scope_conformance,evidence_completeness,deferral_completeness,coherence,artifact_integrity,ledger_integrity}.py` + `base.py`) — read-only, pluggable; "validation engines" is the legacy name (they are **Checks**, D44 / node 28). ✅
 - **`engines/oracle/*`** — isolated knowledge engine (corpus-boundary-tested). ✅
 - **`engines/io/loaders.py`, `config.py`, `filesystem.py`, `hook_kernel.py`** — clean adapters/infra. ✅
 - **`uacp-state`** — owns run state; does NOT reach into `core`. ✅

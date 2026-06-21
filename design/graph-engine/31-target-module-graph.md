@@ -76,6 +76,8 @@ skills/uacp-state/scripts/  state.py state_machine.py   # State engine (keep)
 
 ## Decomposition roadmap (low-risk first; each step mechanical + suite-guarded)
 
+**Step 0 (prerequisite, do FIRST): the D44 reconciliation is recorded** (Indexer engine → each engine's read-side; one engine per plane). Then, gating the schema work: scope it to the **two seam keys only** (`scope_item.id` + `work_unit.derives_from`) — do NOT author new document schemas (that re-commits the inc-3b revert, D41) — and **re-ground the node-item schemas + `graph_projection` to the REAL package artifacts** (PIV contract / checkpoint / assessment), not the spike fixtures (D42). Also fold the **lazy-import → constructor injection** conversion (step 8 below) into Phase A, since it's what *enforces* the dependency rule.
+
 Follows the seam priority in [30-current-state-decomposition](30-current-state-decomposition.md):
 
 1. **Guardian → `engines/guardian/`** (~725 lines out; LOW risk) — prove the extraction pattern.

@@ -44,7 +44,7 @@ Dependencies point **inward only**: Framework → Adapter → Application → Do
 | **Adapter** (I/O + glue) | translate between app and the outside | `config.py`, `engines/io/loaders`, **Governed writers** (`governed_handlers.py` — the FS write primitive), `contracts.py`, `tool_specs.py`, `hook_kernel.py` |
 | **Infrastructure / framework** (outermost; runtime-specific) | the runtimes + low-level FS | `runtime-adapters/{hermes,mcp,hooks}`, `filesystem.py` |
 
-*(The Application ring holds three KINDS — **engines, gates, checks** (canonical: [28](28-component-registry.md)); the pure rules they use are domain leaves. **Only the 3 engines touch storage.** "Validation engine" is a legacy misnomer for a **Check**.)*
+*(The Application ring holds three KINDS — **engines, gates, checks** (canonical: [28](28-component-registry.md)); the pure rules they use are domain leaves. **Storage is touched only by engines — one per plane** (State/Manifest/Oracle now, Code later; D44). "Validation engine" is a legacy misnomer for a **Check**. The **Skills (drivers) sit ABOVE this ring** and call into it; within the ring the call order is **Gate → Engine → Check → Domain** — no cycles.)*
 
 **Dependency-rule violations today:**
 - **`core.py` straddles three rings in one file** — Guardian + Heartgate (application) + inline domain rules + inline IO. A 3,178-line module cannot honor the dependency rule.
