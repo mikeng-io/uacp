@@ -19,6 +19,7 @@ requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.0",
     "pyyaml",
+    "jsonschema>=4.0",  # uacp-schema: per-kind JSON-Schema (draft 2020-12) validation (D9/D10)
 ]
 
 [project.optional-dependencies]
@@ -29,14 +30,14 @@ dev = [
     "ruff>=0.15",
 ]
 # Optional MCP stdio server adapter (runtime-adapters/mcp/uacp_mcp_server.py).
-# Kept out of core `dependencies` so the kernel stays installable on
-# pydantic + pyyaml alone; install with `pip install -e ".[mcp]"`.
+# Kept out of core `dependencies` so the kernel stays installable on its
+# minimal core (pydantic + pyyaml + jsonschema); install with `pip install -e ".[mcp]"`.
 mcp = [
     "mcp>=1.0",
 ]
 # Optional heavy deps for the GATED Oracle real-model e2e
 # (tests/e2e/test_oracle_realmodel_e2e.py). Kept out of core `dependencies` so
-# the kernel stays installable on pydantic + pyyaml alone, and the core suite
+# the kernel stays installable on its minimal core, and the core suite
 # stays green when these are absent (the e2e SKIPS unless UACP_ORACLE_E2E=1 and
 # these import). Install with: pip install -e ".[oracle-e2e]"
 # - lancedb: real on-disk vector + FTS store (prebuilt wheels).
