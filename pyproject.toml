@@ -73,6 +73,22 @@ exclude_lines = [
     "if __name__ == .__main__.:",
 ]
 
+[tool.pyright]
+# Import roots. The kernel runs with these dirs on sys.path (see tests/conftest.py:16-18),
+# so pyright/the LSP must search them too — otherwise it false-flags `config`, `core`,
+# `engines.*`, and intra-package relative imports as unresolved, which makes its diagnostics
+# untrustworthy and forces a grep fallback for symbol work. Relative paths resolve against
+# this file's directory, so this works in the main checkout AND any .worktrees/ checkout.
+extraPaths = [
+    "skills/uacp-core/scripts",
+    "skills/uacp-state/scripts",
+    "runtime-adapters/hermes/plugins/uacp_guardian",
+]
+pythonVersion = "3.13"
+# Basic mode repo-wide (the legacy tree is largely untyped). Strict typing is scoped to
+# the clean engines package as a dedicated follow-up (the type-safety gate), not here.
+typeCheckingMode = "basic"
+
 [tool.ruff]
 target-version = "py313"
 line-length = 100
