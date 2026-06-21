@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the aggregate root of the comprehend-measure-serialize (CMS) bundle —
+#                the ABSTRACT primitive that the graph-engine, verification-method, and
+#                lifecycle bundles all instantiate. The "underlying logic", one layer
+#                below UACP-execution.
+# WHAT IT DOES NOT DO: validate members, perform closure, carry node-level data.
+# VALIDATED BY:  ../graph-engine/schema/design-index.schema.json (shared design_index shape).
+
+kind: design_index
+title: Comprehend → Measure → Serialize — the Primitive (Design Bundle)
+description: >-
+  The candidate AXIOM under UACP: every agent operation, at its finest grain, reduces to
+  one irreducible cycle — comprehend -> measure -> serialize (like a CPU's fetch/decode/execute).
+  Not a workflow (mutable) but an invariant. Synthesized 2026-06-21 (mike + ChatGPT discussion,
+  extracted not copied) on top of the session's fractal/disciplines framing.
+status: design                      # enum: design|proposed|accepted|building|built
+governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
+timestamp: '2026-06-21'
+origin: session 2026-06-21 (abstract-principle thread; reference = a mike/ChatGPT discussion, synthesized)
+schema_dir: ../graph-engine/schema/
+
+# Cut by FACET (each a distinct dimension of the primitive), not by phase.
+members:
+  - 00-the-axiom.md            # ROOT: the primitive, 3 verbs + disciplines, CPU cycle, "not a workflow"
+  - 01-reductions.md           # every capability decomposes to CMS — the primitivity evidence
+  - 02-decision-hinge.md       # measure -> [route] -> serialize | drop; policy/authority; no-self-attestation
+  - 03-serialize-targets.md    # serialize = canonicalize; the many durable-state targets
+  - 04-trustless-differentia.md # deterministic measure + provenanced serialize + governed routing = trustless IPA
+  - 05-validation-matrix.md    # observation -> axiom: the counterexample hunt as an open ledger
+  - 06-instantiations.md       # graph-engine / verification / lifecycle as instantiations; abstract vs UACP-execution
+
+# DERIVED: mirror of each node's `edges:` frontmatter.
+# rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
+edges:
+  - {src: 01-reductions, dst: 00-the-axiom, rel: realizes, provenance: asserted}
+  - {src: 02-decision-hinge, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 03-serialize-targets, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 04-trustless-differentia, dst: 00-the-axiom, rel: extends, provenance: asserted}
+  - {src: 05-validation-matrix, dst: 00-the-axiom, rel: decides_on, provenance: asserted}
+  - {src: 06-instantiations, dst: 00-the-axiom, rel: depends_on, provenance: derived}
