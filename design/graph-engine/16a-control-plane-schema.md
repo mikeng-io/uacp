@@ -42,4 +42,4 @@ The **gradient is imposed by tooling, not by format**: structural keys → stric
 
 ## Build
 
-Re-scopes Slice 1b inc 3: `3a` node kinds ✅ → `3b` kind-resolution + YAML/`.md` loader → `3c` document schemas + indexes → `3d` migrate `artifact_schema.py` → `3e` knowledge/OKF + retire the OKF lint → `3f` state/config/doctrine → then `uacp-lint` (validate-on-write) + `uacp-fmt`.
+Re-scopes Slice 1b inc 3 — **schemas BEFORE the file-validator** (you can't validate a file before its kind's schema exists, and the node-item kinds aren't whole files — they live inside documents): `3a` node-item kinds ✅ → **`3b` DOCUMENT kinds** (`uacp.proposal/plan/execution/verification/resolution`, each *composing* the node-item schemas) + indexes → `3c` migrate `artifact_schema.py` → `3d` knowledge/OKF (+ retire the OKF lint) → `3e` state/config/doctrine → **`3f` the format-agnostic `validate_file`** (kind-resolution + YAML/`.md` loader — now there's something to validate) → `uacp-lint` (validate-on-write) + `uacp-fmt`.
