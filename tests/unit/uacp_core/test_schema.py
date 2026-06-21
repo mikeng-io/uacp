@@ -14,7 +14,7 @@ valid cases pass so the schema isn't trivially rejecting everything):
 
 from __future__ import annotations
 
-from engines.domain.uacp_schema import validate
+from engines.domain.schema import validate
 
 
 # --- work_unit: the load-bearing kind (derives_from = the anti-phantom edge) ---------
