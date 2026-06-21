@@ -26,7 +26,7 @@ The pattern: **`verify` is not an operation — it IS `comprehend + measure + se
 
 ## The standard this sets
 
-A reduction "counts" only if it is **natural** — no forcing, no relabeling to fit. A capability that needs a contrived mapping is a signal the primitive is incomplete (or that the capability genuinely escapes it — a counterexample, which is [05](05-validation-matrix.md)'s job to surface).
+A reduction "counts" only if it is **natural** — no forcing, no relabeling to fit. A capability that needs a contrived mapping is a signal the primitive is incomplete (or that the capability genuinely escapes it — a counterexample, which is [05](30-validation-matrix.md)'s job to surface).
 
 ## To expand
 - Harder reductions: human approval, council review, a rollback, an escalation.

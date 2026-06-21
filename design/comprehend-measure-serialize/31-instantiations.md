@@ -24,14 +24,14 @@ So the verification bundle's `00-the-primitive` is **this primitive seen through
 
 ## The reframe (UACP's actual category)
 
-If serialize has many targets ([03](03-serialize-targets.md)), then **UACP is an information-processing architecture, not a memory system.** Memory is one serialize-target; the knowledge graph, the event log, the audit trail, the search index are others. UACP's job is the *disciplined pipeline* ([04](04-trustless-differentia.md)); the stores are its outputs.
+If serialize has many targets ([03](12-serialize.md)), then **UACP is an information-processing architecture, not a memory system.** Memory is one serialize-target; the knowledge graph, the event log, the audit trail, the search index are others. UACP's job is the *disciplined pipeline* ([04](22-trustless-differentia.md)); the stores are its outputs.
 
 ## Open: where this lands in the doctrine
 
-- This bundle stays **pre-governance** until [05-validation-matrix](05-validation-matrix.md) clears.
+- This bundle stays **pre-governance** until [30-validation-matrix](30-validation-matrix.md) clears.
 - On clearing: a governed run promotes a neutral one-liner to AGENTS.md and graduates the per-phase mapping to `docs/`; the verification + graph-engine bundles then cite *up* to the ratified principle instead of restating it.
 
 ## To expand
 - The full cross-walk: every CMS-bundle node → the UACP mechanism that realizes it.
-- Whether non-UACP systems (Trustless ledger, deployment assessment) instantiate the *same* primitive — strengthening [05](05-validation-matrix.md).
+- Whether non-UACP systems (Trustless ledger, deployment assessment) instantiate the *same* primitive — strengthening [05](30-validation-matrix.md).
 - The "Memory is one output" consequence for how UACP is described publicly.

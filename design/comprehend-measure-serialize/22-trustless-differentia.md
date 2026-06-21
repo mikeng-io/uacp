@@ -10,7 +10,7 @@ edges:
 
 # The Trustless Differentia
 
-"Context → state" describes *any* pipeline — ETL, a logger, a RAG stack. So the CMS reframe ([03](03-serialize-targets.md)) needs its **differentia**: what makes UACP's instance *trustless* rather than just *a pipeline*.
+"Context → state" describes *any* pipeline — ETL, a logger, a RAG stack. So the CMS reframe ([03](12-serialize.md)) needs its **differentia**: what makes UACP's instance *trustless* rather than just *a pipeline*.
 
 ## Genus and differentia
 
@@ -18,7 +18,7 @@ edges:
 - **Differentia:** the **discipline on each verb** —
   - **measure is deterministic + fail-closed** — a decidable signal that can fail for the right reason, never a weak proxy (a `grep` standing in for "it works");
   - **serialize is provenanced** — a typed key tracing to its source, verifiable mechanically forever;
-  - **routing is governed** — policy-decided by an authority *separate from the doer* (no-self-attestation, [02](02-decision-hinge.md)).
+  - **routing is governed** — policy-decided by an authority *separate from the doer* (no-self-attestation, [02](21-decision-hinge.md)).
 
 ## The load-bearing claim (carried from the session)
 
@@ -28,7 +28,7 @@ So the principle is *not* "everything is CMS" (true but vacuous); it is "**every
 
 ## Consequence
 
-UACP = a **trustless, governed information-processing architecture**. That is the line between this being a foundational model and being a tautology. It is also why promoting it to AGENTS.md ([05](05-validation-matrix.md)) must wait until the disciplines are *enforced by mechanism*, not merely *stated* — an unenforced principle is the decoration it warns against.
+UACP = a **trustless, governed information-processing architecture**. That is the line between this being a foundational model and being a tautology. It is also why promoting it to AGENTS.md ([05](30-validation-matrix.md)) must wait until the disciplines are *enforced by mechanism*, not merely *stated* — an unenforced principle is the decoration it warns against.
 
 ## To expand
 - Map each discipline to its enforcing mechanism (measure → engines/uacp-lint; serialize → graph-engine/entity-writer + watermark; routing → Guardian/Heartgate).

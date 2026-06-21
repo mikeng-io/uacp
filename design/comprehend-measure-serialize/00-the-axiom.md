@@ -1,72 +1,36 @@
 ---
 type: analysis
-title: The Axiom — comprehend → measure → serialize as the irreducible primitive
-description: The claim that every agent operation reduces, at its finest grain, to one cycle (comprehend → measure → serialize); the three verbs + their disciplines (measure redefined as a decidable signal); the CPU fetch/decode/execute analogy; the decision hinge; and the observation-vs-axiom question this bundle exists to settle.
-tags: [primitive, axiom, comprehend-measure-serialize, computational-model, foundation]
+title: The Axiom — comprehend → measure → serialize (root)
+description: The claim in one screen, and the map to the bundle. Deliberately thin — per the principle it documents, substance is serialized one-entity-per-node (the verbs, the facets), not concentrated here.
+tags: [primitive, axiom, comprehend-measure-serialize, root]
 timestamp: 2026-06-21
 edges: []
 ---
 
-# The Axiom — `comprehend → measure → serialize`
+# The Axiom (root)
 
-> Synthesized 2026-06-21 from a mike + ChatGPT discussion — *extracted, not copied*. It elevates the session's earlier "fractal within UACP" framing one layer lower: to a **computational primitive**.
+> Synthesized 2026-06-21 (mike + ChatGPT, extracted). This node is deliberately **thin**: the principle it states is *serialize one entity per node* — so the substance lives in the verb and facet nodes, not here. (An earlier draft concentrated everything in this file — the exact anti-pattern the bundle warns against; corrected.)
 
 ## The claim
 
-> **Every agent operation, taken to its finest grain, reduces to one irreducible cycle: `comprehend → measure → serialize`.** It is not a *workflow* (workflows are mutable) — it is an **invariant** no action escapes, the way a CPU instruction always runs **fetch → decode → execute** regardless of the program.
+Every agent operation, at its finest grain, reduces to one irreducible cycle —
+**`comprehend → measure → serialize`** — the way a CPU instruction always runs **fetch → decode → execute**. Not a *workflow* (mutable) but an **invariant** no action escapes.
 
-If that holds with **no forced counterexample**, then UACP's core is not an "agent framework" or a "memory system" — it is **a description of how any information becomes durable state.** Memory is one output; so are a knowledge graph, an event log, an audit trail, an API response.
+## The load-bearing half
 
-## The three verbs (and the disciplines that make them load-bearing)
+The cycle looped is the system — **and the engineering IS the discipline on the three verbs.** Drop the discipline and it is a truism; hold it and it is trustless. → [22-trustless-differentia](22-trustless-differentia.md)
 
-| Verb | Question | Output | Discipline |
-|---|---|---|---|
-| **comprehend** | *what is this?* | a **computable** context model (entities, relations, timeline, intent, constraints, current state) — unstructured → structured | bounded + recorded; the only semantic touch |
-| **measure** | *what does it mean?* | a **decidable signal** | **deterministic + fail-closed** |
-| **serialize** | *what should persist?* | **durable, canonical state** | a **typed key with provenance** |
+## Status: hypothesis, not yet axiom
 
-**`measure` is redefined (the key refinement):** it is *not* necessarily a number. It is **any reduction of the comprehended model to a decidable signal** — `compare` (`sig == expected`), `validate` (`balance >= amount`), `score` (`importance = 0.9`), `rank`, `select` (`tool A or B`), `infer`. What makes it trustless is not that it is numeric — it is that it is **deterministic and fail-closed** (PASS/FAIL/ERROR distinct). ([05-validation-matrix](05-validation-matrix.md) tests whether "measure" is the most precise name.)
+It earns "axiom" only by surviving a counterexample hunt with no clean break. Until then it is a **named hypothesis**; promotion to AGENTS.md is a governed change gated on that. → [30-validation-matrix](30-validation-matrix.md)
 
-**`serialize` ≠ save.** It is **canonicalize** — fix the result into a stable, durable form. Even **"drop" is a serialize outcome** (the decision is fixed). ([03-serialize-targets](03-serialize-targets.md).)
+## The map (substance is here, not above)
 
-## The hidden hinge: a decision between measure and serialize
-
-`measure` does not imply persistence. Between them sits a **policy that routes**:
-
-```
-reality → comprehend → model → measure → [decision / routing] → serialize → durable state
-                                              │
-                              importance 0.1 → drop
-                              importance 0.9 → durable memory
-                              importance 0.4 → session only
-```
-
-In UACP terms that routing **is the gate** — the per-phase **authority** + Guardian/Heartgate deciding *where it lands, or whether it drops*. It is not a fourth primitive; it is the policy at the measure→serialize seam, and it is where **no-self-attestation** lives (the doer measures; a separate authority routes). ([02-decision-hinge](02-decision-hinge.md).)
-
-## Why named capabilities are not primitives
-
-`verify`, `search`, `plan`, `reason` are **compositions**, not operations:
-
-```
-verify-JWT = comprehend(read token + key) → measure(check sig / exp / aud) → serialize(verified | reject)
-search     = comprehend(parse query)      → measure(rank / score)          → serialize(result set)
-plan       = comprehend(goal)             → measure(cost / dependencies)    → serialize(plan)
-reason     = comprehend(facts)            → measure(infer / compare)        → serialize(conclusion)
-```
-
-If *every* capability reduces this way without forcing, CMS is the atom and the rest are molecules. ([01-reductions](01-reductions.md).)
-
-## Observation, or axiom?
-
-This is the question the bundle exists to settle:
-
-- **Observation** — "most workflows I've seen fit this."
-- **Axiom** — "*any* valid agent operation MUST contain all three; missing one = no complete operation."
-
-The difference is large, and you do not get to *assert* the stronger one. You **earn** it by hunting counterexamples across foreign domains (event sourcing, Raft, git merge, k8s reconciliation, a CPU instruction, LLM inference, a DB transaction, OAuth) and finding none that breaks clean. A robust core principle is one that survives many attempts to falsify it — not one that explains a few examples. ([05-validation-matrix](05-validation-matrix.md) is that open ledger.)
-
-Note the self-reference: **we validate the axiom the way the axiom prescribes** — comprehend the claim → measure it against adversarial cases → serialize the verdict. The verification method is the tool that judges its own foundation.
-
-## This is the abstract layer
-
-UACP-execution (the lifecycle, the engines, the gates) is an **instantiation** of this primitive — not the primitive itself. The graph engine is its `serialize` discipline; the verification method is its loop; the lifecycle is the cycle iterated. ([06-instantiations](06-instantiations.md).) Promoting it to a canonical principle (AGENTS.md) waits on [05](05-validation-matrix.md) clearing — until then it is a *named hypothesis*, not a ratified axiom.
+| What | Node |
+|---|---|
+| the verbs | [10-comprehend](10-comprehend.md) · [11-measure](11-measure.md) · [12-serialize](12-serialize.md) |
+| why it's a *primitive* (capabilities are compositions) | [20-reductions](20-reductions.md) |
+| the seam: `measure → route → serialize \| drop` | [21-decision-hinge](21-decision-hinge.md) |
+| what makes it *trustless* (vs a generic pipeline) | [22-trustless-differentia](22-trustless-differentia.md) |
+| is it an axiom? (the rigor) | [30-validation-matrix](30-validation-matrix.md) |
+| in the concrete (graph-engine / verification / lifecycle; UACP-as-IPA) | [31-instantiations](31-instantiations.md) |

@@ -1,41 +1,46 @@
 # yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
 #
 # WHAT THIS IS:  the aggregate root of the comprehend-measure-serialize (CMS) bundle —
-#                the ABSTRACT primitive that the graph-engine, verification-method, and
+#                the ABSTRACT primitive the graph-engine, verification-method, and
 #                lifecycle bundles all instantiate. The "underlying logic", one layer
 #                below UACP-execution.
-# WHAT IT DOES NOT DO: validate members, perform closure, carry node-level data.
-# VALIDATED BY:  ../graph-engine/schema/design-index.schema.json (shared design_index shape).
+# NOTE: the root (00) is deliberately THIN; substance is one-entity-per-node (the three
+#       verbs 10-12, the facets 20-22, the rigor/mapping 30-31) — the bundle obeys the
+#       very granularity discipline it documents.
 
 kind: design_index
 title: Comprehend → Measure → Serialize — the Primitive (Design Bundle)
 description: >-
   The candidate AXIOM under UACP: every agent operation, at its finest grain, reduces to
-  one irreducible cycle — comprehend -> measure -> serialize (like a CPU's fetch/decode/execute).
-  Not a workflow (mutable) but an invariant. Synthesized 2026-06-21 (mike + ChatGPT discussion,
-  extracted not copied) on top of the session's fractal/disciplines framing.
-status: design                      # enum: design|proposed|accepted|building|built
-governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
+  one irreducible cycle comprehend -> measure -> serialize (like a CPU's fetch/decode/execute).
+  Not a workflow but an invariant. Synthesized 2026-06-21 (mike + ChatGPT, extracted not copied).
+status: design
+governance: pre-governance-input
 timestamp: '2026-06-21'
 origin: session 2026-06-21 (abstract-principle thread; reference = a mike/ChatGPT discussion, synthesized)
 schema_dir: ../graph-engine/schema/
 
-# Cut by FACET (each a distinct dimension of the primitive), not by phase.
+# 00 = thin root;  10-12 = the three verbs (the core entities);
+# 20-22 = facets;  30-31 = rigor + mapping.
 members:
-  - 00-the-axiom.md            # ROOT: the primitive, 3 verbs + disciplines, CPU cycle, "not a workflow"
-  - 01-reductions.md           # every capability decomposes to CMS — the primitivity evidence
-  - 02-decision-hinge.md       # measure -> [route] -> serialize | drop; policy/authority; no-self-attestation
-  - 03-serialize-targets.md    # serialize = canonicalize; the many durable-state targets
-  - 04-trustless-differentia.md # deterministic measure + provenanced serialize + governed routing = trustless IPA
-  - 05-validation-matrix.md    # observation -> axiom: the counterexample hunt as an open ledger
-  - 06-instantiations.md       # graph-engine / verification / lifecycle as instantiations; abstract vs UACP-execution
+  - 00-the-axiom.md             # ROOT (thin): the claim + the map
+  - 10-comprehend.md            # verb: unstructured -> computable context
+  - 11-measure.md               # verb: reduce to a decidable signal (redefined, not numeric)
+  - 12-serialize.md             # verb: canonicalize to durable state; many targets; UACP-as-IPA
+  - 20-reductions.md            # capabilities are compositions (the primitivity evidence)
+  - 21-decision-hinge.md        # measure -> route -> serialize | drop; no-self-attestation
+  - 22-trustless-differentia.md # deterministic measure + provenanced serialize + governed routing
+  - 30-validation-matrix.md     # observation -> axiom: the counterexample-hunt ledger
+  - 31-instantiations.md        # graph-engine / verification / lifecycle; UACP-as-IPA reframe
 
-# DERIVED: mirror of each node's `edges:` frontmatter.
+# DERIVED: mirror of each node's `edges:` frontmatter (each node points to the root).
 # rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
 edges:
-  - {src: 01-reductions, dst: 00-the-axiom, rel: realizes, provenance: asserted}
-  - {src: 02-decision-hinge, dst: 00-the-axiom, rel: depends_on, provenance: derived}
-  - {src: 03-serialize-targets, dst: 00-the-axiom, rel: depends_on, provenance: derived}
-  - {src: 04-trustless-differentia, dst: 00-the-axiom, rel: extends, provenance: asserted}
-  - {src: 05-validation-matrix, dst: 00-the-axiom, rel: decides_on, provenance: asserted}
-  - {src: 06-instantiations, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 10-comprehend, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 11-measure, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 12-serialize, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 20-reductions, dst: 00-the-axiom, rel: realizes, provenance: asserted}
+  - {src: 21-decision-hinge, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 22-trustless-differentia, dst: 00-the-axiom, rel: extends, provenance: asserted}
+  - {src: 30-validation-matrix, dst: 00-the-axiom, rel: decides_on, provenance: asserted}
+  - {src: 31-instantiations, dst: 00-the-axiom, rel: depends_on, provenance: derived}
