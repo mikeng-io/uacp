@@ -94,13 +94,13 @@ def test_oracle_query_allowed_decision_depends_on_classification(monkeypatch) ->
     pass.  When the classification is absent, the tool falls through to
     external.unknown_mutator — a protected, block-by-default category.
 
-    core.py does ``from config import get_config``, creating a module-level
-    binding.  We must patch BOTH ``config.get_config`` AND ``core.get_config``
-    to ensure GuardianPolicy.load (which calls the name bound in core) sees the
-    mutated version.
+    GuardianPolicy.load lives in engines.guardian.policy (Phase A1 extraction),
+    which does ``from config import get_config`` — a module-level binding.  We
+    patch ``config.get_config`` AND ``engines.guardian.policy.get_config`` (the
+    name load() actually looks up) so the mutated policy is seen.
     """
     import config as config_module
-    import core as core_module
+    import engines.guardian.policy as guardian_policy
 
     original_get_config = config_module.get_config
 
@@ -116,10 +116,10 @@ def test_oracle_query_allowed_decision_depends_on_classification(monkeypatch) ->
         return _MutatedConfig(raw)
 
     monkeypatch.setattr(config_module, "get_config", _patched_get_config)
-    monkeypatch.setattr(core_module, "get_config", _patched_get_config)
+    monkeypatch.setattr(guardian_policy, "get_config", _patched_get_config)
 
-    # GuardianPolicy.load calls core.get_config; with both patches active the
-    # oracle classification is absent and load() sees the mutated policy.
+    # GuardianPolicy.load looks up get_config in engines.guardian.policy; with the
+    # patch active the oracle classification is absent and load() sees the mutation.
     policy = GuardianPolicy.load(str(REPO_ROOT))
     phase_config = load_phase_transitions(REPO_ROOT).value
     guardian = Guardian(policy, phase_config=phase_config)

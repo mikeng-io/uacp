@@ -50,25 +50,27 @@ class TestGuardianPolicyLoad:
         # The source is now config/uacp.toml [guardian] via config.py. If the
         # resolved config carries no (or a non-mapping) [guardian] table, load
         # MUST fail closed rather than construct an empty, no-op policy.
-        import core
+        import engines.guardian.policy as guardian_policy
 
         class _NoGuardian:
             def model_dump(self):
                 return {"paths": {}}  # no "guardian" key at all
 
-        monkeypatch.setattr(core, "get_config", lambda _root: _NoGuardian())
+        # GuardianPolicy.load was extracted to engines/guardian/policy.py (Phase A1);
+        # it looks up get_config in that module's namespace, so patch it there.
+        monkeypatch.setattr(guardian_policy, "get_config", lambda _root: _NoGuardian())
         with pytest.raises(GuardianPolicyError, match="missing or invalid"):
             GuardianPolicy.load(tmp_path)
 
     def test_raises_on_malformed_guardian_table(self, tmp_path: Path, monkeypatch):
         # A non-mapping [guardian] value (e.g. a list) must fail closed.
-        import core
+        import engines.guardian.policy as guardian_policy
 
         class _BadGuardian:
             def model_dump(self):
                 return {"guardian": [1, 2, 3]}
 
-        monkeypatch.setattr(core, "get_config", lambda _root: _BadGuardian())
+        monkeypatch.setattr(guardian_policy, "get_config", lambda _root: _BadGuardian())
         with pytest.raises(GuardianPolicyError, match="missing or invalid"):
             GuardianPolicy.load(tmp_path)
 
