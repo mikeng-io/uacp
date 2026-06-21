@@ -20,9 +20,9 @@ The code-structure analog of the artifact graph engine: the components, their ri
 |---|---|---|---|
 | **Guardian** | write-time policy gate (classify / contain / decide) | application | `engines/guardian/` |
 | **Heartgate** | phase-transition gate (orchestrate validators → pass/block) | application | `engines/heartgate/` (hub + `validators/`) |
-| **Manifest engine** (D43) | own the manifest documents: entity-writer + projection | application | `engines/manifest/` |
+| **Manifest engine** (D43) | own the manifest documents (a *door*: uses layout/schema, wraps Governed writers, serves projection) | application | `engines/manifest/` |
 | **State engine** | run lifecycle state + document index + registry/pointer/ledger | application | `skills/uacp-state/` (unchanged) |
-| **Validation engines** | per-run read-only integrity checks | application | `engines/*.py` (registered in `base.py`) |
+| **Checks** (run by Heartgate) | per-run read-only integrity tests — *not engines* | application | `engines/*.py` (registered in `base.py`; legacy dir name) |
 | **Oracle** | knowledge/semantic engine | application | `engines/oracle/` (unchanged) |
 | **Governed writers** | the low-level Guardian-gated FS write primitive | adapter | `engines/manifest/governed_writers.py` (moved from root) |
 | **Config / IO / Contracts / ToolSpecs / HookKernel** | adapters/glue | adapter | unchanged |
@@ -38,7 +38,7 @@ runtime-adapters/ (hermes · mcp · hooks)        ← FRAMEWORK
 tool_specs · hook_kernel · config · io.loaders · contracts · governed_writers   ← ADAPTER
         │ uses
         ▼
-Guardian   Heartgate   Manifest engine   State engine   Oracle   validation engines   ← APPLICATION
+Gates: Guardian · Heartgate    Engines: State · Manifest · Oracle    Checks: graph_projection · …   ← APPLICATION
         │  (orchestrate; read via IO; NEVER import an outer ring)
         ▼
 engines/domain/*  (schema · layout · gate_rules · phase_graph · artifact_schema · …)   ← DOMAIN (sink; stdlib only)
@@ -51,7 +51,7 @@ Selected edges (who imports whom):
 - Validation engines → `engines/io` + domain leaves (NOT `core`; move `resolve_uacp_root` → `engines/domain/paths.py`).
 - Domain leaves → stdlib / pydantic / jsonschema only.
 
-**Rule of the graph:** an arrow may only point down/inward. A new module that needs to point *up* (a domain leaf importing an engine, an engine importing a runtime) is a design error — re-place it.
+**Rules of the graph:** (1) an arrow may only point down/inward — a module that needs to point *up* (a domain leaf importing an engine, an engine importing a runtime) is a design error. (2) **only the 3 engines (State/Manifest/Oracle) touch the file system or LanceDB** — any other module doing I/O is a design error; route it through an engine.
 
 ## Target file tree (kernel)
 
@@ -65,7 +65,7 @@ skills/uacp-core/scripts/
     heartgate/ heartgate.py  models.py  validators/{phase_exit,coherence,adaptive_gates,phase2,phase3,helpers}.py  goal_driven.py
     manifest/  manifest.py  projection.py  entity_writer.py  governed_writers.py   # D43 (NEW)
     graph_projection.py scope_conformance.py evidence_completeness.py
-    deferral_completeness.py coherence.py artifact_integrity.py ledger_integrity.py  # validation engines (keep)
+    deferral_completeness.py coherence.py artifact_integrity.py ledger_integrity.py  # CHECKS, run by Heartgate (keep)
     domain/    {schema,layout,gate_rules,phase_graph,artifact_schema,scope,checkpoint,
                 budget,registry,pointer,ledger,escalation,corpus,evidence_cluster,
                 deferral,artifact_hashes,phase_transitions, paths(NEW)}.py           # domain leaves (keep)

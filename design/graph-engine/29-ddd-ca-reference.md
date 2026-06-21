@@ -40,11 +40,11 @@ Dependencies point **inward only**: Framework → Adapter → Application → Do
 | Ring | Role | Modules (target) |
 |---|---|---|
 | **Domain** (pure; stdlib / pydantic / jsonschema only — the sink) | rules, schemas, enums, pure computation | `engines/domain/*` (schema, layout, gate_rules, phase_graph, artifact_schema, scope, checkpoint, budget, registry, pointer, ledger, escalation, corpus, evidence_cluster, …), `oracle/tier_config` |
-| **Application** (use-cases; orchestrate domain, read via IO) | the engines that DO things | **Guardian**, **Heartgate**, the **validation engines** (graph_projection, scope_conformance, evidence_completeness, deferral_completeness, coherence, artifact_integrity, ledger_integrity), the **Manifest engine** (NEW), the **State engine** (`uacp-state`), the **Oracle** |
+| **Application** (use-cases; orchestrate domain, read via IO) | the components that DO things — by KIND, see [28](28-component-registry.md) | **Engines:** State · Manifest · Oracle (the ONLY storage owners). **Gates:** Guardian · Heartgate. **Checks:** graph_projection · scope_conformance · evidence_completeness · deferral_completeness · coherence · artifact_integrity · ledger_integrity |
 | **Adapter** (I/O + glue) | translate between app and the outside | `config.py`, `engines/io/loaders`, **Governed writers** (`governed_handlers.py` — the FS write primitive), `contracts.py`, `tool_specs.py`, `hook_kernel.py` |
 | **Infrastructure / framework** (outermost; runtime-specific) | the runtimes + low-level FS | `runtime-adapters/{hermes,mcp,hooks}`, `filesystem.py` |
 
-*(Resolves a lens disagreement: the **gates and validation engines are APPLICATION** — they orchestrate domain rules and read via IO; the pure rules they apply are domain leaves. Guardian/Heartgate are use-cases invoked BY adapters, not adapters themselves.)*
+*(The Application ring holds three KINDS — **engines, gates, checks** (canonical: [28](28-component-registry.md)); the pure rules they use are domain leaves. **Only the 3 engines touch storage.** "Validation engine" is a legacy misnomer for a **Check**.)*
 
 **Dependency-rule violations today:**
 - **`core.py` straddles three rings in one file** — Guardian + Heartgate (application) + inline domain rules + inline IO. A 3,178-line module cannot honor the dependency rule.
@@ -53,9 +53,9 @@ Dependencies point **inward only**: Framework → Adapter → Application → Do
 
 ## Litmus rules (when is something its own module?)
 
-- **Standalone ENGINE (application component)** — it (a) is invoked from ≥2 places, OR (b) is a gating decision (allow/block), OR (c) has multiple internal steps worth composing. Read-only ⇒ a *validation engine* (register in `engines/base.py::ENGINES`); mutating ⇒ a use-case owner (Manifest/State engine).
+- **Which KIND is it?** (canonical: [28-component-registry](28-component-registry.md)) — **Engine** = owns one domain's persistence (State/Manifest/Oracle; the ONLY FS/LanceDB writers). **Gate** = allow/block at a boundary (Guardian/Heartgate). **Check** = a read-only test a gate runs (register in `engines/base.py::ENGINES`). **Leaf** = a pure rule. **Skill** = a driver. **Adapter** = an outside mechanism. **If you're about to add a 4th "engine," stop — it's almost certainly a Check, Leaf, or Gate.**
 - **DOMAIN LEAF** — pure rules/schemas/enums, no I/O, importable by anything. Imports stdlib only. If it imports another non-leaf, it isn't a leaf.
-- **GATE** — a block/allow decision at a boundary (Guardian = write-time, Heartgate = transition). Gates *orchestrate*; they must not *contain* the validators (those are engines/leaves they call).
+- **GATE** — a block/allow decision at a boundary (Guardian = write-time, Heartgate = transition). Gates *orchestrate*; they must not *contain* the validators (those are **Checks**/leaves they call).
 - **ADAPTER** — translates to the outside (I/O, a runtime, a registry). Never holds business rules.
 - **SPLIT a module when** it (a) imports from ≥2 rings, OR (b) exceeds ~600 lines with ≥3 responsibilities, OR (c) holds logic that *should* be independently testable but is only reachable through the parent. All three apply to `core.py`.
 - **Do NOT modularize** single-use helpers, framework wrappers (those are adapters/hooks, not engines), or anything that would split a single cohesive concept (over-shatter is as bad as smashing).
