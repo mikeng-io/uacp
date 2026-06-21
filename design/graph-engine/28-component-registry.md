@@ -43,13 +43,19 @@ When unqualified, "engine" is ambiguous — **say which sense.** Prefer the spec
 
 | Canonical name | What it does | Script(s) |
 |---|---|---|
-| **State engine** (`uacp-state`) | Owns the **run manifest** + all lifecycle state: `RunManifest`, artifact registration into the manifest, the run-registry, the current pointer, the gate ledger. | `state.py`, `state_machine.py` |
+| **State engine** (`uacp-state`) | Owns the run's lifecycle **state** + the document **index** — `RunManifest` (phase/status + the `artifacts` index = `{type→path}`), run-registry, current pointer, gate ledger. Writes **only** under `state/`. Does **not** own the manifest documents' content. | `state.py`, `state_machine.py` |
 
-> **The "manifest engine vs state engine" answer:** they are the **same component** — the **State
-> engine (`uacp-state`)**, which owns the run manifest. There is **no separate "manifest engine"**.
-> The design's "manifest engine" actually split across two real components: the **State engine**
-> (run manifest + state) and the **Governed writers** (artifact writes) — name those two, never
-> "manifest engine".
+## Manifest engine (D43 — being built; `skills/uacp-core/scripts/engines/manifest/`)
+
+The dedicated owner of the manifest **documents** (proposals/plans/executions/verification/resolutions — the *manifest plane*), symmetric to the State engine. It **composes** the leaf modules and provides the entity-level write API.
+
+| Capability | What it does | Script(s) |
+|---|---|---|
+| **Entity-level writer** (NEW) | create / edit / supersede a manifest document in canonical form: mint id → resolve location (`layout`) → validate shape (`schema`) + referential (`uacp-lint`) → canonicalize (`uacp-fmt`) → persist via the Governed-writer primitive → register the path into the State engine's index | *(to build)* |
+| **Read / projection** | load documents, project the node/edge graph, serve closure / lookup | `engines/graph_projection.py` (done) |
+| **Definition** | where (`layout`) · shape (`schema`) · validate (`uacp-lint`) · format (`uacp-fmt`) | `engines/domain/{layout,schema}.py` + `uacp-lint`/`uacp-fmt` |
+
+> **State engine vs Manifest engine (the resolved split, D43):** **State engine** = the run's *state* + an *index* of which documents exist (it does NOT hold their content; writes only `state/`). **Manifest engine** = the *documents themselves* (the governance artifacts). Two distinct components. The **Governed writers** are the low-level Guardian-gated FS primitive the Manifest engine *calls* — not an engine. (This supersedes the earlier "there is no manifest engine" framing — D43 builds it.)
 
 ## Lifecycle skills (agent-facing, one per phase — SKILL.md, no kernel logic)
 
@@ -72,7 +78,7 @@ When unqualified, "engine" is ambiguous — **say which sense.** Prefer the spec
 
 | ❌ deprecated / aspirational | ✅ canonical real component | why |
 |---|---|---|
-| "Manifest engine" | **State engine (`uacp-state`)** + **Governed writers** | the design's one "manifest engine" = two real components; no `manifest_engine.py` exists |
+| "Manifest engine" used loosely for the State engine OR the Governed writers | **Manifest engine** is its OWN component (D43) — the document owner; distinct from the **State engine** (state + index) and the **Governed writers** (the FS primitive it calls) | don't conflate the three: state ≠ documents ≠ write-primitive |
 | "State engine" *as distinct from* manifest engine | **State engine (`uacp-state`)** | same component — one name |
 | "Indexer engine" | the **Validation engines** (`engines/`) + the **Oracle** | no `indexer_engine.py`; structural checks = `engines/`, semantic = Oracle |
 | "the projection engine" | **`graph_projection`** (a registered validation engine) | `engines/graph_projection.py` |

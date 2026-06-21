@@ -868,3 +868,24 @@ Re-scopes Slice 1b inc 3 — **schemas BEFORE the file-validator** (you cannot v
 **Verdict (C — synthesis).** The **package-selection model is the SERIALIZATION** (the on-disk files); it stays. The clean graph (`scope_item → work_unit → evidence_obligation → checkpoint → assessment`) is a **PROJECTION / read-model OVER those artifacts**, not a competing format. The **only net-new serialization is the two seam keys** (`scope_item.id` + `work_unit.derives_from`). Neither "replace the kernel" (A) nor "schematize and abandon the graph" (B).
 
 **Consequences.** (1) `graph_projection` must read the **real artifacts** (PIV contract / checkpoint / assessment docs), not the spike fixtures it reads today. (2) `schema.py` node-items must match **real shapes** — `work_unit = {id, intent, expected_outputs, +derives_from}`, not `{id, title}` — so **even 3a was spike-shaped** and needs re-grounding (the node-item *concepts* are real; the *fields* were invented). (3) `validate_uacp_artifacts.py` already enforces the downstream FKs, so `uacp-lint` inherits the referential integrity; the schema layer formalizes shape + the schema work targets the **real package kinds**, never the spike kinds.
+
+## D43 — a dedicated Manifest engine: modularize the manifest-document concern (parallel to the State engine)
+
+**Context.** The state-vs-documents analysis ([28-component-registry](28-component-registry.md) + grounding this session) found the manifest **documents** (proposals/plans/executions/verification/resolutions — the *manifest plane*) have **no dedicated owning module**. The concern is **smeared**: written via the generic **Governed writers** (`governed_handlers.py` — a low-level write primitive for ALL governed writes), authored ad-hoc by the lifecycle skills, validated by `validate_uacp_artifacts.py`, located by `layout.py`, shaped by `schema.py`, indexed by the **State engine**. The design (18-glossary) *named* a "Manifest engine" but never built it as a cohesive module. mike: *"if a State engine manages state, a Manifest engine should manage manifests — modularize; don't build non-modularly."*
+
+**Verdict.** Build a dedicated **Manifest engine** — the cohesive module that **owns the manifest documents**, symmetric to the **State engine** (`uacp-state`). Responsibilities:
+- **Write (entity-level, canonical):** create / edit / supersede manifest documents — mint id, resolve location (`layout`), validate shape (`schema`) + referential (`uacp-lint`), canonicalize (`uacp-fmt`), persist via the Governed-writer primitive, and register the path into the **State engine's** index. *(= the design's long-planned "entity-level writer", e.g. `create_work_unit`.)*
+- **Read / project:** load documents, project the node/edge graph (`graph_projection`), serve closure / lookup.
+- **Definition (composes the leaf modules):** `layout` (where) + `schema` (shape) + `uacp-lint` (validate) + `uacp-fmt` (format).
+
+**Boundary — what it does NOT do:**
+- run lifecycle state / phase transitions / registry → the **State engine** (`uacp-state`); the Manifest engine *registers* doc paths INTO its index.
+- low-level filesystem write → the **Governed writers** (the Guardian-gated primitive the Manifest engine *calls*).
+- policy / gate timing → **Guardian** (write-time) + **Heartgate** (transition) *invoke* the engine's validation/projection; the engine provides the capability, the gates choose when.
+- knowledge corpus → the **Oracle**.
+
+**Composition — the pieces that BECOME the Manifest engine** (mostly already exist; this gives them a home): `engines/domain/layout.py` (done) + `engines/domain/schema.py` (in progress) + `engines/graph_projection.py` (done) + `uacp-lint`/`uacp-fmt` (to build) + **the entity-writer** (NEW — the write API).
+
+**Location.** Recommend a cohesive subpackage **`skills/uacp-core/scripts/engines/manifest/`** (the pieces already live under `uacp-core/engines`; least churn) — promotable to a sibling package `uacp-manifest` later if strict package symmetry with `uacp-state` is wanted.
+
+**Consequence.** Reframes the schema/lint/fmt/layout work as **building out the Manifest engine**, and its **entity-writer is the wiring** that finally makes `layout`+`schema` live — directly answering the lite-council's "unwired" BLOCKER. The Governed writers remain the low-level primitive; the Manifest engine is the domain layer above them. node 28 updated to add the Manifest engine + recast manifest-document ownership from "Governed writers (smeared)" to "Manifest engine (cohesive)".
