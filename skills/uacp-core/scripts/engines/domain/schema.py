@@ -26,9 +26,12 @@ from jsonschema import Draft202012Validator
 
 _DRAFT = "https://json-schema.org/draft/2020-12/schema"
 
-# Enums — closed vocabularies (D9). Seeded with the verified `result` set (the only
-# values used across fixtures/tests/engines); more land with the kinds that use them.
+# Enums — closed vocabularies (D9). NOTE: the node-item `_RESULT` below is spike-shaped
+# (the real per-evidence/assessment vocabulary is {pass,warn,block,deferred}); it is
+# re-grounded in a later increment with the node-items. `_BLAST_RADIUS` is the real
+# scope vocabulary (artifact_schema.BlastRadius).
 _RESULT = ("pass", "fail")
+_BLAST_RADIUS = ("low", "medium", "high", "critical")
 
 # kind -> JSON-Schema. Shapes verified against the oauth-login fixture + graph_projection.
 _SCHEMAS: dict[str, dict[str, Any]] = {
@@ -112,6 +115,85 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                 "evidence is a self-attesting closure (forbidden).",
             },
             "result": {"enum": list(_RESULT), "description": "Assessment outcome (pass|fail)."},
+        },
+    },
+    # --- Document kinds: fixture-backed YAML artifacts (artifact_schema.py fold-in, D41) ---
+    # Authored from the golden fixtures (tests/e2e/fixtures/) + the artifact_schema.py field
+    # vocab. SHAPE only (closed-world, enums, kind const); the referential checks these kinds
+    # carry today stay in the validator that becomes uacp-lint.
+    "uacp.scope": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["kind", "run_id", "write_paths", "blast_radius", "rollback_path"],
+        "properties": {
+            "kind": {"const": "uacp.scope", "description": "Document kind; must be 'uacp.scope'."},
+            "run_id": {"type": "string", "minLength": 1, "description": "Owning run id."},
+            "write_paths": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "UACP_ROOT-relative globs EXECUTE may write (the mutation surface).",
+            },
+            "blast_radius": {
+                "enum": list(_BLAST_RADIUS),
+                "description": "Declared impact tier (low|medium|high|critical).",
+            },
+            "rollback_path": {
+                "type": "string",
+                "description": "How to undo, or 'none--write-only-artifact' if irreversible.",
+            },
+            "read_paths": {"type": "array", "items": {"type": "string"}},
+            "forbidden_paths": {"type": "array", "items": {"type": "string"}},
+            "api_surfaces": {"description": "Optional; type unconstrained until grounded."},
+            "runtime_surfaces": {"description": "Optional; type unconstrained until grounded."},
+            "migrations": {"description": "Optional; type unconstrained until grounded."},
+            "side_effects": {"description": "Optional; type unconstrained until grounded."},
+        },
+    },
+    "uacp.run_registry": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["kind", "active_runs"],
+        "properties": {
+            "kind": {"const": "uacp.run_registry", "description": "Must be 'uacp.run_registry'."},
+            "schema_version": {
+                "type": "string",
+                "description": "Optional registry schema version.",
+            },
+            "active_runs": {
+                "type": "array",
+                "description": "In-flight run entries (write-path overlap + goal chaining).",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["run_id"],
+                    "properties": {
+                        "run_id": {"type": "string", "description": "The active run."},
+                        "phase": {"type": "string", "description": "Current lifecycle phase."},
+                        "write_paths": {"type": "array", "items": {"type": "string"}},
+                        "scope_artifact_path": {"type": "string"},
+                        "started_at": {"type": "integer"},
+                        "goal_id": {"type": "string", "description": "Goal-driven track only."},
+                    },
+                },
+            },
+        },
+    },
+    "uacp.lessons": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["kind", "run_id", "lessons"],
+        "properties": {
+            "kind": {"const": "uacp.lessons", "description": "Must be 'uacp.lessons'."},
+            "run_id": {"type": "string", "minLength": 1, "description": "Owning run id."},
+            "lessons": {
+                "type": "array",
+                "items": {"type": "object"},
+                "description": "RESOLVE lessons. Items loosely typed (the knowledge-plane `lesson` "
+                "node-item — a separate concern — is not this transition artifact).",
+            },
         },
     },
 }
