@@ -1,4 +1,4 @@
-"""uacp-schema (Slice 1b / graph-engine D9-D10) — the per-kind node-schema registry.
+"""uacp-schema (Slice 1b / graph-engine D9-D10/D40) — the control-plane schema registry.
 
 The foundational, near-pure-leaf validation sink: a `kind -> JSON-Schema (draft 2020-12)`
 registry + a thin `validate(kind, doc)`. It imports only `jsonschema` + stdlib; everything
@@ -12,10 +12,25 @@ and the kind-specific structural rules that make the graph trustless at the sour
 * an `evidence_obligation` MUST carry a `work_unit_id` (no free-floating obligations);
 * an `assessment` MUST cite `evidence_refs` (>=1) (no self-attesting closures).
 
-Scope: the five governance node kinds (scope_item, work_unit, evidence_obligation,
-checkpoint, assessment), matching the real on-disk shapes (verified vs the oauth-login
-fixture + graph_projection readers). The knowledge-plane `lesson` + index schemas land
-next. `validate` NEVER raises — malformed input returns error strings, not exceptions.
+Two registry layers:
+
+* **node-item kinds** — the entities that live *inside* manifest documents (scope_item,
+  work_unit, evidence_obligation, checkpoint, assessment). Defined once in `_NODE_DEFS`.
+* **document kinds** — whole control-plane artifacts (`uacp.proposal` / `plan` /
+  `execution` / `piv_assessment` / `lessons`) that **compose** the node-item kinds via
+  JSON-Schema `$ref`/`$defs`: a plan's `work_units[]` items `$ref` the one `work_unit`
+  definition — reused, never re-inlined, so a rule edited once changes both layers. Each
+  document pins its `kind` (const) and is closed-world, so a misspelled top-level key —
+  e.g. a typo'd `work_units` that would silently drop every task — is a load-time error.
+
+Shapes are verified against the real canonical-form fixtures in
+`design/graph-engine/spike/fixtures/oauth-login/` (+ the golden `tests/e2e/fixtures/
+lessons.yaml`) by the test suite, so the registry cannot drift from the on-disk form. The
+verification document's on-disk `kind` is `uacp.piv_assessment` and the resolve document's
+is `uacp.lessons` (matching the kernel + fixtures; the design catalog's `uacp.verification`
+/ `uacp.resolution` names reconcile to these). `validate` NEVER raises — malformed input
+returns error strings, not exceptions. The knowledge-plane `lesson` node-item (which will
+tighten `uacp.lessons`' items) + the index schemas land in later increments.
 """
 
 from __future__ import annotations
@@ -30,10 +45,13 @@ _DRAFT = "https://json-schema.org/draft/2020-12/schema"
 # values used across fixtures/tests/engines); more land with the kinds that use them.
 _RESULT = ("pass", "fail")
 
-# kind -> JSON-Schema. Shapes verified against the oauth-login fixture + graph_projection.
-_SCHEMAS: dict[str, dict[str, Any]] = {
+# --- Node-item kinds: the entities that live INSIDE manifest documents ---------------
+# Bodies only (no `$schema` key): each is reused both standalone (wrapped with the draft
+# declaration in `_NODE_SCHEMAS`) and embedded as a `$defs` entry the document kinds
+# `$ref`. ONE definition per kind = one source of truth. Shapes verified against the
+# oauth-login fixture + the graph_projection readers.
+_NODE_DEFS: dict[str, dict[str, Any]] = {
     "scope_item": {
-        "$schema": _DRAFT,
         "type": "object",
         "additionalProperties": False,
         "required": ["id"],
@@ -43,7 +61,6 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         },
     },
     "work_unit": {
-        "$schema": _DRAFT,
         "type": "object",
         "additionalProperties": False,
         "required": ["id", "title", "derives_from"],
@@ -60,7 +77,6 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         },
     },
     "evidence_obligation": {
-        "$schema": _DRAFT,
         "type": "object",
         "additionalProperties": False,
         "required": ["id", "work_unit_id"],
@@ -76,7 +92,6 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         },
     },
     "checkpoint": {
-        "$schema": _DRAFT,
         "type": "object",
         "additionalProperties": False,
         "required": ["id", "work_unit_id", "result"],
@@ -90,7 +105,6 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         },
     },
     "assessment": {
-        "$schema": _DRAFT,
         "type": "object",
         "additionalProperties": False,
         "required": ["obligation_id", "evidence_refs", "result"],
@@ -115,6 +129,129 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         },
     },
 }
+
+# Standalone node-item schemas: the def body + the root draft declaration, so
+# `validate("work_unit", item)` works directly on a bare node.
+_NODE_SCHEMAS: dict[str, dict[str, Any]] = {
+    name: {"$schema": _DRAFT, **body} for name, body in _NODE_DEFS.items()
+}
+
+
+def _document(kind_const: str, payload: dict[str, Any], required: list[str]) -> dict[str, Any]:
+    """A closed-world document schema that carries the node-item `$defs` so its `payload`
+    properties can `$ref` them (reuse, not re-inline). `kind` is pinned to `kind_const`
+    and `run_id` is always required; `required` + `payload` add the kind-specific fields.
+    Scalar envelope fields (status / authority / ids / ...) stay permissive here — their
+    own schemas land in later increments — but the document is `additionalProperties:
+    false`, so an unknown / misspelled top-level key is rejected."""
+    return {
+        "$schema": _DRAFT,
+        "$defs": _NODE_DEFS,
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["kind", "run_id", *required],
+        "properties": {
+            "kind": {"const": kind_const, "description": f"Document kind; must be '{kind_const}'."},
+            "run_id": {"type": "string", "minLength": 1, "description": "Owning run id."},
+            **payload,
+        },
+    }
+
+
+_AUTHORITY = {"type": "object", "description": "Authority block (own schema: later increment)."}
+_STATUS = {"type": "string", "description": "Lifecycle status."}
+
+# --- Document kinds: whole artifacts that COMPOSE the node-item kinds -----------------
+_DOC_SCHEMAS: dict[str, dict[str, Any]] = {
+    "uacp.proposal": _document(
+        "uacp.proposal",
+        {
+            "proposal_id": {"type": "string", "description": "Proposal identity."},
+            "status": _STATUS,
+            "authority": _AUTHORITY,
+            "purpose": {"type": "string", "description": "One-line statement of intent."},
+            "scope": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["in_scope"],
+                "properties": {
+                    "in_scope": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {"$ref": "#/$defs/scope_item"},
+                        "description": "Keyed scope_items (>=1) — the declared intent the "
+                        "plan must cover.",
+                    },
+                    "out_of_scope": {
+                        "type": "array",
+                        "description": "Deprecated weak form (D7: a `prohibition` node-kind "
+                        "supersedes it later); left loosely typed for now.",
+                    },
+                },
+                "description": "Scope envelope holding the keyed in_scope intents.",
+            },
+        },
+        required=["scope"],
+    ),
+    "uacp.plan": _document(
+        "uacp.plan",
+        {
+            "plan_id": {"type": "string", "description": "Plan identity."},
+            "status": _STATUS,
+            "authority": _AUTHORITY,
+            "work_units": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/work_unit"},
+                "description": "The plan's work_units; each carries derives_from -> scope_item.",
+            },
+            "evidence_obligations": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/evidence_obligation"},
+                "description": "PIV obligations (one per work_unit; coverage is a closure "
+                "check, not a shape rule, so this key is optional here).",
+            },
+        },
+        required=["work_units"],
+    ),
+    "uacp.execution": _document(
+        "uacp.execution",
+        {
+            "checkpoints": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/checkpoint"},
+                "description": "EXECUTE checkpoints, linked to work_units by work_unit_id.",
+            },
+        },
+        required=["checkpoints"],
+    ),
+    "uacp.piv_assessment": _document(
+        "uacp.piv_assessment",
+        {
+            "assessments": {
+                "type": "array",
+                "items": {"$ref": "#/$defs/assessment"},
+                "description": "VERIFY assessments (one per obligation; each cites evidence_refs).",
+            },
+        },
+        required=["assessments"],
+    ),
+    "uacp.lessons": _document(
+        "uacp.lessons",
+        {
+            "lessons": {
+                "type": "array",
+                "items": {"type": "object"},
+                "description": "RESOLVE lessons. Items stay loosely typed until the `lesson` "
+                "node-item lands (later increment, knowledge/OKF plane).",
+            },
+        },
+        required=["lessons"],
+    ),
+}
+
+# The unified registry: node-item kinds + document kinds. Document kinds are dotted
+# (`uacp.*`); node-item kinds are bare — they never appear as a file's top-level `kind`.
+_SCHEMAS: dict[str, dict[str, Any]] = {**_NODE_SCHEMAS, **_DOC_SCHEMAS}
 
 
 def validate(kind: str, doc: Any) -> list[str]:
