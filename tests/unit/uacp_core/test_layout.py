@@ -1,7 +1,7 @@
 """uacp topology bedrock (engines.domain.layout): the single source of truth for WHERE
-control-plane files live + WHAT format they are. Tests assert the registry resolves
-kind->path/format/plane, reverse-resolves path->kind, and — critically — gives ONE answer
-for the lesson corpus location (the .uacp/lessons vs .uacp/knowledge/lessons desync)."""
+manifest + state control-plane files live + WHAT format they are. Tests assert the registry
+resolves kind->path/format/plane and reverse-resolves path->kind. (The knowledge/lesson
+corpus is owned solely by the Oracle, NOT this registry — see test_corpus_boundary.)"""
 
 from __future__ import annotations
 
@@ -37,15 +37,14 @@ def test_format_yaml_vs_markdown():
 def test_plane():
     assert layout.plane_of("uacp.scope") == "relation"
     assert layout.plane_of("uacp.run_registry") == "state"
-    assert layout.plane_of("lesson") == "knowledge"
 
 
-# --- THE synchronization assertion: lessons corpus is FLAT (.uacp/lessons/) --------
-def test_lesson_corpus_is_flat_single_source():
-    # As-built: lessons live at .uacp/lessons/, NOT .uacp/knowledge/lessons/. One answer.
-    assert layout.dir_of("lesson") == "lessons"
-    assert layout.relpath("lesson", id="L1") == "lessons/L1.md"
-    assert layout.dir_of("knowledge_item") == "knowledge"
+# --- the corpus is Oracle-owned, NOT in this registry (test_corpus_boundary) -------
+def test_corpus_is_not_in_layout_oracle_owned():
+    # layout covers manifest + state planes only; the knowledge/lesson corpus is owned
+    # solely by the Oracle (enforced by tests/unit/uacp_oracle/test_corpus_boundary).
+    assert layout.template("lesson") is None
+    assert layout.template("knowledge_item") is None
 
 
 # --- reverse: path -> kind (for validate_file kind-resolution) ---------------------

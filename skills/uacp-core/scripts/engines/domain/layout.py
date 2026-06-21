@@ -3,21 +3,21 @@
 Every governed artifact KIND maps to (plane, dir, filename pattern, format). The scattered
 hardcoded path literals across core.py / state.py / artifact_schema.py / gate_rules.py / the
 validators are meant to read from HERE — so a path can't be changed in one place and missed in
-five others. (The desync this fixes: `plans/{run_id}-scope.yaml` was hardcoded in 5+ files,
-`state/run-registry.yaml` in ~7, and the lesson corpus was `.uacp/lessons/` in code but
-`.uacp/knowledge/lessons/` in the docs.)
+five others. (The desync this fixes: `plans/{run_id}-scope.yaml` was hardcoded in 5+ files;
+`state/run-registry.yaml` in ~7.)
 
 `dir` is a config `[paths]` segment (default == the key name); `template`/`relpath` return
-BASE-RELATIVE paths (under `.uacp/`) using the default segments — what the previously-hardcoded
-call sites used. For `[paths]`-override-honoring ABSOLUTE resolution, callers pass `dir_of(kind)`
-to `config.get_config(root).resolve(...)` and join the filename.
+BASE-RELATIVE paths (under the governed root) using the default segments — what the previously-
+hardcoded call sites used. For `[paths]`-override-honoring ABSOLUTE resolution, callers pass
+`dir_of(kind)` to `config.get_config(root).resolve(...)` and join the filename.
 
 `fmt` decides the validator: `yaml` -> JSON-Schema (schema.py) + referential checks (uacp-lint);
 `markdown` -> required-section / paired-file checks (uacp-lint); `jsonl`/`json` -> own validators.
 
-The lesson corpus is **FLAT** — `.uacp/lessons/<id>.md` (as-built; the single answer to the
-`.uacp/lessons` vs `.uacp/knowledge/lessons` desync). The D30 nested form
-(`.uacp/knowledge/{facts,lessons,...}`) is a deferred migration: flip the entry + move files.
+SCOPE: the **manifest (relation) + state planes only**. The knowledge/lesson CORPUS is
+deliberately NOT here — it is owned solely by the Oracle (the single corpus accessor; enforced
+by tests/unit/uacp_oracle/test_corpus_boundary.py). Folding the corpus location into this
+registry would relax that ownership boundary — a separate, deliberate decision.
 
 References: design/graph-engine/26-nomenclature.md (kinds) + 27-directory-taxonomy.md (layout).
 """
@@ -36,7 +36,6 @@ JSON = "json"
 # Planes
 RELATION = "relation"
 STATE = "state"
-KNOWLEDGE = "knowledge"
 
 
 @dataclass(frozen=True)
@@ -114,9 +113,6 @@ _ENTRIES: tuple[Entry, ...] = (
     Entry("uacp.gate_ledger", STATE, "state", "gate-ledger/{run_id}.jsonl", JSONL),
     Entry("uacp.escalations", STATE, "state", "escalations/{run_id}.jsonl", JSONL),
     Entry("uacp.artifact_hashes", STATE, "state", "hashes/{run_id}.json", JSON),
-    # --- knowledge plane: corpus (FLAT — the synchronized answer) ---
-    Entry("lesson", KNOWLEDGE, "lessons", "{id}.md", MARKDOWN),
-    Entry("knowledge_item", KNOWLEDGE, "knowledge", "{id}.md", MARKDOWN),
 )
 
 _BY_KIND: dict[str, Entry] = {e.kind: e for e in _ENTRIES}
