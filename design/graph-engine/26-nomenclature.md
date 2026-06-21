@@ -98,4 +98,4 @@ edges:
 | `uacp.proposal_package_selection` — the real PROPOSE document | `uacp.proposal` — **spike-fictional / legacy** | the kernel uses the package-selection envelope; bare `uacp.proposal` is not a live file |
 | `uacp.plan_package_selection` + `uacp.scope` + PIV contract — the **three** real PLAN docs | `uacp.plan` — **spike-fictional** | PLAN produces three coexisting documents, not one `uacp.plan` |
 | **node-item** (entity inside a doc) | **document kind** (whole file) | only document kinds have an on-disk `kind:` + are validated as files |
-| **Manifest engine** (document owner) | "state engine" | reserve "state engine" for `uacp-state` lifecycle |
+| **State engine** (`uacp-state`) | "manifest engine" | the SAME component — there is no separate "manifest engine" (see [28-component-registry](28-component-registry.md)); component names are governed by node 28 |

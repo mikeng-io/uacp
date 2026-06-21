@@ -12,11 +12,16 @@ timestamp: 2026-06-20
 > (components that act). **Gates = enforcement** (governance checkpoints). **Stores = WHERE** (truth vs
 > derived indexes). If a term isn't here, it isn't canonical. Old/confusing names are mapped at the bottom.
 
-> **SCOPE (2026-06-22).** This node is the **design-era architecture vocabulary** (planes / engines /
-> gates / stores / OKF / data-model terms — D1–D29) and stays canonical for those. For the **as-built
-> artifact KINDS** the authoritative reference is **[26-nomenclature](26-nomenclature.md)** (this node's
-> "node kinds" list below is the *spike* form — superseded by 26's real document-kind/node-item/corpus
-> split); for the **directory & file layout** see **[27-directory-taxonomy](27-directory-taxonomy.md)**.
+> **SCOPE (2026-06-22) — this node is partly SUPERSEDED.** It holds *design-era* vocabulary (D1–D29).
+> Authoritative references now:
+> - **Component / engine names → [28-component-registry](28-component-registry.md)** — this node's
+>   "Engines — WHO" + "Topology" sections invented "manifest engine" / "indexer engine" that **do not
+>   exist as code**; node 28 is the grounded truth (e.g. *manifest engine ≡ state engine ≡ `uacp-state`*).
+> - **Artifact KINDS → [26-nomenclature](26-nomenclature.md)** (this node's "node kinds" list is the *spike* form).
+> - **Directory & file layout → [27-directory-taxonomy](27-directory-taxonomy.md)**.
+>
+> 18-glossary remains useful only for the **abstract vocabulary** (planes-as-data-categories, stores,
+> OKF, DDD/CQRS terms) — NOT for component names.
 
 ## Topology (the whole system on one screen)
 
