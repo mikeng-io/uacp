@@ -617,7 +617,7 @@ Decision: Remove the Oracle `query_expansion` serving role in its entirety — t
 
 Rationale: Two independent grounds. (1) **It was never load-bearing** — `expand_query` had zero callers (LSP `findReferences`); the role was designed but never wired into `pipeline.py`, so it was dead code behind a disabled engine. (2) **The evidence is against it on this stack** — the IR literature shows generative query expansion (a) improves monotonically with generator scale, so a small local model is the weak end (query2doc ablation), and (b) *degrades* strong cross-encoder rerankers, which already encode the query understanding expansion bolts on (arXiv:2311.09175). UACP already runs a strong Qwen3-Reranker plus hybrid dense+FTS+RRF, which supplies recall robustness without a generative model. Keeping the role implied a planned capability that the architecture should not pursue by default. Removal also reduces drift: the active graph-engine design already characterizes the Oracle pipeline with no expansion step.
 
-Scope / non-conflict: Verified no coupling with the `graph-engine-next` work — it reuses `oracle/{index_build,store,tier_config}` and treats `engines/oracle/` as unchanged; it has zero diff vs main on every file touched here, so the deletion auto-merges cleanly. The generic `resolve_role` resolver, the `embedding`/`rerank`/`honcho` roles, and the `url > embedded > floor` precedence are unchanged. If LLM-assisted retrieval is ever revisited, it should be reintroduced as an A/B-gated, nDCG-measured recall booster for weak/under-specified queries only — not as a default.
+Scope / non-conflict: Verified no coupling with the `graph-engine-next` worktree — it reuses `oracle/{index_build,store,tier_config}` and treats `engines/oracle/` as unchanged; it has zero diff vs main on every file touched here, so the deletion auto-merges cleanly. The generic `resolve_role` resolver (still serving `embedding`/`rerank` — `honcho` is resolved inline, not via `resolve_role`) and the `url > embedded > floor` precedence are unchanged. If LLM-assisted retrieval is ever revisited, it should be reintroduced as an A/B-gated, nDCG-measured recall booster for weak/under-specified queries only — not as a default.
 
 Status: accepted.
 
@@ -625,7 +625,9 @@ Canonical targets:
 
 - `config/uacp.toml` (`[oracle.query_expansion]` removed)
 - `skills/uacp-core/scripts/engines/oracle/serving.py`
+- `skills/uacp-core/scripts/engines/oracle/pipeline.py` (docstring + step renumber)
 - `skills/uacp-core/scripts/engines/oracle/expansion.py` (deleted)
-- `docs/archived/2026-06-17-oracle-engine-design.md` (step marked retired)
+- `README.md` (Oracle capability list corrected)
+- `docs/archived/2026-06-17-oracle-engine-design.md` + `2026-06-17-oracle-engine-plan.md` (query-expansion step marked retired)
 
 Follow-up: none required — `[oracle] enabled=false` means no runtime behavior changes. Oracle's open evalset/enablement work is unaffected.

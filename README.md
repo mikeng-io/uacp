@@ -254,7 +254,7 @@ uacp/
 
 UACP includes an **Oracle** retrieval engine that is the sole reader and writer of the `.uacp/knowledge` and `.uacp/lessons` corpus. This clean data-ownership boundary means the state engine owns state/manifest, and Oracle owns the knowledge corpus — no other subsystem reads or writes corpus content directly.
 
-Oracle **ships inert** (`[oracle] enabled = false` in `config/uacp.toml`). When enabled it performs hybrid retrieval: BGE-M3 dense embedding, keyword search, Qwen3-Reranker reranking, and QMD-credited query expansion, with LanceDB as the vector store. A Bayesian Effectiveness Score (BES) overlay ranks lessons by past utility. Models default to locally embedded; optional per-role OpenAI-standard URL overrides allow swapping in hosted endpoints per role. A zero-ML-dependency floor mode (keyword + structured + BES) remains functional when Oracle is disabled.
+Oracle **ships inert** (`[oracle] enabled = false` in `config/uacp.toml`). When enabled it performs hybrid retrieval: BGE-M3 dense embedding, keyword search, and Qwen3-Reranker reranking, with LanceDB as the vector store. A Bayesian Effectiveness Score (BES) overlay ranks lessons by past utility. Models default to locally embedded; optional per-role OpenAI-standard URL overrides allow swapping in hosted endpoints per role. A zero-ML-dependency floor mode (keyword + structured + BES) remains functional when Oracle is disabled.
 
 Retrieval is exposed read-only via the `uacp_oracle_query` tool. Engine implementation lives in `skills/uacp-core/scripts/engines/oracle/`. Design documentation is in `docs/archived/2026-06-17-oracle-engine-design.md`.
 

@@ -170,7 +170,7 @@ def semantic_retrieve(
     _invariants = list(invariants or [])
 
     try:
-        # Step 2: Dense leg (only when embedding is usable)
+        # Step 1: Dense leg (only when embedding is usable)
         dense_results: list[dict[str, Any]] = []
         if embedding is not None:
             try:
@@ -180,16 +180,16 @@ def semantic_retrieve(
             except Exception:
                 dense_results = []
 
-        # Step 3: FTS / keyword leg
+        # Step 2: FTS / keyword leg
         try:
             fts_results = store.fts_search(query, k)
         except Exception:
             fts_results = []
 
-        # Step 4: RRF fusion
+        # Step 3: RRF fusion
         fused = rrf_fuse(dense_results, fts_results, k=k)
 
-        # Step 5: Rerank (degrade to RRF order on any failure)
+        # Step 4: Rerank (degrade to RRF order on any failure)
         if reranker is not None and fused:
             try:
                 reranked = reranker.rerank(query, fused)
@@ -197,7 +197,7 @@ def semantic_retrieve(
             except Exception:
                 pass  # keep RRF order
 
-        # Step 6: BES overlay
+        # Step 5: BES overlay
         scored = apply_bes_overlay(fused, query_domains=_domains, query_invariants=_invariants)
 
         # Convert to ProviderPackets
