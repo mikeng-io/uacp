@@ -9,10 +9,9 @@ Two surfaces:
   * ``resolve_role(role, oracle_cfg, deps_present=...)`` — the per-role serving
     decision the clients consume. Precedence: ``url override > embedded > floor``.
     Per role it is exactly one mode, never both. ``enabled=false`` forces FLOOR
-    for every role; ``query_expansion`` additionally honors its own ``enabled``
-    flag. The embedded default needs the optional in-process llama.cpp binding;
-    absent it (and with no URL) the role degrades to the FLOOR (keyword + BES,
-    zero models). The binding is resolved lazily and never imported at top level.
+    for every role. The embedded default needs the optional in-process llama.cpp
+    binding; absent it (and with no URL) the role degrades to the FLOOR (keyword +
+    BES, zero models). The binding is resolved lazily and never imported at top level.
 """
 
 from __future__ import annotations
@@ -113,13 +112,12 @@ def resolve_role(
     """Resolve the serving mode for a role: url override > embedded > floor.
 
     Args:
-        role: "embedding", "rerank", or "query_expansion"
+        role: "embedding" or "rerank"
         oracle_cfg: the [oracle] config dict
         deps_present: override the embedded-binding probe (None = probe lazily)
 
     Returns:
-        RoleServing with exactly one mode. enabled=false (oracle or, for
-        query_expansion, the role's own flag) forces FLOOR.
+        RoleServing with exactly one mode. enabled=false forces FLOOR.
     """
     if not oracle_cfg.get("enabled", False):
         return RoleServing(role, ServingMode.FLOOR)
@@ -127,10 +125,6 @@ def resolve_role(
     role_cfg = oracle_cfg.get(role) or {}
     if not isinstance(role_cfg, dict):
         role_cfg = {}
-
-    # query_expansion is optional and carries its own enable switch.
-    if role == "query_expansion" and not role_cfg.get("enabled", True):
-        return RoleServing(role, ServingMode.FLOOR)
 
     url = str(role_cfg.get("url") or "").strip()
     model = str(role_cfg.get("model") or "")
