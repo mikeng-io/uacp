@@ -31,7 +31,6 @@ from engines.base import run_all_engines
 from engines.domain.gate_rules import (
     PLAN_NOT_APPLICABLE_REQUIRED_FIELDS,
     PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS,
-    run_registry_rule_default,
 )
 from engines.domain.phase_transitions import (
     phase_transition_required_fields,
@@ -41,7 +40,7 @@ from engines.io import load_phase_transitions
 
 from .models import HeartgateDecision, HeartgateError
 from . import goal_driven
-from .validators import adaptive_gates, coherence, phase_exit, plan_validation, ppv
+from .validators import adaptive_gates, coherence, phase_exit, plan_validation, ppv, run_registry
 from .validators.helpers import _is_safe_run_id  # re-exported by core; many internal uses
 
 try:
@@ -920,153 +919,19 @@ class Heartgate:
     def _validate_plan_validation_gate(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str] | None = None) -> None:
         plan_validation.validate_plan_validation_gate(self, artifact, blockers, warnings)
 
+
+
     @staticmethod
     def _canon_write_path(p: Any) -> str:
-        """SKEP-003 / TECH-002 remediation: canonicalize a write_path entry
-        into a POSIX-segment-normalized form ending with '/'. Strips leading
-        './' and '/', collapses repeated separators, rejects '..' segments.
-        Returns empty string when the entry is unusable.
-        """
-        from pathlib import PurePosixPath
-        s = str(p).strip()
-        if not s:
-            return ""
-        # Reject absolute paths and parent-escape; both are policy violations.
-        if s.startswith("/") or s in {".", ".."}:
-            return ""
-        try:
-            pp = PurePosixPath(s)
-        except Exception:
-            return ""
-        parts = [seg for seg in pp.parts if seg not in (".",)]
-        if any(seg == ".." for seg in parts):
-            return ""
-        norm = "/".join(parts)
-        if not norm:
-            return ""
-        return norm + "/"
-
-    @classmethod
-    def _paths_overlap(cls, a_raw: Any, b_raw: Any) -> bool:
-        """SKEP-003: two write_paths overlap iff one is an ancestor of the
-        other after canonicalization. Bare-prefix tricks ('plans' vs
-        'plans-other') no longer match; './plans/' and 'plans/' canonicalize
-        to the same value.
-        """
-        a = cls._canon_write_path(a_raw)
-        b = cls._canon_write_path(b_raw)
-        if not a or not b:
-            return False
-        return a == b or a.startswith(b) or b.startswith(a)
+        # Re-export the run_registry path canonicalizer: state.py reuses it as
+        # ``Heartgate._canon_write_path`` for its own overlap pre-check (A3.6).
+        return run_registry._canon_write_path(p)
 
     def _run_registry_rule(self) -> Mapping[str, Any]:
-        """Resolve the run_registry_rule.
-
-        Slice 4b T4c-1: the rule grammar (registry_path, required_for_transition,
-        writer_tool) is codified in engines.domain.gate_rules. The block is read
-        from the loaded phase-transitions config WHEN PRESENT (production
-        behavior, unchanged); when ABSENT it falls back to the code default whose
-        operator-tunable ``enforcement`` mode comes from config/uacp.toml
-        [heartgate.run_registry]. A fixture may opt out via an empty mapping.
-        """
-        if "run_registry_rule" in self.config:
-            return self.config.get("run_registry_rule") or {}
-
-        enforcement = None
-        try:
-            cfg_raw = get_config(self.uacp_root).model_dump()
-            knob = (cfg_raw.get("heartgate") or {}).get("run_registry") or {}
-            if isinstance(knob, Mapping):
-                value = knob.get("enforcement")
-                enforcement = value if isinstance(value, str) else None
-        except Exception:
-            enforcement = None
-        return run_registry_rule_default(enforcement=enforcement)
+        return run_registry.run_registry_rule(self)
 
     def _validate_run_registry_overlap(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
-        """Phase 3.2: detect write-path overlap with other active runs.
-
-        Reads state/run-registry.yaml; for each entry in active_runs whose
-        run_id != this artifact's run_id, compute path intersection. Any
-        overlap with the active scope.write_paths blocks PLAN->EXECUTE.
-
-        Phase 3 R1 hardening: malformed registry entries now block
-        (SKEP-010), path normalization uses PurePosixPath segment match
-        (SKEP-003), and the required transition is read from config
-        (TECH-003).
-        """
-        rule = self._run_registry_rule()
-        if not isinstance(rule, Mapping) or not rule:
-            return
-        from_phase = str(artifact.get("from_phase") or "")
-        to_phase = str(artifact.get("to_phase") or "")
-        required_for = str(rule.get("required_for_transition") or "plan->execute")
-        if f"{from_phase}->{to_phase}" != required_for:
-            return
-        run_id = str(artifact.get("run_id") or "")
-        if not _is_safe_run_id(run_id):
-            return
-        registry_rel = str(rule.get("registry_path") or "state/run-registry.yaml")
-        registry_path = self.governed_root / registry_rel
-        if not registry_path.exists():
-            # No registry yet — emit a warning so it is observable but do not
-            # block; runs that pre-date the registry must not be blocked
-            # retroactively. Once at least one run has registered, overlap
-            # detection is active for all subsequent transitions.
-            warnings.append("run_registry: state/run-registry.yaml not yet present")
-            return
-        if yaml is None:
-            blockers.append("run_registry: PyYAML required to validate registry")
-            return
-        try:
-            data = yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
-        except Exception as exc:
-            blockers.append(f"run_registry: registry unparseable: {type(exc).__name__}")
-            return
-        if not isinstance(data, Mapping):
-            blockers.append("run_registry: top-level value must be a YAML mapping")
-            return
-        active = data.get("active_runs", [])
-        if active is None:
-            active = []
-        if not isinstance(active, list):
-            blockers.append("run_registry: 'active_runs' must be a list")
-            return
-        # Load the active run's scope to extract its write_paths.
-        scope_path = self.governed_root / "plans" / f"{run_id}-scope.yaml"
-        if not scope_path.exists():
-            return  # scope_artifact validator handles missing-scope blockers
-        try:
-            scope = yaml.safe_load(scope_path.read_text(encoding="utf-8")) or {}
-        except Exception as exc:
-            blockers.append(f"run_registry: scope unparseable for overlap check: {type(exc).__name__}")
-            return
-        my_writes = scope.get("write_paths") or []
-        if not isinstance(my_writes, list):
-            blockers.append("run_registry: scope.write_paths must be a list for overlap check")
-            return
-        for idx, entry in enumerate(active):
-            if not isinstance(entry, Mapping):
-                blockers.append(f"run_registry: active_runs[{idx}] must be a mapping")
-                continue
-            other_id = str(entry.get("run_id") or "")
-            if other_id == run_id:
-                continue
-            if not other_id or not _is_safe_run_id(other_id):
-                blockers.append(f"run_registry: active_runs[{idx}].run_id missing or unsafe")
-                continue
-            other_writes = entry.get("write_paths") or []
-            if not isinstance(other_writes, list):
-                blockers.append(f"run_registry: active_runs[{idx}].write_paths must be a list")
-                continue
-            for a in my_writes:
-                for b in other_writes:
-                    if self._paths_overlap(a, b):
-                        ac = self._canon_write_path(a) or str(a)
-                        bc = self._canon_write_path(b) or str(b)
-                        blockers.append(
-                            f"run_registry: write_paths overlap with active run '{other_id}' on '{ac}' / '{bc}'"
-                        )
+        return run_registry.validate_run_registry_overlap(self, artifact, blockers, warnings)
 
     def _validate_lessons_artifact(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Phase 2.4: VERIFY->RESOLVE requires resolutions/{run_id}-lessons.yaml
