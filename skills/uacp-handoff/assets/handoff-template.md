@@ -8,7 +8,7 @@ scope:
   out: [<what it is NOT>]
 attribution:
   generated_by: { agent: <id>, model: <id>, runtime: <hermes|cc|kimi> }
-  updated_at: <YYYY-MM-DD>
+  updated_at: '<YYYY-MM-DD>'
 edges:                                      # ANCHORS — reconstructable refs live ONLY here
   - {dst: 'branch:<branch>', rel: anchored_to, provenance: parsed}
   - {dst: 'commit:<sha>',    rel: anchored_to, provenance: parsed}
@@ -35,7 +35,7 @@ needs and cannot get from the diff. NOT the task list.>
 - watch-out: <non-obvious trap discovered this session>
 
 ## Now → next
-- **Position:** <branch>, last commit <sha> (see Anchors).
+- **Position:** see Anchors (branch + last commit live there, never inline here).
 - **Next intent:** <what to achieve next — the goal, not the mechanical steps>.
 
 ## Anchors

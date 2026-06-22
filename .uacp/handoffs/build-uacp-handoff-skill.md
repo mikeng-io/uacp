@@ -8,7 +8,7 @@ scope:
   out: [kernel changes, layout.py/uacp-lint registration, a CC command]
 attribution:
   generated_by: { agent: claude-code, model: claude-opus-4-8, runtime: cc }
-  updated_at: 2026-06-22
+  updated_at: '2026-06-22'
 edges:
   - {dst: 'branch:handoff', rel: anchored_to, provenance: parsed}
   - {dst: 'commit:b267811', rel: anchored_to, provenance: parsed}
@@ -60,8 +60,8 @@ the opposite: committed, per-workstream, structured, intent-level.
   (Kept as an agent step for now — no code, max portability.)
 
 ## Now → next
-- **Position:** branch `handoff` (off main), skill built + suite-green at `b267811`;
-  design bundle at `df07074`. See Anchors.
+- **Position:** see Anchors (branch + commits live there). The skill is built and
+  suite-green; the working tree is clean.
 - **Next intent:** merge `handoff` → main when ready; then register `.uacp/handoffs/`
   + the handoff kinds in `layout.py` / `uacp-lint`. Optionally dogfood a capsule for
   the graph-engine workstream from its own worktree.

@@ -15,7 +15,7 @@ description: >-
   content (files, commits, diffs, status) is never saved — only linked as anchors.
   Composes UACP's existing primitives (OKF node + typed edges + D18 lifecycle + D28
   index); it is NOT a new mechanism.
-status: design                      # enum: design|proposed|accepted|building|built
+status: built                       # enum: design|proposed|accepted|building|built — skill built (b267811)
 governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
 timestamp: '2026-06-22'             # ISO date (YYYY-MM-DD)
 origin: brainstorm 2026-06-22 (handoff skill design, with mike)

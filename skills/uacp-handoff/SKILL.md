@@ -96,6 +96,9 @@ blob. Resist it: when in doubt, make it an anchor, not prose.
 3. Follow **anchors** (commits / diff / design nodes) to reconstruct detail **on
    demand** — the capsule intentionally does not inline it.
 4. Continue from **Now → next**.
+5. RESUME is read-mostly — but if resuming **shifts the intent or state** (a new
+   decision, a closed thread), run **WRITE / UPDATE** to refresh the capsule before
+   proceeding, so it never goes stale.
 
 ## Lifecycle (decay / supersede — keeps it bounded)
 
