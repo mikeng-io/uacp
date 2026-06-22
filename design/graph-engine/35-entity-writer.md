@@ -86,16 +86,21 @@ is caught).
 
 Validation only matters if it can't be sidestepped:
 
-- The entity-writer is the **ONLY** tool in the Guardian `artifact.uacp` category's `allowed_tools`
-  for manifest paths. Raw `Write`/`Edit` to a manifest path is already hard-blocked (SA-A: Guardian
-  blocks non-`uacp_artifact_write` tools writing to artifact roots).
-- The remaining hole — `uacp_artifact_write` itself accepting a raw blob — closes by making the
-  **raw blob path the entity-writer's internal primitive**, not an agent-facing tool: the agent calls
-  the typed `create_<entity>`; the low-level governed write is internal-only. (Or: keep
-  `uacp_artifact_write` but route it through validate-on-write so even the blob path validates.)
-- Net: every manifest write goes through validate-on-write. The graph becomes trustworthy because a
-  structurally-invalid document cannot be persisted (the D24/D25 "graph not trustworthy until raw
-  writes blocked" condition).
+- **Path-scoped category split (Codex-flagged — required).** Today the Guardian `artifact.uacp`
+  category (`config/uacp.toml:254-257`) covers BOTH the manifest roots (`plans/ proposals/ executions/
+  verification/ resolutions/`) AND non-manifest content (`knowledge/ lessons/ brainstorm/` — Oracle
+  corpus + brainstorm), with `allowed_tools=[uacp_artifact_write]`. So you cannot just "make the
+  entity-writer the only allowed tool for `artifact.uacp`": replacing it category-wide blocks the
+  legitimate non-manifest Oracle/brainstorm writes; leaving `uacp_artifact_write` allowed keeps the
+  raw-blob bypass on manifest paths. **Split the category by path:** a new `artifact.manifest`
+  (the 5 manifest roots) → `allowed_tools=[<entity-writer>]` ONLY; `artifact.uacp` keeps
+  `knowledge/ lessons/ brainstorm/` → `uacp_artifact_write` (raw, not entity-managed — these are
+  not lifecycle manifest documents).
+- With the split, the entity-writer is the ONLY writer of the manifest roots; raw `Write`/`Edit` to
+  them is already hard-blocked (SA-A). Non-manifest content keeps its raw writer, unaffected.
+- Net: every **manifest** write goes through validate-on-write; the graph becomes trustworthy because a
+  structurally-invalid manifest document cannot be persisted (the D24/D25 "graph not trustworthy until
+  raw writes blocked" condition) — without collateral-blocking the knowledge/brainstorm planes.
 
 ## 4. Why this is trustless (ties to the verification primitive)
 

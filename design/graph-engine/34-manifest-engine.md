@@ -76,9 +76,15 @@ Each is a relocation of existing, tested code (same AST-identity + suite-green d
 2. **The 4 Heartgate doc-validators → `validators.py`** (`_validate_intent_doc`,
    `_validate_scope_artifact`, `_validate_evidence_dispositions`, `_validate_lessons_artifact`,
    ~410 lines, the Phase-C item from node 30). Carve like the A3 validators: free functions, thin
-   delegating methods left on Heartgate (the orchestrator + tests call them). **REWIRE** them off
-   bare `yaml.safe_load`/`path.read_text` onto the io `Loaded[T]` contract (`load_artifact` /
-   `load_yaml_under_root`) — the consistency debt the SA-C map flagged.
+   delegating methods left on Heartgate (the orchestrator + tests call them). **REWIRE** them onto the
+   io `Loaded[T]` contract — but split by FORMAT (Codex-flagged): `_validate_scope_artifact` +
+   `_validate_lessons_artifact` are YAML → `load_artifact` / `load_yaml_under_root` (which return
+   `Loaded[Mapping]` and reject non-mappings). `_validate_intent_doc` + `_validate_evidence_dispositions`
+   read **markdown** (`intent.md` / the verified-facts/assumptions `.md` pairs) via `path.read_text` +
+   heading/table scans — the YAML loaders would reject these (`loaders.py` errors "not a YAML mapping").
+   So **add a `load_text_under_root(workspace, rel) -> Loaded[str]`** (containment-checked, never-raises,
+   optionally frontmatter-aware) to `engines/io` for the markdown validators. Net: all 4 move onto the
+   io contract — 2 via the YAML loaders, 2 via the new text loader — not bare `read_text`.
 3. **Governed writers → `governed_writers.py`** (moved from the kernel root, node 31). The low-level
    Guardian-gated FS primitive the entity-writer wraps. Thin re-exports keep `governed_handlers`
    importers working (A1 pattern).
