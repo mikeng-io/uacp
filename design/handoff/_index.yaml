@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the aggregate root of the handoff design bundle.
+# WHAT IT DOES:  lists member nodes (reading order), declares the design's own
+#                inter-node graph, and records status/governance/scope.
+# WHAT IT DOES NOT DO: it does not validate the member nodes (each .md has its own
+#                shape), does not perform closure, carries no node-level data.
+
+kind: design_index
+title: UACP Session-Handoff — Design Bundle
+description: >-
+  A runtime-neutral, in-repo skill that serializes the NON-RECONSTRUCTABLE session
+  context (intent, decisions+rationale, rejected paths, open threads, watch-outs) at
+  pause/stop, so reasoning continuity survives the context boundary. Reconstructable
+  content (files, commits, diffs, status) is never saved — only linked as anchors.
+  Composes UACP's existing primitives (OKF node + typed edges + D18 lifecycle + D28
+  index); it is NOT a new mechanism.
+status: design                      # enum: design|proposed|accepted|building|built
+governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
+timestamp: '2026-06-22'             # ISO date (YYYY-MM-DD)
+origin: brainstorm 2026-06-22 (handoff skill design, with mike)
+schema_dir: ../graph-engine/schema/   # reuses the graph-engine design-index schema
+
+# 00 = the why; 10 = the artifact (the capsule); 20 = the skill + lifecycle; 02 = the ledger.
+members:
+  - 00-overview.md
+  - 02-decisions.md
+  - 10-capsule-format.md
+  - 20-skill-and-lifecycle.md
+
+# DERIVED: a collected mirror of each node's `edges:` frontmatter (uacp-fmt regenerates).
+# rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences|relates_to|corrects|grounds|supersedes.
+edges:
+  - {src: 02-decisions, dst: 00-overview, rel: decides_on, provenance: asserted}
+  - {src: 10-capsule-format, dst: 00-overview, rel: realizes, provenance: asserted}
+  - {src: 20-skill-and-lifecycle, dst: 10-capsule-format, rel: depends_on, provenance: asserted}
+
+# scope guard: capture non-reconstructable session context; everything else is out.
+scope:
+  in: [non-reconstructable-session-context, runtime-neutral, per-workstream, okf-graph-node]
+  out: [reconstructable-content, cc-specific-command, lifecycle-run-state]
