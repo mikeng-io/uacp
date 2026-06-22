@@ -20,7 +20,6 @@ held to the full ruleset, shrinking these exceptions until both are gone.
 from __future__ import annotations
 
 import importlib.util
-import json
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -30,7 +29,7 @@ from engines.io import loaders as io_loaders
 
 from .models import HeartgateDecision, HeartgateError
 from . import goal_driven
-from .validators import adaptive_gates, phase_exit
+from .validators import adaptive_gates, coherence, phase_exit, plan_validation, ppv
 from .validators.helpers import _is_safe_run_id  # re-exported by core; many internal uses
 
 try:
@@ -306,53 +305,7 @@ class Heartgate:
         return kept
 
     def _validate_heartgate_coherence(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
-        """Validate optional Heartgate transition-coherence evidence.
-
-        SUPERSEDED: this is the original SELF-ATTESTED coherence check — it
-        trusts an agent-supplied ``heartgate_coherence.status`` flag. The
-        authoritative coherence judgement is now produced by the COMPUTED
-        ``coherence`` engine run via :meth:`validate_closure`, which inspects the
-        run's emitted state directly rather than trusting a declared status.
-
-        This method is retained for back-compat (existing transition artifacts
-        may still carry a ``heartgate_coherence`` block), but the self-attested
-        ``status`` field is advisory only; the computed engine is the source of
-        truth for coherence at closure. Do not extend this self-attested path —
-        add coherence checks to the computed engine instead.
-        """
-        coherence = artifact.get("heartgate_coherence")
-        if coherence in (None, ""):
-            return
-        if not isinstance(coherence, Mapping):
-            blockers.append("heartgate_coherence must be a mapping")
-            return
-        status = str(coherence.get("status") or "")
-        if status not in {"pass", "warn", "block"}:
-            blockers.append("heartgate_coherence.status must be pass, warn, or block")
-        if status == "block":
-            blockers.append("heartgate coherence blocks transition")
-        artifact_path = str(coherence.get("artifact_path") or "")
-        if not artifact_path:
-            blockers.append("heartgate_coherence requires artifact_path")
-        elif not self._artifact_path_exists(artifact_path):
-            blockers.append(f"heartgate_coherence artifact not found: {artifact_path}")
-        required_lenses = {
-            "doctrine_coherence",
-            "cross_artifact_consistency",
-            "runtime_state_alignment",
-            "warning_and_deferred_item_honesty",
-            "authority_plane_integrity",
-            "next_phase_readiness",
-        }
-        lenses = coherence.get("lenses") or []
-        if not isinstance(lenses, list):
-            blockers.append("heartgate_coherence.lenses must be a list")
-        else:
-            missing = sorted(required_lenses - {str(item) for item in lenses})
-            if missing:
-                blockers.append("heartgate_coherence missing lens(es): " + ", ".join(missing))
-        if status == "warn":
-            warnings.append("heartgate coherence passed with warnings")
+        coherence.validate_heartgate_coherence(self, artifact, blockers, warnings)
 
     def _artifact_path_exists(self, artifact_path: str) -> bool:
         try:
@@ -371,64 +324,10 @@ class Heartgate:
         goal_driven.validate_checkpoint_entry(self, entry, blockers)
 
     def _heartgate_coherence_rule(self) -> Mapping[str, Any]:
-        """Resolve the heartgate_coherence_required_when rule.
-
-        Slice 4b T4c-1: the structural grammar (required_field/required_lenses)
-        and the selection policy (threshold + phases/routing/domains) are codified
-        in engines.domain.gate_rules. The block is read from the loaded
-        phase-transitions config WHEN PRESENT (production behavior, unchanged);
-        when ABSENT it falls back to the code default, whose operator-tunable
-        threshold + selectors come from config/uacp.toml [heartgate.coherence].
-
-        A test fixture may opt OUT by supplying an empty mapping for the block
-        (preserving prior test laxity): an explicit ``{}`` is honored as
-        "rule present but empty" and disables the gate, exactly as before.
-        """
-        if "heartgate_coherence_required_when" in self.config:
-            return self.config.get("heartgate_coherence_required_when") or {}
-        from engines.domain.gate_rules import heartgate_coherence_required_when_default
-
-        coherence_knob: Mapping[str, Any] = {}
-        try:
-            cfg_raw = get_config(self.uacp_root).model_dump()
-            coherence_knob = ((cfg_raw.get("heartgate") or {}).get("coherence")) or {}
-        except Exception:
-            coherence_knob = {}
-        if not isinstance(coherence_knob, Mapping):
-            coherence_knob = {}
-        threshold = coherence_knob.get("min_composite_granularity")
-        return heartgate_coherence_required_when_default(
-            min_composite_granularity=threshold if isinstance(threshold, int) else None,
-            selectors=dict(coherence_knob),
-        )
+        return coherence.heartgate_coherence_rule(self)
 
     def _validate_heartgate_coherence_requirement(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
-        rule = self._heartgate_coherence_rule()
-        if not rule:
-            return
-        coherence = artifact.get("heartgate_coherence")
-        if coherence not in (None, ""):
-            return
-        reasons = []
-        min_granularity = rule.get("min_composite_granularity")
-        if min_granularity is not None:
-            try:
-                if int(artifact.get("composite_granularity") or 0) >= int(min_granularity):
-                    reasons.append(f"composite_granularity>={min_granularity}")
-            except Exception:
-                pass
-        phases = set(str(x) for x in (rule.get("phases") or []))
-        if phases and str(artifact.get("from_phase") or "") in phases:
-            reasons.append("phase=" + str(artifact.get("from_phase") or ""))
-        routing = set(str(x) for x in (rule.get("routing_outcomes") or []))
-        if routing and str(artifact.get("routing_outcome") or "") in routing:
-            reasons.append("routing_outcome=" + str(artifact.get("routing_outcome") or ""))
-        categories = set(str(x) for x in (rule.get("domains") or []))
-        artifact_domains = {str(x) for x in (artifact.get("domains") or [])}
-        if categories and categories.intersection(artifact_domains):
-            reasons.append("domain=" + ",".join(sorted(categories.intersection(artifact_domains))))
-        if reasons:
-            blockers.append("heartgate_coherence required by transition policy: " + "; ".join(reasons))
+        coherence.validate_heartgate_coherence_requirement(self, artifact, blockers)
 
     def _validate_phase_exit_invariants(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Enforce phase_exit_invariants from config (A3.1: delegates to
@@ -607,169 +506,10 @@ class Heartgate:
         adaptive_gates.validate_adaptive_resolve_closure_gate(self, artifact, blockers)
 
     def _ppv_rule(self) -> Mapping[str, Any]:
-        """Resolve the ppv_rule.
-
-        Slice 4b T4c-2: the rule grammar (ledger_required, the ppv_* check ids,
-        ledger_required_fields, max_attempts, second_failure_action) is codified
-        in engines.domain.gate_rules. The block is read from the loaded
-        phase-transitions config WHEN PRESENT (production behavior, unchanged);
-        when ABSENT it falls back to the code default whose ``ledger_required``
-        is True (enforce-by-default / fail-closed: a PPV pass record is required
-        on every transition). No operator-tunable knob this wave.
-
-        A test fixture may opt OUT by supplying ``ppv_rule: {ledger_required:
-        false}``: present-with-falsy-ledger_required is read as the loaded value,
-        so the reader's ``not ppv_rule.get("ledger_required")`` short-circuits the
-        gate exactly as the pre-T4c-2 absent block did.
-        """
-        if "ppv_rule" in self.config:
-            return self.config.get("ppv_rule") or {}
-        from engines.domain.gate_rules import ppv_rule_default
-
-        return ppv_rule_default()
+        return ppv.ppv_rule(self)
 
     def _validate_ppv_record(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
-        """Phase 1 / Item 1.4: require a PPV pass record in the ledger before
-        Heartgate accepts a transition for which ppv_rule applies.
-
-        (PPV = the legacy post-phase-verification ledger rule; distinct from the
-        newer Phase Intent Verification contract.)
-
-        Tech-F1 remediation: sanitize run_id before constructing the ledger
-        path (reject path-traversal characters and resolve under
-        state/gate-ledger/ only). Skeptic F5 remediation: tolerate malformed
-        ppv_rule fields with explicit blockers instead of crashing.
-
-        Global review R1 (SKEP-G-002): generalize the per-check pass
-        evidence pattern Phase 3 R1 introduced for PLAN_VALIDATION.
-        ppv_rule declares `ledger_required_fields: [ppv_attempt, result,
-        checks]`; when present, the kernel verifies each declared
-        ppv_check_id appears in the ledger record's `checks` list AND
-        has explicit per-check pass evidence (mapping-form or sibling
-        `check_results: {ppv_id: pass}`).
-        """
-        ppv_rule = self._ppv_rule()
-        if not isinstance(ppv_rule, Mapping) or not ppv_rule.get("ledger_required"):
-            return
-        run_id = str(artifact.get("run_id") or "")
-        if not run_id:
-            blockers.append("ppv_rule requires run_id to verify ledger record")
-            return
-        if not _is_safe_run_id(run_id):
-            blockers.append("ppv_rule: unsafe run_id rejected for ledger lookup")
-            return
-        ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
-        if not ledger_path.exists():
-            blockers.append(f"ppv_rule unmet: no gate ledger at {ledger_path.relative_to(self.governed_root)}")
-            return
-        from_phase = str(artifact.get("from_phase") or "")
-        # Precompute declared ppv_ids when ppv_rule.checks is present.
-        declared_check_ids: set[str] = set()
-        for c in (ppv_rule.get("checks") or []):
-            if isinstance(c, Mapping):
-                cid = str(c.get("id") or "").strip()
-                if cid:
-                    declared_check_ids.add(cid)
-        ledger_required_fields = [str(f) for f in (ppv_rule.get("ledger_required_fields") or []) if isinstance(f, str)]
-        passing_attempts: list[int] = []
-        failing_attempts: list[int] = []
-        passing_record_defects: list[str] = []
-        try:
-            for lineno, raw_line in enumerate(ledger_path.read_text(encoding="utf-8").splitlines(), start=1):
-                line = raw_line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except Exception as exc:
-                    # Phase 3 (pc_p2_minor): fail-closed on corrupted ledger.
-                    blockers.append(f"ppv_rule: gate ledger line {lineno} unparseable: {type(exc).__name__}: {exc}")
-                    return
-                if str(rec.get("gate") or "") != "PPV":
-                    continue
-                if from_phase and str(rec.get("phase") or "") != from_phase:
-                    continue
-                try:
-                    attempt = int(rec.get("ppv_attempt") or 0)
-                except (TypeError, ValueError):
-                    blockers.append(f"ppv_rule: gate ledger line {lineno} has non-integer ppv_attempt")
-                    return
-                result = str(rec.get("result") or "")
-                if result == "pass":
-                    # SKEP-G-002: when ppv_rule declares checks + required fields,
-                    # this pass record must carry per-check evidence. If it doesn't,
-                    # it's treated as a per-record defect and not counted as
-                    # passing (multi-record DoS resistance mirrors PLAN_VALIDATION).
-                    body: Mapping[str, Any] = rec["record"] if isinstance(rec.get("record"), Mapping) else rec
-                    defect: str | None = None
-                    if ledger_required_fields:
-                        missing = [f for f in ledger_required_fields if f not in body and f not in rec]
-                        if missing:
-                            defect = f"line {lineno}: missing required fields {missing}"
-                    if defect is None and declared_check_ids:
-                        checks_in_rec = body.get("checks") if isinstance(body.get("checks"), list) else rec.get("checks")
-                        if not isinstance(checks_in_rec, list):
-                            defect = f"line {lineno}: 'checks' must be a list (got {type(checks_in_rec).__name__})"
-                        else:
-                            sibling = body.get("check_results") if isinstance(body.get("check_results"), Mapping) else rec.get("check_results")
-                            recorded_ids: set[str] = set()
-                            ids_with_pass: set[str] = set()
-                            for entry in checks_in_rec:
-                                if isinstance(entry, str):
-                                    cid = entry.strip()
-                                    if cid:
-                                        recorded_ids.add(cid)
-                                        if isinstance(sibling, Mapping) and str(sibling.get(cid) or "") == "pass":
-                                            ids_with_pass.add(cid)
-                                elif isinstance(entry, Mapping):
-                                    cid = str(entry.get("id") or "").strip()
-                                    if cid:
-                                        recorded_ids.add(cid)
-                                        if str(entry.get("result") or "") == "pass":
-                                            ids_with_pass.add(cid)
-                            missing_ids = declared_check_ids - recorded_ids
-                            extra_ids = recorded_ids - declared_check_ids
-                            unproven = declared_check_ids - ids_with_pass
-                            if missing_ids:
-                                defect = f"line {lineno}: missing required ppv_ids {sorted(missing_ids)}"
-                            elif extra_ids:
-                                defect = f"line {lineno}: unknown ppv_ids {sorted(extra_ids)}"
-                            elif unproven:
-                                defect = f"line {lineno}: missing per-check pass evidence for {sorted(unproven)}"
-                    if defect:
-                        passing_record_defects.append(defect)
-                        continue
-                    passing_attempts.append(attempt)
-                elif result in {"warn", "block", "fail"}:
-                    failing_attempts.append(attempt)
-        except Exception as exc:
-            blockers.append(f"ppv_rule ledger read failed: {type(exc).__name__}: {exc}")
-            return
-        raw_max = ppv_rule.get("max_attempts")
-        if raw_max is None:
-            raw_max = 2
-        try:
-            max_attempts = int(raw_max)
-        except (TypeError, ValueError):
-            blockers.append("ppv_rule.max_attempts must be a positive integer")
-            return
-        if max_attempts <= 0:
-            blockers.append("ppv_rule.max_attempts must be >= 1")
-            return
-        # Skeptic F2 remediation: second-failure block is the default action.
-        # Only an explicit known relaxation value bypasses it.
-        action = str(ppv_rule.get("second_failure_action") or "block_unconditional")
-        if action not in {"block_unconditional", "warn"}:
-            blockers.append(f"ppv_rule.second_failure_action unknown value '{action}'")
-            return
-        if len(failing_attempts) >= max_attempts and action == "block_unconditional":
-            blockers.append(
-                f"ppv_rule: {len(failing_attempts)} failed PPV attempts for phase '{from_phase}' — second-failure unconditional block"
-            )
-            return
-        if not passing_attempts:
-            detail = f" (per-record defects: {passing_record_defects})" if passing_record_defects else ""
-            blockers.append(f"ppv_rule unmet: no PPV pass record in ledger for phase '{from_phase}'{detail}")
+        ppv.validate_ppv_record(self, artifact, blockers)
 
     def _validate_intent_doc(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Phase 2.3: TRIAGE->PROPOSE requires proposals/{run_id}-intent.md
@@ -1175,158 +915,10 @@ class Heartgate:
             )
 
     def _plan_validation_gate_rule(self) -> Mapping[str, Any]:
-        """Resolve the plan_validation_gate rule.
-
-        Slice 4b T4c-2: the rule grammar (required_ledger_gate_for_transition,
-        ledger_gate_name, ledger_required_fields, ledger_required_phase, and the
-        pv_* check ids) is codified in engines.domain.gate_rules. The block is
-        read from the loaded phase-transitions config WHEN PRESENT (production
-        behavior, unchanged); when ABSENT it falls back to the code default
-        (enforce-by-default / fail-closed). No operator-tunable knob this wave —
-        the grammar is non-tunable.
-
-        A test fixture may opt OUT by supplying an empty mapping for the block
-        (preserving prior test laxity): an explicit ``{}`` is read as present and
-        yields no ``required_ledger_gate_for_transition``, so the reader's
-        ``if not required_for: return`` short-circuits the gate exactly as before.
-        """
-        if "plan_validation_gate" in self.config:
-            return self.config.get("plan_validation_gate") or {}
-        from engines.domain.gate_rules import plan_validation_gate_default
-
-        return plan_validation_gate_default()
+        return plan_validation.plan_validation_gate_rule(self)
 
     def _validate_plan_validation_gate(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str] | None = None) -> None:
-        """Phase 3.1: a PLAN_VALIDATION ledger entry with result=pass is
-        required for PLAN->EXECUTE. The entry must be tagged phase=plan and
-        carry a `checks:` list naming every pv_id declared in
-        config/phase-transitions.yaml plan_validation_gate.checks.
-
-        Phase 3 R1 hardening (SKEP-001 / GOV-004): the kernel does not just
-        verify gate presence; it enforces the ledger schema so a single-bit
-        "PLAN_VALIDATION: pass" assertion is no longer enough.
-        """
-        rule = self._plan_validation_gate_rule()
-        if not isinstance(rule, Mapping):
-            return
-        required_for = str(rule.get("required_ledger_gate_for_transition") or "")
-        if not required_for:
-            return
-        from_phase = str(artifact.get("from_phase") or "")
-        to_phase = str(artifact.get("to_phase") or "")
-        if f"{from_phase}->{to_phase}" != required_for:
-            return
-        run_id = str(artifact.get("run_id") or "")
-        if not _is_safe_run_id(run_id):
-            blockers.append("plan_validation_gate: unsafe or missing run_id")
-            return
-        gate_name = str(rule.get("ledger_gate_name") or "PLAN_VALIDATION")
-        # Pre-compute the set of pv_ids the ledger record must cover.
-        declared_check_ids: set[str] = set()
-        for c in (rule.get("checks") or []):
-            if isinstance(c, Mapping):
-                cid = str(c.get("id") or "").strip()
-                if cid:
-                    declared_check_ids.add(cid)
-        # Required-field policy for the ledger record (mirrors ppv_rule.ledger_required_fields).
-        ledger_required_fields = [str(f) for f in (rule.get("ledger_required_fields") or ["phase", "checks", "result"]) if isinstance(f, str)]
-        required_phase = str(rule.get("ledger_required_phase") or "plan")
-        ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
-        if not ledger_path.exists():
-            blockers.append(f"plan_validation_gate: missing {gate_name} ledger entry (no ledger file at {ledger_path.relative_to(self.governed_root)})")
-            return
-        try:
-            raw = ledger_path.read_text(encoding="utf-8")
-        except Exception as exc:
-            blockers.append(f"plan_validation_gate: ledger unreadable: {type(exc).__name__}")
-            return
-        # Phase 3 R2 (SKEP-R1-007): scan ALL PLAN_VALIDATION pass records and
-        # accept if ANY satisfies the contract. First-defect-wins semantics
-        # turned the ledger into a DoS surface — any caller could append a
-        # bad PLAN_VALIDATION record to block the gate forever. Per-record
-        # defects now accumulate as warnings on the transition; only the
-        # absence of ANY valid record blocks.
-        candidate_defects: list[str] = []
-        found_pass = False
-        for line_no, line in enumerate(raw.splitlines(), start=1):
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                rec = json.loads(line)
-            except Exception as exc:
-                # Corrupt lines still block: ledger integrity is foundational.
-                blockers.append(f"plan_validation_gate: gate ledger line {line_no} unparseable: {type(exc).__name__}: {exc}")
-                return
-            if str(rec.get("gate") or "") != gate_name:
-                continue
-            if str(rec.get("result") or "") != "pass":
-                continue
-            # Reject entries from the wrong phase (must be plan).
-            rec_phase = str(rec.get("phase") or "")
-            if not rec_phase and isinstance(rec.get("record"), Mapping):
-                rec_phase = str(rec["record"].get("phase") or "")
-            if rec_phase != required_phase:
-                candidate_defects.append(f"line {line_no}: phase '{rec_phase}' != required '{required_phase}'")
-                continue
-            body: Mapping[str, Any] = rec["record"] if isinstance(rec.get("record"), Mapping) else rec
-            missing_fields = [f for f in ledger_required_fields if f not in body and f not in rec]
-            if missing_fields:
-                candidate_defects.append(f"line {line_no}: missing required fields {missing_fields}")
-                continue
-            checks_in_rec = body.get("checks") if isinstance(body.get("checks"), list) else rec.get("checks")
-            if not isinstance(checks_in_rec, list):
-                candidate_defects.append(f"line {line_no}: 'checks' must be a list (got {type(checks_in_rec).__name__})")
-                continue
-            sibling_results = body.get("check_results") if isinstance(body.get("check_results"), Mapping) else rec.get("check_results")
-            if sibling_results is not None and not isinstance(sibling_results, Mapping):
-                candidate_defects.append(f"line {line_no}: 'check_results' must be a mapping")
-                continue
-            recorded_ids: set[str] = set()
-            ids_with_pass_evidence: set[str] = set()
-            per_check_defects: list[str] = []
-            for entry in checks_in_rec:
-                if isinstance(entry, str):
-                    cid = entry.strip()
-                    if cid:
-                        recorded_ids.add(cid)
-                        # String-form: per-check pass evidence must come from sibling check_results.
-                        if isinstance(sibling_results, Mapping) and str(sibling_results.get(cid) or "") == "pass":
-                            ids_with_pass_evidence.add(cid)
-                elif isinstance(entry, Mapping):
-                    cid = str(entry.get("id") or "").strip()
-                    if cid:
-                        recorded_ids.add(cid)
-                        per_check_result = str(entry.get("result") or "")
-                        if per_check_result == "pass":
-                            ids_with_pass_evidence.add(cid)
-                        elif per_check_result and per_check_result != "pass":
-                            per_check_defects.append(f"check '{cid}' has non-pass result")
-            if per_check_defects:
-                candidate_defects.append(f"line {line_no}: " + "; ".join(per_check_defects))
-                continue
-            missing_ids = declared_check_ids - recorded_ids
-            if missing_ids:
-                candidate_defects.append(f"line {line_no}: missing required pv_ids {sorted(missing_ids)}")
-                continue
-            # SKEP-R1-006: reject extra/unknown pv_ids.
-            extra_ids = recorded_ids - declared_check_ids
-            if extra_ids:
-                candidate_defects.append(f"line {line_no}: carries unknown pv_ids {sorted(extra_ids)}")
-                continue
-            # SKEP-R1-003: each declared pv_id must have explicit per-check pass evidence.
-            unproven = declared_check_ids - ids_with_pass_evidence
-            if unproven:
-                candidate_defects.append(f"line {line_no}: missing per-check pass evidence for {sorted(unproven)}")
-                continue
-            # This record satisfies the full contract.
-            found_pass = True
-            break
-        if not found_pass:
-            detail = f" (per-record defects: {candidate_defects})" if candidate_defects else ""
-            blockers.append(f"plan_validation_gate: no '{gate_name}' pass record in ledger for run '{run_id}'{detail}")
-        elif candidate_defects and warnings is not None:
-            warnings.append(f"plan_validation_gate: earlier PLAN_VALIDATION records were rejected before a clean one was accepted: {candidate_defects}")
+        plan_validation.validate_plan_validation_gate(self, artifact, blockers, warnings)
 
     @staticmethod
     def _canon_write_path(p: Any) -> str:
