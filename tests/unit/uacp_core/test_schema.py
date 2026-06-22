@@ -196,6 +196,31 @@ def test_scope_wrong_kind_const_fails():
     assert errs and any(e.startswith("kind") for e in errs), errs
 
 
+def test_scope_no_writes_intended_and_self_patch_authority_ok():
+    # AS-BUILT: Heartgate._validate_scope_artifact accepts the no_writes_intended
+    # sentinel (for empty write_paths) and a self_patch_write_authority block. The
+    # closed-world schema must not reject a scope the runtime gate accepts. (Pre-fix
+    # this failed: additionalProperties=false rejected both keys — Codex P2 #1.)
+    doc = {
+        "kind": "uacp.scope",
+        "run_id": "r1",
+        "write_paths": [],
+        "no_writes_intended": True,
+        "blast_radius": "low",
+        "rollback_path": "none--write-only-artifact",
+        "self_patch_write_authority": {
+            "enabled": True,
+            "reason": "uacp self-repair",
+            "authority_artifact": "proposals/r1-intent.md",
+            "owner": "core",
+            "rollback_path": "git revert",
+            "verification_obligations": ["suite green"],
+            "allowed_prefixes": ["scripts/"],
+        },
+    }
+    assert validate("uacp.scope", doc) == []
+
+
 # --- uacp.run_registry (state/run-registry.yaml) ------------------------------------
 def test_golden_run_registry_fixture_validates():
     assert validate("uacp.run_registry", _load("run_registry.yaml")) == []
@@ -226,6 +251,26 @@ def test_run_registry_active_run_missing_run_id_fails():
     doc = {"kind": "uacp.run_registry", "active_runs": [{"phase": "execute"}]}
     errs = validate("uacp.run_registry", doc)
     assert errs and any("run_id" in e for e in errs), errs
+
+
+def test_run_registry_writer_shape_no_kind_validates():
+    # AS-BUILT: the uacp_run_registry_update writer emits {schema_version, active_runs}
+    # with NO top-level `kind`. The schema must accept the writer's own output. (Pre-fix
+    # this failed: `kind` was in required — Codex P2 #2.) This is the writer-shaped doc,
+    # not a schema-shaped fixture — the distinction that hid the mismatch.
+    doc = {
+        "schema_version": "0.1",
+        "active_runs": [
+            {
+                "run_id": "r1",
+                "phase": "execute",
+                "write_paths": ["src/"],
+                "scope_artifact_path": "plans/r1-scope.yaml",
+                "started_at": 1700000000,
+            }
+        ],
+    }
+    assert validate("uacp.run_registry", doc) == []
 
 
 # --- uacp.lessons (VERIFY->RESOLVE lessons artifact; LessonsSchema) ------------------

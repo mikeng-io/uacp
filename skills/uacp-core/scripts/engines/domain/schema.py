@@ -144,6 +144,21 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             },
             "read_paths": {"type": "array", "items": {"type": "string"}},
             "forbidden_paths": {"type": "array", "items": {"type": "string"}},
+            # AS-BUILT: the gate (Heartgate._validate_scope_artifact) accepts these two
+            # — empty write_paths require the no_writes_intended sentinel, and a
+            # self_patch_write_authority block authorizes UACP self-repair paths. Kept
+            # loose (shape only): the block's internal contract is enforced by the gate
+            # / uacp-lint, not by this SHAPE schema (matching the optional fields above).
+            "no_writes_intended": {
+                "type": "boolean",
+                "description": "Sentinel: scope intentionally declares no governed writes.",
+            },
+            "self_patch_write_authority": {
+                "type": "object",
+                "description": "Optional bootstrap self-repair authority; internal shape "
+                "(enabled/owner/rollback_path/verification_obligations/allowed_prefixes/…) "
+                "enforced by the gate.",
+            },
             "api_surfaces": {"description": "Optional; type unconstrained until grounded."},
             "runtime_surfaces": {"description": "Optional; type unconstrained until grounded."},
             "migrations": {"description": "Optional; type unconstrained until grounded."},
@@ -154,9 +169,16 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         "$schema": _DRAFT,
         "type": "object",
         "additionalProperties": False,
-        "required": ["kind", "active_runs"],
+        # AS-BUILT: the uacp_run_registry_update writer emits {schema_version, active_runs}
+        # and never a top-level `kind` (run-registry is STATE, not a manifest document), so
+        # `kind` is NOT required — validated as the const only when present. The schema
+        # matches the writer, not vice versa.
+        "required": ["active_runs"],
         "properties": {
-            "kind": {"const": "uacp.run_registry", "description": "Must be 'uacp.run_registry'."},
+            "kind": {
+                "const": "uacp.run_registry",
+                "description": "Optional; validated when present (the writer omits it).",
+            },
             "schema_version": {
                 "type": "string",
                 "description": "Optional registry schema version.",
