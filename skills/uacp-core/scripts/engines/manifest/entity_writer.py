@@ -94,7 +94,17 @@ def create_entity(
     # failure rolls back a freshly-created file so the graph never sees an unregistered orphan.
     from state_machine import handle_register_artifact
 
+    # MULTI-INSTANCE (Codex PR#3): kinds whose layout template has placeholders beyond
+    # {run_id} (e.g. execution_checkpoint {seq}, evidence_disposition {cluster}/{half}) occur
+    # more than once per run. The run manifest's `artifacts` is keyed by type, so register
+    # each instance under a COMPOSITE key (type:suffix) instead of a bare type — otherwise a
+    # second instance overwrites the first and vanishes from manifest.artifacts.values()
+    # (which projection/integrity iterate). No State-schema change needed (dict[str,str] keyed
+    # by a unique composite key); a typed dict[str,list[str]] is a deferred refinement.
     artifact_type = kind.removeprefix("uacp.")
+    if ctx:
+        suffix = "-".join(str(ctx[k]) for k in sorted(ctx))
+        artifact_type = f"{artifact_type}:{suffix}"
     reg = json.loads(
         handle_register_artifact(
             {

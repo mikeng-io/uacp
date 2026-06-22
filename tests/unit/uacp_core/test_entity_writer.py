@@ -83,6 +83,37 @@ def test_create_entity_markdown_kind_deferred_to_c56(tmp_path):
     assert "error" in res and "markdown" in res["error"].lower()
 
 
+def test_create_entity_multi_instance_does_not_overwrite(tmp_path):
+    # execution_checkpoint is multi-instance ({seq}); two instances must both register under
+    # DISTINCT composite keys, not overwrite each other (Codex PR#3 multi-instance finding).
+    run_id = _init_run(tmp_path)
+    r1 = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.execution_checkpoint",
+        {"run_id": run_id, "checkpoint_id": "c1"},
+        seq="1",
+    )
+    r2 = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.execution_checkpoint",
+        {"run_id": run_id, "checkpoint_id": "c2"},
+        seq="2",
+    )
+    assert r1.get("ok") and r2.get("ok"), (r1, r2)
+    assert r1["path"] != r2["path"]
+    assert (tmp_path / ".uacp" / r1["path"]).is_file()
+    assert (tmp_path / ".uacp" / r2["path"]).is_file()
+    # Non-vacuity: BOTH paths survive in the manifest (a bare-type key would drop the first).
+    manifest = yaml.safe_load(
+        (tmp_path / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text(encoding="utf-8")
+    )
+    paths = set(manifest["artifacts"].values())
+    assert r1["path"] in paths and r2["path"] in paths
+    assert r1["artifact_type"] != r2["artifact_type"]
+
+
 def test_governed_writers_reexport_identity():
     # C4-review guard: the write-port re-exports the SAME primitive objects as filesystem
     # (so a future "unused, delete it" sweep can't silently sever the seam — A3 pattern).
