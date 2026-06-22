@@ -66,9 +66,16 @@ nothing persists unless all pass):
    form is deterministic + diff-stable.
 6. **PERSIST** — call the Governed writers (`governed_writers.py`, node 34) — the Guardian-gated FS
    primitive — to write the file, then `record_hash` (watermark, fail-closed, as today).
-7. **REGISTER** — call the State engine to record `{type→path}` in the run manifest's `artifacts`
+7. **REGISTER** — call the State engine to record the artifact in the run manifest's `artifacts`
    (the seam `graph_projection` reads via `load_manifest`), and emit the typed edges into the
    projection/index. (Provenance is serialized HERE — the SA-C map flagged it's not stored today.)
+   **MULTI-INSTANCE (Codex-flagged):** some kinds occur MORE THAN ONCE per run —
+   `uacp.execution_checkpoint` (`{run_id}-checkpoint-{seq}.yaml`) and `uacp.evidence_disposition`
+   (`{run_id}-{cluster}-{half}.md`). The State `artifacts` is `dict[str, str]` keyed by type, so a
+   second instance would OVERWRITE the first and vanish from `manifest.artifacts.values()` (invisible
+   to projection). So REGISTER must key by **instance** (the minted id / path), not by kind — a
+   required `handle_register_artifact` / State-schema change (multi-instance: `dict[str, list[str]]` or
+   keyed by id). A build constraint on the cross-engine seam (this node only flags it).
    **ATOMICITY (Codex-flagged):** PERSIST(6)+REGISTER(7) must be **atomic**. A REGISTER failure after
    the file is written (missing run manifest, state-validation error, I/O) would leave a persisted +
    watermarked document that is NOT in the manifest's `artifacts` — invisible to `graph_projection`
@@ -99,9 +106,12 @@ Validation only matters if it can't be sidestepped:
   entity-writer the only allowed tool for `artifact.uacp`": replacing it category-wide blocks the
   legitimate non-manifest Oracle/brainstorm writes; leaving `uacp_artifact_write` allowed keeps the
   raw-blob bypass on manifest paths. **Split the category by path:** a new `artifact.manifest`
-  (the 5 manifest roots) → `allowed_tools=[<entity-writer>]` ONLY; `artifact.uacp` keeps
-  `knowledge/ lessons/ brainstorm/` → `uacp_artifact_write` (raw, not entity-managed — these are
-  not lifecycle manifest documents).
+  (the 5 manifest roots **+ the brainstorm scope-package** `brainstorm/{run_id}/07-scope-package.yaml`
+  — Codex-flagged: `uacp.brainstorm_scope_package` is a RELATION lifecycle doc, `layout.py:65-68`,
+  required by the brainstorm phase-exit invariant, so it IS entity-managed) →
+  `allowed_tools=[<entity-writer>]` ONLY; `artifact.uacp` keeps `knowledge/ lessons/` + the REST of
+  `brainstorm/` (corpus/notes) → `uacp_artifact_write` (raw, not lifecycle manifest documents). The
+  split is by lifecycle-relation role, not a flat top-level-dir prefix.
 - With the split, the entity-writer is the ONLY writer of the manifest roots; raw `Write`/`Edit` to
   them is already hard-blocked (SA-A). Non-manifest content keeps its raw writer, unaffected.
 - Net: every **manifest** write goes through validate-on-write; the graph becomes trustworthy because a
@@ -124,10 +134,14 @@ existence — exactly the no-self-attestation invariant, enforced at the write b
 2. Wire **validate-on-write** (step 4) for ONE YAML kind first (e.g. scope, via node 33's
    `schema.validate`), prove it rejects a malformed doc (non-vacuous test) — the ratchet; the markdown
    branch (intent/evidence_disposition → structural validators) lands as those kinds migrate.
-3. Add the path-scoped **`artifact.manifest`** category wiring (§3) — `allowed_tools=[<entity-writer>]`
-   for the 5 manifest roots, leaving `artifact.uacp` = `uacp_artifact_write` for knowledge/lessons/
-   brainstorm — so the typed writer is the only writer of manifest paths; make the raw blob path
-   internal/validated (close the bypass) WITHOUT blocking the non-manifest planes.
+3. Wire the entity-writer into Guardian on **BOTH layers** (Codex-flagged) — not just the category:
+   (a) Layer A — the path-scoped **`artifact.manifest`** category (§3): `allowed_tools=[<entity-writer>]`
+   for the 5 manifest roots + the brainstorm scope-package; `artifact.uacp` keeps the non-manifest
+   planes. (b) Layer B — add the entity-writer to **each phase's `allowed_tools`** in the phase grammar
+   (`phase-transitions.yaml`), which today pins `uacp_artifact_write`; Guardian Layer B rejects any
+   protected tool absent from the current phase's allowlist, so without this the writer is blocked in
+   TRIAGE/PROPOSE/PLAN/EXECUTE/VERIFY/RESOLVE before the category can authorize it. Then make the raw
+   blob path internal/validated (close the bypass) WITHOUT blocking the non-manifest planes.
 4. Grow per-kind (the node-33 ratchet) until all manifest kinds write through it.
 5. Emit typed edges + provenance into the projection (enables D42's real-artifact graph).
 
