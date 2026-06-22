@@ -1,4 +1,4 @@
-"""Oracle semantic pipeline: expand → hybrid(dense+keyword) → RRF → rerank → BES overlay.
+"""Oracle semantic pipeline: hybrid(dense+keyword) → RRF → rerank → BES overlay.
 
 QMD-shaped retrieval pipeline for the Oracle semantic leg. Pure orchestration;
 never raises to the caller (degrade to fewer stages / empty list on any error).
@@ -7,12 +7,11 @@ Lazy imports only — the floor must import and run clean with lancedb, llama_cp
 and httpx all absent. The store.available() gate is the single dep check.
 
 Pipeline steps:
-  1. Query expansion  (optional; FLOOR -> raw query only)
-  2. Dense retrieval  (only when embedding is usable; else skip dense leg)
-  3. FTS / keyword retrieval
-  4. RRF fusion        (k=60, canonical QMD constant)
-  5. Rerank            (via reranker if usable; RerankUnavailable -> keep RRF order)
-  6. BES overlay       (lessons only: gate relevance>=1, then rank by relevance + bes_bonus)
+  1. Dense retrieval  (only when embedding is usable; else skip dense leg)
+  2. FTS / keyword retrieval
+  3. RRF fusion        (k=60, canonical QMD constant)
+  4. Rerank            (via reranker if usable; RerankUnavailable -> keep RRF order)
+  5. BES overlay       (lessons only: gate relevance>=1, then rank by relevance + bes_bonus)
      Knowledge items skip BES; they pass through as normative packets.
 """
 

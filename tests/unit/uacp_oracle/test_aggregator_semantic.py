@@ -28,7 +28,6 @@ def _enabled_cfg(extra: dict | None = None) -> dict:
         "index_path": ".uacp/knowledge/indexes/",
         "embedding": {"url": "", "model": "bge-m3"},
         "rerank": {"url": "", "model": "qwen3-reranker-0.6b"},
-        "query_expansion": {"enabled": False},
     }
     if extra:
         base.update(extra)

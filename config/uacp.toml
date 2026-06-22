@@ -1155,9 +1155,6 @@ url = ""
 model = "qwen3-reranker-0.6b"
 url = ""
 
-[oracle.query_expansion]
-enabled = true
-
 [oracle.honcho]
 enabled = false
 url = ""
