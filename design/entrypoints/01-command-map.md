@@ -3,7 +3,7 @@ type: reference
 title: The Command Map — every script → `uacp <cmd>`, classified, + the build plan
 description: >-
   The concrete target: every standalone scripts/*.py + the 11 governed tools mapped to a single
-  `uacp <command>` surface, classified (governed-mutating / read-validate / dev-maintenance), with
+  `uacp <command>` surface, classified by command class (§1 — by mutation, not "dev-ness"), with
   the registry-generalization + incremental migration plan. Build deferred until after Phase C.
 tags: [uacp, entry-points, cli, command-map, migration, build-plan]
 timestamp: 2026-06-23
@@ -53,7 +53,7 @@ working standalone during migration.
 1. **Generalize the registry** — `Command` record + `class`; the 11 tools become Commands (no behaviour change; MCP adapter reads the same registry).
 2. **Add the CLI adapter** — `cli.py` (`main()`) building an argparse tree from the registry; `pyproject [project.scripts] uacp = "uacp_cli:main"`. Dispatches `spec.handler(args)` (mirrors the MCP server). `--output-format text|json`.
 3. **Fold `lint`/`fmt` first** — these are built in Phase C (node 33); register them → `uacp lint`/`uacp fmt`. Proves the read/validate class end-to-end.
-4. **Migrate the rest incrementally** — one script → one Command per step (extract `run(args)`, register, point the CLI at it, keep the `__name__` shim until callers move). Order: read/validate (verify, check) → dev/maintenance (migrate, dev). **Decouple Hermes-coupled scripts FIRST:** `phase0_verify.py:23-38`, `import_loader_verify.py:29-34`, `live_guardian_probe.py:49-51` import `runtime-adapters/hermes/plugins/uacp_guardian` — they must depend on the kernel/`engines`, not the Hermes plugin, before folding into the runtime-neutral CLI (so this step is more than a `main()→run(args)` rename for them).
+4. **Migrate the rest incrementally** — one script → one Command per step (extract `run(args)`, register, point the CLI at it, keep the `__name__` shim until callers move). Order by the §1 class column: read/validate (verify, check) → **operator-mutating** (migrate — with audit) → dev/read-only (probe, bakeoff). **Decouple Hermes-coupled scripts FIRST:** `phase0_verify.py:23-38`, `import_loader_verify.py:29-34`, `live_guardian_probe.py:49-51` import `runtime-adapters/hermes/plugins/uacp_guardian` — they must depend on the kernel/`engines`, not the Hermes plugin, before folding into the runtime-neutral CLI (so this step is more than a `main()→run(args)` rename for them).
 5. **Retire the bare `python3 scripts/X.py` invocations** — update CI + docs to `uacp <cmd>`; delete the shims once nothing calls them directly.
 
 ## 4. Invariants (from node 00)
