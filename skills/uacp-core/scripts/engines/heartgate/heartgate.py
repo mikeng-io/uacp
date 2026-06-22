@@ -26,6 +26,18 @@ from typing import Any, Mapping
 from config import base_dir, get_config
 from engines.domain.paths import resolve_uacp_root
 from engines.io import loaders as io_loaders
+from engines.artifact_integrity import validate_artifact_integrity
+from engines.base import run_all_engines
+from engines.domain.gate_rules import (
+    PLAN_NOT_APPLICABLE_REQUIRED_FIELDS,
+    PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS,
+    run_registry_rule_default,
+)
+from engines.domain.phase_transitions import (
+    phase_transition_required_fields,
+    stages_default,
+)
+from engines.io import load_phase_transitions
 
 from .models import HeartgateDecision, HeartgateError
 from . import goal_driven
@@ -87,8 +99,6 @@ class Heartgate:
         # A loaded non-empty `stages` block wholesale-overrides the default.
         stages = self.config.get("stages")
         if not stages:
-            from engines.domain.phase_transitions import stages_default
-
             stages = stages_default()
         self.stages = stages
         # Slice 5 W2 (closes T4d-2) + BLOCKER fix: artifact_schema.required_fields
@@ -105,17 +115,12 @@ class Heartgate:
         if isinstance(schema, Mapping) and "required_fields" in schema:
             self.required_fields = list(schema.get("required_fields") or [])
         else:
-            from engines.domain.phase_transitions import (
-                phase_transition_required_fields,
-            )
-
             self.required_fields = phase_transition_required_fields()
         # Phase 2: artifact schemas (scope, intent, evidence_disposition, lessons)
         self.artifact_schemas = _load_artifact_schemas(self.uacp_root)
 
     @classmethod
     def load(cls, uacp_root: str | Path | None = None) -> "Heartgate":
-        from engines.io import load_phase_transitions
         root = resolve_uacp_root(uacp_root)
         loaded = load_phase_transitions(root)
         if loaded.error is not None:
@@ -256,8 +261,6 @@ class Heartgate:
             # package (which bootstraps sys.path on import) for adapters that
             # never run a closure check. No import cycle — engines depend on
             # state_machine, never on core.
-            from engines.base import run_all_engines
-
             violations = run_all_engines(self.uacp_root, run_id)
             violations = self._dedupe_scope_registry_disagreement(violations)
 
@@ -349,7 +352,6 @@ class Heartgate:
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             return
-        from engines.artifact_integrity import validate_artifact_integrity
 
         for v in validate_artifact_integrity(self.uacp_root, run_id):
             if v.severity == "block":
@@ -388,7 +390,6 @@ class Heartgate:
         if not isinstance(item, Mapping):
             blockers.append(f"adaptive_plan_package_gate: {label} in {artifact} must be a mapping")
             return
-        from engines.domain.gate_rules import PLAN_NOT_APPLICABLE_REQUIRED_FIELDS
         for field_name in PLAN_NOT_APPLICABLE_REQUIRED_FIELDS:
             if item.get(field_name) in (None, ""):
                 blockers.append(f"adaptive_plan_package_gate: {label} missing {field_name}")
@@ -397,7 +398,6 @@ class Heartgate:
         if not isinstance(item, Mapping):
             blockers.append(f"adaptive_proposal_package_gate: {label} in {artifact} must be a mapping")
             return
-        from engines.domain.gate_rules import PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS
         for field_name in PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS:
             if item.get(field_name) in (None, ""):
                 blockers.append(f"adaptive_proposal_package_gate: {label} missing {field_name}")
@@ -971,7 +971,6 @@ class Heartgate:
         """
         if "run_registry_rule" in self.config:
             return self.config.get("run_registry_rule") or {}
-        from engines.domain.gate_rules import run_registry_rule_default
 
         enforcement = None
         try:

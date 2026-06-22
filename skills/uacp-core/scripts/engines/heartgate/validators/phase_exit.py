@@ -14,6 +14,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from engines.graph_projection import validate_graph_invariants
+
 from .helpers import glob_matches_any, ledger_contains_gate
 
 
@@ -90,8 +92,6 @@ def validate_phase_exit_invariants(
             # this transition. The engine never raises; block-severity violations
             # (dropped intent / orphan / phantom / missing coverage / contradiction)
             # gate the phase exit.
-            from engines.graph_projection import validate_graph_invariants
-
             for v in validate_graph_invariants(uacp_root, run_id, graph_scope):
                 if v.severity == "block":
                     blockers.append(f"phase_exit_invariant unmet: {v.code}: {v.message}")
