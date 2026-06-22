@@ -13,6 +13,7 @@ from typing import Any, Mapping
 
 from config import base_dir, get_config
 from engines.domain.paths import resolve_uacp_root
+from engines.io import loaders as io_loaders
 
 # The Guardian write-time gate was extracted to engines/guardian/ as the first
 # step of the core.py decomposition (design/graph-engine nodes 31/32). These
@@ -1139,30 +1140,18 @@ class Heartgate:
 
 
     def _load_yaml_under_root(self, rel_path: str, blockers: list[str], label: str) -> Mapping[str, Any] | None:
+        # Adapter (A2): the load logic now lives in engines/io under the Loaded[T]
+        # contract; this maps a Loaded error onto the gate's blocker list,
+        # preserving the exact messages. The yaml-None guard stays here — core
+        # tolerates a missing PyYAML, whereas the io layer hard-imports it.
         if yaml is None:
             blockers.append(f"{label} requires PyYAML")
             return None
-        try:
-            candidate = Path(rel_path)
-            if candidate.is_absolute():
-                resolved = candidate.resolve()
-            else:
-                resolved = (self.governed_root / candidate).resolve()
-            root = self.governed_root.resolve()
-            if resolved != root and root not in resolved.parents:
-                blockers.append(f"{label}: artifact path escapes UACP root: {rel_path}")
-                return None
-            if not resolved.exists() or not resolved.is_file():
-                blockers.append(f"{label}: artifact not found: {rel_path}")
-                return None
-            data = yaml.safe_load(resolved.read_text(encoding="utf-8"))
-        except Exception as exc:
-            blockers.append(f"{label}: failed to parse {rel_path}: {exc}")
+        result = io_loaders.load_yaml_under_root(self.uacp_root, rel_path)
+        if result.error is not None:
+            blockers.append(f"{label}: {result.error}")
             return None
-        if not isinstance(data, Mapping):
-            blockers.append(f"{label}: {rel_path} must be a YAML mapping")
-            return None
-        return data
+        return result.value
 
     def _dir_under_root_exists(self, rel_path: str) -> bool:
         try:

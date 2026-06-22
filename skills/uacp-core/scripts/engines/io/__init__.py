@@ -19,6 +19,7 @@ from .loaders import (
     load_phase_transitions,
     load_registry,
     load_scope,
+    load_yaml_under_root,
     resolve_in_workspace,
 )
 
@@ -32,5 +33,6 @@ __all__ = [
     "load_phase_transitions",
     "load_registry",
     "load_scope",
+    "load_yaml_under_root",
     "resolve_in_workspace",
 ]

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -189,6 +190,31 @@ def load_artifact(workspace: Path, rel: str) -> Loaded[dict[str, Any]]:
     if not isinstance(raw, dict):
         return Loaded(error="artifact is not a YAML mapping")
     return Loaded(value=raw)
+
+
+def load_yaml_under_root(workspace: Path, rel: str) -> Loaded[Mapping[str, Any]]:
+    """Load a governed-base-relative (or absolute, contained) YAML mapping.
+
+    Resolves ``rel`` under ``base_dir(workspace)`` (an absolute ``rel`` is taken
+    as-is), containment-checks it, parses it, and requires a mapping. Never
+    raises — failures come back as ``error`` (path-escape / not-found / parse /
+    non-mapping). This is the gate's prior in-place loader lifted to the io
+    ``Loaded`` contract; the calling gate maps ``error`` to its blocker list.
+    """
+    try:
+        candidate = Path(rel)
+        base = base_dir(workspace).resolve()
+        resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+        if resolved != base and base not in resolved.parents:
+            return Loaded(error=f"artifact path escapes UACP root: {rel}")
+        if not resolved.exists() or not resolved.is_file():
+            return Loaded(error=f"artifact not found: {rel}")
+        data = yaml.safe_load(resolved.read_text(encoding="utf-8"))
+    except Exception as exc:  # defensive: resolution/read/parse must not raise
+        return Loaded(error=f"failed to parse {rel}: {exc}")
+    if not isinstance(data, Mapping):
+        return Loaded(error=f"{rel} must be a YAML mapping")
+    return Loaded(value=data)
 
 
 def load_scope(workspace: Path, rel: str) -> Loaded[Scope]:
