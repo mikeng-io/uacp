@@ -1,6 +1,8 @@
 """C5 — the Manifest engine's entity-writer: typed, validated, watermarked, registered
 manifest write path (node 35). Also guards the C4 governed-writers re-export identity."""
 
+import json
+
 import yaml
 
 from engines.domain.artifact_hashes import load_hash_index
@@ -124,6 +126,92 @@ def test_create_entity_multi_instance_does_not_overwrite(tmp_path):
     paths = set(manifest["artifacts"].values())
     assert r1["path"] in paths and r2["path"] in paths
     assert r1["artifact_type"] != r2["artifact_type"]
+
+
+def test_create_entity_rejects_state_plane(tmp_path):
+    # F1: STATE-plane kinds (run_registry / run_manifest / …) are the State engine's, not the
+    # entity-writer's. create_entity must refuse them (else it's a weaker writer than
+    # uacp_artifact_write, which forbids state/docs/config).
+    run_id = _init_run(tmp_path)
+    res = create_entity(str(tmp_path), run_id, "uacp.run_registry", {"active_runs": []})
+    assert "error" in res and "RELATION-plane" in res["error"]
+
+
+def test_create_entity_markdown_body_rejects_injected_frontmatter(tmp_path):
+    # F4: a markdown body that opens its own '---' fence (forged kind) is rejected.
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.intent",
+        {"body": "---\nkind: uacp.scope\nauthority: forged\n---\n\nreal"},
+    )
+    assert "error" in res and "frontmatter" in res["error"]
+
+
+def test_create_entity_register_failure_rolls_back_new_file(tmp_path, monkeypatch):
+    # F2/F3/F5: register failure on a FRESH file -> file removed AND watermark forgotten (no orphan).
+    import state_machine
+
+    run_id = _init_run(tmp_path)
+    monkeypatch.setattr(
+        state_machine, "handle_register_artifact", lambda args: json.dumps({"error": "boom"})
+    )
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {
+            "run_id": run_id,
+            "write_paths": ["plans/x.yaml"],
+            "blast_radius": "low",
+            "rollback_path": "n/a",
+        },
+    )
+    assert "error" in res and "rolled back" in res["error"]
+    assert not (tmp_path / ".uacp" / "plans" / f"{run_id}-scope.yaml").exists()
+    assert f"plans/{run_id}-scope.yaml" not in load_hash_index(tmp_path, run_id)
+
+
+def test_create_entity_register_failure_preserves_existing_file(tmp_path, monkeypatch):
+    # F2/F5: register failure on an OVERWRITE restores the original bytes + watermark (no corruption).
+    import state_machine
+
+    run_id = _init_run(tmp_path)
+    good = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {
+            "run_id": run_id,
+            "write_paths": ["plans/a.yaml"],
+            "blast_radius": "low",
+            "rollback_path": "orig",
+        },
+    )
+    assert good.get("ok"), good
+    rel = good["path"]
+    original = (tmp_path / ".uacp" / rel).read_text(encoding="utf-8")
+    orig_hash = load_hash_index(tmp_path, run_id)[rel]
+
+    monkeypatch.setattr(
+        state_machine, "handle_register_artifact", lambda args: json.dumps({"error": "boom"})
+    )
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {
+            "run_id": run_id,
+            "write_paths": ["plans/CHANGED.yaml"],
+            "blast_radius": "high",
+            "rollback_path": "new",
+        },
+    )
+    assert "error" in res
+    # Non-vacuity: without atomic restore, the file would hold the CHANGED content.
+    assert (tmp_path / ".uacp" / rel).read_text(encoding="utf-8") == original
+    assert load_hash_index(tmp_path, run_id)[rel] == orig_hash
 
 
 def test_governed_writers_reexport_identity():

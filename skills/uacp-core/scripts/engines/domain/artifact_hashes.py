@@ -62,3 +62,17 @@ def record_hash(workspace: str | Path, run_id: str, rel: str, content: str) -> N
     path = hash_index_path(workspace, run_id)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def forget_hash(workspace: str | Path, run_id: str, rel: str) -> None:
+    """Remove the watermark entry for ``rel`` (best-effort; no-op if absent).
+
+    Used by the entity-writer's rollback so a write rolled back after its watermark was
+    recorded does not leave an orphan hash entry pointing at a now-deleted file (which
+    would later read as an index/file divergence)."""
+    index = load_hash_index(workspace, run_id)
+    if str(rel) in index:
+        del index[str(rel)]
+        path = hash_index_path(workspace, run_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
