@@ -48,14 +48,20 @@ nothing persists unless all pass):
 2. **LAYOUT** — `engines.domain.layout` resolves WHERE this kind lives (path template); no caller path.
 3. **SERIALIZE** — render the OKF document: frontmatter (kind, id, the typed `edges:` with
    `rel_type`+`provenance` per D23) + body.
-4. **VALIDATE — SHAPE ONLY (the net-new gate)** — `schema.validate(kind, doc)` (node 33 declarative
-   shape: required fields, types, enums, `kind` const). Any violation → **reject, no write**. This is
-   the content check the Guardian structurally cannot do. **NOT the referential layer:** cross-artifact
-   FK / coverage (uacp-lint) needs sibling documents that may not exist yet during an INCREMENTAL write,
-   so forcing it here would reject valid partial writes or demand placeholder siblings. Referential
-   checks stay at the **transition gate** (where the package is complete) — per node 33 (the entity-writer
-   consumes `schema.py` directly) + D41 (referential runs at transition time). **Write-time = shape;
-   transition-time = reference.**
+4. **VALIDATE — SHAPE ONLY, BRANCHED BY LAYOUT FORMAT (the net-new gate).** Any violation →
+   **reject, no write**. This is the content check the Guardian structurally cannot do.
+   - **YAML kinds** → `schema.validate(kind, doc)` (node 33 declarative shape: required fields, types,
+     enums, `kind` const).
+   - **MARKDOWN kinds** (Codex-flagged) — `uacp.intent`, `uacp.evidence_disposition` are marked
+     `MARKDOWN` in `layout.py:79,105` and are NOT JSON-Schema kinds (node 33), so `schema.validate`
+     would reject them as unknown. Route these through the **markdown structural validators** (the
+     required-section/heading + paired-file checks in node 34's `validators.py`) before persist — the
+     write-side mirror of the read-side `load_text_under_root` fix. Every manifest write is validated,
+     YAML or markdown — the "single validated manifest write path" invariant holds for both.
+   - **NOT the referential layer:** cross-artifact FK / coverage (uacp-lint) needs sibling documents
+     that may not exist yet during an INCREMENTAL write, so forcing it here would reject valid partial
+     writes or demand placeholder siblings. Referential stays at the **transition gate** (where the
+     package is complete) — per node 33 + D41. **Write-time = shape; transition-time = reference.**
 5. **FORMAT** — `uacp-fmt` canonicalizes (key order, edge serialization; idempotent) so the on-disk
    form is deterministic + diff-stable.
 6. **PERSIST** — call the Governed writers (`governed_writers.py`, node 34) — the Guardian-gated FS
@@ -117,8 +123,10 @@ existence — exactly the no-self-attestation invariant, enforced at the write b
    validation yet — behaviour-equivalent to today's `uacp_artifact_write` but typed.
 2. Wire **validate-on-write** (step 4) using node 33's schema.validate for ONE kind (e.g. scope),
    prove it rejects a malformed doc (non-vacuous test) — the ratchet.
-3. Add the Guardian `artifact.uacp` wiring so the typed writer is the allowed tool; make the raw blob
-   path internal/validated (close the bypass).
+3. Add the path-scoped **`artifact.manifest`** category wiring (§3) — `allowed_tools=[<entity-writer>]`
+   for the 5 manifest roots, leaving `artifact.uacp` = `uacp_artifact_write` for knowledge/lessons/
+   brainstorm — so the typed writer is the only writer of manifest paths; make the raw blob path
+   internal/validated (close the bypass) WITHOUT blocking the non-manifest planes.
 4. Grow per-kind (the node-33 ratchet) until all manifest kinds write through it.
 5. Emit typed edges + provenance into the projection (enables D42's real-artifact graph).
 
