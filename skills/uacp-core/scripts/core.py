@@ -45,7 +45,7 @@ from engines.heartgate import (  # noqa: F401
 # until they are promoted to domain helpers. Removal owner: the helper-promotion
 # increment.
 from engines.heartgate.heartgate import (  # noqa: F401
-    _is_safe_run_id,
     _load_artifact_schemas,
     _truthy,
 )
+from engines.heartgate.validators.helpers import _is_safe_run_id  # noqa: F401

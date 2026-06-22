@@ -29,32 +29,13 @@ from engines.domain.paths import resolve_uacp_root
 from engines.io import loaders as io_loaders
 
 from .models import HeartgateDecision, HeartgateError
+from .validators import phase_exit
+from .validators.helpers import _is_safe_run_id  # re-exported by core; many internal uses
 
 try:
     import yaml
 except ImportError:  # pragma: no cover - Hermes ships with PyYAML in normal use.
     yaml = None  # type: ignore[assignment]
-
-
-_RUN_ID_RE = __import__("re").compile(r"^[A-Za-z0-9._-]{1,128}$")
-
-
-def _is_safe_run_id(run_id: str) -> bool:
-    """True if run_id is safe for use as a filesystem name segment.
-
-    Phase 1 remediation (skeptic F1 / technical F1): bound run_id to a
-    conservative charset so it cannot escape state/gate-ledger/ via "..",
-    "/", "\\", control chars, or pathological lengths.
-
-    Phase 2 hardening (pc_p1_t2 / CRR-2): also reject the literal `.` and
-    `..` so any future code that uses run_id without the .jsonl suffix
-    cannot construct a directory reference.
-    """
-    if not isinstance(run_id, str) or not run_id:
-        return False
-    if run_id in {".", ".."}:
-        return False
-    return bool(_RUN_ID_RE.match(run_id))
 
 
 def _truthy(value: Any) -> bool:
@@ -482,66 +463,15 @@ class Heartgate:
             blockers.append("heartgate_coherence required by transition policy: " + "; ".join(reasons))
 
     def _validate_phase_exit_invariants(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
-        """Phase 1 / Item 1.2: enforce phase_exit_invariants from config.
-
-        For the transition's `from_phase`, load `stages.<from_phase>.phase_exit_invariants`
-        and check each required invariant by its kind:
-        - `artifact_glob` — must match at least one file under UACP_ROOT;
-        - `gate_ledger_entry` — must appear in state/gate-ledger/{run_id}.jsonl;
-        - `graph_invariant` (D35) — runs the phase-scoped structural subset of the
-          graph_projection engine for this transition (scope = `<from_phase>_exit`,
-          e.g. `plan_exit`); any block-severity violation becomes a transition
-          blocker. This is what makes a dropped intent / orphan / missing coverage
-          fail at the boundary where its inputs first complete, instead of only at
-          terminal closure.
-        """
-        from_phase = str(artifact.get("from_phase") or "")
-        run_id = str(artifact.get("run_id") or "")
-        if not isinstance(self.stages, Mapping):
-            blockers.append("phase_exit_invariants: stages config must be a mapping")
-            return
-        stage = self.stages.get(from_phase) or {}
-        if not isinstance(stage, Mapping):
-            blockers.append(f"phase_exit_invariants: stage '{from_phase}' config must be a mapping")
-            return
-        invariants = stage.get("phase_exit_invariants") or []
-        if not invariants:
-            return
-        for inv in invariants:
-            if not isinstance(inv, Mapping):
-                blockers.append("phase_exit_invariant must be a mapping")
-                continue
-            required = bool(inv.get("required"))
-            if not required:
-                continue
-            glob_pattern = str(inv.get("artifact_glob") or "")
-            ledger_gate = str(inv.get("gate_ledger_entry") or "")
-            graph_scope = str(inv.get("graph_invariant") or "")
-            if glob_pattern:
-                if "{run_id}" in glob_pattern and not run_id:
-                    blockers.append(f"phase_exit_invariant unmet: run_id required to resolve glob '{glob_pattern}'")
-                    continue
-                pat = glob_pattern.replace("{run_id}", run_id) if run_id else glob_pattern
-                if not self._glob_matches_any(pat):
-                    blockers.append(f"phase_exit_invariant unmet: no artifact matches '{pat}'")
-            elif ledger_gate:
-                if not run_id:
-                    blockers.append(f"phase_exit_invariant unmet: run_id required to verify ledger entry '{ledger_gate}'")
-                elif not self._ledger_contains_gate(run_id, ledger_gate):
-                    blockers.append(f"phase_exit_invariant unmet: gate ledger missing entry '{ledger_gate}'")
-            elif graph_scope:
-                if not run_id:
-                    blockers.append(f"phase_exit_invariant unmet: run_id required for graph_invariant '{graph_scope}'")
-                    continue
-                # D35: run the phase-scoped structural subset of graph_projection
-                # for this transition. The engine never raises; block-severity
-                # violations (dropped intent / orphan / phantom / missing coverage /
-                # contradiction) gate the phase exit.
-                from engines.graph_projection import validate_graph_invariants
-
-                for v in validate_graph_invariants(self.uacp_root, run_id, graph_scope):
-                    if v.severity == "block":
-                        blockers.append(f"phase_exit_invariant unmet: {v.code}: {v.message}")
+        """Enforce phase_exit_invariants from config (A3.1: delegates to
+        validators.phase_exit; logic + tests unchanged)."""
+        phase_exit.validate_phase_exit_invariants(
+            artifact,
+            stages=self.stages,
+            uacp_root=self.uacp_root,
+            governed_root=self.governed_root,
+            blockers=blockers,
+        )
 
     def _validate_artifact_integrity(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Hardening #6: run the artifact-integrity (SHA-256 watermark) check at
@@ -1566,64 +1496,6 @@ class Heartgate:
         if not passing_attempts:
             detail = f" (per-record defects: {passing_record_defects})" if passing_record_defects else ""
             blockers.append(f"ppv_rule unmet: no PPV pass record in ledger for phase '{from_phase}'{detail}")
-
-    def _glob_matches_any(self, pattern: str) -> bool:
-        """Phase 1 remediation (skeptic F3): reject symlinks and out-of-root
-        matches. A glob match must resolve to a real file under UACP_ROOT and
-        not be a symlink whose target is outside the root.
-        """
-        import glob as _glob
-        try:
-            root = self.governed_root.resolve()
-            matches = _glob.glob(str(self.governed_root / pattern), recursive=True)
-            for raw in matches:
-                p = Path(raw)
-                if p.is_symlink():
-                    # Resolve and re-check that the target is inside UACP_ROOT.
-                    try:
-                        resolved = p.resolve(strict=True)
-                    except Exception:
-                        continue
-                    if root != resolved and root not in resolved.parents:
-                        continue
-                    # symlink to in-root real file is acceptable
-                else:
-                    try:
-                        resolved = p.resolve(strict=True)
-                    except Exception:
-                        continue
-                if not resolved.is_file():
-                    continue
-                if root != resolved and root not in resolved.parents:
-                    continue
-                return True
-            return False
-        except Exception:
-            return False
-
-    def _ledger_contains_gate(self, run_id: str, gate: str) -> bool:
-        if not _is_safe_run_id(run_id):
-            return False
-        ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
-        if not ledger_path.exists():
-            return False
-        try:
-            for line in ledger_path.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                # Phase 3 (pc_p2_minor): a corrupted line in the ledger is
-                # treated as fail-closed; callers should re-derive coverage
-                # rather than silently skip suspicious lines.
-                try:
-                    rec = json.loads(line)
-                except Exception:
-                    return False
-                if str(rec.get("gate") or "") == gate:
-                    return True
-        except Exception:
-            return False
-        return False
 
     def _validate_intent_doc(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Phase 2.3: TRIAGE->PROPOSE requires proposals/{run_id}-intent.md
