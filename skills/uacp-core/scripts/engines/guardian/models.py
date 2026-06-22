@@ -1,9 +1,10 @@
 """Guardian data types and decision vocabulary.
 
 Pure data (stdlib + dataclasses only): the decision constants, the immutable
-``GuardianEvent`` input, the ``GuardianDecision`` result, and the policy error.
-Moved verbatim out of ``core.py`` (Phase A1 of the core decomposition,
-design/graph-engine node 31).
+``GuardianEvent`` input, the ``GuardianDecision`` result + its audit record, and
+the policy error. Moved out of ``core.py`` (Phase A1, design/graph-engine node
+31) and typed to the strict-engines bar (node 32 §0): no ``Any`` — heterogeneous
+tool args are ``object`` (callers must narrow), the audit record is a TypedDict.
 """
 
 from __future__ import annotations
@@ -12,13 +13,36 @@ import os
 import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TypedDict
 
 DECISION_ALLOW = "allow"
 DECISION_ALLOW_WITH_AUDIT = "allow_with_audit"
 DECISION_REQUIRE_APPROVAL = "require_approval"
 DECISION_BLOCK = "block"
 DECISION_BLOCK_PENDING_HEARTGATE = "block_pending_heartgate"
+
+
+class AuditRecord(TypedDict):
+    """One JSON-serialized Guardian decision line (``<log root>/uacp/guardian.jsonl``)."""
+
+    ts: int
+    policy_version: str
+    uacp_run_id: str
+    uacp_phase: str
+    runtime: str
+    adapter: str
+    tool_provider: str
+    tool_name: str
+    category: str
+    decision: str
+    reason: str
+    workspace: str
+    authority_artifact: str
+    side_effects: object
+    audit_artifact: str
+    runtime_commit: str
+    uacp_commit: str
+    evidence: list[str]
 
 
 @dataclass(frozen=True)
@@ -28,7 +52,9 @@ class GuardianEvent:
     event_type: str
     tool_provider: str
     tool_name: str
-    tool_args: Mapping[str, Any] = field(default_factory=dict)
+    # Tool arguments are heterogeneous (str / list / nested) — `object`, not `Any`,
+    # so every consumer must narrow (isinstance) before use.
+    tool_args: Mapping[str, object] = field(default_factory=dict[str, object])
     task_id: str = ""
     session_id: str = ""
     tool_call_id: str = ""
@@ -37,7 +63,7 @@ class GuardianEvent:
     uacp_phase: str = ""
     policy_version: str = ""
     declared_authority: str = ""
-    declared_side_effects: Any = None
+    declared_side_effects: object = None
     kanban_task_id: str = ""
     kanban_run_id: str = ""
     filesystem_guard_verified: bool = False
@@ -48,7 +74,7 @@ class GuardianDecision:
     decision: str
     category: str
     reason: str
-    evidence: list[str] = field(default_factory=list)
+    evidence: list[str] = field(default_factory=list[str])
     audit_required: bool = False
 
     @property
@@ -61,7 +87,7 @@ class GuardianDecision:
             "message": f"UACP Guardian blocked {self.category}: {self.reason}",
         }
 
-    def to_audit_record(self, event: GuardianEvent, *, audit_artifact: str = "") -> dict[str, Any]:
+    def to_audit_record(self, event: GuardianEvent, *, audit_artifact: str = "") -> AuditRecord:
         return {
             "ts": int(time.time()),
             "policy_version": event.policy_version,

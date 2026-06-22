@@ -47,12 +47,24 @@ module names.
 Guardian/Heartgate-class rule), **SHOULD** (strong default; deviate only with a recorded reason),
 **MAY** (allowed) — matching how the rest of the bundle states contracts.
 
-**Enforcement (tooling-imposed rigor, per D40).** PEP 8 *layout* is already enforced by `ruff`
-(`E` = pycodestyle) on the engines package. PEP 8 *naming* (CapWords classes, snake_case functions,
-UPPER_SNAKE constants) **SHOULD** be mechanized by adding ruff's **`N`** ruleset (`pep8-naming`) to
-the clean-path lint scope, so the standard is CI rather than prose. (`N` is not yet in `select`;
-enabling it lights up the legacy tree, so it is its own small step — extend the legacy
-`per-file-ignores` to relax `N` there, enforce it on `engines/` + `tests/e2e/`.)
+**Enforcement (tooling-imposed rigor, per D40) — wired in CI** (`.github/workflows/ci.yml`), three
+mechanized gates on the clean engine paths:
+
+- **PEP 8 layout** — `ruff` (`E`/`F`/`I`/`UP`/`B`) on `engines/` + `tests/e2e/`.
+- **PEP 8 naming** — `ruff` **`N`** (`pep8-naming`) is in `select`; the legacy tree is relaxed via
+  `per-file-ignores` (and the pre-existing `engines/oracle` `*Unavailable` exceptions grandfather
+  `N818` only). New engine code is held to full `N`.
+- **Type safety (PEP 484)** — **`pyright`** runs in CI (the `types` job). Strict mode is **scoped**
+  (`pyproject [tool.pyright].strict`) to the freshly-extracted, fully-typed engine packages
+  (`engines/guardian`, `engines/domain/paths.py` today); the legacy tree stays `basic`. **Grow the
+  strict list as each package is extracted and typed** (A2 `io`, A3 `heartgate`, …).
+
+**Type-safety rules — strict engine code MUST.** No explicit **`Any`** (the "JavaScript types"
+failure mode — a type the checker cannot verify): heterogeneous data is **`object`** (callers narrow
+with `isinstance`); a structured record is a **`TypedDict`** (e.g. the Guardian audit record); a
+loosely-typed external blob (a config table) is modelled by a `TypedDict` and **`cast` once at the
+boundary**, so field access downstream is precise rather than `Any`-propagating. Annotations are
+runtime-inert, so typing a *pure move* stays behavior-preserving — the test suite is the guard.
 
 ## 1. Module layout within an engine/gate subpackage
 

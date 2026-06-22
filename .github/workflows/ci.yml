@@ -52,3 +52,29 @@ jobs:
 
       - name: Run tests
         run: pytest tests/ -q
+
+  types:
+    name: pyright (strict engines)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      # Install the package so pyright resolves real dependency types (e.g.
+      # pydantic's UacpConfig from config.py), then pyright itself.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+          pip install pyright
+
+      # Strict type-checking is scoped (pyproject [tool.pyright].strict) to the
+      # freshly-extracted, fully-typed engine packages; the legacy tree stays
+      # basic. Grow this path list as each package is extracted and typed.
+      - name: Pyright (strict-scoped engines)
+        run: pyright skills/uacp-core/scripts/engines/guardian skills/uacp-core/scripts/engines/domain/paths.py

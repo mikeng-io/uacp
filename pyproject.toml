@@ -85,9 +85,15 @@ extraPaths = [
     "runtime-adapters/hermes/plugins/uacp_guardian",
 ]
 pythonVersion = "3.13"
-# Basic mode repo-wide (the legacy tree is largely untyped). Strict typing is scoped to
-# the clean engines package as a dedicated follow-up (the type-safety gate), not here.
+# Basic mode repo-wide (the legacy tree is largely untyped).
 typeCheckingMode = "basic"
+# Strict typing is scoped to the freshly-extracted engine packages — clean code is held
+# to the high bar, legacy stays basic until it is touched (mirrors the ruff strategy).
+# Grow this list as each package is extracted/cleaned (A2 io, A3 heartgate, ...).
+strict = [
+    "skills/uacp-core/scripts/engines/guardian",
+    "skills/uacp-core/scripts/engines/domain/paths.py",
+]
 
 [tool.ruff]
 target-version = "py313"
@@ -96,7 +102,7 @@ line-length = 100
 [tool.ruff.lint]
 # Sensible default ruleset: pyflakes (F), pycodestyle errors (E),
 # isort (I), pyupgrade (UP), flake8-bugbear (B).
-select = ["E", "F", "I", "UP", "B"]
+select = ["E", "F", "I", "UP", "B", "N"]
 
 # Strict-vs-lenient strategy
 # -------------------------
@@ -110,26 +116,30 @@ select = ["E", "F", "I", "UP", "B"]
 # tightened incrementally later. CI scopes `ruff check` to the clean paths only,
 # so legacy findings never gate the build.
 [tool.ruff.lint.per-file-ignores]
-# Legacy kernel + adapter modules: pyflakes (F) only; silence E/I/UP/B.
-"skills/uacp-core/scripts/core.py" = ["E", "I", "UP", "B"]
-"skills/uacp-core/scripts/filesystem.py" = ["E", "I", "UP", "B"]
+# Legacy kernel + adapter modules: pyflakes (F) only; silence E/I/UP/B/N.
+"skills/uacp-core/scripts/core.py" = ["E", "I", "UP", "B", "N"]
+"skills/uacp-core/scripts/filesystem.py" = ["E", "I", "UP", "B", "N"]
 # Neutral governed-tool layer: handlers + tool-spec registry moved verbatim out
 # of the (already-relaxed) hermes adapter so an MCP server can share them. The
 # governed-tool descriptions/schemas are carried byte-identically (the Hermes
 # register() output must stay wire-identical), so the long-line/style findings
 # cannot be reflowed away — relax E/I/UP/B (keep pyflakes F) like core.py.
-"skills/uacp-core/scripts/governed_handlers.py" = ["E", "I", "UP", "B"]
-"skills/uacp-core/scripts/tool_specs.py" = ["E", "I", "UP", "B"]
-"skills/uacp-core/scripts/contracts.py" = ["E", "I", "UP", "B"]
-"skills/uacp-state/scripts/state_machine.py" = ["E", "I", "UP", "B"]
-"skills/uacp-state/scripts/state.py" = ["E", "I", "UP", "B"]
-"skills/uacp-web/scripts/web_backend.py" = ["E", "I", "UP", "B"]
-"skills/scripts/**" = ["E", "I", "UP", "B"]
+"skills/uacp-core/scripts/governed_handlers.py" = ["E", "I", "UP", "B", "N"]
+"skills/uacp-core/scripts/tool_specs.py" = ["E", "I", "UP", "B", "N"]
+"skills/uacp-core/scripts/contracts.py" = ["E", "I", "UP", "B", "N"]
+"skills/uacp-state/scripts/state_machine.py" = ["E", "I", "UP", "B", "N"]
+"skills/uacp-state/scripts/state.py" = ["E", "I", "UP", "B", "N"]
+"skills/uacp-web/scripts/web_backend.py" = ["E", "I", "UP", "B", "N"]
+"skills/scripts/**" = ["E", "I", "UP", "B", "N"]
 # Legacy hermes runtime adapter + repo maintenance scripts.
-"runtime-adapters/**" = ["E", "I", "UP", "B"]
-"scripts/**" = ["E", "I", "UP", "B"]
+"runtime-adapters/**" = ["E", "I", "UP", "B", "N"]
+"scripts/**" = ["E", "I", "UP", "B", "N"]
 # Existing (non-e2e) test suites predate ruff; relax the same way.
-"tests/unit/**" = ["E", "I", "UP", "B"]
-"tests/integration/**" = ["E", "I", "UP", "B"]
-"tests/security/**" = ["E", "I", "UP", "B"]
-"tests/conftest.py" = ["E", "I", "UP", "B"]
+"tests/unit/**" = ["E", "I", "UP", "B", "N"]
+"tests/integration/**" = ["E", "I", "UP", "B", "N"]
+"tests/security/**" = ["E", "I", "UP", "B", "N"]
+"tests/conftest.py" = ["E", "I", "UP", "B", "N"]
+# Oracle exception names predate the N (pep8-naming) rule: grandfather only N818
+# (the "…Error" suffix) on the existing `*Unavailable` exceptions — renaming them
+# touches every raise/except site and is out of scope. New engine code is full-N.
+"skills/uacp-core/scripts/engines/oracle/**" = ["N818"]

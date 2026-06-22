@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import os
 from collections.abc import Mapping
-from typing import Any
 
 from .models import GuardianEvent
 
@@ -33,7 +32,7 @@ def infer_tool_provider(tool_name: str, explicit_provider: str = "") -> str:
 def make_event(
     *,
     tool_name: str,
-    args: Mapping[str, Any] | None = None,
+    args: Mapping[str, object] | None = None,
     event_type: str = "pre_tool_call",
     tool_provider: str = "",
     task_id: str = "",
@@ -43,7 +42,7 @@ def make_event(
     runtime: str = "hermes",
     adapter: str = "uacp_guardian",
 ) -> GuardianEvent:
-    tool_args = dict(args or {})
+    tool_args: dict[str, object] = dict(args) if args else {}
     provider = infer_tool_provider(tool_name, tool_provider)
     return GuardianEvent(
         runtime=runtime,

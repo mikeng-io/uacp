@@ -11,10 +11,9 @@ import json
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
 
 
-def write_audit_record(record: Mapping[str, Any], *, log_root: str | Path | None = None) -> Path:
+def write_audit_record(record: Mapping[str, object], *, log_root: str | Path | None = None) -> Path:
     default_root = Path(os.getenv("HERMES_HOME") or Path.home() / ".hermes") / "logs" / "uacp"
     root = Path(log_root) if log_root else Path(os.getenv("HERMES_UACP_LOG_ROOT") or default_root)
     root = root.expanduser()

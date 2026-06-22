@@ -1,19 +1,20 @@
 """The Guardian write-time gate: classify / contain / evaluate tool events.
 
-Moved verbatim out of ``core.py`` (Phase A1 of the core decomposition,
-design/graph-engine node 31). The ``Guardian`` classifies a ``GuardianEvent``
-against a loaded ``GuardianPolicy`` and returns an allow / allow_with_audit /
-require_approval / block ``GuardianDecision`` — including the path-driven
-governed-write blocks (D25) and the per-phase admissibility layer.
+Moved out of ``core.py`` (Phase A1, design/graph-engine node 31). The ``Guardian``
+classifies a ``GuardianEvent`` against a loaded ``GuardianPolicy`` and returns an
+allow / allow_with_audit / require_approval / block ``GuardianDecision`` —
+including the path-driven governed-write blocks (D25) and the per-phase
+admissibility layer. Typed to the strict-engines bar (node 32 §0).
 """
 
 from __future__ import annotations
 
 import fnmatch
 import os
+import re
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any
+from typing import TypedDict, cast
 
 from config import base_dir
 
@@ -60,15 +61,26 @@ _READONLY_CATEGORIES = frozenset(
 )
 
 
+class _StageConfig(TypedDict, total=False):
+    allowed_tools: list[str]
+    forbidden_tools: list[str]
+
+
+class _PhaseConfig(TypedDict, total=False):
+    stages: Mapping[str, _StageConfig]
+
+
 class Guardian:
     """Evaluate UACP Guardian events against a loaded policy."""
 
-    def __init__(self, policy: GuardianPolicy, *, phase_config: Mapping[str, Any] | None = None):
+    def __init__(self, policy: GuardianPolicy, *, phase_config: Mapping[str, object] | None = None):
         self.policy = policy
         # Phase 1: per-phase tool admissibility (Layer B). Loaded from
         # config/phase-transitions.yaml `stages.<phase>.allowed_tools` /
         # `forbidden_tools`. If absent, no Layer B restriction.
-        self._phase_config = dict(phase_config or {})
+        self._phase_config: _PhaseConfig = cast(
+            "_PhaseConfig", dict(phase_config) if phase_config else {}
+        )
 
     def evaluate(self, event: GuardianEvent) -> GuardianDecision:
         # pc_4: empty tool_name is a non-waivable block in all modes.
@@ -221,8 +233,8 @@ class Guardian:
         )
 
     def classify(self, event: GuardianEvent) -> str:
-        provider_map = self.policy.tool_provenance.get("classification_by_provider") or {}
-        provider_category = provider_map.get(event.tool_provider)
+        provider_map = self.policy.tool_provenance.get("classification_by_provider")
+        provider_category = provider_map.get(event.tool_provider) if provider_map else None
         if provider_category == "prefer_tool_classification_else_runtime_extension":
             if event.tool_name in self.policy.tool_classification:
                 return str(self.policy.tool_classification[event.tool_name])
@@ -271,8 +283,8 @@ class Guardian:
         return GuardianDecision(DECISION_BLOCK, category, reason, evidence, True)
 
     def _missing_context(self, event: GuardianEvent) -> list[str]:
-        missing = []
-        required = {
+        missing: list[str] = []
+        required: dict[str, object] = {
             "workspace": event.workspace,
             "uacp_run_id": event.uacp_run_id,
             "uacp_phase": event.uacp_phase,
@@ -286,9 +298,9 @@ class Guardian:
         return missing
 
     def _requires_filesystem_containment_categories(self) -> set[str]:
-        rule = self.policy.path_rules.get("protected_write_enforcement") or {}
-        required_for = rule.get("required_for") or []
-        return set(required_for)
+        rule = self.policy.path_rules.get("protected_write_enforcement")
+        required_for = rule.get("required_for") if rule else None
+        return set(required_for or [])
 
     def _category_has_governed_tool(self, category: str) -> bool:
         """True when the category is meant to be entered through a governed
@@ -319,7 +331,7 @@ class Guardian:
         phase = (event.uacp_phase or os.getenv("UACP_PHASE") or "").strip()
         if not phase:
             return None
-        stages = self._phase_config.get("stages") or {}
+        stages = self._phase_config.get("stages")
         if not isinstance(stages, Mapping):
             # Skeptic F5 remediation: malformed stages config does not crash
             # — Layer B is skipped, Layer A still applies, audit logs the issue.
@@ -338,9 +350,13 @@ class Guardian:
                 f"unknown uacp_phase value '{phase}' (not in declared stages)",
                 evidence + [f"phase={phase}", "phase_layer=unknown_phase"],
             )
-        stage = stages.get(phase) or {}
+        stage = stages.get(phase)
         if not isinstance(stage, Mapping):
             return None
+        # list(...) is defensive: a malformed scalar-string stage value would
+        # otherwise be substring-matched ("state" in "uacp_state_write") instead
+        # of list-membership-matched, flipping a block/allow. Coerce to a list of
+        # chars (as the pre-typing code did) so a scalar never passes the allowlist.
         forbidden = list(stage.get("forbidden_tools") or [])
         allowed = list(stage.get("allowed_tools") or [])
         if event.tool_name in forbidden:
@@ -376,7 +392,9 @@ class Guardian:
         return any(self._path_is_under_root(path) for path in self._extract_paths(event))
 
     def _extract_paths(self, event: GuardianEvent) -> list[str]:
-        args = event.tool_args or {}
+        # `or {}` is defensive: tool_args is typed non-None but an explicit
+        # GuardianEvent(tool_args=None) bypasses the dataclass default_factory.
+        args: Mapping[str, object] = event.tool_args or {}
         paths: list[str] = []
         context_paths: list[Path] = []
         for key in (
@@ -429,7 +447,9 @@ class Guardian:
             if isinstance(value, str) and _path_shaped(value):
                 paths.append(value)
             elif isinstance(value, list):
-                paths.extend(v for v in value if isinstance(v, str) and _path_shaped(v))
+                paths.extend(
+                    v for v in cast("list[object]", value) if isinstance(v, str) and _path_shaped(v)
+                )
         root_path = self.policy.uacp_root.resolve()
         root = str(root_path)
         uacp_env = os.getenv("UACP_ROOT") or root
@@ -439,13 +459,12 @@ class Guardian:
         # by omitting direct path metadata.
         for key in ("command", "code", "script", "args"):
             value = args.get(key)
-            text = (
-                value
-                if isinstance(value, str)
-                else " ".join(str(v) for v in value)
-                if isinstance(value, list)
-                else ""
-            )
+            if isinstance(value, str):
+                text = value
+            elif isinstance(value, list):
+                text = " ".join(str(v) for v in cast("list[object]", value))
+            else:
+                text = ""
             if not text:
                 continue
             expanded = (
@@ -467,7 +486,7 @@ class Guardian:
             # This is not a full shell parser; it intentionally catches obvious
             # relative UACP writes such as `touch state/x` from workspace=UACP_ROOT
             # or `touch uacp/state/x` from cwd=$HERMES_HOME.
-            for token in __import__("re").split(r"[\s;|&<>]+", compact):
+            for token in re.split(r"[\s;|&<>]+", compact):
                 token = token.strip("\"'")
                 if not token or token.startswith("-"):
                     continue
