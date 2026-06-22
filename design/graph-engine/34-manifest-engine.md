@@ -95,7 +95,7 @@ Each is a relocation of existing, tested code (same AST-identity + suite-green d
   `load_artifact`, `glob_in_workspace`). The `Loaded[T]` contract is the engine's I/O boundary.
 - `engines/domain/layout.py` — WHERE a document lives (path convention).
 - `engines/domain/schema.py` — the declarative SHAPE source (node 33); the door validates against it.
-- the Guardian gate — invoked on write (the `artifact.uacp` category hook, SA-A map).
+- the Guardian gate — invoked on write (after node 35's split: the `artifact.manifest` category hook for the 5 manifest roots; `artifact.uacp` stays for non-manifest knowledge/lessons/brainstorm, SA-A map).
 
 ## 5. The door API (read + write surface)
 

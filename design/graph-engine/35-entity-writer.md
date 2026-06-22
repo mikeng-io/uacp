@@ -32,7 +32,7 @@ edges:
 | As-built today | What the entity-writer adds |
 |---|---|
 | `uacp_artifact_write(content: str)` — raw blob | typed `create_<entity>(run_id, fields: dict)` — structured args |
-| only `yaml.safe_load` parse-validity (`filesystem._write_uacp_file`) | **validate-on-write**: `schema.validate(kind, doc)` (node 33) BEFORE persist; fail-closed |
+| only `yaml.safe_load` parse-validity (`filesystem._write_uacp_file`) | **validate-on-write**: shape-validate BEFORE persist, branched by format (YAML → `schema.validate`, node 33; markdown → structural validators, §2.4); fail-closed |
 | id is whatever the agent put in the blob | **mint** a stable id (D26: ULID, locked, duplicate-id rejected) |
 | no frontmatter/edge enforcement | OKF frontmatter + typed `edges:` with **provenance** (D23) emitted |
 | no index/graph update | **register** the `{type→path}` entry into the State manifest + feed projection |
@@ -121,8 +121,9 @@ existence — exactly the no-self-attestation invariant, enforced at the write b
 
 1. `entity_writer.py` skeleton + the pipeline scaffold (mint/layout/serialize/persist/register), no
    validation yet — behaviour-equivalent to today's `uacp_artifact_write` but typed.
-2. Wire **validate-on-write** (step 4) using node 33's schema.validate for ONE kind (e.g. scope),
-   prove it rejects a malformed doc (non-vacuous test) — the ratchet.
+2. Wire **validate-on-write** (step 4) for ONE YAML kind first (e.g. scope, via node 33's
+   `schema.validate`), prove it rejects a malformed doc (non-vacuous test) — the ratchet; the markdown
+   branch (intent/evidence_disposition → structural validators) lands as those kinds migrate.
 3. Add the path-scoped **`artifact.manifest`** category wiring (§3) — `allowed_tools=[<entity-writer>]`
    for the 5 manifest roots, leaving `artifact.uacp` = `uacp_artifact_write` for knowledge/lessons/
    brainstorm — so the typed writer is the only writer of manifest paths; make the raw blob path
