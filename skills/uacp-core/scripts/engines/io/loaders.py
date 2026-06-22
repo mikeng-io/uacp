@@ -219,6 +219,30 @@ def load_yaml_under_root(workspace: Path, rel: str) -> Loaded[Mapping[str, Any]]
     return Loaded(value=data)
 
 
+def load_text_under_root(workspace: Path, rel: str) -> Loaded[str]:
+    """Load a governed-base-relative (or absolute, contained) text file as a string.
+
+    The text counterpart to :func:`load_yaml_under_root` for MARKDOWN manifest
+    documents (e.g. ``proposals/{run_id}-intent.md`` and the verified-facts /
+    assumptions ``.md`` pairs) that are NOT YAML mappings. Resolves ``rel`` under
+    ``base_dir(workspace)`` (an absolute ``rel`` is taken as-is), containment-checks
+    it, and reads it. Never raises — failures come back as ``error`` (path-escape /
+    not-found / read). The calling gate maps ``error`` to its blocker list.
+    """
+    try:
+        candidate = Path(rel)
+        base = base_dir(workspace).resolve()
+        resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+        if resolved != base and base not in resolved.parents:
+            return Loaded(error=f"artifact path escapes UACP root: {rel}")
+        if not resolved.exists() or not resolved.is_file():
+            return Loaded(error=f"artifact not found: {rel}")
+        text = resolved.read_text(encoding="utf-8")
+    except Exception as exc:  # defensive: resolution/read must not raise
+        return Loaded(error=f"failed to read {rel}: {exc}")
+    return Loaded(value=text)
+
+
 def load_scope(workspace: Path, rel: str) -> Loaded[Scope]:
     """Load a ``uacp.scope`` artifact as a typed :class:`Scope` model."""
     loaded = load_artifact(workspace, rel)
