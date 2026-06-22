@@ -26,7 +26,7 @@ from typing import Any
 import yaml
 
 from config import base_dir
-from engines.domain import layout
+from engines.domain import layout, schema
 from engines.domain.artifact_hashes import record_hash
 from engines.manifest.governed_writers import _resolve_uacp_path, _write_uacp_file
 
@@ -60,7 +60,14 @@ def create_entity(
     doc: dict[str, Any] = {"kind": kind, **fields}
     content = yaml.safe_dump(doc, sort_keys=False, allow_unicode=True)
 
-    # 3. VALIDATE (shape) — C5.3 (deferred): YAML -> schema.validate; markdown -> structural.
+    # 3. VALIDATE (shape) — the net-new gate, RATCHETED (node 33 / node 35 §5): enforce
+    # shape only for kinds with a registered schema, so the ratchet grows per-kind without
+    # blocking creation of not-yet-schematised kinds. YAML -> schema.validate; markdown ->
+    # structural validators (C5.6). Reject on any violation: NO write.
+    if schema.has_schema(kind):
+        shape_errors = schema.validate(kind, doc)
+        if shape_errors:
+            return _err(f"validate-on-write rejected {kind}: " + "; ".join(shape_errors))
 
     # 4. PERSIST + watermark (FAIL-CLOSED, replicating the uacp_artifact_write envelope).
     base = base_dir(Path(workspace))

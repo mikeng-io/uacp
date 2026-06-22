@@ -19,7 +19,12 @@ def test_create_entity_persists_watermarks_and_registers(tmp_path):
         str(tmp_path),
         run_id,
         "uacp.scope",
-        {"run_id": run_id, "write_paths": ["plans/x.yaml"]},
+        {
+            "run_id": run_id,
+            "write_paths": ["plans/x.yaml"],
+            "blast_radius": "low",
+            "rollback_path": "git revert HEAD",
+        },
     )
     assert res.get("ok") is True, res
     rel = res["path"]
@@ -40,6 +45,25 @@ def test_create_entity_persists_watermarks_and_registers(tmp_path):
         (tmp_path / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text(encoding="utf-8")
     )
     assert manifest["artifacts"]["scope"] == rel
+
+
+def test_create_entity_validate_on_write_rejects_malformed_scope(tmp_path):
+    # A scope missing required blast_radius + rollback_path is shape-invalid -> REJECTED,
+    # with NO write and NO registration (the net-new validate-on-write gate).
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {"run_id": run_id, "write_paths": ["plans/x.yaml"]},
+    )
+    assert "error" in res and "validate-on-write rejected" in res["error"]
+    # Non-vacuity: break the gate and this fires — nothing persisted, nothing registered.
+    assert not (tmp_path / ".uacp" / "plans" / f"{run_id}-scope.yaml").exists()
+    manifest = yaml.safe_load(
+        (tmp_path / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text(encoding="utf-8")
+    )
+    assert "scope" not in (manifest.get("artifacts") or {})
 
 
 def test_create_entity_unknown_kind_errors(tmp_path):
