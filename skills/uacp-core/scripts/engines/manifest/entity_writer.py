@@ -50,24 +50,27 @@ def create_entity(
         rel = layout.relpath(kind, run_id=run_id, **ctx)
     except KeyError as exc:
         return _err(str(exc))
-    # C5.2 supports single-instance YAML kinds (the scope ratchet); markdown is C5.6.
-    if fmt != layout.YAML:
-        return _err(
-            f"entity-writer C5.2 supports YAML kinds only; {kind} is {fmt} (markdown -> C5.6)"
-        )
-
-    # 2. SERIALIZE — the OKF doc carries the `kind` const + the typed fields.
-    doc: dict[str, Any] = {"kind": kind, **fields}
-    content = yaml.safe_dump(doc, sort_keys=False, allow_unicode=True)
-
-    # 3. VALIDATE (shape) — the net-new gate, RATCHETED (node 33 / node 35 §5): enforce
-    # shape only for kinds with a registered schema, so the ratchet grows per-kind without
-    # blocking creation of not-yet-schematised kinds. YAML -> schema.validate; markdown ->
-    # structural validators (C5.6). Reject on any violation: NO write.
-    if schema.has_schema(kind):
-        shape_errors = schema.validate(kind, doc)
-        if shape_errors:
-            return _err(f"validate-on-write rejected {kind}: " + "; ".join(shape_errors))
+    # 2. SERIALIZE + 3. VALIDATE (shape) — branched by layout format (node 35 §2.4).
+    if fmt == layout.YAML:
+        # The OKF doc carries the `kind` const + the typed fields.
+        doc: dict[str, Any] = {"kind": kind, **fields}
+        content = yaml.safe_dump(doc, sort_keys=False, allow_unicode=True)
+        # VALIDATE-ON-WRITE, RATCHETED (node 33 / node 35 §5): enforce shape only for kinds with
+        # a registered schema, so the ratchet grows per-kind without blocking creation of
+        # not-yet-schematised kinds. Reject on any violation: NO write.
+        if schema.has_schema(kind):
+            shape_errors = schema.validate(kind, doc)
+            if shape_errors:
+                return _err(f"validate-on-write rejected {kind}: " + "; ".join(shape_errors))
+    elif fmt == layout.MARKDOWN:
+        # OKF markdown: `kind` frontmatter + the caller-provided body. Write-time STRUCTURAL
+        # validation (required sections / paired files) is the gate's job — the carved markdown
+        # validators (engines.manifest.validators) run on the persisted file at the transition
+        # gate; a content-based write-time structural check is a deferred refinement.
+        body = str(fields.get("body", ""))
+        content = f"---\nkind: {kind}\n---\n\n{body}"
+    else:
+        return _err(f"entity-writer: unsupported layout format {fmt!r} for {kind}")
 
     # 4. PERSIST + watermark (FAIL-CLOSED, replicating the uacp_artifact_write envelope).
     base = base_dir(Path(workspace))

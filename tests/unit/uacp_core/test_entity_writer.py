@@ -76,11 +76,23 @@ def test_create_entity_unknown_kind_errors(tmp_path):
     )
 
 
-def test_create_entity_markdown_kind_deferred_to_c56(tmp_path):
-    # uacp.intent is a MARKDOWN kind (layout.fmt 'markdown'); the markdown branch is C5.6.
+def test_create_entity_markdown_kind_writes_frontmatter_and_body(tmp_path):
+    # uacp.intent is a MARKDOWN kind: the entity-writer serializes `kind` frontmatter + the
+    # caller-provided body and persists+registers it (structural section validation is the
+    # transition gate's job, on the persisted file — C5.6).
     run_id = _init_run(tmp_path)
-    res = create_entity(str(tmp_path), run_id, "uacp.intent", {"run_id": run_id})
-    assert "error" in res and "markdown" in res["error"].lower()
+    body = "## Problem\n\nx\n\n## Goal\n\ny\n"
+    res = create_entity(str(tmp_path), run_id, "uacp.intent", {"run_id": run_id, "body": body})
+    assert res.get("ok") is True, res
+    rel = res["path"]
+    assert rel == f"proposals/{run_id}-intent.md"
+    content = (tmp_path / ".uacp" / rel).read_text(encoding="utf-8")
+    assert content.startswith("---\nkind: uacp.intent\n---")
+    assert "## Problem" in content and "## Goal" in content
+    manifest = yaml.safe_load(
+        (tmp_path / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text(encoding="utf-8")
+    )
+    assert manifest["artifacts"]["intent"] == rel
 
 
 def test_create_entity_multi_instance_does_not_overwrite(tmp_path):
