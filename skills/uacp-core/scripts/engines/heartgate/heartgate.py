@@ -20,26 +20,27 @@ held to the full ruleset, shrinking these exceptions until both are gone.
 from __future__ import annotations
 
 import importlib.util
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any
 
 from config import base_dir, get_config
-from engines.domain.paths import resolve_uacp_root
-from engines.io import loaders as io_loaders
 from engines.artifact_integrity import validate_artifact_integrity
 from engines.base import run_all_engines
 from engines.domain.gate_rules import (
     PLAN_NOT_APPLICABLE_REQUIRED_FIELDS,
     PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS,
 )
+from engines.domain.paths import resolve_uacp_root
 from engines.domain.phase_transitions import (
     phase_transition_required_fields,
     stages_default,
 )
 from engines.io import load_phase_transitions
+from engines.io import loaders as io_loaders
 
-from .models import HeartgateDecision, HeartgateError
 from . import goal_driven
+from .models import HeartgateDecision, HeartgateError
 from .validators import adaptive_gates, coherence, phase_exit, plan_validation, ppv, run_registry
 from .validators.helpers import _is_safe_run_id  # re-exported by core; many internal uses
 
@@ -72,6 +73,7 @@ def _load_artifact_schemas(uacp_root: Path) -> dict[str, Any]:  # noqa: ARG001
     """
     try:
         from engines.domain.artifact_schema import artifact_schemas_dict
+
         return artifact_schemas_dict()
     except Exception:
         return {}
@@ -119,14 +121,17 @@ class Heartgate:
         self.artifact_schemas = _load_artifact_schemas(self.uacp_root)
 
     @classmethod
-    def load(cls, uacp_root: str | Path | None = None) -> "Heartgate":
+    def load(cls, uacp_root: str | Path | None = None) -> Heartgate:
         root = resolve_uacp_root(uacp_root)
         loaded = load_phase_transitions(root)
         if loaded.error is not None:
             raise HeartgateError(f"Heartgate config failed to load: {loaded.error}")
         raw = loaded.value
         if not isinstance(raw, dict):
-            raise HeartgateError(f"Heartgate config must be a YAML mapping: {root / 'config' / 'phase-transitions.yaml'}")
+            raise HeartgateError(
+                "Heartgate config must be a YAML mapping: "
+                f"{root / 'config' / 'phase-transitions.yaml'}"
+            )
         return cls(raw, uacp_root=root)
 
     def validate_transition(self, artifact: Mapping[str, Any]) -> HeartgateDecision:
@@ -216,7 +221,9 @@ class Heartgate:
         if blockers:
             return HeartgateDecision("block", "transition blocked", blockers, warnings)
         if declared_decision == "warn" or warnings:
-            return HeartgateDecision("warn", "transition passes with accepted warnings", [], warnings)
+            return HeartgateDecision(
+                "warn", "transition passes with accepted warnings", [], warnings
+            )
         return HeartgateDecision("pass", "transition passes", [], [])
 
     def validate_transition_file(self, path: str | Path) -> HeartgateDecision:
@@ -227,7 +234,9 @@ class Heartgate:
             raise HeartgateError("PyYAML is required to load transition artifact")
         artifact = yaml.safe_load(raw_path.read_text(encoding="utf-8"))
         if not isinstance(artifact, dict):
-            return HeartgateDecision("block", "transition artifact must be a YAML mapping", ["invalid artifact"])
+            return HeartgateDecision(
+                "block", "transition artifact must be a YAML mapping", ["invalid artifact"]
+            )
         return self.validate_transition(artifact)
 
     def validate_closure(self, run_id: str) -> HeartgateDecision:
@@ -273,9 +282,13 @@ class Heartgate:
                     warnings.append(line)
 
             if blockers:
-                return HeartgateDecision("block", "closure blocked by computed engines", blockers, warnings)
+                return HeartgateDecision(
+                    "block", "closure blocked by computed engines", blockers, warnings
+                )
             if warnings:
-                return HeartgateDecision("warn", "closure passes with engine warnings", [], warnings)
+                return HeartgateDecision(
+                    "warn", "closure passes with engine warnings", [], warnings
+                )
             return HeartgateDecision("pass", "closure passes all computed engines", [], [])
         except Exception as exc:  # defensive: a closure check must never crash the kernel
             return HeartgateDecision(
@@ -306,7 +319,9 @@ class Heartgate:
             kept.append(v)
         return kept
 
-    def _validate_heartgate_coherence(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
+    def _validate_heartgate_coherence(
+        self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]
+    ) -> None:
         coherence.validate_heartgate_coherence(self, artifact, blockers, warnings)
 
     def _artifact_path_exists(self, artifact_path: str) -> bool:
@@ -328,10 +343,14 @@ class Heartgate:
     def _heartgate_coherence_rule(self) -> Mapping[str, Any]:
         return coherence.heartgate_coherence_rule(self)
 
-    def _validate_heartgate_coherence_requirement(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_heartgate_coherence_requirement(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         coherence.validate_heartgate_coherence_requirement(self, artifact, blockers)
 
-    def _validate_phase_exit_invariants(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_phase_exit_invariants(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         """Enforce phase_exit_invariants from config (A3.1: delegates to
         validators.phase_exit; logic + tests unchanged)."""
         phase_exit.validate_phase_exit_invariants(
@@ -342,7 +361,9 @@ class Heartgate:
             blockers=blockers,
         )
 
-    def _validate_artifact_integrity(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_artifact_integrity(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         """Hardening #6: run the artifact-integrity (SHA-256 watermark) check at
         EVERY transition, not only at terminal closure, so an out-of-band tamper of
         a recorded artifact is caught at the boundary instead of being swapped back
@@ -356,7 +377,9 @@ class Heartgate:
             if v.severity == "block":
                 blockers.append(f"{v.code}: {v.message}")
 
-    def _validate_adaptive_proposal_package_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_adaptive_proposal_package_gate(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         adaptive_gates.validate_adaptive_proposal_package_gate(self, artifact, blockers)
 
     def _run_track(self, run_id: str) -> str:
@@ -371,18 +394,20 @@ class Heartgate:
     def _triage_track(self, run_id: str) -> str:
         return goal_driven.triage_track(self, run_id)
 
-    def _validate_convergence_budget_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_convergence_budget_gate(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         goal_driven.validate_convergence_budget_gate(self, artifact, blockers)
 
     def _load_checkpoint_manifest(self, run_id: str) -> list[Mapping[str, Any]]:
         return goal_driven.load_checkpoint_manifest(self, run_id)
 
-    def _validate_goal_driven_checkpoint_gate(
-        self, run_id: str, blockers: list[str]
-    ) -> bool:
+    def _validate_goal_driven_checkpoint_gate(self, run_id: str, blockers: list[str]) -> bool:
         return goal_driven.validate_goal_driven_checkpoint_gate(self, run_id, blockers)
 
-    def _validate_adaptive_plan_package_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_adaptive_plan_package_gate(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         adaptive_gates.validate_adaptive_plan_package_gate(self, artifact, blockers)
 
     def _validate_plan_na(self, artifact: str, label: str, item: Any, blockers: list[str]) -> None:
@@ -393,16 +418,21 @@ class Heartgate:
             if item.get(field_name) in (None, ""):
                 blockers.append(f"adaptive_plan_package_gate: {label} missing {field_name}")
 
-    def _validate_package_na(self, artifact: str, label: str, item: Any, blockers: list[str]) -> None:
+    def _validate_package_na(
+        self, artifact: str, label: str, item: Any, blockers: list[str]
+    ) -> None:
         if not isinstance(item, Mapping):
-            blockers.append(f"adaptive_proposal_package_gate: {label} in {artifact} must be a mapping")
+            blockers.append(
+                f"adaptive_proposal_package_gate: {label} in {artifact} must be a mapping"
+            )
             return
         for field_name in PROPOSAL_NOT_APPLICABLE_REQUIRED_FIELDS:
             if item.get(field_name) in (None, ""):
                 blockers.append(f"adaptive_proposal_package_gate: {label} missing {field_name}")
 
-
-    def _load_yaml_under_root(self, rel_path: str, blockers: list[str], label: str) -> Mapping[str, Any] | None:
+    def _load_yaml_under_root(
+        self, rel_path: str, blockers: list[str], label: str
+    ) -> Mapping[str, Any] | None:
         # Adapter (A2): the load logic now lives in engines/io under the Loaded[T]
         # contract; this maps a Loaded error onto the gate's blocker list,
         # preserving the exact messages. The yaml-None guard stays here — core
@@ -424,8 +454,9 @@ class Heartgate:
         except Exception:
             return False
 
-
-    def _offline_validate_artifacts(self, rel_paths: list[str], blockers: list[str], label: str) -> None:
+    def _offline_validate_artifacts(
+        self, rel_paths: list[str], blockers: list[str], label: str
+    ) -> None:
         """Run the canonical artifact validator in-process for runtime gates.
 
         Heartgate performs transition-time checks; the offline validator owns the
@@ -435,7 +466,9 @@ class Heartgate:
         """
         validator_path = self.uacp_root / "scripts" / "validate_uacp_artifacts.py"
         if not validator_path.exists():
-            blockers.append(f"{label}: validator script missing: scripts/validate_uacp_artifacts.py")
+            blockers.append(
+                f"{label}: validator script missing: scripts/validate_uacp_artifacts.py"
+            )
             return
         try:
             spec = importlib.util.spec_from_file_location("uacp_validate_runtime", validator_path)
@@ -465,7 +498,9 @@ class Heartgate:
                 kind = obj.get("kind", "")
                 module.validate_finding_states(path, obj, issues)
                 if kind == "uacp.phase_transition":
-                    module.validate_phase_transition(path, obj, phase_config, issues, root=self.uacp_root)
+                    module.validate_phase_transition(
+                        path, obj, phase_config, issues, root=self.uacp_root
+                    )
                 elif kind == "uacp.phase_intent_verification_contract":
                     module.validate_piv_contract(path, obj, issues, root=self.uacp_root)
                 elif kind == "uacp.execution_checkpoint":
@@ -477,7 +512,9 @@ class Heartgate:
                 elif kind == "uacp.verify_resolve_readiness":
                     module.validate_verify_resolve_readiness(path, obj, issues, root=self.uacp_root)
                 elif kind == "uacp.resolve_package":
-                    module.validate_resolve_package_selection(path, obj, issues, root=self.uacp_root)
+                    module.validate_resolve_package_selection(
+                        path, obj, issues, root=self.uacp_root
+                    )
                 elif kind == "uacp.resolve_closure":
                     module.validate_resolve_closure(path, obj, issues, root=self.uacp_root)
             for issue in issues:
@@ -486,7 +523,9 @@ class Heartgate:
         except Exception as exc:
             blockers.append(f"{label}: validator execution failed: {type(exc).__name__}: {exc}")
 
-    def _validate_adaptive_execute_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_adaptive_execute_evidence_gate(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         adaptive_gates.validate_adaptive_execute_evidence_gate(self, artifact, blockers)
 
     def _validate_goal_driven_closure_gate(self, run_id: str, blockers: list[str]) -> bool:
@@ -498,10 +537,14 @@ class Heartgate:
     def _run_goal_id(self, run_id: str) -> str:
         return goal_driven.run_goal_id(self, run_id)
 
-    def _validate_adaptive_verify_evidence_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_adaptive_verify_evidence_gate(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         adaptive_gates.validate_adaptive_verify_evidence_gate(self, artifact, blockers)
 
-    def _validate_adaptive_resolve_closure_gate(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_adaptive_resolve_closure_gate(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         adaptive_gates.validate_adaptive_resolve_closure_gate(self, artifact, blockers)
 
     def _ppv_rule(self) -> Mapping[str, Any]:
@@ -514,7 +557,7 @@ class Heartgate:
         """Phase 2.3: TRIAGE->PROPOSE requires proposals/{run_id}-intent.md
         with the four required sections.
         """
-        schema = (self.artifact_schemas.get("intent") or {})
+        schema = self.artifact_schemas.get("intent") or {}
         required_transition = str(schema.get("required_for_transition") or "")
         if not required_transition:
             return
@@ -541,6 +584,7 @@ class Heartgate:
         # frontmatter delimited by `---` at the top of the file.
         required_sections = list(schema.get("required_sections") or [])
         import re as _re
+
         lines = text.splitlines()
         # Detect leading YAML frontmatter and skip it entirely.
         skip_until = 0
@@ -575,12 +619,14 @@ class Heartgate:
             if section not in present:
                 blockers.append(f"intent doc missing required section: '{section}'")
 
-    def _validate_scope_artifact(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
+    def _validate_scope_artifact(
+        self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]
+    ) -> None:
         """Phase 2.1: PLAN->EXECUTE requires plans/{run_id}-scope.yaml.
         Validates required fields, cross-checks write_paths against Layer B
         allowed_tools (pc_p1_gov_2).
         """
-        schema = (self.artifact_schemas.get("scope") or {})
+        schema = self.artifact_schemas.get("scope") or {}
         required_transition = str(schema.get("required_for_transition") or "")
         if not required_transition:
             return
@@ -608,7 +654,7 @@ class Heartgate:
         if not isinstance(data, Mapping):
             blockers.append("scope artifact must be a YAML mapping")
             return
-        for field_name in (schema.get("required_fields") or []):
+        for field_name in schema.get("required_fields") or []:
             if field_name not in data:
                 blockers.append(f"scope artifact missing required field: {field_name}")
         # Cross-check write_paths against EXECUTE Layer B (pc_p1_gov_2).
@@ -624,10 +670,11 @@ class Heartgate:
         # no_writes_intended sentinel that the scope author has acknowledged.
         if len(write_paths) == 0 and not bool(data.get("no_writes_intended")):
             blockers.append(
-                "scope.write_paths is empty (write authority cannot be inferred from absence; either declare at least one path or set 'no_writes_intended: true')"
+                "scope.write_paths is empty (write authority cannot be inferred from absence; "
+                "either declare at least one path or set 'no_writes_intended: true')"
             )
             return
-        execute_stage = (self.stages.get("execute") or {})
+        execute_stage = self.stages.get("execute") or {}
         allowed_tools = list((execute_stage or {}).get("allowed_tools") or [])
         tool_path_capabilities = self._tool_path_capabilities()
         # SKEP-008 remediation: a positive prefix match is not enough — some
@@ -662,10 +709,13 @@ class Heartgate:
                 reachable = True
             if not reachable:
                 blockers.append(
-                    f"scope.write_paths cross-check: '{wp_str}' is not reachable by any execute-phase allowed_tool"
+                    f"scope.write_paths cross-check: '{wp_str}' is not reachable "
+                    "by any execute-phase allowed_tool"
                 )
 
-    def _self_patch_authorizes_path(self, scope: Mapping[str, Any], write_path: str, blockers: list[str]) -> bool:
+    def _self_patch_authorizes_path(
+        self, scope: Mapping[str, Any], write_path: str, blockers: list[str]
+    ) -> bool:
         """Narrow bootstrap escape hatch for UACP self-repair paths.
 
         This does not make terminal/patch a general governed writer. It only lets
@@ -675,20 +725,37 @@ class Heartgate:
         auth = scope.get("self_patch_write_authority")
         if not isinstance(auth, Mapping) or not bool(auth.get("enabled")):
             return False
-        for field_name in ("reason", "authority_artifact", "owner", "rollback_path", "verification_obligations"):
+        for field_name in (
+            "reason",
+            "authority_artifact",
+            "owner",
+            "rollback_path",
+            "verification_obligations",
+        ):
             if auth.get(field_name) in (None, "", []):
                 blockers.append(f"self_patch_write_authority missing {field_name}")
                 return False
         obligations = auth.get("verification_obligations")
-        if not isinstance(obligations, list) or not all(isinstance(item, str) and item.strip() for item in obligations):
-            blockers.append("self_patch_write_authority.verification_obligations must be a non-empty list of strings")
+        if not isinstance(obligations, list) or not all(
+            isinstance(item, str) and item.strip() for item in obligations
+        ):
+            blockers.append(
+                "self_patch_write_authority.verification_obligations must be a "
+                "non-empty list of strings"
+            )
             return False
-        allowed = auth.get("allowed_prefixes") or ["skills/devops/uacp/", "scripts/", "runtime-adapters/"]
+        allowed = auth.get("allowed_prefixes") or [
+            "skills/devops/uacp/",
+            "scripts/",
+            "runtime-adapters/",
+        ]
         if not isinstance(allowed, list):
             blockers.append("self_patch_write_authority.allowed_prefixes must be a list")
             return False
         safe_prefixes = {"skills/devops/uacp/", "scripts/", "runtime-adapters/"}
-        cleaned = [str(prefix) for prefix in allowed if isinstance(prefix, str) and prefix in safe_prefixes]
+        cleaned = [
+            str(prefix) for prefix in allowed if isinstance(prefix, str) and prefix in safe_prefixes
+        ]
         if not cleaned:
             blockers.append("self_patch_write_authority has no safe allowed_prefixes")
             return False
@@ -733,7 +800,11 @@ class Heartgate:
             if not isinstance(tool, str) or tool in metadata_keys:
                 continue
             if isinstance(prefixes, list):
-                cleaned = [str(p) for p in prefixes if isinstance(p, str) and str(p).strip() not in forbidden_prefixes]
+                cleaned = [
+                    str(p)
+                    for p in prefixes
+                    if isinstance(p, str) and str(p).strip() not in forbidden_prefixes
+                ]
             elif isinstance(prefixes, str) and prefixes.strip() not in forbidden_prefixes:
                 cleaned = [prefixes]
             else:
@@ -742,12 +813,14 @@ class Heartgate:
                 result[tool] = cleaned
         return result
 
-    def _validate_evidence_dispositions(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
+    def _validate_evidence_dispositions(
+        self, artifact: Mapping[str, Any], blockers: list[str]
+    ) -> None:
         """Phase 2.2: VERIFY->RESOLVE requires verified-facts + assumptions
         pair files for each required cluster. Pending assumptions without
         owner/next_phase_obligation block.
         """
-        schema = (self.artifact_schemas.get("evidence_disposition") or {})
+        schema = self.artifact_schemas.get("evidence_disposition") or {}
         required_transition = str(schema.get("required_for_transition") or "")
         if not required_transition:
             return
@@ -768,6 +841,7 @@ class Heartgate:
         # silent zero-cluster passage is not acceptable for traceable state.
         handled_chain = artifact.get("handled_findings_chain") or []
         accepted_exc = artifact.get("accepted_exceptions") or []
+
         # Phase 3 R2 (SKEP-R1-002): escape-hatch presence is not sufficient;
         # entries must be non-empty mappings with the documented shape.
         # Garbage lists ([None, {}, ""]) no longer satisfy the escape hatch.
@@ -777,16 +851,28 @@ class Heartgate:
             ofid = c.get("original_finding_id") or c.get("finding_id")
             klass = c.get("handling_classification") or c.get("classification")
             return bool(ofid) and bool(klass)
+
         def _valid_exception(e: Any) -> bool:
             if not isinstance(e, Mapping):
                 return False
-            return bool(e.get("artifact_path")) and bool(e.get("owner")) and bool(e.get("rationale"))
-        handled_valid = isinstance(handled_chain, list) and any(_valid_handled(c) for c in handled_chain)
-        exc_valid = isinstance(accepted_exc, list) and any(_valid_exception(e) for e in accepted_exc)
+            return (
+                bool(e.get("artifact_path")) and bool(e.get("owner")) and bool(e.get("rationale"))
+            )
+
+        handled_valid = isinstance(handled_chain, list) and any(
+            _valid_handled(c) for c in handled_chain
+        )
+        exc_valid = isinstance(accepted_exc, list) and any(
+            _valid_exception(e) for e in accepted_exc
+        )
         has_escape_hatch = handled_valid or exc_valid
         if len(cluster_summary) == 0:
             if not has_escape_hatch:
-                blockers.append("evidence_disposition: cluster_summary is empty at VERIFY->RESOLVE (must declare at least one cluster or non-empty handled_findings_chain/accepted_exceptions)")
+                blockers.append(
+                    "evidence_disposition: cluster_summary is empty at VERIFY->RESOLVE "
+                    "(must declare at least one cluster or non-empty "
+                    "handled_findings_chain/accepted_exceptions)"
+                )
             return
         # Phase 3 R1 (SKEP-006): a run cannot pass VERIFY->RESOLVE by declaring
         # every cluster as not_applicable/deferred. At least one cluster must
@@ -798,7 +884,10 @@ class Heartgate:
                 if st and st not in {"not_applicable", "deferred"}:
                     non_na_count += 1
         if non_na_count == 0 and not has_escape_hatch:
-            blockers.append("evidence_disposition: all clusters are not_applicable/deferred and no handled_findings_chain or accepted_exceptions declared (silent skip not allowed)")
+            blockers.append(
+                "evidence_disposition: all clusters are not_applicable/deferred and no "
+                "handled_findings_chain or accepted_exceptions declared (silent skip not allowed)"
+            )
             return
         paired = schema.get("paired_paths") or {}
         facts_tmpl = str(paired.get("verified_facts") or "")
@@ -814,8 +903,8 @@ class Heartgate:
                 continue
             # Phase 2 F3 remediation: file existence is insufficient; each file
             # must contain at least the documented table header (Fact / Disposition).
-            cross = (self.artifact_schemas.get("cross_checks") or {})
-            minc = (cross.get("evidence_disposition_minimum_content") or {})
+            cross = self.artifact_schemas.get("cross_checks") or {}
+            minc = cross.get("evidence_disposition_minimum_content") or {}
             facts_req = str(minc.get("verified_facts_required_header_substring") or "")
             assump_req = str(minc.get("assumptions_required_header_substring") or "")
             for tmpl, label, required_substring in (
@@ -825,7 +914,9 @@ class Heartgate:
                 rel = tmpl.replace("{run_id}", run_id).replace("{cluster}", cluster_id)
                 p = self.governed_root / rel
                 if not p.exists():
-                    blockers.append(f"evidence_disposition: missing {label} for cluster '{cluster_id}': {rel}")
+                    blockers.append(
+                        f"evidence_disposition: missing {label} for cluster '{cluster_id}': {rel}"
+                    )
                     continue
                 if required_substring:
                     try:
@@ -834,10 +925,13 @@ class Heartgate:
                         body = ""
                     if required_substring not in body:
                         blockers.append(
-                            f"evidence_disposition: {label} file for cluster '{cluster_id}' is empty or missing required header '{required_substring}': {rel}"
+                            f"evidence_disposition: {label} file for cluster '{cluster_id}' "
+                            f"is empty or missing required header '{required_substring}': {rel}"
                         )
             # Inspect assumptions for unowned 'pending' rows.
-            assumptions_rel = assumptions_tmpl.replace("{run_id}", run_id).replace("{cluster}", cluster_id)
+            assumptions_rel = assumptions_tmpl.replace("{run_id}", run_id).replace(
+                "{cluster}", cluster_id
+            )
             assumptions_path = self.governed_root / assumptions_rel
             if assumptions_path.exists():
                 try:
@@ -884,7 +978,8 @@ class Heartgate:
                 # detection for tables that omit the canonical header).
                 if len(cells) != 4 and not column_count_warned:
                     blockers.append(
-                        f"evidence_disposition: cluster '{cluster_id}' assumptions table has unexpected column count ({len(cells)} != 4)"
+                        f"evidence_disposition: cluster '{cluster_id}' assumptions table "
+                        f"has unexpected column count ({len(cells)} != 4)"
                     )
                     column_count_warned = True
                 continue
@@ -895,7 +990,8 @@ class Heartgate:
             if len(cells) != 4:
                 if not column_count_warned:
                     blockers.append(
-                        f"evidence_disposition: cluster '{cluster_id}' assumptions table has unexpected column count ({len(cells)} != 4)"
+                        f"evidence_disposition: cluster '{cluster_id}' assumptions table "
+                        f"has unexpected column count ({len(cells)} != 4)"
                     )
                     column_count_warned = True
                 continue
@@ -904,22 +1000,25 @@ class Heartgate:
             next_obl = cells[3]
             if disposition == "pending" and (not owner or not next_obl):
                 blockers.append(
-                    f"evidence_disposition: cluster '{cluster_id}' has unowned 'pending' assumption: {cells[0][:60]}"
+                    f"evidence_disposition: cluster '{cluster_id}' has unowned "
+                    f"'pending' assumption: {cells[0][:60]}"
                 )
         # If the file had table-like rows but no canonical header was ever seen,
         # the table is structurally malformed for the disposition contract.
         if saw_pipe_row and state == 0 and not column_count_warned:
             blockers.append(
-                f"evidence_disposition: cluster '{cluster_id}' assumptions table missing canonical header '| Assumption | Disposition | Owner | Next-phase obligation |'"
+                f"evidence_disposition: cluster '{cluster_id}' assumptions table "
+                "missing canonical header "
+                "'| Assumption | Disposition | Owner | Next-phase obligation |'"
             )
 
     def _plan_validation_gate_rule(self) -> Mapping[str, Any]:
         return plan_validation.plan_validation_gate_rule(self)
 
-    def _validate_plan_validation_gate(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str] | None = None) -> None:
+    def _validate_plan_validation_gate(
+        self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str] | None = None
+    ) -> None:
         plan_validation.validate_plan_validation_gate(self, artifact, blockers, warnings)
-
-
 
     @staticmethod
     def _canon_write_path(p: Any) -> str:
@@ -930,14 +1029,16 @@ class Heartgate:
     def _run_registry_rule(self) -> Mapping[str, Any]:
         return run_registry.run_registry_rule(self)
 
-    def _validate_run_registry_overlap(self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]) -> None:
+    def _validate_run_registry_overlap(
+        self, artifact: Mapping[str, Any], blockers: list[str], warnings: list[str]
+    ) -> None:
         return run_registry.validate_run_registry_overlap(self, artifact, blockers, warnings)
 
     def _validate_lessons_artifact(self, artifact: Mapping[str, Any], blockers: list[str]) -> None:
         """Phase 2.4: VERIFY->RESOLVE requires resolutions/{run_id}-lessons.yaml
         with structured schema (run_id + lessons list).
         """
-        schema = (self.artifact_schemas.get("lessons") or {})
+        schema = self.artifact_schemas.get("lessons") or {}
         required_transition = str(schema.get("required_for_transition") or "")
         if not required_transition:
             return
@@ -964,7 +1065,7 @@ class Heartgate:
         if not isinstance(data, Mapping):
             blockers.append("lessons artifact must be a YAML mapping")
             return
-        for field_name in (schema.get("required_fields") or []):
+        for field_name in schema.get("required_fields") or []:
             if field_name not in data:
                 blockers.append(f"lessons artifact missing required field: {field_name}")
         lessons_list = data.get("lessons")
@@ -985,12 +1086,20 @@ class Heartgate:
             cluster_id = str(item.get("cluster_id") or "")
             if not artifact_path or not cluster_id:
                 continue
-            if not (item.get("id") and item.get("accepted_by") and item.get("owner") and item.get("rationale") and item.get("next_phase_acceptance")):
+            if not (
+                item.get("id")
+                and item.get("accepted_by")
+                and item.get("owner")
+                and item.get("rationale")
+                and item.get("next_phase_acceptance")
+            ):
                 continue
             run_id = str(artifact.get("run_id") or "")
             if not artifact_path.startswith(("verification/", "resolutions/")):
                 continue
-            if run_id and not artifact_path.startswith((f"verification/{run_id}", f"resolutions/{run_id}")):
+            if run_id and not artifact_path.startswith(
+                (f"verification/{run_id}", f"resolutions/{run_id}")
+            ):
                 continue
             if not self._artifact_path_exists(artifact_path):
                 continue
@@ -1010,7 +1119,14 @@ class Heartgate:
     def _deferred_item_accepted(self, item: Any) -> bool:
         if not isinstance(item, Mapping):
             return False
-        return bool(item.get("id") and item.get("cluster_id") and item.get("owner") and item.get("condition") and item.get("accepted_by") and item.get("next_phase_acceptance"))
+        return bool(
+            item.get("id")
+            and item.get("cluster_id")
+            and item.get("owner")
+            and item.get("condition")
+            and item.get("accepted_by")
+            and item.get("next_phase_acceptance")
+        )
 
     def _warnings_owned(self, warnings: Any) -> bool:
         for item in warnings:

@@ -22,8 +22,12 @@ from pathlib import Path
 _RUN_ID_RE = re.compile(r"^[A-Za-z0-9._-]{1,128}$")
 
 
-def _is_safe_run_id(run_id: str) -> bool:
+def _is_safe_run_id(run_id: object) -> bool:
     """True if run_id is safe for use as a filesystem name segment.
+
+    Accepts ``object`` (not ``str``) on purpose: this is a defensive validator of
+    UNTRUSTED input — callers in untyped modules (state.py, the hermes shim) pass
+    arbitrary values, so the ``isinstance(run_id, str)`` guard below is load-bearing.
 
     Phase 1 remediation (skeptic F1 / technical F1): bound run_id to a
     conservative charset so it cannot escape state/gate-ledger/ via "..",

@@ -77,4 +77,4 @@ jobs:
       # freshly-extracted, fully-typed engine packages; the legacy tree stays
       # basic. Grow this path list as each package is extracted and typed.
       - name: Pyright (strict-scoped engines)
-        run: pyright skills/uacp-core/scripts/engines/guardian skills/uacp-core/scripts/engines/domain/paths.py
+        run: pyright skills/uacp-core/scripts/engines/guardian skills/uacp-core/scripts/engines/domain/paths.py skills/uacp-core/scripts/engines/heartgate/models.py skills/uacp-core/scripts/engines/heartgate/validators/helpers.py

@@ -19,8 +19,8 @@ class HeartgateError(RuntimeError):
 class HeartgateDecision:
     decision: str
     reason: str
-    blockers: list[str] = field(default_factory=list)
-    warnings: list[str] = field(default_factory=list)
+    blockers: list[str] = field(default_factory=list[str])
+    warnings: list[str] = field(default_factory=list[str])
 
     @property
     def blocks_transition(self) -> bool:
