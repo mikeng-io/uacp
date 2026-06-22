@@ -26,14 +26,15 @@ Grounded in the as-built inventory (`scripts/` = 12 files; `tool_specs.py` = 11 
 | `scripts/phase0_verify.py … phase4_verify.py` | `uacp verify [--phase N]` (or `uacp selfcheck`) | read/validate | the slice phase verifiers; CI-facing |
 | `scripts/check_active_uacp_skill_links.py` | `uacp check skill-links` | read/validate | CI lint |
 | `scripts/import_loader_verify.py` | `uacp check imports` | read/validate | CI lint |
-| `scripts/migrate_knowledge_corpus.py` | `uacp migrate knowledge-corpus` | dev/maintenance | one-off; CLI-only, not MCP |
-| `scripts/migrate_to_uacp_dir.py` | `uacp migrate uacp-dir` | dev/maintenance | one-off; CLI-only |
-| `scripts/oracle_reranker_bakeoff.py` | `uacp dev oracle-bakeoff` | dev/maintenance | research; CLI-only |
-| `scripts/live_guardian_probe.py` | `uacp dev guardian-probe` | dev/maintenance | diagnostic; CLI-only |
+| `scripts/migrate_knowledge_corpus.py` | `uacp migrate knowledge-corpus` | **operator-mutating** | mutates (`shutil.move` files) → **audit required**; CLI-only, not MCP |
+| `scripts/migrate_to_uacp_dir.py` | `uacp migrate uacp-dir` | **operator-mutating** | mutates (`rename` dirs, rewrite `.gitignore`/config) → **audit required**; CLI-only |
+| `scripts/oracle_reranker_bakeoff.py` | `uacp dev oracle-bakeoff` | dev/read-only | research; CLI-only |
+| `scripts/live_guardian_probe.py` | `uacp dev guardian-probe` | dev/read-only | diagnostic; CLI-only |
 
 Subcommand groups: `uacp {tool, lint, fmt, verify, check, migrate, dev}`. MCP exposes
-governed-mutating (today) + optionally the read/validate checks; **dev/maintenance is CLI-only**
-(operator surface, never an agent tool).
+governed-mutating (today) + optionally the read/validate checks; **`migrate` (operator-mutating) and
+`dev` (read-only) are CLI-only** (operator surface, never an agent tool) — and `migrate` MUST emit the
+audit record for its mutations (node 00 §4).
 
 ## 2. The registry generalization (the one real change)
 

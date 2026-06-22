@@ -61,7 +61,8 @@ distinguishes mutating from read; `class` generalizes that flag.
 |---|---|---|---|---|
 | **governed-mutating** | the **8** `uacp_*_write` / state writers (of the 11 tools) | Layer-1 Guardian gate (agent runtime) + handler self-enforcement (§4) | yes (`uacp <tool>`, operator) | yes (today, agent) |
 | **read / validate** | the **3 read-only** governed tools (`sandbox_check`/`heartgate_check`/`oracle_query`, already `read_only=True`); `validate_uacp_artifacts` → `uacp lint`; `uacp fmt`; the phase verifiers; the link/import checks | none / read-only | yes | optional (agent-facing checks) |
-| **dev / maintenance** | migrations, probes, bakeoff | none | yes (`uacp dev …`) | **no** (operator-only) |
+| **operator-mutating** | the migrations (`migrate_*` — `shutil.move` files, `rename` dirs, rewrite `.gitignore`/config) | **audit required** (no agent phase-gate — operator context — but mutations MUST be logged, §4) | yes (`uacp migrate …`, operator) | **no** |
+| **dev / read-only** | probes, bakeoff (diagnostic/research, no governed mutation) | none | yes (`uacp dev …`) | **no** (operator-only) |
 
 ## 4. Enforcement: the CLI is a DIFFERENT trust context (security — Kimi-corrected)
 
@@ -88,7 +89,10 @@ agent *runtime* wraps it with the PreToolUse hook; nothing wraps a bare CLI.)
 3. **Agents never reach mutations via the raw CLI** — an agent mutates only through the runtime-gated
    path (MCP/tool-call under the PreToolUse hook). The CLI's governed-mutating commands are an operator
    affordance; if an agent is ever given the CLI, it must be behind the same Layer-1 hook.
-4. Read/validate + dev commands have nothing to gate (no mutation) — Layer-1 N/A by construction.
+4. **Read-only** commands (read/validate + dev/read-only) have nothing to gate — Layer-1 N/A by
+   construction. But **operator-mutating** commands (the migrations — they `shutil.move`/`rename`/rewrite
+   `.gitignore`+config) ARE mutators: no agent phase-gate (operator context), but they MUST emit the
+   audit record, same as governed-mutating (point 2). **Mutation, not "dev-ness", decides the gate.**
 
 ## 5. Relationship to existing decisions
 
