@@ -48,9 +48,14 @@ nothing persists unless all pass):
 2. **LAYOUT** — `engines.domain.layout` resolves WHERE this kind lives (path template); no caller path.
 3. **SERIALIZE** — render the OKF document: frontmatter (kind, id, the typed `edges:` with
    `rel_type`+`provenance` per D23) + body.
-4. **VALIDATE (the net-new gate)** — `schema.validate(kind, doc)` (node 33 declarative shape) **then**
-   the uacp-lint referential layer (cross-artifact FK/coverage). Any violation → **reject, no write**.
-   This is the content check the Guardian structurally cannot do.
+4. **VALIDATE — SHAPE ONLY (the net-new gate)** — `schema.validate(kind, doc)` (node 33 declarative
+   shape: required fields, types, enums, `kind` const). Any violation → **reject, no write**. This is
+   the content check the Guardian structurally cannot do. **NOT the referential layer:** cross-artifact
+   FK / coverage (uacp-lint) needs sibling documents that may not exist yet during an INCREMENTAL write,
+   so forcing it here would reject valid partial writes or demand placeholder siblings. Referential
+   checks stay at the **transition gate** (where the package is complete) — per node 33 (the entity-writer
+   consumes `schema.py` directly) + D41 (referential runs at transition time). **Write-time = shape;
+   transition-time = reference.**
 5. **FORMAT** — `uacp-fmt` canonicalizes (key order, edge serialization; idempotent) so the on-disk
    form is deterministic + diff-stable.
 6. **PERSIST** — call the Governed writers (`governed_writers.py`, node 34) — the Guardian-gated FS
@@ -58,6 +63,14 @@ nothing persists unless all pass):
 7. **REGISTER** — call the State engine to record `{type→path}` in the run manifest's `artifacts`
    (the seam `graph_projection` reads via `load_manifest`), and emit the typed edges into the
    projection/index. (Provenance is serialized HERE — the SA-C map flagged it's not stored today.)
+   **ATOMICITY (Codex-flagged):** PERSIST(6)+REGISTER(7) must be **atomic**. A REGISTER failure after
+   the file is written (missing run manifest, state-validation error, I/O) would leave a persisted +
+   watermarked document that is NOT in the manifest's `artifacts` — invisible to `graph_projection`
+   (which only projects registered paths via `load_manifest`), breaking the "nothing persists unless
+   all pass" invariant. So on REGISTER failure, **roll back** the persisted file + watermark (the
+   governed writer already rolls back on a watermark-write failure, SA-A) — or use a single
+   write-then-register operation that the State engine commits transactionally. The invariant must
+   hold: either the entity is persisted AND registered, or neither.
    **CROSS-ENGINE BOUNDARY (Kimi-flagged):** the run-manifest is owned by the **State engine**
    (`skills/uacp-state/scripts/state_machine.py`, per `config/state.yaml:12-13`) — a *different*
    skill/engine from the Manifest engine (`uacp-core`). So REGISTER is a cross-engine call into
