@@ -28,3 +28,4 @@ __pycache__/
 #   for d in ../../skills/uacp-*/; do n=$(basename $d); [ -f $d/SKILL.md ] && ln -sfn ../../skills/$n $n; done && \
 #   ln -sfn ../../skills/vendor/code-review-skill code-review-skill
 .claude/skills/
+.mcp.json
