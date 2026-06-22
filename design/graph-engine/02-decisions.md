@@ -246,6 +246,8 @@ maturity; DuckDB-over-files is the noted fallback if avoiding a separate index b
 
 ## D14 — the `Index` port: one abstraction composing the hybrid backends, adapter-swappable
 
+> **SUPERSEDED by D44** — no Index port; indexing is folded into each engine's own read-side.
+
 **Verdict.** The system depends on a single **`Index` port** — `sync()` (build/project), `resolve()`
 (fuzzy entry), `search()` (fuzzy search), `walk()` (exact CTE traversal), `lookup()` (hybrid:
 resolve ∘ walk). The **default adapter** composes SQLite(+sqlite-vec) + LanceDB(Oracle). No caller
@@ -311,6 +313,8 @@ human-readable OKF truth for columnar files); (2) an **analytics/reporting lens*
 columnar scans handle far better than SQLite). Not the default; decided later if a need appears.
 
 ## D17 — two engines (Manifest + Indexer); "planes" are data categories, not engines
+
+> **SUPERSEDED by D44** — no separate Indexer engine; one storage-owning engine per plane, whose read-side IS the index.
 
 **Correction.** An earlier draft conflated "knowledge plane" with the manifest. Fixed: the **manifest is
 pure structural data (relation plane) — NO vectors**; the **knowledge plane is strictly knowledge +
@@ -742,6 +746,8 @@ when the code plane is built: front-load for prevention, hybrid-by-coverage, con
 
 ## D37 — the indexer is a CROSS-CUTTING layer, not a sibling plane; SCIP & codegraph are both index-first (clarifies D14/D17/D34)
 
+> **SUPERSEDED by D44** (the indexer as a *component*) — the serialize→project→query *pattern* survives, but the indexer is NOT a cross-cutting component; each engine owns its own build+query.
+
 **Insight (refines the topology).** "Indexer plane" was a misnomer. There are **content planes** (WHAT) and
 **one indexer layer** (HOW) that cuts across them:
 - **content planes** — each = *(files = truth) + (an index)*: **manifest/relation** (index = in-memory
@@ -821,3 +827,90 @@ depends-on-what at the domain level). Domain knowledge is **declared/authored ar
 (plus run-distilled lessons), eager-loaded as rules (D30 tier). Deferred with the code plane + constraints
 plane, but the framing locks UACP's position: **a semantic knowledge layer above SCIP, structural at its
 core.**
+
+## D40 — control-plane-wide schema: every non-code artifact validated by ONE registry; YAML-only gradient-by-discipline; unify the two validators (2026-06-21 brainstorm)
+
+> **AMENDED by D41 (2026-06-21).** The as-built audit ([24-asbuilt-manifest-taxonomy](24-asbuilt-manifest-taxonomy.md)) found this decision's premise incomplete: it says "unify the **two** validators (`artifact_schema.py` + the OKF lint)" but the **dominant** authority — `scripts/validate_uacp_artifacts.py`, a kernel-wired (core.py:1862) 97 KB validator with 27 `validate_*` functions — is unnamed here; and inc-3b's document kinds (`uacp.proposal/plan/execution`) were **spike-fictional** (they exist nowhere in the kernel). D41 supersedes the validator-unification framing and the build order below.
+
+Brainstormed + approved 2026-06-21 (detail + catalog: [16a-control-plane-schema](16a-control-plane-schema.md)). Three decisions:
+
+1. **Scope = every non-code control-plane artifact.** Any file that is not code and belongs to the control plane carries a registered schema, validated on write — manifest documents + nodes + indexes + knowledge/OKF + runtime state + config + doctrine docs. Not just the governance manifest (broadens 16-schema-registry's catalog).
+2. **Format = one YAML structural form, gradient by discipline, NO JSON.** YAML standalone (manifests/state/config) + as OKF `.md` frontmatter (knowledge/doctrine/design). The mix that's rejected is two *structural data* formats (JSON **and** YAML); YAML + Markdown-with-frontmatter is one structural form (Markdown only wraps prose). Rigor is **tooling-imposed** (strict loader killing YAML implicit typing + schema types/enums/required-FKs + canonical `uacp-fmt`); prose stays human (Markdown / block scalars). Validation is **format-agnostic** — `validate_file` resolves kind (the `kind:` field or a path→kind map) + extracts the structural dict (whole YAML / `.md` frontmatter) → `validate(kind, dict)`.
+3. **Unify to ONE registry, ONE paradigm.** `engines/domain/schema.py` (JSON-Schema, per D9/D10) becomes the single source; migrate `artifact_schema.py` (Pydantic transition artifacts) in + fold `test_okf_frontmatter` (the OKF lint) into knowledge/doctrine schema entries. No Pydantic + JSON-Schema mix (the same anti-mix instinct, one level up).
+
+Re-scopes Slice 1b inc 3 — **schemas BEFORE the file-validator** (you cannot validate a file before its kind's schema exists; and the node-item kinds aren't whole files — they live *inside* documents, so they're not even applicable to a file alone): `3a` node-item kinds done → **`3b` DOCUMENT kinds** (`uacp.proposal/plan/execution/verification/resolution`, each *composing* the node-item schemas) + indexes → `3c` migrate `artifact_schema.py` → `3d` knowledge/OKF (+ retire the OKF lint) → `3e` state/config/doctrine → **`3f` the format-agnostic `validate_file`** (kind-resolution + YAML/`.md` loader — now there is something to validate) → `uacp-lint` (validate-on-write) + `uacp-fmt`. Builds on D8/D9/D10 + nodes 13/16/16a.
+
+## D41 — schema layer corrected to the AS-BUILT taxonomy: `schema.py` = shape source, `validate_uacp_artifacts.py` → `uacp-lint`, `uacp-fmt` = formatter sibling (amends D40; grounded by node 24)
+
+**Context.** The 2026-06-21 as-built audit ([24-asbuilt-manifest-taxonomy](24-asbuilt-manifest-taxonomy.md)) ground-truthed the manifest taxonomy (the *comprehend* step D40/inc-3b skipped) and found two load-bearing facts:
+
+1. Schema authority is scattered across **four** code locations, not two: `engines/domain/schema.py` (the 3a/3b JSON-Schema registry), `engines/domain/artifact_schema.py` (Pydantic — intent/scope/lessons/evidence_disposition + BlastRadius + run_registry), `engines/domain/corpus.py` (knowledge), and — the one D40 never named — **`scripts/validate_uacp_artifacts.py`**, the **kernel-wired** (core.py:1862 imports + runs it; its docstring: *"the offline validator owns the deeper artifact semantics… catches the real semantic false-pass"*) **97 KB monolith with 27 `validate_*` functions** dispatched by an `if/elif kind ==` chain in `main()`. This is the de-facto canonical artifact validator.
+2. Each `validate_*` function is **hybrid**: single-doc **shape** (required fields, enums, non-empty) **+ cross-artifact REFERENTIAL semantics** (e.g. `validate_piv_assessment` loads the referenced PIV contract and checks every `obligation_id` resolves). The referential half loads sibling documents — **not expressible in JSON-Schema** (which validates one instance in isolation).
+
+**Verdict (supersedes D40's "unify the two validators").** The unification is *not* "migrate `artifact_schema.py` + fold the OKF lint." It is:
+
+- **`schema.py` (uacp-schema)** becomes the single **declarative SHAPE** source — the per-kind dictionary; the pure-leaf rules sink (D9/D10). `artifact_schema.py`'s shape folds in here.
+- **Transform `validate_uacp_artifacts.py` → `uacp-lint`.** Its 27 per-kind shape checks **delegate to `schema.py`** (kill the imperative copies); its **cross-artifact referential checks stay** (imperative, the part schema can't express). The kernel already imports this engine (D8's "gates reach the library directly; the skill is just discoverability") — the transform makes `schema.py` its shape source. **`uacp-lint` IS the transformed validator, not a new thing.**
+- **`uacp-fmt`** = the net-new **formatter** sibling (canonical key order / edge serialization / idempotent; never rejects). One skill, two subcommands over `schema.py` (D8), so fmt and lint cannot disagree on canonical form.
+- **`graph_projection`** = cross-**NODE** closure (orphan/phantom/uncovered) — unchanged, separate, Heartgate phase-exit.
+
+**Two boundary refinements this forces:**
+- **`uacp-lint` scope widens** from "node-local only" ([13-writer-contract](13-writer-contract.md)) to **"per-artifact, including referential integrity to the docs it points at."** Cross-NODE topology stays in `graph_projection`. (Amends 13/D8 wording.)
+- **Gate timing:** shape runs at **write-time** (Guardian, reject-before-persist) *and* **transition-time** (Heartgate); referential checks run **only at transition-time** (siblings must exist). Both out of the one transformed engine.
+
+**PREREQUISITE — unresolved, gates all further schema work.** The graph-engine spike's **clean-break model** (`uacp.proposal/plan/execution` with `scope_item`/`work_unit.derives_from`) and the kernel's **package-selection model** (`*_package_selection` envelopes + `scope` + PIV contract + `execution_checkpoint` + `verification_package` + `resolve_closure`) are **not reconciled**. Decide whether the graph-engine **REPLACES** the package model (a real kernel + `validate_uacp_artifacts.py` migration) or **SCHEMATIZES what exists**, *before* defining any more document schemas. Until then, `schema.py` document kinds are design-only.
+
+**Consequence.** Inc-3b (commit `ad79b22`) is **REVERTED** — its `uacp.proposal/plan/execution` schemas encode invented kinds, and `uacp.piv_assessment`/`uacp.lessons` had richer real shapes. The **node-item kinds (3a) stand** (scope_item/work_unit/evidence_obligation/checkpoint/assessment are real, composable, correct). Re-sequenced build order: **comprehend** (node 24, done) → **reconcile** spike-vs-kernel (D42) → *then* shape registry → transform `validate_uacp_artifacts.py` → `uacp-lint` → `uacp-fmt`.
+
+## D42 — spike-vs-kernel reconciliation: the graph is a PROJECTION over the package model (synthesis, not replace/schematize) — resolves D41's open fork; grounded by node 24 + the validator audit
+
+**Context.** D41 left the fork: does the graph-engine **replace** the kernel's package-selection model or **schematize** it? Grounding the real artifact validators (`scripts/validate_uacp_artifacts.py`) resolved it — the graph's entities **already live inside the package artifacts, fully FK-integral, except the founding PROPOSE→PLAN seam**:
+
+- `work_unit` + `evidence_obligation` → the **PIV contract** (`uacp.phase_intent_verification_contract`): `work_units[{id,intent,expected_outputs}]` + `evidence_obligations[{id,work_unit_id,evidence_type,required,sufficiency}]`; the obligation→work_unit FK is **already enforced** (validate_piv_contract:867).
+- `checkpoint` → `execution_checkpoint` docs: `work_unit_id` must be declared in the PIV (:934); `evidence[].obligation_id` must resolve (:950).
+- `assessment` → `piv_assessment` docs: `obligation_id` resolves to a PIV obligation; `evidence_refs`.
+- `scope_item` + `work_unit.derives_from` → **MISSING**: the proposal's `scope` is a *markdown* artifact (validate_proposal_package_selection:696-704), not keyed items; PIV `work_units` carry `intent`/`expected_outputs`, no `derives_from`. This is the one broken seam — exactly the initiative's founding diagnosis.
+
+**Verdict (C — synthesis).** The **package-selection model is the SERIALIZATION** (the on-disk files); it stays. The clean graph (`scope_item → work_unit → evidence_obligation → checkpoint → assessment`) is a **PROJECTION / read-model OVER those artifacts**, not a competing format. The **only net-new serialization is the two seam keys** (`scope_item.id` + `work_unit.derives_from`). Neither "replace the kernel" (A) nor "schematize and abandon the graph" (B).
+
+**Consequences.** (1) `graph_projection` must read the **real artifacts** (PIV contract / checkpoint / assessment docs), not the spike fixtures it reads today. (2) `schema.py` node-items must match **real shapes** — `work_unit = {id, intent, expected_outputs, +derives_from}`, not `{id, title}` — so **even 3a was spike-shaped** and needs re-grounding (the node-item *concepts* are real; the *fields* were invented). (3) `validate_uacp_artifacts.py` already enforces the downstream FKs, so `uacp-lint` inherits the referential integrity; the schema layer formalizes shape + the schema work targets the **real package kinds**, never the spike kinds.
+
+## D43 — a dedicated Manifest engine: modularize the manifest-document concern (parallel to the State engine)
+
+**Context.** The state-vs-documents analysis ([28-component-registry](28-component-registry.md) + grounding this session) found the manifest **documents** (proposals/plans/executions/verification/resolutions — the *manifest plane*) have **no dedicated owning module**. The concern is **smeared**: written via the generic **Governed writers** (`governed_handlers.py` — a low-level write primitive for ALL governed writes), authored ad-hoc by the lifecycle skills, validated by `validate_uacp_artifacts.py`, located by `layout.py`, shaped by `schema.py`, indexed by the **State engine**. The design (18-glossary) *named* a "Manifest engine" but never built it as a cohesive module. mike: *"if a State engine manages state, a Manifest engine should manage manifests — modularize; don't build non-modularly."*
+
+**Verdict.** Build a dedicated **Manifest engine** — the cohesive module that **owns the manifest documents**, symmetric to the **State engine** (`uacp-state`). Responsibilities:
+- **Write (entity-level, canonical):** create / edit / supersede manifest documents — mint id, resolve location (`layout`), validate shape (`schema`) + referential (`uacp-lint`), canonicalize (`uacp-fmt`), persist via the Governed-writer primitive, and register the path into the **State engine's** index. *(= the design's long-planned "entity-level writer", e.g. `create_work_unit`.)*
+- **Read / project:** load documents, project the node/edge graph (`graph_projection`), serve closure / lookup.
+- **Definition (composes the leaf modules):** `layout` (where) + `schema` (shape) + `uacp-lint` (validate) + `uacp-fmt` (format).
+
+**Boundary — what it does NOT do:**
+- run lifecycle state / phase transitions / registry → the **State engine** (`uacp-state`); the Manifest engine *registers* doc paths INTO its index.
+- low-level filesystem write → the **Governed writers** (the Guardian-gated primitive the Manifest engine *calls*).
+- policy / gate timing → **Guardian** (write-time) + **Heartgate** (transition) *invoke* the engine's validation/projection; the engine provides the capability, the gates choose when.
+- knowledge corpus → the **Oracle**.
+
+**Composition — the pieces that BECOME the Manifest engine** (mostly already exist; this gives them a home): `engines/domain/layout.py` (done) + `engines/domain/schema.py` (in progress) + `engines/graph_projection.py` (done) + `uacp-lint`/`uacp-fmt` (to build) + **the entity-writer** (NEW — the write API).
+
+**Location.** Recommend a cohesive subpackage **`skills/uacp-core/scripts/engines/manifest/`** (the pieces already live under `uacp-core/engines`; least churn) — promotable to a sibling package `uacp-manifest` later if strict package symmetry with `uacp-state` is wanted.
+
+**Consequence.** Reframes the schema/lint/fmt/layout work as **building out the Manifest engine**, and its **entity-writer is the wiring** that finally makes `layout`+`schema` live — directly answering the lite-council's "unwired" BLOCKER. The Governed writers remain the low-level primitive; the Manifest engine is the domain layer above them. node 28 updated to add the Manifest engine + recast manifest-document ownership from "Governed writers (smeared)" to "Manifest engine (cohesive)".
+
+## D44 — indexing is an engine capability, not a separate engine (supersedes D14 / D17 / D37's Indexer engine + Index port)
+
+**Context.** The six-kind model ([28-component-registry](28-component-registry.md)) sets "only storage-owning engines touch the FS / LanceDB." A pre-lock review (2026-06-22, architect lens) caught that this **silently reverses** three live decisions: **D14** (the `Index` port — "the only component that touches a backend"), **D17** (CQRS as TWO engines — Manifest write-model + a *separate* Indexer read-model), **D37** (the Indexer as a CROSS-CUTTING layer spanning all three planes). The bundle self-contradicted (ledger said 4 components, node 28 said 3).
+
+**Verdict.** There is **no separate Indexer engine and no Index port.** Indexing is an **internal build+query capability of each storage-owning engine** over its OWN plane:
+- **Manifest engine** — build = project the YAML documents into the node/edge graph (**in-memory**, D29, no persistent index); query = graph walk / closure. Read-side is **read-only over truth** (never mutates source, persists nothing).
+- **Oracle engine** — build = embed + upsert vectors to **LanceDB** (at RESOLVE); query = hybrid semantic + keyword + reranker. Its index **is persisted** → the build side is a real write.
+- **Code engine** (future, the 4th) — build = **SCIP** per-commit (persisted) + **LSP** live; query = symbol/reference lookup.
+
+**Why the Indexer dissolves.** The three planes' indexes are radically different (in-memory graph vs LanceDB vectors vs SCIP symbols), with different build lifecycles (per-run vs RESOLVE vs per-commit, D38) and query shapes. They share a **pattern** (serialize → project → query), **not a component**. With **D27** (Index port deferred) + **D29** (no manifest DB), a standalone cross-cutting Indexer has no substrate to own. D37's cross-cutting framing is right as a *discipline*, wrong as a *component*.
+
+**Consequences.**
+- **Engine count = one storage-owning engine per plane** (State, Manifest, Oracle today; Code later) — NOT a fixed three.
+- **Cross-plane** is by **edge** (provenance / `code_anchor`) + a **query-time join in the calling skill** (Oracle semantic entry → walk the Manifest graph → Code blast-radius) — never one engine reaching into another's storage.
+- **Caching** of a read-side is allowed but: **derived + rebuildable + never authoritative** (files = truth; gates re-verify) + **owned by the engine that owns the data** + **deferred** (v1 = in-memory recompute, D29; a persistent SQLite cache is the scale-trigger, D11).
+- **`graph_projection` is a Check whose implementation the Manifest engine's read-side hosts**; Heartgate invokes it **through** the engine — one owner (Manifest read-side), one invoker (Heartgate).
+
+**Supersedes** D14 (Index port), D17 (separate Indexer engine), D37 (Indexer-as-component) — D37's serialize→project→query *pattern* survives. Consistent with D27 / D29 / D38.
