@@ -119,6 +119,13 @@ select = ["E", "F", "I", "UP", "B", "N"]
 # Legacy kernel + adapter modules: pyflakes (F) only; silence E/I/UP/B/N.
 "skills/uacp-core/scripts/core.py" = ["E", "I", "UP", "B", "N"]
 "skills/uacp-core/scripts/filesystem.py" = ["E", "I", "UP", "B", "N"]
+# Phase A3.0 transitional: the ~2.3k-line Heartgate god-class was moved here
+# VERBATIM (byte-identical, AST-verified) out of core.py. Like core.py it predates
+# the full ruleset; relax to pyflakes-only (F) and defer formatting (see
+# [tool.ruff.format].exclude below) rather than reflow 2.3k legacy lines, which
+# would dilute the "pure move" guarantee. Tightened to the full ruleset as A3.1+
+# carve it into validators/* + goal_driven.py. Removal owner: the A3 carve increments.
+"skills/uacp-core/scripts/engines/heartgate/heartgate.py" = ["E", "I", "UP", "B", "N"]
 # Neutral governed-tool layer: handlers + tool-spec registry moved verbatim out
 # of the (already-relaxed) hermes adapter so an MCP server can share them. The
 # governed-tool descriptions/schemas are carried byte-identically (the Hermes
@@ -143,3 +150,11 @@ select = ["E", "F", "I", "UP", "B", "N"]
 # (the "…Error" suffix) on the existing `*Unavailable` exceptions — renaming them
 # touches every raise/except site and is out of scope. New engine code is full-N.
 "skills/uacp-core/scripts/engines/oracle/**" = ["N818"]
+
+[tool.ruff.format]
+# CI runs `ruff format --check` over all of engines/, but per-file lint-ignores do
+# not apply to the formatter. The A3.0 pure move carries the Heartgate god-class
+# byte-identical (see per-file-ignores above); formatting it would reflow ~2.3k
+# legacy lines and break the byte-identical guarantee. Exclude it until A3.1+ move
+# its slices into their final (fully-formatted) modules. Removal owner: A3 carve increments.
+exclude = ["skills/uacp-core/scripts/engines/heartgate/heartgate.py"]
