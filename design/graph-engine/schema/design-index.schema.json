@@ -50,7 +50,7 @@
           "rel": {
             "description": "Relation type between design nodes (closed vocabulary).",
             "type": "string",
-            "enum": ["motivated_by", "decides_on", "realizes", "depends_on", "consumes", "extends", "sequences"]
+            "enum": ["motivated_by", "decides_on", "realizes", "depends_on", "consumes", "extends", "sequences", "relates_to", "corrects", "grounds", "supersedes"]
           },
           "provenance": {
             "description": "How the edge is known. For a design bundle these are asserted (a human-made design link) or derived (a structural dependency).",

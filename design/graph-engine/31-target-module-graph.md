@@ -47,11 +47,11 @@ engines/domain/*  (schema · layout · gate_rules · phase_graph · artifact_sch
 Selected edges (who imports whom):
 - `Heartgate` → validation-engine registry (`base.ENGINES`), `Manifest engine` (doc validation), `engines/io` (loaders), domain leaves. **Injected, not lazy-imported** (kills the latent-cycle smell from node 30).
 - `Manifest engine` → `layout` + `schema` (domain) + `uacp-lint`/`uacp-fmt` + Governed writers (adapter) + Guardian (on write) + registers paths into the **State engine** index.
-- `Guardian` → `GuardianPolicy` + domain helpers only.
-- Validation engines → `engines/io` + domain leaves (NOT `core`; move `resolve_uacp_root` → `engines/domain/paths.py`).
+- `Guardian` → `GuardianPolicy` + domain helpers + the `config` adapter (a config-derived gate reads its policy table via `config`; node 32 §1 sanctions this boundary). It imports no other outer ring.
+- Validation engines → `engines/io` + domain leaves (NOT `core`; `resolve_uacp_root` now lives in `engines/domain/paths.py` — done in A1).
 - Domain leaves → stdlib / pydantic / jsonschema only.
 
-**Rules of the graph:** (1) an arrow may only point down/inward — a module that needs to point *up* (a domain leaf importing an engine, an engine importing a runtime) is a design error. (2) **only the 3 engines (State/Manifest/Oracle) touch the file system or LanceDB** — any other module doing I/O is a design error; route it through an engine.
+**Rules of the graph:** (1) an arrow may only point down/inward — a module that needs to point *up* (a domain leaf importing an engine, an engine importing a runtime) is a design error. The one sanctioned cross-cutting exception is reading the `config`/IO adapter: application components (gates/engines/checks) READ config and load via IO, but never reach further out to a runtime. (2) **only the 3 engines (State/Manifest/Oracle) touch the file system or LanceDB** — any other module doing I/O is a design error; route it through an engine.
 
 ## Target file tree (kernel)
 

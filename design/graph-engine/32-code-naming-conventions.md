@@ -135,8 +135,9 @@ Each rule below is grounded in real kernel symbols (cited).
   needs to import an outer ring is a design error.
 - **Prefer constructor injection over lazy method-body imports** to break cycles (node 29/30). A
   transitional lazy import is permitted **only** as documented decomposition debt with a named
-  removal owner — e.g. A1's `resolve_uacp_root` lazy import inside `guardian/policy.py::load`,
-  removed when `resolve_uacp_root` moves to `engines/domain/paths.py` (node 31 step 8).
+  removal owner. (A1 *avoided* such debt: rather than lazy-importing `resolve_uacp_root` from
+  `core`, it pulled node 31's "step 8" forward and moved the helper to `engines/domain/paths.py`,
+  so `guardian/policy.py` imports it inward at module top — the preferred outcome when the move is cheap.)
 
 ## 5. DRIFT GUARD
 
