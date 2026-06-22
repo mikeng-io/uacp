@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 # Bootstrap sibling-kernel imports (filesystem helper) the same way the engine
 # package does, so the io layer works regardless of how it is imported.
@@ -36,6 +37,7 @@ from config import base_dir, dir_for  # noqa: E402
 # Importing the domain package also bootstraps state_machine onto sys.path and
 # reuses RunManifest (it is not re-declared here).
 from engines.domain import (  # noqa: E402
+    ConvergenceBudget,
     CurrentPointer,
     LedgerEntry,
     RunManifest,
@@ -258,6 +260,74 @@ def load_phase_transitions(workspace: Path) -> Loaded[dict[str, Any]]:
         # T4c "loaded-config-overrides / code-default-when-absent" convention.
         raw = {**raw, "stages": stages_default()}
     return Loaded(value=raw)
+
+
+def load_convergence_budget(workspace: Path, run_id: str) -> Loaded[ConvergenceBudget]:
+    """Load + validate the PROPOSE convergence-budget for ``run_id``.
+
+    ``proposals/<run_id>-convergence-budget.yaml`` must declare a
+    ``convergence_budget`` block with a positive ``max_checkpoints``. Returns the
+    validated model on ``value``, or a human ``error`` (missing / parse / shape /
+    invalid). Never raises. (PyYAML-absence is handled by the calling gate.)
+    """
+    rel = f"proposals/{run_id}-convergence-budget.yaml"
+    path = base_dir(workspace) / rel
+    if not path.exists():
+        return Loaded(
+            error=(
+                f"goal-driven run requires a convergence_budget: missing {rel} "
+                "(an autonomous run with no checkpoint cap would loop forever)"
+            )
+        )
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # defensive: garbled YAML must not raise
+        return Loaded(error=f"convergence_budget: failed to parse {rel}: {exc}")
+    if not isinstance(raw, Mapping):
+        return Loaded(error=f"convergence_budget: {rel} must be a mapping")
+    budget_raw = raw.get("convergence_budget")
+    if not isinstance(budget_raw, Mapping):
+        return Loaded(
+            error=(
+                f"convergence_budget: {rel} must declare a convergence_budget block "
+                "with a positive max_checkpoints"
+            )
+        )
+    try:
+        return Loaded(value=ConvergenceBudget.model_validate(dict(budget_raw)))
+    except ValidationError as exc:
+        return Loaded(
+            error=(
+                "convergence_budget invalid (max_checkpoints must be an integer > 0): "
+                f"{exc.errors()[0].get('msg') if exc.errors() else exc}"
+            )
+        )
+
+
+def load_checkpoint_manifest(workspace: Path, run_id: str) -> list[Mapping[str, Any]]:
+    """Read a run's gate:CHECKPOINT ledger records (raw, in ledger order).
+
+    Never raises: an unreadable / garbled ledger yields no records rather than
+    crashing the gate. The caller is responsible for ``run_id`` safety.
+    """
+    records: list[Mapping[str, Any]] = []
+    ledger_path = base_dir(workspace) / "state" / "gate-ledger" / f"{run_id}.jsonl"
+    if not ledger_path.exists():
+        return records
+    try:
+        for line in ledger_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            if isinstance(rec, Mapping) and str(rec.get("gate") or "") == "CHECKPOINT":
+                records.append(rec)
+    except Exception:
+        return records
+    return records
 
 
 def glob_in_workspace(workspace: Path, pattern: str) -> list[Path]:

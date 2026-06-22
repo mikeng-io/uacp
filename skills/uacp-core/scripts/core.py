@@ -768,47 +768,17 @@ class Heartgate:
         return total
 
     def _load_convergence_budget(self, run_id: str):
-        """Load + validate the PROPOSE convergence-budget artifact for a run.
+        """Load + validate the PROPOSE convergence-budget; returns ``(budget, error)``.
 
-        Returns ``(budget, error)``: ``budget`` is a validated
-        :class:`ConvergenceBudget` (or None) and ``error`` is a human blocker
-        string (or None). The artifact lives at
-        ``proposals/{run_id}-convergence-budget.yaml`` — a sibling PROPOSE
-        artifact mirroring the ``-package-selection.yaml`` / ``-scope.yaml``
-        conventions. A missing artifact, a missing/non-positive
-        ``max_checkpoints``, or a malformed budget yields an error.
+        Adapter (A2): the load/validate logic lives in
+        :func:`engines.io.loaders.load_convergence_budget` (the Loaded contract);
+        this returns the gate's ``(budget, error)`` tuple. The yaml-None guard
+        stays here — core tolerates a missing PyYAML; the io layer hard-imports it.
         """
-        rel = f"proposals/{run_id}-convergence-budget.yaml"
-        path = self.governed_root / rel
         if yaml is None:
             return None, "convergence_budget gate requires PyYAML"
-        if not path.exists():
-            return None, (
-                f"goal-driven run requires a convergence_budget: missing {rel} "
-                "(an autonomous run with no checkpoint cap would loop forever)"
-            )
-        try:
-            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
-        except Exception as exc:
-            return None, f"convergence_budget: failed to parse {rel}: {exc}"
-        if not isinstance(raw, Mapping):
-            return None, f"convergence_budget: {rel} must be a mapping"
-        budget_raw = raw.get("convergence_budget")
-        if not isinstance(budget_raw, Mapping):
-            return None, (
-                f"convergence_budget: {rel} must declare a convergence_budget block "
-                "with a positive max_checkpoints"
-            )
-        from engines.domain import ConvergenceBudget
-        from pydantic import ValidationError
-
-        try:
-            return ConvergenceBudget.model_validate(dict(budget_raw)), None
-        except ValidationError as exc:
-            return None, (
-                "convergence_budget invalid (max_checkpoints must be an integer > 0): "
-                f"{exc.errors()[0].get('msg') if exc.errors() else exc}"
-            )
+        result = io_loaders.load_convergence_budget(self.uacp_root, run_id)
+        return result.value, result.error
 
     def _triage_track(self, run_id: str) -> str:
         """Read the run's TRACK as decided by the TRIAGE artifact (authoritative).
@@ -904,32 +874,13 @@ class Heartgate:
     def _load_checkpoint_manifest(self, run_id: str) -> list[Mapping[str, Any]]:
         """Read the run's gate: CHECKPOINT ledger records (raw, in ledger order).
 
-        Each record carries the ledger ENVELOPE the writer stamps (``gate``,
-        ``run_id``, ``ts``) wrapped around a CheckpointEntry payload. This returns
-        the raw records; envelope-stripping + model validation happens in the
-        coherence check. Never raises: an unreadable/garbled ledger contributes
-        no records rather than crashing the gate.
+        Adapter (A2): the ledger read lives in
+        :func:`engines.io.loaders.load_checkpoint_manifest` (never raises). The
+        run_id-safety guard stays here — an unsafe id yields no records.
         """
-        records: list[Mapping[str, Any]] = []
         if not _is_safe_run_id(run_id):
-            return records
-        ledger_path = self.governed_root / "state" / "gate-ledger" / f"{run_id}.jsonl"
-        if not ledger_path.exists():
-            return records
-        try:
-            for line in ledger_path.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except Exception:
-                    continue
-                if isinstance(rec, Mapping) and str(rec.get("gate") or "") == "CHECKPOINT":
-                    records.append(rec)
-        except Exception:
-            return records
-        return records
+            return []
+        return io_loaders.load_checkpoint_manifest(self.uacp_root, run_id)
 
     def _validate_goal_driven_checkpoint_gate(
         self, run_id: str, blockers: list[str]
