@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 
@@ -55,13 +56,21 @@ def load_hash_index(workspace: str | Path, run_id: str) -> dict:
         return {}
 
 
+def _write_index_atomic(path: Path, index: dict) -> None:
+    """Write the index via a temp file + atomic rename (Kimi #2): the rename is all-or-nothing,
+    so a crash/partial-write can never leave a truncated/corrupted index that subsequent
+    ``load_hash_index`` reads as ``{}`` and then overwrites — wiping every other watermark."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def record_hash(workspace: str | Path, run_id: str, rel: str, content: str) -> None:
-    """Record (overwrite-in-place) the SHA-256 of ``content`` for artifact ``rel``."""
+    """Record (overwrite-in-place, atomically) the SHA-256 of ``content`` for artifact ``rel``."""
     index = load_hash_index(workspace, run_id)
     index[str(rel)] = content_hash(content)
-    path = hash_index_path(workspace, run_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _write_index_atomic(hash_index_path(workspace, run_id), index)
 
 
 def forget_hash(workspace: str | Path, run_id: str, rel: str) -> None:
@@ -73,6 +82,4 @@ def forget_hash(workspace: str | Path, run_id: str, rel: str) -> None:
     index = load_hash_index(workspace, run_id)
     if str(rel) in index:
         del index[str(rel)]
-        path = hash_index_path(workspace, run_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        _write_index_atomic(hash_index_path(workspace, run_id), index)

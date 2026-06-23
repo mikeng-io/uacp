@@ -91,3 +91,14 @@ def test_heartgate_still_wired_after_move():
     assert isinstance(gate.artifact_schemas, dict)
     for method in ("validate_transition", "validate_transition_file", "validate_closure"):
         assert callable(getattr(gate, method)), f"Heartgate.{method} missing after move"
+
+
+def test_heartgate_tool_path_capabilities_wrapper_present():
+    # C3a regression guard (Codex PR#5): _tool_path_capabilities() was carved to
+    # engines.manifest.validators, but external callers remain — scripts/phase2_verify.py and
+    # scripts/phase3_verify.py call ``hg._tool_path_capabilities()``. The delegating wrapper must
+    # stay on Heartgate (deleting it raised AttributeError in those scripts; the pytest suite
+    # missed it because the phase-verify scripts are not pytest-run).
+    gate = core.Heartgate({})
+    assert callable(getattr(gate, "_tool_path_capabilities", None))
+    assert isinstance(gate._tool_path_capabilities(), dict)

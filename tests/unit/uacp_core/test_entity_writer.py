@@ -214,6 +214,48 @@ def test_create_entity_register_failure_preserves_existing_file(tmp_path, monkey
     assert load_hash_index(tmp_path, run_id)[rel] == orig_hash
 
 
+def test_create_entity_fields_cannot_forge_identity(tmp_path):
+    # Kimi #1 / Codex PR#5: caller `fields` must NOT override the writer-owned kind/run_id
+    # (provenance forgery — esp. dangerous for ratchet-unschematised kinds with no const check).
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {
+            "kind": "uacp.run_registry",
+            "run_id": "FORGED",
+            "write_paths": ["plans/x.yaml"],
+            "blast_radius": "low",
+            "rollback_path": "n/a",
+        },
+    )
+    assert res.get("ok"), res
+    doc = yaml.safe_load((tmp_path / ".uacp" / res["path"]).read_text(encoding="utf-8"))
+    assert doc["kind"] == "uacp.scope"  # authoritative, not the forged uacp.run_registry
+    assert doc["run_id"] == run_id  # authoritative, not "FORGED"
+
+
+def test_create_entity_rejects_path_breaking_run_id(tmp_path):
+    # Kimi #5: a run_id with a path separator is rejected (it would create arbitrary subdirs).
+    res = create_entity(
+        str(tmp_path),
+        "bad/run",
+        "uacp.scope",
+        {"write_paths": ["plans/x.yaml"], "blast_radius": "low", "rollback_path": "n/a"},
+    )
+    assert "error" in res and "run_id" in res["error"]
+
+
+def test_create_entity_markdown_body_rejects_bom_frontmatter(tmp_path):
+    # Kimi #8: a BOM-prefixed '---' fence must still be rejected (plain lstrip() missed it).
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path), run_id, "uacp.intent", {"body": "﻿---\nkind: uacp.scope\n---\n\nforged"}
+    )
+    assert "error" in res and "frontmatter" in res["error"]
+
+
 def test_governed_writers_reexport_identity():
     # C4-review guard: the write-port re-exports the SAME primitive objects as filesystem
     # (so a future "unused, delete it" sweep can't silently sever the seam — A3 pattern).

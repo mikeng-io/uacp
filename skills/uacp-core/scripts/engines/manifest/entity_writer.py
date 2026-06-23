@@ -10,8 +10,12 @@ owns — through the fixed pipeline:
 
 ATOMICITY (node 35 §2, Codex PR#3 + C5 review F2/F3): a watermark-persist OR register failure
 RESTORES the target to its prior state — a freshly-created file is removed and its just-recorded
-watermark forgotten; a pre-existing file's original bytes + watermark are restored. A failed write
-never leaves a corrupted, unwatermarked, or unregistered artifact.
+watermark forgotten; a pre-existing file's original bytes + watermark are restored. This is
+EXCEPTION-atomic (rollback on caught errors), NOT crash-atomic: a process crash mid-pipeline can
+still leave an unwatermarked or unregistered file (crash-recovery would need a write-ahead journal —
+a follow-on, Kimi #4). Concurrent same-run writes are not serialized — the State layer assumes a
+single writer per run (Kimi #3); the watermark index now writes atomically (temp+rename) so a
+partial write cannot wipe it.
 
 CONTAINMENT (C5 review F1/F6): the RELATION-plane guard (stricter than uacp_artifact_write's
 allow/forbid-root set, which forbids state/docs/config) + ctx sanitization + ``_resolve_uacp_path``
@@ -63,8 +67,13 @@ def create_entity(
             f"entity-writer writes RELATION-plane lifecycle docs only; {kind} is plane "
             f"{layout.plane_of(kind)!r} (owned by the State engine)"
         )
-    # ctx sanitization (F6): placeholders are interpolated into the path; reject segment-breaking
-    # or empty values (defense-in-depth atop _resolve_uacp_path).
+    # run_id + ctx sanitization (F6 + Kimi #5): placeholders are interpolated into the path; reject
+    # segment-breaking/empty values (defense-in-depth atop _resolve_uacp_path), and sanitize run_id
+    # itself — it is NOT covered by the ctx loop. (Kimi #6, a `run_id` key in ctx, is unreachable:
+    # `run_id` is a named param, so a run_id= kwarg binds to it and Python raises at the call
+    # boundary; it can never land in **ctx.)
+    if _bad_ctx_value(run_id):
+        return _err(f"invalid run_id: {run_id!r}")
     bad = {k: ctx[k] for k in ctx if _bad_ctx_value(ctx[k])}
     if bad:
         return _err(f"invalid path-placeholder value(s): {bad}")
@@ -75,7 +84,10 @@ def create_entity(
 
     # 2. SERIALIZE + 3. VALIDATE (shape) — branched by layout format (node 35 §2.4).
     if fmt == layout.YAML:
-        doc: dict[str, Any] = {"kind": kind, **fields}
+        # Identity (kind + run_id) is injected LAST so caller `fields` cannot forge the
+        # writer-owned kind/run_id (Kimi #1 / Codex PR#5: for ratchet-unschematised kinds a
+        # forged `kind` would otherwise persist with no const check).
+        doc: dict[str, Any] = {**fields, "kind": kind, "run_id": run_id}
         content = yaml.safe_dump(doc, sort_keys=False, allow_unicode=True)
         # VALIDATE-ON-WRITE, RATCHETED (node 33 / node 35 §5): enforce shape only for kinds with a
         # registered schema, so the ratchet grows per-kind. Reject on any violation: NO write.
@@ -87,7 +99,9 @@ def create_entity(
         # OKF markdown: `kind` frontmatter + caller body. Reject a body that injects its OWN
         # frontmatter fence (F4) — it would produce a double-frontmatter doc / forged `kind`.
         body = str(fields.get("body", ""))
-        if body.lstrip().startswith("---"):
+        # Strip leading BOM / zero-width chars before the fence check (Kimi #8: a body prefixed
+        # with ﻿ bypassed a plain lstrip()).
+        if body.lstrip("﻿​￾ \t\r\n").startswith("---"):
             return _err("markdown body must not begin with a '---' frontmatter fence")
         content = f"---\nkind: {kind}\n---\n\n{body}"
     else:

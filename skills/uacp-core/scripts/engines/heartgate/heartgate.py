@@ -572,6 +572,14 @@ class Heartgate:
     ) -> None:
         manifest_validators.validate_evidence_dispositions(self, artifact, blockers)
 
+    def _tool_path_capabilities(self) -> dict[str, list[str]]:
+        # Delegating wrapper (C3a carve): moved to engines.manifest.validators with
+        # validate_scope_artifact, but external callers remain (scripts/phase2_verify.py,
+        # scripts/phase3_verify.py call hg._tool_path_capabilities()). Kept so the carve is
+        # behaviour-preserving for them — a regression the suite missed (those scripts aren't
+        # pytest-run) and Codex PR#5 caught (the A3 repo-wide-caller-search lesson again).
+        return manifest_validators._tool_path_capabilities(self)
+
     def _plan_validation_gate_rule(self) -> Mapping[str, Any]:
         return plan_validation.plan_validation_gate_rule(self)
 
