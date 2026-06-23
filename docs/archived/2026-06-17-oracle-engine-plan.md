@@ -11,6 +11,8 @@ status: archived
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+> **⛔ Query-expansion step RETIRED 2026-06-23** (see `docs/decisions/decision-log.md`). The `query-expansion → …` stage described below, its `expansion` serving role, the `[oracle.query_expansion]` config, and `test_query_expansion.py` were removed; the as-built pipeline starts at hybrid retrieve. This archived plan is left as historical record.
+
 **Goal:** Build a config-gated, in-repo Python retrieval aggregator (`engines/oracle/`) that composes deterministic run-state lookup + semantic lesson/knowledge retrieval (QMD-shaped) + Honcho memory, serves per-role models by the precedence `url override > embedded default > floor`, and exposes a READ-ONLY `uacp_oracle_query` governed tool that injects ranked prior-art into the decision phases.
 
 **Architecture:** A pure-domain layer (tier_config + provider-packet/trust-class dataclasses, zero I/O) sits below three independent, non-fatal source tiers — a deterministic run-state source (reusing `engines.io.loaders`), a semantic source backed by a thin LanceDB store interface, and a Honcho memory source. The semantic source runs a QMD pipeline (query-expansion → dense+keyword hybrid → RRF fusion → rerank → BES/tag overlay) whose embedding/rerank/expansion roles each resolve through a serving resolver (`url override > embedded default > floor`). Heavy ML deps (LanceDB, the llama.cpp binding) are optional + lazily imported so the keyword+structured+BES **floor** works with zero ML deps installed. The aggregator gates sources per phase via `PHASE_TIERS` and is surfaced read-only through `uacp_oracle_query` registered alongside the existing governed writers in the Hermes adapter.

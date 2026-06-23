@@ -18,7 +18,7 @@ Dump the raw thinking material into the session vault at `.uacp/brainstorm/{sess
 ├── 04-approaches.md           # Phase 4: candidate sketches
 ├── 05-selected-scope.md       # Phase 5: agreed scope
 ├── 06-next-steps.md           # Phase 6+: handoff notes
-├── 07-scope-package.yaml      # Phase 7: governed exit artifact (uacp_artifact_write)
+├── 07-scope-package.yaml      # Phase 7: governed exit artifact (uacp_entity_write)
 └── references/                # SESSION VAULT references (vault-local evidence)
     ├── files-read.yaml        # Every file read during exploration
     ├── searches.yaml          # Every search command and result summary

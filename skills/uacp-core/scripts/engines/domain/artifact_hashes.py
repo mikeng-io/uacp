@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 
@@ -55,10 +56,27 @@ def load_hash_index(workspace: str | Path, run_id: str) -> dict:
         return {}
 
 
+def _write_index_atomic(path: Path, index: dict) -> None:
+    """Write the index via a temp file + atomic rename (Kimi #2): the rename is all-or-nothing,
+    so a crash/partial-write can never leave a truncated/corrupted index that subsequent
+    ``load_hash_index`` reads as ``{}`` and then overwrites — wiping every other watermark."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def record_hash(workspace: str | Path, run_id: str, rel: str, content: str) -> None:
-    """Record (overwrite-in-place) the SHA-256 of ``content`` for artifact ``rel``."""
+    """Record (overwrite-in-place, atomically) the SHA-256 of ``content`` for artifact ``rel``."""
     index = load_hash_index(workspace, run_id)
     index[str(rel)] = content_hash(content)
-    path = hash_index_path(workspace, run_id)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(index, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _write_index_atomic(hash_index_path(workspace, run_id), index)
+
+
+def restore_hash_index(workspace: str | Path, run_id: str, index: dict) -> None:
+    """Atomically write ``index`` as the run's watermark map — restore the EXACT prior state on an
+    entity-writer rollback (Codex PR#5 r4). The caller snapshots the whole index before its write;
+    restoring it verbatim handles every case with ONE mechanism: a fresh-file rollback drops the new
+    entry, an overwrite rollback restores the prior entry exactly — preserving an ABSENT or a
+    deliberately-MISMATCHED (tamper-signal) watermark rather than recomputing it from the bytes."""
+    _write_index_atomic(hash_index_path(workspace, run_id), dict(index))

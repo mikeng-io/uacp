@@ -17,6 +17,7 @@ _EXPECTED_NAMES = {
     "uacp_run_registry_update",
     "uacp_escalation_event",
     "uacp_artifact_write",
+    "uacp_entity_write",
     "uacp_doc_write",
     "uacp_config_write",
     "uacp_sandbox_check",
@@ -26,13 +27,13 @@ _EXPECTED_NAMES = {
     "uacp_oracle_query",
 }
 
-# read_only=True only for the read-only tools; all 8 others are writers.
+# read_only=True only for the read-only tools; all 9 others are writers.
 _READ_ONLY = {"uacp_oracle_query", "uacp_heartgate_check", "uacp_sandbox_check"}
 
 
-def test_tool_specs_has_all_eleven_names():
+def test_tool_specs_has_all_twelve_names():
     specs = tool_specs()
-    assert len(specs) == 11
+    assert len(specs) == 12
     assert {s.name for s in specs} == _EXPECTED_NAMES
 
 

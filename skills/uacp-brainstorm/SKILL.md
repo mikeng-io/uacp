@@ -14,7 +14,7 @@ allowed-tools:
   - Task
   - Write
   - uacp_state_write
-  - uacp_artifact_write
+  - uacp_entity_write
   - uacp_heartgate_check
 ---
 
@@ -22,7 +22,7 @@ allowed-tools:
 
 Use this skill when the user has a vague idea, ambiguous scope, or multiple possible directions. Brainstorming is an **optional formal entry phase** of the UACP lifecycle. Its job is to help the user understand what they actually want and trim it down to a bounded scope before TRIAGE.
 
-**This skill is a governed phase.** On entry it registers a UACP run at `phase: brainstorm` using `uacp_state_write`, writes the scope package as a real lifecycle artifact using `uacp_artifact_write`, and runs `uacp_heartgate_check` for the `brainstorm→triage` transition before handing off. Brainstorm artifacts are state-persistent.
+**This skill is a governed phase.** On entry it registers a UACP run at `phase: brainstorm` using `uacp_state_write`, writes the scope package as a real lifecycle artifact using `uacp_entity_write`, and runs `uacp_heartgate_check` for the `brainstorm→triage` transition before handing off. Brainstorm artifacts are state-persistent.
 
 **Hard rule:** do not invoke implementation skills during brainstorming. Exploration only.
 
@@ -43,7 +43,7 @@ Read: references/exploration-gate.md
 5. Read: references/phase-4-approaches.md — Sketch 2–3 candidate approaches
 6. Read: references/phase-5-trim.md — Trim scope with the user
 7. Read: references/phase-6-vault.md — Write rough notes to brainstorm vault
-8. Read: references/phase-7-selected-scope.md — Produce the scope package (governed artifact via `uacp_artifact_write`)
+8. Read: references/phase-7-selected-scope.md — Produce the scope package (governed artifact via `uacp_entity_write`)
 9. Read: references/phase-8-admission.md — Run `uacp_heartgate_check` for brainstorm→triage
 10. Read: references/phase-9-triage.md — Transition to TRIAGE (`uacp_heartgate_check` transition)
 
@@ -61,7 +61,7 @@ BRAINSTORM → TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE
 - Brainstorm is **optional**. A run may begin at `brainstorm`, or TRIAGE may be entered directly with no brainstorm at all (the codified `enters_from` for triage is `none | brainstorm`).
 - When brainstorm IS present, its **only exit is TRIAGE** (`brainstorm` enters_from `none`; its sole onward transition in the phase graph is `brainstorm → triage`). Brainstorm never skips TRIAGE and never routes anywhere else.
 - Explore-and-bail (stopping before any formal artifact) is a follow-up requiring the `aborted`-status path.
-- Scope package path: `.uacp/brainstorm/{session_id}/07-scope-package.yaml` (written via `uacp_artifact_write`). The codified exit-invariant glob `brainstorm/*/07-scope-package.yaml` is relative to the `.uacp/` namespace root.
+- Scope package path: `.uacp/brainstorm/{session_id}/07-scope-package.yaml` (written via `uacp_entity_write`). The codified exit-invariant glob `brainstorm/*/07-scope-package.yaml` is relative to the `.uacp/` namespace root.
 
 ---
 

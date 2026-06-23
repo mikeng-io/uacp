@@ -15,8 +15,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SERVER_REL = "runtime-adapters/mcp/uacp_mcp_server.py"
+# .mcp.json is the Claude project MCP config; it is gitignored operator-local
+# (af93cbe) so it is ABSENT in clean checkouts / CI. Verify its wiring only when
+# present — the committed server file (test_server_file_exists) and the committed
+# Kimi manifest (test_kimi_*) are checked unconditionally.
+_MCP_JSON = _REPO_ROOT / ".mcp.json"
 
 
 def test_server_file_exists() -> None:
@@ -25,8 +32,9 @@ def test_server_file_exists() -> None:
     )
 
 
+@pytest.mark.skipif(not _MCP_JSON.is_file(), reason=".mcp.json absent (gitignored operator-local, af93cbe)")
 def test_claude_mcp_json_points_at_server() -> None:
-    manifest = json.loads((_REPO_ROOT / ".mcp.json").read_text())
+    manifest = json.loads(_MCP_JSON.read_text())
     servers = manifest["mcpServers"]
     assert "uacp" in servers, "Claude .mcp.json missing 'uacp' server"
     entry = servers["uacp"]

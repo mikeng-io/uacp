@@ -232,6 +232,8 @@ Recommended semantic companion inside the PLAN package:
 
 The PIV contract must define phase intent, neutral `work_units`, evidence obligations, checkpoint policy, intent-drift conditions, and next-phase handoff criteria. PLAN owns this contract so EXECUTE does not improvise what to record and VERIFY does not improvise what evidence is sufficient.
 
+Write it with **`uacp_entity_write`** (`kind: uacp.phase_intent_verification_contract`) — the governed, registering manifest writer. **Each `work_unit` MUST carry `derives_from: [scope_item_id, …]`** referencing the keyed `scope.in_scope` ids from the PROPOSE proposal — this is the PROPOSE→PLAN coverage edge the graph gate enforces (a work_unit with no `derives_from` is an orphan; a scope_item nothing derives from is a dropped intent).
+
 ## Operator phase-return presentation
 
 Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/skills/uacp-core/references/operator-phase-return-presentation.md`. Return information, not raw data.

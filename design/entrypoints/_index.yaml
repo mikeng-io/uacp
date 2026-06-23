@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the aggregate root of the unified-entry-points design bundle.
+# WHAT IT DOES:  lists member nodes (reading order) + the design's own inter-node graph + status.
+# WHAT IT DOES NOT DO: it does not validate the member nodes and performs no cross-node closure.
+# VALIDATED BY:  ../graph-engine/schema/design-index.schema.json (shared design_index shape).
+
+kind: design_index
+title: UACP Unified Entry Points — Design Bundle
+description: >-
+  Unify the fragmented entry ring (12 standalone scripts/*.py + the 11 governed tools) into ONE
+  command registry with two thin adapters — a single `uacp` CLI and the existing MCP server. The
+  engines are CA+DDD-clean; this brings the entry points to the same discipline (define a command
+  once; CLI + MCP dispatch over it). Build deferred until after Phase C (the Manifest engine).
+status: design                      # enum: design|proposed|accepted|building|built
+governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
+timestamp: '2026-06-23'
+origin: session 2026-06-23 (entry-point unification thread; mike wants a single CLI + MCP over one registry)
+schema_dir: ../graph-engine/schema/ # reuses the graph-engine bundle's design_index schema
+
+members:
+  - 00-unified-entrypoints.md   # the pattern: one registry + thin CLI/MCP adapters (grounded in tool_specs + the MCP server)
+  - 01-command-map.md           # every script -> `uacp <cmd>`, classified, + the build plan
+
+# DERIVED mirror of each node's `edges:` frontmatter (src = the node that owns the edge).
+# rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences|relates_to|corrects|grounds|supersedes. provenance enum: derived|parsed|asserted|inferred.
+edges:
+  - {src: 00-unified-entrypoints, dst: 01-command-map, rel: depends_on, provenance: asserted}
+
+scope:
+  v1: [command-registry, cli-adapter, mcp-adapter, script-migration]
+  deferred: [build-until-after-phase-c]

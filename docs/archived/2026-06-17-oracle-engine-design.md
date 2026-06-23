@@ -68,7 +68,7 @@ Each source is independent and **non-fatal**: a missing/unreachable source is lo
 
 The 2026 hybrid consensus (research-confirmed, high confidence) is exactly QMD's shape, so we replicate it:
 
-1. **Query expansion** — optional; a small instruct LLM via the chat endpoint emits multi-query variants + conditional HyDE (gate on low confidence).
+1. **Query expansion** — ⛔ **RETIRED 2026-06-23** (see `docs/decisions/decision-log.md`). ~~optional; a small instruct LLM via the chat endpoint emits multi-query variants + conditional HyDE (gate on low confidence).~~ Removed: the role was never wired into the pipeline, and a small-model expander regresses recall on the BGE-M3 + Qwen3-Reranker stack; hybrid dense+FTS+RRF already supplies recall robustness. The pipeline now starts at step 2 (hybrid retrieve).
 2. **Hybrid retrieve** — dense (BGE-M3 dense vectors) **+** keyword/lexical (FTS / BM25, or BGE-M3 sparse) in parallel.
 3. **RRF fusion** (k=60) — robust, native in the store; beats learned fusion.
 4. **Rerank** — cross-encoder/LLM reranker over fused top-N via the rerank endpoint.

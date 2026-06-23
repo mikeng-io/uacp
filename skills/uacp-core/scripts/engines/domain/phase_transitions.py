@@ -93,10 +93,12 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "Write",
         "uacp_state_write",
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_heartgate_check",
     ],
     "triage": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
@@ -107,6 +109,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
     ],
     "propose": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
@@ -116,6 +119,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
     ],
     "plan": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
@@ -129,6 +133,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_run_registry_update",
         "uacp_escalation_event",
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_gate_ledger_append",
         "uacp_contained_shell",
         "uacp_sandbox_check",
@@ -138,6 +143,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
     ],
     "verify": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
@@ -148,6 +154,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
     ],
     "resolve": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",

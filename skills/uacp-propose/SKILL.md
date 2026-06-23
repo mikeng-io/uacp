@@ -57,6 +57,10 @@ who authorized it, what changes are in scope, and what side effects are declared
   `scope.out_of_scope`, `declared_side_effects`, `authority.status`, and
   `human_involvement`) even when richer aliases such as
   `originating_triage_artifact` are also present.
+- **Write the proposal with `uacp_entity_write`** (`kind: uacp.proposal`) — the governed,
+  registering manifest writer. **`scope.in_scope` items MUST be keyed objects `{id, statement}`**
+  (e.g. `{id: si-1, statement: "..."}`), not bare strings: those ids are the graph's `scope_item`
+  nodes that PLAN's `work_units` cover via `derives_from` (the dropped-intent / orphan-task gate).
 
 ## Typical outputs
 - proposal artifact in `proposals/`

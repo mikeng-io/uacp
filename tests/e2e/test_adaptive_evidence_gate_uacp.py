@@ -88,7 +88,12 @@ def _piv(run_id: str) -> dict:
         "applies_to_phase": "execute",
         "phase_intent": {"summary": "verify the .uacp-aware validator resolves linked artifacts"},
         "work_units": [
-            {"id": "wu-1", "intent": "ship the fix", "expected_outputs": ["validator patch"]}
+            {
+                "id": "wu-1",
+                "intent": "ship the fix",
+                "expected_outputs": ["validator patch"],
+                "derives_from": ["si-1"],  # D43: work_units declare coverage of a scope_item
+            }
         ],
         "evidence_obligations": [
             {

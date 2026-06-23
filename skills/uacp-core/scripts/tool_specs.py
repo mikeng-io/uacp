@@ -1,6 +1,6 @@
 """Runtime-neutral registry of UACP governed tools.
 
-Single source of truth for the 11 governed tools. Both the Hermes adapter
+Single source of truth for the 12 governed tools. Both the Hermes adapter
 (today) and a future MCP server consume ``tool_specs()`` rather than each
 re-declaring tool names, schemas, and handler bindings — true DRY.
 
@@ -17,8 +17,8 @@ Each :class:`ToolSpec` carries:
   * ``read_only`` — True for read-only tools (oracle/heartgate/sandbox checks),
     False for writers (including uacp_contained_shell, which mints state).
 
-The 4 state handlers are pulled from ``state`` (uacp-state); the 7 others from
-``governed_handlers`` (uacp-core). The 11 input schemas below are the canonical
+The 4 state handlers are pulled from ``state`` (uacp-state); the 8 others from
+``governed_handlers`` (uacp-core). The 12 input schemas below are the canonical
 copies — the Hermes ``register()`` reproduces its exact wire form via
 ``hermes_schema()``.
 """
@@ -41,6 +41,7 @@ from governed_handlers import (  # noqa: E402  (import follows sys.path setup)
     _handle_uacp_config_write,
     _handle_uacp_contained_shell,
     _handle_uacp_doc_write,
+    _handle_uacp_entity_write,
     _handle_uacp_heartgate_check,
     _handle_uacp_oracle_query,
     _handle_uacp_sandbox_check,
@@ -120,8 +121,41 @@ def _common_write_schema() -> dict[str, Any]:
     }
 
 
+# uacp_entity_write: the TYPED, auto-registering manifest write path. Instead of a raw
+# target_path/content blob, it takes the entity `kind` + `fields` (+ optional per-kind `ctx`
+# placeholders) and routes through engines.manifest.entity_writer.create_entity, which validates,
+# watermarks, AND registers the artifact into the run manifest (so the graph_projection gate sees it).
+def _entity_write_schema() -> dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": {
+            "kind": {"type": "string"},
+            "fields": {"type": "object"},
+            "ctx": {"type": "object"},
+            "reason": {"type": "string"},
+            "authority_artifact": {"type": "string"},
+            "workspace": {"type": "string"},
+            "uacp_run_id": {"type": "string"},
+            "uacp_phase": {"type": "string"},
+            "policy_version": {"type": "string"},
+            "declared_side_effects": {"type": "string"},
+        },
+        "required": [
+            "kind",
+            "fields",
+            "reason",
+            "authority_artifact",
+            "workspace",
+            "uacp_run_id",
+            "uacp_phase",
+            "policy_version",
+            "declared_side_effects",
+        ],
+    }
+
+
 def tool_specs() -> list[ToolSpec]:
-    """Return the 11 governed-tool specs (single source of truth)."""
+    """Return the 12 governed-tool specs (single source of truth)."""
     return [
         ToolSpec(
             name="uacp_state_write",
@@ -173,7 +207,11 @@ def tool_specs() -> list[ToolSpec]:
                     "trigger": {"type": "string"},
                     "severity": {"type": "string", "enum": ["info", "warn", "block"]},
                     "reason": {"type": "string"},
-                    "mode": {"type": "string", "enum": ["manual", "semi_auto", "supervised_auto", "full_auto"], "description": "Required — must match state.yaml#escalations.record_schema"},
+                    "mode": {
+                        "type": "string",
+                        "enum": ["manual", "semi_auto", "supervised_auto", "full_auto"],
+                        "description": "Required — must match state.yaml#escalations.record_schema",
+                    },
                     "details": {"type": "object"},
                     "authority_artifact": {"type": "string"},
                     "workspace": {"type": "string"},
@@ -204,6 +242,17 @@ def tool_specs() -> list[ToolSpec]:
             schema_description="Write non-state UACP artifacts under approved artifact directories.",
             input_schema=_common_write_schema(),
             handler=_handle_uacp_artifact_write,
+            read_only=False,
+        ),
+        ToolSpec(
+            name="uacp_entity_write",
+            description="Governed UACP entity writer (typed, validated, auto-registering)",
+            schema_description=(
+                "Write a typed UACP manifest entity by kind+fields: validates-on-write, watermarks, "
+                "and registers it into the run manifest (the graph-projection write path)."
+            ),
+            input_schema=_entity_write_schema(),
+            handler=_handle_uacp_entity_write,
             read_only=False,
         ),
         ToolSpec(

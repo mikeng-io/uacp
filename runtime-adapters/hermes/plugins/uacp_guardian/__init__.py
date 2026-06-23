@@ -46,6 +46,7 @@ from governed_handlers import (  # noqa: F401  (re-exported for tests)
     _handle_uacp_config_write,
     _handle_uacp_contained_shell,
     _handle_uacp_doc_write,
+    _handle_uacp_entity_write,
     _handle_uacp_heartgate_check,
     _handle_uacp_oracle_query,
     _handle_uacp_sandbox_check,

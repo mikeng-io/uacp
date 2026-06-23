@@ -1,0 +1,15 @@
+# The committed, structured lookup for session-handoff capsules (uacp-handoff skill).
+# Aggregate-as-node (graph-engine D28). One capsule per workstream lives beside this
+# file as <workstream>.md; this index records what exists and which are active.
+kind: handoff_index
+title: UACP Session Handoffs — index
+description: >-
+  One entry per workstream handoff capsule. The runtime-neutral, committed
+  counterpart to a private memory note's table of contents.
+members:
+  - build-uacp-handoff-skill.md
+entries:
+  - workstream: build-uacp-handoff-skill
+    status: active
+    updated_at: '2026-06-22'
+    hook: "uacp-handoff skill built + suite-green (b267811); next: merge to main + register in layout/uacp-lint"

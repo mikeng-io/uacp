@@ -14,11 +14,13 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 # Bootstrap sibling-kernel imports (filesystem helper) the same way the engine
 # package does, so the io layer works regardless of how it is imported.
@@ -35,6 +37,7 @@ from config import base_dir, dir_for  # noqa: E402
 # Importing the domain package also bootstraps state_machine onto sys.path and
 # reuses RunManifest (it is not re-declared here).
 from engines.domain import (  # noqa: E402
+    ConvergenceBudget,
     CurrentPointer,
     LedgerEntry,
     RunManifest,
@@ -191,6 +194,55 @@ def load_artifact(workspace: Path, rel: str) -> Loaded[dict[str, Any]]:
     return Loaded(value=raw)
 
 
+def load_yaml_under_root(workspace: Path, rel: str) -> Loaded[Mapping[str, Any]]:
+    """Load a governed-base-relative (or absolute, contained) YAML mapping.
+
+    Resolves ``rel`` under ``base_dir(workspace)`` (an absolute ``rel`` is taken
+    as-is), containment-checks it, parses it, and requires a mapping. Never
+    raises — failures come back as ``error`` (path-escape / not-found / parse /
+    non-mapping). This is the gate's prior in-place loader lifted to the io
+    ``Loaded`` contract; the calling gate maps ``error`` to its blocker list.
+    """
+    try:
+        candidate = Path(rel)
+        base = base_dir(workspace).resolve()
+        resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+        if resolved != base and base not in resolved.parents:
+            return Loaded(error=f"artifact path escapes UACP root: {rel}")
+        if not resolved.exists() or not resolved.is_file():
+            return Loaded(error=f"artifact not found: {rel}")
+        data = yaml.safe_load(resolved.read_text(encoding="utf-8"))
+    except Exception as exc:  # defensive: resolution/read/parse must not raise
+        return Loaded(error=f"failed to parse {rel}: {exc}")
+    if not isinstance(data, Mapping):
+        return Loaded(error=f"{rel} must be a YAML mapping")
+    return Loaded(value=data)
+
+
+def load_text_under_root(workspace: Path, rel: str) -> Loaded[str]:
+    """Load a governed-base-relative (or absolute, contained) text file as a string.
+
+    The text counterpart to :func:`load_yaml_under_root` for MARKDOWN manifest
+    documents (e.g. ``proposals/{run_id}-intent.md`` and the verified-facts /
+    assumptions ``.md`` pairs) that are NOT YAML mappings. Resolves ``rel`` under
+    ``base_dir(workspace)`` (an absolute ``rel`` is taken as-is), containment-checks
+    it, and reads it. Never raises — failures come back as ``error`` (path-escape /
+    not-found / read). The calling gate maps ``error`` to its blocker list.
+    """
+    try:
+        candidate = Path(rel)
+        base = base_dir(workspace).resolve()
+        resolved = candidate.resolve() if candidate.is_absolute() else (base / candidate).resolve()
+        if resolved != base and base not in resolved.parents:
+            return Loaded(error=f"artifact path escapes UACP root: {rel}")
+        if not resolved.exists() or not resolved.is_file():
+            return Loaded(error=f"artifact not found: {rel}")
+        text = resolved.read_text(encoding="utf-8")
+    except Exception as exc:  # defensive: resolution/read must not raise
+        return Loaded(error=f"failed to read {rel}: {exc}")
+    return Loaded(value=text)
+
+
 def load_scope(workspace: Path, rel: str) -> Loaded[Scope]:
     """Load a ``uacp.scope`` artifact as a typed :class:`Scope` model."""
     loaded = load_artifact(workspace, rel)
@@ -232,6 +284,74 @@ def load_phase_transitions(workspace: Path) -> Loaded[dict[str, Any]]:
         # T4c "loaded-config-overrides / code-default-when-absent" convention.
         raw = {**raw, "stages": stages_default()}
     return Loaded(value=raw)
+
+
+def load_convergence_budget(workspace: Path, run_id: str) -> Loaded[ConvergenceBudget]:
+    """Load + validate the PROPOSE convergence-budget for ``run_id``.
+
+    ``proposals/<run_id>-convergence-budget.yaml`` must declare a
+    ``convergence_budget`` block with a positive ``max_checkpoints``. Returns the
+    validated model on ``value``, or a human ``error`` (missing / parse / shape /
+    invalid). Never raises. (PyYAML-absence is handled by the calling gate.)
+    """
+    rel = f"proposals/{run_id}-convergence-budget.yaml"
+    path = base_dir(workspace) / rel
+    if not path.exists():
+        return Loaded(
+            error=(
+                f"goal-driven run requires a convergence_budget: missing {rel} "
+                "(an autonomous run with no checkpoint cap would loop forever)"
+            )
+        )
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # defensive: garbled YAML must not raise
+        return Loaded(error=f"convergence_budget: failed to parse {rel}: {exc}")
+    if not isinstance(raw, Mapping):
+        return Loaded(error=f"convergence_budget: {rel} must be a mapping")
+    budget_raw = raw.get("convergence_budget")
+    if not isinstance(budget_raw, Mapping):
+        return Loaded(
+            error=(
+                f"convergence_budget: {rel} must declare a convergence_budget block "
+                "with a positive max_checkpoints"
+            )
+        )
+    try:
+        return Loaded(value=ConvergenceBudget.model_validate(dict(budget_raw)))
+    except ValidationError as exc:
+        return Loaded(
+            error=(
+                "convergence_budget invalid (max_checkpoints must be an integer > 0): "
+                f"{exc.errors()[0].get('msg') if exc.errors() else exc}"
+            )
+        )
+
+
+def load_checkpoint_manifest(workspace: Path, run_id: str) -> list[Mapping[str, Any]]:
+    """Read a run's gate:CHECKPOINT ledger records (raw, in ledger order).
+
+    Never raises: an unreadable / garbled ledger yields no records rather than
+    crashing the gate. The caller is responsible for ``run_id`` safety.
+    """
+    records: list[Mapping[str, Any]] = []
+    ledger_path = base_dir(workspace) / "state" / "gate-ledger" / f"{run_id}.jsonl"
+    if not ledger_path.exists():
+        return records
+    try:
+        for line in ledger_path.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except Exception:
+                continue
+            if isinstance(rec, Mapping) and str(rec.get("gate") or "") == "CHECKPOINT":
+                records.append(rec)
+    except Exception:
+        return records
+    return records
 
 
 def glob_in_workspace(workspace: Path, pattern: str) -> list[Path]:

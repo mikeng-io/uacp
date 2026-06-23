@@ -206,10 +206,16 @@ class TestBundledComponents:
             text = skill_md.read_text(encoding="utf-8")
             assert len(text) > 0, f"{skill_md.relative_to(REPO_ROOT)} is empty"
 
-    def test_mcp_json_exists_and_server_file_present(self) -> None:
-        """'.mcp.json' must exist and its server script must be on disk."""
+    @pytest.mark.skipif(
+        not (REPO_ROOT / ".mcp.json").is_file(),
+        reason=".mcp.json is gitignored operator-local config (af93cbe), absent in CI; "
+        "the committed server file is covered by test_mcp_manifests.test_server_file_exists",
+    )
+    def test_mcp_json_server_wiring_when_present(self) -> None:
+        """When the operator-local .mcp.json is present, its 'uacp' server entry must
+        point at a server script that exists on disk. (.mcp.json itself is gitignored
+        per af93cbe, so this is verified only when present — see the skipif reason.)"""
         mcp_json_path = REPO_ROOT / ".mcp.json"
-        assert mcp_json_path.is_file(), ".mcp.json missing from repo root"
         data = _load_json(mcp_json_path)
 
         # Verify the uacp MCP server entry points to an existing script.
