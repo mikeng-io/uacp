@@ -28,14 +28,21 @@ def _piv(obls: list) -> dict:
     return {"kind": "uacp.piv", "evidence_obligations": obls}
 
 
-def _exec(checkpoint_id: str, work_unit_id: str, result: str = "pass") -> dict:
+def _exec(
+    checkpoint_id: str,
+    work_unit_id: str,
+    result: str = "pass",
+    checkpoint_type: str = "after_work_unit",
+) -> dict:
     # Real execution_checkpoint shape (D42): ONE doc per checkpoint — top-level checkpoint_id +
-    # work_unit_id + evidence[]; the checkpoint outcome rolls up from evidence[].result. `result`
-    # must be a real outcome ({pass,warn,block,deferred}); the old spike used {pass,fail}.
+    # work_unit_id + checkpoint_type + evidence[]; outcome rolls up from evidence[].result. `result`
+    # must be a real outcome ({pass,warn,block,deferred}). Only a checkpoint_type=remediation pass
+    # clears a prior block.
     return {
         "kind": "uacp.execution_checkpoint",
         "checkpoint_id": checkpoint_id,
         "work_unit_id": work_unit_id,
+        "checkpoint_type": checkpoint_type,
         "evidence": [{"obligation_id": "ev-1", "result": result, "summary": "x"}],
     }
 
@@ -171,9 +178,8 @@ def test_contradicted_via_obligation_id_join_binds_on_real_data(tmp_path):
 
 
 def test_remediation_pass_clears_earlier_block_no_contradiction(tmp_path):
-    # GN3 external (Kimi+Codex): a historical block evidence cleared by a LATER remediation pass for
-    # the SAME obligation must NOT flag a pass assessment as contradicted — blocked_obls requires
-    # block AND no pass for the obligation.
+    # GN3 external (Kimi #1): a block cleared by a REMEDIATION-checkpoint pass for the same obligation
+    # must NOT flag a pass assessment as contradicted.
     ws = _ws(
         tmp_path,
         "r",
@@ -182,11 +188,30 @@ def test_remediation_pass_clears_earlier_block_no_contradiction(tmp_path):
         extra_docs=[
             _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
             _exec("cp-1", "wu-1", "block"),  # initial checkpoint: block
-            _exec("cp-2", "wu-1", "pass"),  # remediation checkpoint: pass (same obligation ev-1)
+            _exec("cp-2", "wu-1", "pass", checkpoint_type="remediation"),  # remediation: clears it
             _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
         ],
     )
     assert "GP_CONTRADICTED" not in _codes_set(validate_graph_projection(ws, "r"))
+
+
+def test_regression_block_after_plain_pass_is_contradicted(tmp_path):
+    # GN3 external (Codex P2 r2): order-blind set logic must NOT let an earlier PLAIN pass clear a
+    # LATER block. Only a remediation pass clears — a plain pass then a block (regression) on the same
+    # obligation, under a pass assessment, IS a contradiction.
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "pass"),  # plain after_work_unit pass (does NOT clear)
+            _exec("cp-2", "wu-1", "block"),  # later regression: block
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+        ],
+    )
+    assert "GP_CONTRADICTED" in _codes_set(validate_graph_projection(ws, "r"))
 
 
 def test_legacy_bare_strings_read_as_uncovered(tmp_path):

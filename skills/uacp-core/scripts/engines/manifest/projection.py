@@ -126,7 +126,10 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
         # Per-obligation evidence outcome as an `evidence` node: the REAL assessment<->checkpoint
         # join is the shared obligation_id (both validated vs the PIV), so recording each evidence
         # result against its obligation is what lets GP_CONTRADICTED bind on real producer output
-        # (the free-text evidence_refs join does not).
+        # (the free-text evidence_refs join does not). Carry whether this is a REMEDIATION
+        # checkpoint: only a remediation pass clears an earlier block (a normal pass must not, else
+        # a pass-then-block regression would be wrongly cleared).
+        is_remediation = doc.get("checkpoint_type") == "remediation"
         for ev in ev_items:
             ev_oid = ev.get("obligation_id")
             if ev_oid:
@@ -135,6 +138,7 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
                     "evidence",
                     obligation_id=ev_oid,
                     result=ev.get("result"),
+                    remediation=is_remediation,
                 )
 
     for a in _aslist(doc.get("assessments")):
@@ -212,14 +216,23 @@ def _check_contradicted(nodes: dict, edges: list) -> list[Violation]:
     # obligation that has a block `evidence` item; (B) the explicit evidence_refs -> checkpoint_id
     # ref, for producers that emit it. Deduped per assessment.
     cp_result = {n["id"]: n.get("result") for n in nodes.values() if n["kind"] == "checkpoint"}
-    # An obligation is "blocked" only if it has block evidence AND no passing evidence: a later
-    # remediation pass (multiple checkpoints, incl. checkpoint_type=remediation) clears an earlier
-    # block, so we must NOT flag a pass assessment that cites the since-fixed obligation.
-    ev_by_obl: dict[str, set] = {}
+    # An obligation is "blocked" if it has block evidence that no REMEDIATION pass cleared. A plain
+    # (non-remediation) pass must NOT clear it — order-blind set logic would otherwise let an
+    # earlier pass cancel a LATER block (a regression). Only a checkpoint_type=remediation pass
+    # clears (Codex P2): the doc carries checkpoint_type but not seq, so remediation is the
+    # order-free disambiguator (residual third-order edge — block -> remediation-pass -> block-again
+    # — needs real seq ordering, a producer follow-on).
+    has_block: set[str] = set()
+    cleared: set[str] = set()
     for n in nodes.values():
-        if n["kind"] == "evidence" and n.get("obligation_id"):
-            ev_by_obl.setdefault(n["obligation_id"], set()).add(n.get("result"))
-    blocked_obls = {oid for oid, rs in ev_by_obl.items() if "block" in rs and "pass" not in rs}
+        if n["kind"] != "evidence" or not n.get("obligation_id"):
+            continue
+        oid = n["obligation_id"]
+        if n.get("result") == "block":
+            has_block.add(oid)
+        elif n.get("result") == "pass" and n.get("remediation"):
+            cleared.add(oid)
+    blocked_obls = has_block - cleared
     flagged: dict[str, Violation] = {}
     # path A — shared obligation_id (binds on real producer output)
     for n in nodes.values():
