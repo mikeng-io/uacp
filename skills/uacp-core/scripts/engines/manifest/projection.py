@@ -26,8 +26,9 @@ What this engine checks — STRUCTURAL integrity only (always a defect, any phas
   no parent intent: phantom work).
 * ``GP_PHANTOM_EDGE``       — an edge whose target resolves to no node (a forged or
   dangling reference, e.g. ``derives_from`` a non-existent scope_item).
-* ``GP_CONTRADICTED``       — a ``pass`` assessment whose evidence checkpoint is
-  itself ``fail`` (a "done" claim contradicted by its own evidence).
+* ``GP_CONTRADICTED``       — a ``pass`` assessment whose evidence checkpoint rolled
+  up to ``block`` (a "done" claim contradicted by its own failed evidence; ``warn``/
+  ``deferred`` are legitimate close-with-deferred, not contradictions).
 
 What this engine deliberately does NOT check (honest limits):
 
@@ -66,6 +67,19 @@ def _synth_id(prefix: str, text: str, run: str) -> str:
     return f"{prefix}-{hashlib.sha1(f'{run}:{text}'.encode()).hexdigest()[:8]}"
 
 
+def _rollup_result(results: list) -> str | None:
+    """Roll a checkpoint's evidence[].result values up to one outcome — worst wins (block > warn >
+    deferred); 'pass' only if EVERY evidence result is 'pass'. Returns None when there is no
+    evidence OR a result is missing/unknown — None is "indeterminate" (never a contradiction), so a
+    legacy result is conservatively ignored, not mistaken for block."""
+    for severity in ("block", "warn", "deferred"):
+        if severity in results:
+            return severity
+    if results and all(r == "pass" for r in results):
+        return "pass"
+    return None
+
+
 def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
     """Extract nodes + typed edges from one artifact doc into the shared graph."""
 
@@ -75,7 +89,8 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
     def add_edge(src: str, dst: str, rel: str) -> None:
         edges.append({"src": src, "dst": dst, "rel": rel})
 
-    scope = doc.get("scope") if isinstance(doc.get("scope"), dict) else {}
+    scope = doc.get("scope")
+    scope = scope if isinstance(scope, dict) else {}
     for item in _aslist(scope.get("in_scope")):
         if isinstance(item, dict) and item.get("id"):  # new canonical form
             add_node(item["id"], "scope_item", statement=item.get("statement", ""))
@@ -84,7 +99,12 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
 
     for wu in _aslist(doc.get("work_units")):
         if isinstance(wu, dict) and wu.get("id"):
-            add_node(wu["id"], "work_unit", title=wu.get("title", ""))
+            add_node(wu["id"], "work_unit", intent=wu.get("intent", ""))
+            # derives_from = the PROPOSE->PLAN coverage edge. NOTE (D42 producer gap): the real PIV
+            # validator does NOT require it on work_units (only id/intent/expected_outputs), so the
+            # coverage checks (GP_UNCOVERED/GP_ORPHAN) only bind once the PIV producer emits it —
+            # the producer-side coverage emission is the documented follow-on; the projection reads
+            # it when present.
             for dst in _aslist(wu.get("derives_from")):
                 add_edge(wu["id"], dst, "derives_from")
 
@@ -94,18 +114,39 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
             if ob.get("work_unit_id"):
                 add_edge(ob["id"], ob["work_unit_id"], "obligation_for")
 
-    for cp in _aslist(doc.get("checkpoints")):
-        if isinstance(cp, dict) and cp.get("id"):
-            add_node(cp["id"], "checkpoint", result=cp.get("result"))
-            if cp.get("work_unit_id"):
-                add_edge(cp["id"], cp["work_unit_id"], "checkpoint_of")
+    # execution_checkpoint (D42): the REAL shape is ONE doc per checkpoint (top-level checkpoint_id
+    # + work_unit_id + evidence[]), NOT a doc carrying a `checkpoints[]` list (the spike). Map each
+    # such doc to one checkpoint node, rolling its outcome up from evidence[].result.
+    cp_id = doc.get("checkpoint_id")
+    if cp_id:
+        ev_items = [ev for ev in _aslist(doc.get("evidence")) if isinstance(ev, dict)]
+        add_node(cp_id, "checkpoint", result=_rollup_result([ev.get("result") for ev in ev_items]))
+        if doc.get("work_unit_id"):
+            add_edge(cp_id, doc["work_unit_id"], "checkpoint_of")
+        # Per-obligation evidence outcome as an `evidence` node: the REAL assessment<->checkpoint
+        # join is the shared obligation_id (both validated vs the PIV), so recording each evidence
+        # result against its obligation is what lets GP_CONTRADICTED bind on real producer output
+        # (the free-text evidence_refs join does not). Carry whether this is a REMEDIATION
+        # checkpoint: only a remediation pass clears an earlier block (a normal pass must not, else
+        # a pass-then-block regression would be wrongly cleared).
+        is_remediation = doc.get("checkpoint_type") == "remediation"
+        for ev in ev_items:
+            ev_oid = ev.get("obligation_id")
+            if ev_oid:
+                add_node(
+                    f"ev::{cp_id}::{ev_oid}",
+                    "evidence",
+                    obligation_id=ev_oid,
+                    result=ev.get("result"),
+                    remediation=is_remediation,
+                )
 
     for a in _aslist(doc.get("assessments")):
         if not isinstance(a, dict):
             continue
         oid = a.get("obligation_id")
         aid = a.get("id") or _synth_id("as", str(oid), run)
-        add_node(aid, "assessment", result=a.get("state") or a.get("result"))
+        add_node(aid, "assessment", result=a.get("state") or a.get("result"), obligation_id=oid)
         if oid:
             add_edge(aid, oid, "obligation_id")
         if a.get("work_unit_id"):
@@ -168,23 +209,63 @@ def _check_phantom(nodes: dict, edges: list) -> list[Violation]:
 
 
 def _check_contradicted(nodes: dict, edges: list) -> list[Violation]:
+    # A pass assessment whose evidence FAILED (rolled up to BLOCK) is the contradiction. `block` is
+    # the sole "failed" outcome (the validator allows ready_with_deferred_items), so a `warn`/
+    # `deferred` checkpoint under a pass assessment is a LEGITIMATE close-with-deferred, not a
+    # contradiction. Two joins: (A) the REAL, producer-present join — a pass assessment for an
+    # obligation that has a block `evidence` item; (B) the explicit evidence_refs -> checkpoint_id
+    # ref, for producers that emit it. Deduped per assessment.
     cp_result = {n["id"]: n.get("result") for n in nodes.values() if n["kind"] == "checkpoint"}
-    out: list[Violation] = []
+    # An obligation is "blocked" if it has block evidence that no REMEDIATION pass cleared. A plain
+    # (non-remediation) pass must NOT clear it — order-blind set logic would otherwise let an
+    # earlier pass cancel a LATER block (a regression). Only a checkpoint_type=remediation pass
+    # clears (Codex P2): the doc carries checkpoint_type but not seq, so remediation is the
+    # order-free disambiguator (residual third-order edge — block -> remediation-pass -> block-again
+    # — needs real seq ordering, a producer follow-on).
+    has_block: set[str] = set()
+    cleared: set[str] = set()
+    for n in nodes.values():
+        if n["kind"] != "evidence" or not n.get("obligation_id"):
+            continue
+        oid = n["obligation_id"]
+        if n.get("result") == "block":
+            has_block.add(oid)
+        elif n.get("result") == "pass" and n.get("remediation"):
+            cleared.add(oid)
+    blocked_obls = has_block - cleared
+    flagged: dict[str, Violation] = {}
+    # path A — shared obligation_id (binds on real producer output)
+    for n in nodes.values():
+        if (
+            n["kind"] == "assessment"
+            and n.get("result") == "pass"
+            and n.get("obligation_id") in blocked_obls
+        ):
+            flagged[n["id"]] = _v(
+                "GP_CONTRADICTED",
+                f"assessment '{n['id']}' claims pass but its obligation "
+                f"'{n['obligation_id']}' has block evidence",
+                assessment=n["id"],
+                obligation_id=n.get("obligation_id"),
+            )
+    # path B — explicit evidence_refs -> checkpoint_id (when the producer emits checkpoint refs)
     for e in edges:
         if e["rel"] != "evidence_refs":
             continue
         asmt = nodes.get(e["src"], {})
-        if asmt.get("result") == "pass" and cp_result.get(e["dst"]) not in (None, "pass"):
-            out.append(
-                _v(
-                    "GP_CONTRADICTED",
-                    f"assessment '{e['src']}' claims pass but its evidence "
-                    f"checkpoint '{e['dst']}' is '{cp_result.get(e['dst'])}'",
-                    assessment=e["src"],
-                    checkpoint=e["dst"],
-                )
+        if (
+            asmt.get("result") == "pass"
+            and cp_result.get(e["dst"]) == "block"
+            and e["src"] not in flagged
+        ):
+            flagged[e["src"]] = _v(
+                "GP_CONTRADICTED",
+                f"assessment '{e['src']}' claims pass but its evidence "
+                f"checkpoint '{e['dst']}' is 'block'",
+                assessment=e["src"],
+                checkpoint=e["dst"],
             )
-    return out
+    return list(flagged.values())
 
 
 def _check_obligation_coverage(nodes: dict, edges: list) -> list[Violation]:
@@ -215,12 +296,20 @@ def _check_checkpoint_coverage(nodes: dict, edges: list) -> list[Violation]:
 
 
 def _check_unverified(nodes: dict, edges: list) -> list[Violation]:
-    # A work_unit is verified iff some assessment with result==pass links to it.
-    passing = {
-        e["dst"]
-        for e in edges
-        if e["rel"] == "work_unit_id" and nodes.get(e["src"], {}).get("result") == "pass"
-    }
+    # A work_unit is verified iff a passing assessment links to it — directly (work_unit_id edge) OR
+    # transitively via its obligation (assessment.obligation_id -> obligation --obligation_for-->
+    # work_unit). Real PIV assessments carry obligation_id, NOT the optional work_unit_id, so the
+    # transitive path is the one that binds on producer output.
+    obl_to_wu = {e["src"]: e["dst"] for e in edges if e["rel"] == "obligation_for"}
+    passing: set[str] = set()
+    for n in nodes.values():
+        if n["kind"] == "assessment" and n.get("result") == "pass":
+            wu = obl_to_wu.get(n.get("obligation_id"))
+            if wu:
+                passing.add(wu)
+    for e in edges:
+        if e["rel"] == "work_unit_id" and nodes.get(e["src"], {}).get("result") == "pass":
+            passing.add(e["dst"])
     return [
         _v(
             "GP_UNVERIFIED",

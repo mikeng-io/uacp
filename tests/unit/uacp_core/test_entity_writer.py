@@ -97,23 +97,33 @@ def test_create_entity_markdown_kind_writes_frontmatter_and_body(tmp_path):
     assert manifest["artifacts"]["intent"] == rel
 
 
+def _exec_checkpoint_fields(cp_id: str) -> dict:
+    # Full valid uacp.execution_checkpoint payload (kind + run_id injected by the writer). node-33
+    # now schema-enforces this kind, so the multi-instance test must pass a shape-valid doc.
+    return {
+        "phase": "execute",
+        "checkpoint_id": cp_id,
+        "piv_contract": "plans/x-piv.yaml",
+        "checkpoint_type": "after_work_unit",
+        "work_unit_id": "wu-1",
+        "work_performed": {"summary": "x", "produced_outputs": []},
+        "decisions": [],
+        "evidence": [{"result": "pass"}],
+        "intent_drift": {"detected": False},
+        "invariants": {},
+        "next_phase_readiness": {"status": "ready"},
+    }
+
+
 def test_create_entity_multi_instance_does_not_overwrite(tmp_path):
     # execution_checkpoint is multi-instance ({seq}); two instances must both register under
     # DISTINCT composite keys, not overwrite each other (Codex PR#3 multi-instance finding).
     run_id = _init_run(tmp_path)
     r1 = create_entity(
-        str(tmp_path),
-        run_id,
-        "uacp.execution_checkpoint",
-        {"run_id": run_id, "checkpoint_id": "c1"},
-        seq="1",
+        str(tmp_path), run_id, "uacp.execution_checkpoint", _exec_checkpoint_fields("c1"), seq="1"
     )
     r2 = create_entity(
-        str(tmp_path),
-        run_id,
-        "uacp.execution_checkpoint",
-        {"run_id": run_id, "checkpoint_id": "c2"},
-        seq="2",
+        str(tmp_path), run_id, "uacp.execution_checkpoint", _exec_checkpoint_fields("c2"), seq="2"
     )
     assert r1.get("ok") and r2.get("ok"), (r1, r2)
     assert r1["path"] != r2["path"]
