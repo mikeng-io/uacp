@@ -4,8 +4,10 @@ The foundational, near-pure-leaf validation sink: a `kind -> JSON-Schema (draft 
 registry + a thin `validate(kind, doc)`. It imports only `jsonschema` + stdlib; everything
 that needs validation (uacp-lint, the entity-writer, Guardian) imports IT, not the reverse.
 
-Two layers, two doctrines (node 33 — derived from the dominant runtime authority
-`scripts/validate_uacp_artifacts.py`, NOT authored to fixtures):
+Two layers, two doctrines (node 33 — derived from the real authority per kind, NOT authored to
+fixtures): the package docs + node-items from `scripts/validate_uacp_artifacts.py`; the small
+State/Resolve docs (scope/lessons/run_registry) from their Heartgate-wired authority
+`engines/domain/artifact_schema.py` (whose required_fields omit `kind` → it's optional-const here):
 
 * **Node-item shapes** (scope_item / work_unit / evidence_obligation / checkpoint /
   assessment) — the graph-projection node kinds. CLOSED-world (`additionalProperties:false`),
@@ -159,9 +161,15 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         "$schema": _DRAFT,
         "type": "object",
         "additionalProperties": False,
-        "required": ["kind", "run_id", "write_paths", "blast_radius", "rollback_path"],
+        # AS-BUILT authority: artifact_schema.ScopeSchema.required_fields (run_id/write_paths/
+        # blast_radius/rollback_path) — `kind` is NOT required there, so it's optional-const here
+        # (validated when present; the entity-writer injects it), matching run_registry.
+        "required": ["run_id", "write_paths", "blast_radius", "rollback_path"],
         "properties": {
-            "kind": {"const": "uacp.scope", "description": "Document kind; must be 'uacp.scope'."},
+            "kind": {
+                "const": "uacp.scope",
+                "description": "Optional; validated as const when present.",
+            },
             "run_id": {"type": "string", "minLength": 1, "description": "Owning run id."},
             "write_paths": {
                 "type": "array",
@@ -227,9 +235,14 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         "$schema": _DRAFT,
         "type": "object",
         "additionalProperties": False,
-        "required": ["kind", "run_id", "lessons"],
+        # AS-BUILT authority: artifact_schema.LessonsSchema (run_id/lessons) — `kind` NOT required
+        # there, so it's optional-const here (matching scope + run_registry).
+        "required": ["run_id", "lessons"],
         "properties": {
-            "kind": {"const": "uacp.lessons", "description": "Must be 'uacp.lessons'."},
+            "kind": {
+                "const": "uacp.lessons",
+                "description": "Optional; validated as const when present.",
+            },
             "run_id": {"type": "string", "minLength": 1},
             "lessons": {"type": "array", "items": {"type": "object"}},
         },

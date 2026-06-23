@@ -201,6 +201,24 @@ def test_lessons_missing_lessons_fails():
     )
 
 
+def test_scope_and_lessons_kind_is_optional_const():
+    # GN1-review F1: the wired authority (artifact_schema ScopeSchema/LessonsSchema) does NOT
+    # require `kind`, so schema.py must accept a kind-less doc it accepts — kind is optional-const
+    # (matching run_registry). But a WRONG kind, when present, still fails the const.
+    scope = {"run_id": "r1", "write_paths": ["src/"], "blast_radius": "low", "rollback_path": "n/a"}
+    assert validate("uacp.scope", scope) == []
+    assert any(
+        "const" in e.lower() or e.startswith("kind")
+        for e in validate("uacp.scope", {**scope, "kind": "uacp.plan"})
+    )
+    lessons = {"run_id": "r1", "lessons": []}
+    assert validate("uacp.lessons", lessons) == []
+    assert any(
+        "const" in e.lower() or e.startswith("kind")
+        for e in validate("uacp.lessons", {**lessons, "kind": "x"})
+    )
+
+
 # ============================================================================================
 # PACKAGE-MODEL document kinds (node 33) — the 9 rich docs, OPEN-world (required + kind/phase
 # consts + key enums), derived from validate_uacp_artifacts.py. No golden fixtures yet, so these
