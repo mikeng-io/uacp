@@ -221,6 +221,16 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
 }
 
 
+def has_schema(kind: str) -> bool:
+    """True if ``kind`` has a registered declarative schema.
+
+    The entity-writer's validate-on-write is RATCHETED on this (node 33 / node 35 §5):
+    only kinds with a registered schema are shape-enforced at write time; the rest pass
+    through until their schema lands, so the ratchet can grow per-kind without blocking
+    creation of not-yet-schematised kinds."""
+    return kind in _SCHEMAS
+
+
 def validate(kind: str, doc: Any) -> list[str]:
     """Validate ``doc`` against the schema for ``kind``. Return a list of error strings
     (empty == valid). Never raises — an unknown kind is itself a reported error."""
