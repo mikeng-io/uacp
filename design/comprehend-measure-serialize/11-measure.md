@@ -12,6 +12,10 @@ edges:
 
 **Question:** *what does it mean?* **Output:** a **decidable signal.**
 
+## What the signal is *about* (affordance AND prohibition)
+
+The decidable signal answers an **actionable** question, and that question spans the positive *and* the negative: **what must be done · what was achieved · what must NOT be done.** Measure is not only "is this OK?" — it also produces the *constraints* (the `prohibition` / `method_constraint` of the negative-space layer). A measure that only ever produces affordances and never a "forbidden" verdict is half a measure.
+
 ## The redefinition (the key refinement)
 
 "Measure" reads like it must produce a *number* — but most operations don't. The real definition is broader: **any reduction of the comprehended model to a *decidable signal*** — something a decision can act on. All of these are `measure`:

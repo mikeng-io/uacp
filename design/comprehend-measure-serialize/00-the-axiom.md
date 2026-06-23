@@ -32,5 +32,6 @@ The counterexample hunt (→ [30-validation-matrix](30-validation-matrix.md), 3 
 | why it's a *primitive* (capabilities are compositions) | [20-reductions](20-reductions.md) |
 | the seam: `measure → route → serialize \| drop` | [21-decision-hinge](21-decision-hinge.md) |
 | what makes it *trustless* (vs a generic pipeline) | [22-trustless-differentia](22-trustless-differentia.md) |
+| how it composes — fractal (every verb is itself a CMS loop) + iterated (serialize(N)→comprehend(N+1)) | [23-composition](23-composition.md) |
 | is it an axiom? (the rigor) | [30-validation-matrix](30-validation-matrix.md) |
 | in the concrete (graph-engine / verification / lifecycle; UACP-as-IPA) | [31-instantiations](31-instantiations.md) |
