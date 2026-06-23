@@ -170,6 +170,25 @@ def test_contradicted_via_obligation_id_join_binds_on_real_data(tmp_path):
     assert "GP_CONTRADICTED" not in _codes_set(validate_graph_projection(ws_ok, "r"))
 
 
+def test_remediation_pass_clears_earlier_block_no_contradiction(tmp_path):
+    # GN3 external (Kimi+Codex): a historical block evidence cleared by a LATER remediation pass for
+    # the SAME obligation must NOT flag a pass assessment as contradicted — blocked_obls requires
+    # block AND no pass for the obligation.
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "block"),  # initial checkpoint: block
+            _exec("cp-2", "wu-1", "pass"),  # remediation checkpoint: pass (same obligation ev-1)
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+        ],
+    )
+    assert "GP_CONTRADICTED" not in _codes_set(validate_graph_projection(ws, "r"))
+
+
 def test_legacy_bare_strings_read_as_uncovered(tmp_path):
     # legacy form (bare-string in_scope, no derives_from) -> all uncovered (flags pre-keys run)
     ws = _ws(tmp_path, "r", _prop(["legacy intent A", "legacy intent B"]), _plan([{"id": "wu-1"}]))
@@ -356,6 +375,33 @@ def test_verify_exit_warn_or_deferred_under_pass_is_not_contradicted(tmp_path):
         ws = _covered_run(tmp_path / outcome, checkpoint_result=outcome, assessment_result="pass")
         codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
         assert "GP_CONTRADICTED" not in codes, (outcome, codes)
+
+
+def test_verify_exit_assessment_without_work_unit_id_binds_via_obligation(tmp_path):
+    # GN3 external (Kimi+Codex): a passing assessment carrying only obligation_id (the REAL PIV shape,
+    # no work_unit_id) still verifies its work_unit TRANSITIVELY via obligation_for — not GP_UNVERIFIED.
+    def _run(state):
+        return _ws(
+            tmp_path / state,
+            "r",
+            _prop([{"id": "si-1"}]),
+            _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+            extra_docs=[
+                _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+                _exec("cp-1", "wu-1", "pass"),
+                _verif(
+                    [{"id": "as-1", "obligation_id": "ev-1", "state": state}]
+                ),  # no work_unit_id
+            ],
+        )
+
+    assert "GP_UNVERIFIED" not in _codes_set(
+        validate_graph_invariants(_run("pass"), "r", "verify_exit")
+    )
+    # non-vacuity: a non-pass assessment via the same obligation does NOT verify
+    assert "GP_UNVERIFIED" in _codes_set(
+        validate_graph_invariants(_run("block"), "r", "verify_exit")
+    )
 
 
 def test_verify_exit_clean_passes_non_vacuously(tmp_path):

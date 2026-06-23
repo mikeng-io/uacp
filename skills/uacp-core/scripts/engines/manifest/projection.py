@@ -212,11 +212,14 @@ def _check_contradicted(nodes: dict, edges: list) -> list[Violation]:
     # obligation that has a block `evidence` item; (B) the explicit evidence_refs -> checkpoint_id
     # ref, for producers that emit it. Deduped per assessment.
     cp_result = {n["id"]: n.get("result") for n in nodes.values() if n["kind"] == "checkpoint"}
-    blocked_obls = {
-        n["obligation_id"]
-        for n in nodes.values()
-        if n["kind"] == "evidence" and n.get("result") == "block" and n.get("obligation_id")
-    }
+    # An obligation is "blocked" only if it has block evidence AND no passing evidence: a later
+    # remediation pass (multiple checkpoints, incl. checkpoint_type=remediation) clears an earlier
+    # block, so we must NOT flag a pass assessment that cites the since-fixed obligation.
+    ev_by_obl: dict[str, set] = {}
+    for n in nodes.values():
+        if n["kind"] == "evidence" and n.get("obligation_id"):
+            ev_by_obl.setdefault(n["obligation_id"], set()).add(n.get("result"))
+    blocked_obls = {oid for oid, rs in ev_by_obl.items() if "block" in rs and "pass" not in rs}
     flagged: dict[str, Violation] = {}
     # path A — shared obligation_id (binds on real producer output)
     for n in nodes.values():
@@ -280,12 +283,20 @@ def _check_checkpoint_coverage(nodes: dict, edges: list) -> list[Violation]:
 
 
 def _check_unverified(nodes: dict, edges: list) -> list[Violation]:
-    # A work_unit is verified iff some assessment with result==pass links to it.
-    passing = {
-        e["dst"]
-        for e in edges
-        if e["rel"] == "work_unit_id" and nodes.get(e["src"], {}).get("result") == "pass"
-    }
+    # A work_unit is verified iff a passing assessment links to it — directly (work_unit_id edge) OR
+    # transitively via its obligation (assessment.obligation_id -> obligation --obligation_for-->
+    # work_unit). Real PIV assessments carry obligation_id, NOT the optional work_unit_id, so the
+    # transitive path is the one that binds on producer output.
+    obl_to_wu = {e["src"]: e["dst"] for e in edges if e["rel"] == "obligation_for"}
+    passing: set[str] = set()
+    for n in nodes.values():
+        if n["kind"] == "assessment" and n.get("result") == "pass":
+            wu = obl_to_wu.get(n.get("obligation_id"))
+            if wu:
+                passing.add(wu)
+    for e in edges:
+        if e["rel"] == "work_unit_id" and nodes.get(e["src"], {}).get("result") == "pass":
+            passing.add(e["dst"])
     return [
         _v(
             "GP_UNVERIFIED",
