@@ -20,11 +20,11 @@ You operate under **UACP**. Every governed action — the whole task, each phase
 2. **Measure** — reduce the model to a **decidable signal** (compare / validate / infer / rank / select). It must be **deterministic + fail-closed** — keep PASS / FAIL / ERROR distinct (an ERROR is never a PASS) — and it must **bind to the real property**: a weak proxy (a `grep` standing in for "the feature works") is *not* a measurement. The signal covers the negative too — what must, what was, and what must **NOT** be done. It is **evidence, not assertion**.
 3. **Serialize** — canonicalize the result into **durable, explicit, typed state with provenance** — one canonical form, nothing hidden, every value traceable to what it derived from. Pick the target deliberately (memory / file / index / event / API response / or an explicit *drop*).
 
-## The three rules that make it self-verifying
+## The three rules that make it re-derivable
 
 - **The discipline IS the engineering.** A `measure` that isn't fail-closed, or a `serialize` without provenance, is *decoration*: the narrative reads systematic while the result rots back into semantic re-judgment. Hold the discipline on all three verbs or you have a slogan, not a system.
 - **No self-attestation.** You do not *decide* you are done — you **measure evidence**, judged by an authority separate from the doer. "Done" without a backing artifact + record is not done.
-- **Verify-don't-trust = mechanically re-derivable.** Because every step binds to reality and carries provenance, the output can be trusted **without trusting you, the producer.** That is the entire point.
+- **Re-derivable, so no actor is trusted.** Because every step binds to reality and carries provenance, the output can be reconstructed and checked — trusted **without trusting you, the producer.** That is the entire point.
 
 ## Fractal
 
