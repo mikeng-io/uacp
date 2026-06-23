@@ -123,7 +123,11 @@ print(json.dumps({
     except FileNotFoundError:
         return {"ok": False, "mechanism": "bwrap_readonly_root", "error": "bwrap not found"}
     except Exception as exc:
-        return {"ok": False, "mechanism": "bwrap_readonly_root", "error": f"{type(exc).__name__}: {exc}"}
+        return {
+            "ok": False,
+            "mechanism": "bwrap_readonly_root",
+            "error": f"{type(exc).__name__}: {exc}",
+        }
     parsed: dict[str, Any] = {}
     if proc.stdout.strip():
         try:
@@ -150,12 +154,21 @@ print(json.dumps({
 def _sandbox_check(args: Mapping[str, Any]) -> dict[str, Any]:
     policy = GuardianPolicy.load(args.get("workspace"))
     root = policy.uacp_root.resolve()
-    workspace_raw = str(args.get("execution_workspace") or args.get("workdir") or args.get("cwd") or args.get("workspace") or "")
+    workspace_raw = str(
+        args.get("execution_workspace")
+        or args.get("workdir")
+        or args.get("cwd")
+        or args.get("workspace")
+        or ""
+    )
     tool_surface = str(args.get("tool_surface") or "exec.shell")
     backend = str(args.get("backend") or "local")
     mechanism = str(args.get("mechanism") or "bwrap_readonly_root")
     if missing_context := _required_uacp_context_missing(args):
-        return {"ok": False, "error": f"missing UACP context field(s): {', '.join(missing_context)}"}
+        return {
+            "ok": False,
+            "error": f"missing UACP context field(s): {', '.join(missing_context)}",
+        }
     authority = str(args.get("authority_artifact") or args.get("declared_authority") or "")
     if not authority:
         return {"ok": False, "error": "authority_artifact is required"}
@@ -183,7 +196,9 @@ def _sandbox_check(args: Mapping[str, Any]) -> dict[str, Any]:
     if mechanism != "bwrap_readonly_root":
         blockers.append(f"unsupported containment mechanism: {mechanism}")
     if not blockers:
-        evidence["bwrap_probe"] = _run_bwrap_readonly_probe(root, Path(relationship["workspace_resolved"]))
+        evidence["bwrap_probe"] = _run_bwrap_readonly_probe(
+            root, Path(relationship["workspace_resolved"])
+        )
         if not evidence["bwrap_probe"].get("ok"):
             blockers.append("bwrap read-only root probe failed")
     containment_verified = not blockers
@@ -191,7 +206,9 @@ def _sandbox_check(args: Mapping[str, Any]) -> dict[str, Any]:
         "ok": True,
         "containment_verified": containment_verified,
         "allow_standard_tool_path": False,
-        "verdict_reason": "bwrap containment mechanism is available for a wrapped execution surface" if containment_verified else "; ".join(blockers),
+        "verdict_reason": "bwrap containment mechanism is available for a wrapped execution surface"
+        if containment_verified
+        else "; ".join(blockers),
         "blockers": blockers,
         "evidence": evidence,
         "ttl_seconds": 60,
@@ -204,7 +221,9 @@ def _handle_uacp_sandbox_check(args: dict, **_: Any) -> str:
     try:
         return json.dumps(_sandbox_check(args), ensure_ascii=False)
     except Exception as exc:
-        return json.dumps({"ok": False, "error": f"uacp_sandbox_check failed: {type(exc).__name__}: {exc}"})
+        return json.dumps(
+            {"ok": False, "error": f"uacp_sandbox_check failed: {type(exc).__name__}: {exc}"}
+        )
 
 
 def _handle_uacp_contained_shell(args: dict, **_: Any) -> str:
@@ -212,7 +231,9 @@ def _handle_uacp_contained_shell(args: dict, **_: Any) -> str:
     try:
         return json.dumps(_sandbox_contained_shell(args), ensure_ascii=False)
     except Exception as exc:
-        return json.dumps({"ok": False, "error": f"uacp_contained_shell failed: {type(exc).__name__}: {exc}"})
+        return json.dumps(
+            {"ok": False, "error": f"uacp_contained_shell failed: {type(exc).__name__}: {exc}"}
+        )
 
 
 def _prune_expired_attestations(except_id: str | None = None) -> None:
@@ -225,7 +246,8 @@ def _prune_expired_attestations(except_id: str | None = None) -> None:
     """
     now = time.time()
     expired = [
-        aid for aid, rec in _CONTAINED_SHELL_ATTESTATIONS.items()
+        aid
+        for aid, rec in _CONTAINED_SHELL_ATTESTATIONS.items()
         if aid != except_id
         and float(rec.get("expires_at") or 0.0)
         and float(rec.get("expires_at") or 0.0) <= now
@@ -234,7 +256,9 @@ def _prune_expired_attestations(except_id: str | None = None) -> None:
         _CONTAINED_SHELL_ATTESTATIONS.pop(aid, None)
 
 
-def _validate_contained_shell_attestation(attestation_id: str | None, policy_version: str) -> tuple[bool, str]:
+def _validate_contained_shell_attestation(
+    attestation_id: str | None, policy_version: str
+) -> tuple[bool, str]:
     _prune_expired_attestations(except_id=attestation_id)
     if not attestation_id:
         return True, "new attestation"
@@ -252,7 +276,9 @@ def _validate_contained_shell_attestation(attestation_id: str | None, policy_ver
     return True, "attestation valid"
 
 
-def _run_bwrap_contained_shell(root: Path, workspace: Path, command: str, *, timeout: int = 60, policy_version: str = "") -> dict[str, Any]:
+def _run_bwrap_contained_shell(
+    root: Path, workspace: Path, command: str, *, timeout: int = 60, policy_version: str = ""
+) -> dict[str, Any]:
     if not command.strip():
         return {"ok": False, "mechanism": "bwrap_readonly_root", "error": "command is required"}
 
@@ -300,9 +326,21 @@ def _run_bwrap_contained_shell(root: Path, workspace: Path, command: str, *, tim
     try:
         proc = subprocess.run(cmd, text=True, capture_output=True, timeout=timeout)
     except FileNotFoundError:
-        return {"ok": False, "mechanism": "bwrap_readonly_root", "error": "bwrap not found", "write_probe_blocked": True, "bwrap_probe": probe}
+        return {
+            "ok": False,
+            "mechanism": "bwrap_readonly_root",
+            "error": "bwrap not found",
+            "write_probe_blocked": True,
+            "bwrap_probe": probe,
+        }
     except Exception as exc:
-        return {"ok": False, "mechanism": "bwrap_readonly_root", "error": f"{type(exc).__name__}: {exc}", "write_probe_blocked": True, "bwrap_probe": probe}
+        return {
+            "ok": False,
+            "mechanism": "bwrap_readonly_root",
+            "error": f"{type(exc).__name__}: {exc}",
+            "write_probe_blocked": True,
+            "bwrap_probe": probe,
+        }
 
     attestation_id = uuid.uuid4().hex
     ttl_seconds = max(30, min(int(timeout) if timeout else 60, 300))
@@ -323,13 +361,19 @@ def _run_bwrap_contained_shell(root: Path, workspace: Path, command: str, *, tim
 
     write_probe = probe.get("probe") or {}
     write_probe_blocked = bool(write_probe.get("write_probe_blocked"))
-    verdict_reason = "command executed inside bwrap read-only-root containment" if write_probe_blocked else "containment write probe did not block as expected"
+    verdict_reason = (
+        "command executed inside bwrap read-only-root containment"
+        if write_probe_blocked
+        else "containment write probe did not block as expected"
+    )
     return {
         "ok": True,
         "containment_verified": bool(write_probe_blocked and probe.get("ok") is True),
         "allow_standard_tool_path": False,
         "verdict_reason": verdict_reason,
-        "blockers": [] if write_probe_blocked else ["write probe did not block writes to UACP_ROOT"],
+        "blockers": []
+        if write_probe_blocked
+        else ["write probe did not block writes to UACP_ROOT"],
         "evidence": {
             "tool_surface": "exec.shell.contained",
             "backend": "local",
@@ -373,7 +417,10 @@ def _sandbox_contained_shell(args: Mapping[str, Any]) -> dict[str, Any]:
     workspace_raw = str(args.get("workspace") or args.get("workdir") or args.get("cwd") or "")
     attestation_id = str(args.get("attestation_id") or "")
     if missing_context := _required_uacp_context_missing(args):
-        return {"ok": False, "error": f"missing UACP context field(s): {', '.join(missing_context)}"}
+        return {
+            "ok": False,
+            "error": f"missing UACP context field(s): {', '.join(missing_context)}",
+        }
     if not authority:
         return {"ok": False, "error": "authority_artifact is required"}
     if not workspace_raw:
@@ -389,7 +436,9 @@ def _sandbox_contained_shell(args: Mapping[str, Any]) -> dict[str, Any]:
         blockers.append("execution workspace is under UACP_ROOT")
     if relationship["uacp_root_under_workspace"]:
         blockers.append("UACP_ROOT is under execution workspace")
-    attestation_ok, attestation_reason = _validate_contained_shell_attestation(attestation_id or None, str(policy.version))
+    attestation_ok, attestation_reason = _validate_contained_shell_attestation(
+        attestation_id or None, str(policy.version)
+    )
     if not attestation_ok and attestation_id:
         blockers.append(attestation_reason)
     if blockers:
@@ -410,12 +459,20 @@ def _sandbox_contained_shell(args: Mapping[str, Any]) -> dict[str, Any]:
             },
             "authority_artifact": authority,
         }
-    result = _run_bwrap_contained_shell(root, workspace, command, timeout=int(args.get("timeout") or 60), policy_version=str(policy.version))
+    result = _run_bwrap_contained_shell(
+        root,
+        workspace,
+        command,
+        timeout=int(args.get("timeout") or 60),
+        policy_version=str(policy.version),
+    )
     result["authority_artifact"] = authority
     result["policy_version"] = str(policy.version)
     result["path_relationship"] = relationship
     if result.get("ok") is True and result.get("containment_verified") is True:
-        result["verdict_reason"] = result.get("verdict_reason") or "command executed inside contained shell surface"
+        result["verdict_reason"] = (
+            result.get("verdict_reason") or "command executed inside contained shell surface"
+        )
     return result
 
 
@@ -432,14 +489,25 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
         rel = target.relative_to(base_dir(root))
         if not rel.parts:
             return json.dumps({"error": "target_path must point to an artifact file"})
-        allowed_roots = {"plans", "proposals", "executions", "verification", "resolutions", "knowledge", "lessons", "brainstorm"}
+        allowed_roots = {
+            "plans",
+            "proposals",
+            "executions",
+            "verification",
+            "resolutions",
+            "knowledge",
+            "lessons",
+            "brainstorm",
+        }
         forbidden_roots = {"state", "docs", "config"}
         top = rel.parts[0]
         if top in forbidden_roots:
             return json.dumps({"error": f"uacp_artifact_write may not write under {top}/"})
         if top not in allowed_roots:
             return json.dumps(
-                {"error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/, or brainstorm/"}
+                {
+                    "error": "uacp_artifact_write target must be under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/, or brainstorm/"
+                }
             )
         if target.name in {"", ".", ".."}:
             return json.dumps({"error": "target_path must point to a file"})
@@ -464,10 +532,15 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
                         target.unlink()
                     except Exception:
                         pass
-                rollback = "write rolled back" if not existed_before else "existing artifact retained"
-                return json.dumps({"error":
-                    f"uacp_artifact_write failed: watermark could not be persisted "
-                    f"({type(exc).__name__}: {exc}); {rollback}"})
+                rollback = (
+                    "write rolled back" if not existed_before else "existing artifact retained"
+                )
+                return json.dumps(
+                    {
+                        "error": f"uacp_artifact_write failed: watermark could not be persisted "
+                        f"({type(exc).__name__}: {exc}); {rollback}"
+                    }
+                )
         return json.dumps(
             {
                 "ok": True,
@@ -482,7 +555,42 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
         return json.dumps({"error": f"uacp_artifact_write failed: {type(exc).__name__}: {exc}"})
 
 
-def _validate_canonical_target(root: Path, target_path: str, *, allowed_top: str, suffixes: set[str]) -> tuple[Path, Path] | str:
+def _handle_uacp_entity_write(args: dict, **_: Any) -> str:
+    """Governed entity writer — the typed, validated, auto-REGISTERING manifest write path.
+
+    Wraps engines.manifest.entity_writer.create_entity: serialize the entity, validate-on-write
+    against its registered schema, persist + watermark, and REGISTER it into the run manifest (so
+    the graph_projection gate actually sees it). The RELATION-plane guard, unknown-kind guard, ctx
+    sanitization, atomic rollback and fail-closed watermark all live in create_entity — this handler
+    only marshals tool args (kind / fields / optional per-kind ctx placeholders)."""
+    try:
+        workspace = str(args.get("workspace") or ".")
+        run_id = str(args.get("uacp_run_id") or "").strip()
+        kind = str(args.get("kind") or "").strip()
+        fields = args.get("fields")
+        ctx = args.get("ctx") or {}
+        if not run_id:
+            return json.dumps({"error": "uacp_run_id is required"})
+        if not kind:
+            return json.dumps({"error": "kind is required"})
+        if not isinstance(fields, dict):
+            return json.dumps({"error": "fields must be an object"})
+        if not isinstance(ctx, dict):
+            return json.dumps({"error": "ctx must be an object"})
+
+        from engines.manifest.entity_writer import create_entity
+
+        result = create_entity(
+            workspace, run_id, kind, fields, **{str(k): str(v) for k, v in ctx.items()}
+        )
+        return json.dumps(result, ensure_ascii=False)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_entity_write failed: {type(exc).__name__}: {exc}"})
+
+
+def _validate_canonical_target(
+    root: Path, target_path: str, *, allowed_top: str, suffixes: set[str]
+) -> tuple[Path, Path] | str:
     raw = Path(target_path)
     if raw.is_absolute():
         return "target_path must be UACP-root-relative"
@@ -516,7 +624,9 @@ def _handle_uacp_doc_write(args: dict, **_: Any) -> str:
             return json.dumps({"error": validated})
         target_path, content, reason, authority = validated
 
-        resolved = _validate_canonical_target(root, target_path, allowed_top="docs", suffixes={".md"})
+        resolved = _validate_canonical_target(
+            root, target_path, allowed_top="docs", suffixes={".md"}
+        )
         if isinstance(resolved, str):
             return json.dumps({"error": resolved})
         target, rel = resolved
@@ -544,7 +654,9 @@ def _handle_uacp_config_write(args: dict, **_: Any) -> str:
             return json.dumps({"error": validated})
         target_path, content, reason, authority = validated
 
-        resolved = _validate_canonical_target(root, target_path, allowed_top="config", suffixes={".yaml", ".yml"})
+        resolved = _validate_canonical_target(
+            root, target_path, allowed_top="config", suffixes={".yaml", ".yml"}
+        )
         if isinstance(resolved, str):
             return json.dumps({"error": resolved})
         target, rel = resolved
@@ -571,16 +683,28 @@ def _handle_uacp_heartgate_check(args: dict, **_: Any) -> str:
         if not transition_path:
             return json.dumps({"error": "transition_path is required"})
         if missing_context := _required_uacp_context_missing(args):
-            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing_context)}"})
+            return json.dumps(
+                {"error": f"missing UACP context field(s): {', '.join(missing_context)}"}
+            )
         authority = str(args.get("authority_artifact") or args.get("declared_authority") or "")
         if not authority:
             return json.dumps({"error": "authority_artifact is required"})
 
         target = _resolve_uacp_path(transition_path, base_dir(root))
         rel = target.relative_to(base_dir(root))
-        allowed_transition_roots = {"state", "verification", "executions", "plans", "proposals", "resolutions", "knowledge"}
+        allowed_transition_roots = {
+            "state",
+            "verification",
+            "executions",
+            "plans",
+            "proposals",
+            "resolutions",
+            "knowledge",
+        }
         if not rel.parts or rel.parts[0] not in allowed_transition_roots:
-            return json.dumps({"error": "transition_path must be under a managed UACP artifact/state directory"})
+            return json.dumps(
+                {"error": "transition_path must be under a managed UACP artifact/state directory"}
+            )
         if target.suffix not in {".yaml", ".yml"}:
             return json.dumps({"error": "transition_path must be a YAML file"})
         if not target.exists():
@@ -691,6 +815,7 @@ def _handle_uacp_oracle_query(args: dict, **_: Any) -> str:
 
     try:
         from engines.oracle.aggregator import oracle_query
+
         result = oracle_query(
             workspace=GuardianPolicy.load(args.get("workspace")).uacp_root,
             phase=phase,
@@ -701,17 +826,21 @@ def _handle_uacp_oracle_query(args: dict, **_: Any) -> str:
         # Serialize ProviderPackets to plain dicts
         packets_out = []
         for p in result.get("packets", []):
-            packets_out.append({
-                "source": p.source,
-                "trust_class": p.trust_class.value,
-                "payload": p.payload,
-                "score": p.score,
-                "evidence_required": p.evidence_required,
-                "metadata": p.metadata,
-            })
-        return json.dumps({
-            "packets": packets_out,
-            "metadata": result.get("metadata", {}),
-        })
+            packets_out.append(
+                {
+                    "source": p.source,
+                    "trust_class": p.trust_class.value,
+                    "payload": p.payload,
+                    "score": p.score,
+                    "evidence_required": p.evidence_required,
+                    "metadata": p.metadata,
+                }
+            )
+        return json.dumps(
+            {
+                "packets": packets_out,
+                "metadata": result.get("metadata", {}),
+            }
+        )
     except Exception as exc:
         return json.dumps({"error": f"oracle_query failed: {exc}"})
