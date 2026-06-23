@@ -29,6 +29,7 @@ write-time STRUCTURAL validation (today deferred to the transition gate's carved
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -77,6 +78,17 @@ def create_entity(
     bad = {k: ctx[k] for k in ctx if _bad_ctx_value(ctx[k])}
     if bad:
         return _err(f"invalid path-placeholder value(s): {bad}")
+    # Reject ctx keys that are NOT placeholders in the kind's template (Codex PR#5 r2): an
+    # unused/typo ctx key is silently dropped by layout.relpath (str.format ignores extra kwargs)
+    # but still changes the multi-instance registration key — a single-instance kind would
+    # mis-register under e.g. "scope:seq=1" instead of "scope".
+    placeholders = set(re.findall(r"\{([a-z_]+)\}", layout.template(kind) or "")) - {"run_id"}
+    unexpected = sorted(set(ctx) - placeholders)
+    if unexpected:
+        return _err(
+            f"unexpected context key(s) for {kind}: {unexpected} "
+            f"(template placeholders: {sorted(placeholders)})"
+        )
     try:
         rel = layout.relpath(kind, run_id=run_id, **ctx)
     except KeyError as exc:

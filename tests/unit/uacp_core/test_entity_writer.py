@@ -256,6 +256,21 @@ def test_create_entity_markdown_body_rejects_bom_frontmatter(tmp_path):
     assert "error" in res and "frontmatter" in res["error"]
 
 
+def test_create_entity_rejects_stray_ctx_key(tmp_path):
+    # Codex PR#5 r2: a ctx key that isn't a template placeholder (seq on single-instance scope) is
+    # rejected — else layout.relpath silently drops it but it still corrupts the registration key
+    # (scope -> scope:seq=1). Non-vacuity: without the check this returns ok:True + mis-registers.
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {"write_paths": ["plans/x.yaml"], "blast_radius": "low", "rollback_path": "n/a"},
+        seq="1",
+    )
+    assert "error" in res and "unexpected context key" in res["error"]
+
+
 def test_governed_writers_reexport_identity():
     # C4-review guard: the write-port re-exports the SAME primitive objects as filesystem
     # (so a future "unused, delete it" sweep can't silently sever the seam — A3 pattern).
