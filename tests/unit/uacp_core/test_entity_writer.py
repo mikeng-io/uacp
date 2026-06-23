@@ -256,6 +256,17 @@ def test_create_entity_markdown_body_rejects_bom_frontmatter(tmp_path):
     assert "error" in res and "frontmatter" in res["error"]
 
 
+def test_create_entity_rejects_ctx_values_with_structural_delimiters(tmp_path):
+    # Codex PR#5 r3: a ctx value containing '-'/'=' would make BOTH the path template
+    # ({run_id}-{cluster}-{half}) and the composite registration key ambiguous — two distinct
+    # (cluster, half) pairs could map to one file/key. Reject delimiter-bearing segment values.
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path), run_id, "uacp.evidence_disposition", {"body": "x"}, cluster="a-b", half="c"
+    )
+    assert "error" in res and "path-placeholder" in res["error"]
+
+
 def test_create_entity_rejects_stray_ctx_key(tmp_path):
     # Codex PR#5 r2: a ctx key that isn't a template placeholder (seq on single-instance scope) is
     # rejected — else layout.relpath silently drops it but it still corrupts the registration key

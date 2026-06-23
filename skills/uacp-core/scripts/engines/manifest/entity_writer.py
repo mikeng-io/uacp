@@ -46,9 +46,19 @@ def _err(msg: str) -> dict[str, Any]:
 
 
 def _bad_ctx_value(v: Any) -> bool:
-    """A path-placeholder value that could break a path segment or be empty."""
+    """A path-placeholder value that could break a path segment or be empty (used for run_id)."""
     s = str(v)
     return (not s.strip()) or ("/" in s) or ("\\" in s) or (".." in s)
+
+
+def _bad_ctx_segment(v: Any) -> bool:
+    """Stricter than _bad_ctx_value: a ctx value is an INNER path placeholder, separated from
+    siblings by '-' in templates ({run_id}-{cluster}-{half}) and by '-'/'=' in the composite
+    registration key. A value containing those would make BOTH the path and the key ambiguous —
+    two (cluster, half) pairs could map to one file/key (Codex PR#5 r3). So reject delimiter-bearing
+    segment values; run_id keeps '-' (a single leading placeholder, never reverse-parsed)."""
+    s = str(v)
+    return _bad_ctx_value(v) or ("-" in s) or ("=" in s)
 
 
 def create_entity(
@@ -75,9 +85,11 @@ def create_entity(
     # boundary; it can never land in **ctx.)
     if _bad_ctx_value(run_id):
         return _err(f"invalid run_id: {run_id!r}")
-    bad = {k: ctx[k] for k in ctx if _bad_ctx_value(ctx[k])}
+    bad = {k: ctx[k] for k in ctx if _bad_ctx_segment(ctx[k])}
     if bad:
-        return _err(f"invalid path-placeholder value(s): {bad}")
+        return _err(
+            f"invalid path-placeholder value(s) (no '/', '\\', '..', '-', '=', or empty): {bad}"
+        )
     # Reject ctx keys that are NOT placeholders in the kind's template (Codex PR#5 r2): an
     # unused/typo ctx key is silently dropped by layout.relpath (str.format ignores extra kwargs)
     # but still changes the multi-instance registration key — a single-instance kind would
@@ -141,8 +153,9 @@ def create_entity(
     from state_machine import handle_register_artifact
 
     # MULTI-INSTANCE (Codex PR#3 + F7): kinds with placeholders beyond {run_id} register under a
-    # COMPOSITE key (type:k=v-…) so instances don't overwrite each other in manifest.artifacts; the
-    # k=v form avoids suffix-collision across multi-placeholder kinds.
+    # COMPOSITE key (type:k=v-…) so instances don't overwrite each other in manifest.artifacts. The
+    # key is collision-free because _bad_ctx_segment rejected any value containing the '-'/'=' key
+    # delimiters (and the same constraint keeps the on-disk path unambiguous) — Codex PR#5 r3.
     artifact_type = kind.removeprefix("uacp.")
     if ctx:
         suffix = "-".join(f"{k}={ctx[k]}" for k in sorted(ctx))
