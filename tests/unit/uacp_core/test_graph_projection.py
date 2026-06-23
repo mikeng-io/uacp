@@ -214,12 +214,15 @@ def test_regression_block_after_plain_pass_is_contradicted(tmp_path):
     assert "GP_CONTRADICTED" in _codes_set(validate_graph_projection(ws, "r"))
 
 
-def test_legacy_bare_strings_read_as_uncovered(tmp_path):
-    # legacy form (bare-string in_scope, no derives_from) -> all uncovered (flags pre-keys run)
+def test_unadopted_coverage_layer_skips_uncovered_and_orphan(tmp_path):
+    # D43 self-gate: a run that has NOT adopted the coverage layer (zero derives_from edges — e.g.
+    # bare-string in_scope + work_units without derives_from, the pre-D43 real shape) must NOT flood
+    # GP_UNCOVERED/GP_ORPHAN. Those bind only once derives_from is emitted (proven non-vacuously by
+    # test_dropped_intent_is_uncovered, which DOES adopt coverage and fires).
     ws = _ws(tmp_path, "r", _prop(["legacy intent A", "legacy intent B"]), _plan([{"id": "wu-1"}]))
     vs = validate_graph_projection(ws, "r")
-    assert sum(1 for v in vs if v.code == "GP_UNCOVERED_INTENT") == 2
-    assert any(v.code == "GP_ORPHAN_WORK_UNIT" for v in vs)
+    assert not any(v.code == "GP_UNCOVERED_INTENT" for v in vs)
+    assert not any(v.code == "GP_ORPHAN_WORK_UNIT" for v in vs)
 
 
 def test_never_raises_on_missing_manifest(tmp_path):

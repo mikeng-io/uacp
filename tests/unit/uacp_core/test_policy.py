@@ -19,32 +19,33 @@ class TestGuardianPolicyLoad:
 
     def test_load_reads_guardian_from_uacp_toml(self, tmp_path: Path):
         # With no per-project override, GuardianPolicy.load uses the repo-default
-        # config/uacp.toml [guardian], which carries all 10 self-attesting tools.
+        # config/uacp.toml [guardian], which carries all 11 self-attesting tools.
         # This proves load sources from config.py (uacp.toml [guardian]) rather
         # than from the old 3/4-tool guardian-policy.yaml stub.
         policy = GuardianPolicy.load(tmp_path)
-        assert len(policy.self_attesting_tools) == 10, policy.self_attesting_tools
+        assert len(policy.self_attesting_tools) == 11, policy.self_attesting_tools
         assert "uacp_doc_write" in policy.self_attesting_tools
         assert "uacp_contained_shell" in policy.self_attesting_tools
-        # tool_classification-backed: the full policy classifies all 27 tools.
+        # tool_classification-backed: the full policy classifies all 28 tools.
         # (24 original + write_file/web_fetch/web_search added for the Claude/Kimi
         # PreToolUse hook host-tool normalization: host Edit/Write/MultiEdit/
         # NotebookEdit -> write_file (file.write), host WebFetch/WebSearch ->
-        # web_fetch/web_search (external.network_read).)
-        assert len(policy.tool_classification) == 27, policy.tool_classification
+        # web_fetch/web_search (external.network_read); + uacp_entity_write, the
+        # auto-registering manifest write path.)
+        assert len(policy.tool_classification) == 28, policy.tool_classification
 
     def test_override_mode_is_honored(self, tmp_path: Path):
         # Proves the live reader actually flows through config.py's deep-merge:
         # a `<root>/.uacp/config.toml` [guardian] override (mode = "observe")
         # wins over the repo-default `mode = "enforce"`, while the rest of the
-        # full default policy (schema_version, the 10 self-attesting tools) is
+        # full default policy (schema_version, the 11 self-attesting tools) is
         # preserved by the merge.
         (tmp_path / ".uacp").mkdir()
         (tmp_path / ".uacp" / "config.toml").write_text('[guardian]\nmode = "observe"\n')
         policy = GuardianPolicy.load(tmp_path)
         assert policy.mode == "observe"
         assert policy.version == "0.1"
-        assert len(policy.self_attesting_tools) == 10
+        assert len(policy.self_attesting_tools) == 11
 
     def test_raises_when_guardian_table_missing(self, tmp_path: Path, monkeypatch):
         # The source is now config/uacp.toml [guardian] via config.py. If the

@@ -166,7 +166,21 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
 # graph yields no false positives.
 
 
+# Scope-coverage adoption gate (D43): the intent->task coverage checks (uncovered/orphan) bind on
+# `derives_from` edges, which require keyed scope_items the PROPOSE producer does not yet emit
+# (proposal scope is markdown today — the unresolved D43 scope-serialization decision). Until a run
+# ADOPTS the coverage layer (emits >=1 derives_from edge), these two checks SKIP — else activating
+# the gate would false-flood every real run as all-orphan/all-uncovered. Once adopted, they bind
+# fully (a dropped intent / unanchored task among covered siblings is a real defect). The OTHER
+# checks (phantom/contradicted) and the execute/verify coverage checks do NOT depend on scope_items
+# and stay unconditional.
+def _coverage_adopted(edges: list) -> bool:
+    return any(e["rel"] == "derives_from" for e in edges)
+
+
 def _check_uncovered(nodes: dict, edges: list) -> list[Violation]:
+    if not _coverage_adopted(edges):
+        return []
     df_dst = {e["dst"] for e in edges if e["rel"] == "derives_from"}
     return [
         _v(
@@ -181,6 +195,8 @@ def _check_uncovered(nodes: dict, edges: list) -> list[Violation]:
 
 
 def _check_orphan(nodes: dict, edges: list) -> list[Violation]:
+    if not _coverage_adopted(edges):
+        return []
     df_src = {e["src"] for e in edges if e["rel"] == "derives_from"}
     return [
         _v(

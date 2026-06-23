@@ -254,7 +254,7 @@ allowed_tools = ["uacp_contained_shell"]
 [guardian.protected_categories."artifact.uacp"]
 description = "Non-state UACP artifact writes under plans/, proposals/, executions/, verification/, resolutions/, knowledge/, lessons/, brainstorm/. Includes adaptive proposal package directories under proposals/{run_id}/, adaptive PLAN package directories under plans/{run_id}/, brainstorm scope-package directories under brainstorm/{run_id}/ (e.g. brainstorm/{run_id}/07-scope-package.yaml), and top-level machine lifecycle envelopes such as proposals/{run_id}-proposal.yaml, proposals/{run_id}-package-selection.yaml, plans/{run_id}-plan.yaml, plans/{run_id}-scope.yaml, and plans/{run_id}-plan-selection.yaml."
 default_decision = "block"
-allowed_tools = ["uacp_artifact_write"]
+allowed_tools = ["uacp_artifact_write", "uacp_entity_write"]
 
 [guardian.protected_categories."evidence.containment"]
 description = "Read-only filesystem-containment evidence checks."
@@ -301,6 +301,7 @@ uacp_state_write = "state.uacp"
 uacp_doc_write = "docs.uacp"
 uacp_config_write = "config.uacp"
 uacp_artifact_write = "artifact.uacp"
+uacp_entity_write = "artifact.uacp"
 uacp_sandbox_check = "evidence.containment"
 uacp_contained_shell = "exec.shell.contained"
 uacp_heartgate_check = "lifecycle.transition"
@@ -372,6 +373,7 @@ names = [
     "uacp_gate_ledger_append",
     "uacp_run_registry_update",
     "uacp_escalation_event",
+    "uacp_entity_write",
 ]
 
 # --- Host tool classification (host tool name -> KERNEL tool name) ---------
@@ -1124,6 +1126,7 @@ uacp_state_write = ["state/"]
 uacp_doc_write = ["docs/"]
 uacp_config_write = ["config/"]
 uacp_artifact_write = ["plans/", "proposals/", "executions/", "verification/", "resolutions/", "knowledge/", "lessons/", "brainstorm/"]
+uacp_entity_write = ["plans/", "proposals/", "executions/", "verification/", "resolutions/", "brainstorm/"]
 uacp_gate_ledger_append = ["state/gate-ledger/"]
 # Global review R1 (TECH-G-002): governed append-only writers for run registry
 # and escalation events; scope.write_paths may reference these surfaces in

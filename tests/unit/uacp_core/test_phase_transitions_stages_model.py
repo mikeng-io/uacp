@@ -42,10 +42,12 @@ _PRESLIM_ALLOWED_TOOLS = {
         "Write",
         "uacp_state_write",
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_heartgate_check",
     ],
     "triage": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
@@ -56,6 +58,7 @@ _PRESLIM_ALLOWED_TOOLS = {
     ],
     "propose": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
@@ -65,6 +68,7 @@ _PRESLIM_ALLOWED_TOOLS = {
     ],
     "plan": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
@@ -78,6 +82,7 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_run_registry_update",
         "uacp_escalation_event",
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_gate_ledger_append",
         "uacp_contained_shell",
         "uacp_sandbox_check",
@@ -87,6 +92,7 @@ _PRESLIM_ALLOWED_TOOLS = {
     ],
     "verify": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
@@ -97,6 +103,7 @@ _PRESLIM_ALLOWED_TOOLS = {
     ],
     "resolve": [
         "uacp_artifact_write",
+        "uacp_entity_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
