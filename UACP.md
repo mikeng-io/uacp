@@ -18,7 +18,7 @@ These are **processing invariants, not a workflow.** Like ACID for a database tr
 
 1. **Comprehend** — turn unstructured input into a *computable model* (what is this: entities, intent, constraints, current state). **Interpret once:** this is the *only* semantic act — do it once, record it, and everything downstream computes on that fixed model; never silently re-interpret it (a compiler never re-parses its AST).
 2. **Measure** — reduce the model to a **decidable signal** (compare / validate / infer / rank / select). *"Measure" here means "produce a decidable signal" — not a numeric metric.* It must be **deterministic + fail-closed** — keep PASS / FAIL / ERROR distinct (an ERROR is never a PASS) — and it must **bind to the real property**: a weak proxy (a `grep` standing in for "the feature works") is *not* a measurement. The signal covers the negative too — what must, what was, and what must **NOT** be done. It is **evidence, not assertion**.
-3. **Serialize** — canonicalize the result into **durable, explicit, typed state with provenance** — one canonical form, nothing hidden, every value traceable to what it derived from. Pick the target deliberately (memory / file / index / event / API response / or an explicit *drop*).
+3. **Serialize** — fix the result into **canonical, explicit, typed state with provenance**: one canonical form, nothing hidden, every value traceable to what it derived from. *Durability is conditional, not intrinsic* — persist when persistence is required; the target may be ephemeral (an API response) or an explicit *drop*. Pick it deliberately (memory / file / index / event / API response / drop).
 
 ## The three rules that make it re-derivable
 
@@ -30,4 +30,4 @@ These are **processing invariants, not a workflow.** Like ACID for a database tr
 
 They hold at every grain: the whole task satisfies them, and so does each sub-step. The *lifecycle* is just these invariant-satisfying steps composed — `serialize(N)` becomes the input you `comprehend(N+1)` — so a phase that plays one role at the macro scale is itself a full comprehend→measure→serialize at the next. Apply the invariants at **every grain**.
 
-*(Scope note: this is a law for **governed, decision-bearing** operations. A pure, ungoverned state-move with no decision is exactly what UACP does not allow.)*
+*(Scope note: this governs only operations that **interpret, evaluate, or commit** state — the decision-bearing ones. Pure mechanical transformations with no semantic decision (a `memcpy`, a checksum, a packet forward) are **outside its scope**. Note: "outside CMS's scope" is not "ungoverned" — inside a governed run, even a write still goes through a governed writer; that's a separate UACP invariant, not this scope note.)*

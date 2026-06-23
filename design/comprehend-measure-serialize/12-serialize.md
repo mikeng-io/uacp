@@ -10,11 +10,11 @@ edges:
 
 # Serialize
 
-**Question:** *what should persist?* **Output:** **durable, canonical state.**
+**Question:** *what should persist?* **Output:** **canonical, typed state** (durable *when* persistence is required).
 
 ## Not "save" — canonicalize
 
-Serialize fixes a decision into a **stable, durable form** — a typed key in a *single* canonical shape (so diffs are minimal, writes reproducible, the projection sees no spurious churn). The discipline in one phrase: **one explicit, canonical form — nothing hidden.** No ambiguity, no implicit/semantic-only state, every value laid out where it can be re-read and re-derived. "Save to a DB" is one instance; the verb is broader.
+Serialize fixes a decision into a **stable, canonical form** — a typed key in a *single* canonical shape (so diffs are minimal, writes reproducible, the projection sees no spurious churn). The true invariant is **canonicalization, not durability**: the target may be an ephemeral API response or an explicit DROP, neither of which persists — durability is one common case, not the essence. The discipline in one phrase: **one explicit, canonical form — nothing hidden.** No ambiguity, no implicit/semantic-only state, every value laid out where it can be re-read and re-derived. "Save to a DB" is one instance; the verb is broader.
 
 ## The targets are plural (policy-routed)
 
