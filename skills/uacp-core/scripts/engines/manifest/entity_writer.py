@@ -37,7 +37,7 @@ import yaml
 
 from config import base_dir
 from engines.domain import layout, schema
-from engines.domain.artifact_hashes import forget_hash, record_hash
+from engines.domain.artifact_hashes import load_hash_index, record_hash, restore_hash_index
 from engines.manifest.governed_writers import _resolve_uacp_path, _write_uacp_file
 
 
@@ -139,14 +139,21 @@ def create_entity(
         return _err(f"layout path is not UACP-containable: {rel} ({exc})")
     existed_before = target.exists()
     prior_content = target.read_text(encoding="utf-8") if existed_before else None
+    # Snapshot the WHOLE prior watermark index so rollback restores it verbatim (Codex PR#5 r4) —
+    # one mechanism for fresh-file (drop new entry), overwrite (restore exact prior entry), and the
+    # absent / deliberately-mismatched (tamper-signal) cases, never recomputed from the bytes.
+    prior_index = load_hash_index(workspace, run_id)
     try:
         _write_uacp_file(target, content)
     except Exception as exc:
-        return _err(f"persist failed: {type(exc).__name__}: {exc}")
+        # A failed write can leave a partial overwrite (the FS primitive isn't temp+rename atomic);
+        # roll back so a persist failure also restores prior state — atomicity completeness.
+        _rollback(workspace, run_id, target, existed_before, prior_content, prior_index)
+        return _err(f"persist failed ({type(exc).__name__}: {exc}); rolled back")
     try:
         record_hash(workspace, run_id, rel, content)
     except Exception as exc:
-        _rollback(workspace, run_id, target, rel, existed_before, prior_content)
+        _rollback(workspace, run_id, target, existed_before, prior_content, prior_index)
         return _err(f"watermark could not be persisted ({type(exc).__name__}: {exc}); rolled back")
 
     # 5. REGISTER — cross-engine into the State engine (lazy import: the uacp-core/uacp-state seam).
@@ -166,7 +173,7 @@ def create_entity(
         )
     )
     if reg.get("error"):
-        _rollback(workspace, run_id, target, rel, existed_before, prior_content)
+        _rollback(workspace, run_id, target, existed_before, prior_content, prior_index)
         return _err(f"register failed (rolled back): {reg['error']}")
 
     return {
@@ -182,21 +189,21 @@ def _rollback(
     workspace: str,
     run_id: str,
     target: Any,
-    rel: str,
     existed_before: bool,
     prior_content: str | None,
+    prior_index: dict,
 ) -> None:
-    """Restore the target to its prior state after a downstream-step failure (atomicity, F2/F3).
+    """Restore the target to its EXACT prior state after a downstream-step failure (atomicity).
 
-    Pre-existing file -> restore the original bytes AND re-record the original content's watermark
-    (so index and file agree). Fresh file -> remove it AND forget its just-recorded watermark.
+    Restores the file (prior bytes for an overwrite; removal for a fresh file) AND the watermark
+    index to its pre-write snapshot verbatim (Codex PR#5 r4) — preserving an absent or a
+    deliberately-mismatched (tamper-signal) watermark rather than recomputing it from the bytes.
     Best-effort: rollback must never raise."""
     try:
         if existed_before and prior_content is not None:
             target.write_text(prior_content, encoding="utf-8")
-            record_hash(workspace, run_id, rel, prior_content)
         else:
             target.unlink()
-            forget_hash(workspace, run_id, rel)
+        restore_hash_index(workspace, run_id, prior_index)
     except Exception:
         pass

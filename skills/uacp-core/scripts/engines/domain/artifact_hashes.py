@@ -73,13 +73,10 @@ def record_hash(workspace: str | Path, run_id: str, rel: str, content: str) -> N
     _write_index_atomic(hash_index_path(workspace, run_id), index)
 
 
-def forget_hash(workspace: str | Path, run_id: str, rel: str) -> None:
-    """Remove the watermark entry for ``rel`` (best-effort; no-op if absent).
-
-    Used by the entity-writer's rollback so a write rolled back after its watermark was
-    recorded does not leave an orphan hash entry pointing at a now-deleted file (which
-    would later read as an index/file divergence)."""
-    index = load_hash_index(workspace, run_id)
-    if str(rel) in index:
-        del index[str(rel)]
-        _write_index_atomic(hash_index_path(workspace, run_id), index)
+def restore_hash_index(workspace: str | Path, run_id: str, index: dict) -> None:
+    """Atomically write ``index`` as the run's watermark map — restore the EXACT prior state on an
+    entity-writer rollback (Codex PR#5 r4). The caller snapshots the whole index before its write;
+    restoring it verbatim handles every case with ONE mechanism: a fresh-file rollback drops the new
+    entry, an overwrite rollback restores the prior entry exactly — preserving an ABSENT or a
+    deliberately-MISMATCHED (tamper-signal) watermark rather than recomputing it from the bytes."""
+    _write_index_atomic(hash_index_path(workspace, run_id), dict(index))

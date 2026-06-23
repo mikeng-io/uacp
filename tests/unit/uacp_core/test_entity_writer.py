@@ -282,6 +282,69 @@ def test_create_entity_rejects_stray_ctx_key(tmp_path):
     assert "error" in res and "unexpected context key" in res["error"]
 
 
+def test_create_entity_rollback_restores_exact_prior_watermark(tmp_path, monkeypatch):
+    # Codex PR#5 r4: rollback must restore the EXACT prior watermark entry, NOT recompute it from the
+    # restored bytes — else a deliberately-mismatched watermark (a tamper signal) gets erased.
+    import state_machine
+    from engines.domain.artifact_hashes import load_hash_index, record_hash
+
+    run_id = _init_run(tmp_path)
+    rel = f"plans/{run_id}-scope.yaml"
+    create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {"write_paths": ["plans/a.yaml"], "blast_radius": "low", "rollback_path": "orig"},
+    )
+    # Plant a MISMATCHED watermark (recorded hash != actual file hash — a tamper signal).
+    record_hash(tmp_path, run_id, rel, "TAMPER-SENTINEL-not-the-file-content")
+    mismatched = load_hash_index(tmp_path, run_id)[rel]
+
+    monkeypatch.setattr(
+        state_machine, "handle_register_artifact", lambda a: json.dumps({"error": "boom"})
+    )
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {"write_paths": ["plans/CHANGED.yaml"], "blast_radius": "high", "rollback_path": "new"},
+    )
+    assert "error" in res
+    # Non-vacuity: the OLD rollback recomputed -> would equal the restored content's hash, not the
+    # planted mismatch. The exact-restore keeps the tamper signal intact.
+    assert load_hash_index(tmp_path, run_id)[rel] == mismatched
+
+
+def test_create_entity_persist_failure_rolls_back(tmp_path, monkeypatch):
+    # Atomicity completeness: a persist (_write_uacp_file) failure on an overwrite restores prior bytes.
+    import engines.manifest.entity_writer as ew
+
+    run_id = _init_run(tmp_path)
+    good = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {"write_paths": ["plans/a.yaml"], "blast_radius": "low", "rollback_path": "orig"},
+    )
+    rel = good["path"]
+    original = (tmp_path / ".uacp" / rel).read_text(encoding="utf-8")
+
+    def _boom(target, content):
+        target.write_text("CORRUPTED-PARTIAL", encoding="utf-8")  # partial write, then fail
+        raise OSError("disk full")
+
+    monkeypatch.setattr(ew, "_write_uacp_file", _boom)
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {"write_paths": ["plans/X.yaml"], "blast_radius": "high", "rollback_path": "new"},
+    )
+    assert "error" in res and "persist failed" in res["error"]
+    # Non-vacuity: without persist-fail rollback the file would hold "CORRUPTED-PARTIAL".
+    assert (tmp_path / ".uacp" / rel).read_text(encoding="utf-8") == original
+
+
 def test_governed_writers_reexport_identity():
     # C4-review guard: the write-port re-exports the SAME primitive objects as filesystem
     # (so a future "unused, delete it" sweep can't silently sever the seam — A3 pattern).
