@@ -14,15 +14,15 @@ edges: []
 ## The claim
 
 Every agent operation, at its finest grain, reduces to one irreducible cycle —
-**`comprehend → measure → serialize`** — the way a CPU instruction always runs **fetch → decode → execute**. Not a *workflow* (mutable) but an **invariant** no action escapes.
+**`comprehend → measure → serialize`** — the way a CPU instruction always runs **fetch → decode → execute**. Not a *workflow* (mutable) but an **invariant** no *governed* action escapes (the 2026-06-24 hunt bounded the universal form — see Status).
 
 ## The load-bearing half
 
 The cycle looped is the system — **and the engineering IS the discipline on the three verbs.** Drop the discipline and it is a truism; hold it and it is trustless. → [22-trustless-differentia](22-trustless-differentia.md)
 
-## Status: hypothesis, not yet axiom
+## Status: QUALIFIED LAW (governed operations) — boundary found 2026-06-24
 
-It earns "axiom" only by surviving a counterexample hunt with no clean break. Until then it is a **named hypothesis**; promotion to AGENTS.md is a governed change gated on that. → [30-validation-matrix](30-validation-matrix.md)
+The counterexample hunt (→ [30-validation-matrix](30-validation-matrix.md), 3 adversarial falsifiers) found a **convergent boundary**, not a clean universal axiom: pure state-moves (NOP / unconditional append / interrupt-flag-set) have **`measure = ∅`** (the decision lives in a neighbour), and the measure-discipline is false for human actors. BUT it holds as a **law for governed, decision-bearing operations** — and the operations that break it are exactly the *ungoverned, self-attesting* writes UACP forbids, so **the boundary IS UACP's scope** (the break is evidence *for* UACP). Promotable as "the discipline for governed operations" *with that qualification*; promotion to AGENTS.md + the portable `uacp.md` is a governed change. **OPEN DECISION (mike):** rename step 2 `measure`→`decide` (the hunt's recommendation — "measure" leaks `infer`/`select`).
 
 ## The map (substance is here, not above)
 

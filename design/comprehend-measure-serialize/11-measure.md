@@ -29,9 +29,9 @@ edges:
 
 Not numeric-ness — **determinism + fail-closed.** A measurement must be reproducible and keep **PASS / FAIL / ERROR distinct** (ERROR ≠ PASS). A `grep route_mounted` standing in for "the route works" is *not* a measurement — it's a weak proxy (the #503 failure). The signal must bind to the real property.
 
-## Open question: is "measure" the right name?
+## Naming: RESOLVED by the hunt → recommend `decide` (mike's call)
 
-This is the one verb whose naming is genuinely uncertain. If *every* `compare / validate / infer / rank / select` sits comfortably under "measure," the name holds. If one resists, the primitive may need a broader verb (the invariant is *"reduce to a decidable signal"*, not *"quantify"*). Tracked in [30-validation-matrix](30-validation-matrix.md).
+The 2026-06-24 counterexample hunt (→ [30-validation-matrix](30-validation-matrix.md)) found **"measure" is a leaky genus**: `infer` *generates* new information (measurement only *extracts*), and `select` is a choice-act — both fall out of "measure." The invariant's own phrase — *"reduce to a decidable signal"* — literally describes a **decision**. **RECOMMENDATION: rename step 2 to `decide`** (covers compare/validate/infer/rank/select; the determinism+fail-closed discipline reads naturally as "a decision *procedure*"). Keep "measure" only as a public alias if the measurement-as-evidence / no-self-attestation framing is brand-load-bearing. Pending mike's ratification (touches the whole framing) → a decision-log entry, not a silent rename. Also bounded by the hunt: the discipline holds only where the actor is **mechanical** (it is false for human actors), and `measure` can be **absent** for pure state-moves (the `measure = ∅` boundary — node 30).
 
 ## To expand
 - The signal taxonomy (boolean / scalar / ordinal / categorical) and which decisions each can route.

@@ -28,6 +28,35 @@ The gate between **observation** ("most workflows fit") and **axiom** ("any vali
 
 > Fill each row: does it reduce **without forcing**? A clean reduction is evidence; a **forced** one (contrived relabeling) is a yellow flag; a genuine break is a **counterexample** that bounds the claim. Record honestly — a found boundary is more valuable than a forced fit.
 
+## HUNT RESULT (2026-06-24) — 3 adversarial falsifiers, convergent
+
+**Verdict: CMS is a LAW for decision-bearing (governed) operations — NOT a universal axiom at the finest grain.** The hunt found a clean, *convergent* boundary (three independent skeptics, each told to break it, landed on the same fault line). That is a stronger, more useful result than a forced clean sweep.
+
+**Reductions:**
+
+| Domain cluster | Verdict |
+|---|---|
+| event sourcing · Raft AppendEntries · k8s reconcile · DB txn (commit\|rollback) | **CLEAN** |
+| CPU exec · LLM token-emit · constant-folding · backpressured emit | **CLEAN** |
+| OAuth issue · git 3-way merge · fire-and-forget log (level-filter *is* the measure) · UI re-render | **CLEAN** |
+| gossip broadcast (seen-before/newer = measure; already-seen = DROP) | **CLEAN — reinforces** |
+| **human code review** | **FORCED** — the *shape* holds, but the measure-*discipline* (deterministic + fail-closed) is FALSE for a human (same diff, different day → different verdict) |
+| **read-only SELECT** | **FORCED (mild)** — measure (the `WHERE` predicate) is real; serialize=API-response stretches "durable" |
+| **unconditional log/replication append** | **FORCED → BREAK** — measure can only ever PASS (a wire, not a decision); an always-PASS step isn't fail-closed |
+| **NOP · interrupt-flag-set · idealized cache fill** | **BREAK** — `measure = ∅` (absent, not vacuous); the only decision lives in a *neighbouring* op (the dispatcher) → attributing it is boundary-cheating |
+| **HW RNG read (RDRAND)** | **near-BREAK on comprehend** — structureless input → comprehend collapses to identity |
+
+**The convergent finding (all three): the weak verb is `measure`, never comprehend or serialize.**
+- **`measure = ∅`** for pure state-moves (NOP, unconditional append, flag-set): these are *serialize-only atoms*; CMS describes them only by importing a neighbour's decision. measure is sometimes genuinely **absent**, not merely trivial.
+- **`comprehend = identity`** for structureless input (RNG) — sometimes only nominal.
+- **the measure-discipline (deterministic + fail-closed) is FALSE for human actors** — it must be down-scoped to "deterministic *where the actor is mechanical*."
+
+**The resolution — and why the boundary STRENGTHENS UACP (decisive, falsifier A):** scope the law to **governed operations**, where a real fail-closed gate is *required by definition*. Then the unconditional-append/NOP "break" falls **out of scope** — it is precisely an *ungoverned, always-PASS, self-attesting write*, the very thing UACP's no-self-attestation discipline forbids. So **CMS holds as a law within UACP's governed scope** — which is all UACP needs. The universal-axiom claim was too strong; the governed-operation law is both correct and sufficient. (This is itself evidence FOR UACP: the operations that break CMS are exactly the ones UACP refuses to allow.)
+
+**Naming (resolves node 11's open question): step 2 should be `decide`, not `measure`.** "measure" connotes quantification; `infer` (generates *new* information — measurement only extracts) and `select` (the choice-act) fall OUT of it. The invariant's own words — *"reduce to a decidable signal"* — literally describe a decision. RECOMMENDATION: rename to `decide`; keep "measure" only as a public alias IF the measurement-as-evidence / no-self-attestation framing is brand-load-bearing. **This rename is mike's call** (it touches the whole framing) — a decision-log entry, not a silent change.
+
+**Promotion status: QUALIFIED-READY.** CMS earns promotion as *"the discipline for governed/decision-bearing operations"* (NOT "every operation is CMS"). The AGENTS.md line + the portable `uacp.md` MUST carry the governed-scope qualification, or they overclaim.
+
 ## The naming sub-question
 
 While testing, challenge step 2's name: do all of `compare / validate / infer / rank / select` sit comfortably under **"measure"**? If yes, the name holds. If one resists, the primitive may need a broader verb (the property is *"reduce to a decidable signal"*, not *"quantify"*).
