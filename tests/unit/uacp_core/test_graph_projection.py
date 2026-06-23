@@ -317,6 +317,16 @@ def test_verify_exit_flags_contradicted(tmp_path):
     assert "GP_CONTRADICTED" in codes
 
 
+def test_verify_exit_warn_or_deferred_under_pass_is_not_contradicted(tmp_path):
+    # GN2 review F1: ONLY `block` is a true contradiction. A pass assessment over a warn/deferred
+    # checkpoint is a legitimate close-with-deferred (VALID_NEXT_PHASE_READINESS allows it), NOT a
+    # contradiction. Paired with the block case above for non-vacuity.
+    for outcome in ("warn", "deferred"):
+        ws = _covered_run(tmp_path / outcome, checkpoint_result=outcome, assessment_result="pass")
+        codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
+        assert "GP_CONTRADICTED" not in codes, (outcome, codes)
+
+
 def test_verify_exit_clean_passes_non_vacuously(tmp_path):
     # break: drop the passing assessment -> fires unverified; fix -> silent.
     broken = validate_graph_invariants(

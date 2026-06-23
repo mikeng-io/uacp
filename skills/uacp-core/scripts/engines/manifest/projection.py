@@ -26,8 +26,9 @@ What this engine checks — STRUCTURAL integrity only (always a defect, any phas
   no parent intent: phantom work).
 * ``GP_PHANTOM_EDGE``       — an edge whose target resolves to no node (a forged or
   dangling reference, e.g. ``derives_from`` a non-existent scope_item).
-* ``GP_CONTRADICTED``       — a ``pass`` assessment whose evidence checkpoint is
-  itself ``fail`` (a "done" claim contradicted by its own evidence).
+* ``GP_CONTRADICTED``       — a ``pass`` assessment whose evidence checkpoint rolled
+  up to ``block`` (a "done" claim contradicted by its own failed evidence; ``warn``/
+  ``deferred`` are legitimate close-with-deferred, not contradictions).
 
 What this engine deliberately does NOT check (honest limits):
 
@@ -190,18 +191,25 @@ def _check_phantom(nodes: dict, edges: list) -> list[Violation]:
 
 
 def _check_contradicted(nodes: dict, edges: list) -> list[Violation]:
+    # A pass assessment over an evidence checkpoint that rolled up to BLOCK is the only true
+    # contradiction: `block` is the sole "failed" outcome (the validator allows
+    # ready_with_deferred_items), so a `warn`/`deferred` checkpoint under a pass assessment is a
+    # LEGITIMATE close-with-deferred, not a contradiction. NOTE (D42 producer gap): this edge binds
+    # only when an assessment's evidence_refs string-equal a checkpoint_id — the real
+    # assessment<->checkpoint join is the shared obligation_id, so the signal is dormant until the
+    # producer emits checkpoint_id refs (or an obligation_id join edge is added).
     cp_result = {n["id"]: n.get("result") for n in nodes.values() if n["kind"] == "checkpoint"}
     out: list[Violation] = []
     for e in edges:
         if e["rel"] != "evidence_refs":
             continue
         asmt = nodes.get(e["src"], {})
-        if asmt.get("result") == "pass" and cp_result.get(e["dst"]) not in (None, "pass"):
+        if asmt.get("result") == "pass" and cp_result.get(e["dst"]) == "block":
             out.append(
                 _v(
                     "GP_CONTRADICTED",
                     f"assessment '{e['src']}' claims pass but its evidence "
-                    f"checkpoint '{e['dst']}' is '{cp_result.get(e['dst'])}'",
+                    f"checkpoint '{e['dst']}' is 'block'",
                     assessment=e["src"],
                     checkpoint=e["dst"],
                 )
