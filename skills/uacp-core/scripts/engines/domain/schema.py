@@ -254,7 +254,13 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     # uacp.proposal (D43): the registered, entity-write-routable PROPOSE artifact that carries the
     # KEYED scope.in_scope:[{id,statement}] — the source of the projection's scope_item nodes (so
     # GP_UNCOVERED/GP_ORPHAN can bind). Required set mirrors validate_proposal; the scope block is
-    # TYPED here (keyed items) — the one place that enforces the keyed shape at write time.
+    # TYPED here (keyed items, >=1) — the LOAD-BEARING enforcement of the keyed shape: it runs at
+    # WRITE time (entity_write -> has_schema -> schema.validate), since proposal-scope is self-
+    # contained. Contrast the PIV: work_unit.derives_from is a CROSS-artifact reference, so it stays
+    # OPTIONAL in the shape schema and is required at the Heartgate TRANSITION by
+    # validate_piv_contract — an intentional shape-vs-referential asymmetry between the ends. NOTE:
+    # package-selection-mode runs carry scope in markdown (not a keyed uacp.proposal), so the two
+    # coverage checks do not bind for that representation — a documented residual.
     "uacp.proposal": {
         "$schema": _DRAFT,
         "type": "object",
@@ -281,6 +287,7 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                 "properties": {
                     "in_scope": {
                         "type": "array",
+                        "minItems": 1,
                         "items": {
                             "type": "object",
                             "required": ["id", "statement"],

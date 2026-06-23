@@ -112,6 +112,13 @@ def test_proposal_bare_string_in_scope_fails():
     assert errs and any(("in_scope" in e) or ("scope" in e) or ("id" in e) for e in errs), errs
 
 
+def test_proposal_empty_in_scope_fails():
+    # A proposal must declare >=1 keyed scope_item (else coverage is vacuously satisfied).
+    bad = {**_PROPOSAL, "scope": {"in_scope": [], "out_of_scope": []}}
+    errs = validate("uacp.proposal", bad)
+    assert errs and any("in_scope" in e or "scope" in e or "short" in e.lower() for e in errs), errs
+
+
 # --- evidence_obligation: id+evidence_type+required+sufficiency; work_unit_id OPTIONAL -------
 def test_valid_evidence_obligation_passes():
     doc = {"id": "ev-1", "evidence_type": "test", "required": True, "sufficiency": "suite green"}
