@@ -1,8 +1,13 @@
 <!--
-  UACP preamble — injected by the UACP plugin at the TOP of a host agent's CLAUDE.md / AGENTS.md.
-  Runtime-neutral, principle-only. The UACP-specific lifecycle (the 7 phases) is a separate skill;
-  this file is the universal discipline every governed operation follows. Source of truth:
-  design/comprehend-measure-serialize/ (the CMS bundle).
+  UACP.md — the UACP PLUGIN'S PAYLOAD, not a file this repository consumes.
+
+  When the UACP plugin is installed into a coding agent (Claude Code, Kimi, opencode, …), this content
+  is injected at the TOP of that agent's CLAUDE.md / AGENTS.md, so the agent inherits the UACP core
+  discipline wherever it runs — with or without the full UACP repo/lifecycle. Runtime-neutral and
+  principle-only: the UACP-specific 7-phase lifecycle is a separate skill, not this file.
+
+  Source of truth (kept in sync from here): design/comprehend-measure-serialize/ (the CMS bundle).
+  This file's home is plugin distribution; nothing in this repo's own runtime reads it.
 -->
 
 # UACP — comprehend → measure → serialize
