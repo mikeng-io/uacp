@@ -66,6 +66,18 @@ def _synth_id(prefix: str, text: str, run: str) -> str:
     return f"{prefix}-{hashlib.sha1(f'{run}:{text}'.encode()).hexdigest()[:8]}"
 
 
+def _rollup_result(results: list) -> str | None:
+    """Roll a checkpoint's evidence[].result values up to one outcome — worst wins (the
+    contradiction signal for GP_CONTRADICTED): block > warn > deferred; 'pass' only if every
+    evidence result passed; None when there is no evidence."""
+    for severity in ("block", "warn", "deferred"):
+        if severity in results:
+            return severity
+    if results and all(r == "pass" for r in results):
+        return "pass"
+    return None
+
+
 def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
     """Extract nodes + typed edges from one artifact doc into the shared graph."""
 
@@ -75,7 +87,8 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
     def add_edge(src: str, dst: str, rel: str) -> None:
         edges.append({"src": src, "dst": dst, "rel": rel})
 
-    scope = doc.get("scope") if isinstance(doc.get("scope"), dict) else {}
+    scope = doc.get("scope")
+    scope = scope if isinstance(scope, dict) else {}
     for item in _aslist(scope.get("in_scope")):
         if isinstance(item, dict) and item.get("id"):  # new canonical form
             add_node(item["id"], "scope_item", statement=item.get("statement", ""))
@@ -84,7 +97,12 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
 
     for wu in _aslist(doc.get("work_units")):
         if isinstance(wu, dict) and wu.get("id"):
-            add_node(wu["id"], "work_unit", title=wu.get("title", ""))
+            add_node(wu["id"], "work_unit", intent=wu.get("intent", ""))
+            # derives_from = the PROPOSE->PLAN coverage edge. NOTE (D42 producer gap): the real PIV
+            # validator does NOT require it on work_units (only id/intent/expected_outputs), so the
+            # coverage checks (GP_UNCOVERED/GP_ORPHAN) only bind once the PIV producer emits it —
+            # the producer-side coverage emission is the documented follow-on; the projection reads
+            # it when present.
             for dst in _aslist(wu.get("derives_from")):
                 add_edge(wu["id"], dst, "derives_from")
 
@@ -94,11 +112,15 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
             if ob.get("work_unit_id"):
                 add_edge(ob["id"], ob["work_unit_id"], "obligation_for")
 
-    for cp in _aslist(doc.get("checkpoints")):
-        if isinstance(cp, dict) and cp.get("id"):
-            add_node(cp["id"], "checkpoint", result=cp.get("result"))
-            if cp.get("work_unit_id"):
-                add_edge(cp["id"], cp["work_unit_id"], "checkpoint_of")
+    # execution_checkpoint (D42): the REAL shape is ONE doc per checkpoint (top-level checkpoint_id
+    # + work_unit_id + evidence[]), NOT a doc carrying a `checkpoints[]` list (the spike). Map each
+    # such doc to one checkpoint node, rolling its outcome up from evidence[].result.
+    cp_id = doc.get("checkpoint_id")
+    if cp_id:
+        results = [ev.get("result") for ev in _aslist(doc.get("evidence")) if isinstance(ev, dict)]
+        add_node(cp_id, "checkpoint", result=_rollup_result(results))
+        if doc.get("work_unit_id"):
+            add_edge(cp_id, doc["work_unit_id"], "checkpoint_of")
 
     for a in _aslist(doc.get("assessments")):
         if not isinstance(a, dict):
