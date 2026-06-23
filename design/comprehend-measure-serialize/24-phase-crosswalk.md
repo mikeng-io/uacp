@@ -11,7 +11,7 @@ edges:
 
 # Phase cross-walk — CMS made concrete for all 7 phases
 
-The fractal claim (node 23) stated abstractly: *every phase is itself a CMS loop.* Here it is grounded for all seven, against the real artifact kinds + Heartgate gates (produced by a per-phase fan-out, 2026-06-24). Per-phase agent prompts live in [`prompts/`](prompts/) — one file each.
+The fractal claim (node 23) stated abstractly: *every phase runs CMS internally.* Here it is grounded for all seven, against the real artifact kinds + Heartgate gates (produced by a per-phase fan-out, 2026-06-24). This is the **coherence discipline ([00](00-the-axiom.md)) applied per-phase** — a design choice, not a discovered recursion — and the kernel **enforces** it at each phase-exit *gate*. Per-phase agent prompts live in [`prompts/`](prompts/) — one file each.
 
 | Phase | Macro role | comprehend (input model) | measure (decidable signal + gate) | serialize (kind, via `uacp_entity_write`) |
 |---|---|---|---|---|

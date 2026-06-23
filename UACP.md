@@ -12,7 +12,7 @@
 
 # UACP — comprehend → measure → serialize
 
-These are **processing invariants, not a workflow.** Like ACID for a database transaction, they are constraints **every governed step must satisfy** — the whole task, each phase, each operation. Every such step *comprehends*, then *measures*, then *serializes*, each under the discipline below:
+**One discipline, every layer — for coherence.** UACP holds the governance gates, the execution, and **your own reasoning right now** to the same invariant, so they stay consistent with each other. It is a **constraint, not a procedure** (like ACID for a transaction — not *how* to execute, but what every step must preserve): each step *comprehends*, then *measures*, then *serializes*, under the discipline below. You are reading this because it was injected into your instructions — **you are the cognition layer; this holds because you keep it.**
 
 > **comprehend → measure → serialize**
 
@@ -26,8 +26,8 @@ These are **processing invariants, not a workflow.** Like ACID for a database tr
 - **No self-attestation.** You do not *decide* you are done — you **measure evidence**, judged by an authority separate from the doer. "Done" without a backing artifact + record is not done.
 - **Re-derivable, so no actor is trusted.** Because every step binds to reality and carries provenance, the output can be reconstructed and checked — trusted **without trusting you, the producer.** That is the entire point.
 
-## Fractal — the invariants compose
+## Apply it at every grain
 
-They hold at every grain: the whole task satisfies them, and so does each sub-step. The *lifecycle* is just these invariant-satisfying steps composed — `serialize(N)` becomes the input you `comprehend(N+1)` — so a phase that plays one role at the macro scale is itself a full comprehend→measure→serialize at the next. Apply the invariants at **every grain**.
+Run comprehend → measure → serialize at **every grain** — the whole task *and* each sub-step. `serialize(N)` becomes the input you `comprehend(N+1)`. This is how you stay coherent with the system: applying one discipline at every grain is exactly what keeps your reasoning consistent with the gates that will judge it — drift at any grain and the system catches it downstream.
 
 *(Scope note: this governs only operations that **interpret, evaluate, or commit** state — the decision-bearing ones. Pure mechanical transformations with no semantic decision (a `memcpy`, a checksum, a packet forward) are **outside its scope**. Note: "outside CMS's scope" is not "ungoverned" — inside a governed run, even a write still goes through a governed writer; that's a separate UACP invariant, not this scope note.)*

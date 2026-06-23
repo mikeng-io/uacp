@@ -30,7 +30,7 @@ The gate between **observation** ("most workflows fit") and **axiom** ("any vali
 
 ## HUNT RESULT (2026-06-24) — 3 adversarial falsifiers, convergent
 
-**Verdict: CMS is a LAW for decision-bearing (governed) operations — NOT a universal axiom at the finest grain.** The hunt found a clean, *convergent* boundary (three independent skeptics, each told to break it, landed on the same fault line). That is a stronger, more useful result than a forced clean sweep.
+**Verdict (reclassified 2026-06-24): CMS is a COHERENCE INVARIANT (architectural), not an axiom or law (empirical).** The hunt's clean, *convergent* cross-domain reductions are **evidence it is a low-friction coherence choice** — most information-processing already fits this shape, so imposing it everywhere costs little. The "boundary" the falsifiers found (pure mechanical state-moves; human actors) is **not a counterexample to a law** — no law is claimed — it marks where compliance is **normative (must be enforced), not natural**. (A later cross-provider panel — kimi + minimax, kernel-grounded — confirmed the empirical "law/primitive" framing is unfalsifiable, and the honest claim is the architectural one. → [00](00-the-axiom.md), [25](25-enforcement-surfaces.md).)
 
 **Reductions:**
 

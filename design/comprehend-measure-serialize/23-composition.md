@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: Composition — CMS is fractal (nested) and iterated (chained)
-description: The primitive composes on two axes. ITERATED (horizontal) — serialize(N) feeds comprehend(N+1); the lifecycle is CMS looped over time. FRACTAL (vertical) — every verb, at finer grain, is itself a full CMS loop; a phase that plays one role in the macro-loop (e.g. verify = measure) is internally comprehend→measure→serialize. The disciplines are scale-invariant, which is why UACP is one primitive recursed, not seven phase-logics.
+description: CMS composes on two axes. ITERATED (horizontal) — serialize(N) feeds comprehend(N+1); the lifecycle is CMS looped over time. FRACTAL (vertical) — CMS is applied at every grain, so a phase that plays one role in the macro-loop (e.g. verify = measure) is internally comprehend→measure→serialize. Applying it everywhere is a deliberate choice FOR COHERENCE, not a discovered recursion — which is why UACP runs on one discipline, not seven phase-logics.
 tags: [primitive, composition, fractal, iterated, self-similar, lifecycle]
 timestamp: 2026-06-24
 edges:
@@ -10,7 +10,7 @@ edges:
 
 # Composition — two axes
 
-CMS is not a single flat loop. It composes on two axes — and that composition is what lets the whole of UACP be **one** primitive rather than seven phase-logics.
+CMS composes on two axes. Applying it at *every* grain is a deliberate choice **for coherence** — not a claim that each layer independently turned out to be CMS. The payoff: the whole of UACP runs on one discipline rather than seven phase-logics.
 
 ## Axis 1 — ITERATED (horizontal): the loop chains over time
 
@@ -30,7 +30,8 @@ So: **a verb at scale N is a CMS loop at scale N+1.** The primitive is self-simi
 
 ## Why this matters (the load-bearing consequence)
 
-- **One primitive, recursed — not seven phase-logics.** brainstorm/triage/propose/plan/execute/verify/resolve are not seven rule-sets; they are CMS at one zoom level, each containing CMS at the next. A large reduction in conceptual surface.
+- **One discipline at every grain — not seven phase-logics.** brainstorm/triage/propose/plan/execute/verify/resolve are not seven rule-sets; we *impose* CMS at each grain so they stay coherent — a design choice, not a discovered recursion. (This is the honest answer to "fractal is retrofitted": there is nothing to retrofit — coherence is engineered in, not found.) A large reduction in conceptual surface.
+- **The conceptual loop is per-phase; the *enforcement* is at the gate.** Each phase conceptually runs comprehend→measure→serialize, but the kernel enforces the measure+serialize disciplines at the **phase-exit gate** (gate-ledger + graph_invariant), not as a checked internal recursion. So "fractal" is the design lens; "gate-shaped" is the enforcement reality — both true, named distinctly.
 - **The disciplines are scale-invariant.** The same enforcing mechanisms hold at every grain: the *measure*-discipline = the Heartgate phase-exit gate (at phase scale) **and** a single fail-closed `validate`/lint call (at operation scale); the *serialize*-discipline = the entity-writer + watermark, whether committing a whole resolution or one `work_unit`.
 - **The agent runs CMS at every grain.** A governed run is macro-CMS; each sub-step the agent takes is micro-CMS, with the same three disciplines. This is what the portable `uacp.md` instructs — comprehend → measure → serialize at *every* grain, not only at the lifecycle boundary.
 
