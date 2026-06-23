@@ -42,6 +42,17 @@ def test_artifact_write_rejects_relation_manifest_kinds(tmp_path):
         assert not (tmp_path / ".uacp" / p).exists(), f"{p} should not have been written"
 
 
+def test_artifact_write_rejects_manifest_kind_by_content_on_nontemplate_path(tmp_path):
+    # Codex PR#8 P1: writing manifest CONTENT (kind: uacp.proposal) to a NON-template path must also
+    # be rejected — else the file dodges the path check yet satisfies broad phase-exit globs.
+    _init(tmp_path)
+    args = _args(tmp_path, "proposals/r1-x.yaml")  # non-template path
+    args["content"] = "kind: uacp.proposal\nrun_id: r1\n"
+    res = json.loads(_handle_uacp_artifact_write(args))
+    assert "error" in res and "uacp_entity_write" in res["error"], res
+    assert not (tmp_path / ".uacp" / "proposals" / "r1-x.yaml").exists()
+
+
 def test_artifact_write_allows_corpus_and_nonmanifest_paths(tmp_path):
     # Corpus roots + non-template paths resolve to no manifest kind -> still allowed.
     _init(tmp_path)

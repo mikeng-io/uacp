@@ -299,7 +299,9 @@ def _valid_piv() -> dict:
         "run_id": "r1",
         "applies_to_phase": "execute",
         "phase_intent": {"summary": "x"},
-        "work_units": [{"id": "wu-1", "intent": "x", "expected_outputs": ["o"]}],
+        "work_units": [
+            {"id": "wu-1", "intent": "x", "expected_outputs": ["o"], "derives_from": ["si-1"]}
+        ],
         "evidence_obligations": [
             {"id": "ev-1", "evidence_type": "t", "required": True, "sufficiency": "s"}
         ],
@@ -315,6 +317,11 @@ def test_piv_contract_valid_and_required_and_phase_and_open():
     bad = _valid_piv()
     del bad["work_units"]
     assert any("work_units" in e for e in validate("uacp.phase_intent_verification_contract", bad))
+    # D43/Codex PR#8 P1: a work_unit WITHOUT derives_from is rejected at write time (the schema), not
+    # only by the offline validator -> coverage can't slip a self-gated plan-exit.
+    nocov = _valid_piv()
+    nocov["work_units"] = [{"id": "wu-1", "intent": "x", "expected_outputs": ["o"]}]
+    assert validate("uacp.phase_intent_verification_contract", nocov), "PIV w/o derives_from must fail"
     # wrong phase const -> fails
     badp = _valid_piv()
     badp["phase"] = "execute"

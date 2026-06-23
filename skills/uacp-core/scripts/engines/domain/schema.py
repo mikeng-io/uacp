@@ -350,7 +350,20 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "phase": {"const": "plan"},
             "applies_to_phase": {"const": "execute"},
             "run_id": {"type": "string", "minLength": 1},
-            "work_units": {"type": "array", "minItems": 1},
+            # D43 (Codex PR#8 P1): every work_unit MUST declare coverage (>=1 derives_from
+            # scope_item id) — enforced HERE at WRITE time via entity_write, symmetric with the
+            # proposal's keyed scope (so a derives_from-less PIV can't pass write + a self-gated
+            # plan-exit). The referential resolve of those ids stays in the projection
+            # (GP_PHANTOM_EDGE); validate_piv_contract keeps it as transition defense-in-depth.
+            "work_units": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "required": ["derives_from"],
+                    "properties": {"derives_from": {"type": "array", "minItems": 1}},
+                },
+            },
             "evidence_obligations": {"type": "array", "minItems": 1},
         },
     },

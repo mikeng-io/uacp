@@ -39,7 +39,9 @@ def _piv_fields():
         "phase": "plan",
         "applies_to_phase": "execute",
         "phase_intent": "ship x",
-        "work_units": [{"id": "wu-1", "intent": "do x", "expected_outputs": ["o"]}],
+        "work_units": [
+            {"id": "wu-1", "intent": "do x", "expected_outputs": ["o"], "derives_from": ["si-1"]}
+        ],
         "evidence_obligations": [
             {
                 "id": "ev-1",

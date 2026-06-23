@@ -518,9 +518,20 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
         # to the gate (the activation bypass). Reject it HERE (handler level), because the Guardian
         # category block is bypassed by direct/MCP/test calls. Corpus roots (knowledge/, lessons/) and
         # any non-RELATION path resolve to no manifest kind -> still allowed.
+        import re as _re
+
         from engines.domain import layout
 
+        # Reject by the canonical PATH and by the DECLARED kind in the payload (Codex PR#8 P1): a
+        # caller could otherwise write manifest CONTENT (`kind: uacp.proposal`) to a NON-template path
+        # (e.g. proposals/{run_id}-x.yaml) to dodge the path check — that file escapes validate+register
+        # yet still satisfies broad phase-exit globs (proposals/{run_id}*.yaml). Either signal of a
+        # RELATION-plane manifest kind is refused.
         manifest_kind = layout.kind_for_relpath(str(rel))
+        if not manifest_kind:
+            m = _re.search(r"(?m)^\s*kind:\s*[\"']?(uacp\.[\w.]+)", content)
+            if m:
+                manifest_kind = m.group(1)
         if manifest_kind and layout.plane_of(manifest_kind) == layout.RELATION:
             return json.dumps(
                 {
