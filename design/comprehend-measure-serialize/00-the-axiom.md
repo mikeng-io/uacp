@@ -16,6 +16,8 @@ edges: []
 Every agent operation, at its finest grain, reduces to one irreducible cycle —
 **`comprehend → measure → serialize`** — the way a CPU instruction always runs **fetch → decode → execute**. Not a *workflow* (mutable) but an **invariant** no *governed* action escapes (the 2026-06-24 hunt bounded the universal form — see Status).
 
+**Positioning — these are processing INVARIANTS, like ACID.** ACID is not *how* you run a transaction; it is *what every transaction must satisfy*. CMS is the same for information-processing: not a three-step procedure you follow, but the constraints **every governed step must meet** (the order is incidental, like begin→commit; the disciplines are the essence). The lifecycle is then a *workflow of* CMS-satisfying steps (node 23), not the primitive itself.
+
 ## The load-bearing half
 
 The cycle looped is the system — **and the engineering IS the discipline on the three verbs.** Drop the discipline and it is a truism; hold it and it is trustless. → [22-trustless-differentia](22-trustless-differentia.md)

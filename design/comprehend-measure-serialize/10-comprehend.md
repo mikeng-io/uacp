@@ -28,9 +28,9 @@ input  →  Workspace
 
 Not only an LLM. Comprehend is *multi-source*: LLM (intent/meaning) + parser/AST/SCIP (structure) + the existing graph (prior state) co-produce the model. The LLM is one contributor, not the whole step.
 
-## Discipline
+## Discipline — INTERPRET ONCE
 
-It is the **only semantic touch** in the cycle, so it must be **bounded** (one act of understanding, not pervasive interpretation) and **recorded** (the produced model is an artifact, auditable) — so everything downstream (`measure`, `serialize`) operates on a *fixed* model, not a re-interpreted one. This is what keeps the semantic step from leaking into the deterministic ones.
+The load-bearing invariant: **semantic interpretation happens exactly once.** Comprehend is the **only semantic touch** in the cycle, so it must be **bounded** (one act of understanding, not pervasive interpretation) and **recorded** (the produced model is an artifact, auditable) — so everything downstream (`measure`, `serialize`) operates on that *fixed* model, never re-interpreting it. This is what keeps the semantic step from leaking into the deterministic ones — and why two agents on the same model stay in agreement (the moment a downstream step silently re-interprets, they diverge). The analogy is a compiler: `Source → AST → optimize → codegen` — optimization never re-parses the source; it transforms the AST. `comprehend` builds the AST; nothing downstream re-parses.
 
 ## To expand
 - The context-model schema (what fields are mandatory vs optional per operation).
