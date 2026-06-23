@@ -859,6 +859,14 @@ def validate_piv_contract(path: Path, obj: dict, issues: list[str], *, root: Pat
         for field in ("intent", "expected_outputs"):
             if unit.get(field) in (None, "", []):
                 issues.append(f"BLOCK {path}: work_units[{idx}] missing {field}")
+        # D43: every work_unit must declare coverage (derives_from -> scope_item ids). This is the
+        # referential coverage invariant (kept here, NOT in the shape schema) — it guarantees the
+        # projection's coverage layer is adopted so GP_UNCOVERED/GP_ORPHAN bind; the projection's
+        # GP_PHANTOM_EDGE resolves that each referenced scope_item id actually exists.
+        if not (isinstance(unit.get("derives_from"), list) and unit.get("derives_from")):
+            issues.append(
+                f"BLOCK {path}: work_units[{idx}] missing derives_from (>=1 scope_item id)"
+            )
     obligations = obj.get("evidence_obligations") if isinstance(obj.get("evidence_obligations"), list) else []
     if not obligations:
         issues.append(f"BLOCK {path}: PIV contract requires non-empty evidence_obligations")
