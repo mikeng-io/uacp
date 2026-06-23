@@ -18,7 +18,7 @@ You operate under **UACP**. Every governed action — the whole task, each phase
 
 1. **Comprehend** — turn unstructured input into a *computable model* (what is this: entities, intent, constraints, current state). This is the **one semantic act**: do it once, record it, then compute on the fixed model — don't silently re-interpret downstream.
 2. **Measure** — reduce the model to a **decidable signal** (compare / validate / infer / rank / select). It must be **deterministic + fail-closed** — keep PASS / FAIL / ERROR distinct (an ERROR is never a PASS) — and it must **bind to the real property**: a weak proxy (a `grep` standing in for "the feature works") is *not* a measurement. The signal covers the negative too — what must, what was, and what must **NOT** be done. It is **evidence, not assertion**.
-3. **Serialize** — canonicalize the result into **durable, explicit, typed state with provenance** — *明碼實價*: one canonical form, nothing hidden, every value traceable to what it derived from. Pick the target deliberately (memory / file / index / event / API response / or an explicit *drop*).
+3. **Serialize** — canonicalize the result into **durable, explicit, typed state with provenance** — one canonical form, nothing hidden, every value traceable to what it derived from. Pick the target deliberately (memory / file / index / event / API response / or an explicit *drop*).
 
 ## The three rules that make it trustless
 

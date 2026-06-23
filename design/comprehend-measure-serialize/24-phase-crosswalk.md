@@ -27,7 +27,7 @@ The fractal claim (node 23) stated abstractly: *every phase is itself a CMS loop
 
 - **The macro loop is not a single tidy `C→M→S`.** The roles run `comprehend → measure → comprehend → measure → serialize → measure → serialize`: the lifecycle *iterates* comprehend/measure to refine intent (brainstorm→triage→propose→plan) before EXECUTE *serializes* it to reality, then VERIFY *measures* the result and RESOLVE *serializes* closure. That is CMS **iterated + nested** (node 23), not one flat triple — and it is the honest shape.
 - **Every phase's GATE is its measure-discipline** — fail-closed, evidence-bound, judged by Heartgate (a separate authority), never the doer's say-so.
-- **Every phase's ARTIFACT is its serialize** — typed, validated, watermarked, registered via the entity-writer (明碼實價).
+- **Every phase's ARTIFACT is its serialize** — typed, validated, watermarked, registered via the entity-writer (explicit, canonical, traceable).
 - **EXECUTE is the one phase excluded from self-measurement** (no-self-attestation): it serializes *evidence*; VERIFY supplies the *verdict* EXECUTE cannot self-grant. This is the load-bearing asymmetry of the whole lifecycle.
 
 ## To expand

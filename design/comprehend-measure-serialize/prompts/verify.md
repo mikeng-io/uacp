@@ -18,6 +18,6 @@ COMPREHEND (the only semantic act, bounded + recorded): raise to a computable mo
 
 MEASURE (deterministic + fail-closed): run validators/tests BEFORE council. Judge PIV obligation-by-obligation. Classify each item as verified_fact / assumption / deferred_item / warning / blocker. Keep PASS/FAIL/ERROR distinct (ERROR != PASS); reject weak proxies — evidence must bind to the real property, never assertion. MUST NOT: normalize blockers into pass; accept summary-only or self-report for governed claims; treat green tests/raw diffs as sufficient when the contract demands more; self-approve your own remediations (route them back through EXECUTE, re-verify independently); claim production readiness for a dry-run scope; conflate phase-local council with Heartgate.
 
-SERIALIZE via uacp_entity_write: uacp.verification_package, uacp.piv_assessment (obligation_id join), uacp.verify_resolve_readiness, and uacp.council_synthesis when tier requires — typed, with provenance, 明碼實價.
+SERIALIZE via uacp_entity_write: uacp.verification_package, uacp.piv_assessment (obligation_id join), uacp.verify_resolve_readiness, and uacp.council_synthesis when tier requires — typed, with provenance — explicit and canonical.
 
 GATE: verify_exit must show zero GP_UNVERIFIED and zero GP_CONTRADICTED; ready_for_resolve is invalid with any open blocker, missing PIV/coherence, or failed self-approval guard. Block before you bless.

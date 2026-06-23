@@ -12,9 +12,9 @@ edges:
 
 **Question:** *what should persist?* **Output:** **durable, canonical state.**
 
-## Not "save" — canonicalize (明碼實價)
+## Not "save" — canonicalize
 
-Serialize fixes a decision into a **stable, durable form** — a typed key in a *single* canonical shape (so diffs are minimal, writes reproducible, the projection sees no spurious churn). The discipline in one phrase: **明碼實價** — *explicit, single canonical price, nothing hidden.* No ambiguity, no implicit/semantic-only state, every value laid out where it can be re-read and re-derived. "Save to a DB" is one instance; the verb is broader.
+Serialize fixes a decision into a **stable, durable form** — a typed key in a *single* canonical shape (so diffs are minimal, writes reproducible, the projection sees no spurious churn). The discipline in one phrase: **one explicit, canonical form — nothing hidden.** No ambiguity, no implicit/semantic-only state, every value laid out where it can be re-read and re-derived. "Save to a DB" is one instance; the verb is broader.
 
 ## The targets are plural (policy-routed)
 
