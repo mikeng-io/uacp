@@ -1,6 +1,6 @@
 ## Phase 8: Admission Check Before TRIAGE
 
-Brainstorm is a **registered lifecycle phase**, and the `brainstorm → triage` transition is a real governed boundary. The run was registered at `phase: brainstorm` on entry (Phase 0/Quick-Start step 1), and the scope package is a governed artifact written with `uacp_artifact_write`. Before transitioning forward to TRIAGE, validate that the scope package satisfies the codified brainstorm exit invariant.
+Brainstorm is a **registered lifecycle phase**, and the `brainstorm → triage` transition is a real governed boundary. The run was registered at `phase: brainstorm` on entry (Phase 0/Quick-Start step 1), and the scope package is a governed artifact written with `uacp_entity_write`. Before transitioning forward to TRIAGE, validate that the scope package satisfies the codified brainstorm exit invariant.
 
 ### Step 8.1: Validate the brainstorm exit invariant via `uacp_heartgate_check`
 
@@ -43,4 +43,4 @@ admission:
   final_decision: proceed_to_triage | stop | refine_scope
 ```
 
-The scope package itself is a governed lifecycle artifact (written via `uacp_artifact_write`) and the run is already state-registered at `phase: brainstorm`. There is no separate "informal, not registered" tier — brainstorm participates in UACP governance like any other phase; the difference is only that it is optional and its sole exit is TRIAGE.
+The scope package itself is a governed lifecycle artifact (written via `uacp_entity_write`) and the run is already state-registered at `phase: brainstorm`. There is no separate "informal, not registered" tier — brainstorm participates in UACP governance like any other phase; the difference is only that it is optional and its sole exit is TRIAGE.

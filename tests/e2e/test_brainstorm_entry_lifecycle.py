@@ -81,16 +81,14 @@ def _seed_scope_package(driver: Driver, root: Path, run_id: str) -> Path:
     artifact writer to the path the brainstorm exit invariant globs:
     brainstorm/<run_id>/07-scope-package.yaml.
 
-    Routed through `uacp_artifact_write` (via the Driver, which asserts Guardian
-    does not false-block the call) so the test proves end-to-end that the
-    brainstorm exit invariant is SATISFIABLE via the governed writer — the writer
-    admits the brainstorm/ root (HIGH-2).
+    Routed through `uacp_entity_write` (CUT3: the governed entity-writer is now the ONLY path for
+    RELATION-plane manifest kinds — raw uacp_artifact_write rejects them — and it auto-registers so
+    the graph gate sees it). The brainstorm exit invariant globs the layout-computed path.
     """
     target_path = f"brainstorm/{run_id}/07-scope-package.yaml"
-    content = yaml.safe_dump(
-        {
-            "kind": "uacp.brainstorm.scope_package",
-            "run_id": run_id,
+    args = {
+        "kind": "uacp.brainstorm_scope_package",
+        "fields": {
             "title": "E2E brainstorm scope package",
             "description": "Minimal scope package for the brainstorm entry e2e test.",
             "in_scope": ["verify brainstorm→triage gate with real handler"],
@@ -98,11 +96,6 @@ def _seed_scope_package(driver: Driver, root: Path, run_id: str) -> Path:
             "authority": {"source": "e2e-test-harness"},
             "routing_advisory": "standard",
         },
-        sort_keys=False,
-    )
-    args = {
-        "target_path": target_path,
-        "content": content,
         "reason": "seed brainstorm scope-package for brainstorm->triage gate",
         "authority_artifact": "brainstorm/test.yaml",
         "workspace": str(root),
@@ -125,8 +118,8 @@ def _seed_scope_package(driver: Driver, root: Path, run_id: str) -> Path:
     uacp_guardian._POLICY = None
     try:
         result = driver.call(
-            "uacp_artifact_write",
-            uacp_guardian._handle_uacp_artifact_write,
+            "uacp_entity_write",
+            uacp_guardian._handle_uacp_entity_write,
             args,
             phase="brainstorm",
         )

@@ -251,6 +251,57 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     # Derived from validate_uacp_artifacts.py per-kind validators. additionalProperties is left
     # OPEN because the runtime validator allows extra fields (check_required); a closed schema
     # would false-reject real docs. Referential checks stay in uacp-lint.
+    # uacp.proposal (D43): the registered, entity-write-routable PROPOSE artifact that carries the
+    # KEYED scope.in_scope:[{id,statement}] — the source of the projection's scope_item nodes (so
+    # GP_UNCOVERED/GP_ORPHAN can bind). Required set mirrors validate_proposal; the scope block is
+    # TYPED here (keyed items, >=1) — the LOAD-BEARING enforcement of the keyed shape: it runs at
+    # WRITE time (entity_write -> has_schema -> schema.validate), since proposal-scope is self-
+    # contained. Contrast the PIV: work_unit.derives_from is a CROSS-artifact reference, so it stays
+    # OPTIONAL in the shape schema and is required at the Heartgate TRANSITION by
+    # validate_piv_contract — an intentional shape-vs-referential asymmetry between the ends. NOTE:
+    # package-selection-mode runs carry scope in markdown (not a keyed uacp.proposal), so the two
+    # coverage checks do not bind for that representation — a documented residual.
+    "uacp.proposal": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": [
+            "kind",
+            "proposal_id",
+            "run_id",
+            "phase",
+            "triage_artifact",
+            "title",
+            "objective",
+            "scope",
+            "declared_side_effects",
+            "authority",
+            "human_involvement",
+        ],
+        "properties": {
+            "kind": {"const": "uacp.proposal"},
+            "phase": {"const": "propose"},
+            "run_id": {"type": "string", "minLength": 1},
+            "scope": {
+                "type": "object",
+                "required": ["in_scope", "out_of_scope"],
+                "properties": {
+                    "in_scope": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": ["id", "statement"],
+                            "properties": {
+                                "id": {"type": "string", "minLength": 1},
+                                "statement": {"type": "string"},
+                            },
+                        },
+                    },
+                    "out_of_scope": {"type": "array"},
+                },
+            },
+        },
+    },
     "uacp.proposal_package_selection": {
         "$schema": _DRAFT,
         "type": "object",
@@ -299,7 +350,20 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "phase": {"const": "plan"},
             "applies_to_phase": {"const": "execute"},
             "run_id": {"type": "string", "minLength": 1},
-            "work_units": {"type": "array", "minItems": 1},
+            # D43 (Codex PR#8 P1): every work_unit MUST declare coverage (>=1 derives_from
+            # scope_item id) — enforced HERE at WRITE time via entity_write, symmetric with the
+            # proposal's keyed scope (so a derives_from-less PIV can't pass write + a self-gated
+            # plan-exit). The referential resolve of those ids stays in the projection
+            # (GP_PHANTOM_EDGE); validate_piv_contract keeps it as transition defense-in-depth.
+            "work_units": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "required": ["derives_from"],
+                    "properties": {"derives_from": {"type": "array", "minItems": 1}},
+                },
+            },
             "evidence_obligations": {"type": "array", "minItems": 1},
         },
     },

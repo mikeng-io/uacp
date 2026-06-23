@@ -39,7 +39,9 @@ def _piv_fields():
         "phase": "plan",
         "applies_to_phase": "execute",
         "phase_intent": "ship x",
-        "work_units": [{"id": "wu-1", "intent": "do x", "expected_outputs": ["o"]}],
+        "work_units": [
+            {"id": "wu-1", "intent": "do x", "expected_outputs": ["o"], "derives_from": ["si-1"]}
+        ],
         "evidence_obligations": [
             {
                 "id": "ev-1",
@@ -89,3 +91,50 @@ def test_entity_written_run_passes_execute_gate_with_checkpoint(tmp_path):
     assert res.get("ok") is True, res
     codes = {v.code for v in validate_graph_invariants(tmp_path, run_id, "execute_exit")}
     assert "GP_WORK_UNIT_NO_CHECKPOINT" not in codes, codes
+
+
+# --- D43: the scope-coverage checks (the last 2/7) bind end-to-end via entity_write -------------
+def _proposal_fields(in_scope):
+    return {
+        "proposal_id": "p-1",
+        "phase": "propose",
+        "triage_artifact": "proposals/x-triage.yaml",
+        "title": "t",
+        "objective": "o",
+        "scope": {"in_scope": in_scope, "out_of_scope": []},
+        "declared_side_effects": "none",
+        "authority": {"status": "pass"},
+        "human_involvement": "none",
+    }
+
+
+def _piv_covering(si_ids):
+    f = _piv_fields()
+    f["work_units"] = [
+        {"id": "wu-1", "intent": "do x", "expected_outputs": ["o"], "derives_from": si_ids}
+    ]
+    return f
+
+
+def test_d43_coverage_binds_uncovered_intent(tmp_path):
+    # The registered uacp.proposal (keyed scope) + PIV work_unit.derives_from make GP_UNCOVERED_INTENT
+    # bind on a real entity-written run: si-2 is declared but no work_unit derives from it.
+    run_id = _init(tmp_path)
+    _ew(
+        tmp_path,
+        run_id,
+        "uacp.proposal",
+        _proposal_fields([{"id": "si-1", "statement": "a"}, {"id": "si-2", "statement": "b"}]),
+    )
+    _ew(tmp_path, run_id, "uacp.phase_intent_verification_contract", _piv_covering(["si-1"]))
+    codes = {v.code for v in validate_graph_invariants(tmp_path, run_id, "plan_exit")}
+    assert "GP_UNCOVERED_INTENT" in codes, codes
+
+
+def test_d43_coverage_clean_when_all_intents_covered(tmp_path):
+    # Non-vacuity: every scope_item covered -> no GP_UNCOVERED / GP_ORPHAN at plan_exit.
+    run_id = _init(tmp_path)
+    _ew(tmp_path, run_id, "uacp.proposal", _proposal_fields([{"id": "si-1", "statement": "a"}]))
+    _ew(tmp_path, run_id, "uacp.phase_intent_verification_contract", _piv_covering(["si-1"]))
+    codes = {v.code for v in validate_graph_invariants(tmp_path, run_id, "plan_exit")}
+    assert "GP_UNCOVERED_INTENT" not in codes and "GP_ORPHAN_WORK_UNIT" not in codes, codes

@@ -69,6 +69,7 @@ _ENTRIES: tuple[Entry, ...] = (
         YAML,
     ),
     Entry("uacp.triage", RELATION, "proposals", "{run_id}-triage.yaml", YAML),
+    Entry("uacp.proposal", RELATION, "proposals", "{run_id}-proposal.yaml", YAML),
     Entry(
         "uacp.proposal_package_selection",
         RELATION,

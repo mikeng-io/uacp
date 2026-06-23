@@ -78,6 +78,47 @@ def test_unknown_kind_is_an_error():
     assert errs and any("not_a_kind" in e or "kind" in e for e in errs), errs
 
 
+# --- uacp.proposal (D43): registered + carries KEYED scope.in_scope[{id,statement}] -----------
+_PROPOSAL = {
+    "kind": "uacp.proposal",
+    "proposal_id": "p-1",
+    "run_id": "r1",
+    "phase": "propose",
+    "triage_artifact": "proposals/r1-triage.yaml",
+    "title": "x",
+    "objective": "x",
+    "scope": {
+        "in_scope": [{"id": "si-1", "statement": "Support Google OAuth"}],
+        "out_of_scope": [],
+    },
+    "declared_side_effects": "none",
+    "authority": {"status": "pass"},
+    "human_involvement": "none",
+}
+
+
+def test_valid_keyed_proposal_passes():
+    assert has_schema(
+        "uacp.proposal"
+    )  # registered (D43) -> entity-write-routable + validate-on-write
+    assert validate("uacp.proposal", _PROPOSAL) == []
+
+
+def test_proposal_bare_string_in_scope_fails():
+    # D43: in_scope items must be KEYED {id,statement} (the projection's scope_item nodes); a bare
+    # string (the pre-D43 form) fails the typed scope block — so coverage can actually bind.
+    bad = {**_PROPOSAL, "scope": {"in_scope": ["bare intent"], "out_of_scope": []}}
+    errs = validate("uacp.proposal", bad)
+    assert errs and any(("in_scope" in e) or ("scope" in e) or ("id" in e) for e in errs), errs
+
+
+def test_proposal_empty_in_scope_fails():
+    # A proposal must declare >=1 keyed scope_item (else coverage is vacuously satisfied).
+    bad = {**_PROPOSAL, "scope": {"in_scope": [], "out_of_scope": []}}
+    errs = validate("uacp.proposal", bad)
+    assert errs and any("in_scope" in e or "scope" in e or "short" in e.lower() for e in errs), errs
+
+
 # --- evidence_obligation: id+evidence_type+required+sufficiency; work_unit_id OPTIONAL -------
 def test_valid_evidence_obligation_passes():
     doc = {"id": "ev-1", "evidence_type": "test", "required": True, "sufficiency": "suite green"}
@@ -258,7 +299,9 @@ def _valid_piv() -> dict:
         "run_id": "r1",
         "applies_to_phase": "execute",
         "phase_intent": {"summary": "x"},
-        "work_units": [{"id": "wu-1", "intent": "x", "expected_outputs": ["o"]}],
+        "work_units": [
+            {"id": "wu-1", "intent": "x", "expected_outputs": ["o"], "derives_from": ["si-1"]}
+        ],
         "evidence_obligations": [
             {"id": "ev-1", "evidence_type": "t", "required": True, "sufficiency": "s"}
         ],
@@ -274,6 +317,11 @@ def test_piv_contract_valid_and_required_and_phase_and_open():
     bad = _valid_piv()
     del bad["work_units"]
     assert any("work_units" in e for e in validate("uacp.phase_intent_verification_contract", bad))
+    # D43/Codex PR#8 P1: a work_unit WITHOUT derives_from is rejected at write time (the schema), not
+    # only by the offline validator -> coverage can't slip a self-gated plan-exit.
+    nocov = _valid_piv()
+    nocov["work_units"] = [{"id": "wu-1", "intent": "x", "expected_outputs": ["o"]}]
+    assert validate("uacp.phase_intent_verification_contract", nocov), "PIV w/o derives_from must fail"
     # wrong phase const -> fails
     badp = _valid_piv()
     badp["phase"] = "execute"

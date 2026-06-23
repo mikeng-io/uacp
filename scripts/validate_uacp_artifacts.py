@@ -437,6 +437,15 @@ def validate_proposal(path: Path, obj: dict, issues: list[str]) -> None:
     scope = obj.get("scope") if isinstance(obj.get("scope"), dict) else {}
     if "in_scope" not in scope or "out_of_scope" not in scope:
         issues.append(f"BLOCK {path}: scope must include in_scope and out_of_scope")
+    else:
+        # D43: in_scope items must be KEYED {id, statement} — these are the projection's scope_item
+        # nodes that work_units cover via derives_from (GP_UNCOVERED/GP_ORPHAN). Bare strings (the
+        # pre-D43 form) no longer satisfy coverage.
+        for i, item in enumerate(scope.get("in_scope") or []):
+            if not (isinstance(item, dict) and item.get("id") and item.get("statement")):
+                issues.append(
+                    f"BLOCK {path}: scope.in_scope[{i}] must be a keyed object with id + statement"
+                )
 
 
 def validate_heartgate_coherence(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:
@@ -850,6 +859,14 @@ def validate_piv_contract(path: Path, obj: dict, issues: list[str], *, root: Pat
         for field in ("intent", "expected_outputs"):
             if unit.get(field) in (None, "", []):
                 issues.append(f"BLOCK {path}: work_units[{idx}] missing {field}")
+        # D43: every work_unit must declare coverage (derives_from -> scope_item ids). This is the
+        # referential coverage invariant (kept here, NOT in the shape schema) — it guarantees the
+        # projection's coverage layer is adopted so GP_UNCOVERED/GP_ORPHAN bind; the projection's
+        # GP_PHANTOM_EDGE resolves that each referenced scope_item id actually exists.
+        if not (isinstance(unit.get("derives_from"), list) and unit.get("derives_from")):
+            issues.append(
+                f"BLOCK {path}: work_units[{idx}] missing derives_from (>=1 scope_item id)"
+            )
     obligations = obj.get("evidence_obligations") if isinstance(obj.get("evidence_obligations"), list) else []
     if not obligations:
         issues.append(f"BLOCK {path}: PIV contract requires non-empty evidence_obligations")
