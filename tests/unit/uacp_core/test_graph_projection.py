@@ -139,6 +139,37 @@ def test_contradicted_assessment(tmp_path):
     assert any(v.code == "GP_CONTRADICTED" for v in vs)
 
 
+def test_contradicted_via_obligation_id_join_binds_on_real_data(tmp_path):
+    # GN3 council: the REAL assessment<->checkpoint join is the shared obligation_id (evidence_refs is
+    # producer-absent free-text). A pass assessment for an obligation whose checkpoint evidence is
+    # block must be GP_CONTRADICTED even with NO evidence_refs.
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "block"),  # evidence for obligation ev-1 is block
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),  # no evidence_refs
+        ],
+    )
+    assert "GP_CONTRADICTED" in _codes_set(validate_graph_projection(ws, "r"))
+    # non-vacuity: pass evidence for the same obligation -> NOT contradicted
+    ws_ok = _ws(
+        tmp_path / "ok",
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "pass"),
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+        ],
+    )
+    assert "GP_CONTRADICTED" not in _codes_set(validate_graph_projection(ws_ok, "r"))
+
+
 def test_legacy_bare_strings_read_as_uncovered(tmp_path):
     # legacy form (bare-string in_scope, no derives_from) -> all uncovered (flags pre-keys run)
     ws = _ws(tmp_path, "r", _prop(["legacy intent A", "legacy intent B"]), _plan([{"id": "wu-1"}]))
