@@ -512,6 +512,23 @@ def _handle_uacp_artifact_write(args: dict, **_: Any) -> str:
         if target.name in {"", ".", ".."}:
             return json.dumps({"error": "target_path must point to a file"})
 
+        # CUT3 (unbypassable): a RELATION-plane MANIFEST kind must go through uacp_entity_write — the
+        # typed, validate-on-write, auto-REGISTERING path (so the graph_projection gate sees it). The
+        # raw writer neither validates nor registers, so a manifest doc written here would be invisible
+        # to the gate (the activation bypass). Reject it HERE (handler level), because the Guardian
+        # category block is bypassed by direct/MCP/test calls. Corpus roots (knowledge/, lessons/) and
+        # any non-RELATION path resolve to no manifest kind -> still allowed.
+        from engines.domain import layout
+
+        manifest_kind = layout.kind_for_relpath(str(rel))
+        if manifest_kind and layout.plane_of(manifest_kind) == layout.RELATION:
+            return json.dumps(
+                {
+                    "error": f"uacp_artifact_write cannot write manifest kind '{manifest_kind}' "
+                    f"({rel}); use uacp_entity_write (the typed, registering manifest write path)"
+                }
+            )
+
         existed_before = target.exists()
         _write_uacp_file(target, content)
         # Detection watermark (D24/D25) — FAIL-CLOSED (#5 / Codex P2 on #503-lesson):
