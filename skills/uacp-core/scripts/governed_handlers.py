@@ -569,14 +569,25 @@ def _handle_uacp_entity_write(args: dict, **_: Any) -> str:
         kind = str(args.get("kind") or "").strip()
         fields = args.get("fields")
         ctx = args.get("ctx") or {}
-        if not run_id:
-            return json.dumps({"error": "uacp_run_id is required"})
         if not kind:
             return json.dumps({"error": "kind is required"})
         if not isinstance(fields, dict):
             return json.dumps({"error": "fields must be an object"})
         if not isinstance(ctx, dict):
             return json.dumps({"error": "ctx must be an object"})
+        # Self-attesting governed writer: when invoked via MCP/direct, Guardian is NOT re-run, so the
+        # handler must enforce the governed-context contract itself (Codex PR#7 P2) — same bar as the
+        # other governed writers' _validate_common_write_args path.
+        reason = str(args.get("reason") or "")
+        authority = str(args.get("authority_artifact") or args.get("declared_authority") or "")
+        if not run_id:
+            return json.dumps({"error": "uacp_run_id is required"})
+        if not reason:
+            return json.dumps({"error": "reason is required"})
+        if not authority:
+            return json.dumps({"error": "authority_artifact is required"})
+        if missing := _required_uacp_context_missing(args):
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing)}"})
 
         from engines.manifest.entity_writer import create_entity
 

@@ -25,6 +25,9 @@ def _ew(root, run_id, kind, fields, **ctx):
         "fields": fields,
         "reason": "t",
         "authority_artifact": "proposals/x.yaml",
+        "uacp_phase": "plan",
+        "policy_version": "0.1",
+        "declared_side_effects": "none",
     }
     if ctx:
         args["ctx"] = ctx
