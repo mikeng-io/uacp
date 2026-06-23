@@ -437,6 +437,15 @@ def validate_proposal(path: Path, obj: dict, issues: list[str]) -> None:
     scope = obj.get("scope") if isinstance(obj.get("scope"), dict) else {}
     if "in_scope" not in scope or "out_of_scope" not in scope:
         issues.append(f"BLOCK {path}: scope must include in_scope and out_of_scope")
+    else:
+        # D43: in_scope items must be KEYED {id, statement} — these are the projection's scope_item
+        # nodes that work_units cover via derives_from (GP_UNCOVERED/GP_ORPHAN). Bare strings (the
+        # pre-D43 form) no longer satisfy coverage.
+        for i, item in enumerate(scope.get("in_scope") or []):
+            if not (isinstance(item, dict) and item.get("id") and item.get("statement")):
+                issues.append(
+                    f"BLOCK {path}: scope.in_scope[{i}] must be a keyed object with id + statement"
+                )
 
 
 def validate_heartgate_coherence(path: Path, obj: dict, issues: list[str], *, root: Path | None = None) -> None:

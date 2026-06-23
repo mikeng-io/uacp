@@ -251,6 +251,50 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     # Derived from validate_uacp_artifacts.py per-kind validators. additionalProperties is left
     # OPEN because the runtime validator allows extra fields (check_required); a closed schema
     # would false-reject real docs. Referential checks stay in uacp-lint.
+    # uacp.proposal (D43): the registered, entity-write-routable PROPOSE artifact that carries the
+    # KEYED scope.in_scope:[{id,statement}] — the source of the projection's scope_item nodes (so
+    # GP_UNCOVERED/GP_ORPHAN can bind). Required set mirrors validate_proposal; the scope block is
+    # TYPED here (keyed items) — the one place that enforces the keyed shape at write time.
+    "uacp.proposal": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": [
+            "kind",
+            "proposal_id",
+            "run_id",
+            "phase",
+            "triage_artifact",
+            "title",
+            "objective",
+            "scope",
+            "declared_side_effects",
+            "authority",
+            "human_involvement",
+        ],
+        "properties": {
+            "kind": {"const": "uacp.proposal"},
+            "phase": {"const": "propose"},
+            "run_id": {"type": "string", "minLength": 1},
+            "scope": {
+                "type": "object",
+                "required": ["in_scope", "out_of_scope"],
+                "properties": {
+                    "in_scope": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "required": ["id", "statement"],
+                            "properties": {
+                                "id": {"type": "string", "minLength": 1},
+                                "statement": {"type": "string"},
+                            },
+                        },
+                    },
+                    "out_of_scope": {"type": "array"},
+                },
+            },
+        },
+    },
     "uacp.proposal_package_selection": {
         "$schema": _DRAFT,
         "type": "object",

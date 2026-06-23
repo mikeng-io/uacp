@@ -78,6 +78,40 @@ def test_unknown_kind_is_an_error():
     assert errs and any("not_a_kind" in e or "kind" in e for e in errs), errs
 
 
+# --- uacp.proposal (D43): registered + carries KEYED scope.in_scope[{id,statement}] -----------
+_PROPOSAL = {
+    "kind": "uacp.proposal",
+    "proposal_id": "p-1",
+    "run_id": "r1",
+    "phase": "propose",
+    "triage_artifact": "proposals/r1-triage.yaml",
+    "title": "x",
+    "objective": "x",
+    "scope": {
+        "in_scope": [{"id": "si-1", "statement": "Support Google OAuth"}],
+        "out_of_scope": [],
+    },
+    "declared_side_effects": "none",
+    "authority": {"status": "pass"},
+    "human_involvement": "none",
+}
+
+
+def test_valid_keyed_proposal_passes():
+    assert has_schema(
+        "uacp.proposal"
+    )  # registered (D43) -> entity-write-routable + validate-on-write
+    assert validate("uacp.proposal", _PROPOSAL) == []
+
+
+def test_proposal_bare_string_in_scope_fails():
+    # D43: in_scope items must be KEYED {id,statement} (the projection's scope_item nodes); a bare
+    # string (the pre-D43 form) fails the typed scope block — so coverage can actually bind.
+    bad = {**_PROPOSAL, "scope": {"in_scope": ["bare intent"], "out_of_scope": []}}
+    errs = validate("uacp.proposal", bad)
+    assert errs and any(("in_scope" in e) or ("scope" in e) or ("id" in e) for e in errs), errs
+
+
 # --- evidence_obligation: id+evidence_type+required+sufficiency; work_unit_id OPTIONAL -------
 def test_valid_evidence_obligation_passes():
     doc = {"id": "ev-1", "evidence_type": "test", "required": True, "sufficiency": "suite green"}
