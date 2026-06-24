@@ -91,7 +91,14 @@ the gap. The all-in-one engine closes it by construction and matches D44's alrea
 **Consequence (a deliberate reversal):** owning the code-graph store makes Codeflair an **engine**
 (`29-ddd-ca-reference.md`: *storage is touched only by engines*). The R1/R2 councils' "not an engine"
 was **correct for the lookup-only scope** — a pure reader owns no storage — and is reversed only because
-the scope changed. The **build-side writes** a rebuildable index (a derived cache, not governed state,
-D29 discipline); the **query layer stays read-only/hypothesis-only** over that store (the Manifest-engine
-pattern). This decision **supersedes** the "not an engine / read-only service" framing wherever the
-earlier nodes still carry it.
+the scope changed. The same reference carries a *"if you're about to add a 4th 'engine,' stop — it's
+almost certainly a Check, Leaf, or Gate"* guard — but that line **also names "Code later"** as the
+sanctioned 4th plane (State/Manifest/Oracle/Code), so the Code engine is the guard's explicit exception,
+not a new invention it forbids.
+
+The build-side writes a rebuildable index (a derived cache, not governed state, D29/D44 — and the
+precedent is Oracle's persisted LanceDB index, *not* the in-memory graph_projection); the **query layer
+stays read-only/hypothesis-only** over that store. The write is sound **only** under the preconditions in
+[01b-store](01b-store.md) (store outside `.uacp/`'s governed roots; build path registered as a
+self-attesting engine op). This decision **supersedes** the "not an engine / read-only service" framing
+wherever the earlier nodes still carry it.

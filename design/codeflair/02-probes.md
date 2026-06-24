@@ -25,7 +25,7 @@ their results* is the benchmarked policy ([03](03-expansion-loop.md)).
 | **SCIP** | per-commit symbol index, produced by [01a](01a-indexer.md) | `defines` / `references` / `calls` — precise symbol edges | `parsed` (real edge) | engine phase-1 |
 | **code_anchor** | produced by [01a](01a-indexer.md) | the cross-plane hop: a checkpoint → its `code_symbol` | `parsed` (real edge) | engine phase-1 |
 
-> **Codeflair writes nothing** (see [01](01-contract.md)). The "result tag" is the confidence/source
+> **The query layer writes nothing** (see [01](01-contract.md)). The "result tag" is the confidence/source
 > label it attaches to a *heatmap node in memory* — it is the manifest edge's real provenance **only
 > when** the probe surfaces an already-serialized edge (LSP/SCIP/`code_anchor`/manifest-graph). grep
 > hits and co-change correlations are **not** manifest edges — there is no `grep` or `co_change`

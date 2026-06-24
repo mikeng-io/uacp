@@ -41,8 +41,9 @@ live; query = symbol/reference lookup."* Three responsibilities, one bounded con
 
 Because it **owns the code-graph store**, it **is an engine** (it was *not* one only under the discarded
 lookup-only scope — see [01-contract](01-contract.md) and [CF-D8](07-decisions.md)). The build-side
-**writes** its index (a rebuildable projection, like graph_projection / LanceDB — not governed state);
-the **query layer stays read-only** over that store, same pattern as the Manifest engine.
+**writes** its index (a rebuildable projection — the precedent is Oracle's persisted LanceDB index, D44 —
+not governed state, and written outside `.uacp/`'s governed roots); the **query layer stays read-only**
+over that store.
 
 ## Why this is a scale tool (and only a scale tool)
 

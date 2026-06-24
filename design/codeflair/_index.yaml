@@ -55,8 +55,9 @@ edges:
   - {src: 07-decisions, dst: 00-overview, rel: decides_on, provenance: asserted}
   - {src: 08-council-review, dst: 05-benchmark, rel: relates_to, provenance: asserted}
 
-# v1 scope guard (see 00-overview): a read-only codespace lookup that returns a
-# heatmap. It does not promote edges into the manifest, diagnose causes, or synthesize fixes.
+# v1 scope guard (see 00-overview): a code-plane ENGINE — build (SCIP indexing) + store + a read-only
+# query layer (heatmap). The build-side writes a rebuildable index (a derived cache, not governed state);
+# the query layer promotes no manifest edge, diagnoses nothing, and synthesizes nothing.
 scope:
   v1: [code-plane-engine, scip-indexer, code-graph-store, relation-finder-query, read-only-query]
   deferred: [edge-promotion, auto-trigger, diagnosis, synthesis]

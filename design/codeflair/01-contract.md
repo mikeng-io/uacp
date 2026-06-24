@@ -28,12 +28,13 @@ Two halves, one bounded context:
 |---|---|---|
 | Writes? | **yes** — persists the index | **no** — read-only |
 | What | SCIP/LSP → `code_symbol`/`code_anchor` → store | the relation-finder loop → heatmap |
-| Governed? | **no** — a rebuildable projection (truth = files; watermarked), like graph_projection / LanceDB | n/a |
+| Governed? | **no** — a rebuildable projection (truth = files; watermarked); the precedent is Oracle's persisted LanceDB index (D44) | n/a |
 
-So "Codeflair writes nothing" is now scoped precisely: the **query layer** writes nothing and asserts no
-manifest edge; the **build-side** writes only its own rebuildable index, which is a derived cache, not
-governed manifest state (D29 discipline). Cross-plane reads remain a *query-time join in the calling
-skill* (D44:912).
+So write-scope is precise: the **query layer** writes nothing and asserts no manifest edge; the
+**build-side** writes only its own rebuildable index — a derived cache, not governed manifest state
+(D29/D44), placed **outside** `.uacp/`'s governed roots so Guardian's path rules do not hard-block it
+(see [01b-store](01b-store.md)). Cross-plane reads remain a *query-time join in the calling skill*
+(D44:912).
 
 ## The query contract (what makes a small model sufficient)
 

@@ -37,6 +37,13 @@ The store is what makes Codeflair an **engine** rather than a driver: it **owns 
 
 - **Truth = the files; the store = a rebuildable projection**, watermarked on `repo_commit` + content
   hashes (D29). Stale watermark → rebuild; never trust a store whose watermark ≠ the working tree's.
-- **Writing the store is not a governed write** — it is a derived cache (the Manifest-engine /
-  graph_projection / LanceDB pattern), so it sits outside the governed-writer set without weakening the
-  "no raw FS writes during a run" invariant ([01-contract](01-contract.md)).
+- **Writing the store is not a governed write** — it is an engine-owned build over a derived cache (the
+  **Oracle / LanceDB** persisted-index pattern per D44, *not* graph_projection, which is in-memory and
+  persists nothing). It does not weaken the "no raw FS writes during a run" invariant — but only under
+  two **load-bearing preconditions** the build must honor:
+  1. **Path:** the store lives **outside** `.uacp/`'s governed roots (`state/`, `plans/`, `proposals/`,
+     `executions/`, `verification/`, `resolutions/`, `knowledge/`, `lessons/`, `brainstorm/`). Guardian
+     governs by *path* + *tool*; a write under those roots is hard-blocked, a write elsewhere is not.
+  2. **Sanction:** the build path is registered as a **self-attesting engine operation** (the way the
+     other storage-owning engines write their own stores) before it runs under governance — a BUILD/
+     governance prerequisite, recorded in [06-open-questions](06-open-questions.md).

@@ -24,7 +24,9 @@ Per D44's Code-engine shape (*"build = SCIP per-commit (persisted) + LSP live"*)
 
 - **SCIP per-commit (persisted)** — the symbol-precise core. Emits `code_symbol` nodes (file + symbol +
   lines + commit) and `defines`/`references`/`calls` edges (`parsed` provenance). Apache-2.0,
-  per-language indexers, edge-rows via `scip print --json` (the D17 bake-off winner).
+  per-language indexers, edge-rows via `scip print --json` (the D17 bake-off winner). **Build-time
+  bake-off obligation (D34/D36):** before committing, evaluate **codegraph** vs. a custom SCIP
+  integration ("lean adopt codegraph", D34) — the producer is decided at BUILD, not asserted here.
 - **LSP live** — the freshness complement for the working tree (refs/impls/call-hierarchy), tolerating
   the staleness SCIP's per-commit snapshot carries.
 - **`code_anchor` edges** — `checkpoint → code_symbol`, binding a manifest checkpoint to the code it
@@ -37,8 +39,11 @@ Per D44's Code-engine shape (*"build = SCIP per-commit (persisted) + LSP live"*)
 - **Truth = files; the index = a rebuildable projection** — watermarked on `repo_commit` + content
   hashes (D29 discipline). Stale → rebuild; crash mid-build → rebuild; truth never corrupts.
 - **Per-commit + incremental** — re-index only the tree-sitter-flagged delta per commit, not the world.
-- **External deps are external** — SCIP/LSP binaries are EXTERNAL dependencies (D36); UACP owns the
+- **External deps are external** — SCIP/LSP binaries are EXTERNAL dependencies (D36/D44); UACP owns the
   `code_anchor` + `code_symbol` *schema* and the projection, not the language indexers themselves.
+- **The store is ours, not SCIP's own file** (D38) — SCIP's native SQLite is *the tool's* rebuildable
+  artifact; the Code Engine's store ([01b](01b-store.md)) is a **re-derived, watermarked projection** of
+  the indexer's output, never a second source of truth.
 
 ## What it is NOT
 

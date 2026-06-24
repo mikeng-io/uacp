@@ -29,6 +29,11 @@ edges:
    the existing Oracle reranker + SCIP; the open part is the *graduation trigger* — what bake-off
    result justifies extracting a standalone Codeflair service with its own identity, vs. leaving it a
    loop over Oracle. Keep the retrieval-plane boundary clean either way.
+6. **Sanction the build path (governance prerequisite).** The indexer writes the code-graph store
+   ([01b-store](01b-store.md)). Before it runs under governance, the build path must be registered as a
+   **self-attesting engine operation** and the store path fixed **outside** `.uacp/`'s governed roots —
+   else Guardian's path rules block it. Decide the exact store location + the registration mechanism
+   (a new protected category / self-attesting tool) at BUILD.
 
 ## Deferred (named, not designed here)
 
@@ -42,5 +47,7 @@ edges:
 
 ## The one-line scope guard
 
-If a proposed feature makes Codeflair **diagnose**, **write**, or **exist on a small codebase**, it is
-out of scope. Codeflair expands the codespace into a heatmap, at scale, read-only — nothing more.
+If a proposed feature makes Codeflair **diagnose**, **write governed state / manifest edges**, or
+**exist on a small codebase**, it is out of scope. (The build-side *does* write its own rebuildable
+index — a derived cache, not governed state; see [01b-store](01b-store.md).) The query layer expands the
+codespace into a heatmap, at scale, read-only — nothing more.
