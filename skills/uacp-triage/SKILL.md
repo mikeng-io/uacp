@@ -48,13 +48,13 @@ it does not skip or substitute for it.
 
 ## UACP vs non-UACP naming rule
 
-If the operator asks “UACP or no UACP” or rejects “UACP Lite”, TRIAGE must not use informal labels as authority. Record the work as admitted to UACP or not admitted. If admitted, use the canonical `routing_outcome` enum (`direct`, `lightweight`, `standard_uacp`, `full_governance`, `block_or_clarify`) and state that UACP owns granularity. Do not call a selected `lightweight`/`standard_uacp` path “UACP Lite” in user-facing summaries or artifacts.
+If the operator asks “UACP or no UACP” or rejects “UACP Lite”, TRIAGE must not use informal labels as authority. Record the work as admitted to UACP or not admitted. If admitted, use the canonical `routing_outcome` enum (`direct`, `lightweight`, `standard`, `full_governance`, `block_or_clarify`) and state that UACP owns granularity. Do not call a selected `lightweight`/`standard` path “UACP Lite” in user-facing summaries or artifacts.
 
 ## Execution checklist
 1. Summarize the request and authority source.
 2. Score visible factors from config: impact, reversibility, domain count, runtime count, verification difficulty.
 3. Estimate phase-local and composite granularity.
-4. Select routing outcome: `direct`, `lightweight`, `standard_uacp`, `full_governance`, or `block_or_clarify`.
+4. Select routing outcome: `direct`, `lightweight`, `standard`, `full_governance`, or `block_or_clarify`.
 5. Decide whether TRIAGE-local Agent Council is required.
 6. Decide whether immediate human authority is required.
 7. Record a compact triage artifact or update the active refactor artifact.
@@ -124,7 +124,7 @@ composite_granularity: 1-10
 # gate-selection, the route-bands, and validate_triage all REQUIRE — always emit it. (composite_granularity
 # is the value the coherence gate actually scores on; granularity_level is the required contract key.)
 granularity_level: 1-10
-routing_outcome: direct | lightweight | standard_uacp | full_governance | block_or_clarify
+routing_outcome: direct | lightweight | standard | full_governance | block_or_clarify
 rationale: []
 artifact_policy: none | lightweight | standard | full
 council:

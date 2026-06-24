@@ -1003,7 +1003,7 @@ triage_council_min_granularity = 7
 # --- Intensity bands (granularity level → review intensity) ------------------
 # Derived from review_intensity.*.use_when granularity annotations.
 # none="1", lightweight="2-3", local_council="7-8", deep_council="9-10"
-# Note: granularity 4-6 is covered by standard_uacp path (no dedicated band entry).
+# Note: granularity 4-6 is covered by standard path (no dedicated band entry).
 [review.intensity_bands]
 none = "1"
 lightweight = "2-3"
@@ -1083,12 +1083,14 @@ runtime_count = 0.15
 verification_difficulty = 0.20
 
 # --- Route bands (granularity_level → governance route) ----------------------
-# direct="1", lightweight="2-3", standard_uacp="4-8", full_governance="9-10",
+# direct="1", lightweight="2-3", standard="4-8", full_governance="9-10",
 # block_or_clarify = authority/side-effects/critical factors unclear
+# NOTE: `standard` means "standard UACP governance intensity" — the work IS admitted to UACP, just at
+# the standard depth. (It is NOT "do it the normal non-UACP way"; that is `direct`.)
 [gates.scoring.route_bands]
 direct = "1"
 lightweight = "2-3"
-standard_uacp = "4-8"      # stronger review + Kanban decomposition at 7-8
+standard = "4-8"      # stronger review + Kanban decomposition at 7-8
 full_governance = "9-10"
 block_or_clarify = "authority, side effects, or critical scoring factors are unclear"
 

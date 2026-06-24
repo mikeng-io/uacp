@@ -94,7 +94,7 @@ def _seed_scope_package(driver: Driver, root: Path, run_id: str) -> Path:
             "in_scope": ["verify brainstorm→triage gate with real handler"],
             "declared_side_effects": [],
             "authority": {"source": "e2e-test-harness"},
-            "routing_advisory": "standard_uacp",
+            "routing_advisory": "standard",
         },
         "reason": "seed brainstorm scope-package for brainstorm->triage gate",
         "authority_artifact": "brainstorm/test.yaml",

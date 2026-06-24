@@ -28,7 +28,7 @@ flowchart LR
     TRIAGE -->|direct| DIRECT([Direct Action])
     TRIAGE -->|block_or_clarify| BLOCKED([Blocked / Clarify])
     TRIAGE -->|lightweight| PROPOSE
-    TRIAGE -->|standard_uacp| PROPOSE
+    TRIAGE -->|standard| PROPOSE
     TRIAGE -->|full_governance| PROPOSE
     PROPOSE --> PLAN
     PLAN --> EXECUTE
@@ -175,7 +175,7 @@ Typical routing outcomes:
 
 - direct
 - lightweight
-- standard_uacp
+- standard
 - full_governance
 - block_or_clarify
 
@@ -191,7 +191,7 @@ Typical artifacts:
 
 Exit condition: request is routed to direct action, blocked for clarification, routed to human involvement, or admitted into `PROPOSE`. TRIAGE can terminate without entering PROPOSE when the routing outcome is `direct` or `block_or_clarify`.
 
-Phase transition artifacts use `routing_outcome` and `terminal_kind` with aligned vocabulary: `direct`, `lightweight`, `standard_uacp`, `full_governance`, and `block_or_clarify`; `terminal_kind: none` is used for non-terminal transitions.
+Phase transition artifacts use `routing_outcome` and `terminal_kind` with aligned vocabulary: `direct`, `lightweight`, `standard`, `full_governance`, and `block_or_clarify`; `terminal_kind: none` is used for non-terminal transitions.
 
 Triage admission map:
 
@@ -199,7 +199,7 @@ Triage admission map:
 |---|---|
 | `direct` | No UACP lifecycle; handle directly with a lightweight record only when needed. |
 | `lightweight` | Enter a minimal governed path with a small artifact footprint. |
-| `standard_uacp` | Enter the normal UACP lifecycle at standard governance intensity. |
+| `standard` | Enter the normal UACP lifecycle at standard governance intensity. |
 | `full_governance` | Enter the full lifecycle with councils, broader review, and durable learning. |
 | `block_or_clarify` | Stop and request clarification or authority before proceeding. |
 

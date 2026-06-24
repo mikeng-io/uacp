@@ -20,7 +20,7 @@ routing_rules:
       - no irreversible/high-stakes signals
     description: "UACP admission with lightweight governance"
 
-  standard_uacp:
+  standard:
     conditions_any:
       - uacp_lifecycle artifact type
       - domains_count > 5

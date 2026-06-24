@@ -16,7 +16,7 @@ context_report:
   domains: []
   domain_experts: []
 
-  routing_advisory: direct | lightweight | standard_uacp | full_governance | block_or_clarify
+  routing_advisory: direct | lightweight | standard | full_governance | block_or_clarify
   routing_rationale: ""
 
   council_recommendation:

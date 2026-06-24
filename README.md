@@ -28,11 +28,11 @@ The UACP lifecycle has seven phases: **(optional) BRAINSTORM → TRIAGE → PROP
 |---|---|
 | `direct` | No governed lifecycle. Handle directly without phase tracking. |
 | `lightweight` | Minimal governed path with a small artifact footprint. |
-| `standard_uacp` | Normal lifecycle at standard governance intensity. |
+| `standard` | Normal lifecycle at standard governance intensity. |
 | `full_governance` | Full lifecycle with Agent Council, broader review, and durable learning. |
 | `block_or_clarify` | Stop. Require authority or clarification before proceeding. |
 
-The `lightweight`, `standard_uacp`, and `full_governance` routes all enter PROPOSE and continue through the linear chain. Evidence inside each phase is adaptive — selected by context — not a fixed checklist applied uniformly.
+The `lightweight`, `standard`, and `full_governance` routes all enter PROPOSE and continue through the linear chain. Evidence inside each phase is adaptive — selected by context — not a fixed checklist applied uniformly.
 
 For the human-readable guide to the semantic package, PIV, VERIFY/RESOLVE, Guardian/Heartgate, and audit-remediation hardening series, see [`docs/guides/lifecycle-hardening/00-index.md`](docs/guides/lifecycle-hardening/00-index.md).
 
@@ -44,7 +44,7 @@ flowchart TD
     TRIAGE -->|direct| DIRECT([Handle Directly])
     TRIAGE -->|block_or_clarify| BLOCK([Block / Clarify])
     TRIAGE -->|lightweight| PROPOSE
-    TRIAGE -->|standard_uacp| PROPOSE
+    TRIAGE -->|standard| PROPOSE
     TRIAGE -->|full_governance| PROPOSE
 
     PROPOSE --> PLAN

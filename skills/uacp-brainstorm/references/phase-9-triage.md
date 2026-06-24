@@ -34,7 +34,7 @@ uacp_state_write(
 TRIAGE decides:
 
 - Does this scope deserve a full UACP lifecycle run?
-- What routing depth? (`direct`, `lightweight`, `standard_uacp`, `full_governance`, `block_or_clarify`)
+- What routing depth? (`direct`, `lightweight`, `standard`, `full_governance`, `block_or_clarify`)
 - Is human involvement required?
 - Should a local council run before PROPOSE?
 

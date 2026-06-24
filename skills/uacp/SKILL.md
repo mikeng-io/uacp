@@ -83,7 +83,7 @@ If Mike corrects that a documentation cleanup is actually in UACP lifecycle, esp
 
 ## Granularity ownership and naming pitfall
 
-If Mike asks whether a task should use “UACP Lite” versus “real UACP”, do not invent or preserve an informal UACP Lite track. The correct distinction is **UACP or no UACP**. Once UACP is selected, the lifecycle owns routing/granularity through TRIAGE (`direct`, `lightweight`, `standard_uacp`, `full_governance`, or `block_or_clarify`). Phrase it as “enter UACP; TRIAGE selected `<routing_outcome>`,” not “I chose UACP Lite.” This matters especially for public/private profile, identity-registry, runtime-plugin, or dispatch-control work where informal naming hides authority boundaries.
+If Mike asks whether a task should use “UACP Lite” versus “real UACP”, do not invent or preserve an informal UACP Lite track. The correct distinction is **UACP or no UACP**. Once UACP is selected, the lifecycle owns routing/granularity through TRIAGE (`direct`, `lightweight`, `standard`, `full_governance`, or `block_or_clarify`). Phrase it as “enter UACP; TRIAGE selected `<routing_outcome>`,” not “I chose UACP Lite.” This matters especially for public/private profile, identity-registry, runtime-plugin, or dispatch-control work where informal naming hides authority boundaries.
 
 ## Skill-library refactor protocol
 

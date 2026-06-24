@@ -239,11 +239,11 @@ def test_coherence_knob_overrides_win():
     """Operator knob values (uacp.toml) override the code-default selectors."""
     rule = heartgate_coherence_required_when_default(
         min_composite_granularity=3,
-        selectors={"phases": ["plan"], "routing_outcomes": ["standard_uacp"], "domains": ["x"]},
+        selectors={"phases": ["plan"], "routing_outcomes": ["standard"], "domains": ["x"]},
     )
     assert rule["min_composite_granularity"] == 3
     assert rule["phases"] == ["plan"]
-    assert rule["routing_outcomes"] == ["standard_uacp"]
+    assert rule["routing_outcomes"] == ["standard"]
     assert rule["domains"] == ["x"]
     # Grammar (non-tunable) is unaffected by the override.
     assert rule["required_field"] == "heartgate_coherence"

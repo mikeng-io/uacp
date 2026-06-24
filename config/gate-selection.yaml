@@ -140,7 +140,7 @@ triage_artifact_schema:
       description: "Calculated 1-10 governance burden (canonical alias of composite_granularity)."
     routing_outcome:
       type: enum
-      values: [direct, lightweight, standard_uacp, full_governance, block_or_clarify]
+      values: [direct, lightweight, standard, full_governance, block_or_clarify]
     rationale:
       type: list
       item_type: string
@@ -167,7 +167,7 @@ example_triage_artifact:
       - "Governance docs affect future workflow, but writes are local and reversible."
       - "No external runtime or production system is touched."
   granularity_level: 5
-  routing_outcome: standard_uacp
+  routing_outcome: standard
   rationale:
     - "Multi-step governance bootstrap deserves artifacts and verification."
     - "Scope remains bounded to Stage 1 and Stage 2."
@@ -255,7 +255,7 @@ artifact_output_schema:
       description: "Scale from 1 to 10 used by TRIAGE for governance intensity."
     routing_outcome:
       type: enum
-      values: [direct, lightweight, standard_uacp, full_governance, block_or_clarify]
+      values: [direct, lightweight, standard, full_governance, block_or_clarify]
     triage_factor_scores:
       type: map
       fields:
