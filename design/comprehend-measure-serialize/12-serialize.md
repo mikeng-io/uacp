@@ -37,7 +37,7 @@ If the *same* comprehended-and-measured context can serialize to *any* of these,
 
 ## Discipline: provenance separates canonicalize from dump
 
-Every serialized state carries **what it derived from** (a `derived_from` / provenance edge), so any durable state traces back to the comprehension + measurement that produced it. A target without provenance is a leak. ([22-trustless-differentia](22-trustless-differentia.md).)
+Every serialized state carries **what it derived from** (a `derived_from` / provenance edge), so any durable state traces back to the comprehension + measurement that produced it. A target without provenance is a leak. ([22-differentia](22-differentia.md).)
 
 ## To expand
 - The target catalog as a typed registry (target → form → durability → provenance requirement).

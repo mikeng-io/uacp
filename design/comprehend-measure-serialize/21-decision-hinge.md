@@ -27,7 +27,7 @@ measure → [decision / routing] → serialize
 
 ## Why it is not a fourth primitive
 
-The hinge is the *application of policy* to a measurement, not a new kind of work. Keeping the triad at three (and treating routing as the policy at the measure→serialize seam) preserves the clean atom; promoting routing to a peer step would blur it. The routing is still *deterministic given the policy* — same trustless discipline.
+The hinge is the *application of policy* to a measurement, not a new kind of work. Keeping the triad at three (and treating routing as the policy at the measure→serialize seam) preserves the clean atom; promoting routing to a peer step would blur it. The routing is still *deterministic given the policy* — same re-derivable discipline.
 
 ## To expand
 - The routing table as data (measure-signal × policy → target), and whether it is itself a serialized, auditable artifact.

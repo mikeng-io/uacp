@@ -32,7 +32,7 @@ members:
   - 12-serialize.md             # verb: canonicalize to durable state; many targets; UACP-as-IPA
   - 20-reductions.md            # capabilities are compositions (the primitivity evidence)
   - 21-decision-hinge.md        # measure -> route -> serialize | drop; no-self-attestation
-  - 22-trustless-differentia.md # the differentia: coherence + per-verb discipline
+  - 22-differentia.md # the differentia: coherence + per-verb discipline
   - 23-composition.md           # applied at every grain FOR COHERENCE (fractal + iterated)
   - 24-phase-crosswalk.md       # the 7 phases as CMS, grounded; enforced at the gates
   - 25-enforcement-surfaces.md  # two surfaces: architecture (governance/exec) + injection (cognition)
@@ -47,7 +47,7 @@ edges:
   - {src: 12-serialize, dst: 00-the-axiom, rel: depends_on, provenance: derived}
   - {src: 20-reductions, dst: 00-the-axiom, rel: realizes, provenance: asserted}
   - {src: 21-decision-hinge, dst: 00-the-axiom, rel: depends_on, provenance: derived}
-  - {src: 22-trustless-differentia, dst: 00-the-axiom, rel: extends, provenance: asserted}
+  - {src: 22-differentia, dst: 00-the-axiom, rel: extends, provenance: asserted}
   - {src: 23-composition, dst: 00-the-axiom, rel: extends, provenance: asserted}
   - {src: 24-phase-crosswalk, dst: 23-composition, rel: depends_on, provenance: derived}
   - {src: 25-enforcement-surfaces, dst: 00-the-axiom, rel: extends, provenance: asserted}

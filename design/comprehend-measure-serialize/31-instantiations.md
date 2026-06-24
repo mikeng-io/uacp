@@ -14,24 +14,26 @@ CMS ([00-the-axiom](00-the-axiom.md)) is the *underlying logic*; UACP-execution 
 
 | CMS facet | UACP instantiation | Bundle |
 |---|---|---|
-| **serialize** discipline (typed key + provenance, idempotent canonical form) | the **graph engine** (`graph_projection`, the entity-writer, `uacp-fmt`, edge records) | [graph-engine](../graph-engine/00-overview.md) |
-| the **loop** (comprehend → measure → serialize, to convergence) | the **verification method** (generative gate + harness) | [verification-method](../verification-method/00-the-primitive.md) |
-| the cycle **iterated** (serialize(N) → comprehend(N+1)) | the **lifecycle** (TRIAGE → … → RESOLVE, phases chained by artifacts) | AGENTS.md |
-| the **measure** discipline (deterministic decidable signal) | the **engines** + `uacp-lint` (fail-closed structural checks) | graph-engine |
+| **serialize** discipline (typed key + provenance, idempotent canonical form) | the **graph engine** (`graph_projection`, the entity-writer, `uacp-fmt`, edge records) — **BUILT + merged to main** | [graph-engine](../graph-engine/00-overview.md) |
+| the **loop** (comprehend → measure → serialize, to convergence) | the **verification method** (generative gate + harness) — *paused* | [verification-method](../verification-method/00-the-primitive.md) |
+| the cycle **iterated** (serialize(N) → comprehend(N+1)) | the **lifecycle** (TRIAGE → … → RESOLVE, phases chained by artifacts); the per-phase CMS triple | [24-phase-crosswalk](24-phase-crosswalk.md) |
+| the **measure** discipline (**grounded** decidable signal — *determinism in the verifying gate*) | the **agent grounds** (cognition) + the **engines / `uacp-lint`** check fail-closed (the gate half) | [25-enforcement-surfaces](25-enforcement-surfaces.md) |
 | the **routing** (decision/gate) | **Guardian / Heartgate** + per-phase authority | runtime-enforcement |
+| the two **enforcement surfaces** (architecture + cognition) | gates + governed writers / the injected `UACP.md` | [25-enforcement-surfaces](25-enforcement-surfaces.md) |
 
 So the verification bundle's `00-the-primitive` is **this primitive seen through the verification phase**; the graph-engine bundle is **this primitive's serialize half built**. They are not three ideas — they are one primitive at three vantage points.
 
 ## The reframe (UACP's actual category)
 
-If serialize has many targets ([03](12-serialize.md)), then **UACP is an information-processing architecture, not a memory system.** Memory is one serialize-target; the knowledge graph, the event log, the audit trail, the search index are others. UACP's job is the *disciplined pipeline* ([04](22-trustless-differentia.md)); the stores are its outputs.
+If serialize has many targets ([03](12-serialize.md)), then **UACP is an information-processing architecture, not a memory system.** Memory is one serialize-target; the knowledge graph, the event log, the audit trail, the search index are others. UACP's job is the *disciplined pipeline* ([04](22-differentia.md)); the stores are its outputs.
 
-## Open: where this lands in the doctrine
+## Status in the doctrine (PROMOTED 2026-06-24)
 
-- This bundle stays **pre-governance** until [30-validation-matrix](30-validation-matrix.md) clears.
-- On clearing: a governed run promotes a neutral one-liner to AGENTS.md and graduates the per-phase mapping to `docs/`; the verification + graph-engine bundles then cite *up* to the ratified principle instead of restating it.
+- CMS is **ratified** — [ADR-0018](../architecture/0018-cms-semantic-thinking-principle.md) — and stated in **AGENTS.md** ("Core Principle"); the cognition-injection mechanism is **built** ([25-enforcement-surfaces](25-enforcement-surfaces.md)).
+- The per-phase mapping is the cross-walk in [24-phase-crosswalk](24-phase-crosswalk.md). The verification + graph-engine bundles should cite *up* to the ratified principle rather than restate it.
+- Remaining: cross-runtime injection (Kimi / opencode); merge this bundle to main.
 
 ## To expand
-- The full cross-walk: every CMS-bundle node → the UACP mechanism that realizes it.
+- The full per-phase cross-walk now lives in [24-phase-crosswalk](24-phase-crosswalk.md); extend it to *every* CMS-bundle node → the UACP mechanism that realizes it.
 - Whether non-UACP systems (Trustless ledger, deployment assessment) instantiate the *same* primitive — strengthening [05](30-validation-matrix.md).
 - The "Memory is one output" consequence for how UACP is described publicly.

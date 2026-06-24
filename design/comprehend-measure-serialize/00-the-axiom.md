@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: The Coherence Invariant — comprehend → measure → serialize (root)
-description: The claim in one screen + the map. CMS is THE PRINCIPLE FOR SEMANTIC THINKING (determinism:machines :: CMS:agents) and a COHERENCE INVARIANT (architectural, not an empirical law) — one discipline across an agent's cognition, execution, and governance so the system stays consistent with itself. Domain = how agents think, NOT how machines compute. Enforced two ways (architecture + prompt-injection). Deliberately thin.
+description: The claim in one screen + the map. CMS is THE PRINCIPLE FOR SEMANTIC THINKING (determinism is to machines as CMS is to agents) and a COHERENCE INVARIANT (architectural, not an empirical law) — one discipline across an agent's cognition, execution, and governance so the system stays consistent with itself. Domain = how agents think, NOT how machines compute. Enforced two ways (architecture + prompt-injection). Deliberately thin.
 tags: [coherence-invariant, comprehend-measure-serialize, root]
 timestamp: 2026-06-21
 edges: []
@@ -37,7 +37,7 @@ This is the difference between an *empirical* claim and an *architectural* one. 
 
 ## The load-bearing half
 
-The cycle is cheap; **the engineering IS the discipline on the three verbs.** A `measure` that isn't **grounded in evidence** (and fail-closed), or a `serialize` without provenance, is *decoration*. Hold the discipline and the result is **re-derivable** — no actor (including the producing agent) is trusted; every claim is mechanically reconstructable. (Determinism is not required of the agent's semantic judgment — it belongs to the *verification gate* that checks the agent's grounded evidence; see [11-measure](11-measure.md) / [25-enforcement-surfaces](25-enforcement-surfaces.md).) → [22-trustless-differentia](22-trustless-differentia.md)
+The cycle is cheap; **the engineering IS the discipline on the three verbs.** A `measure` that isn't **grounded in evidence** (and fail-closed), or a `serialize` without provenance, is *decoration*. Hold the discipline and the result is **re-derivable** — no actor (including the producing agent) is trusted; every claim is mechanically reconstructable. (Determinism is not required of the agent's semantic judgment — it belongs to the *verification gate* that checks the agent's grounded evidence; see [11-measure](11-measure.md) / [25-enforcement-surfaces](25-enforcement-surfaces.md).) → [22-differentia](22-differentia.md)
 
 ## Status: COHERENCE INVARIANT (reclassified 2026-06-24)
 
@@ -50,7 +50,7 @@ Reframed from "qualified law." Two counterexample hunts (round 1 = foreign domai
 | the verbs | [10-comprehend](10-comprehend.md) · [11-measure](11-measure.md) · [12-serialize](12-serialize.md) |
 | why capabilities reduce to it | [20-reductions](20-reductions.md) |
 | the seam: `measure → route → serialize \| drop` | [21-decision-hinge](21-decision-hinge.md) |
-| the differentia: coherence + the per-verb discipline | [22-trustless-differentia](22-trustless-differentia.md) |
+| the differentia: coherence + the per-verb discipline | [22-differentia](22-differentia.md) |
 | how it composes — applied at every grain *for coherence* | [23-composition](23-composition.md) |
 | the two enforcement surfaces (architecture + cognition) | [25-enforcement-surfaces](25-enforcement-surfaces.md) |
 | the rigor (cross-domain reductions + the reclassification) | [30-validation-matrix](30-validation-matrix.md) |

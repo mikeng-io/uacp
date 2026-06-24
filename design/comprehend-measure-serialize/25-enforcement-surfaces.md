@@ -6,7 +6,7 @@ tags: [coherence, enforcement, cognition, prompt-injection, governance, architec
 timestamp: 2026-06-24
 edges:
   - {dst: 00-the-axiom, rel: extends, provenance: asserted}
-  - {dst: 22-trustless-differentia, rel: depends_on, provenance: asserted}
+  - {dst: 22-differentia, rel: depends_on, provenance: asserted}
 ---
 
 # Enforcement surfaces — two mechanisms, three layers
