@@ -33,16 +33,25 @@ gaps — each tagged with how it should be found (`via`) and its `provenance`
 - **gaps** are scored **best-effort, separately** (absences have no clean ground
   truth) — not folded into recall@K (CF-D6).
 
+## The `layer` dimension (Codeflair's abstraction)
+
+Each pair is tagged **`core`** or **`uacp-adapter`**. The Code Engine's **core**
+(SCIP/LSP/grep/co-change → store → loop → heatmap) runs **standalone on any git
+repo with zero UACP**; the **uacp-adapter** is the pluggable `code_anchor` /
+manifest cross-plane join. The eval split mirrors this: **core** pairs validate
+the engine on its own; **uacp-adapter** pairs validate the join. (This split will
+be formalized in the design as **CF-D9**; here it's a forward reference.)
+
 ## Status of this starter set
 
-| pair | capability | grounded? |
-|---|---|---|
-| A `resolve_uacp_root` | symbol blast-radius | ✅ LSP refs ⊕ grep (6 files; grep-scoped missed 1 — the reconcile value) |
-| B `graph_projection` | temporal / co-change | ✅ git co-change (real cluster) |
-| C governance orphan | cross-plane gap | candidate — `requires: code-plane-built` |
-| D NL incident (heartgate) | nl bootstrap | candidate — partial anchor |
-| E pre-PR diff (208f506) | gap sweep | candidate — caller set TODO |
-| F high-fanout symbol | scale compression | candidate — seed TBD |
+| pair | capability | layer | grounded? |
+|---|---|---|---|
+| A `resolve_uacp_root` | symbol blast-radius | core | ✅ LSP refs ⊕ grep (6 files; grep-scoped missed 1 — the reconcile value) |
+| B `graph_projection` | temporal / co-change | core | ✅ git co-change (real cluster); the cheap-model test |
+| C governance orphan | cross-plane gap | uacp-adapter | recipe — `requires: code-plane-built` (can't ground until the indexer exists) |
+| D NL incident (heartgate) | nl bootstrap | core | ✅ real expansion target (the heartgate validators dir) |
+| E pre-PR diff (208f506) | gap sweep | core | ✅ real diff; **dynamic-dispatch case** — grep/registry wins where LSP is thin (inverse of A) |
+| F high-fanout symbol | scale compression | core | ⚠ **ungroundable on UACP** (too small) — `requires: large-external-repo` in standalone mode |
 
 **Next** (the actual CF-D5 work): fill C–F's `<...>`/`TODO`s by the same LSP/git
 derivation, label all pairs by hand, measure inter-labeler agreement, and grow to
