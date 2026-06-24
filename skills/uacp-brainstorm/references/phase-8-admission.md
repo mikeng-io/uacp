@@ -19,11 +19,11 @@ uacp_heartgate_check(
 
 Heartgate checks, among the coherence rules:
 
-- `selected_scope.title` and `selected_scope.description` are non-empty
+- `title` and `description` are non-empty
 - `in_scope` is non-empty
 - `declared_side_effects` is present (may be an empty list)
 - `authority.source` is documented
-- `estimated_governance.routing_advisory` is valid
+- `routing_advisory` is valid
 - the proposed scope does not conflict with any active UACP run in `state/current.yaml`
 
 **Results:**
