@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: Codeflair — The Expansion Loop & Swappable Policy
-description: The frontier/beam model, why pruning is necessary (cardinality) but LLM-pruning is not yet proven, the stop conditions, the fixed strategy interface (next_probes / score), and the four policies (D no-LLM control, A LLM-ranks, B LLM-drives, C hybrid) the benchmark chooses between.
+description: The frontier/beam model with DETERMINISTIC score/prune as the default (Policy D, CF-D11 — no LLM in the core), the stop conditions, the fixed strategy interface (next_probes / score), and the A/B/C LLM policies kept only as DEFERRED future curiosities behind the same interface.
 tags: [codeflair, expansion, loop, beam, policy, pruning, policy-d]
 timestamp: 2026-06-24
 edges:

@@ -43,8 +43,11 @@ covered — **deterministically.**
 ## Why the LLM is deferred here (CF-D13)
 
 The only residual an LLM would add: entities coupled **by meaning** with **no shared string, no contract,
-and no co-change** (e.g. Go `Account` ↔ TS `UserProfile`). But **that coupling is weak by definition** —
-if nothing links them textually, contractually, or temporally, it's probably not blast-radius-relevant.
+and no co-change** (e.g. Go `Account` ↔ TS `UserProfile`). The plausible near-misses — normalized shared
+constants (`USER_CREATED` vs `user.created`) and convention-divergent codegen names (`GetAccount` vs
+`getAccount`) — are mostly caught by **normalized grep + contract parsing**, *deterministically*. What's
+left after that is genuinely **weak by definition**: if nothing links two symbols textually, contractually,
+or temporally, the coupling is probably not blast-radius-relevant.
 So a semantic/embedding matcher is a **marginal, probably-unnecessary residual**, explicitly **deferred**
 (CF-D13). Cross-language coherence ships **deterministic** (grep + co-change + contracts); revisit an LLM
 *only if* real usage proves the residual matters. Cross-language edges are tagged `inferred` and surfaced

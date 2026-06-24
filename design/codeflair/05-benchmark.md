@@ -60,9 +60,9 @@ engineers disagree on the boundary). So eval-set production is promoted from "op
 ## Metrics (provenance-split — the real test of "expand-not-diagnose")
 
 - **recall@K of the true root node(s)** — the primary metric — **reported split by probe provenance**
-  (`parsed` vs `inferred`). The cheap-model premise only holds if it survives on the **`inferred`
-  subset** (co-change), where ranking is hardest; run **cheap-vs-big model on that subset only**. If a
-  big model dominates specifically there, "expand-not-diagnose" was "diagnose, cheaply" in disguise.
+  (`parsed` vs `inferred`). Per [CF-D11](07-decisions.md) the default is deterministic (Policy D); *if* a
+  future LLM policy is ever revisited, it only matters where it beats Policy D on the **`inferred`
+  subset** (co-change), where ranking is hardest — run that comparison on that subset only.
   *(The `parsed` subset comes from the engine's own indexer ([01a](01a-indexer.md)) — SCIP + LSP. An
   optional thin early spike, run before the indexer ships, has `parsed` = LSP-only.)*
 - **hops-to-hit** — how deep before the true node enters the beam.

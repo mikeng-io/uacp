@@ -22,7 +22,7 @@ The core engine (indexer + store + query) is exposed four ways — all thin wrap
 The point: **MCP is a *face*, not the substance.** Building an MCP server is ceremony; Codeflair is one
 engine you consume however you like — so it's *lighter* than "stand up an MCP server." (CF-D9 packaging.)
 
-## The install model — the host needs nothing but Codeflair
+## The install model — the host installs only Codeflair
 
 **Hard truth:** precise code intel for language X *requires* X's toolchain (SCIP/LSP typecheck) — that's
 intrinsic, not a Codeflair limit. **But it's free**, because anyone working on an X codebase already has
@@ -39,7 +39,8 @@ codeflair query Pool.Conn
 | `codeflair` (1 binary) | SQLite, the **SCIP indexers** (auto-fetched) | the language toolchain | LSP servers, manual setup |
 
 - **SCIP indexers auto-provisioned** — Codeflair downloads the **prebuilt release binary** into
-  `~/.codeflair/bin/` (NOT `go install` — that path is broken, *empirically*; prebuilt fetch is clean).
+  `~/.codeflair/bin/` (prefer **prebuilt release binaries** over `go install` for reproducibility — and
+  because the spike hit real `go install` breakage: stale/relocated module paths, replace-directive errors).
   A Go build can **embed `scip-go` in-process** → zero external dep for Go.
 - **LSP is discovered/provisioned, never dropped** — it's the freshness half of the SCIP⊕LSP reconcile
   ([10-freshness](10-freshness.md)). Present → full reconcile; **absent → degrade** (single-file SCIP

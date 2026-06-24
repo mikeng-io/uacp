@@ -52,9 +52,10 @@ makes a stochastic loop honest:
 - the **evidence** is fully deterministic — re-running the logged probe sequence reproduces it exactly;
 - the trace is **watermarked** on `repo_commit` + content hashes (the determinism discipline: zero out
   timestamps; key on commit + content) so a stale trace is detectable and a run is cache-keyable;
-- the **search path** need not be bit-identical across re-runs (the model is stochastic), but it is
-  **replayable from the trace** and auditable. "Replayable + watermarked," not "bit-identical," is the
-  re-derivability bar a hypothesis-only lookup tool must clear — and it clears it.
+- under the deterministic default (Policy D, [CF-D11](07-decisions.md)) the **whole run is deterministic**
+  — same commit → same trace. (*Only* under a deferred LLM policy would the search path be stochastic;
+  then it is still **replayable from the trace** and auditable.) "Replayable + watermarked" is the
+  re-derivability bar — and a deterministic engine clears it trivially.
 
 ## What the output is *not*
 

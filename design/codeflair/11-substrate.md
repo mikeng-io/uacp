@@ -51,7 +51,8 @@ walks; SQLite does (≤1ms at the scale tested — see [05-benchmark](05-benchma
 - **SQLite** (D12) — embedded, mature, recursive CTEs, zero-infra. The traversal is a pointer-chase, which
   **columnar/OLAP storage does not help** (it helps scans/aggregations). So DuckDB's advantage mostly
   doesn't apply to the core query.
-- **DuckDB watch-trigger:** revisit *only if* the workload turns analytical-scan-heavy — repo-wide fan-in
+- **DuckDB watch-trigger** (a *Codeflair-internal* measured trigger, not inherited from graph-engine):
+  revisit *only if* the workload turns analytical-scan-heavy — repo-wide fan-in
   ranking, co-change **PMI** over full history — which *is* columnar-friendly. Bench SQLite-vs-DuckDB on
   *that* specific workload if it arises; for blast-radius traversal, SQLite stays. (A native graph DB
-  would suit traversal best, but D17 rejected them as immature.)
+  would suit traversal best, but D12's bake-off rejected them as immature.)

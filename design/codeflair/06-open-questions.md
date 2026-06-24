@@ -12,9 +12,9 @@ edges:
 
 ## Open (resolve before / during BUILD)
 
-1. **Model selection.** Memory's prior leans Qwen3-4B over MiniCPM for edge work. Confirm against the
-   `score`/`prune` workload; it must be cheap enough to call every hop and good enough at relevance
-   judgment. Settled by the benchmark, not by argument.
+1. **Model selection — DEFERRED ([CF-D11](07-decisions.md)).** v1 ships **Policy D (no LLM)**; there is no
+   model to select. *If* an LLM policy is ever revisited, memory's prior leans Qwen3-4B — but that's a
+   deferred question, not a v1 open item.
 2. **Seed modalities for v1.** The seed can be a symbol, a diff, or an NL incident. Symbol/diff is the
    primary mechanizes-the-manual-chain case; NL incident needs a bootstrap hit (grep + code-fuzzy)
    before the loop starts. Decide whether v1 ships symbol/diff only or includes NL bootstrap.

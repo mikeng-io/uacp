@@ -16,7 +16,7 @@ description: >-
   alongside State / Manifest / Oracle) via a thin adapter. It PRODUCES
   the code graph (SCIP per-commit + LSP live, emitting code_symbol/code_anchor),
   STORES it (SQLite, a rebuildable watermarked projection it owns), and QUERIES
-  it (a light-model-pruned expansion loop returning a read-only heatmap — blast
+  it (a deterministic Policy-D-scored expansion loop returning a read-only heatmap — blast
   radius + relations + gaps). It mechanizes the manual grep·LSP·SCIP
   comprehension chain into one shot, at scale. The build-side writes a derived
   index (not governed state); the query layer is read-only/hypothesis-only and

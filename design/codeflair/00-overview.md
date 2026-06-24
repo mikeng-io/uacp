@@ -65,7 +65,7 @@ model *can* hold.
 Trustless is *why* lookup-over-the-codespace is the central problem (D12 cites it): its code graph was
 file-level (too coarse), and its hybrid vector search (QMD) was **measured at ~42s/query and retired.**
 Coarse graph + slow naive RAG = lookup that does not work. Codeflair is the answer: a **precise SCIP
-index** (the producer Trustless lacked) + **iterative expansion + light-model pruning** — not one slow
+index** (the producer Trustless lacked) + **iterative expansion + deterministic scoring** — not one slow
 whole-document RAG pass. 42s/query is the bar any Codeflair query must beat ([05-benchmark](05-benchmark.md)).
 
 ## The landing: Codeflair is a DETERMINISTIC engine (no LLM)
@@ -76,7 +76,7 @@ co-change. **No LLM** — semantics lives in the orchestrator, not Codeflair. Th
 probably-unnecessary residual.
 
 **Proven on Trustless (spike, 2026-06-24):** scip-go indexed the repo in **4.1s**; ingest → SQLite **0.3s**;
-blast-radius query **0.1–0.2 ms** and *correct* (`Pool#Conn` → the right dependent repositories);
+blast-radius query **0.1–0.2 ms** and *correct* (`Pool#Conn` → the right dependent symbols);
 **multi-language fusion** (Go + TS, one store, 0 collisions, 0 cross-language symbol edges, as predicted).
 ~`200,000×` under the 42s/query bar — with zero LLM. The operational layers (freshness/SCIP⊕LSP reconcile,
 co-change, grep, heatmap ranking, recall@K) remain to build/test.
