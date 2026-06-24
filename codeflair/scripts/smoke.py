@@ -1,30 +1,32 @@
 #!/usr/bin/env python3
 """Codeflair smoke test — run the deterministic stack on a real repo, end to end.
 
-    python3 scripts/smoke.py <repo_path> [seed_substring] [--lang go]
+    python3 scripts/smoke.py <repo_path> [seed_substring] [--lang go|python|typescript]
 
-Ingests whatever probes apply (SCIP if scip-go+scip present and lang=go; always
-co-change + grep), prints store stats + timing, then runs the expansion loop on a real
-seed and prints the heatmap + gaps. Reads the target repo READ-ONLY; the SCIP index is
-written to a temp dir OUTSIDE the target (never mutates it).
+Ingests the probes that apply (SCIP for the language if its indexer is available, else the
+tree-sitter floor; always co-change + grep), prints store stats + timing, then runs the
+expansion loop on a real seed. Reads the target READ-ONLY; the SCIP index goes to a temp
+dir OUTSIDE the target.
 """
 
 from __future__ import annotations
 
-import json
-import os
-import shutil
-import subprocess
 import sys
-import tempfile
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+from codeflair import Store, expand
+from codeflair.cochange import index_repo_cochange
+from codeflair.grep_probe import index_repo_strings
+from codeflair.scip_ingest import index_repo
 
-from codeflair import Store, expand  # noqa: E402
-from codeflair.cochange import index_repo_cochange  # noqa: E402
-from codeflair.grep_probe import index_repo_strings  # noqa: E402
-from codeflair.scip_ingest import ingest_scip_json  # noqa: E402
+_SUFFIX = {"go": (".go",), "python": (".py",), "typescript": (".ts", ".tsx")}
+_LANG_NORM = {
+    "go": "go",
+    "py": "python",
+    "python": "python",
+    "ts": "typescript",
+    "typescript": "typescript",
+}
 
 
 def _timed(label, fn):
@@ -35,90 +37,67 @@ def _timed(label, fn):
     return out
 
 
-def _ts_floor(store: Store, repo: str, lang: str) -> None:
-    """Add the tree-sitter syntactic floor for the target language, if the optional dep
-    is installed. This is what gives a non-Go repo (e.g. Python UACP) a symbol layer."""
-    norm = {
-        "py": "python",
-        "python": "python",
-        "go": "go",
-        "ts": "typescript",
-        "typescript": "typescript",
-    }.get(lang)
-    ext = {"python": ".py", "go": ".go", "typescript": ".ts"}.get(norm or "")
-    if not ext:
-        return
+def _ingest_symbols(store: Store, repo: str, lang: str) -> None:
+    """SCIP for the language if its indexer works, else the tree-sitter floor."""
     try:
-        from codeflair.treesitter_ingest import index_repo_tree_sitter
-    except ImportError:
-        print("  (tree-sitter not installed — skipping the syntactic floor)")
-        return
-    _timed(
-        "tree-sitter (floor)", lambda: index_repo_tree_sitter(store, repo, suffix_lang={ext: norm})
-    )
+        _timed("scip (precise)", lambda: index_repo(store, repo, lang))
+    except Exception as exc:
+        print(f"  SCIP failed ({type(exc).__name__}); falling back to tree-sitter floor")
+    if store.count_symbols() == 0:
+        from codeflair.treesitter_ingest import index_repo_tree_sitter  # optional dep
 
-
-def ingest_scip_go(store: Store, repo: str) -> int:
-    if not (shutil.which("scip-go") and shutil.which("scip")):
-        print("  (scip-go/scip not on PATH — skipping precise SCIP layer)")
-        return 0
-    tmp = tempfile.mkdtemp(prefix="cf-smoke-")
-    idx = os.path.join(tmp, "index.scip")  # OUTSIDE the target repo
-    try:
-        subprocess.run(["scip-go", "--output", idx], cwd=repo, check=True, capture_output=True)
-        printed = subprocess.run(["scip", "print", "--json", idx], check=True, capture_output=True)
-        data = json.loads(printed.stdout)
-        return ingest_scip_json(store, data).edges
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
+        ext = {"go": ".go", "python": ".py", "typescript": ".ts"}[lang]
+        _timed(
+            "tree-sitter (floor)",
+            lambda: index_repo_tree_sitter(store, repo, suffix_lang={ext: lang}),
+        )
 
 
 def main() -> None:
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    argv = sys.argv[1:]
+    lang = "go"
+    if "--lang" in argv:
+        i = argv.index("--lang")
+        lang = argv[i + 1]
+        del argv[i : i + 2]
+    lang = _LANG_NORM.get(lang, lang)
+    args = [a for a in argv if not a.startswith("--")]
     repo = args[0]
     seed_sub = args[1] if len(args) > 1 else None
-    lang = "go" if "--lang" not in sys.argv else sys.argv[sys.argv.index("--lang") + 1]
-    suffix = {".go": (".go",)}.get("." + lang, None)
 
     print(f"\n=== Codeflair smoke: {repo} (lang={lang}) ===")
     store = Store()
     print("INGEST")
-    if lang == "go":
-        _timed("scip (precise)", lambda: ingest_scip_go(store, repo))
-    _ts_floor(store, repo, lang)
-    _timed("co-change (git)", lambda: index_repo_cochange(store, repo, path_suffixes=suffix))
+    _ingest_symbols(store, repo, lang)
+    _timed("co-change (git)", lambda: index_repo_cochange(store, repo, path_suffixes=_SUFFIX[lang]))
     _timed("grep (shared strings)", lambda: index_repo_strings(store, repo))
 
-    n_sym = store.count_symbols()
     print("\nSTORE")
-    print(f"  symbols              {n_sym:,}")
+    print(f"  symbols              {store.count_symbols():,}")
     for src in ("scip", "lsp", "tree_sitter", "grep", "co_change"):
         c = store.count_edges(source=src)
         if c:
             print(f"  edges[{src}]          {c:,}")
-    cpl = store.con.execute("SELECT kind, COUNT(*) FROM coupling GROUP BY kind").fetchall()
-    for kind, c in cpl:
+    for kind, c in store.con.execute(
+        "SELECT kind, COUNT(*) FROM coupling GROUP BY kind"
+    ).fetchall():
         print(f"  coupling[{kind}]   {c:,}")
 
-    # pick a seed: the most-referenced symbol (highest in-degree), or one matching the arg
     if seed_sub:
         row = store.con.execute(
             "SELECT symbol FROM symbols WHERE symbol LIKE ? LIMIT 1", (f"%{seed_sub}%",)
         ).fetchone()
     else:
-        # most-referenced symbol that is actually DEFINED in this repo (has a real file) —
-        # not a stdlib/dep symbol that merely appears as an edge target.
         row = store.con.execute(
-            "SELECT e.dst, COUNT(*) c FROM edges e "
-            "JOIN symbols s ON s.symbol = e.dst "
+            "SELECT e.dst, COUNT(*) c FROM edges e JOIN symbols s ON s.symbol = e.dst "
             "WHERE s.file != '' AND s.file NOT LIKE '../%' "
             "GROUP BY e.dst ORDER BY c DESC LIMIT 1"
         ).fetchone()
     if not row:
         print("\n(no symbol to seed a query — precise layer empty)")
         return
-    seed = row[0]
 
+    seed = row[0]
     print(f"\nQUERY  seed = {seed}")
     res = _timed("expand()", lambda: expand(store, seed, k=12))
     print(f"  precise={res.n_precise}  inferred={res.n_inferred}  gaps={len(res.gaps)}")

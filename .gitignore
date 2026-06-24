@@ -32,3 +32,8 @@ __pycache__/
 
 # Codeflair dev venv (tree-sitter etc.)
 codeflair/.venv/
+
+# Codeflair vendored SCIP indexers (npm) — manifest tracked, installed tree not
+codeflair/vendor/node_modules/
+
+*.egg-info/

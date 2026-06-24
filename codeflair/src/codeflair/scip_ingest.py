@@ -2,8 +2,9 @@
 
 Split in two, like the core: a PURE transform over already-parsed SCIP JSON
 (``ingest_scip_json``) that is hermetically testable on a tiny fixture, and a thin
-wrapper (``index_go_repo``) that shells out to ``scip-go`` + ``scip print --json`` for
-real use. The pure layer is where the logic — and the tests — live.
+wrapper (``index_repo``) that shells out to the per-language SCIP indexer (scip-go /
+scip-python / scip-typescript) + ``scip print --json``. The pure layer holds the logic
+and the tests; ``ingest_scip_json`` is indexer-agnostic — SCIP is one format.
 
 Edge model (spike-proven on Trustless): SCIP occurrences carry symbol + role, not an
 explicit call graph, so a reference edge is attributed to its **enclosing definition**
@@ -15,10 +16,18 @@ from __future__ import annotations
 
 import bisect
 import json
+import os
+import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 
 from codeflair.store import Edge, Store, Symbol
+
+# Repo-local indexer binaries (Python/TypeScript) live under the package's vendor/
+# node_modules/.bin — installed by scripts/bootstrap.py, never on the global PATH.
+_VENDOR_BIN = Path(__file__).resolve().parents[2] / "vendor" / "node_modules" / ".bin"
 
 _ROLE_DEFINITION = 0x1  # SCIP symbol_roles bit
 
@@ -135,15 +144,52 @@ def ingest_scip_json(
 
 # -- real-tool wrapper (integration; not exercised by the hermetic unit suite) --------
 
+# SCIP indexer per stage-1 language. Python/TypeScript resolve from the repo-local
+# vendor bin (npm); Go uses scip-go (a Go tool, installed via `go install` / PATH).
+SCIP_LANGS = ("go", "python", "typescript")
 
-def index_go_repo(
-    store: Store, repo_path: str, *, scip_go: str = "scip-go", scip: str = "scip"
-) -> IngestStats:
-    """Index a Go repo with ``scip-go`` and ingest it. Indexes IN ``repo_path`` and reads
-    the result read-only — never mutates the target's source. Requires ``scip-go`` and the
-    ``scip`` CLI on PATH."""
-    out = subprocess.run([scip_go, "--output", "/dev/stdout"], cwd=repo_path, capture_output=True)
-    # scip-go writes protobuf; convert to JSON via `scip print --json -`.
-    printed = subprocess.run([scip, "print", "--json", "-"], input=out.stdout, capture_output=True)
-    data = json.loads(printed.stdout)
-    return ingest_scip_json(store, data)
+
+def _resolve_bin(tool: str) -> str:
+    """Prefer the repo-local vendored binary; fall back to PATH."""
+    local = _VENDOR_BIN / tool
+    return str(local) if local.exists() else tool
+
+
+def _indexer_cmd(lang: str, out: str, repo_path: str) -> list[str]:
+    name = os.path.basename(os.path.abspath(repo_path)) or "project"
+    if lang == "go":
+        return [_resolve_bin("scip-go"), "--output", out]
+    if lang == "python":
+        # --project-version is required: scip-python's git-revision default crashes on a
+        # repo without a resolvable revision (ScipSymbol normalizeNameOrVersion).
+        return [
+            _resolve_bin("scip-python"),
+            "index",
+            "--output",
+            out,
+            "--project-name",
+            name,
+            "--project-version",
+            "0.0.0",
+        ]
+    if lang == "typescript":
+        return [_resolve_bin("scip-typescript"), "index", "--output", out, "--infer-tsconfig"]
+    raise ValueError(f"unsupported SCIP language {lang!r}; expected one of {SCIP_LANGS}")
+
+
+def index_repo(store: Store, repo_path: str, lang: str, *, scip: str = "scip") -> IngestStats:
+    """Index ``repo_path`` with the SCIP indexer for ``lang`` (go|python|typescript), convert
+    to JSON, and ingest. Reads the repo READ-ONLY; the index is written to a temp dir OUTSIDE
+    the target, so the target's source is never mutated. Indexers resolve repo-local first."""
+    tmp = tempfile.mkdtemp(prefix="cf-scip-")
+    out = os.path.join(tmp, "index.scip")
+    try:
+        subprocess.run(
+            _indexer_cmd(lang, out, repo_path), cwd=repo_path, check=True, capture_output=True
+        )
+        printed = subprocess.run(
+            [_resolve_bin(scip), "print", "--json", out], check=True, capture_output=True
+        )
+        return ingest_scip_json(store, json.loads(printed.stdout))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

@@ -12,6 +12,7 @@ tree-sitter-languages. Import is lazy so the core stays dependency-free.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
 from codeflair.store import Edge, Store, Symbol
@@ -175,8 +176,6 @@ def index_repo_tree_sitter(
     max_bytes: int = 1_000_000,
 ) -> IngestStats:
     """Walk ``repo_path`` (read-only), parse supported source files, ingest the floor."""
-    import os
-
     suffix_lang = suffix_lang or SUFFIX_LANG
     skip = {"node_modules", "vendor", "worktrees", "dist", "build"}
     files: dict[str, tuple[str, bytes]] = {}

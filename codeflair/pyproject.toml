@@ -36,10 +36,6 @@ line-length = 100
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-# Same ruleset UACP holds its clean new code (engines/ + e2e) to.
+# Same ruleset UACP holds its clean new code (engines/ + e2e) to. No per-file-ignores:
+# the package is editable-installed so scripts import normally (no sys.path/E402 hacks).
 select = ["E", "F", "I", "UP", "B", "N"]
-
-[tool.ruff.lint.per-file-ignores]
-# Runnable scripts insert src/ onto sys.path before importing codeflair, so imports
-# legitimately follow code (E402). Scoped to scripts only, like UACP relaxes scripts/**.
-"scripts/**" = ["E402"]
