@@ -36,7 +36,7 @@ members:
   - 12-phase-profiles.md         # per-phase instantiation (measure-mode + authority; EXECUTE excluded from generation)
   - 13-investigation-ledger.md   # the revisable, phase-rooted serialized trail
   - 14-council-method.md         # the council as generative-gate panel — narrowed to default-to-refute + serialize-to-ledger
-  - 15-coverage-serialization.md # D43: serialize the intent->task coverage graph at PROPOSE/PLAN so the (now-wired) coverage checks bind
+  - 15-coverage-serialization.md # D43 as-built (keyed scope_items + derives_from already enforced) + the package-selection coverage residual
   - 20-build-improvise-update.md # what to BUILD vs IMPROVISE (existing engines) vs UPDATE
 
 # DERIVED: mirror of each node's `edges:` frontmatter (src = the node that owns the edge).

@@ -261,10 +261,12 @@ class Heartgate:
         registered. The engines' terminal checks (coherence C4, evidence
         ``EV_RESOLVED_WITHOUT_EVIDENCE``, deferral ``DF_DEFERRAL_DROPPED_AT_RESOLVE``)
         assume the closed/resolved state; calling it on a run that has not yet
-        been finalized would false-positive. It is invoked by the RESOLVE flow /
-        runtime (and exposed by the future MCP ``uacp_validate_closure`` tool) —
-        it is NOT auto-called inside ``state_machine.handle_finalize`` to keep
-        the state machine decoupled from the kernel.
+        been finalized would false-positive — which is why ``handle_finalize``
+        sets ``finalized_at`` FIRST, then runs this gate, reverting if it blocks.
+        It is auto-called on the live RESOLVE path: ``state_machine.handle_finalize``
+        runs it (via ``_run_closure_gate``) so a run cannot be stamped resolved
+        while the engine sweep finds blockers. Also exposed to the RESOLVE
+        runtime (and the future MCP ``uacp_validate_closure`` tool).
 
         Never raises: the engines themselves never raise, and the whole sweep is
         wrapped defensively so a closure check can never crash the kernel — an
