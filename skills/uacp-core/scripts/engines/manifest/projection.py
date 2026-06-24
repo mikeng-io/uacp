@@ -361,9 +361,19 @@ def _load_and_project(workspace: str | Path, run_id: str) -> tuple[dict, list] |
     artifacts = loaded.value.raw.get("artifacts")
     if not isinstance(artifacts, dict):
         return None
+    # Goal-chained runs REUSE parent prior-phase outputs via inherited_artifacts
+    # (triage/proposal/plan refs copied at init), not their own `artifacts`. Project
+    # those too — otherwise a child run's coverage graph is missing the inherited
+    # scope_items/work_units and a dropped intent silently passes. Own artifacts are
+    # projected FIRST so a child's re-authored doc wins over an inherited one
+    # (add_node uses setdefault).
+    inherited = loaded.value.raw.get("inherited_artifacts")
+    rels = list(artifacts.values())
+    if isinstance(inherited, dict):
+        rels += list(inherited.values())
     nodes: dict[str, dict] = {}
     edges: list[dict] = []
-    for rel in artifacts.values():
+    for rel in rels:
         if not isinstance(rel, str) or not rel:
             continue
         doc = load_artifact(root, rel)
