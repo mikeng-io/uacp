@@ -11,13 +11,17 @@
 kind: design_index
 title: UACP Verification Method — Design Bundle
 description: >-
-  Make verification + audit systematic across the UACP lifecycle on ONE primitive —
-  comprehend -> measure -> serialize — looped to convergence, fail-closed, recorded in
-  a revisable investigation ledger, phase-parameterized. Grounded in the Trustless #503
-  autopsy (7 review rounds, bugs survived) and the T9 verify-as-investigation handoff.
+  Make verification + audit systematic across the UACP lifecycle as the VERIFICATION
+  INSTANTIATION of CMS (comprehend -> measure -> serialize; canonical bundle
+  ../comprehend-measure-serialize/, referenced not re-derived) — the generative gate
+  looped to convergence, fail-closed, recorded in a revisable investigation ledger,
+  phase-parameterized. Grounded in the Trustless #503 autopsy (7 review rounds, bugs
+  survived) and the T9 verify-as-investigation handoff. Re-grounded 2026-06-24 against
+  the merged CMS bundle + the as-built engines (run_all_engines, manifest projection,
+  goal-driven convergence).
 status: design                      # enum: design|proposed|accepted|building|built
 governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
-timestamp: '2026-06-21'             # ISO date (YYYY-MM-DD)
+timestamp: '2026-06-24'             # ISO date (YYYY-MM-DD)
 origin: session 2026-06-20/21 (verification-method thread; lessons from Trustless #503 + T9, NOT Trustless work)
 schema_dir: ../graph-engine/schema/ # reuses the graph-engine bundle's design_index schema
 
@@ -25,13 +29,13 @@ schema_dir: ../graph-engine/schema/ # reuses the graph-engine bundle's design_in
 #   00-01 = the spine + its evidence;  10-14 = the two layers (dynamic gate / fixed harness)
 #   + their supports;  20 = the build/improvise/update roadmap.
 members:
-  - 00-the-primitive.md          # ROOT: comprehend -> measure -> serialize
+  - 00-the-primitive.md          # ROOT: verification as CMS (references ../comprehend-measure-serialize/, not re-derived)
   - 01-evidence-503.md           # the failure taxonomy this is built to prevent
   - 10-generative-gate.md        # LAYER 2 (dynamic): the gate whose actions are generated from content
   - 11-harness.md                # LAYER 1 (fixed activity): run / reconcile / loop / escalate
   - 12-phase-profiles.md         # per-phase instantiation (measure-mode + authority; EXECUTE excluded from generation)
   - 13-investigation-ledger.md   # the revisable, phase-rooted serialized trail
-  - 14-council-method.md         # the Agent Council as a generative-gate panel
+  - 14-council-method.md         # the council as generative-gate panel — narrowed to default-to-refute + serialize-to-ledger
   - 20-build-improvise-update.md # what to BUILD vs IMPROVISE (existing engines) vs UPDATE
 
 # DERIVED: mirror of each node's `edges:` frontmatter (src = the node that owns the edge).
@@ -43,4 +47,5 @@ edges:
   - {src: 12-phase-profiles, dst: 00-the-primitive, rel: depends_on, provenance: derived}
   - {src: 13-investigation-ledger, dst: 00-the-primitive, rel: depends_on, provenance: derived}
   - {src: 14-council-method, dst: 10-generative-gate, rel: depends_on, provenance: derived}
+  - {src: 14-council-method, dst: 13-investigation-ledger, rel: depends_on, provenance: derived}
   - {src: 20-build-improvise-update, dst: 00-the-primitive, rel: sequences, provenance: asserted}

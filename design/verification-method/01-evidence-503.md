@@ -24,7 +24,7 @@ A verification feature went through **7 rounds** of automated (Codex) review and
 | **E** | env-fragility | the check passes/fails on environment, not on the code under test | the measurement wasn't isolated from incidental state |
 | **F** | spec↔runner drift | the declared criteria and the executed checks diverge over time | criteria must be *serialized* and the runner replays them, not a parallel hand-coded set |
 
-Each class maps to a discipline in [00-the-primitive](00-the-primitive.md): A/E/F are `measure`+`serialize` failures; B/C/D are `comprehend`→`measure` generation failures (the checks weren't *derived from the content*) — exactly what the generative gate fixes.
+Each class maps to a discipline in [00-the-primitive](00-the-primitive.md): A/E/F are `measure`+`serialize` failures; B/C/D are `comprehend`→`measure` generation failures (the checks weren't *derived from the content*) — exactly what the generative gate fixes. CMS adopts this same taxonomy as its per-verb failure map ([22-differentia](../comprehend-measure-serialize/22-differentia.md)).
 
 ## The T9 handoff — Verify as investigation, not a checklist
 
