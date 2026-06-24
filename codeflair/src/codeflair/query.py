@@ -4,6 +4,7 @@ Blast radius is transitive closure over the edge graph; relevance is a pure scor
 function of (edge-type, graph distance, provenance trust). Same store + same seed ->
 byte-identical heatmap. The expensive model never walks; SQLite does.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -33,9 +34,9 @@ _HOP_DECAY = 0.5  # each hop away from the seed halves contribution
 @dataclass(frozen=True)
 class HeatmapEntry:
     symbol: str
-    hop: int           # shortest distance from the seed (0 = the seed itself)
-    score: float       # deterministic relevance, descending
-    via: str           # the strongest (rel, source) that reached it, for explainability
+    hop: int  # shortest distance from the seed (0 = the seed itself)
+    score: float  # deterministic relevance, descending
+    via: str  # the strongest (rel, source) that reached it, for explainability
 
 
 def blast_radius(
@@ -59,9 +60,9 @@ def blast_radius(
         WITH RECURSIVE blast(sym, hop) AS (
             SELECT ?, 0
             UNION
-            SELECT {'e.src' if direction == 'callers' else 'e.dst'}, b.hop + 1
+            SELECT {"e.src" if direction == "callers" else "e.dst"}, b.hop + 1
             FROM edges e
-            JOIN blast b ON {'e.dst' if direction == 'callers' else 'e.src'} = b.sym
+            JOIN blast b ON {"e.dst" if direction == "callers" else "e.src"} = b.sym
             WHERE b.hop < ?
         )
         SELECT sym, MIN(hop) AS hop FROM blast GROUP BY sym
@@ -104,13 +105,13 @@ def heatmap(
         for rel, source, provenance in cur.fetchall():
             rel_w = _REL_WEIGHT.get(rel, _DEFAULT_REL_WEIGHT)
             trust = _PROVENANCE_TRUST.get(provenance, 0.3)
-            s = rel_w * trust * (_HOP_DECAY ** hop)
+            s = rel_w * trust * (_HOP_DECAY**hop)
             if s > best_score:
                 best_score = s
                 best_via = f"{rel}/{source}"
         if best_score < 0:
             # reached only as a seed-side endpoint with no inbound edge of its own
-            best_score = _DEFAULT_REL_WEIGHT * (_HOP_DECAY ** hop)
+            best_score = _DEFAULT_REL_WEIGHT * (_HOP_DECAY**hop)
             best_via = "transitive"
         entries.append(HeatmapEntry(symbol=sym, hop=hop, score=round(best_score, 6), via=best_via))
 

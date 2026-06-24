@@ -1,6 +1,7 @@
 """Co-change probe: git-log parse + support-thresholded coupling."""
+
 from codeflair import Store
-from codeflair.cochange import parse_git_log, ingest_cochange, _COMMIT_MARK
+from codeflair.cochange import _COMMIT_MARK, ingest_cochange, parse_git_log
 
 
 def _log(*commits: list[str]) -> str:
@@ -17,15 +18,15 @@ def test_cochange_stores_pairs_meeting_min_support():
     # a.go & b.go change together twice; a.go & c.go once
     commits = [["a.go", "b.go"], ["a.go", "b.go"], ["a.go", "c.go"]]
     stored = ingest_cochange(s, commits, min_support=2)
-    assert stored == 1                                  # only (a,b) clears support=2
+    assert stored == 1  # only (a,b) clears support=2
     coupled = s.coupled_files("a.go", kind="co_change")
-    assert coupled == [("b.go", "co_change", 2)]         # weight = co-change count
+    assert coupled == [("b.go", "co_change", 2)]  # weight = co-change count
     assert s.coupled_files("c.go", kind="co_change") == []
 
 
 def test_cochange_skips_mega_commits():
     s = Store()
-    mega = [f"f{i}.go" for i in range(60)]               # 60 files > cap -> noise, skipped
+    mega = [f"f{i}.go" for i in range(60)]  # 60 files > cap -> noise, skipped
     ingest_cochange(s, [mega, mega], min_support=1)
     assert s.coupled_files("f0.go") == []
 
@@ -35,7 +36,7 @@ def test_cochange_path_suffix_filter():
     commits = [["a.go", "b.go", "README.md"], ["a.go", "b.go", "notes.txt"]]
     ingest_cochange(s, commits, min_support=2, path_suffixes=(".go",))
     coupled = {f for f, _, _ in s.coupled_files("a.go")}
-    assert coupled == {"b.go"}                           # md/txt filtered out
+    assert coupled == {"b.go"}  # md/txt filtered out
 
 
 def test_cochange_pair_is_order_independent():

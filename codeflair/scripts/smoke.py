@@ -8,6 +8,7 @@ co-change + grep), prints store stats + timing, then runs the expansion loop on 
 seed and prints the heatmap + gaps. Reads the target repo READ-ONLY; the SCIP index is
 written to a temp dir OUTSIDE the target (never mutates it).
 """
+
 from __future__ import annotations
 
 import json
@@ -20,10 +21,10 @@ import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
-from codeflair import Store, expand                       # noqa: E402
-from codeflair.cochange import index_repo_cochange        # noqa: E402
-from codeflair.grep_probe import index_repo_strings       # noqa: E402
-from codeflair.scip_ingest import ingest_scip_json        # noqa: E402
+from codeflair import Store, expand  # noqa: E402
+from codeflair.cochange import index_repo_cochange  # noqa: E402
+from codeflair.grep_probe import index_repo_strings  # noqa: E402
+from codeflair.scip_ingest import ingest_scip_json  # noqa: E402
 
 
 def _timed(label, fn):
@@ -37,8 +38,13 @@ def _timed(label, fn):
 def _ts_floor(store: Store, repo: str, lang: str) -> None:
     """Add the tree-sitter syntactic floor for the target language, if the optional dep
     is installed. This is what gives a non-Go repo (e.g. Python UACP) a symbol layer."""
-    norm = {"py": "python", "python": "python", "go": "go",
-            "ts": "typescript", "typescript": "typescript"}.get(lang)
+    norm = {
+        "py": "python",
+        "python": "python",
+        "go": "go",
+        "ts": "typescript",
+        "typescript": "typescript",
+    }.get(lang)
     ext = {"python": ".py", "go": ".go", "typescript": ".ts"}.get(norm or "")
     if not ext:
         return
@@ -47,7 +53,9 @@ def _ts_floor(store: Store, repo: str, lang: str) -> None:
     except ImportError:
         print("  (tree-sitter not installed — skipping the syntactic floor)")
         return
-    _timed("tree-sitter (floor)", lambda: index_repo_tree_sitter(store, repo, suffix_lang={ext: norm}))
+    _timed(
+        "tree-sitter (floor)", lambda: index_repo_tree_sitter(store, repo, suffix_lang={ext: norm})
+    )
 
 
 def ingest_scip_go(store: Store, repo: str) -> int:
@@ -55,7 +63,7 @@ def ingest_scip_go(store: Store, repo: str) -> int:
         print("  (scip-go/scip not on PATH — skipping precise SCIP layer)")
         return 0
     tmp = tempfile.mkdtemp(prefix="cf-smoke-")
-    idx = os.path.join(tmp, "index.scip")               # OUTSIDE the target repo
+    idx = os.path.join(tmp, "index.scip")  # OUTSIDE the target repo
     try:
         subprocess.run(["scip-go", "--output", idx], cwd=repo, check=True, capture_output=True)
         printed = subprocess.run(["scip", "print", "--json", idx], check=True, capture_output=True)

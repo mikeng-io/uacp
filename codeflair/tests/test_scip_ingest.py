@@ -1,4 +1,5 @@
 """SCIP ingest: parse SCIP JSON -> store, then prove blast radius end-to-end."""
+
 from codeflair import Store, blast_radius, heatmap
 from codeflair.scip_ingest import ingest_scip_json
 
@@ -17,13 +18,22 @@ def _fixture() -> dict:
     # => enclosing-def edges: Foo->Baz, Bar->Foo, Baz->Bar  (a 3-cycle)
     return {
         "documents": [
-            {"relative_path": "a.go", "occurrences": [
-                _occ(FOO, 10, _DEF), _occ(BAZ, 12, _REF),
-                _occ(BAR, 20, _DEF), _occ(FOO, 22, _REF),
-            ]},
-            {"relative_path": "b.go", "occurrences": [
-                _occ(BAZ, 5, _DEF), _occ(BAR, 7, _REF),
-            ]},
+            {
+                "relative_path": "a.go",
+                "occurrences": [
+                    _occ(FOO, 10, _DEF),
+                    _occ(BAZ, 12, _REF),
+                    _occ(BAR, 20, _DEF),
+                    _occ(FOO, 22, _REF),
+                ],
+            },
+            {
+                "relative_path": "b.go",
+                "occurrences": [
+                    _occ(BAZ, 5, _DEF),
+                    _occ(BAR, 7, _REF),
+                ],
+            },
         ]
     }
 
@@ -32,8 +42,8 @@ def test_ingest_counts_documents_symbols_edges():
     s = Store()
     stats = ingest_scip_json(s, _fixture())
     assert stats.documents == 2
-    assert stats.symbols == 3                 # Foo, Bar, Baz
-    assert stats.edges == 3                   # Foo->Baz, Bar->Foo, Baz->Bar
+    assert stats.symbols == 3  # Foo, Bar, Baz
+    assert stats.edges == 3  # Foo->Baz, Bar->Foo, Baz->Bar
     assert s.count_symbols() == 3
     assert s.count_edges(source="scip") == 3
 
@@ -43,10 +53,10 @@ def test_ingest_records_symbol_metadata_from_definition():
     ingest_scip_json(s, _fixture())
     foo = s.symbol(FOO)
     assert foo is not None
-    assert foo.lang == "go"                   # derived from the scip-go scheme
-    assert foo.file == "a.go"                 # from the Definition occurrence
+    assert foo.lang == "go"  # derived from the scip-go scheme
+    assert foo.file == "a.go"  # from the Definition occurrence
     assert foo.line == 10
-    assert foo.name == "Foo()."               # last descriptor
+    assert foo.name == "Foo()."  # last descriptor
 
 
 def test_ingest_attributes_reference_to_enclosing_definition():
@@ -54,7 +64,7 @@ def test_ingest_attributes_reference_to_enclosing_definition():
     s = Store()
     ingest_scip_json(s, _fixture())
     callers_of_baz = blast_radius(s, BAZ, direction="callers")
-    assert callers_of_baz.get(FOO) == 1       # Foo directly references Baz
+    assert callers_of_baz.get(FOO) == 1  # Foo directly references Baz
     assert BAR not in {k for k, v in callers_of_baz.items() if v == 1}
 
 
@@ -71,36 +81,55 @@ def test_heatmap_over_ingested_graph_ranks_by_distance():
     ingest_scip_json(s, _fixture())
     hm = heatmap(s, BAZ, k=10)
     syms = [e.symbol for e in hm]
-    assert syms == [FOO, BAR]                 # Foo (1 hop) ranks above Bar (2 hops)
+    assert syms == [FOO, BAR]  # Foo (1 hop) ranks above Bar (2 hops)
     assert all("scip" in e.via for e in hm)
 
 
 def test_local_symbols_and_rangeless_occurrences_are_skipped():
     s = Store()
-    data = {"documents": [{"relative_path": "x.go", "occurrences": [
-        _occ(FOO, 1, _DEF),
-        {"symbol": "local 0", "range": [2, 0, 3], "symbol_roles": _DEF},  # local -> skip
-        {"symbol": BAR, "symbol_roles": _REF},                             # no range -> skip
-    ]}]}
+    data = {
+        "documents": [
+            {
+                "relative_path": "x.go",
+                "occurrences": [
+                    _occ(FOO, 1, _DEF),
+                    {
+                        "symbol": "local 0",
+                        "range": [2, 0, 3],
+                        "symbol_roles": _DEF,
+                    },  # local -> skip
+                    {"symbol": BAR, "symbol_roles": _REF},  # no range -> skip
+                ],
+            }
+        ]
+    }
     stats = ingest_scip_json(s, data)
-    assert stats.symbols == 1                 # only Foo; local + rangeless dropped
+    assert stats.symbols == 1  # only Foo; local + rangeless dropped
     assert s.symbol("local 0") is None
 
 
 def test_ingest_skips_stdlib_and_build_cache_documents():
     # scip-go emits documents for the stdlib + go-build cache (paths escaping the repo).
     # Those must not enter the graph — only real repo files.
-    data = {"documents": [
-        {"relative_path": "internal/api/server.go", "occurrences": [_occ(FOO, 3, _DEF)]},
-        {"relative_path": "../../Library/Caches/go-build/ab/cached-d", "occurrences": [_occ(BAR, 1, _DEF)]},
-        {"relative_path": "/usr/local/go/src/testing/testing.go", "occurrences": [_occ(BAZ, 1, _DEF)]},
-    ]}
+    data = {
+        "documents": [
+            {"relative_path": "internal/api/server.go", "occurrences": [_occ(FOO, 3, _DEF)]},
+            {
+                "relative_path": "../../Library/Caches/go-build/ab/cached-d",
+                "occurrences": [_occ(BAR, 1, _DEF)],
+            },
+            {
+                "relative_path": "/usr/local/go/src/testing/testing.go",
+                "occurrences": [_occ(BAZ, 1, _DEF)],
+            },
+        ]
+    }
     s = Store()
     stats = ingest_scip_json(s, data)
-    assert stats.documents == 1                 # only the repo doc
+    assert stats.documents == 1  # only the repo doc
     assert s.symbol(FOO) is not None
-    assert s.symbol(BAR) is None                # build-cache def dropped
-    assert s.symbol(BAZ) is None                # stdlib def dropped
+    assert s.symbol(BAR) is None  # build-cache def dropped
+    assert s.symbol(BAZ) is None  # stdlib def dropped
 
 
 def test_ingest_empty_index_is_clean():

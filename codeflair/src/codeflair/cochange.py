@@ -5,6 +5,7 @@ together. Pure parse + count (``ingest_cochange``) over already-fetched git-log 
 plus a wrapper (``index_repo_cochange``) that shells to ``git log``. Couplings are
 file-level and ``inferred``; the expansion loop projects them to symbols.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -45,8 +46,9 @@ def ingest_cochange(
         if path_suffixes is not None:
             files = [f for f in files if f.endswith(path_suffixes)]
         # drop hidden-dir + worktree-copy paths (.git/.trustless/worktrees/…)
-        files = [f for f in files
-                 if not any(p.startswith(".") or p == "worktrees" for p in f.split("/"))]
+        files = [
+            f for f in files if not any(p.startswith(".") or p == "worktrees" for p in f.split("/"))
+        ]
         files = sorted(set(files))
         if len(files) < 2 or len(files) > _MAX_FILES_PER_COMMIT:
             continue
@@ -72,9 +74,19 @@ def index_repo_cochange(
 ) -> int:
     """Run ``git log`` in ``repo_path`` (read-only) and ingest co-change couplings."""
     out = subprocess.run(
-        ["git", "-C", repo_path, "log", "--no-merges", f"-n{max_commits}",
-         "--name-only", f"--pretty=format:{_COMMIT_MARK}"],
-        capture_output=True, text=True, check=True,
+        [
+            "git",
+            "-C",
+            repo_path,
+            "log",
+            "--no-merges",
+            f"-n{max_commits}",
+            "--name-only",
+            f"--pretty=format:{_COMMIT_MARK}",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
     )
     commits = parse_git_log(out.stdout)
     return ingest_cochange(store, commits, min_support=min_support, path_suffixes=path_suffixes)

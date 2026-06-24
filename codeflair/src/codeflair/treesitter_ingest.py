@@ -9,6 +9,7 @@ precision overlays and outranks when present (the fuse prefers parsed > syntacti
 Optional dependency (``pip install 'codeflair[treesitter]'``): tree-sitter +
 tree-sitter-languages. Import is lazy so the core stays dependency-free.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -31,12 +32,20 @@ _SPECS: dict[str, _LangSpec] = {
         " (call function: (attribute attribute: (identifier) @ref))",
     ),
     "go": _LangSpec(
-        def_types={"function_declaration": "name", "method_declaration": "name", "type_spec": "name"},
+        def_types={
+            "function_declaration": "name",
+            "method_declaration": "name",
+            "type_spec": "name",
+        },
         call_query="(call_expression function: (identifier) @ref)"
         " (call_expression function: (selector_expression field: (field_identifier) @ref))",
     ),
     "typescript": _LangSpec(
-        def_types={"function_declaration": "name", "method_definition": "name", "class_declaration": "name"},
+        def_types={
+            "function_declaration": "name",
+            "method_definition": "name",
+            "class_declaration": "name",
+        },
         call_query="(call_expression function: (identifier) @ref)"
         " (call_expression function: (member_expression property: (property_identifier) @ref))",
     ),
@@ -44,7 +53,10 @@ _SPECS: dict[str, _LangSpec] = {
 
 # file suffix -> tree-sitter language name
 SUFFIX_LANG = {
-    ".py": "python", ".go": "go", ".ts": "typescript", ".tsx": "typescript",
+    ".py": "python",
+    ".go": "go",
+    ".ts": "typescript",
+    ".tsx": "typescript",
 }
 
 
@@ -68,7 +80,7 @@ def ingest_tree_sitter(store: Store, files: dict[str, tuple[str, bytes]]) -> Ing
     syntactic over-approximation — SCIP refines it)."""
     from tree_sitter_languages import get_language, get_parser  # lazy: optional dep
 
-    name_index: dict[str, list[str]] = {}      # ref name -> candidate callee symbols
+    name_index: dict[str, list[str]] = {}  # ref name -> candidate callee symbols
     # per file: (defnode_id -> symbol), and the parsed call refs to resolve in pass 2
     pending: list[tuple[str, str, object, dict[int, str], list[tuple[str, object]]]] = []
     n_symbols = 0
@@ -91,17 +103,27 @@ def ingest_tree_sitter(store: Store, files: dict[str, tuple[str, bytes]]) -> Ing
                 if nm is not None:
                     name = nm.text.decode("utf-8", "ignore")
                     sym = synth_symbol(lang, relpath, name, nm.start_point[0])
-                    store.add_symbol(Symbol(symbol=sym, lang=lang, file=relpath,
-                                            name=name, kind=node.type, line=nm.start_point[0]))
+                    store.add_symbol(
+                        Symbol(
+                            symbol=sym,
+                            lang=lang,
+                            file=relpath,
+                            name=name,
+                            kind=node.type,
+                            line=nm.start_point[0],
+                        )
+                    )
                     n_symbols += 1
                     defnode_to_sym[node.id] = sym
                     name_index.setdefault(name, []).append(sym)
             stack.extend(node.children)
 
         # refs: capture call targets for resolution in pass 2 (after all names are known)
-        refs = [(node.text.decode("utf-8", "ignore"), node)
-                for node, cap in get_language(lang).query(spec.call_query).captures(root)
-                if cap == "ref"]
+        refs = [
+            (node.text.decode("utf-8", "ignore"), node)
+            for node, cap in get_language(lang).query(spec.call_query).captures(root)
+            if cap == "ref"
+        ]
         pending.append((relpath, lang, root, defnode_to_sym, refs))
 
     # pass 2: attribute each ref to its enclosing definition, link to same-named defs
@@ -119,8 +141,15 @@ def ingest_tree_sitter(store: Store, files: dict[str, tuple[str, bytes]]) -> Ing
                 if key in seen:
                     continue
                 seen.add(key)
-                store.add_edge(Edge(src=caller, dst=callee, rel="calls",
-                                    source="tree_sitter", provenance="syntactic"))
+                store.add_edge(
+                    Edge(
+                        src=caller,
+                        dst=callee,
+                        rel="calls",
+                        source="tree_sitter",
+                        provenance="syntactic",
+                    )
+                )
                 n_edges += 1
 
     store.commit()

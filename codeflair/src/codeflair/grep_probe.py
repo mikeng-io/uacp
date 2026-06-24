@@ -8,6 +8,7 @@ distinctive one. Language-agnostic (it is text), ``inferred``, file-level.
 Pure transform (``ingest_shared_strings``) over ``{path: text}`` + a repo-walking
 wrapper (``index_repo_strings``). Reads files read-only.
 """
+
 from __future__ import annotations
 
 import os
@@ -28,7 +29,19 @@ _STRUCTURE_RE = re.compile(r"[/.:_-]")
 # not a distinctive coupling — drop it (and avoid O(n^2) pair blow-up).
 _MAX_FILES_PER_TOKEN = 8
 
-_DEFAULT_SUFFIXES = (".go", ".ts", ".tsx", ".js", ".py", ".rs", ".java", ".rb", ".proto", ".yaml", ".yml")
+_DEFAULT_SUFFIXES = (
+    ".go",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".py",
+    ".rs",
+    ".java",
+    ".rb",
+    ".proto",
+    ".yaml",
+    ".yml",
+)
 
 
 # Import paths and URLs are shared by hundreds of files (``github.com/...``, ``https://``)
@@ -68,7 +81,7 @@ def ingest_shared_strings(
             token_files[tok].add(path)
 
     pair_weight: dict[tuple[str, str], int] = {}
-    for tok, paths in token_files.items():
+    for paths in token_files.values():
         if not (2 <= len(paths) <= max_files_per_token):
             continue
         ordered = sorted(paths)

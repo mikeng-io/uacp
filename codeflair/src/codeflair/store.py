@@ -11,6 +11,7 @@ Fused for query (the recursive-CTE blast walk must cross scip+tree_sitter+co_cha
 edges together), partitioned for ingest/freshness: each `source` ingests on its own
 clock via source-scoped delete-and-replace.
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -65,7 +66,7 @@ VALID_COUPLING = frozenset({"co_change", "shared_string"})
 
 @dataclass(frozen=True)
 class Symbol:
-    symbol: str          # the SCIP descriptor (primary key)
+    symbol: str  # the SCIP descriptor (primary key)
     lang: str = ""
     file: str = ""
     name: str = ""
@@ -95,16 +96,20 @@ class Store:
     # -- writes --------------------------------------------------------------
     def add_symbol(self, sym: Symbol) -> None:
         self.con.execute(
-            "INSERT OR REPLACE INTO symbols(symbol,lang,file,name,kind,line) "
-            "VALUES (?,?,?,?,?,?)",
+            "INSERT OR REPLACE INTO symbols(symbol,lang,file,name,kind,line) VALUES (?,?,?,?,?,?)",
             (sym.symbol, sym.lang, sym.file, sym.name, sym.kind, sym.line),
         )
 
     def add_edge(self, edge: Edge) -> None:
         if edge.source not in VALID_SOURCES:
-            raise ValueError(f"unknown edge source {edge.source!r}; expected one of {sorted(VALID_SOURCES)}")
+            raise ValueError(
+                f"unknown edge source {edge.source!r}; expected one of {sorted(VALID_SOURCES)}"
+            )
         if edge.provenance not in VALID_PROVENANCE:
-            raise ValueError(f"unknown provenance {edge.provenance!r}; expected one of {sorted(VALID_PROVENANCE)}")
+            raise ValueError(
+                f"unknown provenance {edge.provenance!r}; "
+                f"expected one of {sorted(VALID_PROVENANCE)}"
+            )
         self.con.execute(
             "INSERT OR REPLACE INTO edges(src,dst,rel,source,provenance) VALUES (?,?,?,?,?)",
             (edge.src, edge.dst, edge.rel, edge.source, edge.provenance),
@@ -129,7 +134,9 @@ class Store:
         """Record a file-level coupling (co-change / shared-string). Pair is canonicalized
         so (A,B) and (B,A) collapse; re-adding accumulates weight."""
         if kind not in VALID_COUPLING:
-            raise ValueError(f"unknown coupling kind {kind!r}; expected one of {sorted(VALID_COUPLING)}")
+            raise ValueError(
+                f"unknown coupling kind {kind!r}; expected one of {sorted(VALID_COUPLING)}"
+            )
         if file_a == file_b:
             return
         a, b = (file_a, file_b) if file_a < file_b else (file_b, file_a)
@@ -139,7 +146,9 @@ class Store:
             (a, b, kind, weight),
         )
 
-    def coupled_files(self, file: str, kind: str | None = None, min_weight: int = 1) -> list[tuple[str, str, int]]:
+    def coupled_files(
+        self, file: str, kind: str | None = None, min_weight: int = 1
+    ) -> list[tuple[str, str, int]]:
         """Files coupled to ``file``, as ``(other_file, kind, weight)`` sorted by weight desc."""
         sql = (
             "SELECT CASE WHEN file_a=? THEN file_b ELSE file_a END AS other, kind, weight "
@@ -163,9 +172,12 @@ class Store:
         return Symbol(*row) if row else None
 
     def symbols_in_file(self, file: str) -> list[str]:
-        return [r[0] for r in self.con.execute(
-            "SELECT symbol FROM symbols WHERE file=? ORDER BY line, symbol", (file,)
-        ).fetchall()]
+        return [
+            r[0]
+            for r in self.con.execute(
+                "SELECT symbol FROM symbols WHERE file=? ORDER BY line, symbol", (file,)
+            ).fetchall()
+        ]
 
     def count_symbols(self) -> int:
         return self.con.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]
@@ -173,12 +185,14 @@ class Store:
     def count_edges(self, source: str | None = None) -> int:
         if source is None:
             return self.con.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
-        return self.con.execute("SELECT COUNT(*) FROM edges WHERE source=?", (source,)).fetchone()[0]
+        return self.con.execute("SELECT COUNT(*) FROM edges WHERE source=?", (source,)).fetchone()[
+            0
+        ]
 
     def close(self) -> None:
         self.con.close()
 
-    def __enter__(self) -> "Store":
+    def __enter__(self) -> Store:
         return self
 
     def __exit__(self, *exc: object) -> None:

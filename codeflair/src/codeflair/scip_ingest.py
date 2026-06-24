@@ -10,6 +10,7 @@ explicit call graph, so a reference edge is attributed to its **enclosing defini
 (the nearest preceding ``Definition`` occurrence in the same document). That yields
 caller -> callee: ``src`` = the enclosing symbol, ``dst`` = the referenced symbol.
 """
+
 from __future__ import annotations
 
 import bisect
@@ -76,7 +77,7 @@ def ingest_scip_json(
     for d in documents:
         path = d.get("relative_path", "")
         if not _is_repo_path(path):
-            continue                         # skip stdlib / dep / go-build-cache documents
+            continue  # skip stdlib / dep / go-build-cache documents
         n_repo_docs += 1
         for o in d.get("occurrences", []):
             rng = o.get("range") or []
@@ -100,7 +101,9 @@ def ingest_scip_json(
     for sym in all_syms:
         path, line = sym_def_loc.get(sym, ("", 0))
         store.add_symbol(
-            Symbol(symbol=sym, lang=_scheme_lang(sym), file=path, name=_display_name(sym), line=line)
+            Symbol(
+                symbol=sym, lang=_scheme_lang(sym), file=path, name=_display_name(sym), line=line
+            )
         )
 
     # edges: each reference -> its enclosing (nearest preceding) definition in the same doc
@@ -121,7 +124,9 @@ def ingest_scip_json(
             if key in seen:
                 continue
             seen.add(key)
-            store.add_edge(Edge(src=caller, dst=ref_sym, rel="calls", source="scip", provenance=provenance))
+            store.add_edge(
+                Edge(src=caller, dst=ref_sym, rel="calls", source="scip", provenance=provenance)
+            )
             n_edges += 1
 
     store.commit()
@@ -130,16 +135,15 @@ def ingest_scip_json(
 
 # -- real-tool wrapper (integration; not exercised by the hermetic unit suite) --------
 
-def index_go_repo(store: Store, repo_path: str, *, scip_go: str = "scip-go", scip: str = "scip") -> IngestStats:
+
+def index_go_repo(
+    store: Store, repo_path: str, *, scip_go: str = "scip-go", scip: str = "scip"
+) -> IngestStats:
     """Index a Go repo with ``scip-go`` and ingest it. Indexes IN ``repo_path`` and reads
     the result read-only — never mutates the target's source. Requires ``scip-go`` and the
     ``scip`` CLI on PATH."""
-    out = subprocess.run(
-        [scip_go, "--output", "/dev/stdout"], cwd=repo_path, capture_output=True
-    )
+    out = subprocess.run([scip_go, "--output", "/dev/stdout"], cwd=repo_path, capture_output=True)
     # scip-go writes protobuf; convert to JSON via `scip print --json -`.
-    printed = subprocess.run(
-        [scip, "print", "--json", "-"], input=out.stdout, capture_output=True
-    )
+    printed = subprocess.run([scip, "print", "--json", "-"], input=out.stdout, capture_output=True)
     data = json.loads(printed.stdout)
     return ingest_scip_json(store, data)

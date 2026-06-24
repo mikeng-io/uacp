@@ -1,5 +1,6 @@
 """Expansion loop: fuse precise edges + inferred coupling; gaps detection."""
-from codeflair import Store, Symbol, Edge, expand, find_test_gaps
+
+from codeflair import Edge, Store, Symbol, expand, find_test_gaps
 from codeflair.query import heatmap
 
 
@@ -35,7 +36,7 @@ def test_expand_adds_inferred_symbols_from_coupled_files():
     )
     res = expand(s, "A")
     syms = [e.symbol for e in res.heatmap]
-    assert "B" in syms and "X" in syms       # precise B + inferred X
+    assert "B" in syms and "X" in syms  # precise B + inferred X
     assert res.n_inferred == 1
 
 
@@ -63,8 +64,8 @@ def test_precise_evidence_wins_over_coupling_for_same_symbol():
     )
     res = expand(s, "A")
     x = next(e for e in res.heatmap if e.symbol == "X")
-    assert x.via == "calls/scip"             # precise, not coupling
-    assert res.n_inferred == 0               # X already precise -> not double-counted
+    assert x.via == "calls/scip"  # precise, not coupling
+    assert res.n_inferred == 0  # X already precise -> not double-counted
 
 
 def test_find_test_gaps_flags_untested_impacted_symbol():
@@ -80,8 +81,7 @@ def test_find_test_gaps_flags_untested_impacted_symbol():
 def test_test_caller_clears_the_gap():
     s = _store_with(
         {"A": "a.go", "B": "b.go"},
-        [Edge("B", "A", "calls", "scip"),
-         Edge("TB", "B", "calls", "scip")],   # a test references B
+        [Edge("B", "A", "calls", "scip"), Edge("TB", "B", "calls", "scip")],  # a test references B
     )
     s.add_symbol(Symbol(symbol="TB", file="b_test.go", name="TB"))
     s.commit()

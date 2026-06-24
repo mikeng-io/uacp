@@ -2,6 +2,7 @@
 
 Gated on the optional tree-sitter dep (install: pip install 'codeflair[treesitter]').
 Run with the dev venv: .venv/bin/python -m pytest."""
+
 import pytest
 
 from codeflair import Store, blast_radius, heatmap
@@ -36,15 +37,17 @@ def test_python_call_edges_resolve_to_enclosing_def():
     helper = next(sym for sym in s.symbols_in_file("m.py") if s.symbol(sym).name == "helper")
     radius = blast_radius(s, helper, direction="callers")
     reached = {s.symbol(sym).name for sym in radius}
-    assert "answer" in reached            # answer -> helper (direct)
-    assert "caller" in reached            # caller -> answer -> helper (transitive)
+    assert "answer" in reached  # answer -> helper (direct)
+    assert "caller" in reached  # caller -> answer -> helper (transitive)
 
 
 def test_edges_are_tagged_syntactic_tree_sitter():
     s = Store()
     ingest_tree_sitter(s, {"m.py": ("python", PY)})
     assert s.count_edges(source="tree_sitter") >= 2
-    row = s.con.execute("SELECT provenance FROM edges WHERE source='tree_sitter' LIMIT 1").fetchone()
+    row = s.con.execute(
+        "SELECT provenance FROM edges WHERE source='tree_sitter' LIMIT 1"
+    ).fetchone()
     assert row[0] == "syntactic"
 
 
@@ -60,12 +63,13 @@ def test_go_and_typescript_parse_into_one_store():
     ts = b"function helper() { return 1; }\nfunction answer() { return helper(); }\n"
     s = Store()
     ingest_tree_sitter(s, {"a.go": ("go", go), "b.ts": ("typescript", ts)})
-    langs = {s.symbol(sym).lang for sym in
-             s.symbols_in_file("a.go") + s.symbols_in_file("b.ts")}
+    langs = {s.symbol(sym).lang for sym in s.symbols_in_file("a.go") + s.symbols_in_file("b.ts")}
     assert langs == {"go", "typescript"}
     # within-language edge present in each, no cross-language symbol edge
     go_helper = next(sym for sym in s.symbols_in_file("a.go") if s.symbol(sym).name == "Helper")
-    assert any(s.symbol(c).name == "Answer" for c in blast_radius(s, go_helper, direction="callers"))
+    assert any(
+        s.symbol(c).name == "Answer" for c in blast_radius(s, go_helper, direction="callers")
+    )
 
 
 def test_heatmap_over_treesitter_floor():

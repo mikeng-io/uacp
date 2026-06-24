@@ -1,7 +1,8 @@
 """Store: schema, source-tagging, stable identity, source-scoped re-ingest."""
+
 import pytest
 
-from codeflair import Store, Symbol, Edge
+from codeflair import Edge, Store, Symbol
 
 
 def test_symbol_identity_is_the_scip_descriptor_not_a_row_id():
@@ -12,7 +13,7 @@ def test_symbol_identity_is_the_scip_descriptor_not_a_row_id():
     s.add_symbol(Symbol(symbol=desc, lang="go", file="pgxpool/pool.go", name="Conn", kind="method"))
     got = s.symbol(desc)
     assert got is not None
-    assert got.symbol == desc          # the descriptor IS the key
+    assert got.symbol == desc  # the descriptor IS the key
     assert got.name == "Conn"
 
 
@@ -24,7 +25,7 @@ def test_reinsert_same_descriptor_is_idempotent_keeps_one_row():
     s.add_symbol(Symbol(symbol=desc, file="a.go", line=1))
     s.add_symbol(Symbol(symbol=desc, file="a.go", line=2))  # moved a line on rebuild
     assert s.count_symbols() == 1
-    assert s.symbol(desc).line == 2     # updated in place under the SAME identity
+    assert s.symbol(desc).line == 2  # updated in place under the SAME identity
 
 
 def test_add_edge_rejects_unknown_source():
@@ -61,8 +62,8 @@ def test_replace_source_file_is_source_scoped():
     s.add_edge(Edge("A", "B", "co_change", "co_change", provenance="inferred"))
     # re-ingest a.go's SCIP edges (now A no longer calls B)
     s.replace_source_file("scip", "a.go", edges=[])
-    assert s.count_edges(source="scip") == 0          # scip edge replaced away
-    assert s.count_edges(source="co_change") == 1     # co_change edge untouched
+    assert s.count_edges(source="scip") == 0  # scip edge replaced away
+    assert s.count_edges(source="co_change") == 1  # co_change edge untouched
 
 
 def test_replace_source_file_rejects_mismatched_edge_source():

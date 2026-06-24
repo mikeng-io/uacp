@@ -10,9 +10,10 @@ reindex; the descriptor is the stable anchor `code_anchor` needs.)
 
 The core has ZERO dependency on UACP (CF-D9). UACP plugs in as an adapter.
 """
-from codeflair.store import Store, Symbol, Edge, VALID_SOURCES, VALID_PROVENANCE, VALID_COUPLING
-from codeflair.query import blast_radius, heatmap, HeatmapEntry
-from codeflair.expand import expand, find_test_gaps, ExpandResult, Gap
+
+from codeflair.expand import ExpandResult, Gap, expand, find_test_gaps
+from codeflair.query import HeatmapEntry, blast_radius, heatmap
+from codeflair.store import VALID_COUPLING, VALID_PROVENANCE, VALID_SOURCES, Edge, Store, Symbol
 
 __all__ = [
     "Store",
