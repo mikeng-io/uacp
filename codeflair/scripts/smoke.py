@@ -34,6 +34,22 @@ def _timed(label, fn):
     return out
 
 
+def _ts_floor(store: Store, repo: str, lang: str) -> None:
+    """Add the tree-sitter syntactic floor for the target language, if the optional dep
+    is installed. This is what gives a non-Go repo (e.g. Python UACP) a symbol layer."""
+    norm = {"py": "python", "python": "python", "go": "go",
+            "ts": "typescript", "typescript": "typescript"}.get(lang)
+    ext = {"python": ".py", "go": ".go", "typescript": ".ts"}.get(norm or "")
+    if not ext:
+        return
+    try:
+        from codeflair.treesitter_ingest import index_repo_tree_sitter
+    except ImportError:
+        print("  (tree-sitter not installed — skipping the syntactic floor)")
+        return
+    _timed("tree-sitter (floor)", lambda: index_repo_tree_sitter(store, repo, suffix_lang={ext: norm}))
+
+
 def ingest_scip_go(store: Store, repo: str) -> int:
     if not (shutil.which("scip-go") and shutil.which("scip")):
         print("  (scip-go/scip not on PATH — skipping precise SCIP layer)")
@@ -61,6 +77,7 @@ def main() -> None:
     print("INGEST")
     if lang == "go":
         _timed("scip (precise)", lambda: ingest_scip_go(store, repo))
+    _ts_floor(store, repo, lang)
     _timed("co-change (git)", lambda: index_repo_cochange(store, repo, path_suffixes=suffix))
     _timed("grep (shared strings)", lambda: index_repo_strings(store, repo))
 

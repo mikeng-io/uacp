@@ -29,3 +29,6 @@ __pycache__/
 #   ln -sfn ../../skills/vendor/code-review-skill code-review-skill
 .claude/skills/
 .mcp.json
+
+# Codeflair dev venv (tree-sitter etc.)
+codeflair/.venv/

@@ -11,6 +11,9 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "ruff>=0.15"]
+# tree-sitter breadth floor (CF-D14): syntactic symbols for all languages, no external
+# SCIP indexer. Pinned to the stable classic-API combo (0.25/language-pack churn the API).
+treesitter = ["tree-sitter==0.21.3", "tree-sitter-languages==1.10.2"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -19,6 +22,11 @@ where = ["src"]
 pythonpath = ["src"]
 testpaths = ["tests"]
 addopts = "-q"
+filterwarnings = [
+    # tree-sitter-languages 1.10 pins an old tree-sitter whose Language(path,name) ctor
+    # is deprecated; the warning is from the dependency, not our code.
+    "ignore:Language.path, name. is deprecated:FutureWarning",
+]
 
 [tool.ruff]
 line-length = 100
