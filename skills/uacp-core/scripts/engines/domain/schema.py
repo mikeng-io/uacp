@@ -203,10 +203,11 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     # uacp.triage — the admission verdict (TRIAGE serialize). OPEN-world: the producer
     # (skills/uacp-triage) emits optional fields the gate does not require (granularity, council,
     # human_involvement, artifact_policy); closing it would false-reject real docs.
-    # `granularity_level` is the canonical composite-granularity field that gate-selection, the
-    # route-bands, and validate_triage all consume; the triage skill now emits it (alongside the
-    # newer composite_granularity / phase_local_granularity), so it is required here too
-    # (producer<->consumer reconciled 2026-06-24).
+    # `granularity_level` is the canonical composite-granularity REQUIRED key — gate-selection, the
+    # route-bands, and validate_triage all REQUIRE it (composite_granularity is the value the gate
+    # actually scores on; granularity_level is the contract key, never read). The triage skill now
+    # emits it (with the newer composite_granularity / phase_local_granularity), so it is required
+    # here too (producer<->consumer reconciled 2026-06-24).
     "uacp.triage": {
         "$schema": _DRAFT,
         "type": "object",

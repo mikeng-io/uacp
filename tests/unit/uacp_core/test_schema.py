@@ -463,15 +463,19 @@ def test_brainstorm_scope_package_flat_required_open():
         "declared_side_effects": [],
         "authority": {"source": "user"},
     }
-    assert validate("uacp.brainstorm_scope_package", nested), "retired nested shape must now fail"
+    assert any(
+        "title" in e or "in_scope" in e or "routing_advisory" in e
+        for e in validate("uacp.brainstorm_scope_package", nested)
+    ), "retired nested shape must fail on the missing flat root fields"
     # missing a required flat field (in_scope) -> fails
     bad = _valid_brainstorm()
     del bad["in_scope"]
     assert any("in_scope" in e for e in validate("uacp.brainstorm_scope_package", bad))
     # empty title -> fails (non-empty admission rule)
-    assert validate(
-        "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "title": ""}
-    ), "empty title must fail"
+    assert any(
+        "title" in e
+        for e in validate("uacp.brainstorm_scope_package", {**_valid_brainstorm(), "title": ""})
+    )
     # wrong kind const -> fails (mis-dispatch guard)
     bad4 = {**_valid_brainstorm(), "kind": "uacp.WRONG"}
     assert any(
