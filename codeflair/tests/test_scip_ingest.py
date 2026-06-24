@@ -87,6 +87,22 @@ def test_local_symbols_and_rangeless_occurrences_are_skipped():
     assert s.symbol("local 0") is None
 
 
+def test_ingest_skips_stdlib_and_build_cache_documents():
+    # scip-go emits documents for the stdlib + go-build cache (paths escaping the repo).
+    # Those must not enter the graph — only real repo files.
+    data = {"documents": [
+        {"relative_path": "internal/api/server.go", "occurrences": [_occ(FOO, 3, _DEF)]},
+        {"relative_path": "../../Library/Caches/go-build/ab/cached-d", "occurrences": [_occ(BAR, 1, _DEF)]},
+        {"relative_path": "/usr/local/go/src/testing/testing.go", "occurrences": [_occ(BAZ, 1, _DEF)]},
+    ]}
+    s = Store()
+    stats = ingest_scip_json(s, data)
+    assert stats.documents == 1                 # only the repo doc
+    assert s.symbol(FOO) is not None
+    assert s.symbol(BAR) is None                # build-cache def dropped
+    assert s.symbol(BAZ) is None                # stdlib def dropped
+
+
 def test_ingest_empty_index_is_clean():
     s = Store()
     stats = ingest_scip_json(s, {"documents": []})

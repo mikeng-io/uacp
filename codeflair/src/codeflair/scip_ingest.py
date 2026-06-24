@@ -40,6 +40,15 @@ def _display_name(symbol: str) -> str:
     return symbol.split(" ")[-1].split("/")[-1] or symbol
 
 
+def _is_repo_path(path: str) -> bool:
+    """True for a file that actually lives in the indexed repo. scip-go also emits
+    documents for the stdlib and the go-build cache (``../../Library/Caches/...``); those
+    escape the repo root or are absolute and must not pollute the graph."""
+    if not path or path.startswith("../") or path.startswith("/"):
+        return False
+    return "go-build" not in path and "/Caches/" not in path
+
+
 def ingest_scip_json(
     store: Store,
     data: dict,
@@ -60,8 +69,12 @@ def ingest_scip_json(
     sym_def_loc: dict[str, tuple[str, int]] = {}
     all_syms: set[str] = set()
 
+    n_repo_docs = 0
     for d in documents:
         path = d.get("relative_path", "")
+        if not _is_repo_path(path):
+            continue                         # skip stdlib / dep / go-build-cache documents
+        n_repo_docs += 1
         for o in d.get("occurrences", []):
             rng = o.get("range") or []
             if not rng:
@@ -109,7 +122,7 @@ def ingest_scip_json(
             n_edges += 1
 
     store.commit()
-    return IngestStats(documents=len(documents), symbols=len(all_syms), edges=n_edges)
+    return IngestStats(documents=n_repo_docs, symbols=len(all_syms), edges=n_edges)
 
 
 # -- real-tool wrapper (integration; not exercised by the hermetic unit suite) --------
