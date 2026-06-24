@@ -68,6 +68,22 @@ Coarse graph + slow naive RAG = lookup that does not work. Codeflair is the answ
 index** (the producer Trustless lacked) + **iterative expansion + light-model pruning** — not one slow
 whole-document RAG pass. 42s/query is the bar any Codeflair query must beat ([05-benchmark](05-benchmark.md)).
 
+## The landing: Codeflair is a DETERMINISTIC engine (no LLM)
+
+The design's conclusion (CF-D11/D13): the engine is **deterministic, core and cross-language.** Blast
+radius is transitive closure; relevance is a scoring function; cross-language links are grep/contract/
+co-change. **No LLM** — semantics lives in the orchestrator, not Codeflair. The LLM is a deferred,
+probably-unnecessary residual.
+
+**Proven on Trustless (spike, 2026-06-24):** scip-go indexed the repo in **4.1s**; ingest → SQLite **0.3s**;
+blast-radius query **0.1–0.2 ms** and *correct* (`Pool#Conn` → the right dependent repositories);
+**multi-language fusion** (Go + TS, one store, 0 collisions, 0 cross-language symbol edges, as predicted).
+~`200,000×` under the 42s/query bar — with zero LLM. The operational layers (freshness/SCIP⊕LSP reconcile,
+co-change, grep, heatmap ranking, recall@K) remain to build/test.
+
+Full operational detail: [10-freshness](10-freshness.md) · [11-substrate](11-substrate.md) ·
+[12-delivery](12-delivery.md) · [13-multi-language](13-multi-language.md).
+
 ## Scope
 
 It does **not** decide implementation (model id, beam width, index cadence, exact trace format) — that is

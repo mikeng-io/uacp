@@ -13,6 +13,12 @@ edges:
 This is **search/evidence expansion** — iterating *probe → prune* to grow the evidence frontier — **not**
 query-string expansion (a rejected prior; see [CF-D7](07-decisions.md)).
 
+> **UPDATED by [CF-D11](07-decisions.md):** the score/prune step is **deterministic by default** (a
+> scoring function: edge-type · graph-distance · co-change-PMI · recency · centrality). **There is no LLM
+> in the core loop.** The A/B/C *LLM* policies below are **deferred** — kept only as future benchmark
+> curiosities that would have to beat the deterministic default (Policy D), which the Trustless spike
+> shows is fast and correct on its own. Read the rest of this node as "Policy D is the engine."
+
 ## The loop
 
 ```

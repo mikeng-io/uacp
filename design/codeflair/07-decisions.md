@@ -119,3 +119,39 @@ trace) and lose only the cross-plane "what governs this code" half. The eval see
 way (`layer: core | uacp-adapter`; see `eval/seed-set.yaml`, PR #13). The governed-writer preconditions of
 [CF-D8](07-decisions.md)/[01b-store](01b-store.md) are **adapter-scoped** — standalone, the engine just
 writes a cache dir.
+
+## CF-D11 — Codeflair is deterministic; no LLM in the core (Policy D is the engine)
+
+**Chosen:** the engine is a **deterministic graph + statistics** machine — index (SCIP/LSP parse) →
+store (SQLite) → traverse (recursive CTE) → rank (edge-type · graph-distance · co-change-PMI · recency ·
+centrality). **No LLM in the core loop.** **Rejected:** the "light-LLM-pruned loop" (the old A/B/C
+framing) as the default. **Why:** reasoning from first principles, *blast radius is transitive closure and
+relevance is a scoring function* — neither is semantic. Empirically confirmed on Trustless: sub-millisecond
+correct blast radius, zero LLM, ~200,000× under the 42s/query bar. Policy D (no-LLM) is therefore the
+**default engine**, not a benchmark control; A/B/C are deferred curiosities. Any optional model use is
+confined to **structure** (rank/cluster), **never content** (no summarizing/"semanticfy" — that breaks
+re-derivability and steals the orchestrator's job). Semantics lives in the **orchestrator**, not Codeflair.
+
+## CF-D12 — Standalone, zero-UACP, installable package; repo location reversible; Go is the product home
+
+**Chosen:** a standalone, **zero-UACP** package — lib + CLI + MCP + plugin (CF-D9 faces), independently
+installable, a CI lint enforcing "no UACP import in core." **Repo location is reversible:** in-repo
+package now, extract to its own repo when adoption/release-cadence demands. **Product language = Go**
+(single static binary for portable execution, SCIP-ecosystem-native, embeds scip-go, dogfoods); Python is
+the spike language; perf is language-agnostic (SCIP+SQLite do the work). **Install model:** one binary;
+Codeflair auto-fetches **prebuilt** SCIP indexers (not `go install` — empirically broken); LSP is
+**discovered/provisioned and degrades gracefully, never dropped** (it's the freshness half of the SCIP⊕LSP
+reconcile); the host needs nothing but Codeflair + the toolchain it already has for its own code. Detail
+in [12-delivery](12-delivery.md).
+
+## CF-D13 — Cross-language coherence is deterministic; the LLM is a deferred residual
+
+**Chosen:** cross-language links are built from **deterministic** signals — **grep** (shared route/command/
+event strings; grep is language-agnostic), **contract parsing** (proto/OpenAPI/GraphQL codegen), and
+**co-change**. SCIP gives **zero** cross-language edges (proven), so these *construct* the inferred layer.
+**Rejected (deferred):** a semantic/embedding matcher. **Why:** the real couplings (HTTP/CLI/events) are
+shared strings grep already catches; the only residual an LLM adds is meaning-matched entities with no
+shared string, no contract, and no co-change — **weak-by-definition**, probably not blast-radius-relevant.
+Revisit an LLM only if real usage proves the residual matters. Cross-language edges are `inferred`,
+hypothesis-only. Detail in [13-multi-language](13-multi-language.md). *(This, with CF-D11, lands the whole
+design: Codeflair is deterministic, core and cross-language; the LLM is a maybe-never.)*

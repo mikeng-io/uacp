@@ -29,8 +29,11 @@ model. So the benchmark adds a **mandatory control**:
   edge-type confidence + graph distance + co-change PMI + recency. Fully deterministic, millisecond-fast,
   no eval-labeling dependency to *run*.
 
-Pruning at scale is necessary (a cardinality problem); whether it needs an **LLM** is the open question.
-Policy D is the null hypothesis the LLM policies must beat.
+Pruning at scale is necessary (a cardinality problem); whether it needs an **LLM** was the question —
+**now resolved by [CF-D11](07-decisions.md): no. Policy D is the default engine**; the Trustless spike
+shows deterministic ranking is fast + correct. The A/B/C *LLM* policies are **deferred** — kept only as
+future curiosities that would have to beat D; this bench section stands as the gate *if* they're ever
+revisited.
 
 ## What is fixed vs. what the benchmark decides
 

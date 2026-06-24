@@ -47,8 +47,9 @@ So write-scope is precise: the **query layer** writes nothing and asserts no man
 > unanchored?" It does **not** do *causal/corrective* reasoning — outside its contract, and structurally
 > moot since the query layer emits no manifest edge.
 
-Relation-finding is a **narrow-the-haystack** job, not a **solve-the-puzzle** job, so a 4B-class model
-*may* suffice — or a no-LLM baseline may match it (Policy D, [05](05-benchmark.md)). The expensive
+Relation-finding is a **narrow-the-haystack** job, not a **solve-the-puzzle** job. **Resolved by
+[CF-D11](07-decisions.md): the core is deterministic — no LLM.** Ranking is a scoring function (Policy D);
+the model question is closed (deferred). The expensive
 orchestrator does the causal reasoning on the focused heatmap.
 
 ## Division of labor
