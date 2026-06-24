@@ -269,8 +269,9 @@ artifact_schema:
         plus none.
     granularity_level:
       type: integer
-      description: Legacy/current composite governance intensity. Prefer phase_local_granularity
-        and composite_granularity when available.
+      description: Canonical required composite governance intensity (== composite_granularity,
+        the value the coherence gate scores on). phase_local_granularity and composite_granularity
+        are the richer per-phase breakdown, NOT a successor to migrate to.
     triage_artifact:
       type: string
     gate_selection_artifact:

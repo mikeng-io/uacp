@@ -15,6 +15,8 @@ routing_inputs:
 - domains
 - artifact_types
 - risk_level
+# granularity_level == composite_granularity (the canonical required key = the value the
+# coherence gate scores on); phase_local_granularity is the richer per-phase breakdown, not a rename.
 - granularity_level
 - phase_local_granularity
 - composite_granularity

@@ -135,7 +135,9 @@ triage_artifact_schema:
         notes: list
     granularity_level:
       type: integer
-      description: "Calculated 1-10 governance burden."
+      # Canonical required contract key = composite_granularity (the value the coherence gate
+      # scores on). granularity_level is what schemas/validators REQUIRE; composite is what is READ.
+      description: "Calculated 1-10 governance burden (canonical alias of composite_granularity)."
     routing_outcome:
       type: enum
       values: [direct, lightweight, standard_uacp, full_governance, block_or_clarify]
