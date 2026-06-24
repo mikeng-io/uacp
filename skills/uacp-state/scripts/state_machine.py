@@ -306,8 +306,38 @@ def handle_read(args: dict[str, Any]) -> str:
         return json.dumps({"error": f"read failed: {type(exc).__name__}: {exc}"})
 
 
+# Phases whose exit has a defined structural-graph subset (D35). Earlier phases
+# (triage/propose) have no graph layer yet, so their exit is not graph-gated.
+_GRAPH_GATED_PHASES: frozenset[str] = frozenset({"plan", "execute", "verify"})
+
+
+def _run_transition_graph_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
+    """Phase-scoped structural graph gate for a LIVE transition (D35).
+
+    Forces ``validate_graph_invariants('<from_phase>_exit')`` onto the live
+    transition path — the state-derived structural subset of the Heartgate
+    transition gate (dropped intent / orphan / phantom / missing coverage /
+    contradiction), which otherwise runs only inside the agent-invoked
+    ``validate_transition``. Returns block-severity violations as ``"CODE: message"``
+    strings (empty == pass). Phase-independent, so it runs BEFORE the phase mutation
+    (no revert needed). Fail-closed: a gate that cannot run blocks the transition.
+
+    Lazy import: keeps the state machine free of the engines package for callers
+    that never transition, and avoids the engines->state_machine import cycle.
+    """
+    if from_phase not in _GRAPH_GATED_PHASES:
+        return []
+    try:
+        from engines.graph_projection import validate_graph_invariants
+
+        violations = validate_graph_invariants(workspace, run_id, f"{from_phase}_exit")
+        return [f"{v.code}: {v.message}" for v in violations if v.severity == "block"]
+    except Exception as exc:  # fail-closed: an unrunnable gate must not advance
+        return [f"TRANSITION_GRAPH_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+
+
 def handle_transition(args: dict[str, Any]) -> str:
-    """Locked phase transition with validation."""
+    """Locked phase transition with validation + the phase-exit structural gate."""
     try:
         workspace = Path(str(args.get("workspace") or ".")).resolve()
         run_id = str(args.get("run_id") or "").strip()
@@ -336,6 +366,19 @@ def handle_transition(args: dict[str, Any]) -> str:
             return json.dumps({
                 "error": f"transition not allowed: {from_phase} -> {to_phase} (allowed: {sorted(allowed)})",
             })
+
+        # Phase-exit structural gate: run the state-derived graph invariants for
+        # this exit BEFORE advancing. Forces the gate onto the live path so a
+        # phase can no longer advance past a dropped/orphan/phantom/contradicted
+        # graph just because the agent skipped uacp_heartgate_check. Fail-closed.
+        gate_blockers = _run_transition_graph_gate(workspace, run_id, from_phase)
+        if gate_blockers:
+            return json.dumps({
+                "error": "transition blocked by phase-exit structural gate",
+                "from_phase": from_phase,
+                "to_phase": to_phase,
+                "blockers": gate_blockers,
+            }, ensure_ascii=False)
 
         manifest.current_phase = to_phase
         if to_phase in TERMINAL_PHASES:
