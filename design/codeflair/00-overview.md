@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: Codeflair — The Code Engine (Overview)
-description: Codeflair is UACP's 4th engine — the codespace plane, end-to-end: it PRODUCES the code graph (SCIP indexing), STORES it, and QUERIES it (the relation-finder loop + heatmap). The mission (mechanize the manual grep·LSP·SCIP comprehension chain), the sibling framing, why it is an engine (it owns the code-graph store), the gap it closes (a producer for the declared-but-unproduced code_anchor), and scope.
+description: Codeflair is a STANDALONE code-intelligence engine (runs on any git repo, zero UACP, CF-D9); embedded in UACP it serves as the 4th engine (the codespace plane). It PRODUCES the code graph (SCIP indexing), STORES it, and QUERIES it (the relation-finder loop + heatmap). The mission (mechanize the manual grep·LSP·SCIP comprehension chain), the standalone/adapter split, why it is an engine (it owns the code-graph store), the gap it closes (a producer for the declared-but-unproduced code_anchor), and scope.
 tags: [codeflair, code-engine, code-plane, relation-finder, overview]
 timestamp: 2026-06-24
 edges: []

@@ -20,10 +20,10 @@ their results* is the benchmarked policy ([03](03-expansion-loop.md)).
 |---|---|---|---|---|
 | **LSP** | live language server | refs / impls / call-hierarchy — live, stale-tolerant | `parsed` (real edge) | ✓ now |
 | **grep** | raw text | strings, config keys, cross-language, dynamic/reflective refs | in-memory hit (text match) | ✓ now |
-| **manifest-graph** | the **Manifest engine** read-side projection (D43/D44) | `derives_from` / work_unit / proposal edges | the edge's own provenance (`derives_from`=`asserted`; FK=`derived`) | ✓ now |
+| **manifest-graph** | the **Manifest engine** read-side projection (D43/D44) | `derives_from` / work_unit / proposal edges | the edge's own provenance (`derives_from`=`asserted`; FK=`derived`) | adapter only |
+| **code_anchor** | adapter join (Manifest checkpoint ↔ `code_symbol`) | the cross-plane hop | `parsed` | adapter only |
 | **co-change** | commit history | files/symbols that change **together** — temporal | in-memory result (`inferred`-grade; not a manifest edge) | ✓ now |
-| **SCIP** | per-commit symbol index, produced by [01a](01a-indexer.md) | `defines` / `references` / `calls` — precise symbol edges | `parsed` (real edge) | engine phase-1 |
-| **code_anchor** | produced by [01a](01a-indexer.md) | the cross-plane hop: a checkpoint → its `code_symbol` | `parsed` (real edge) | engine phase-1 |
+| **SCIP** | per-commit symbol index, produced by [01a](01a-indexer.md) | `defines` / `references` / `calls` — precise symbol edges | `parsed` (real edge) | core, phase-1 |
 
 > **Probe layers (CF-D9, [09-abstraction](09-abstraction.md)):** SCIP / LSP / grep / co-change are
 > **core** — they run standalone on any git repo. `manifest-graph` and `code_anchor` are the
@@ -59,16 +59,17 @@ parallel and merges them:
 
 The orchestrator stops being the probe-sequencer. It receives the *reconciled* result.
 
-## The cross-plane join is what makes this more than agentic grep
+## The cross-plane join (UACP adapter only) — what makes this more than agentic grep *when embedded*
 
-A code hit is a **code-plane** node (symbol/file). A proposal or work_unit is a **relation-plane** node.
-Alone, neither answers "what governs this code / what code realizes this intent." The **`code_anchor`**
-edge bridges them. It is **directional** — `checkpoint → code_symbol` (`10-edge-schema.md:62`) — so the
-frontier crosses *forward* checkpoint→symbol along the edge, and *backward* symbol→checkpoint via a
-**reverse index lookup**, not a symmetric edge. A Codeflair heatmap therefore **spans both planes** —
-code symbols *and* the manifest intent they trace to. Per D44:912 this is a *query-time join in the
-calling skill*, the sanctioned cross-plane pattern (see [01-contract](01-contract.md)). It is gated on
-the code plane being built (above).
+**Standalone, the core is a strong relation-finder for the code side** (refs + call-hierarchy + co-change
++ grep/LSP reconcile) — essentially mechanized grep·LSP·SCIP. **When the UACP adapter is registered**, it
+becomes more: a code hit is a **code-plane** node; a proposal or work_unit is a **relation-plane** node;
+alone neither answers "what governs this code / what code realizes this intent." The adapter's
+**`code_anchor`** join bridges them. It is **directional** — `checkpoint → code_symbol`
+(`10-edge-schema.md:62`) — so the frontier crosses *forward* checkpoint→symbol, and *backward* via a
+**reverse index lookup**, not a symmetric edge. The heatmap then **spans both planes**. Per D44:912 this
+is a *query-time join in the calling skill*, the sanctioned cross-plane pattern (see
+[01-contract](01-contract.md)). Gated on the code plane being built.
 
 ## Why co-change is first-class — but default-on is benchmarked
 
@@ -85,10 +86,11 @@ The **live** decisions (earlier ones were superseded):
 
 - **SCIP** indexer for symbol-precise code edges — **D12** (the indexer verdict is live; this engine
   *realizes* it as [01a](01a-indexer.md), feeding the store [01b](01b-store.md) it now owns).
-- **Structural store = plain YAML + in-memory projection; semantic = LanceDB; no sqlite-vec, no
-  structural DB** — **D29** (supersedes D16; D13's sqlite-vec is obsoleted via the D13→D16→D29 chain).
-  The Qwen3 reranker is post-retrieval/store-agnostic and survives.
+- **Code-plane store = SQLite + recursive CTE** (this engine's own store, [01b](01b-store.md)) — **D12**.
+  Note **D29** ("plain YAML + in-memory; no sqlite-vec; semantic = LanceDB") governs the **manifest /
+  relation plane**, not the code plane — it bounds what the *adapter's* manifest-graph probe reads, not
+  Codeflair's code store. The Qwen3 reranker is post-retrieval/store-agnostic and survives either way.
 - **Indexing is folded into each engine's read-side; cross-plane = a query-time join in the calling
   skill** — **D44** (supersedes D14/D17/D37).
 
-Codeflair adds **no** new store — it is a reader.
+Codeflair *owns* its code-graph store ([01b](01b-store.md)); it adds **no** new store to the planes it reads.

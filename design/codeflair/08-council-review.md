@@ -103,11 +103,24 @@ engine; storage-touched-only-by-engines). All substrate citations check out.
 
 Round-3 verdict: **SOUND-WITH-FIXES, all applied.**
 
-## Round 4 — the core/UACP-adapter abstraction (CF-D9) — REQUIRED
+## Round 4 — the core/UACP-adapter abstraction (CF-D9)
 
-After R3 the bundle gained **CF-D9** ([09-abstraction](09-abstraction.md)): Codeflair's core is
-UACP-independent (standalone on any git repo); UACP is a pluggable adapter (manifest-graph + `code_anchor`
-+ the governed-writer wrapper). This reshapes 00/01/02/01b and adds node 09. **A Round 4 council must**
-verify: (1) the seam (probe registry + stable `query()` API) genuinely keeps UACP out of the core; (2) no
-node still hard-codes a UACP dependency into a core capability; (3) the governed-writer preconditions are
-consistently scoped adapter-only. Include a cross-provider voice.
+Run on the CF-D9 reframe. 3 voices, all grounded: **Architecture lens** (Claude, read all 13 nodes),
+**kimi** (Moonshot), **minimax-m3** (opencode) — all **SOUND-WITH-FIXES, no architectural problem.**
+Consensus: *the seam itself holds* (probe registry + stable `query()` API; governed-writer scoping,
+dependency direction, CF-D8↔CF-D9 coherence all **passed**) — but the prose carried "UACP is implicit
+everywhere" residue that leaked the adapter-shape into core nodes.
+
+### Findings & disposition (all FIXED in this commit)
+
+| # | Finding (severity) | Raised by | Fix |
+|---|---|---|---|
+| R4-1 | **`04-outputs` claimed the heatmap always spans "both planes"** — relation-plane nodes are adapter-only. (P1/P2) | all 3 | [04](04-outputs.md): scoped to "only when the adapter is registered; standalone = code-plane only" |
+| R4-2 | **`01a-indexer` produced `code_anchor`** — but `checkpoint` is a UACP concept the core can't know. (P2) | all 3 | [01a](01a-indexer.md): core emits the code-side floor only; `code_anchor` is an **adapter-side join** |
+| R4-3 | **`02-probes` "more than agentic grep" / manifest-graph "✓ now"** stated cross-plane as core. (P2/P3) | Claude, minimax | [02](02-probes.md): cross-plane prose made adapter-conditional; manifest-graph + code_anchor marked "adapter only" |
+| R4-4 | **gaps over-claimed as kept standalone** (no-anchor / orphan are adapter). (P2) | kimi, minimax | [09](09-abstraction.md): structural gaps = core; cross-plane gaps = adapter |
+| R4-5 | **eval/seed-set.yaml cited as present** — it's on PR #13, not this branch. (P1/P3) | all 3 | softened to a forward-reference in [09](09-abstraction.md) + [CF-D9](07-decisions.md) |
+| R4-6 | **frontmatter + substrate hygiene** — descriptions led "UACP's 4th engine"; D29 (manifest plane) cited as the code store; "explicit exception" over-claim. (P3) | kimi, minimax | frontmatter leads standalone; D29 scoped to the manifest plane (code store = D12); "exception" softened to "scheduled, not blocked" |
+
+Round-4 verdict: **SOUND-WITH-FIXES, all applied.** The abstraction holds; no architectural rethink. No
+further council required before PROPOSE.

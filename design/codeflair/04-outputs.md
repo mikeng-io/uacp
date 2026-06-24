@@ -14,8 +14,10 @@ A run returns one object: a **read-only heatmap**, pre-governance input for the 
 
 ## 1. The heatmap subgraph
 
-A ranked subgraph spanning **both planes** — code-plane nodes (symbols/files) and the relation-plane
-manifest nodes they anchor to. Each node carries a **relevance weight** (the "heat"), so the
+A ranked subgraph over the **code plane** (symbols/files) — and, **only when the UACP adapter is
+registered**, the relation-plane manifest nodes they anchor to. Standalone the heatmap is code-plane
+only (CF-D9, [09-abstraction](09-abstraction.md)); the schema is identical either way, the adapter just
+*adds* relation-plane node types. Each node carries a **relevance weight** (the "heat"), so the
 orchestrator can read it as *here is the blast radius, hottest first* without re-ranking. This is the
 context-compression payload: a few dozen weighted nodes standing in for a million-node graph.
 

@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: Codeflair — Contract & Engine Identity
-description: Codeflair IS UACP's 4th engine (it owns the code-graph store); the build-side writes a rebuildable index (not governed state), the query layer stays read-only/hypothesis-only over that store. The "expand, don't diagnose" contract, the division of labor, and the deliberate reversal of the first cut's "not an engine" framing.
+description: Codeflair is an engine that owns its code-graph store in BOTH modes — standalone (no UACP) and as UACP's embedded 4th engine (CF-D9). The build-side writes a rebuildable index (not governed state); the query layer stays read-only/hypothesis-only. The "expand, don't diagnose" contract, the division of labor, and the deliberate reversal of the first cut's "not an engine" framing.
 tags: [codeflair, contract, identity, engine, ddd]
 timestamp: 2026-06-24
 edges:

@@ -21,22 +21,24 @@ core*.
 | Probes | SCIP · LSP · grep · co-change | manifest-graph · `code_anchor` cross-plane join |
 | Store | code-graph in a plain cache dir | (same store; path moved outside `.uacp/` governed roots) |
 | Loop | expansion + prune (policy D/A/B/C) | unchanged |
-| Output | heatmap: blast radius · relations · gaps | + relation-plane nodes ("what governs this code") |
+| Output | heatmap: blast radius · code-side relations · structural gaps | + relation-plane nodes + cross-plane gaps ("what governs this code") |
 | Writes | just writes its index — no gate | the governed-writer/Guardian-path preconditions ([01b](01b-store.md), [CF-D8](07-decisions.md)) |
-| Identity | a code-intelligence engine (owns its store) | "a calling skill above the UACP ring" (D44:912) |
+| Identity | a code-intelligence engine (owns its store) | a calling skill (drivers sit above the ring, `29-ddd-ca-reference.md`) doing a query-time cross-plane join (D44:912) |
 | Reasoning model | the expensive caller (any orchestrator) | the UACP run's orchestrator |
 
 ## What you keep / lose without UACP
 
 - **Keep (the core):** symbol blast-radius, reference/call-hierarchy walking, co-change correlation,
-  grep/LSP reconciliation, the heatmap (blast radius + relations + gaps), the replayable trace, the whole
-  expansion-loop + benchmark. A bare-repo developer (or any agent) gets the full code-side value.
+  grep/LSP reconciliation, **code-side relations** (`defines`/`references`/`calls`/co-change), the
+  heatmap, the replayable trace, the whole expansion-loop + benchmark, and **structural gaps** (e.g. a
+  caller with no test). A bare-repo developer (or any agent) gets the full code-side value.
 - **Lose (the adapter):** the cross-plane join — *which manifest intent governs this code*, *which code
-  realizes this proposal* — and the governance integration (watermark-on-run, governed-writer wrapper).
-  The heatmap simply carries no relation-plane nodes.
+  realizes this proposal* — the **manifest relations** (`derives_from`/work_unit) and the **cross-plane
+  gaps** (no-manifest-anchor / orphan), and the governance integration (watermark-on-run, governed-writer
+  wrapper). The heatmap simply carries no relation-plane nodes.
 
-The eval set already shows the ratio: **5 of 6 starter pairs are `core`**; only the cross-plane orphan is
-`uacp-adapter` ([eval/seed-set.yaml](eval/seed-set.yaml)).
+The eval seed-set is split the same way (`layer: core | uacp-adapter`) — see `eval/seed-set.yaml`
+(PR #13); of the starter pairs only the cross-plane orphan is `uacp-adapter`.
 
 ## The seam (how the adapter plugs in)
 

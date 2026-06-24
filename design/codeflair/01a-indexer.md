@@ -29,9 +29,11 @@ Per D44's Code-engine shape (*"build = SCIP per-commit (persisted) + LSP live"*)
   integration ("lean adopt codegraph", D34) — the producer is decided at BUILD, not asserted here.
 - **LSP live** — the freshness complement for the working tree (refs/impls/call-hierarchy), tolerating
   the staleness SCIP's per-commit snapshot carries.
-- **`code_anchor` edges** — `checkpoint → code_symbol`, binding a manifest checkpoint to the code it
-  touched. This is the **cross-plane bridge** the query layer's join needs (D44:912); the producer is
-  what finally populates it.
+- **`code_anchor` edges are NOT a core-indexer output** — they bind a *manifest* `checkpoint` →
+  `code_symbol`, and `checkpoint` is a UACP concept the core indexer cannot know (CF-D9). The core
+  indexer emits only the **code-side floor** (`code_symbol` + `defines`/`references`/`calls`); the
+  **UACP adapter** supplies the checkpoint side and emits `code_anchor` as a manifest-derived join
+  (D44:912). Litmus: if the core indexer references `checkpoint`, the seam is violated.
 - **tree-sitter** — a cheap change-detector deciding *what* to re-index per commit (not a graph source).
 
 ## Build discipline (design altitude; details to BUILD)
