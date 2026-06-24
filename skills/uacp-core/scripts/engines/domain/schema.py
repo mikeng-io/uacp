@@ -200,6 +200,64 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "side_effects": {"description": "Optional; type unconstrained until grounded."},
         },
     },
+    # uacp.triage — the admission verdict (TRIAGE serialize). OPEN-world: the producer
+    # (skills/uacp-triage) emits optional fields the gate does not require (granularity, council,
+    # human_involvement, artifact_policy); closing it would false-reject real docs.
+    # `granularity_level` is the canonical composite-granularity field that gate-selection, the
+    # route-bands, and validate_triage all consume; the triage skill now emits it (alongside the
+    # newer composite_granularity / phase_local_granularity), so it is required here too
+    # (producer<->consumer reconciled 2026-06-24).
+    "uacp.triage": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": [
+            "kind",
+            "triage_id",
+            "request_summary",
+            "authority",
+            "factor_scores",
+            "routing_outcome",
+            "next_step",
+            "granularity_level",
+        ],
+        "properties": {
+            "kind": {"const": "uacp.triage"},
+            "triage_id": {"type": "string", "minLength": 1},
+            "request_summary": {"type": "string", "minLength": 1},
+            "authority": {
+                "type": "object",
+                "properties": {"status": {"enum": ["pass", "warn", "block"]}},
+            },
+            "factor_scores": {"type": "object"},
+            "granularity_level": {"type": "integer"},
+            "routing_outcome": {
+                "enum": [
+                    "direct",
+                    "lightweight",
+                    "standard_uacp",
+                    "full_governance",
+                    "block_or_clarify",
+                ],
+            },
+            "track": {"enum": ["standard", "goal-driven"]},
+            "next_step": {"type": "string", "minLength": 1},
+        },
+    },
+    # uacp.brainstorm_scope_package — the bounded scope crossing brainstorm->triage (BRAINSTORM
+    # serialize). MINIMAL shape (kind-const + OPEN-world) on purpose: its producers DISAGREE on
+    # structure — the phase-7 skill doc prescribes a NESTED shape (selected_scope{title,...} +
+    # estimated_governance{routing_advisory}), while the e2e harness writes a FLAT root. There is no
+    # kernel validator to arbitrate, and the Heartgate only requires the file to exist. Imposing
+    # either shape here would false-reject the other, so we validate only the kind and accept any
+    # fields. FOLLOW-ON: reconcile the model to ONE shape (doc vs e2e), then tighten this schema.
+    "uacp.brainstorm_scope_package": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": ["kind"],
+        "properties": {
+            "kind": {"const": "uacp.brainstorm_scope_package"},
+        },
+    },
     "uacp.run_registry": {
         "$schema": _DRAFT,
         "type": "object",
@@ -391,6 +449,12 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "run_id": {"type": "string", "minLength": 1},
             "checkpoint_type": {"enum": list(_CHECKPOINT_TYPES)},
             "evidence": {"type": "array", "minItems": 1},
+            # The boundary / negative-judgment slot: EXECUTE measures the negative too — what it
+            # did NOT do (stayed inside its declared bounds) is evidence. Typed as an object here;
+            # the four boundary keys (authority/write_boundary/rollback/privacy_preserved) are
+            # required by the OFFLINE validator (validate_uacp_artifacts.py), not at write time —
+            # so a minimal / in-flight checkpoint is not false-rejected (verify schema vs producer).
+            "invariants": {"type": "object"},
         },
     },
     "uacp.piv_assessment": {

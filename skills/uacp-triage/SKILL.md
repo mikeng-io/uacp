@@ -11,6 +11,8 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 Triage is UACP admission control. It decides whether a request should enter UACP and at what governance depth.
 It also records what obligations the next phase inherits.
 
+TRIAGE is the lifecycle's admission measure: it comprehends a raw request into a scope model, reduces it to a grounded routing signal, and serializes a typed verdict. That shape — not an arbitrary checklist — is why the steps below run in the order they do (see `AGENTS.md` Core Principle).
+
 It does not design the proposal.
 ## When to use
 Use for unclear scope, governance-depth decisions, granularity scoring, phase admission, or deciding routing depth.
@@ -40,6 +42,8 @@ it does not skip or substitute for it.
 - Keep scoring adaptive and config-driven, not Trustless-specific.
 - Treat the output contract below as the default minimum; extend it from canonical config/schema if present.
 - Record routing decision, score factors, council trigger, and human-involvement decision.
+- Each factor score records the observable it was read from, so the routing decision is reconstructable, not asserted.
+- Scores are grounded estimates, not assertions — if a factor cannot be grounded from visible request/config/brainstorm signal, say so and prefer `block_or_clarify` over a confident guess. Missing information is itself a routing signal.
 - Keep output compact and machine-readable.
 
 ## UACP vs non-UACP naming rule
@@ -103,7 +107,7 @@ factor_scores:
   domain_count: 1-10
   runtime_count: 1-10
   verification_difficulty: 1-10
-  notes: []
+  notes: []  # cite the source observable per score — what in the request/config/brainstorm package grounds it
 phase_local_granularity:
   phase: triage
   entry_estimate: 1-10
@@ -116,6 +120,9 @@ phase_local_granularity:
     verify: 1-10
     resolve: 1-10
 composite_granularity: 1-10
+# granularity_level is the canonical routing/scoring field (= composite_granularity under its legacy
+# name) that gate-selection scoring, the route-bands, and validate_triage actually read — always emit it.
+granularity_level: 1-10
 routing_outcome: direct | lightweight | standard_uacp | full_governance | block_or_clarify
 rationale: []
 artifact_policy: none | lightweight | standard | full

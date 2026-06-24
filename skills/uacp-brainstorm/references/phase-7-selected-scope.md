@@ -54,7 +54,7 @@ risks:
     severity: low | medium | high
 ```
 
-If `selected_scope.enter_uacp == false`, skip this phase and stop.
+If `selected_scope.enter_uacp == false`, skip this phase and stop. Stopping is itself a recorded decision, not a silent exit — close the brainstorm run via the `aborted`-status path (the vault remains as recorded evidence). Do not leave the run silently parked at `phase: brainstorm`.
 
 ### 7.1 Update manifest.yaml with selection
 

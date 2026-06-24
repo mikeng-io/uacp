@@ -345,7 +345,13 @@ def test_execution_checkpoint_required_and_checkpoint_type_enum():
         "decisions": [],
         "evidence": [{"result": "pass"}],
         "intent_drift": {"detected": False},
-        "invariants": {},
+        # boundary / negative-judgment slot — the four kernel boundary invariants
+        "invariants": {
+            "authority_preserved": True,
+            "write_boundary_preserved": True,
+            "rollback_preserved": True,
+            "privacy_boundary_preserved": True,
+        },
         "next_phase_readiness": {"status": "ready"},
     }
     assert validate("uacp.execution_checkpoint", base) == []
@@ -354,6 +360,13 @@ def test_execution_checkpoint_required_and_checkpoint_type_enum():
     assert any(
         "checkpoint_type" in e or "made_up" in e for e in validate("uacp.execution_checkpoint", bad)
     )
+    # the boundary slot is TYPED as an object: a non-object invariants fails. (The four boundary
+    # keys are required by the OFFLINE validator, not at write time — so a minimal/in-flight
+    # checkpoint with invariants={} is NOT false-rejected here.)
+    assert validate("uacp.execution_checkpoint", {**base, "invariants": {}}) == []
+    nonobj = dict(base)
+    nonobj["invariants"] = "not-an-object"
+    assert any("invariants" in e for e in validate("uacp.execution_checkpoint", nonobj))
 
 
 def test_piv_assessment_required_assessments():
@@ -369,3 +382,94 @@ def test_piv_assessment_required_assessments():
     bad = dict(base)
     del bad["assessments"]
     assert any("assessments" in e for e in validate("uacp.piv_assessment", bad))
+
+
+# ============================================================================================
+# Lifecycle doc kinds added 2026-06-24 (CMS skill-alignment follow-on): uacp.triage (TRIAGE
+# serialize) + uacp.brainstorm_scope_package (BRAINSTORM serialize) — previously path-registered
+# only (layout.py) and enforced at the Heartgate transition, NOT write-validated. OPEN-world,
+# grounded on the real producers/validators (not invented). Non-vacuity = the required/enum/const
+# assertions below.
+# ============================================================================================
+
+
+def test_triage_and_brainstorm_kinds_registered():
+    assert has_schema("uacp.triage")
+    assert has_schema("uacp.brainstorm_scope_package")
+
+
+def _valid_triage() -> dict:
+    return {
+        "kind": "uacp.triage",
+        "triage_id": "t-1",
+        "request_summary": "do the thing",
+        "authority": {"status": "pass", "source": "user"},
+        "factor_scores": {"impact": 5},
+        "routing_outcome": "standard_uacp",
+        "track": "standard",
+        "next_step": "propose",
+        # canonical routing/scoring field the consumers read (reconciled 2026-06-24)
+        "granularity_level": 6,
+    }
+
+
+def test_triage_valid_required_enums_const_open():
+    assert validate("uacp.triage", _valid_triage()) == []
+    # missing a required field (request_summary) -> fails
+    bad = _valid_triage()
+    del bad["request_summary"]
+    assert any("request_summary" in e for e in validate("uacp.triage", bad))
+    # missing the canonical granularity_level -> fails (producer<->consumer reconciliation)
+    bad_g = _valid_triage()
+    del bad_g["granularity_level"]
+    assert any("granularity_level" in e for e in validate("uacp.triage", bad_g))
+    # routing_outcome out of enum -> fails
+    bad2 = {**_valid_triage(), "routing_outcome": "made_up"}
+    assert any("routing_outcome" in e or "made_up" in e for e in validate("uacp.triage", bad2))
+    # authority.status out of enum -> fails
+    bad3 = {**_valid_triage(), "authority": {"status": "maybe"}}
+    assert any("status" in e or "maybe" in e for e in validate("uacp.triage", bad3))
+    # wrong kind const -> fails
+    bad4 = {**_valid_triage(), "kind": "uacp.WRONG"}
+    assert any(e.startswith("kind") or "const" in e.lower() for e in validate("uacp.triage", bad4))
+    # OPEN-world: producer's optional fields (granularity etc.) pass — no false-reject
+    extra = {**_valid_triage(), "composite_granularity": 6, "council": {"required": False}}
+    assert validate("uacp.triage", extra) == []
+
+
+def _valid_brainstorm() -> dict:
+    # FLAT shape — matches the real gate-passing producer (the e2e entity-write + Heartgate
+    # admission contract), NOT the phase-7 doc's selected_scope/estimated_governance wrappers.
+    return {
+        "kind": "uacp.brainstorm_scope_package",
+        "title": "T",
+        "description": "D",
+        "in_scope": ["a"],
+        "declared_side_effects": [],
+        "authority": {"source": "user"},
+        "routing_advisory": "standard",
+    }
+
+
+def test_brainstorm_scope_package_kind_const_open_both_shapes():
+    # MINIMAL schema: kind-const + OPEN-world. Its producers DISAGREE on structure (the phase-7 doc
+    # prescribes NESTED selected_scope/estimated_governance; the e2e harness writes FLAT root fields),
+    # so BOTH shapes must pass — neither is false-rejected. (Tighten once the model is reconciled.)
+    assert validate("uacp.brainstorm_scope_package", _valid_brainstorm()) == []  # FLAT (e2e)
+    nested = {
+        "kind": "uacp.brainstorm_scope_package",
+        "selected_scope": {"title": "T", "description": "D", "in_scope": ["a"]},
+        "estimated_governance": {"routing_advisory": "standard_uacp"},
+        "declared_side_effects": [],
+        "authority": {"source": "user"},
+    }
+    assert validate("uacp.brainstorm_scope_package", nested) == []  # NESTED (the phase-7 doc shape)
+    # wrong kind const -> fails (mis-dispatch guard)
+    bad = {**_valid_brainstorm(), "kind": "uacp.WRONG"}
+    assert any(
+        e.startswith("kind") or "const" in e.lower()
+        for e in validate("uacp.brainstorm_scope_package", bad)
+    )
+    # missing kind -> fails
+    nokind = {k: v for k, v in _valid_brainstorm().items() if k != "kind"}
+    assert any("kind" in e for e in validate("uacp.brainstorm_scope_package", nokind))

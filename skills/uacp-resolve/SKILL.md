@@ -11,6 +11,8 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 ## Purpose
 This skill closes the run, captures lessons, decides what belongs in memory, and determines whether a new skill or doc update is warranted.
 
+RESOLVE is the lifecycle's terminal serialize: its durable lessons and distilled knowledge are the canonical, provenanced state that a *future* run's comprehend draws on. That is why corpus persistence here is governed and topic-stable rather than optional bookkeeping — RESOLVE closes one loop and seeds the next.
+
 ## Read first
 - `UACP_ROOT/config/uacp.toml [memory]` (operational boundaries; consult the learning-artifact schema for artifact shape)
 
@@ -35,6 +37,8 @@ Read additionally:
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/phase_graph.py` — codified valid transitions (`LIFECYCLE_GRAPH`)
 
 RESOLVE closes the run only after verification evidence, council findings, accepted risks, and human involvement requirements are settled.
+
+The close/block decision is itself a grounded, fail-closed judgment, not a narrative wrap-up: it binds to VERIFY's evidence and Heartgate coherence. Closure that cannot point to a backing artifact + ledger entry is **blocked**, not softened into a summary.
 
 Before marking a run resolved, ensure any phase transition that led here was validated by `uacp_heartgate_check`, and ensure canonical docs/config deltas used `uacp_doc_write` / `uacp_config_write` where applicable.
 
@@ -162,6 +166,8 @@ Required machine artifacts when selected:
 
 - `resolutions/{run_id}-resolve-selection.yaml` with `kind: uacp.resolve_package`
 - `resolutions/{run_id}-closure.yaml` with `kind: uacp.resolve_closure`
+
+These closure manifests — and the lessons gate artifact — are RELATION-plane typed entities: write them with `uacp_entity_write` (by `kind` + `fields`), not `uacp_artifact_write`, so they are validated, watermarked, and registered for the graph gate. (`uacp_artifact_write` rejects these kinds.) Keep `uacp_doc_write` / `uacp_config_write` scoped to canonical doc/config deltas, as elsewhere.
 
 Required semantic package:
 

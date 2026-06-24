@@ -61,6 +61,9 @@ who authorized it, what changes are in scope, and what side effects are declared
   registering manifest writer. **`scope.in_scope` items MUST be keyed objects `{id, statement}`**
   (e.g. `{id: si-1, statement: "..."}`), not bare strings: those ids are the graph's `scope_item`
   nodes that PLAN's `work_units` cover via `derives_from` (the dropped-intent / orphan-task gate).
+  Writing the proposal entity records its content; the TRIAGE→PROPOSE crossing itself is recorded
+  separately when `uacp_heartgate_check` appends the transition to the gate ledger — so the phase
+  boundary is provenanced and re-derivable, not just asserted by having an artifact on disk.
 
 ## Typical outputs
 - proposal artifact in `proposals/`
@@ -152,6 +155,12 @@ See `references/proposal-council-concerns-pattern.md` for the full pattern.
 For medium/high-consequence runs, proposal council must review the adaptive proposal package, not only YAML metadata. If universal core concerns or gate-selected domain modules are missing without explicit not-applicable rationale, treat that as a material proposal-quality concern before PROPOSE→PLAN. Do not require fixed OpenSpec-style filenames when the concerns are covered by context-appropriate documents.
 
 ### Validator and Heartgate artifact-shape pitfalls
+Viability is a fail-closed signal — keep `pass`, `warn`, and `block` distinct and
+never quietly coerce a doubtful proposal to `pass`. It must be grounded in real
+evidence (the validator output, `uacp_heartgate_check`, and the council verdict),
+not asserted: the proposing agent does not self-attest viability — the gate and
+the council are the separate authorities that confirm it.
+
 Preserve these concrete requirements when preparing PROPOSE→PLAN:
 - Proposal artifacts must include validator-required top-level fields:
   `phase: propose`, `triage_artifact`, `objective`, `scope.in_scope`,
@@ -195,6 +204,10 @@ See `../uacp-plan/references/operator-summary-and-package-sufficiency-20260519.m
 - **Reason / rational intent / decisions:** intent is authority framing:
   decide what is being proposed and why it is allowed;
   decisions are scope, side effects, risks, accepted non-goals, required gates.
+  PROPOSE fixes the run's single authoritative reading of the request — PLAN,
+  EXECUTE, and VERIFY all derive from it and must not silently re-interpret its
+  scope or authority. That is why `scope.in_scope` items are keyed nodes PLAN's
+  `work_units` bind to, not free prose later phases can re-read their own way.
 - **Tools to use / not use:** use: file reads, delegate_task council, validator,
   uacp_heartgate_check; avoid: implementation tools except artifact drafting,
   direct production/runtime mutation.

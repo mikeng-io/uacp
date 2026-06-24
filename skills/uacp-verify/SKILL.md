@@ -8,7 +8,7 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 ---
 # UACP Verify
 
-VERIFY is the lifecycle truth boundary before RESOLVE. It proves implemented work satisfies the proposal/plan and that every carried finding is handled — separating actual correctness from implementation claims. It is not a generic test summary and not a self-repair phase.
+VERIFY is the lifecycle truth boundary before RESOLVE — the measure verb the doer cannot self-grant, so its verdict must be grounded in real evidence and fail-closed (see AGENTS.md Core Principle). It proves implemented work satisfies the proposal/plan and that every carried finding is handled — separating actual correctness from implementation claims. It is not a generic test summary and not a self-repair phase.
 
 ## Read first
 - `UACP_ROOT/config/evidence-clusters.yaml`
@@ -27,6 +27,7 @@ Establish what is being verified before gathering anything.
 
 - Identify what was claimed/done: the actual artifact set, diffs, and execution evidence.
 - Pull the plan's success criteria and the proposal's declared evidence obligations.
+- Read those criteria, obligations, and any PIV contract as authored — do not re-scope or soften an obligation to make it passable. If one is ambiguous, return to PLAN/PROPOSE rather than reinterpreting it here.
 - Note the risk tier (see Step 4) and whether EXECUTE used a PIV contract.
 - Do not use a fixed software-only checklist. Select evidence based on task context.
 - Stop here and return to PLAN/PROPOSE if the artifacts do not match the proposal or plan.
