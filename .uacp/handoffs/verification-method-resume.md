@@ -9,28 +9,42 @@ branch: verification-method   # UNPUSHED
 
 # Handoff — verification-method (resume sharp)
 
-## UPDATE 2026-06-25 — Build #1 FINALIZE HALF LANDED (uncommitted)
-The closure sweep is now wired onto the live finalize path. `state_machine.handle_finalize`
-tentatively finalizes → runs `Heartgate.validate_closure` (via `_run_closure_gate`, lazy
-import to avoid the engines↔state_machine cycle) → **blocks + reverts `finalized_at`** on any
-engine blocker; **fail-closed** (an unrunnable gate blocks). TDD keystone:
-`tests/e2e/test_finalize_closure_gate.py` proves a finalize that returned `ok` today (corrupted
-ledger → `LI_TIMESTAMP_NON_MONOTONIC`) is now blocked THROUGH `handle_finalize`, `finalized_at`
-reverted to None; a closeable run still finalizes. Ripple = correct lifecycle ordering: the
-happy-path helpers now author+register the **lessons (closure) artifact BEFORE finalize**
-(`drive_happy_path(..., finalize=False)`, `_author_and_register_lessons`, test_full_lifecycle
-authors lessons pre-finalize); unit `test_finalize_blocked_when_run_not_closeable` asserts a bare
-run is refused (C4) + reverted. **Suite 1873 green, changed files ruff-clean, branch still UNPUSHED + UNCOMMITTED.**
+## UPDATE 2026-06-25 (session 2) — Builds #1 + transition gate LANDED; Step 2 = design node authored. 3 commits, branch UNPUSHED.
 
-**Transition half NOT built — mike chose STOP after the finalize half.** Grounded reason the
-literal "force `validate_transition` via the PreToolUse hook on writes to transition artifacts"
-does NOT close the hole: `validate_closure` reads EMITTED RUN-STATE (clean to wire at the finalize
-chokepoint), but `validate_transition` validates a SUPPLIED PACKAGE and `handle_transition` (the
-universal phase-advance chokepoint) never consults one — a hook-on-writes guard only hardens
-package-LANDING while an agent can still advance a phase via `handle_transition` with no package.
-The robust closer = a **state-derived per-transition gate inside `handle_transition`** (analogous
-to closure) — a small new gate, not a one-line hook branch, overlapping #2 below. Do NOT ship the
-fragile hook guard. **NEXT: that transition gate, then #2 (feed the coverage gate).**
+**Commit `ad8026d` — finalize closure gate (Build #1 finalize half).** `state_machine.handle_finalize`
+tentatively finalizes → runs `Heartgate.validate_closure` (via `_run_closure_gate`, lazy import to
+avoid the engines↔state_machine cycle) → **blocks + reverts `finalized_at`** on any engine blocker;
+**fail-closed**. Keystone `tests/e2e/test_finalize_closure_gate.py`: a finalize that returned `ok`
+(corrupted ledger → `LI_TIMESTAMP_NON_MONOTONIC`) is now blocked THROUGH handle_finalize, reverted.
+Ripple = correct RESOLVE ordering: happy-path helpers author the lessons artifact BEFORE finalize
+(`drive_happy_path(..., finalize=False)`, `_author_and_register_lessons`); unit test asserts a bare
+run is refused (C4) + reverted.
+
+**Commit `e3f6834` — transition structural gate (the robust transition fix).** Earlier I surfaced
+that the literal "force validate_transition via the PreToolUse hook" does NOT close the hole
+(validate_transition needs a SUPPLIED PACKAGE; handle_transition never consults one). The robust
+closer turned out to ALREADY EXIST: `validate_graph_invariants(run_id, '<from_phase>_exit')` (D35,
+phase-scoped structural subset) — wired only into the agent-invoked `validate_transition` via
+`phase_exit.py`. So I FORCED it onto the live path: `handle_transition` now runs it (lazy import)
+BEFORE advancing, for `from_phase ∈ {plan,execute,verify}`, phase-independent (no revert),
+fail-closed; `from_phase` is already checked vs `current_phase` so the scope is not forgeable.
+Keystone `tests/e2e/test_transition_graph_gate.py`: a plan with a phantom `derives_from` edge is
+blocked (`GP_PHANTOM_EDGE`) at plan→execute; clean plan advances. Phantom/obligation-coverage have
+teeth NOW; uncovered/orphan (dropped intent) await Step 2.
+
+**Commit `7d682a3` — Step 2 = design node (mike chose "design-node first, then build").** Grounded:
+the coverage checks read keyed `scope_items` + `work_units.derives_from`, but NO real producer emits
+that (producers emit package-selections + a write-paths `uacp.scope`; `_coverage_adopted` always
+false → checks skip). So Step 2 = resolve the open **D43** decision = introduce a new REQUIRED
+coverage-serialization layer at PROPOSE/PLAN (schema + contract + seeders), not wiring. Authored
+`design/verification-method/15-coverage-serialization.md` (+ `_index`): the producer-gap, the
+proposed resolution, the open facets (two-scopes reconciliation, required-field ripple, id
+stability), and that BOTH live-path gates above already fire on coverage the moment a `derives_from`
+edge exists — detector built, only the producer remains.
+
+**Suite 1875 green; changed files ruff-clean.** **NEXT: BUILD node 15 (D43)** — decision-log entry +
+proposal/plan schema requires keyed scope_items + derives_from + seeders; TDD the closing proof (a
+dropped intent blocks at plan_exit AND closure). The two gates are already wired to enforce it.
 
 ---
 
