@@ -13,6 +13,8 @@ edges:
 
 CMS is one coherence invariant ([00](00-the-axiom.md)) imposed across three layers. Each layer is enforced by the mechanism appropriate to it. The coherence is the point: the same discipline, top to bottom, so the layers cannot drift apart.
 
+**The deep division of labor (semantic vs deterministic):** the agent layer is **semantic** — it *grounds* its judgment in evidence (it cannot be made deterministic, because it is an agent, not a machine). The architecture layer is **deterministic** — the gate *mechanically checks* that grounded evidence. So a CMS `measure` is really two halves on two surfaces: the **agent grounds** (semantic, prompt-enforced) and the **gate verifies** (deterministic, architecture-enforced). Determinism lives in the gate, never demanded of the agent's thinking — that is how a semantic process earns machine-grade trust without pretending to be a machine.
+
 | Layer | What it disciplines | Compliance | Enforcement mechanism |
 |---|---|---|---|
 | **Governance** | the lifecycle (writes, transitions, evidence) | mostly **natural** | **architecture** — Guardian (governed-writers-only) · Heartgate (phase-exit gates) · the entity-writer (validate-on-write + watermark + register) |

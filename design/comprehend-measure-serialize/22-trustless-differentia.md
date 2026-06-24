@@ -18,7 +18,7 @@ The same discipline — comprehend → measure → serialize — is imposed on *
 
 ## Part 2 — Discipline on each verb (the per-verb differentia)
 
-- **measure is deterministic + fail-closed** — a decidable signal that can fail for the right reason, never a weak proxy (a `grep` standing in for "it works");
+- **measure is grounded + fail-closed** — the decidable signal binds to the real property (evidence, not assertion) and can fail for the right reason, never a weak proxy (a `grep` standing in for "it works"). *Determinism is not required of the agent's semantic judgment* — it belongs to the verification *gate* that checks the evidence ([25-enforcement-surfaces](25-enforcement-surfaces.md));
 - **serialize is provenanced** — a typed key tracing to its source, verifiable mechanically forever;
 - **routing is governed** — policy-decided by an authority *separate from the doer* (no-self-attestation, [21-decision-hinge](21-decision-hinge.md)).
 

@@ -32,6 +32,19 @@ The gate between **observation** ("most workflows fit") and **axiom** ("any vali
 
 **Verdict (reclassified 2026-06-24): CMS is a COHERENCE INVARIANT (architectural), not an axiom or law (empirical).** The hunt's clean, *convergent* cross-domain reductions are **evidence it is a low-friction coherence choice** — most information-processing already fits this shape, so imposing it everywhere costs little. The "boundary" the falsifiers found (pure mechanical state-moves; human actors) is **not a counterexample to a law** — no law is claimed — it marks where compliance is **normative (must be enforced), not natural**. (A later cross-provider panel — kimi + minimax, kernel-grounded — confirmed the empirical "law/primitive" framing is unfalsifiable, and the honest claim is the architectural one. → [00](00-the-axiom.md), [25](25-enforcement-surfaces.md).)
 
+## HUNT 2 + RECLASSIFICATION (2026-06-24) — supersedes the round-1 framing below
+
+A second hunt against **formal CS** (Paxos · Raft · SAT · SMT · compiler-opt · symbolic-execution · comparison-sort = all **CLEAN**; **crypto-hash round · DFA/NFA transition · GPU fragment-shader = BREAK**), run as a Claude fan-out **plus** cross-provider (kimi + minimax) and convergent, relocated the boundary and the whole claim:
+
+- **The boundary is SEMANTIC vs DETERMINISTIC**, not "decision-bearing vs not." The breaks are all **deterministic machine operations** (a SHA round is decision-free *by design*). They do **not** falsify CMS — they are **out of domain**: machine substrate that already has determinism and needs no semantic principle. A **category boundary, not a counterexample.** (This corrected an earlier drift: we had mistakenly tested CMS as a theory of *computation*; it is a theory of *agent cognition*.)
+- **CMS generalizes** to all *semantic, decision-bearing* computation (consensus, solvers, compilers) — broader than "agent discipline," still bounded to the semantic domain.
+- **`measure` is KEPT** — the round-1 "rename to `decide`" (below) is **declined** (mike's call): the framework is normative for a semantic processor whose failure mode is premature *deciding*; "measure" is the corrective name forcing grounding. And round-1's "measure must be **deterministic**" is **corrected**: the agent's measure is **grounded** (evidence-bound), not deterministic — determinism belongs to the verification *gate* (→ [11](11-measure.md), [25](25-enforcement-surfaces.md)).
+- **The "scope to governed operations" resolution (below) is superseded** by a cleaner, non-circular criterion: the domain is **how agents think (semantic)**, not how machines compute (deterministic). "Governed" was an internal proxy; "semantic" is the real line — and it is independently checkable, so the boundary is not circular.
+- **Consistency-primitive (validated):** comprehend → *semantic* consistency, measure → *decision* consistency, serialize → *state* consistency. The break is exactly where **decision-consistency is vacuous** (no decision in a deterministic op) — so the triple is the **discriminator** for whether something is a semantic (agent) act at all.
+
+---
+*Round-1 result retained below as the historical record (its "governed-scope" / "rename to decide" / "deterministic measure" conclusions are superseded by the block above).*
+
 **Reductions:**
 
 | Domain cluster | Verdict |

@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: The Coherence Invariant — comprehend → measure → serialize (root)
-description: The claim in one screen + the map. CMS is a COHERENCE INVARIANT (architectural), not an axiom/law (empirical) — one discipline imposed across governance, execution, and LLM cognition so the system stays consistent with itself. Enforced two ways (architecture + prompt-injection). Deliberately thin — substance is one-entity-per-node.
+description: The claim in one screen + the map. CMS is THE PRINCIPLE FOR SEMANTIC THINKING (determinism:machines :: CMS:agents) and a COHERENCE INVARIANT (architectural, not an empirical law) — one discipline across an agent's cognition, execution, and governance so the system stays consistent with itself. Domain = how agents think, NOT how machines compute. Enforced two ways (architecture + prompt-injection). Deliberately thin.
 tags: [coherence-invariant, comprehend-measure-serialize, root]
 timestamp: 2026-06-21
 edges: []
@@ -9,7 +9,15 @@ edges: []
 
 # The Coherence Invariant (root)
 
-> Synthesized 2026-06-21 (mike + ChatGPT). **Reclassified 2026-06-24** after a cross-provider adversarial panel (kimi + minimax, kernel-grounded): CMS is **not an axiom/law** (an empirical claim, which is unfalsifiable here) but a **coherence invariant** (an architectural choice). This node stays thin — the principle is *serialize one entity per node*, so substance lives in the verb + facet nodes.
+> Synthesized 2026-06-21 (mike + ChatGPT). **Reclassified 2026-06-24** after a cross-provider adversarial panel (kimi + minimax, kernel-grounded): CMS is **not an axiom/law** (an empirical claim, which is unfalsifiable here) but a **coherence invariant** (an architectural choice) — and, more fundamentally, **the principle for semantic thinking** (below). This node stays thin — the principle is *serialize one entity per node*, so substance lives in the verb + facet nodes.
+
+## The foundation: machines are deterministic; agents are semantic
+
+A machine earns reliability through **determinism** — replay → identical result → verifiable. **An agent cannot**: it is **semantic** — it works in meaning, interpretation, and judgment under ambiguity; it is not a deterministic function. You therefore **cannot make a semantic system trustworthy with machine methods** (deterministic testing, deterministic verification of its output). An agent needs **its own principle for trustworthy thinking** — and CMS is that principle:
+
+> **`determinism : machines :: CMS : agents`**
+
+CMS is how a *semantic* process earns trust — not by replaying identically, but by **comprehending once, grounding each judgment in evidence, and serializing with provenance.** Same goal as determinism (re-derivable trust), different mechanism, because different nature. The domain is therefore **how agents *think*, not how machines *compute*** — deterministic computation already has determinism and needs no such principle.
 
 ## The claim
 
@@ -29,11 +37,11 @@ This is the difference between an *empirical* claim and an *architectural* one. 
 
 ## The load-bearing half
 
-The cycle is cheap; **the engineering IS the discipline on the three verbs.** A `measure` that isn't fail-closed, or a `serialize` without provenance, is *decoration*. Hold the discipline and the result is **re-derivable** — no actor (including the producing agent) is trusted; every claim is mechanically reconstructable. → [22-trustless-differentia](22-trustless-differentia.md)
+The cycle is cheap; **the engineering IS the discipline on the three verbs.** A `measure` that isn't **grounded in evidence** (and fail-closed), or a `serialize` without provenance, is *decoration*. Hold the discipline and the result is **re-derivable** — no actor (including the producing agent) is trusted; every claim is mechanically reconstructable. (Determinism is not required of the agent's semantic judgment — it belongs to the *verification gate* that checks the agent's grounded evidence; see [11-measure](11-measure.md) / [25-enforcement-surfaces](25-enforcement-surfaces.md).) → [22-trustless-differentia](22-trustless-differentia.md)
 
 ## Status: COHERENCE INVARIANT (reclassified 2026-06-24)
 
-Reframed from "qualified law." The hunt's cross-domain clean reductions (event sourcing, Raft, OAuth, git-merge, k8s, …) are **evidence it is a low-friction coherence choice** — most information-processing already fits this shape. The "boundary" it found (pure mechanical state-moves; human actors) marks where compliance is **normative (must be enforced), not natural** — *not* a counterexample, because no empirical law is claimed. **`measure` is KEPT** (not renamed to `decide`): the framework is normative, the LLM's failure mode *is* premature deciding (asserting without evidence), and "measure" is the corrective name that forces evidence-binding — once injected into cognition, the word is the intervention. Rationale recorded in → [11-measure](11-measure.md).
+Reframed from "qualified law." Two counterexample hunts (round 1 = foreign domains; round 2 = formal CS — Paxos/Raft/SAT/SMT/compilers/symbolic-execution all CLEAN; crypto-hash/DFA/GPU-shader BREAK) located the real boundary: **it is *semantic vs deterministic*, not "decision-bearing vs not."** The breaks are all **deterministic machine operations** (a SHA round, a DFA transition) — they don't *falsify* CMS, they are **out of domain**: machine substrate, which already has determinism and needs no semantic principle. That is a **category boundary, not a counterexample.** (Note: this corrected an earlier drift — we, like the field, had mistakenly tested CMS as a theory of *computation*; it is a theory of *agent cognition*.) **`measure` is KEPT** (not `decide`): the LLM's failure mode *is* premature deciding (asserting without evidence), so "measure" is the corrective name that forces grounding — once injected into cognition, the word is the intervention. Rationale → [11-measure](11-measure.md).
 
 ## The map (substance is here, not above)
 

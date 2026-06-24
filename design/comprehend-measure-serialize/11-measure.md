@@ -29,9 +29,11 @@ The decidable signal answers an **actionable** question, and that question spans
 | select | `tool A or tool B` |
 | infer | derive a conclusion from facts |
 
-## The discipline (what makes it trustless)
+## The discipline (what makes it trustworthy) — GROUNDED, not deterministic
 
-Not numeric-ness — **determinism + fail-closed.** A measurement must be reproducible and keep **PASS / FAIL / ERROR distinct** (ERROR ≠ PASS). A `grep route_mounted` standing in for "the route works" is *not* a measurement — it's a weak proxy (the #503 failure). The signal must bind to the real property.
+The discipline is **grounding + fail-closed**, *not* determinism. This is the key correction (2026-06-24): the agent's measure is a **semantic** act — it is not, and need not be, a deterministic function (the agent is semantic, not a machine). What it must be is **grounded**: the signal **binds to the real property**, so it is *evidence*, not assertion. A `grep route_mounted` standing in for "the route works" is *not* a measurement — it's a weak proxy (the #503 failure). And **fail-closed**: keep **PASS / FAIL / ERROR distinct** (ERROR ≠ PASS); never assert what cannot be grounded.
+
+**Where determinism lives:** not in the agent's judgment but in the **verification gate** — the machine substrate that *checks* the agent's grounded evidence ([25-enforcement-surfaces](25-enforcement-surfaces.md)). So the labor splits: the **agent grounds** (semantic measure-as-cognition); the **gate checks deterministically** (measure-as-verification). Requiring the agent's thinking to be deterministic would be applying a *machine* method to a *semantic* system — the category error CMS exists to avoid.
 
 ## Naming: KEEP `measure` (mike's decision, 2026-06-24) — it is the corrective name
 
