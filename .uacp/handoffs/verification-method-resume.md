@@ -32,19 +32,34 @@ Keystone `tests/e2e/test_transition_graph_gate.py`: a plan with a phantom `deriv
 blocked (`GP_PHANTOM_EDGE`) at plan→execute; clean plan advances. Phantom/obligation-coverage have
 teeth NOW; uncovered/orphan (dropped intent) await Step 2.
 
-**Commit `7d682a3` — Step 2 = design node (mike chose "design-node first, then build").** Grounded:
-the coverage checks read keyed `scope_items` + `work_units.derives_from`, but NO real producer emits
-that (producers emit package-selections + a write-paths `uacp.scope`; `_coverage_adopted` always
-false → checks skip). So Step 2 = resolve the open **D43** decision = introduce a new REQUIRED
-coverage-serialization layer at PROPOSE/PLAN (schema + contract + seeders), not wiring. Authored
-`design/verification-method/15-coverage-serialization.md` (+ `_index`): the producer-gap, the
-proposed resolution, the open facets (two-scopes reconciliation, required-field ripple, id
-stability), and that BOTH live-path gates above already fire on coverage the moment a `derives_from`
-edge exists — detector built, only the producer remains.
+**Commit `7d682a3` then CORRECTED by `f2c851d` — Step 2 design node (mike chose "design-node first").**
+`7d682a3` authored `design/verification-method/15-coverage-serialization.md` but got the framing
+WRONG (claimed "no real producer emits keyed scope_items + derives_from; D43 unbuilt"). An
+independent review (cross-provider **kimi** + a **Claude subagent**, both grounded in code, mike
+asked for it) caught it as FALSE and I verified: **D43 producer-serialization is ALREADY BUILT** —
+`engines/domain/schema.py` requires keyed `scope.in_scope:[{id,statement}]` at write time +
+`derives_from` on PIV work_units; `scripts/validate_uacp_artifacts.py` (validate_proposal /
+validate_piv_contract); entity-writer validate-on-write; propose/plan SKILL contracts; passing
+`tests/integration/test_graph_gate_activation_e2e.py`. My original grounding (only the
+package-selection seeders + projection.py) missed all of it. `f2c851d` corrected node 15 + `_index`
++ fixed the now-stale `validate_closure` docstring (it still said "NOT auto-called by handle_finalize"
+— ad8026d made that false).
 
-**Suite 1875 green; changed files ruff-clean.** **NEXT: BUILD node 15 (D43)** — decision-log entry +
-proposal/plan schema requires keyed scope_items + derives_from + seeders; TDD the closing proof (a
-dropped intent blocks at plan_exit AND closure). The two gates are already wired to enforce it.
+**The REAL residual (corrected):** the kernel's gate-REQUIRED PROPOSE artifact is
+`uacp.proposal_package_selection` (scope in MARKDOWN), NOT the keyed `uacp.proposal` — so coverage
+does NOT bind for the package-selection representation (the path the lifecycle fixture uses;
+documented at schema.py). Open decision = close that residual: (1) add machine-readable `scope_items`
+to `uacp.proposal_package_selection` + enforce in `validate_proposal_package_selection` (less
+disruptive, reviewers' pick) OR (2) make the KERNEL require `uacp.proposal` (today only SKILLs do).
+Plus 3 verified blind spots in node 15: `inherited_artifacts` invisible to `projection._load_and_project`
+(goal-driven coverage bypass); no transition-time referential check that `derives_from` ids resolve;
+topology-only gate is gameable (point all work_units at one throwaway scope_item).
+
+**Suite 1875 green; changed files ruff-clean.** **NEXT: BUILD node 15** — decision-log entry +
+close the package-selection residual (option 1 or 2) + update `_seed_proposal_package`/`_seed_plan_package`
++ TDD the closing proof (a lifecycle run that DROPS an intent must block at plan_exit AND closure;
+it silently passes today). The two gates are already wired to enforce it the moment the
+package-selection path carries keyed scope.
 
 ---
 
