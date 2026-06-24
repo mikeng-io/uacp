@@ -55,11 +55,20 @@ Plus 3 verified blind spots in node 15: `inherited_artifacts` invisible to `proj
 (goal-driven coverage bypass); no transition-time referential check that `derives_from` ids resolve;
 topology-only gate is gameable (point all work_units at one throwaway scope_item).
 
-**Suite 1875 green; changed files ruff-clean.** **NEXT: BUILD node 15** — decision-log entry +
-close the package-selection residual (option 1 or 2) + update `_seed_proposal_package`/`_seed_plan_package`
-+ TDD the closing proof (a lifecycle run that DROPS an intent must block at plan_exit AND closure;
-it silently passes today). The two gates are already wired to enforce it the moment the
-package-selection path carries keyed scope.
+**Session 2b — residual fixes (suite 1878 green).** Mike chose D43 **Option C** (keyed scope module +
+register PIV). Grounded follow-up: `entity_writer.create_entity` AUTO-REGISTERS every `uacp_entity_write`
+into `manifest.artifacts` — so governed runs writing a keyed `uacp.proposal` + PIV already register+project
+both and coverage is **enforced on the live path**. Commits: `18ad3a8` (fix #2: `projection._load_and_project`
+now projects `inherited_artifacts` so goal-chained runs can't bypass coverage; TDD); `b1c32f9`
+(`tests/e2e/test_transition_coverage_enforced.py` proves a governed run with a DROPPED intent is BLOCKED by
+`handle_transition(plan→execute)` with `GP_UNCOVERED_INTENT`; covered advances; node 15 records Option C).
+#3 (referential check) DEFERRED (redundant w/ GP_PHANTOM_EDGE); #4 (gameable) = council/semantic scope.
+
+**REMAINING FAIL-OPEN = the enforcement increment (NEXT):** coverage binds only when the keyed proposal+PIV
+are produced; the kernel PROPOSE gate (`adaptive_proposal_package_gate`) requires only the package_selection
+envelope, NOT a registered keyed `uacp.proposal`. Closing it = REQUIRE the keyed `uacp.proposal` at the
+PROPOSE gate — broad ripple (every package-selection fixture needs keyed scope), so a deliberate separable
+increment, not rushed. Then capsule #3 (the generator). Branch UNPUSHED.
 
 ---
 
