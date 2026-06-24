@@ -408,6 +408,8 @@ def _valid_triage() -> dict:
         "routing_outcome": "standard_uacp",
         "track": "standard",
         "next_step": "propose",
+        # canonical routing/scoring field the consumers read (reconciled 2026-06-24)
+        "granularity_level": 6,
     }
 
 
@@ -417,6 +419,10 @@ def test_triage_valid_required_enums_const_open():
     bad = _valid_triage()
     del bad["request_summary"]
     assert any("request_summary" in e for e in validate("uacp.triage", bad))
+    # missing the canonical granularity_level -> fails (producer<->consumer reconciliation)
+    bad_g = _valid_triage()
+    del bad_g["granularity_level"]
+    assert any("granularity_level" in e for e in validate("uacp.triage", bad_g))
     # routing_outcome out of enum -> fails
     bad2 = {**_valid_triage(), "routing_outcome": "made_up"}
     assert any("routing_outcome" in e or "made_up" in e for e in validate("uacp.triage", bad2))

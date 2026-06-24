@@ -202,11 +202,11 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     },
     # uacp.triage — the admission verdict (TRIAGE serialize). OPEN-world: the producer
     # (skills/uacp-triage) emits optional fields the gate does not require (granularity, council,
-    # human_involvement, artifact_policy); closing it would false-reject real docs. NOTE: a
-    # granularity field is intentionally NOT required — the kernel validator names it
-    # `granularity_level` while the skill emits `composite_granularity`/`phase_local_granularity`;
-    # that producer<->validator naming mismatch is a separate pre-existing fix, so granularity stays
-    # optional here to avoid a write-time false-reject (verify schema against the real producer).
+    # human_involvement, artifact_policy); closing it would false-reject real docs.
+    # `granularity_level` is the canonical composite-granularity field that gate-selection, the
+    # route-bands, and validate_triage all read; the triage skill now emits it (alongside the newer
+    # composite_granularity / phase_local_granularity), so it is required here too
+    # (producer<->consumer reconciled 2026-06-24).
     "uacp.triage": {
         "$schema": _DRAFT,
         "type": "object",
@@ -218,6 +218,7 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "factor_scores",
             "routing_outcome",
             "next_step",
+            "granularity_level",
         ],
         "properties": {
             "kind": {"const": "uacp.triage"},
@@ -228,6 +229,7 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                 "properties": {"status": {"enum": ["pass", "warn", "block"]}},
             },
             "factor_scores": {"type": "object"},
+            "granularity_level": {"type": "integer"},
             "routing_outcome": {
                 "enum": [
                     "direct",

@@ -120,6 +120,9 @@ phase_local_granularity:
     verify: 1-10
     resolve: 1-10
 composite_granularity: 1-10
+# granularity_level is the canonical routing/scoring field (= composite_granularity under its legacy
+# name) that gate-selection scoring, the route-bands, and validate_triage actually read — always emit it.
+granularity_level: 1-10
 routing_outcome: direct | lightweight | standard_uacp | full_governance | block_or_clarify
 rationale: []
 artifact_policy: none | lightweight | standard | full
