@@ -14,6 +14,11 @@ The store is what makes Codeflair an **engine** rather than a driver: it **owns 
 (no other engine touches it). The indexer ([01a](01a-indexer.md)) writes it; the query layer
 ([02](02-probes.md)) reads it.
 
+> **What's ours vs adopted (CF-D14):** the **store** — the normalized, source-tagged, watermarked fused
+> graph ([11-substrate](11-substrate.md)) — is what Codeflair owns and builds. The **indexers that feed
+> it** (SCIP/tree-sitter/Serena) are **adopted**. So "owns the store" = owns the *projection + schema*,
+> not the indexing machinery.
+
 ## What it holds
 
 - **`code_symbol` nodes** — file + symbol + lines + commit.

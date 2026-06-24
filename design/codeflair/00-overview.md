@@ -42,7 +42,7 @@ responsibilities, one bounded context (the codespace):
 
 | | Node | Role |
 |---|---|---|
-| **Produce** | [01a-indexer](01a-indexer.md) | SCIP per-commit (persisted) + LSP live → `code_symbol` nodes + `code_anchor`/`calls`/`references` edges |
+| **Produce** | [01a-indexer](01a-indexer.md) | SCIP per-commit (persisted) + LSP live → `code_symbol` nodes + `defines`/`references`/`calls` edges (`code_anchor` is adapter-side, [01a](01a-indexer.md)) |
 | **Store** | [01b-store](01b-store.md) | the persisted code graph (rebuildable projection; truth = files; watermarked) |
 | **Query** | [02-probes](02-probes.md) → [05-benchmark](05-benchmark.md) | the relation-finder loop + heatmap, reading **its own** store |
 

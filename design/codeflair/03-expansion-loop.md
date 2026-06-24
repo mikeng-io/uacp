@@ -64,6 +64,11 @@ heat(node) =  base_weight(source, rel)         # precision ladder: calls 1.0 · 
             + agreement_bonus · (probes_found − 1)   # corroboration ; bonus ≈ 0.1
 ```
 
+(The illustrative `base_weight`s are a *starting point*, not the provenance ladder's strict order — e.g.
+`co_change 0.4 > grep 0.3` because a strong temporal PMI signal can outrank a bare text match, even though
+grep sits *above* co-change on the precision ladder ([02-probes](02-probes.md)). The constants are
+benchmark-tuned; the ladder is about *trust class*, the weights about *final rank*.)
+
 **The *shape* is the spec; the *constants* are benchmark-tuned** (recall@K on the labeled eval set,
 [05-benchmark](05-benchmark.md)) — deferred to BUILD so tests arbitrate, not prose. No model — Policy D.
 

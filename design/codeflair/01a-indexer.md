@@ -18,7 +18,11 @@ today"* (`graph-engine/20-slices-readiness.md`). graph-engine flagged the code p
 strain"* (D12) and never built the thing that emits these edges. The indexer **is** that thing. Without
 it, the query layer ([02](02-probes.md)) has no precise symbol edges to walk — only LSP/grep/co-change.
 
-## What it produces
+> **Adopted, not built (CF-D14, [14-prior-art-and-adoption](14-prior-art-and-adoption.md)):** Codeflair
+> does **not** build a new indexer — it **adopts** the substrate (`scip-go`/SCIP indexers, a tree-sitter
+> graph tool, Serena for LSP) and owns only the **normalized, watermarked fused projection + the
+> `code_symbol`/`code_anchor` schema** ([11-substrate](11-substrate.md)). "The indexer is that thing"
+> means *the engine wires/runs the adopted indexers into the store* — not that we write one.
 
 Per D44's Code-engine shape (*"build = SCIP per-commit (persisted) + LSP live"*):
 
