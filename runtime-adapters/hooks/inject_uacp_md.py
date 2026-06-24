@@ -32,8 +32,11 @@ def main() -> int:
     try:
         with open(path, encoding="utf-8") as fh:
             text = fh.read()
-    except OSError:
-        return 0  # fail open: nothing to inject
+    except (OSError, UnicodeDecodeError):
+        # Fail open on BOTH a missing/unreadable file (OSError) AND a present-but-undecodable
+        # one (UnicodeDecodeError subclasses ValueError, not OSError) — a corrupt-encoding
+        # UACP.md is "unreadable" too and must never crash/block a session.
+        return 0  # nothing to inject
 
     # Drop the leading HTML comment (file-role metadata; not meant for the agent).
     text = re.sub(r"^\s*<!--.*?-->\s*", "", text, count=1, flags=re.DOTALL).strip()

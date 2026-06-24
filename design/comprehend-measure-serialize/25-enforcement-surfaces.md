@@ -19,7 +19,7 @@ CMS is one coherence invariant ([00](00-the-axiom.md)) imposed across three laye
 |---|---|---|---|
 | **Governance** | the lifecycle (writes, transitions, evidence) | mostly **natural** | **architecture** — Guardian (governed-writers-only) · Heartgate (phase-exit gates) · the entity-writer (validate-on-write + watermark + register) |
 | **Execution** | the actual work (the mutations + their evidence) | made to comply | **architecture** — the same gates + checkpoint coverage in the graph projection |
-| **Cognition** | the LLM's own reasoning | **not natural** — it skips comprehension, re-interprets downstream, asserts without evidence | **system-prompt injection** — the portable [`UACP.md`](../../UACP.md) prepended to the agent's instructions |
+| **Cognition** | the LLM's own reasoning | **not natural** — it skips comprehension, re-interprets downstream, asserts without evidence | **system-prompt injection** — the portable [`UACP.md`](../../UACP.md) (Claude Code today, via the SessionStart hook; Kimi/opencode injection is a follow-up) |
 
 ## Why two mechanisms (and why prompt-injection is real enforcement)
 

@@ -5,7 +5,7 @@ title: PROPOSE — per-phase CMS prompt
 macro_role: comprehend
 timestamp: 2026-06-24
 edges:
-  - {dst: 24-phase-crosswalk, rel: derives_from, provenance: derived}
+  - {dst: 24-phase-crosswalk, rel: depends_on, provenance: derived}
 ---
 
 # PROPOSE — per-phase CMS prompt

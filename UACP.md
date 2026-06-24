@@ -1,10 +1,12 @@
 <!--
   UACP.md — the UACP PLUGIN'S COGNITION PAYLOAD (injected into a host agent's context at session start).
 
-  When the UACP plugin is installed into a coding agent (Claude Code, Kimi, opencode, …), this content
-  is injected at the TOP of that agent's CLAUDE.md / AGENTS.md, so the agent inherits the UACP core
-  discipline wherever it runs — with or without the full UACP repo/lifecycle. Runtime-neutral and
-  principle-only: the UACP-specific 7-phase lifecycle is a separate skill, not this file.
+  When the UACP plugin is installed into a Claude Code agent, this content is injected at the TOP of the
+  agent's context every session (via the SessionStart hook), so the agent inherits the UACP core
+  discipline wherever it runs — with or without the full UACP repo/lifecycle. Other runtimes (Kimi,
+  opencode) need their own session-start hook to inject it — a follow-up; until then their cognition
+  surface is unenforced. Runtime-neutral and principle-only: the UACP 7-phase lifecycle is a separate
+  skill, not this file.
 
   INJECTION MECHANISM (this is the cognition-enforcement surface): the SessionStart hook
   runtime-adapters/hooks/inject_uacp_md.py reads this file (minus this comment) and emits it as

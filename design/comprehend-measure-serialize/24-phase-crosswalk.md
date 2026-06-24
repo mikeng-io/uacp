@@ -5,7 +5,7 @@ description: Proves node 23's fractal claim phase-by-phase. Each lifecycle phase
 tags: [primitive, crosswalk, fractal, lifecycle, prompts]
 timestamp: 2026-06-24
 edges:
-  - {dst: 23-composition, rel: derives_from, provenance: derived}
+  - {dst: 23-composition, rel: depends_on, provenance: derived}
   - {dst: 31-instantiations, rel: extends, provenance: asserted}
 ---
 

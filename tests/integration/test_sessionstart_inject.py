@@ -46,6 +46,14 @@ def test_fail_open_when_uacp_md_absent(tmp_path: Path) -> None:
     assert proc.stdout.strip() == ""  # nothing injected, no malformed JSON
 
 
+def test_fail_open_when_uacp_md_is_undecodable(tmp_path: Path) -> None:
+    # Present but not valid UTF-8: must STILL fail open (UnicodeDecodeError is not an OSError).
+    (tmp_path / "UACP.md").write_bytes(b"\xff\xfe not valid utf-8 \x80\x81")
+    proc = _run(tmp_path)
+    assert proc.returncode == 0  # corrupt encoding must not crash/block the session
+    assert proc.stdout.strip() == ""  # nothing injected
+
+
 def test_real_shipped_uacp_md_carries_the_principle() -> None:
     """Non-vacuity against the REAL UACP.md: the shipped preamble must carry the semantic principle."""
     proc = _run(_REPO_ROOT)

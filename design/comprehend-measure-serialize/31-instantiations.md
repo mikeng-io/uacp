@@ -14,8 +14,8 @@ CMS ([00-the-axiom](00-the-axiom.md)) is the *underlying logic*; UACP-execution 
 
 | CMS facet | UACP instantiation | Bundle |
 |---|---|---|
-| **serialize** discipline (typed key + provenance, idempotent canonical form) | the **graph engine** (`graph_projection`, the entity-writer, `uacp-fmt`, edge records) — **BUILT + merged to main** | [graph-engine](../graph-engine/00-overview.md) |
-| the **loop** (comprehend → measure → serialize, to convergence) | the **verification method** (generative gate + harness) — *paused* | [verification-method](../verification-method/00-the-primitive.md) |
+| **serialize** discipline (typed key + provenance, idempotent canonical form) | the **graph engine** — `graph_projection` + the entity-writer **BUILT + merged to main** (`uacp-lint` / `uacp-fmt` designed, not yet built) | [graph-engine](../graph-engine/00-overview.md) |
+| the **loop** (comprehend → measure → serialize, to convergence) | the **verification method** (generative gate + harness) — *planned sibling bundle, not on this branch* | verification-method (planned) |
 | the cycle **iterated** (serialize(N) → comprehend(N+1)) | the **lifecycle** (TRIAGE → … → RESOLVE, phases chained by artifacts); the per-phase CMS triple | [24-phase-crosswalk](24-phase-crosswalk.md) |
 | the **measure** discipline (**grounded** decidable signal — *determinism in the verifying gate*) | the **agent grounds** (cognition) + the **engines / `uacp-lint`** check fail-closed (the gate half) | [25-enforcement-surfaces](25-enforcement-surfaces.md) |
 | the **routing** (decision/gate) | **Guardian / Heartgate** + per-phase authority | runtime-enforcement |
@@ -29,7 +29,7 @@ If serialize has many targets ([03](12-serialize.md)), then **UACP is an informa
 
 ## Status in the doctrine (PROMOTED 2026-06-24)
 
-- CMS is **ratified** — [ADR-0018](../architecture/0018-cms-semantic-thinking-principle.md) — and stated in **AGENTS.md** ("Core Principle"); the cognition-injection mechanism is **built** ([25-enforcement-surfaces](25-enforcement-surfaces.md)).
+- CMS is **ratified** — [ADR-0018](../../docs/architecture/0018-cms-semantic-thinking-principle.md) — and stated in **AGENTS.md** ("Core Principle"); the cognition-injection mechanism is **built** ([25-enforcement-surfaces](25-enforcement-surfaces.md)).
 - The per-phase mapping is the cross-walk in [24-phase-crosswalk](24-phase-crosswalk.md). The verification + graph-engine bundles should cite *up* to the ratified principle rather than restate it.
 - Remaining: cross-runtime injection (Kimi / opencode); merge this bundle to main.
 

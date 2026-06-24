@@ -24,7 +24,7 @@ The same discipline — comprehend → measure → serialize — is imposed on *
 
 ## The load-bearing claim
 
-> The discipline IS the engineering. A `measure` that isn't deterministic, or a `serialize` without provenance, is **decoration**: the narrative reads systematic while the result rots back into semantic re-judgment.
+> The discipline IS the engineering. A `measure` that isn't **grounded in evidence** (and fail-closed), or a `serialize` without provenance, is **decoration**: the narrative reads systematic while the result rots back into semantic re-judgment.
 
 So the principle is *not* "everything is CMS" (true but vacuous); it is "**one discipline holds every layer coherent, and trustworthiness is exactly the discipline on the three verbs.**"
 

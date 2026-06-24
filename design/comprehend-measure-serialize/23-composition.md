@@ -22,7 +22,7 @@ Zoom into any verb and you find comprehend → measure → serialize *again*. A 
 
 - **VERIFY** is the lifecycle's *measure* role — "did EXECUTE do what PLAN intended?" But verify, examined internally, is a complete CMS loop:
   - **comprehend** — load the execution checkpoints + PIV obligations into a model;
-  - **measure** — judge each obligation (pass / warn / block / contradicted) — deterministic, fail-closed, bound to the evidence (the graph gate's assessment + contradiction checks);
+  - **measure** — judge each obligation (pass / warn / block / contradicted) — fail-closed, grounded in the evidence (verify's check runs through the graph gate's deterministic assessment + contradiction checks);
   - **serialize** — write the `piv_assessment` / `verification_package` as typed, registered, provenanced state (the entity-writer).
 - The same recursion holds for every phase, every gate, every governed operation. A **gate is the *measure*** of its phase's loop; the **entity-writer is the *serialize*** of every loop.
 

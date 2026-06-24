@@ -5,7 +5,7 @@ title: EXECUTE — per-phase CMS prompt
 macro_role: serialize
 timestamp: 2026-06-24
 edges:
-  - {dst: 24-phase-crosswalk, rel: derives_from, provenance: derived}
+  - {dst: 24-phase-crosswalk, rel: depends_on, provenance: derived}
 ---
 
 # EXECUTE — per-phase CMS prompt

@@ -64,11 +64,11 @@ A second hunt against **formal CS** (Paxos · Raft · SAT · SMT · compiler-opt
 - **`comprehend = identity`** for structureless input (RNG) — sometimes only nominal.
 - **the measure-discipline (deterministic + fail-closed) is FALSE for human actors** — it must be down-scoped to "deterministic *where the actor is mechanical*."
 
-**The resolution — and why the boundary STRENGTHENS UACP (decisive, falsifier A):** scope the law to **governed operations**, where a real fail-closed gate is *required by definition*. Then the unconditional-append/NOP "break" falls **out of scope** — it is precisely an *ungoverned, always-PASS, self-attesting write*, the very thing UACP's no-self-attestation discipline forbids. So **CMS holds as a law within UACP's governed scope** — which is all UACP needs. The universal-axiom claim was too strong; the governed-operation law is both correct and sufficient. (This is itself evidence FOR UACP: the operations that break CMS are exactly the ones UACP refuses to allow.)
+**[SUPERSEDED by HUNT 2, above — historical]** **The resolution — and why the boundary STRENGTHENS UACP (decisive, falsifier A):** scope the law to **governed operations**, where a real fail-closed gate is *required by definition*. Then the unconditional-append/NOP "break" falls **out of scope** — it is precisely an *ungoverned, always-PASS, self-attesting write*, the very thing UACP's no-self-attestation discipline forbids. So **CMS holds as a law within UACP's governed scope** — which is all UACP needs. The universal-axiom claim was too strong; the governed-operation law is both correct and sufficient. (This is itself evidence FOR UACP: the operations that break CMS are exactly the ones UACP refuses to allow.)
 
-**Naming (resolves node 11's open question): step 2 should be `decide`, not `measure`.** "measure" connotes quantification; `infer` (generates *new* information — measurement only extracts) and `select` (the choice-act) fall OUT of it. The invariant's own words — *"reduce to a decidable signal"* — literally describe a decision. RECOMMENDATION: rename to `decide`; keep "measure" only as a public alias IF the measurement-as-evidence / no-self-attestation framing is brand-load-bearing. **This rename is mike's call** (it touches the whole framing) — a decision-log entry, not a silent change.
+**[SUPERSEDED by HUNT 2 — `measure` is KEPT]** Naming (round-1 recommended `decide`, not `measure`): "measure" connotes quantification; `infer` (generates *new* information — measurement only extracts) and `select` (the choice-act) fall OUT of it. The invariant's own words — *"reduce to a decidable signal"* — literally describe a decision. RECOMMENDATION: rename to `decide`; keep "measure" only as a public alias IF the measurement-as-evidence / no-self-attestation framing is brand-load-bearing. **This rename is mike's call** (it touches the whole framing) — a decision-log entry, not a silent change.
 
-**Promotion status: QUALIFIED-READY.** CMS earns promotion as *"the discipline for governed/decision-bearing operations"* (NOT "every operation is CMS"). The AGENTS.md line + the portable `uacp.md` MUST carry the governed-scope qualification, or they overclaim.
+**[SUPERSEDED — see Status in node 00]** Promotion status (round-1): QUALIFIED-READY. CMS earns promotion as *"the discipline for governed/decision-bearing operations"* (NOT "every operation is CMS"). The AGENTS.md line + the portable `uacp.md` MUST carry the governed-scope qualification, or they overclaim.
 
 ## The naming sub-question
 
@@ -76,7 +76,7 @@ While testing, challenge step 2's name: do all of `compare / validate / infer / 
 
 ## Self-reference (the proof is the method)
 
-We validate this axiom **the way the axiom prescribes**: *comprehend* the claim → *measure* it against adversarial cases → *serialize* the verdict. The [verification method](../verification-method/00-the-primitive.md) is the instrument judging its own foundation — if it cannot, that is itself a finding.
+We validate this axiom **the way the axiom prescribes**: *comprehend* the claim → *measure* it against adversarial cases → *serialize* the verdict. The verification method (a planned sibling bundle, not present on this branch) is the instrument judging its own foundation — if it cannot, that is itself a finding.
 
 ## The promotion gate
 

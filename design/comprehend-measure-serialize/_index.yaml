@@ -5,7 +5,7 @@
 #                lifecycle bundles all instantiate. The "underlying logic", one layer
 #                below UACP-execution.
 # NOTE: the root (00) is deliberately THIN; substance is one-entity-per-node (the three
-#       verbs 10-12, the facets 20-22, the rigor/mapping 30-31) — the bundle obeys the
+#       verbs 10-12, the facets 20-25, the rigor/mapping 30-31) — the bundle obeys the
 #       very granularity discipline it documents.
 
 kind: design_index
@@ -50,6 +50,8 @@ edges:
   - {src: 22-differentia, dst: 00-the-axiom, rel: extends, provenance: asserted}
   - {src: 23-composition, dst: 00-the-axiom, rel: extends, provenance: asserted}
   - {src: 24-phase-crosswalk, dst: 23-composition, rel: depends_on, provenance: derived}
+  - {src: 24-phase-crosswalk, dst: 31-instantiations, rel: extends, provenance: asserted}
   - {src: 25-enforcement-surfaces, dst: 00-the-axiom, rel: extends, provenance: asserted}
+  - {src: 25-enforcement-surfaces, dst: 22-differentia, rel: depends_on, provenance: asserted}
   - {src: 30-validation-matrix, dst: 00-the-axiom, rel: decides_on, provenance: asserted}
   - {src: 31-instantiations, dst: 00-the-axiom, rel: depends_on, provenance: derived}

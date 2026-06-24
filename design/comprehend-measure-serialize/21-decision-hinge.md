@@ -27,9 +27,9 @@ measure → [decision / routing] → serialize
 
 ## Why it is not a fourth primitive
 
-The hinge is the *application of policy* to a measurement, not a new kind of work. Keeping the triad at three (and treating routing as the policy at the measure→serialize seam) preserves the clean atom; promoting routing to a peer step would blur it. The routing is still *deterministic given the policy* — same re-derivable discipline.
+The hinge is the *application of policy* to a measurement, not a new kind of work. Keeping the triad at three (and treating routing as the policy at the measure→serialize seam) preserves the clean atom; promoting routing to a peer step would blur it. The routing is still *deterministic given the policy* — but that determinism is the GATE's (routing is the gate side of the seam), never demanded of the agent's semantic measure; same re-derivable discipline.
 
 ## To expand
 - The routing table as data (measure-signal × policy → target), and whether it is itself a serialized, auditable artifact.
 - Multi-target fan-out (one measurement → memory + audit + metric simultaneously).
-- The escalation branch (risk over threshold → human/architecture verdict) as a first-class routing outcome ([verification harness](../verification-method/11-harness.md)).
+- The escalation branch (risk over threshold → human/architecture verdict) as a first-class routing outcome (verification harness (the verification method — planned sibling bundle, not on this branch)).
