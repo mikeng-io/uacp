@@ -44,6 +44,9 @@ def ingest_cochange(
     for files in commits:
         if path_suffixes is not None:
             files = [f for f in files if f.endswith(path_suffixes)]
+        # drop hidden-dir + worktree-copy paths (.git/.trustless/worktrees/…)
+        files = [f for f in files
+                 if not any(p.startswith(".") or p == "worktrees" for p in f.split("/"))]
         files = sorted(set(files))
         if len(files) < 2 or len(files) > _MAX_FILES_PER_COMMIT:
             continue

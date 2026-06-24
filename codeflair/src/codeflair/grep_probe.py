@@ -92,10 +92,11 @@ def index_repo_strings(
 ) -> int:
     """Walk ``repo_path`` (skipping .git / vendor / node_modules), read source files
     read-only, and ingest shared-string couplings."""
-    skip_dirs = {".git", "node_modules", "vendor", ".worktrees", "dist", "build", ".next"}
+    skip_dirs = {"node_modules", "vendor", "worktrees", "dist", "build"}
     files: dict[str, str] = {}
     for root, dirs, names in os.walk(repo_path):
-        dirs[:] = [d for d in dirs if d not in skip_dirs]
+        # skip hidden dirs (.git/.venv/.trustless/.worktrees/…) + known build/copy dirs
+        dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith(".")]
         for name in names:
             if not name.endswith(suffixes):
                 continue

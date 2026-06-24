@@ -149,10 +149,11 @@ def index_repo_tree_sitter(
     import os
 
     suffix_lang = suffix_lang or SUFFIX_LANG
-    skip = {".git", "node_modules", "vendor", ".worktrees", "dist", "build", ".next", ".venv"}
+    skip = {"node_modules", "vendor", "worktrees", "dist", "build"}
     files: dict[str, tuple[str, bytes]] = {}
     for base, dirs, names in os.walk(repo_path):
-        dirs[:] = [d for d in dirs if d not in skip]
+        # skip hidden dirs (.git/.venv/.trustless/…) + known build/copy dirs
+        dirs[:] = [d for d in dirs if d not in skip and not d.startswith(".")]
         for name in names:
             _, ext = os.path.splitext(name)
             lang = suffix_lang.get(ext)

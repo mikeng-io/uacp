@@ -46,7 +46,10 @@ def _is_repo_path(path: str) -> bool:
     escape the repo root or are absolute and must not pollute the graph."""
     if not path or path.startswith("../") or path.startswith("/"):
         return False
-    return "go-build" not in path and "/Caches/" not in path
+    if "go-build" in path or "/Caches/" in path:
+        return False
+    # drop hidden-dir + worktree-copy paths (.git/.trustless/worktrees/…)
+    return not any(p.startswith(".") or p == "worktrees" for p in path.split("/"))
 
 
 def ingest_scip_json(
