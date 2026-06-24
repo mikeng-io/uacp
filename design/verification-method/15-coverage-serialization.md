@@ -66,7 +66,27 @@ keyed scope and no `work_units` — so a dropped intent on that path is **not** 
 
 That — not "D43 is unbuilt" — is the open problem.
 
-## The open decision (what to actually settle)
+## DECISION + as-built update (2026-06-25, session 2)
+
+**Decided (mike): Option C — keyed scope MODULE + register PIV.** Grounded follow-up changed the
+picture: the governed entity-writer `engines/manifest/entity_writer.py::create_entity` **auto-registers**
+every entity it writes into `manifest.artifacts` (`artifact_type = kind.removeprefix("uacp.")`). So a run
+authored the governed way — `uacp_entity_write` of a keyed `uacp.proposal` (the substantive scope module)
++ the PIV — already registers both, projection loads them, and **coverage is enforced on the LIVE path**:
+`tests/e2e/test_transition_coverage_enforced.py` proves a dropped intent (keyed proposal declares si-1+si-2,
+PIV covers only si-1) is BLOCKED by `state_machine.handle_transition(plan→execute)` with `GP_UNCOVERED_INTENT`,
+and a fully-covered run advances. So Option C's mechanism (keyed `uacp.proposal` as the scope module + the
+auto-registered PIV) is **already wired and now regression-tested end-to-end** for governed runs.
+
+**What remains (the agent-omission fail-open).** Coverage binds *when the keyed proposal+PIV are produced*.
+The kernel's PROPOSE→PLAN gate (`adaptive_proposal_package_gate`) requires only the `*_package_selection`
+envelope, not a registered keyed `uacp.proposal` — so a run that emits only the envelope + markdown scope
+advances with coverage silently skipped. Fully closing the fail-open = REQUIRE a registered keyed
+`uacp.proposal` (scope module) at the PROPOSE gate. That is a real contract change with broad ripple (every
+package-selection fixture/test would need the keyed scope), so it is a **deliberate, separable enforcement
+increment**, not bundled into the wiring. Deferred to a focused next step.
+
+## The open decision (what to actually settle) — RESOLVED to Option C above; kept for context
 
 Close the package-selection coverage residual. Two options (reviewers favored the first as less
 disruptive):
