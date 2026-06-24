@@ -22,6 +22,11 @@ from codeflair.cochange import index_repo_cochange
 from codeflair.grep_probe import index_repo_strings
 from codeflair.scip_ingest import index_repo
 
+try:  # the tree-sitter floor is optional (codeflair[treesitter]); degrade if absent
+    from codeflair.treesitter_ingest import index_repo_tree_sitter
+except ImportError:
+    index_repo_tree_sitter = None
+
 W = 78
 _SUFFIX = {"go": (".go",), "python": (".py",), "typescript": (".ts", ".tsx")}
 _LANG_NORM = {
@@ -50,9 +55,7 @@ def build(repo: str, lang: str) -> Store:
         index_repo(store, repo, lang)
     except Exception as exc:  # SCIP indexer missing/failed -> degrade to the floor
         print(f"  SCIP indexing failed ({type(exc).__name__}); using tree-sitter floor")
-    if store.count_symbols() == 0:
-        from codeflair.treesitter_ingest import index_repo_tree_sitter  # optional dep
-
+    if store.count_symbols() == 0 and index_repo_tree_sitter is not None:
         ext = {"go": ".go", "python": ".py", "typescript": ".ts"}[lang]
         index_repo_tree_sitter(store, repo, suffix_lang={ext: lang})
     index_repo_cochange(store, repo, path_suffixes=_SUFFIX[lang])

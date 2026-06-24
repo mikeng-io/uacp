@@ -36,6 +36,7 @@ line-length = 100
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-# Same ruleset UACP holds its clean new code (engines/ + e2e) to. No per-file-ignores:
-# the package is editable-installed so scripts import normally (no sys.path/E402 hacks).
-select = ["E", "F", "I", "UP", "B", "N"]
+# UACP's house ruleset + PLC0415 (import-outside-top-level): imports belong at module top,
+# enforced — not a convention. The package is editable-installed so scripts import normally
+# (no sys.path/E402 hacks) and no per-file-ignores are needed.
+select = ["E", "F", "I", "UP", "B", "N", "PLC0415"]

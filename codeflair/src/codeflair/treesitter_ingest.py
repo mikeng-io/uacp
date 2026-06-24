@@ -15,6 +15,10 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
+# This module REQUIRES the optional tree-sitter dep (codeflair[treesitter]); importing it
+# without the dep fails fast. Callers that must degrade (scripts) guard the module import.
+from tree_sitter_languages import get_language, get_parser
+
 from codeflair.store import Edge, Store, Symbol
 
 
@@ -79,8 +83,6 @@ def ingest_tree_sitter(store: Store, files: dict[str, tuple[str, bytes]]) -> Ing
     definition and a ``calls`` edge (source=tree_sitter, provenance=syntactic) from each
     call's enclosing definition to every same-named definition in the corpus (the
     syntactic over-approximation — SCIP refines it)."""
-    from tree_sitter_languages import get_language, get_parser  # lazy: optional dep
-
     name_index: dict[str, list[str]] = {}  # ref name -> candidate callee symbols
     # per file: (defnode_id -> symbol), and the parsed call refs to resolve in pass 2
     pending: list[tuple[str, str, object, dict[int, str], list[tuple[str, object]]]] = []

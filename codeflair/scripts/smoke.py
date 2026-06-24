@@ -19,6 +19,11 @@ from codeflair.cochange import index_repo_cochange
 from codeflair.grep_probe import index_repo_strings
 from codeflair.scip_ingest import index_repo
 
+try:  # the tree-sitter floor is optional (codeflair[treesitter]); degrade if absent
+    from codeflair.treesitter_ingest import index_repo_tree_sitter
+except ImportError:
+    index_repo_tree_sitter = None
+
 _SUFFIX = {"go": (".go",), "python": (".py",), "typescript": (".ts", ".tsx")}
 _LANG_NORM = {
     "go": "go",
@@ -43,9 +48,7 @@ def _ingest_symbols(store: Store, repo: str, lang: str) -> None:
         _timed("scip (precise)", lambda: index_repo(store, repo, lang))
     except Exception as exc:
         print(f"  SCIP failed ({type(exc).__name__}); falling back to tree-sitter floor")
-    if store.count_symbols() == 0:
-        from codeflair.treesitter_ingest import index_repo_tree_sitter  # optional dep
-
+    if store.count_symbols() == 0 and index_repo_tree_sitter is not None:
         ext = {"go": ".go", "python": ".py", "typescript": ".ts"}[lang]
         _timed(
             "tree-sitter (floor)",
