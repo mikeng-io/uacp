@@ -68,7 +68,19 @@ engine/gate/check). No round-1 fix was found to have introduced a node-to-node c
 | R2-6 | **CF-D7 over-claimed a measured in-repo recall regression.** (P2/P3) | kimi | **FIXED** — [CF-D7](07-decisions.md): "removed as dead code; evidence = literature + QMD retirement." |
 | R2-7 | **Misc citation precision** — D29-supersedes-D13 (via chain), 100k+ regime (D11/D12), Manifest-engine ownership (D43/D44 not D29). (P3) | kimi, minimax | **FIXED** — [00](00-overview.md), [01](01-contract.md), [02](02-probes.md). |
 
-Round-2 verdict: **SOUND-WITH-FIXES, all applied.** A **Round 3** is not required before PROPOSE; the
-remaining open items are decisions for governance (eval-set owner, NL-seed-in-v1, service graduation
-trigger), not review findings. (Codex and Gemini were the round-1 external voices; Codex exhausted quota
-that round — a future pass could re-add it.)
+Round-2 verdict: **SOUND-WITH-FIXES, all applied.**
+
+## Scope change after R1/R2 — Round 3 now REQUIRED
+
+After R1/R2 the bundle was **re-scoped** ([CF-D8](07-decisions.md)): from a read-only *lookup driver* to
+**the whole Code Engine** (build SCIP + store + query). This **reverses the councils' "not an engine"
+finding** — correctly, because the scope changed (a storage-owning engine, not a pure reader). The
+producer/store nodes ([01a](01a-indexer.md), [01b](01b-store.md)) are **new and un-reviewed**, and the
+engine-identity reversal touches governance (an engine that *writes* its index, even a rebuildable one).
+
+**A Round 3 council is required before this enters governance (PROPOSE/PLAN)** and must:
+1. verify the not-an-engine→is-an-engine reversal is sound (store ownership; build-side write is a
+   rebuildable projection, not governed state);
+2. review the new indexer/store nodes against the graph-engine substrate (D12/D29/D44) and the
+   `code_anchor` producer gap they claim to close;
+3. include a cross-provider voice (R1 = Gemini; R2 = kimi + minimax; Codex pending quota).

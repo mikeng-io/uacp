@@ -22,8 +22,8 @@ their results* is the benchmarked policy ([03](03-expansion-loop.md)).
 | **grep** | raw text | strings, config keys, cross-language, dynamic/reflective refs | in-memory hit (text match) | ✓ now |
 | **manifest-graph** | the **Manifest engine** read-side projection (D43/D44) | `derives_from` / work_unit / proposal edges | the edge's own provenance (`derives_from`=`asserted`; FK=`derived`) | ✓ now |
 | **co-change** | commit history | files/symbols that change **together** — temporal | in-memory result (`inferred`-grade; not a manifest edge) | ✓ now |
-| **SCIP** | per-commit symbol index | `defines` / `references` / `calls` — precise symbol edges | `parsed` (real edge) | ⏳ **deferred** |
-| **code_anchor** | the `code_anchor` edge (D5/D12) | the cross-plane hop: a checkpoint → its `code_symbol` | `parsed` (real edge) | ⏳ **deferred** |
+| **SCIP** | per-commit symbol index, produced by [01a](01a-indexer.md) | `defines` / `references` / `calls` — precise symbol edges | `parsed` (real edge) | engine phase-1 |
+| **code_anchor** | produced by [01a](01a-indexer.md) | the cross-plane hop: a checkpoint → its `code_symbol` | `parsed` (real edge) | engine phase-1 |
 
 > **Codeflair writes nothing** (see [01](01-contract.md)). The "result tag" is the confidence/source
 > label it attaches to a *heatmap node in memory* — it is the manifest edge's real provenance **only
@@ -31,14 +31,15 @@ their results* is the benchmarked policy ([03](03-expansion-loop.md)).
 > hits and co-change correlations are **not** manifest edges — there is no `grep` or `co_change`
 > `rel_type` in the edge schema — so they are carried as in-memory heatmap results, never written back.
 
-## v1 availability — the spike runs on what exists today (council R2, P1)
+## Build order — the engine produces its own precise edges
 
-SCIP and `code_anchor` belong to the **deferred, unbuilt code plane** (D5/D27/D44; *"All of
-LSP/codegraph/SCIP are EXTERNAL deps"*, D36). So the v1 spike runs the **available-now** probes — LSP,
-grep, the Manifest-engine read-side projection, and co-change/git history — and the `parsed`-grade edges
-in v1 come from **LSP only**. SCIP and the cross-plane `code_anchor` hop **light up when the code plane
-ships**; until then the heatmap is code-plane-shallow (LSP + text + co-change) and relation-plane-deep
-(manifest projection). The spike measures the delta with the probes it actually has.
+SCIP and `code_anchor` are no longer an external deferral: **this engine produces them**
+([01a-indexer](01a-indexer.md)). The build order *within* the engine is **indexer → store
+([01b](01b-store.md)) → query (here)**, so the query layer's `parsed`-grade SCIP/`code_anchor` edges
+come online when the indexer ships. A **thin early spike** can still run the query loop on
+LSP/grep/co-change + the Manifest-engine projection *before* the indexer lands — a code-plane-shallow
+heatmap that tests the loop+prune hypothesis early ([05](05-benchmark.md)) — but the engine's
+distinctive value (SCIP precision + the cross-plane join) arrives with [01a](01a-indexer.md).
 
 ## The reconcile job (this is what the orchestrator does by hand today)
 
@@ -78,8 +79,8 @@ is a **first-class member of the probe set**, *and* its **default-on status is a
 
 The **live** decisions (earlier ones were superseded):
 
-- **SCIP** indexer for symbol-precise code edges — **D12** (the indexer verdict is live; the code-plane
-  *store* it feeds is itself **deferred**, D27/D44).
+- **SCIP** indexer for symbol-precise code edges — **D12** (the indexer verdict is live; this engine
+  *realizes* it as [01a](01a-indexer.md), feeding the store [01b](01b-store.md) it now owns).
 - **Structural store = plain YAML + in-memory projection; semantic = LanceDB; no sqlite-vec, no
   structural DB** — **D29** (supersedes D16; D13's sqlite-vec is obsoleted via the D13→D16→D29 chain).
   The Qwen3 reranker is post-retrieval/store-agnostic and survives.

@@ -9,16 +9,17 @@
 # VALIDATED BY:  ../graph-engine/schema/design-index.schema.json (shared schema).
 
 kind: design_index
-title: Codeflair — Codespace Relation-Finder (Design Bundle)
+title: Codeflair — The Code Engine (Design Bundle)
 description: >-
-  Codeflair is graph-engine's code-plane sibling. Where graph-engine walks
-  write-time-serialized MANIFEST edges, Codeflair finds relations across the
-  CODESPACE: it fans out SCIP / LSP / grep / co-change / anchor probes in a
-  light-model-pruned expansion loop and returns a read-only heatmap — blast
-  radius + relations + gaps — for the orchestrator. A scale tool that mechanizes
-  the manual grep·LSP·SCIP comprehension chain into one shot. Lookup only; it
-  never diagnoses and never writes. v1 is a spike around the existing Oracle
-  reranker; a no-LLM Policy D is the benchmark's control.
+  Codeflair is UACP's 4th engine (alongside State / Manifest / Oracle) — the
+  codespace plane end-to-end, and graph-engine's code-plane sibling. It PRODUCES
+  the code graph (SCIP per-commit + LSP live, emitting code_symbol/code_anchor),
+  STORES it (SQLite, a rebuildable watermarked projection it owns), and QUERIES
+  it (a light-model-pruned expansion loop returning a read-only heatmap — blast
+  radius + relations + gaps). It mechanizes the manual grep·LSP·SCIP
+  comprehension chain into one shot, at scale. The build-side writes a derived
+  index (not governed state); the query layer is read-only/hypothesis-only and
+  never diagnoses. Closes the code_anchor producer gap; matches D44's Code engine.
 status: design                      # enum: design|proposed|accepted|building|built
 governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
 timestamp: '2026-06-24'             # ISO date (YYYY-MM-DD)
@@ -28,6 +29,8 @@ schema_dir: ../graph-engine/schema/  # reuses the graph-engine bundle's shared s
 members:
   - 00-overview.md
   - 01-contract.md
+  - 01a-indexer.md
+  - 01b-store.md
   - 02-probes.md
   - 03-expansion-loop.md
   - 04-outputs.md
@@ -46,11 +49,14 @@ edges:
   - {src: 04-outputs, dst: 03-expansion-loop, rel: consumes, provenance: asserted}
   - {src: 05-benchmark, dst: 03-expansion-loop, rel: decides_on, provenance: asserted}
   - {src: 06-open-questions, dst: 05-benchmark, rel: relates_to, provenance: asserted}
+  - {src: 01a-indexer, dst: 01b-store, rel: depends_on, provenance: asserted}
+  - {src: 01b-store, dst: 00-overview, rel: realizes, provenance: asserted}
+  - {src: 02-probes, dst: 01b-store, rel: consumes, provenance: asserted}
   - {src: 07-decisions, dst: 00-overview, rel: decides_on, provenance: asserted}
   - {src: 08-council-review, dst: 05-benchmark, rel: relates_to, provenance: asserted}
 
 # v1 scope guard (see 00-overview): a read-only codespace lookup that returns a
 # heatmap. It does not promote edges into the manifest, diagnose causes, or synthesize fixes.
 scope:
-  v1: [code-plane, lookup-only, read-only-heatmap, spike-around-oracle]
+  v1: [code-plane-engine, scip-indexer, code-graph-store, relation-finder-query, read-only-query]
   deferred: [edge-promotion, auto-trigger, diagnosis, synthesis]
