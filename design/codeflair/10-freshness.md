@@ -41,6 +41,28 @@ watermark advances).
 Default to committed-only + flag + live-LSP overlay; add the working layer only when a measured
 edit-then-query loop shows live overlay is the bottleneck (house style — benchmark it).
 
+> **If LSP (Serena/`uv`) is absent** ([12-delivery](12-delivery.md): `uv` is the user's responsibility),
+> the **live-overlay path is skipped, not errored** — dirty files are returned **`stale`+flagged**, so the
+> engine runs as a **two-zone** reconcile (clean / stale-flagged), not the three-zone one. Zone ② becomes
+> a no-op, the orchestrator still *sees* the staleness. This is the documented degrade, not a hidden one.
+
+## Worktrees — key the store per worktree; the watermark does the rest
+
+git worktrees = one repo, N working trees at different branches/commits/dirty-states, sharing one `.git`.
+A store built for worktree A (branch X) is *wrong* for worktree B (branch Y). Handling:
+
+- **Per-worktree store.** The `.codeflair/` cache lives *in* (or is keyed by) the **worktree root** — each
+  worktree gets its own watermarked graph reflecting *its* checkout + dirty state. Clean isolation. The
+  cache dir is **gitignored** (same hygiene as `.worktrees/` and `.mcp.json` secrets).
+- **The watermark makes it automatic.** A store from a different worktree/commit reads as **stale →
+  rebuild the delta** — worktrees need no special logic beyond keying the store right; it's just another
+  input to the freshness check.
+- **Aligns with UACP's worktree-protocol** — worktrees nest under `$UACP_ROOT/.worktrees/` *so tooling
+  (LSP/SCIP/the code plane) sees them*. Codeflair runs the indexer **in-worktree**, store **in-worktree**.
+- **Deferred optimization:** worktrees share git objects, so the *committed* graph for a common commit is
+  identical — one could share a committed base + per-worktree dirty overlay. Premature; per-worktree store
+  is the simple correct v1.
+
 ## Query side — the three-zone reconcile (per-file)
 
 The watermark classifies every file cheaply at query time:

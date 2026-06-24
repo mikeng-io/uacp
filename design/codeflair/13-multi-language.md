@@ -32,13 +32,16 @@ language boundary. So cross-language links must be *constructed* — but the rea
 | HTTP / gRPC | shared route `/api/accounts` | **grep** — language-agnostic; finds it in Go *and* TS | deterministic |
 | CLI / subprocess | shared command string | **grep** | deterministic |
 | events / queues | shared event name `"user.created"` | **grep** (+ normalization) | deterministic |
-| typed contract | proto / OpenAPI / GraphQL codegen | **parse the IDL** → `Account` → Go struct + TS iface | near-deterministic |
+| typed contract | proto / OpenAPI / GraphQL codegen | the **`contract-parser` probe** ([02](02-probes.md)) → `Account` → Go struct + TS iface | near-deterministic |
 | temporal | cross-lang files that change together | **co-change** (git is language-blind) | inferred |
+| **DB-schema** *(known gap)* | a Postgres table written by Go, read by TS via Prisma | **not covered** by grep/co-change/contracts — schema lives in a migration, not a shared string | — *(future)* |
+| **FFI / ABI** *(known gap)* | Go cgo → C symbol; no shared string | **not covered** — non-string, non-co-change | — *(future)* |
 
 **The key insight: `grep` is already cross-language.** The common couplings are *shared strings* (routes,
 commands, events), which grep finds across languages with **zero symbol resolution and zero LLM.** Add
-co-change (language-blind) and contract parsing, and nearly all real cross-language blast radius is
-covered — **deterministically.**
+co-change (language-blind) and the `contract-parser` probe, and nearly all real cross-language blast
+radius is covered — **deterministically.** The two **known gaps** above (DB-schema, FFI) are non-string,
+non-temporal couplings the v1 frame does not catch — named as **future work**, not hand-waved.
 
 ## Why the LLM is deferred here (CF-D13)
 

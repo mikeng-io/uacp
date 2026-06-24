@@ -18,7 +18,8 @@ their results* is the benchmarked policy ([03](03-expansion-loop.md)).
 
 | Probe | Source | Finds | Result tag | v1 avail. |
 |---|---|---|---|---|
-| **LSP** | live language server | refs / impls / call-hierarchy — live, stale-tolerant | `parsed` (real edge) | ✓ now |
+| **LSP** | live language server (**Serena**, [12](12-delivery.md)) | refs / impls / call-hierarchy — live, working-tree-fresh | `parsed` (real edge) | ✓ *when Serena/`uv` present*; absent → tree-sitter+grep |
+| **contract-parser** | IDL files (proto / OpenAPI / GraphQL) | cross-language edges via codegen naming (`Account` → Go struct + TS iface) | `inferred` (near-deterministic) | ✓ now (cross-lang, [13](13-multi-language.md)) |
 | **grep** | raw text | strings, config keys, cross-language, dynamic/reflective refs | in-memory hit (text match) | ✓ now |
 | **tree-sitter** | syntactic parse (any language, no toolchain) | structural edges (name-based defs/refs) — the **breadth floor**: works on unsupported langs, broken code, dirty files | `syntactic` (fuzzy; below `parsed`) | ✓ now (adopt) |
 | **manifest-graph** | the **Manifest engine** read-side projection (D43/D44) | `derives_from` / work_unit / proposal edges | the edge's own provenance (`derives_from`=`asserted`; FK=`derived`) | adapter only |

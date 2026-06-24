@@ -34,6 +34,39 @@ emit → heatmap + evidence trail + gaps + trace (04)
 
 `score` and `prune` are where the **policy** lives. `probe` is deterministic.
 
+## Access per probe (how `probe` reaches each source)
+
+The split is **persisted store (SQL) vs. live (called at query time)**, fused at step ④:
+
+| Probe | Access | Store / live |
+|---|---|---|
+| SCIP | ingested once → SQLite; **recursive CTE** | persisted |
+| tree-sitter | parse → def/ref rows → same SQLite (parse-on-demand for dirty files) | persisted (+ live for dirty) |
+| LSP (Serena) | **MCP call** to Serena (`find_references`/`find_symbol`) for working-tree/dirty files | live |
+| grep | shell out to **ripgrep** over the working tree | live |
+| co-change | **`git log`** → PMI table (precomputed/on-demand) | semi-live |
+| code_anchor | SQL join store ↔ Manifest projection (UACP only) | persisted |
+
+The **bulk graph (SCIP+tree-sitter) is queried by SQL/CTE**; the **live probes (LSP/grep/co-change) are
+called at query time and fused** onto the SQL result (④, [02-probes](02-probes.md)).
+
+## The score (Policy D — a deterministic formula)
+
+Candidate `heat` blends provenance/edge-weight (the precision ladder), graph distance, recency, a
+centrality penalty, co-change PMI, and multi-probe agreement:
+
+```
+heat(node) =  base_weight(source, rel)         # precision ladder: calls 1.0 · references 0.8 · code_anchor 0.9
+            × distance_decay ^ hop             #   · tree-sitter 0.5 · grep 0.3 · co_change 0.4 ; decay ≈ 0.6
+            × recency_factor(last_change)       # recent = hotter
+            ÷ (1 + log(fan_in))                 # down-weight ubiquitous utils
+            + w_cc · co_change_PMI(seed, node)  # temporal
+            + agreement_bonus · (probes_found − 1)   # corroboration ; bonus ≈ 0.1
+```
+
+**The *shape* is the spec; the *constants* are benchmark-tuned** (recall@K on the labeled eval set,
+[05-benchmark](05-benchmark.md)) — deferred to BUILD so tests arbitrate, not prose. No model — Policy D.
+
 ## Why pruning is necessary — but an LLM may not be
 
 At codespace scale the frontier explodes: hop 1 of a moderately-connected symbol returns dozens of

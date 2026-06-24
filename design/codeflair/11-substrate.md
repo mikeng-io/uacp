@@ -18,14 +18,29 @@ graph. Codeflair ingests it (`scip print --json`, or protobuf) and **re-derives 
 tool's rebuildable artifact (D38); Codeflair's SQLite is a separate, watermarked projection — never a
 second source of truth. *(Corrects the earlier "SCIP's native SQLite" phrasing.)*
 
-## What it holds
+## What it holds — ONE fused store, edges tagged by source
+
+The edges **fuse into one SQLite** — the recursive CTE must walk SCIP + tree-sitter + co-change + LSP
+edges *together*; you can't CTE across separate DBs. Each edge carries its **`source`** so reconcile,
+filtering, and per-source re-ingest work:
 
 ```
-symbols(id, lang, file, name, kind, line, commit)      -- nodes
-edges(src_id, dst_id, rel, provenance)                 -- the RELATIONS (defines/references/calls; co_change=inferred)
-files(path, lang, content_hash)                        -- per-file hash → freshness (see 10-freshness)
+symbols(id, lang, file, name, kind, line, commit)            -- nodes
+edges(src_id, dst_id, rel, source, provenance)               -- the RELATIONS, tagged
+        -- source ∈ {scip, tree_sitter, lsp, grep, co_change};  provenance ∈ {parsed, syntactic, inferred, …}
+files(path, lang, content_hash, commit)                      -- per-file hash+commit → freshness (10-freshness)
+freshness(source, file, content_hash, commit, tool_version)  -- PER-SOURCE freshness manifest (each source stales independently)
 watermark(repo_commit, built_at)
 ```
+
+**Fused for query, partitioned for ingest/freshness.** Each source ingests independently (different
+cadences: SCIP per-commit batch; tree-sitter per-file-save; co-change on git change) via **source-scoped
+delete-and-replace** (`DELETE WHERE source='scip' AND file=… → re-insert`). The **per-source `freshness`
+manifest** is the "separate manifest" — SCIP and tree-sitter go stale on different clocks.
+
+**Raw per-source artifacts are NOT persisted** — `index.scip` (protobuf), tree-sitter trees are
+*derivable* transient ingest *inputs*; the store keeps only the normalized fused graph + the watermarks.
+Nuke the SQLite anytime → rebuild from files (store = rebuildable projection; truth = files).
 
 Not held: corpus semantic vectors (LanceDB/Oracle, D29) and manifest edges (the Manifest engine's, via a
 query-time join). Cross-language edges, when present, are **`inferred`** (see [13-multi-language](13-multi-language.md)).
@@ -44,7 +59,8 @@ OLTP/OLAP.
 
 The blast-radius walk *is* a recursive CTE over `edges` (anchor at the seed; repeatedly join `edges`;
 stop at a hop cap). That is SQLite's native idiom — **no graph DB required**. The expensive model never
-walks; SQLite does (≤1ms at the scale tested — see [05-benchmark](05-benchmark.md)).
+walks; SQLite does (**≤1ms** on the Trustless spike — see [00-overview](00-overview.md); the bake-off
+*protocol* and recall@K gate live in [05-benchmark](05-benchmark.md)).
 
 ## SQLite by default; DuckDB only on a measured trigger
 

@@ -29,8 +29,9 @@ with zero UACP** (CF-D9, [09-abstraction](09-abstraction.md)). Dropped into a ba
 blast-radius / relations / gaps; you lose only the cross-plane "what governs this code" half.
 
 **Embedded in UACP, the same engine serves as the 4th engine** (the code plane, alongside **State /
-Manifest / Oracle**) — exactly the shape D44 names: *"Code engine (the future 4th) — build = SCIP
-per-commit (persisted) + LSP live; query = symbol/reference lookup."* UACP plugs in via a thin **adapter**:
+Manifest / Oracle**) — exactly the shape **D44:906** names: *"Code engine (the future 4th) — build = SCIP
+per-commit (persisted) + LSP live; query = symbol/reference lookup."* (The cross-plane *join* is the
+separate **D44:912** bullet.) UACP plugs in via a thin **adapter**:
 the manifest-graph probe + the `code_anchor` cross-plane join + the governed-writer/Guardian wrapper.
 
 The first cut scoped Codeflair as a *read-only lookup driver* — too narrow, and it exposed a real gap:

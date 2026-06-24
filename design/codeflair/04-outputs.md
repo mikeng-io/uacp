@@ -57,6 +57,15 @@ makes a stochastic loop honest:
   then it is still **replayable from the trace** and auditable.) "Replayable + watermarked" is the
   re-derivability bar — and a deterministic engine clears it trivially.
 
+## Format: JSON is canonical; the formatted string is a rendering
+
+The **structured JSON is the source of truth** — the MCP / orchestrator contract: `{ nodes[], gaps[],
+trace{} }`, each node carrying `heat · source · provenance · freshness · hop`. Machine-parseable,
+re-derivable, replayable. The **formatted heatmap string** (the `● 1.00 symbol …` table) is a *rendering*
+of that JSON — for the CLI/human, and a token-efficient view an LLM can read directly. **JSON is the
+contract; the string is a presentation choice — never the source** (don't lose the structure). So: JSON
+over MCP; a compact rendered text as the default display.
+
 ## What the output is *not*
 
 It is not a diagnosis, not a fix, not a proposed manifest edge, and not a governed write. The
