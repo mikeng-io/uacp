@@ -447,7 +447,7 @@ def _valid_brainstorm() -> dict:
         "in_scope": ["a"],
         "declared_side_effects": [],
         "authority": {"source": "user"},
-        "routing_advisory": "standard",
+        "routing_advisory": "standard_uacp",
     }
 
 
@@ -476,6 +476,15 @@ def test_brainstorm_scope_package_flat_required_open():
         "title" in e
         for e in validate("uacp.brainstorm_scope_package", {**_valid_brainstorm(), "title": ""})
     )
+    # routing_advisory out of the 4-depth enum -> fails. "standard" (the old loose value, not in any
+    # routing vocabulary) and "block_or_clarify" (impossible when admitting) both reject.
+    assert any(
+        "routing_advisory" in e
+        for e in validate("uacp.brainstorm_scope_package", {**_valid_brainstorm(), "routing_advisory": "standard"})
+    ), "old loose 'standard' value must now fail the enum"
+    assert validate(
+        "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "routing_advisory": "block_or_clarify"}
+    ), "block_or_clarify is not a valid brainstorm routing_advisory"
     # wrong kind const -> fails (mis-dispatch guard)
     bad4 = {**_valid_brainstorm(), "kind": "uacp.WRONG"}
     assert any(
