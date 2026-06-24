@@ -70,13 +70,23 @@ scope is a blocker (`_scope_concern_is_keyed`). Structured intent scope is now m
 package-selection PROPOSE→PLAN. TDD `tests/e2e/test_proposal_scope_gate.py` (non-vacuity proven); shared
 `_seed_proposal_package` emits a keyed scope module (one fix cascade-cleared 49 fixtures). Suite **1881 green**.
 
-**Two precise residuals remain (smaller, separable — NEXT):** (1) the gate is in `validate_transition`
-(agent-invoked), not forced `handle_transition` — like ALL adaptive package gates; closing = the broader
-"force validate_transition" item. (2) The required scope module is REFERENCED not REGISTERED, so
-`projection` doesn't see its scope_items → coverage CHECK (GP_UNCOVERED) doesn't BIND for package-selection
-runs (only the gate REQUIREMENT is enforced); full binding needs register-scope-module + register-PIV +
-fire `_check_uncovered` on scope-presence. **Governed entity-write runs already fully bind+enforce** (proven
-`test_transition_coverage_enforced.py`). Then capsule #3 (the generator). Branch UNPUSHED (~11 commits).
+**Session 2c — keystone landed:** `fix(verify): GP_UNCOVERED fires on scope PRESENCE` — `_check_uncovered`
+self-gates on scope-presence (skip only when NO scope_item nodes), not on `_coverage_adopted`, so a run that
+declares intents but covers NONE is caught (matches the projection docstring). `_check_orphan` stays
+adoption-gated. One unit test updated. Suite **1881 green**.
+
+**NEXT SESSION = implement OPTION B for full package-selection BINDING (decided).** Gap: a package-selection
+run's scope_items (referenced scope module) + work_units (PIV) are REFERENCED-not-REGISTERED, so
+`projection._load_and_project` (reads only `manifest.artifacts`) never projects them → the forced plan_exit
+gate has nothing to check. **Option B (chosen over A=projection-follows-canonical-paths, which changes the
+registered-state-only principle + ripples every e2e run w/ phantom-flood risk):** require REGISTRATION —
+scope module registered at PROPOSE (extend the adaptive proposal scope check to require it in
+`manifest.artifacts`) + PIV registered at PLAN; seeders register them; **projection UNCHANGED**. Then forced
+plan_exit GP_UNCOVERED fires for package-selection too. WATCH-OUT: keystone now fires uncovered on
+scope-presence → the happy-path PIV must COVER its scope module's si-1 (align `_seed_governed_run` /
+`_seed_proposal_package`), else happy path breaks. TDD: a package-selection dropped intent blocks at FORCED
+plan_exit (not just validate_transition). Then capsule #3 (the generator). Branch UNPUSHED (~14 commits;
+not asked to push).
 
 ---
 
