@@ -68,7 +68,39 @@ engine/gate/check). No round-1 fix was found to have introduced a node-to-node c
 | R2-6 | **CF-D7 over-claimed a measured in-repo recall regression.** (P2/P3) | kimi | **FIXED** — [CF-D7](07-decisions.md): "removed as dead code; evidence = literature + QMD retirement." |
 | R2-7 | **Misc citation precision** — D29-supersedes-D13 (via chain), 100k+ regime (D11/D12), Manifest-engine ownership (D43/D44 not D29). (P3) | kimi, minimax | **FIXED** — [00](00-overview.md), [01](01-contract.md), [02](02-probes.md). |
 
-Round-2 verdict: **SOUND-WITH-FIXES, all applied.** A **Round 3** is not required before PROPOSE; the
-remaining open items are decisions for governance (eval-set owner, NL-seed-in-v1, service graduation
-trigger), not review findings. (Codex and Gemini were the round-1 external voices; Codex exhausted quota
-that round — a future pass could re-add it.)
+Round-2 verdict: **SOUND-WITH-FIXES, all applied.**
+
+## Scope change after R1/R2 — Round 3 now REQUIRED
+
+After R1/R2 the bundle was **re-scoped** ([CF-D8](07-decisions.md)): from a read-only *lookup driver* to
+**the whole Code Engine** (build SCIP + store + query). This **reverses the councils' "not an engine"
+finding** — correctly, because the scope changed (a storage-owning engine, not a pure reader). The
+producer/store nodes ([01a](01a-indexer.md), [01b](01b-store.md)) are **new and un-reviewed**, and the
+engine-identity reversal touches governance (an engine that *writes* its index, even a rebuildable one).
+
+**A Round 3 council is required before this enters governance (PROPOSE/PLAN).**
+
+## Round 3 — the Code Engine reframe (3 voices, all grounded in the kernel)
+
+- **Architecture+governance** (Claude, read the kernel) — SOUND-WITH-FIXES
+- **kimi** (Moonshot) — SOUND-WITH-FIXES
+- **gemini** (cross-provider) — SOUND-WITH-FIXES
+
+All three independently verified the three risky claims. **The governed-writer claim holds:** Guardian
+governs by **path** (`.uacp/` roots) + **tool**, not "any write during a run" — a generic write is
+`require_approval`, not `block` — and D44 explicitly blesses engine-owned rebuildable caches (Oracle's
+persisted LanceDB is the live precedent). The **engine reversal is grounded** (D44:906 names the Code
+engine; storage-touched-only-by-engines). All substrate citations check out.
+
+### Findings & disposition (all FIXED in this commit)
+
+| # | Finding (severity) | Raised by | Fix |
+|---|---|---|---|
+| R3-1 | **Governed-writer claim under-specified** — wrong precedent (`graph_projection` persists nothing) + the load-bearing preconditions (store outside `.uacp/` governed roots; build path a sanctioned engine op) were implicit. (P1/P2) | all three | grounded in Oracle/LanceDB + D44; preconditions made explicit in [01b-store](01b-store.md), [01-contract](01-contract.md), [CF-D8](07-decisions.md), [06](06-open-questions.md) |
+| R3-2 | **CF-D8 stepped over the 29-ref "if adding a 4th engine, STOP" guard** | Claude | [CF-D8](07-decisions.md): the same line names "Code later" as the sanctioned exception |
+| R3-3 | **D34/D36/D38 nuance missing** — codegraph-vs-SCIP build-time bake-off; store ≠ SCIP's own file | kimi | [01a-indexer](01a-indexer.md): D34/D36 bake-off obligation + D38 re-derived-projection note |
+| R3-4 | **Stale "read-only / writes nothing" framing** — `_index` scope guard, `02-probes`, `01-contract` bare subject, **`06` one-line guard literally outlawed the indexer write** | all three (gemini caught the `06` one) | all qualified to "the query layer" / "write governed state" |
+
+Round-3 verdict: **SOUND-WITH-FIXES, all applied.** No further council required before PROPOSE; the
+remaining open items (eval-set owner, the build-path sanction mechanism, service-graduation trigger) are
+governance decisions, not review findings.

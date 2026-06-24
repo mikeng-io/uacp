@@ -76,3 +76,29 @@ target on a strong-rerank stack**. Because "expansion"
 is Codeflair's central verb, a future reader — or an Oracle/edge-model reviewer — could mistake the
 expansion loop for a re-tread of that dead path. **It is not.** Any proposal that reintroduces
 query-string rewriting under the Codeflair banner is out of scope by this decision.
+
+## CF-D8 — Codeflair IS the Code Engine (build + store + query), reversing "not an engine"
+
+**Chosen:** scope Codeflair as UACP's **4th engine** — the whole codespace plane: it **produces** the
+code graph (SCIP indexing, [01a](01a-indexer.md)), **stores** it ([01b](01b-store.md)), and **queries**
+it (the relation-finder, [02](02-probes.md)+). **Rejected:** the first cut's *read-only lookup driver,
+not an engine*. **Why:** that narrow scope exposed a real gap — `code_anchor`/`code_symbol` are declared
+edge types **with no producer** ("no code indexing exists today"), and graph-engine called the code plane
+*"the real strain"* (D12) yet never built it. Designing the **consumer** on an unbuilt **producer** is
+the gap. The all-in-one engine closes it by construction and matches D44's already-named *"Code engine
+(the future 4th) — build = SCIP per-commit + LSP live; query = symbol/reference lookup."*
+
+**Consequence (a deliberate reversal):** owning the code-graph store makes Codeflair an **engine**
+(`29-ddd-ca-reference.md`: *storage is touched only by engines*). The R1/R2 councils' "not an engine"
+was **correct for the lookup-only scope** — a pure reader owns no storage — and is reversed only because
+the scope changed. The same reference carries a *"if you're about to add a 4th 'engine,' stop — it's
+almost certainly a Check, Leaf, or Gate"* guard — but that line **also names "Code later"** as the
+sanctioned 4th plane (State/Manifest/Oracle/Code), so the Code engine is the guard's explicit exception,
+not a new invention it forbids.
+
+The build-side writes a rebuildable index (a derived cache, not governed state, D29/D44 — and the
+precedent is Oracle's persisted LanceDB index, *not* the in-memory graph_projection); the **query layer
+stays read-only/hypothesis-only** over that store. The write is sound **only** under the preconditions in
+[01b-store](01b-store.md) (store outside `.uacp/`'s governed roots; build path registered as a
+self-attesting engine op). This decision **supersedes** the "not an engine / read-only service" framing
+wherever the earlier nodes still carry it.
