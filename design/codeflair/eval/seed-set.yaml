@@ -1,0 +1,138 @@
+# Codeflair eval seed-set — the CF-D5 build-gating prerequisite (starter)
+#
+# WHAT THIS IS: labeled (seed -> ground-truth subgraph) pairs the benchmark
+#   (05-benchmark.md) ranks Policy D / A / B / C against. recall@K of the
+#   ground-truth nodes is the primary metric, REPORTED SPLIT BY PROVENANCE
+#   (parsed vs inferred) so it tests whether the LLM is actually needed.
+#
+# HONESTY / NON-FICTION RULE: ground truth is DERIVED FROM THIS REPO at a pinned
+#   commit, never invented (the spike-fictional trap). Each pair's `derivation:`
+#   shows how the node set was obtained (LSP findReferences, git co-change, grep,
+#   registry-walk). `adjudication: needs-human` = mechanically derived, awaiting a
+#   human label + the inter-labeler-agreement check that gates the build
+#   (CF-D5 wants >=20 agreed pairs on THIS repo).
+#
+# layer:  core         = runs STANDALONE on any git repo, ZERO UACP (the abstraction:
+#                        SCIP/LSP/grep/co-change + store + loop + heatmap).
+#         uacp-adapter = needs the UACP manifest/`code_anchor` cross-plane join
+#                        (a pluggable adapter, not a core dependency).
+#
+# CAVEAT: SCIP + code_anchor come from the (unbuilt) indexer (01a-indexer.md);
+#   pairs needing them carry `requires:`. Today LSP findReferences is the live
+#   stand-in for SCIP refs.
+
+schema_version: 0.2
+repo: uacp
+repo_commit: f3b136e        # watermark; re-derive ground truth if this moves
+default_k: 5
+
+pairs:
+  # ---- A. core, fully grounded (LSP findReferences ⊕ grep, reconciled) -------
+  - id: blast-radius--resolve_uacp_root
+    capability: symbol-blast-radius
+    layer: core
+    seed:
+      type: symbol
+      value: resolve_uacp_root
+      anchor: skills/uacp-core/scripts/engines/domain/paths.py:16
+    derivation: "LSP findReferences @ paths.py:16:5 = 11 refs / 6 files; reconciled with grep (grep scoped to skills/ MISSED runtime-adapters/hooks/guardian_pretooluse.py — the reconcile value Codeflair mechanizes)"
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - { node: skills/uacp-core/scripts/engines/heartgate/heartgate.py, via: scip_refs, provenance: parsed }
+        - { node: skills/uacp-core/scripts/engines/guardian/policy.py,     via: scip_refs, provenance: parsed }
+        - { node: runtime-adapters/hooks/guardian_pretooluse.py,           via: scip_refs, provenance: parsed,
+            note: "grep-scoped misses this cross-dir caller; SCIP/LSP catches it — must count toward recall" }
+      should_find:
+        - { node: skills/uacp-core/scripts/core.py, via: scip_refs, provenance: parsed, note: "re-export hub" }
+        - { node: tests/unit/uacp_core/test_guardian_extraction.py, via: scip_refs, provenance: parsed }
+      expected_gaps: []   # covered by test_guardian_extraction.py -> no missing-test gap
+    exercises: [reconcile-job, parsed-recall, cross-dir-caller]
+    adjudication: grounded-mechanical
+
+  # ---- B. core, fully grounded (git co-change) — the cheap-model test --------
+  - id: co-change--graph_projection
+    capability: temporal-relation
+    layer: core
+    seed:
+      type: symbol
+      value: graph_projection
+      anchor: skills/uacp-core/scripts/engines/graph_projection.py
+    derivation: "git log co-change over 5 commits touching graph_projection.py; files most-frequently co-committed"
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - { node: tests/unit/uacp_core/test_graph_projection.py,           via: co_change, provenance: inferred }
+        - { node: skills/uacp-core/scripts/engines/manifest/projection.py, via: co_change, provenance: inferred }
+      should_find:
+        - { node: skills/uacp-core/scripts/engines/artifact_integrity.py,  via: co_change, provenance: inferred }
+      expected_gaps: []
+    exercises: [co-change-probe, inferred-recall]
+    adjudication: grounded-mechanical
+    note: "PRIMARY test of the cheap-model premise: inferred-subset recall, cheap-vs-big (05-benchmark)."
+
+  # ---- C. uacp-adapter: cross-plane governance orphan (requires indexer) -----
+  - id: governance-orphan--code-without-anchor
+    capability: cross-plane-gap
+    layer: uacp-adapter
+    seed: { type: symbol, value: "<a code_symbol with no governing manifest node>", anchor: "<fill once indexer exists>" }
+    derivation: "RECIPE: once 01a-indexer emits code_anchor, join code_symbol -> manifest; a symbol with no code_anchor to any checkpoint/work_unit is the orphan. Cannot be grounded today (code_anchor unbuilt)."
+    requires: [uacp, code-plane-built]
+    k: 5
+    ground_truth:
+      must_find: []
+      expected_gaps:
+        - { kind: cross-plane-orphan, detail: "code owned/touched with NO code_anchor to any manifest node" }
+    exercises: [code_anchor-join, gap-flags]
+    adjudication: needs-human
+
+  # ---- D. core: NL incident -> subsystem (grounded expansion target) ---------
+  - id: nl-incident--heartgate-blocks-valid-transition
+    capability: nl-seed-bootstrap
+    layer: core
+    seed: { type: nl_incident, value: "Heartgate is blocking a transition that should pass" }
+    derivation: "bootstrap grep 'heartgate'/'transition' -> Heartgate (heartgate.py:95,130); expand to the validators it runs (real dir listing below)"
+    requires: []
+    k: 8
+    ground_truth:
+      must_find:
+        - { node: skills/uacp-core/scripts/engines/heartgate/heartgate.py, via: bootstrap, provenance: parsed }
+      should_find:   # the validators the gate runs (real: engines/heartgate/validators/)
+        - { node: skills/uacp-core/scripts/engines/heartgate/validators/phase_exit.py,      via: scip_calls, provenance: parsed }
+        - { node: skills/uacp-core/scripts/engines/heartgate/validators/plan_validation.py, via: scip_calls, provenance: parsed }
+        - { node: skills/uacp-core/scripts/engines/heartgate/validators/ppv.py,             via: scip_calls, provenance: parsed }
+        - { node: skills/uacp-core/scripts/engines/heartgate/validators/coherence.py,       via: scip_calls, provenance: parsed }
+      expected_gaps: []
+    exercises: [nl-bootstrap, expansion-loop]
+    adjudication: needs-human
+
+  # ---- E. core: pre-PR gap sweep — and a DYNAMIC-DISPATCH reconcile case ------
+  - id: pre-pr--entity-writer-diff
+    capability: gap-sweep
+    layer: core
+    seed: { type: diff, value: "208f506", anchor: "skills/uacp-core/scripts/governed_handlers.py:479" }
+    derivation: "git show 208f506 changed _handle_uacp_artifact_write (def @479). Pyright reports it 'not accessed' => it is DYNAMICALLY DISPATCHED (registered, not directly called) — LSP findReferences is THIN here; the grep/registry-walk probe is what finds the dispatch site. Inverse of pair A (where LSP wins)."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - { node: skills/uacp-core/scripts/governed_handlers.py, via: seed-diff, provenance: parsed }
+      should_find:
+        - { node: skills/uacp-core/scripts/governed_handlers.py, via: grep-registry, provenance: parsed, note: "the HANDLERS dispatch registration — found by grep, NOT by LSP refs (dynamic dispatch)" }
+      expected_gaps: []   # the diff ADDED its reject-test -> good NEGATIVE example (no missing-test gap)
+    exercises: [gap-flags, reconcile-job, dynamic-dispatch]
+    adjudication: needs-human
+
+  # ---- F. core, but UNGROUNDABLE ON UACP: scale / context-compression --------
+  - id: scale--high-fanout-symbol
+    capability: context-compression
+    layer: core
+    seed: { type: symbol, value: "get_config", anchor: "<fill>", note: "highest fan-out on UACP at 13 files — still far too small to test compression" }
+    derivation: "CANNOT be grounded on UACP (too small: top symbol get_config = 13 files; compression only matters at 100k+ nodes). REQUIRES a large external repo in STANDALONE mode (no UACP) — which is exactly why the core must be UACP-independent."
+    requires: [large-external-repo]
+    k: 10
+    ground_truth: { must_find: [], should_find: [], expected_gaps: [] }
+    exercises: [beam-prune, stop-conditions, trace]
+    adjudication: needs-human
