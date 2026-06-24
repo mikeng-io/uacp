@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the aggregate root of the Codeflair design bundle.
+# WHAT IT DOES:  lists member nodes (reading order), declares the design's own
+#                inter-node graph, and records status/governance/scope.
+# WHAT IT DOES NOT DO: it does not validate the member nodes (each carries its own
+#                frontmatter), does not perform cross-node closure (that is the
+#                projection engine), and carries no node-level manifest data.
+# VALIDATED BY:  ../graph-engine/schema/design-index.schema.json (shared schema).
+
+kind: design_index
+title: Codeflair — Codespace Relation-Finder (Design Bundle)
+description: >-
+  Codeflair is graph-engine's code-plane sibling. Where graph-engine walks
+  write-time-serialized MANIFEST edges, Codeflair finds relations across the
+  CODESPACE: it fans out SCIP / LSP / grep / co-change / anchor probes in a
+  light-model-pruned expansion loop and returns a read-only heatmap — blast
+  radius + relations + gaps — for the orchestrator. A scale tool that mechanizes
+  the manual grep·LSP·SCIP comprehension chain into one shot. Lookup only; it
+  never diagnoses and never writes. v1 is a spike around the existing Oracle
+  reranker; a no-LLM Policy D is the benchmark's control.
+status: design                      # enum: design|proposed|accepted|building|built
+governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
+timestamp: '2026-06-24'             # ISO date (YYYY-MM-DD)
+origin: session 2026-06-24 (brainstorm thread; sibling to design/graph-engine)
+schema_dir: ../graph-engine/schema/  # reuses the graph-engine bundle's shared schema
+
+members:
+  - 00-overview.md
+  - 01-contract.md
+  - 02-probes.md
+  - 03-expansion-loop.md
+  - 04-outputs.md
+  - 05-benchmark.md
+  - 06-open-questions.md
+  - 07-decisions.md
+  - 08-council-review.md
+
+# Intra-bundle design graph. Mirrors each node's own `edges:` frontmatter (the node
+# doc is canonical). Cross-bundle references (graph-engine D12/D29/D44) are expressed
+# in prose in 00-overview, not as edges here, to keep the bundle closed-world.
+edges:
+  - {src: 01-contract, dst: 00-overview, rel: realizes, provenance: asserted}
+  - {src: 02-probes, dst: 01-contract, rel: depends_on, provenance: asserted}
+  - {src: 03-expansion-loop, dst: 02-probes, rel: consumes, provenance: asserted}
+  - {src: 04-outputs, dst: 03-expansion-loop, rel: consumes, provenance: asserted}
+  - {src: 05-benchmark, dst: 03-expansion-loop, rel: decides_on, provenance: asserted}
+  - {src: 06-open-questions, dst: 05-benchmark, rel: relates_to, provenance: asserted}
+  - {src: 07-decisions, dst: 00-overview, rel: decides_on, provenance: asserted}
+  - {src: 08-council-review, dst: 05-benchmark, rel: relates_to, provenance: asserted}
+
+# v1 scope guard (see 00-overview): a read-only codespace lookup that returns a
+# heatmap. It does not promote edges into the manifest, diagnose causes, or synthesize fixes.
+scope:
+  v1: [code-plane, lookup-only, read-only-heatmap, spike-around-oracle]
+  deferred: [edge-promotion, auto-trigger, diagnosis, synthesis]
