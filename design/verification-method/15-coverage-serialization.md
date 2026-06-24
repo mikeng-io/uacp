@@ -136,14 +136,64 @@ and at closure (finalize gate). Today it silently passes; that test is the real 
   author-triggered. Document this as the known limit of the as-built gate (already disclaimed in
   `projection.py`'s engine docstring).
 
-## To build (next session)
+## Option B — BUILT (2026-06-25, session 3)
 
-- Decision-log entry recording: D43 producer-serialization is built; the open decision is closing the
-  package-selection residual (option 1 vs 2 above).
-- Implement the chosen option; update `_seed_proposal_package`/`_seed_plan_package`; add the
-  drop-an-intent negative test on the lifecycle path (blocks at `plan_exit` + closure).
-- (Optional hardening, separable) the transition-time `derives_from` referential check; the
-  `inherited_artifacts` projection fix.
+**Decided + built: Option B (require REGISTRATION).** Chosen over the rejected
+"projection-follows-canonical-paths" (which would change projection's registered-state-only
+principle and ripple every e2e run with phantom-flood risk). What landed:
+
+- **Enforcement (production).** `validate_adaptive_proposal_package_gate` now requires the keyed
+  scope module be **registered** in the run manifest (`manifest.artifacts`), not merely present on
+  disk + marked `covered` — via `Heartgate._registered_artifact_rels`. Projection reads only
+  registered artifacts, so this is what gives the forced `plan_exit` gate scope_items to enforce
+  `GP_UNCOVERED_INTENT` on the package-selection representation. TDD: the enforcement test was RED
+  (gate passed an on-disk-but-unregistered keyed scope) → GREEN.
+- **Binding (forced path).** A governed package-selection run that registers its keyed scope (si-1,
+  si-2) + a PIV covering only si-1 is BLOCKED at `state_machine.handle_transition(plan→execute)`
+  with `GP_UNCOVERED_INTENT`; a fully-covered run advances
+  (`tests/e2e/test_package_selection_coverage_binding.py`). Projection unchanged.
+- **Lifecycle cascade.** Registering the scope module forced a coherent covered chain through the
+  forced plan_exit/execute_exit/verify_exit gates + closure: the full-lifecycle fixture now registers
+  scope module → PIV (`ob.work_unit_id`) → checkpoint → passing assessment. (`_piv` gained
+  `ob-1.work_unit_id` so the `obligation_for` edge survives the canonical-PIV overwrite.)
+
+**Containment regression caught by cross-provider review + fixed.** The first Option-B commit also
+widened `scope_conformance._ALLOWED_OUTPUT_PREFIXES` to include `proposals/plans/executions` so the
+registered governance chain would pass SC at closure. A cross-provider reviewer (**kimi**) reproduced
+a real **write-containment bypass**: `uacp_artifact_write` accepts ARBITRARY non-manifest files under
+those homes (`governed_handlers.py` only refuses RELATION-plane *manifest* kinds), so an EXECUTE
+product at `executions/patch.py` could be registered and pass SC. (A same-provider subagent had called
+the widening "safe" — the cross-provider reviewer found the bypass. This is the
+`council-include-external-reviewer` discipline working.) **Fix:** revert the prefix widening; exempt
+governance artifacts **by RELATION-plane KIND** (`_is_governance_manifest`) — path-canonical
+(`layout.kind_for_relpath`, unspoofable) with a content-kind fallback only for files under `.uacp/`
+(a RELATION-kind doc there can only come from the governed manifest writer). A non-manifest
+`executions/patch.py` has no RELATION kind → still flagged. Regression test +
+non-vacuity proof in `tests/e2e/test_scope_conformance.py`.
+
+## Honest residual after Option B (UNCHANGED by this work — the broader item)
+
+The Option-B enforcement lives in `validate_adaptive_proposal_package_gate`, which runs only on the
+**agent-invoked** `Heartgate.validate_transition`. `state_machine.handle_transition(propose→plan)` does
+NOT run it (`propose ∉ _GRAPH_GATED_PHASES`). So a run that advances using ONLY `handle_transition` and
+never calls `validate_transition` is never compelled to register its scope module → at `plan_exit` no
+scope_items project → a dropped intent escapes. This is **residual #1 above** (the package gates aren't
+forced — the broader "force `validate_transition`" concern), confirmed independently by cross-provider
+(kimi) + subagent review. It is NOT specific to coverage and was explicitly OUT of Option B's scope.
+Closing it = an initiative-level item (force the Heartgate gate onto the live transition path, or have
+the forced graph gate refuse to advance a package-selection run whose scope concern references an
+unregistered artifact — the latter couples the state machine to the package format, so the former is
+preferred). NOT done here; do not overclaim Option B as closing it.
+
+## Done / residual ledger
+
+- DONE: D43 producer-serialization (session 2); coverage binds on the governed entity-write path
+  (auto-register); Option B registration enforcement + package-selection forced-path binding +
+  lifecycle cascade (session 3); SC governance-by-kind exemption (containment-safe).
+- RESIDUAL (separable, initiative-level): force `validate_transition` onto `handle_transition` so the
+  proposal-gate registration requirement is not bypassable (residual #1). Plus the earlier session-2
+  blind spots: transition-time `derives_from` referential check (deferred — redundant with
+  `GP_PHANTOM_EDGE`); topology-only gate is gameable (council/semantic scope).
 
 ---
 

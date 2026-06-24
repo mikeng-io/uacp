@@ -4,10 +4,37 @@ workstream: verification-method
 timestamp: 2026-06-25
 status: paused
 worktree: /Users/mike/Workplace/uacp/.worktrees/verification-method
-branch: verification-method   # UNPUSHED
+branch: verification-method   # REBASED onto origin/main (session 3); 0 behind / ahead, suite green
 ---
 
 # Handoff — verification-method (resume sharp)
+
+## UPDATE 2026-06-25 (session 3) — Option B BUILT + a cross-provider-caught containment fix; REBASED onto main. 2 commits.
+
+**Option B LANDED (package-selection coverage binding).** `cccf36d` — the adaptive proposal gate now
+REQUIRES the keyed scope module be REGISTERED in `manifest.artifacts` (`Heartgate._registered_artifact_rels`),
+not just on-disk+covered — so the forced `plan_exit` gate projects scope_items and `GP_UNCOVERED_INTENT`
+binds for the package-selection representation. Enforcement test RED→GREEN. Forced-path proof:
+`tests/e2e/test_package_selection_coverage_binding.py` (dropped intent BLOCKS at
+`handle_transition(plan→execute)`; covered advances). The full-lifecycle fixture now registers a coherent
+covered chain (scope module → PIV w/ `ob.work_unit_id` → checkpoint → passing assessment); `_piv` ob-1
+gained `work_unit_id`. Projection UNCHANGED. Suite 1886 green.
+
+**Containment regression CAUGHT by cross-provider review + FIXED.** `72de7b8` — the first Option-B commit
+widened `scope_conformance._ALLOWED_OUTPUT_PREFIXES` to proposals/plans/executions; a same-provider subagent
+called it "safe" but **kimi (cross-provider) reproduced a real write-containment bypass**: `uacp_artifact_write`
+accepts arbitrary non-manifest files under those homes, so `executions/patch.py` could be registered + pass SC.
+FIX: revert the widening; exempt governance artifacts by RELATION-plane KIND (`_is_governance_manifest`,
+path-canonical + content-fallback only under `.uacp/`, spoof-proof). Regression test + non-vacuity proof in
+`tests/e2e/test_scope_conformance.py`. **Lesson reinforced: council MUST include a cross-provider reviewer.**
+
+**Residual #1 (UNCHANGED, out of scope):** the registration requirement is in the agent-invoked
+`validate_transition`, NOT the forced `handle_transition(propose→plan)` — a run using only `handle_transition`
+escapes. This is the broader "force `validate_transition`" item (node 15). Do NOT overclaim Option B as closing it.
+
+**State:** rebased onto origin/main (clean, only a `.gitignore` conflict). Suite 1886 green, ruff clean. node 15
+records Option B as-built + the SC fix + residual #1. Branch UNPUSHED (mike to integrate via PR/merge).
+**NEXT = capsule #3 (the generator — node 12's deterministic-check-from-artifact-content + replay engine).**
 
 ## UPDATE 2026-06-25 (session 2) — Builds #1 + transition gate LANDED; Step 2 = design node authored. 3 commits, branch UNPUSHED.
 
