@@ -101,10 +101,28 @@ def _seed_proposal_package(root: Path, run_id: str) -> None:
     pkg_dir.mkdir(parents=True, exist_ok=True)
     module_artifact = f"proposals/{run_id}/module-core.yaml"
     (root / ".uacp" / module_artifact).write_text("kind: uacp.proposal_module\nbody: stub\n")
+    # D43 (Option C): the scope concern is backed by a KEYED scope module
+    # (scope.in_scope:[{id,statement}]), not not_applicable — the proposal package
+    # gate now requires structured intents so intent coverage can be verified.
+    scope_module = f"proposals/{run_id}/scope-module.yaml"
+    (root / ".uacp" / scope_module).write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.proposal",
+                "scope": {
+                    "in_scope": [{"id": "si-1", "statement": "the e2e intent"}],
+                    "out_of_scope": [],
+                },
+            },
+            sort_keys=False,
+        )
+    )
+    universal_core = {key: _na_block() for key in _PROPOSAL_CORE}
+    universal_core["scope"] = {"status": "covered", "artifact": scope_module}
     selection = {
         "kind": "uacp.proposal_package_selection",
         "run_id": run_id,
-        "universal_core": {key: _na_block() for key in _PROPOSAL_CORE},
+        "universal_core": universal_core,
         "selected_modules": {
             "core": {"reason": "minimal e2e module", "artifact": module_artifact},
         },
