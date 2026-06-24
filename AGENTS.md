@@ -6,6 +6,18 @@ This file is **principles only** — the governance contract every agent must ob
 
 ---
 
+## Core Principle — comprehend → measure → serialize
+
+Machines earn reliability through **determinism**; agents are **semantic** and cannot — so they need their own discipline for trustworthy thinking. Every governed operation, *and the agent's own reasoning*, follows one invariant:
+
+- **comprehend** — raise input to a computable model; the one semantic act, done once (do not silently re-interpret downstream);
+- **measure** — reduce the model to a decidable signal that is **grounded in evidence** and **fail-closed** (PASS/FAIL/ERROR distinct) — evidence, not assertion; *determinism belongs to the verifying gate, not to the agent's judgment*;
+- **serialize** — canonicalize the result into typed, provenanced state.
+
+This is `determinism : machines :: CMS : agents` — how a semantic process earns trust without pretending to be deterministic. It is enforced two ways: **architecturally** (Guardian / Heartgate / gates / governed writers) and in the agent's **cognition** (the injected preamble, `UACP.md`). The lifecycle below is this principle iterated. Design rationale: `design/comprehend-measure-serialize/`.
+
+---
+
 ## Authority Chain
 
 When layers conflict, earlier layers win. An explicit entry in `docs/decisions/decision-log.md` is the only mechanism to override this order.
