@@ -92,9 +92,9 @@ the gap. The all-in-one engine closes it by construction and matches D44's alrea
 (`29-ddd-ca-reference.md`: *storage is touched only by engines*). The R1/R2 councils' "not an engine"
 was **correct for the lookup-only scope** — a pure reader owns no storage — and is reversed only because
 the scope changed. The same reference carries a *"if you're about to add a 4th 'engine,' stop — it's
-almost certainly a Check, Leaf, or Gate"* guard — but that line **also names "Code later"** as the
-sanctioned 4th plane (State/Manifest/Oracle/Code), so the Code engine is the guard's explicit exception,
-not a new invention it forbids.
+almost certainly a Check, Leaf, or Gate"* guard — but the same reference **schedules "Code later"** as a
+future plane (State/Manifest/Oracle/Code), so the guard does not block it: the Code engine exists because
+the scope changed (CF-D8), not as a new engine the guard forbids.
 
 The build-side writes a rebuildable index (a derived cache, not governed state, D29/D44 — and the
 precedent is Oracle's persisted LanceDB index, *not* the in-memory graph_projection); the **query layer
@@ -102,3 +102,20 @@ stays read-only/hypothesis-only** over that store. The write is sound **only** u
 [01b-store](01b-store.md) (store outside `.uacp/`'s governed roots; build path registered as a
 self-attesting engine op). This decision **supersedes** the "not an engine / read-only service" framing
 wherever the earlier nodes still carry it.
+
+## CF-D9 — Codeflair core is UACP-independent; UACP is a pluggable adapter
+
+**Chosen:** factor the engine into a **standalone core** (SCIP/LSP/grep/co-change + store + loop +
+heatmap — runs on any git repo, **zero UACP**) and a thin **UACP adapter** (the manifest-graph probe +
+the `code_anchor` cross-plane join + the governed-writer/Guardian wrapper + the run watermark). The
+dependency arrow is **adapter → core**, never the reverse; a core import of anything UACP-specific is the
+litmus violation. Full boundary in [09-abstraction](09-abstraction.md). **Rejected:** baking UACP
+manifest/governance assumptions into the engine. **Why:** code intelligence is valuable on any codebase,
+not just under UACP; coupling the core to UACP would forfeit that and make the engine untestable outside
+a governed run. The seam is a **probe registry** + a stable **`query(seed,k,budget)→heatmap`** API: the
+loop is blind to which probes are registered, so UACP just *adds* the cross-plane probes + relation-plane
+node types. **Consequence:** without UACP you keep the whole code-side (blast radius / relations / gaps /
+trace) and lose only the cross-plane "what governs this code" half. The eval seed-set is split the same
+way (`layer: core | uacp-adapter`; see `eval/seed-set.yaml`, PR #13). The governed-writer preconditions of
+[CF-D8](07-decisions.md)/[01b-store](01b-store.md) are **adapter-scoped** — standalone, the engine just
+writes a cache dir.

@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: Codeflair — The Code Engine (Overview)
-description: Codeflair is UACP's 4th engine — the codespace plane, end-to-end: it PRODUCES the code graph (SCIP indexing), STORES it, and QUERIES it (the relation-finder loop + heatmap). The mission (mechanize the manual grep·LSP·SCIP comprehension chain), the sibling framing, why it is an engine (it owns the code-graph store), the gap it closes (a producer for the declared-but-unproduced code_anchor), and scope.
+description: Codeflair is a STANDALONE code-intelligence engine (runs on any git repo, zero UACP, CF-D9); embedded in UACP it serves as the 4th engine (the codespace plane). It PRODUCES the code graph (SCIP indexing), STORES it, and QUERIES it (the relation-finder loop + heatmap). The mission (mechanize the manual grep·LSP·SCIP comprehension chain), the standalone/adapter split, why it is an engine (it owns the code-graph store), the gap it closes (a producer for the declared-but-unproduced code_anchor), and scope.
 tags: [codeflair, code-engine, code-plane, relation-finder, overview]
 timestamp: 2026-06-24
 edges: []
@@ -21,17 +21,23 @@ This is the **comprehend** primitive of `comprehend → measure → serialize` m
 the [[uacp-graph-engine-serialization-initiative|graph engine]]'s **code-plane sibling**: graph-engine
 serializes MANIFEST relations; Codeflair serializes CODESPACE relations.
 
-## Codeflair is UACP's 4th engine (not just a lookup tool)
+## Codeflair is a standalone code-intelligence engine (UACP is an adapter)
 
-The first cut of this design scoped Codeflair as a *read-only lookup driver*. That was too narrow — and
-it exposed a real gap: `code_anchor` / `code_symbol` are **declared edge types in the graph schema with
-no producer** (no SCIP indexer exists; *"no code indexing exists today"*). graph-engine even flagged the
-code plane as *"the real strain"* (D12) — then never built it. You cannot design the **consumer** (a
-lookup) on top of a **producer** that nobody built.
+**Codeflair's core does not depend on UACP.** It is a standalone code-intelligence engine — SCIP/LSP/grep/
+co-change probes + a code-graph store + the expansion loop + the heatmap — that runs on **any git repo
+with zero UACP** (CF-D9, [09-abstraction](09-abstraction.md)). Dropped into a bare repo it still answers
+blast-radius / relations / gaps; you lose only the cross-plane "what governs this code" half.
 
-So Codeflair is the whole **Code Engine** — UACP's 4th, alongside **State / Manifest / Oracle** — exactly
-the shape D44 already names: *"Code engine (the future 4th) — build = SCIP per-commit (persisted) + LSP
-live; query = symbol/reference lookup."* Three responsibilities, one bounded context (the codespace):
+**Embedded in UACP, the same engine serves as the 4th engine** (the code plane, alongside **State /
+Manifest / Oracle**) — exactly the shape D44 names: *"Code engine (the future 4th) — build = SCIP
+per-commit (persisted) + LSP live; query = symbol/reference lookup."* UACP plugs in via a thin **adapter**:
+the manifest-graph probe + the `code_anchor` cross-plane join + the governed-writer/Guardian wrapper.
+
+The first cut scoped Codeflair as a *read-only lookup driver* — too narrow, and it exposed a real gap:
+`code_anchor` / `code_symbol` are **declared edge types with no producer** (*"no code indexing exists
+today"*); graph-engine flagged the code plane as *"the real strain"* (D12) then never built it. You can't
+design the **consumer** on a **producer** nobody built. So Codeflair owns the whole pipeline — three
+responsibilities, one bounded context (the codespace):
 
 | | Node | Role |
 |---|---|---|
@@ -42,7 +48,8 @@ live; query = symbol/reference lookup."* Three responsibilities, one bounded con
 Because it **owns the code-graph store**, it **is an engine** (it was *not* one only under the discarded
 lookup-only scope — see [01-contract](01-contract.md) and [CF-D8](07-decisions.md)). The build-side
 **writes** its index (a rebuildable projection — the precedent is Oracle's persisted LanceDB index, D44 —
-not governed state, and written outside `.uacp/`'s governed roots); the **query layer stays read-only**
+not governed state; standalone it writes to a normal cache dir, and under UACP, outside `.uacp/`'s
+governed roots); the **query layer stays read-only**
 over that store.
 
 ## Why this is a scale tool (and only a scale tool)

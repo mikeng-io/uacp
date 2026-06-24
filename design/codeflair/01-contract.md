@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: Codeflair — Contract & Engine Identity
-description: Codeflair IS UACP's 4th engine (it owns the code-graph store); the build-side writes a rebuildable index (not governed state), the query layer stays read-only/hypothesis-only over that store. The "expand, don't diagnose" contract, the division of labor, and the deliberate reversal of the first cut's "not an engine" framing.
+description: Codeflair is an engine that owns its code-graph store in BOTH modes — standalone (no UACP) and as UACP's embedded 4th engine (CF-D9). The build-side writes a rebuildable index (not governed state); the query layer stays read-only/hypothesis-only. The "expand, don't diagnose" contract, the division of labor, and the deliberate reversal of the first cut's "not an engine" framing.
 tags: [codeflair, contract, identity, engine, ddd]
 timestamp: 2026-06-24
 edges:
@@ -21,6 +21,10 @@ Engine** scope that is reversed, deliberately ([CF-D8](07-decisions.md)):
   **is** the **Code engine**, UACP's 4th, exactly the slot `29-ddd-ca-reference.md` and D44 reserve.
 - The council's "not an engine" was **correct for the discarded lookup-only scope** (a pure reader owns
   no storage). Owning the index makes it an engine. No contradiction — a scope change.
+- **Standalone vs embedded (CF-D9, [09-abstraction](09-abstraction.md)):** it is an engine that owns its
+  store in *both* modes. Standalone (no UACP) it is simply a code-intelligence engine. The
+  *"calling skill above the UACP ring"* framing + the D44:912 cross-plane join below are the **UACP-
+  embedded** identity only — supplied by the adapter, not the core.
 
 Two halves, one bounded context:
 
