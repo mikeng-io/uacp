@@ -20,8 +20,8 @@ edges:
 
 The structural/causal line matters and the council sharpened it: flagging a *missing test* or an
 *orphan symbol* is **structural** (a graph property — present/absent), and Codeflair may do it.
-Explaining *why* a co-change correlation is causal, or proposing the fix, is **causal/corrective** and
-is barred. Relation-finding is a **narrow-the-haystack** job, not a **solve-the-puzzle** job — which is
+Explaining *why* a co-change correlation is causal, or proposing the fix, is **causal/corrective** —
+outside its contract, and structurally moot since Codeflair emits no manifest edge at all. Relation-finding is a **narrow-the-haystack** job, not a **solve-the-puzzle** job — which is
 why a 4B-class model *may* suffice. (Whether it actually does, or whether a no-LLM baseline matches it,
 is the open empirical question — see [05-benchmark](05-benchmark.md), Policy D.)
 
@@ -57,8 +57,9 @@ The council's sharpest scope finding: most of the substrate already exists — *
 + the **SCIP graph walk** + the **Manifest engine** relation graph. The genuine *new* delta is small:
 (1) the **co-change probe** and (2) **iterating the reranker across hops with a beam.** So v1 is **not**
 a new service with its own identity — it is a **spike**: a loop wrapped around the *existing* Oracle
-reranker and SCIP, built to measure whether the iterated-beam + co-change delta beats a **no-LLM
-baseline** ([05](05-benchmark.md), Policy D). Codeflair **graduates** to a standalone, named service
+reranker + Manifest-engine read-side projection + LSP/grep/co-change probes (SCIP and the cross-plane
+`code_anchor` hop join only when the deferred code plane ships), built to measure whether the
+iterated-beam + co-change delta beats a **no-LLM baseline** ([05](05-benchmark.md), Policy D). Codeflair **graduates** to a standalone, named service
 only *after* the loop proves out. Building service-shaped infrastructure before that measurement is the
 mistake this framing avoids (decision recorded in [07-decisions](07-decisions.md)).
 
@@ -69,9 +70,11 @@ When/if it graduates, Codeflair's slot is **already reserved and sanctioned** �
 > *"Cross-plane is by edge (provenance / `code_anchor`) + a **query-time join in the calling skill** …
 > never one engine reaching into another's storage."*
 
-That is exactly Codeflair: a **calling skill / driver in the application ring** that performs a
-read-only query-time join across the code plane (SCIP → the deferred code-graph store, D12) and the
-relation plane (the **Manifest engine**'s in-memory projection over YAML, D29). It **owns no storage**,
+That is exactly Codeflair: a **calling skill / driver above the application ring** (where the
+modular-architecture reference places drivers — they *call into* the ring, they are not in it) that
+performs a read-only query-time join across the code plane (SCIP → the deferred code-graph store,
+D27/D44) and the relation plane (the **Manifest engine**'s read-side projection over YAML, D43/D44). It
+**owns no storage**,
 so per the modular-architecture reference (`29-ddd-ca-reference.md`) it is **NOT an engine**; it blocks
 nothing, so it is **not a gate**; it is not transition-bound, so it is **not a check**. It is a driver
 that composes existing read APIs + a light-model adapter.

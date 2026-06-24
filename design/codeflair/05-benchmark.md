@@ -12,8 +12,9 @@ edges:
 
 ## "We need to benchmark" is the house style, not a punt
 
-Every substrate decision in the sibling bundle was settled by a measured bake-off, not on faith — D12
-(SCIP indexer), D29 (structural+semantic stores), D44 (indexing-as-engine-capability). The policy fork
+Substrate decisions in the sibling bundle were settled by measured bake-offs — D12 (SCIP indexer) and
+D29 (structural+semantic stores); D44 (indexing-as-engine-capability) is an architecture correction,
+not a bake-off. The policy fork
 (A/B/C/**D**, [03](03-expansion-loop.md)) is the same kind of question. The design's job is **not** to
 pick now; it is to make the policy swappable behind a fixed interface, build the harness, and let data
 choose — **including the choice to use no LLM at all.**
@@ -38,7 +39,7 @@ Policy D is the null hypothesis the LLM policies must beat.
 | Probe adapters (SCIP ∥ LSP ∥ grep ∥ manifest ∥ code_anchor ∥ co-change) | Policy: **D (no LLM)** / A (LLM ranks) / B (LLM drives) / C (hybrid) |
 | Read-only heatmap output + gap flags | Beam width K, max hops, convergence threshold |
 | Replayable watermarked trace | Which small model (if any) |
-| Cross-plane code_anchor join | Co-change probe: on vs. off |
+| code_anchor adapter (its cross-plane hop is gated on the deferred code plane) | Co-change probe: on vs. off |
 | The strategy interface (`next_probes` / `score`) | The *implementation* of that interface |
 
 ## The eval set — a gating PREREQUISITE, not an open task (council P1)
@@ -59,6 +60,8 @@ engineers disagree on the boundary). So eval-set production is promoted from "op
   (`parsed` vs `inferred`). The cheap-model premise only holds if it survives on the **`inferred`
   subset** (co-change), where ranking is hardest; run **cheap-vs-big model on that subset only**. If a
   big model dominates specifically there, "expand-not-diagnose" was "diagnose, cheaply" in disguise.
+  *(In v1 the `parsed` subset = **LSP-derived only**, since SCIP/`code_anchor` are deferred; full
+  `parsed` coverage gates on the code-plane build.)*
 - **hops-to-hit** — how deep before the true node enters the beam.
 - **model-calls per run** — the cost axis; B highest, **D zero**.
 - **wall-clock per query** — must beat **Trustless's retired QMD at ~42s/query** ([00](00-overview.md)).

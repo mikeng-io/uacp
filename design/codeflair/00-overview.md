@@ -50,8 +50,8 @@ shape* for it (a read-only probe fan-out), not merely filling a reserved slot.
 
 On a small codebase Codeflair **should not exist** — the orchestrator greps and reads everything, and
 a relation-finder is pure overhead. It earns its keep only when the code graph + manifest history is
-**too large to fit in the orchestrator's context** (D12 names the regime: *100k+ nodes, dense cyclic
-edges*). The real value is **context compression at scale**: reduce a 1M-node graph to a ~20-node
+**too large to fit in the orchestrator's context** (the graph-engine substrate analysis names the
+regime — *100k+ nodes, dense cyclic edges*, D11/D12). The real value is **context compression at scale**: reduce a 1M-node graph to a ~20-node
 heatmap the expensive model *can* hold. At that scale, unbounded deterministic expansion blows up at
 hop 2 — so **light-model pruning of the frontier is the core job, not a flavor.**
 

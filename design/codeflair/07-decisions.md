@@ -26,8 +26,9 @@ gated, deferred path ([06](06-open-questions.md)), not v1.
 
 **Chosen:** the policy (`next_probes` / `score`) is swappable; the default is chosen by measurement.
 **Rejected:** picking A/B/C up front on argument. **Why:** house style — D12/D29/D44 were all
-bake-offs. The interface, probes, outputs, and trace are invariant to the winner, so the harness ships
-before the policy is fixed. (The contender set was later widened to include **Policy D**, no-LLM — see
+bake-offs (D12/D29 were measured bake-offs; D44 is an architecture correction, not a bake-off). The
+interface, probes, outputs, and trace are invariant to the winner, so the harness ships before the
+policy is fixed. (The contender set was later widened to include **Policy D**, no-LLM — see
 CF-D5.)
 
 ## CF-D3 — Co-change is a first-class probe; default-on is benchmarked
@@ -69,8 +70,9 @@ the most actionable part of the heatmap and serve the original "get the gap" mis
 
 **This is load-bearing.** Codeflair does **search/evidence expansion** — iterating *probe → prune* to
 grow the evidence frontier. It is **not** *query-string expansion* (rewriting/synonym-expanding the
-search query). Query-string expansion was **built, measured, and reverted** in this codebase as the
-**wrong target on a strong-rerank stack** (it was dead code and regressed recall). Because "expansion"
+search query). Query-string expansion was **built, then removed as dead code** (zero callers) in this codebase; the
+evidence — IR literature + the QMD hybrid-search retirement at ~42s/query — is that it is the **wrong
+target on a strong-rerank stack**. Because "expansion"
 is Codeflair's central verb, a future reader — or an Oracle/edge-model reviewer — could mistake the
 expansion loop for a re-tread of that dead path. **It is not.** Any proposal that reintroduces
 query-string rewriting under the Codeflair banner is out of scope by this decision.

@@ -44,5 +44,31 @@ not structure. Independent review grounded in the real producer files (graph-eng
 `10-edge-schema.md`) is what caught them. This is the `verify-against-the-real-producer` discipline: a
 passing structural check is not a substitute for an improvised, grounded second read.
 
-A **Round 2** council should run on this revised bundle before it enters governance (PROPOSE/PLAN), and
-must again include a cross-provider voice.
+## Round 2 (cross-provider, on the revised bundle)
+
+Run on the post-fix bundle. Two cross-provider voices, each instructed to **re-verify the round-1
+citation fixes** against the real graph-engine files (not trust them):
+
+- **kimi** (Moonshot) — verdict: SOUND-WITH-FIXES
+- **minimax-m3** (via opencode) — verdict: SOUND-WITH-FIXES
+
+Both **independently verified** that the round-1 corrections hold (Norty gone; D17→D44; `code_anchor` =
+checkpoint→code_symbol/parsed/deferred; D44:912 quoted exactly; identity correctly *not* an
+engine/gate/check). No round-1 fix was found to have introduced a node-to-node contradiction.
+
+### Round-2 findings & disposition
+
+| # | Finding (severity) | Raised by | Disposition |
+|---|---|---|---|
+| R2-1 | **v1 over-claims "existing SCIP"** — SCIP + `code_anchor` are deferred/unbuilt; in v1 only LSP-derived `parsed` edges exist. (P1) | minimax | **FIXED** — [02](02-probes.md) adds a v1-availability column + section; [01](01-contract.md) and [05](05-benchmark.md) scope the spike + the `parsed` subset to what exists today. |
+| R2-2 | **`code_anchor` described bidirectional** — the edge is directional checkpoint→code_symbol. (P2) | kimi | **FIXED** — [02](02-probes.md): directional edge; reverse traversal via index lookup. |
+| R2-3 | **Result tags mislabeled as manifest provenance** — grep=`parsed` and co-change have no `rel_type`; Codeflair writes nothing. (P2) | kimi, minimax | **FIXED** — [02](02-probes.md): the column is a heatmap *result tag*; grep/co-change are non-serialized in-memory results, not manifest edges. `derives_from`=`asserted` split out. |
+| R2-4 | **Identity placed "in" the application ring** — drivers sit *above* it. (P2) | kimi | **FIXED** — [01](01-contract.md): "driver above the application ring." |
+| R2-5 | **D44 over-claimed as a bake-off** — it is an architecture correction. (P3) | kimi | **FIXED** — [05](05-benchmark.md), [CF-D2](07-decisions.md). |
+| R2-6 | **CF-D7 over-claimed a measured in-repo recall regression.** (P2/P3) | kimi | **FIXED** — [CF-D7](07-decisions.md): "removed as dead code; evidence = literature + QMD retirement." |
+| R2-7 | **Misc citation precision** — D29-supersedes-D13 (via chain), 100k+ regime (D11/D12), Manifest-engine ownership (D43/D44 not D29). (P3) | kimi, minimax | **FIXED** — [00](00-overview.md), [01](01-contract.md), [02](02-probes.md). |
+
+Round-2 verdict: **SOUND-WITH-FIXES, all applied.** A **Round 3** is not required before PROPOSE; the
+remaining open items are decisions for governance (eval-set owner, NL-seed-in-v1, service graduation
+trigger), not review findings. (Codex and Gemini were the round-1 external voices; Codex exhausted quota
+that round — a future pass could re-add it.)
