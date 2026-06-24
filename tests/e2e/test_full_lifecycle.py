@@ -22,8 +22,27 @@ from tests.e2e.driver import Driver
 from tests.e2e.test_adaptive_evidence_gate_uacp import (
     REAL_CONFIG,
     REAL_VALIDATOR,
+    _piv,
     _seed_governed_run,
 )
+
+
+def _register(root: Path, run_id: str, artifact_type: str, rel: str) -> None:
+    """Link a governed artifact into the run manifest so graph projection (which
+    reads only manifest.artifacts) loads it. Option B requires the keyed scope
+    module + the PIV/checkpoint/assessment coverage chain to be REGISTERED, not
+    merely present on disk, so the forced phase-exit graph gates bind."""
+    out = json.loads(
+        state_machine.handle_register_artifact(
+            {
+                "workspace": str(root),
+                "run_id": run_id,
+                "artifact_type": artifact_type,
+                "path": rel,
+            }
+        )
+    )
+    assert out.get("ok") is True, out
 
 # config files the in-process offline validator (validate_configs) hard-requires
 # beyond the fixture's minimal phase-transitions.yaml. Copied from the real repo
@@ -130,6 +149,10 @@ def _seed_proposal_package(root: Path, run_id: str) -> None:
     (root / ".uacp" / "proposals" / f"{run_id}-package-selection.yaml").write_text(
         yaml.safe_dump(selection, sort_keys=False)
     )
+    # D43 Option B: the keyed scope module must be REGISTERED (not just referenced
+    # from the selection) so the adaptive proposal gate passes and graph projection
+    # sees its scope_item (si-1) at the forced plan_exit gate.
+    _register(root, run_id, "scope_module", scope_module)
 
 
 def _seed_plan_package(root: Path, run_id: str) -> None:
@@ -173,6 +196,15 @@ def _seed_plan_package(root: Path, run_id: str) -> None:
     (root / ".uacp" / "plans" / f"{run_id}-plan-selection.yaml").write_text(
         yaml.safe_dump(selection, sort_keys=False)
     )
+    # D43 Option B: author + REGISTER the PIV at PLAN so the forced plan_exit graph
+    # gate has work_units to project. The PIV's wu-1 derives_from si-1 (the scope
+    # module's intent) and its ob-1 carries work_unit_id wu-1, so si-1 is COVERED
+    # (no GP_UNCOVERED_INTENT) and wu-1 has an obligation (no GP_WORK_UNIT_NO_OBLIGATION).
+    # _seed_execute_evidence rewrites this same path identically; registering it here
+    # makes coverage bind one phase earlier (at plan->execute).
+    piv_rel = f"plans/{run_id}-piv.yaml"
+    (root / ".uacp" / piv_rel).write_text(yaml.safe_dump(_piv(run_id), sort_keys=False))
+    _register(root, run_id, "piv", piv_rel)
 
 
 def _seed_execute_evidence(root: Path, run_id: str) -> None:
@@ -214,6 +246,32 @@ def _seed_execute_evidence(root: Path, run_id: str) -> None:
     # check; the state machine rewrites current.yaml on the next handle_transition,
     # so this does not perturb later lifecycle steps.
     _seed_governed_run(root / ".uacp", run_id)
+    # D43 Option B: REGISTER the checkpoint so the forced execute_exit gate sees a
+    # checkpoint_of(cp -> wu-1) edge (no GP_WORK_UNIT_NO_CHECKPOINT). _seed_governed_run
+    # wrote it at executions/{run_id}-checkpoint-001.yaml with work_unit_id wu-1.
+    _register(root, run_id, "checkpoint", f"executions/{run_id}-checkpoint-001.yaml")
+
+
+def _seed_verify_assessment(root: Path, run_id: str) -> None:
+    """D43 Option B: author + REGISTER a passing PIV assessment so the forced
+    verify_exit gate marks wu-1 verified (no GP_UNVERIFIED). The assessment passes
+    obligation ob-1 (work_unit_id wu-1), whose checkpoint evidence is `pass` — so
+    there is no GP_CONTRADICTED either."""
+    assessment_rel = f"verification/{run_id}-piv-assessment.yaml"
+    (root / ".uacp" / "verification").mkdir(parents=True, exist_ok=True)
+    (root / ".uacp" / assessment_rel).write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.piv_assessment",
+                "run_id": run_id,
+                "assessments": [
+                    {"id": "as-1", "obligation_id": "ob-1", "work_unit_id": "wu-1", "state": "pass"}
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+    _register(root, run_id, "assessment", assessment_rel)
 
 
 # Per-(from,to) real-evidence seeding the kernel's adaptive gates REQUIRE — not
@@ -233,6 +291,9 @@ _SEEDERS = {
     ("plan", "execute"): _seed_plan_package,
     # F-T3-01: execute->verify evidence gate now fails closed → seed real evidence.
     ("execute", "verify"): _seed_execute_evidence,
+    # D43 Option B: register a passing assessment so the forced verify_exit gate
+    # finds wu-1 verified (the registered coverage chain is now complete).
+    ("verify", "resolved"): _seed_verify_assessment,
 }
 
 

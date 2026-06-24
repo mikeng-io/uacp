@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import state_machine
 import yaml
 from core import Heartgate
 
@@ -22,6 +23,14 @@ from tests.e2e.test_full_lifecycle import _na_block, _seed_proposal_package
 
 _COVERED_MSG = "scope must be 'covered' by a keyed scope module"
 _KEYED_MSG = "scope artifact must declare"
+
+
+def _init(root: Path, run_id: str) -> None:
+    # _seed_proposal_package now REGISTERS the keyed scope module (Option B), which
+    # needs a run manifest — so each scope-gate case initialises the run first.
+    state_machine.handle_init(
+        {"workspace": str(root), "run_id": run_id, "source": "operator-request"}
+    )
 
 
 def _blockers(root: Path, run_id: str) -> list[str]:
@@ -41,12 +50,14 @@ def _selection_path(root: Path, run_id: str) -> Path:
 
 def test_keyed_scope_module_satisfies_the_gate(temp_uacp_root: Path, valid_run_id: str):
     # _seed_proposal_package now emits a keyed scope module + scope status=covered.
+    _init(temp_uacp_root, valid_run_id)
     _seed_proposal_package(temp_uacp_root, valid_run_id)
     blockers = _blockers(temp_uacp_root, valid_run_id)
     assert not any(_COVERED_MSG in b or _KEYED_MSG in b for b in blockers), blockers
 
 
 def test_not_applicable_scope_is_blocked(temp_uacp_root: Path, valid_run_id: str):
+    _init(temp_uacp_root, valid_run_id)
     _seed_proposal_package(temp_uacp_root, valid_run_id)
     # Revert the scope concern to not_applicable — the pre-D43 bypass.
     sel = yaml.safe_load(_selection_path(temp_uacp_root, valid_run_id).read_text())
@@ -58,6 +69,7 @@ def test_not_applicable_scope_is_blocked(temp_uacp_root: Path, valid_run_id: str
 
 
 def test_unstructured_scope_module_is_blocked(temp_uacp_root: Path, valid_run_id: str):
+    _init(temp_uacp_root, valid_run_id)
     _seed_proposal_package(temp_uacp_root, valid_run_id)
     # Scope concern stays 'covered' but the module carries BARE-STRING intents
     # (not keyed {id,statement}) — no scope_item nodes can be projected.

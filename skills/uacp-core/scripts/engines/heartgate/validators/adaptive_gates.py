@@ -135,15 +135,31 @@ def validate_adaptive_proposal_package_gate(
     # mechanical runs are unaffected. This is what makes intent coverage mandatory
     # rather than skippable for the package-selection representation.
     scope_concern = core.get("scope") if isinstance(core, Mapping) else None
+    scope_artifact_rel = (
+        str(scope_concern.get("artifact") or "") if isinstance(scope_concern, Mapping) else ""
+    )
     if not (isinstance(scope_concern, Mapping) and str(scope_concern.get("status")) == "covered"):
         blockers.append(
             "adaptive_proposal_package_gate: scope must be 'covered' by a keyed scope module "
             "(scope.in_scope:[{id,statement}]); D43 coverage requires structured intents"
         )
-    elif not _scope_concern_is_keyed(hg, str(scope_concern.get("artifact") or "")):
+    elif not _scope_concern_is_keyed(hg, scope_artifact_rel):
         blockers.append(
             "adaptive_proposal_package_gate: scope artifact must declare a non-empty keyed "
             "scope.in_scope:[{id,statement}] (D43)"
+        )
+    elif scope_artifact_rel not in hg._registered_artifact_rels(run_id):
+        # D43 Option B — the keyed scope module must also be REGISTERED in the run
+        # manifest (manifest.artifacts), not merely present on disk: graph projection
+        # reads only registered artifacts, so an unregistered scope module yields no
+        # scope_item nodes and the forced plan_exit coverage gate (GP_UNCOVERED_INTENT)
+        # would have nothing to enforce. Requiring registration is what makes intent
+        # coverage BIND for the package-selection representation, not just the keyed
+        # uacp.proposal entity-write path (which auto-registers).
+        blockers.append(
+            "adaptive_proposal_package_gate: keyed scope module "
+            f"'{scope_artifact_rel}' must be registered in the run manifest "
+            "(uacp_run_registry_update / register-artifact) so coverage binds (D43 Option B)"
         )
     modules = (
         selection.get("selected_modules")

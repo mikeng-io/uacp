@@ -82,12 +82,27 @@ from engines.io import (
 from engines.io.loaders import ManifestDoc
 
 # UACP output / state surfaces an in-scope run product may legitimately land in
-# even when not explicitly enumerated in write_paths: governed-writer outputs
-# (resolutions/), the run's own state (state/), and verification evidence. These
-# are system-owned write surfaces, not free-form EXECUTE writes, so a referenced
-# artifact under one of them is treated as in-scope. Strings are base-relative
-# (resolved under .uacp/), so `resolutions` replaces the old `.outputs`.
-_ALLOWED_OUTPUT_PREFIXES = ("resolutions", "state", "verification")
+# even when not explicitly enumerated in write_paths: the governed namespace dirs
+# where the run's own GOVERNANCE artifacts live — the PROPOSE proposal package +
+# keyed scope module (proposals/), the PLAN package + PIV (plans/), EXECUTE
+# checkpoints (executions/), VERIFY evidence (verification/), RESOLVE closure +
+# lessons (resolutions/), and the run's state/ledger (state/). These are
+# system-owned, governed-writer-only surfaces under .uacp/ — never free-form
+# EXECUTE writes to the repo (those go to declared write_paths) — so a manifest
+# referencing an artifact under one of them is in-scope, not an out-of-scope
+# write. The governance homes (proposals/plans/executions) were added with D43
+# Option B: coverage binding REGISTERS the keyed scope module + PIV + checkpoint
+# in the manifest (entity-write already auto-registers them there), so closure's
+# scope-conformance must recognise those homes as legitimate surfaces. Strings are
+# base-relative (resolved under .uacp/), so `resolutions` replaces the old `.outputs`.
+_ALLOWED_OUTPUT_PREFIXES = (
+    "proposals",
+    "plans",
+    "executions",
+    "verification",
+    "resolutions",
+    "state",
+)
 
 # Canonical blast_radius values — sourced from the codified Pydantic model
 # (engines.domain.artifact_schema.BLAST_RADIUS_VALUES) via get_args(BlastRadius).

@@ -345,6 +345,22 @@ class Heartgate:
         except Exception:
             return False
 
+    def _registered_artifact_rels(self, run_id: str) -> set[str]:
+        """The run-root-relative artifact paths REGISTERED in the run manifest's
+        ``artifacts`` map — i.e. exactly what :mod:`engines.manifest.projection`
+        loads into the coverage graph. Package gates use this to require that a
+        referenced coverage artifact (the keyed scope module; the PIV) be
+        *registered*, not merely present on disk — so the forced phase-exit graph
+        gate (D35 ``plan_exit``) projects its scope_items/work_units and the
+        dropped-intent detector can BIND (D43 Option B). A missing/garbled manifest
+        yields the empty set (caller treats "not registered" as a blocker —
+        fail-closed)."""
+        loaded = io_loaders.load_manifest(self.uacp_root, run_id)
+        if loaded.error is not None or loaded.value is None:
+            return set()
+        arts = loaded.value.raw.get("artifacts")
+        return {str(v) for v in arts.values()} if isinstance(arts, dict) else set()
+
     def _validate_checkpoint_entry(self, entry: Any, blockers: list[str]) -> None:
         goal_driven.validate_checkpoint_entry(self, entry, blockers)
 
