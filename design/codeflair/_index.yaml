@@ -16,7 +16,7 @@ description: >-
   alongside State / Manifest / Oracle) via a thin adapter. It PRODUCES
   the code graph (SCIP per-commit + LSP live, emitting code_symbol/code_anchor),
   STORES it (SQLite, a rebuildable watermarked projection it owns), and QUERIES
-  it (a light-model-pruned expansion loop returning a read-only heatmap — blast
+  it (a deterministic Policy-D-scored expansion loop returning a read-only heatmap — blast
   radius + relations + gaps). It mechanizes the manual grep·LSP·SCIP
   comprehension chain into one shot, at scale. The build-side writes a derived
   index (not governed state); the query layer is read-only/hypothesis-only and
@@ -40,6 +40,11 @@ members:
   - 07-decisions.md
   - 08-council-review.md
   - 09-abstraction.md
+  - 10-freshness.md
+  - 11-substrate.md
+  - 12-delivery.md
+  - 13-multi-language.md
+  - 14-prior-art-and-adoption.md
 
 # Intra-bundle design graph. Mirrors each node's own `edges:` frontmatter (the node
 # doc is canonical). Cross-bundle references (graph-engine D12/D29/D44) are expressed
@@ -57,6 +62,11 @@ edges:
   - {src: 07-decisions, dst: 00-overview, rel: decides_on, provenance: asserted}
   - {src: 08-council-review, dst: 05-benchmark, rel: relates_to, provenance: asserted}
   - {src: 09-abstraction, dst: 00-overview, rel: realizes, provenance: asserted}
+  - {src: 10-freshness, dst: 01b-store, rel: depends_on, provenance: asserted}
+  - {src: 11-substrate, dst: 01b-store, rel: depends_on, provenance: asserted}
+  - {src: 12-delivery, dst: 09-abstraction, rel: depends_on, provenance: asserted}
+  - {src: 13-multi-language, dst: 02-probes, rel: depends_on, provenance: asserted}
+  - {src: 14-prior-art-and-adoption, dst: 00-overview, rel: relates_to, provenance: asserted}
 
 # v1 scope guard (see 00-overview): a code-plane ENGINE — build (SCIP indexing) + store + a read-only
 # query layer (heatmap). The build-side writes a rebuildable index (a derived cache, not governed state);

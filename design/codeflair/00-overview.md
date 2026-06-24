@@ -29,8 +29,9 @@ with zero UACP** (CF-D9, [09-abstraction](09-abstraction.md)). Dropped into a ba
 blast-radius / relations / gaps; you lose only the cross-plane "what governs this code" half.
 
 **Embedded in UACP, the same engine serves as the 4th engine** (the code plane, alongside **State /
-Manifest / Oracle**) — exactly the shape D44 names: *"Code engine (the future 4th) — build = SCIP
-per-commit (persisted) + LSP live; query = symbol/reference lookup."* UACP plugs in via a thin **adapter**:
+Manifest / Oracle**) — exactly the shape **D44:906** names: *"Code engine (the future 4th) — build = SCIP
+per-commit (persisted) + LSP live; query = symbol/reference lookup."* (The cross-plane *join* is the
+separate **D44:912** bullet.) UACP plugs in via a thin **adapter**:
 the manifest-graph probe + the `code_anchor` cross-plane join + the governed-writer/Guardian wrapper.
 
 The first cut scoped Codeflair as a *read-only lookup driver* — too narrow, and it exposed a real gap:
@@ -41,7 +42,7 @@ responsibilities, one bounded context (the codespace):
 
 | | Node | Role |
 |---|---|---|
-| **Produce** | [01a-indexer](01a-indexer.md) | SCIP per-commit (persisted) + LSP live → `code_symbol` nodes + `code_anchor`/`calls`/`references` edges |
+| **Produce** | [01a-indexer](01a-indexer.md) | SCIP per-commit (persisted) + LSP live → `code_symbol` nodes + `defines`/`references`/`calls` edges (`code_anchor` is adapter-side, [01a](01a-indexer.md)) |
 | **Store** | [01b-store](01b-store.md) | the persisted code graph (rebuildable projection; truth = files; watermarked) |
 | **Query** | [02-probes](02-probes.md) → [05-benchmark](05-benchmark.md) | the relation-finder loop + heatmap, reading **its own** store |
 
@@ -65,8 +66,24 @@ model *can* hold.
 Trustless is *why* lookup-over-the-codespace is the central problem (D12 cites it): its code graph was
 file-level (too coarse), and its hybrid vector search (QMD) was **measured at ~42s/query and retired.**
 Coarse graph + slow naive RAG = lookup that does not work. Codeflair is the answer: a **precise SCIP
-index** (the producer Trustless lacked) + **iterative expansion + light-model pruning** — not one slow
+index** (the producer Trustless lacked) + **iterative expansion + deterministic scoring** — not one slow
 whole-document RAG pass. 42s/query is the bar any Codeflair query must beat ([05-benchmark](05-benchmark.md)).
+
+## The landing: Codeflair is a DETERMINISTIC engine (no LLM)
+
+The design's conclusion (CF-D11/D13): the engine is **deterministic, core and cross-language.** Blast
+radius is transitive closure; relevance is a scoring function; cross-language links are grep/contract/
+co-change. **No LLM** — semantics lives in the orchestrator, not Codeflair. The LLM is a deferred,
+probably-unnecessary residual.
+
+**Proven on Trustless (spike, 2026-06-24):** scip-go indexed the repo in **4.1s**; ingest → SQLite **0.3s**;
+blast-radius query **0.1–0.2 ms** and *correct* (`Pool#Conn` → the right dependent symbols);
+**multi-language fusion** (Go + TS, one store, 0 collisions, 0 cross-language symbol edges, as predicted).
+~`200,000×` under the 42s/query bar — with zero LLM. The operational layers (freshness/SCIP⊕LSP reconcile,
+co-change, grep, heatmap ranking, recall@K) remain to build/test.
+
+Full operational detail: [10-freshness](10-freshness.md) · [11-substrate](11-substrate.md) ·
+[12-delivery](12-delivery.md) · [13-multi-language](13-multi-language.md).
 
 ## Scope
 

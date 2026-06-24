@@ -119,3 +119,60 @@ trace) and lose only the cross-plane "what governs this code" half. The eval see
 way (`layer: core | uacp-adapter`; see `eval/seed-set.yaml`, PR #13). The governed-writer preconditions of
 [CF-D8](07-decisions.md)/[01b-store](01b-store.md) are **adapter-scoped** — standalone, the engine just
 writes a cache dir.
+
+## CF-D11 — Codeflair is deterministic; no LLM in the core (Policy D is the engine)
+
+**Chosen:** the engine is a **deterministic graph + statistics** machine — index (SCIP/LSP parse) →
+store (SQLite) → traverse (recursive CTE) → rank (edge-type · graph-distance · co-change-PMI · recency ·
+centrality). **No LLM in the core loop.** **Rejected:** the "light-LLM-pruned loop" (the old A/B/C
+framing) as the default. **Why:** reasoning from first principles, *blast radius is transitive closure and
+relevance is a scoring function* — neither is semantic. Empirically confirmed on Trustless: sub-millisecond
+correct blast radius, zero LLM, ~200,000× under the 42s/query bar. Policy D (no-LLM) is therefore the
+**default engine**, not a benchmark control; A/B/C are deferred curiosities. **Policy D uses no model at
+all.** *If* a deferred LLM policy is ever revisited, its use is confined to **structure** (rank/cluster),
+**never content** (no summarizing/"semanticfy" — that breaks
+re-derivability and steals the orchestrator's job). Semantics lives in the **orchestrator**, not Codeflair.
+
+## CF-D12 — Standalone, zero-UACP, installable package; in-UACP (reversible); Python is the product language
+
+**Chosen:** a standalone, **zero-UACP** package — lib + CLI + MCP + plugin (CF-D9 faces), independently
+installable, a CI lint enforcing "no UACP import in core." **DECIDED: it lives as an in-UACP abstracted
+package** (the boundary, not the repo, makes it standalone) — extract to its own repo only if
+adoption/release-cadence later demands; reversible. **Product language = Python (DECIDED)** — it adopts
+**Serena** (Python) for LSP natively, matches the MCP Python SDK + UACP's kernel, and is fastest to build;
+perf is language-agnostic (SCIP + SQLite do the work). (The single-Go-binary option is dropped: the
+"portable binary" goal is traded for build speed + native Serena/MCP integration.) **Install model (DECIDED, kept simple):**
+the plugin ships **Codeflair (Python MCP) + Serena declared in the bundled `.mcp.json` (via `uvx`)** — so
+installing the plugin brings both, auto-registered. **`uv`/`uvx` is the user's responsibility**, not
+ours: we do **not** auto-provision it or engineer a degrade path. **LSP is the Serena layer — not
+"optional by design"**; if the user hasn't set up `uv`, Serena simply doesn't load (they lose the live
+LSP/freshness overlay; SCIP/tree-sitter/grep still work) — that's a *user config gap*, not a feature.
+Codeflair auto-fetches the **prebuilt** SCIP indexers it needs. Detail in
+[12-delivery](12-delivery.md). *(No tension with [CF-D4](07-decisions.md): CF-D4's "not a standalone
+service" was about not being a separate **application-ring service inside UACP**; CF-D12 is the
+**packaging/distribution** boundary — orthogonal axes.)*
+
+## CF-D13 — Cross-language coherence is deterministic; the LLM is a deferred residual
+
+**Chosen:** cross-language links are built from **deterministic** signals — **grep** (shared route/command/
+event strings; grep is language-agnostic), **contract parsing** (proto/OpenAPI/GraphQL codegen), and
+**co-change**. SCIP gives **zero** cross-language edges (proven), so these *construct* the inferred layer.
+**Rejected (deferred):** a semantic/embedding matcher. **Why:** the real couplings (HTTP/CLI/events) are
+shared strings grep already catches; the only residual an LLM adds is meaning-matched entities with no
+shared string, no contract, and no co-change — **weak-by-definition**, probably not blast-radius-relevant.
+Revisit an LLM only if real usage proves the residual matters. Cross-language edges are `inferred`,
+hypothesis-only. Detail in [13-multi-language](13-multi-language.md). *(This, with CF-D11, lands the whole
+design: Codeflair is deterministic, core and cross-language; the LLM is a maybe-never.)*
+
+## CF-D14 — Adopt the substrate, build only the fuse + UACP adapter (tree-sitter base + SCIP/LSP refine)
+
+**Chosen:** a 2026 prior-art check ([14-prior-art-and-adoption](14-prior-art-and-adoption.md)) shows the
+code-graph-for-agents engine is **commodity** (Serena, Aider repo-map, Codebase-Memory, codegraph, knowing,
+…). So Codeflair **adopts the substrate and builds only the novelty.** **Rejected:** building the engine
+from scratch. **The probe stack is a precision ladder** — **tree-sitter** is added as the *breadth/fallback
+floor* (all languages, no toolchain, parses broken code; fuzzy) under **LSP/SCIP** *refinement where
+available* (precise). This resolves efficiency-vs-quality by **layering, not choosing**: tree-sitter where
+SCIP can't reach, SCIP where the toolchain allows (UACP's trust-grade case). **Build:** the fuse/reconcile
++ ranking + the **UACP cross-plane adapter** (the only genuine novelty). **Adopt:** tree-sitter (base),
+**Serena/multilspy** (live LSP — don't hand-integrate N servers), `scip-go` etc. (precise SCIP). The spike
+is the eval harness for choosing among adoptable graph tools.

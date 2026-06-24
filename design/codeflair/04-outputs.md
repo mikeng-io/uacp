@@ -52,9 +52,19 @@ makes a stochastic loop honest:
 - the **evidence** is fully deterministic — re-running the logged probe sequence reproduces it exactly;
 - the trace is **watermarked** on `repo_commit` + content hashes (the determinism discipline: zero out
   timestamps; key on commit + content) so a stale trace is detectable and a run is cache-keyable;
-- the **search path** need not be bit-identical across re-runs (the model is stochastic), but it is
-  **replayable from the trace** and auditable. "Replayable + watermarked," not "bit-identical," is the
-  re-derivability bar a hypothesis-only lookup tool must clear — and it clears it.
+- under the deterministic default (Policy D, [CF-D11](07-decisions.md)) the **whole run is deterministic**
+  — same commit → same trace. (*Only* under a deferred LLM policy would the search path be stochastic;
+  then it is still **replayable from the trace** and auditable.) "Replayable + watermarked" is the
+  re-derivability bar — and a deterministic engine clears it trivially.
+
+## Format: JSON is canonical; the formatted string is a rendering
+
+The **structured JSON is the source of truth** — the MCP / orchestrator contract: `{ nodes[], gaps[],
+trace{} }`, each node carrying `heat · source · provenance · freshness · hop`. Machine-parseable,
+re-derivable, replayable. The **formatted heatmap string** (the `● 1.00 symbol …` table) is a *rendering*
+of that JSON — for the CLI/human, and a token-efficient view an LLM can read directly. **JSON is the
+contract; the string is a presentation choice — never the source** (don't lose the structure). So: JSON
+over MCP; a compact rendered text as the default display.
 
 ## What the output is *not*
 

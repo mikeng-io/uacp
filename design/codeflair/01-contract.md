@@ -40,27 +40,28 @@ So write-scope is precise: the **query layer** writes nothing and asserts no man
 (see [01b-store](01b-store.md)). Cross-plane reads remain a *query-time join in the calling skill*
 (D44:912).
 
-## The query contract (what makes a small model sufficient)
+## The query contract (deterministic expansion)
 
 > **The query layer expands; it does not diagnose.** Its reasoning is *relevance judgment* — "is this
 > node related to the seed?" — and *structural/coverage analysis* — "is this caller untested, this symbol
 > unanchored?" It does **not** do *causal/corrective* reasoning — outside its contract, and structurally
 > moot since the query layer emits no manifest edge.
 
-Relation-finding is a **narrow-the-haystack** job, not a **solve-the-puzzle** job, so a 4B-class model
-*may* suffice — or a no-LLM baseline may match it (Policy D, [05](05-benchmark.md)). The expensive
+Relation-finding is a **narrow-the-haystack** job, not a **solve-the-puzzle** job. **Resolved by
+[CF-D11](07-decisions.md): the core is deterministic — no LLM.** Ranking is a scoring function (Policy D);
+the model question is closed (deferred). The expensive
 orchestrator does the causal reasoning on the focused heatmap.
 
 ## Division of labor
 
-| | **Codeflair query (light)** | **Orchestrator (expensive)** |
+| | **Codeflair query (deterministic)** | **Orchestrator (semantic/causal)** |
 |---|---|---|
 | Job | gather + focus | reason + decide |
 | Output | heatmap (relations, blast radius, gaps) | the diagnosis / the edit |
-| Reasoning | relevance + structural only | causal / corrective |
+| Reasoning | relevance + structural only (no LLM) | causal / corrective |
 
-Its value is **independence** (a pass separate from the orchestrator's own reasoning), not cost — the
-property memory flagged as the real prize of a built-in light model.
+Its value is **independence** (a deterministic pass separate from the orchestrator's own reasoning), not
+cost — the property memory flagged as the real prize of a separate, re-derivable evidence pass.
 
 ## Posture of the query layer: read-only, hypothesis only
 

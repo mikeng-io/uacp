@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: Codeflair — The Expansion Loop & Swappable Policy
-description: The frontier/beam model, why pruning is necessary (cardinality) but LLM-pruning is not yet proven, the stop conditions, the fixed strategy interface (next_probes / score), and the four policies (D no-LLM control, A LLM-ranks, B LLM-drives, C hybrid) the benchmark chooses between.
+description: The frontier/beam model with DETERMINISTIC score/prune as the default (Policy D, CF-D11 — no LLM in the core), the stop conditions, the fixed strategy interface (next_probes / score), and the A/B/C LLM policies kept only as DEFERRED future curiosities behind the same interface.
 tags: [codeflair, expansion, loop, beam, policy, pruning, policy-d]
 timestamp: 2026-06-24
 edges:
@@ -12,6 +12,12 @@ edges:
 
 This is **search/evidence expansion** — iterating *probe → prune* to grow the evidence frontier — **not**
 query-string expansion (a rejected prior; see [CF-D7](07-decisions.md)).
+
+> **UPDATED by [CF-D11](07-decisions.md):** the score/prune step is **deterministic by default** (a
+> scoring function: edge-type · graph-distance · co-change-PMI · recency · centrality). **There is no LLM
+> in the core loop.** The A/B/C *LLM* policies below are **deferred** — kept only as future benchmark
+> curiosities that would have to beat the deterministic default (Policy D), which the Trustless spike
+> shows is fast and correct on its own. Read the rest of this node as "Policy D is the engine."
 
 ## The loop
 
@@ -27,6 +33,44 @@ emit → heatmap + evidence trail + gaps + trace (04)
 ```
 
 `score` and `prune` are where the **policy** lives. `probe` is deterministic.
+
+## Access per probe (how `probe` reaches each source)
+
+The split is **persisted store (SQL) vs. live (called at query time)**, fused at step ④:
+
+| Probe | Access | Store / live |
+|---|---|---|
+| SCIP | ingested once → SQLite; **recursive CTE** | persisted |
+| tree-sitter | parse → def/ref rows → same SQLite (parse-on-demand for dirty files) | persisted (+ live for dirty) |
+| LSP (Serena) | **MCP call** to Serena (`find_references`/`find_symbol`) for working-tree/dirty files | live |
+| grep | shell out to **ripgrep** over the working tree | live |
+| co-change | **`git log`** → PMI table (precomputed/on-demand) | semi-live |
+| code_anchor | SQL join store ↔ Manifest projection (UACP only) | persisted |
+
+The **bulk graph (SCIP+tree-sitter) is queried by SQL/CTE**; the **live probes (LSP/grep/co-change) are
+called at query time and fused** onto the SQL result (④, [02-probes](02-probes.md)).
+
+## The score (Policy D — a deterministic formula)
+
+Candidate `heat` blends provenance/edge-weight (the precision ladder), graph distance, recency, a
+centrality penalty, co-change PMI, and multi-probe agreement:
+
+```
+heat(node) =  base_weight(source, rel)         # precision ladder: calls 1.0 · references 0.8 · code_anchor 0.9
+            × distance_decay ^ hop             #   · tree-sitter 0.5 · grep 0.3 · co_change 0.4 ; decay ≈ 0.6
+            × recency_factor(last_change)       # recent = hotter
+            ÷ (1 + log(fan_in))                 # down-weight ubiquitous utils
+            + w_cc · co_change_PMI(seed, node)  # temporal
+            + agreement_bonus · (probes_found − 1)   # corroboration ; bonus ≈ 0.1
+```
+
+(The illustrative `base_weight`s are a *starting point*, not the provenance ladder's strict order — e.g.
+`co_change 0.4 > grep 0.3` because a strong temporal PMI signal can outrank a bare text match, even though
+grep sits *above* co-change on the precision ladder ([02-probes](02-probes.md)). The constants are
+benchmark-tuned; the ladder is about *trust class*, the weights about *final rank*.)
+
+**The *shape* is the spec; the *constants* are benchmark-tuned** (recall@K on the labeled eval set,
+[05-benchmark](05-benchmark.md)) — deferred to BUILD so tests arbitrate, not prose. No model — Policy D.
 
 ## Why pruning is necessary — but an LLM may not be
 
