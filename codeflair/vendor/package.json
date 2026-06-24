@@ -1,0 +1,10 @@
+{
+  "name": "codeflair-scip-indexers",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Repo-local SCIP indexers for Codeflair (Python + TypeScript). Installed into ./node_modules by `scripts/bootstrap.py`; invoked by local path, never global.",
+  "dependencies": {
+    "@sourcegraph/scip-python": "0.6.6",
+    "@sourcegraph/scip-typescript": "0.4.0"
+  }
+}

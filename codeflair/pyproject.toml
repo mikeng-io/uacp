@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codeflair"
+version = "0.0.1"
+description = "Deterministic code-intelligence engine: index a codebase into a fused graph, query it for blast radius / relations / gaps. UACP's code plane (standalone; UACP is a pluggable adapter)."
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.15"]
+# tree-sitter breadth floor (CF-D14): syntactic symbols for all languages, no external
+# SCIP indexer. Pinned to the stable classic-API combo (0.25/language-pack churn the API).
+treesitter = ["tree-sitter==0.21.3", "tree-sitter-languages==1.10.2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    # tree-sitter-languages 1.10 pins an old tree-sitter whose Language(path,name) ctor
+    # is deprecated; the warning is from the dependency, not our code.
+    "ignore:Language.path, name. is deprecated:FutureWarning",
+]
+
+[tool.ruff]
+# Mirror UACP's house style (root pyproject [tool.ruff]); target-version is codeflair's
+# own requires-python floor (>=3.10).
+target-version = "py310"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# UACP's house ruleset + PLC0415 (import-outside-top-level): imports belong at module top,
+# enforced — not a convention. The package is editable-installed so scripts import normally
+# (no sys.path/E402 hacks) and no per-file-ignores are needed.
+select = ["E", "F", "I", "UP", "B", "N", "PLC0415"]
