@@ -204,8 +204,8 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     # (skills/uacp-triage) emits optional fields the gate does not require (granularity, council,
     # human_involvement, artifact_policy); closing it would false-reject real docs.
     # `granularity_level` is the canonical composite-granularity field that gate-selection, the
-    # route-bands, and validate_triage all read; the triage skill now emits it (alongside the newer
-    # composite_granularity / phase_local_granularity), so it is required here too
+    # route-bands, and validate_triage all consume; the triage skill now emits it (alongside the
+    # newer composite_granularity / phase_local_granularity), so it is required here too
     # (producer<->consumer reconciled 2026-06-24).
     "uacp.triage": {
         "$schema": _DRAFT,
@@ -244,34 +244,18 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         },
     },
     # uacp.brainstorm_scope_package — the bounded scope crossing brainstorm->triage (BRAINSTORM
-    # serialize). Shape grounded on the ACTUAL gate-passing producer (the FLAT fields the real
-    # entity-write emits + the Heartgate admission contract): flat title/description/in_scope
-    # (non-empty), declared_side_effects, authority.source, routing_advisory. Grounded on the
-    # RUNTIME producer, NOT the phase-7 doc (which wraps these in selected_scope /
-    # estimated_governance — producer/doc mismatch; runtime is flat). routing_advisory stays
-    # enum-free (producers disagree: "standard" vs "standard_uacp"). OPEN-world (inc-3b lesson).
+    # serialize). MINIMAL shape (kind-const + OPEN-world) on purpose: its producers DISAGREE on
+    # structure — the phase-7 skill doc prescribes a NESTED shape (selected_scope{title,...} +
+    # estimated_governance{routing_advisory}), while the e2e harness writes a FLAT root. There is no
+    # kernel validator to arbitrate, and the Heartgate only requires the file to exist. Imposing
+    # either shape here would false-reject the other, so we validate only the kind and accept any
+    # fields. FOLLOW-ON: reconcile the model to ONE shape (doc vs e2e), then tighten this schema.
     "uacp.brainstorm_scope_package": {
         "$schema": _DRAFT,
         "type": "object",
-        "required": [
-            "kind",
-            "title",
-            "description",
-            "in_scope",
-            "declared_side_effects",
-            "authority",
-            "routing_advisory",
-        ],
+        "required": ["kind"],
         "properties": {
             "kind": {"const": "uacp.brainstorm_scope_package"},
-            "title": {"type": "string", "minLength": 1},
-            "description": {"type": "string", "minLength": 1},
-            "in_scope": {"type": "array", "minItems": 1},
-            "authority": {
-                "type": "object",
-                "properties": {"source": {"type": "string"}},
-            },
-            "routing_advisory": {"type": "string"},
         },
     },
     "uacp.run_registry": {

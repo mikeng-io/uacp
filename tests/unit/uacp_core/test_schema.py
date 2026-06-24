@@ -451,28 +451,25 @@ def _valid_brainstorm() -> dict:
     }
 
 
-def test_brainstorm_scope_package_valid_required_flat_open():
-    assert validate("uacp.brainstorm_scope_package", _valid_brainstorm()) == []
-    # missing a required field (in_scope) -> fails
-    bad = _valid_brainstorm()
-    del bad["in_scope"]
-    assert any("in_scope" in e for e in validate("uacp.brainstorm_scope_package", bad))
-    # in_scope empty -> fails (the gate's non-empty admission rule)
-    assert validate(
-        "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "in_scope": []}
-    ), "empty in_scope must fail"
-    # empty title -> fails (non-empty admission rule)
-    assert validate(
-        "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "title": ""}
-    ), "empty title must fail"
-    # wrong kind const -> fails
-    bad4 = {**_valid_brainstorm(), "kind": "uacp.WRONG"}
+def test_brainstorm_scope_package_kind_const_open_both_shapes():
+    # MINIMAL schema: kind-const + OPEN-world. Its producers DISAGREE on structure (the phase-7 doc
+    # prescribes NESTED selected_scope/estimated_governance; the e2e harness writes FLAT root fields),
+    # so BOTH shapes must pass — neither is false-rejected. (Tighten once the model is reconciled.)
+    assert validate("uacp.brainstorm_scope_package", _valid_brainstorm()) == []  # FLAT (e2e)
+    nested = {
+        "kind": "uacp.brainstorm_scope_package",
+        "selected_scope": {"title": "T", "description": "D", "in_scope": ["a"]},
+        "estimated_governance": {"routing_advisory": "standard_uacp"},
+        "declared_side_effects": [],
+        "authority": {"source": "user"},
+    }
+    assert validate("uacp.brainstorm_scope_package", nested) == []  # NESTED (the phase-7 doc shape)
+    # wrong kind const -> fails (mis-dispatch guard)
+    bad = {**_valid_brainstorm(), "kind": "uacp.WRONG"}
     assert any(
         e.startswith("kind") or "const" in e.lower()
-        for e in validate("uacp.brainstorm_scope_package", bad4)
+        for e in validate("uacp.brainstorm_scope_package", bad)
     )
-    # routing_advisory is enum-FREE (producers disagree "standard" vs "standard_uacp") — both pass
-    assert validate("uacp.brainstorm_scope_package", {**_valid_brainstorm(), "routing_advisory": "standard_uacp"}) == []
-    # OPEN-world: producer optionals pass
-    extra = {**_valid_brainstorm(), "source_vault": "v", "risks": [], "signals": {}}
-    assert validate("uacp.brainstorm_scope_package", extra) == []
+    # missing kind -> fails
+    nokind = {k: v for k, v in _valid_brainstorm().items() if k != "kind"}
+    assert any("kind" in e for e in validate("uacp.brainstorm_scope_package", nokind))
