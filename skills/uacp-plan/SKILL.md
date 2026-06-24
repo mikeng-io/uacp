@@ -162,7 +162,7 @@ Cognitive split:
 ## Phase-specific operating contract — PLAN
 
 - **What this skill does:** turn approved proposal into execution topology, tasks, evidence clusters, rollback, tool surfaces, and council/Heartgate checkpoints.
-- **Why it does it:** make EXECUTE deterministic enough that workers do not improvise governance.
+- **Why it does it:** make EXECUTE well-specified and bounded enough that workers never improvise governance.
 - **How it does it:** read proposal/gates, decompose into bounded work units, declare tools/forbidden tools, define negative-result tests, run PLAN council, patch plan, write PLAN→EXECUTE transition.
 - **Constraints:** do not implement beyond plan artifacts; do not hide unresolved council findings in plan text; do not select tools outside authority.
 - **Reason / rational intent / decisions:** intent is execution design: decide who/what will act, with which tools, side effects, verification, rollback, and stop conditions.
@@ -232,7 +232,7 @@ Recommended semantic companion inside the PLAN package:
 
 The PIV contract must define phase intent, neutral `work_units`, evidence obligations, checkpoint policy, intent-drift conditions, and next-phase handoff criteria. PLAN owns this contract so EXECUTE does not improvise what to record and VERIFY does not improvise what evidence is sufficient.
 
-Write it with **`uacp_entity_write`** (`kind: uacp.phase_intent_verification_contract`) — the governed, registering manifest writer. **Each `work_unit` MUST carry `derives_from: [scope_item_id, …]`** referencing the keyed `scope.in_scope` ids from the PROPOSE proposal — this is the PROPOSE→PLAN coverage edge the graph gate enforces (a work_unit with no `derives_from` is an orphan; a scope_item nothing derives from is a dropped intent).
+Write it with **`uacp_entity_write`** (`kind: uacp.phase_intent_verification_contract`) — the governed, registering manifest writer. **Each `work_unit` MUST carry `derives_from: [scope_item_id, …]`** referencing the keyed `scope.in_scope` ids from the PROPOSE proposal — this is the PROPOSE→PLAN coverage edge the graph gate enforces (a work_unit with no `derives_from` is an orphan; a scope_item nothing derives from is a dropped intent). This coverage edge is PLAN's fail-closed measure — the gate blocks on a dropped intent or an orphan work_unit rather than passing on the planner's assertion that coverage is complete.
 
 ## Operator phase-return presentation
 

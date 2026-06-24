@@ -11,6 +11,8 @@ authority_source: "engines/domain/{phase_graph,phase_transitions,gate_rules}.py 
 ## Purpose
 This skill executes the approved plan by routing bounded work through Kanban or other delegated workers while keeping the active run traceable.
 
+EXECUTE serializes honest evidence of what happened — it judges *happened / didn't happen*, never *pass / fail*. The pass/fail verdict belongs to VERIFY; do not grade your own work or treat a checkpoint as self-certified completion.
+
 ## Read first
 - `UACP_ROOT/config/state.yaml`
 
@@ -23,13 +25,15 @@ This skill executes the approved plan by routing bounded work through Kanban or 
 
 **Anti-pattern (avoid):** Pausing mid-execution to confirm routine steps ("should I run the tests now?", "do you want me to push?"). If the answer is obviously yes given the bounded plan, just do it.
 
-**Manual-drill verification:** When UACP automation is partially broken and a manual drill uses a bypass path (for example a code-execution write path because Guardian blocks ordinary file tools without context fields), record that as a verification finding and keep the write boundary narrow. Do not present the bypass as normal enforcement; present it as manual-drill risk accepted for the bounded artifact.
+**Judge the negative too.** Each unit's per-step judgment includes what must NOT be done — the live side-effect boundaries and `scope.write_paths` — measured and recorded alongside what was achieved, not just enforced as a side rule. "Stayed inside the boundary" is part of the evidence, not an afterthought.
+
+**Manual-drill verification:** When UACP automation is partially broken and a manual drill uses a bypass path (for example a code-execution write path because Guardian blocks ordinary file tools without context fields), record that as an execution evidence/drift finding and keep the write boundary narrow. Do not present the bypass as normal enforcement; present it as manual-drill risk accepted for the bounded artifact.
 
 **Governed writer containment blockers:** For UACP canonical docs/config mutation, generic `patch`, terminal writes, and ordinary file tools are not acceptable fallbacks after Guardian blocks them. First use the governed writers (`uacp_doc_write`, `uacp_config_write`, `uacp_state_write` as appropriate). If the governed writer itself fails closed because protected filesystem containment is unavailable, treat that as a runtime posture blocker: write an execution checkpoint, keep any prepared full-file payload as a temporary artifact, and either fix/verify containment first, defer the canonical mutation, or ask the operator for an explicit manual recovery drill. Do not loosen Guardian and do not silently bypass with direct terminal writes.
 
 **Guardian-blocked shell/tool fallback:** If `exec.shell` is blocked by missing UACP context fields, or a newly registered UACP writer tool is misclassified in the current long-running session as `external.unknown_mutator`, prefer a narrow `execute_code` automation that invokes the UACP-owned guarded handler directly with full UACP context and writes only declared evidence/artifact paths. Record authority, side effects, and the fact that this was a manual-drill fallback in the artifact; verify YAML/git state afterward. Do not generalize this into a permanent bypass or present it as normal enforcement — schedule fresh-session/runtime reload verification for the exposed tool path.
 
-**The "no permission" trap:** If a concern about gh/GitHub access was raised previously, always resolve it by checking `gh auth status` and `git remote -v` before declaring the action impossible. The gh CLI uses HTTPS tokens for PR creation even when SSH deploy keys are not configured. Verify before you stop.
+**The "no permission" trap:** If a concern about gh/GitHub access was raised previously, always resolve it by checking `gh auth status` and `git remote -v` before declaring the action impossible. The gh CLI uses HTTPS tokens for PR creation even when SSH deploy keys are not configured. Inspect the real state before you stop.
 
 ## Finding the Correct Python Runtime
 
@@ -156,7 +160,7 @@ A semantic execution package under `executions/{run_id}/` should explain why cho
 
 - **What this skill does:** perform bounded implementation according to PLAN using selected workers/tools and record execution evidence.
 - **Why it does it:** convert plan into controlled changes while preserving authority, provenance, rollback, and council follow-through.
-- **How it does it:** load plan, create/dispatch bounded units, apply patches, run local tests, record checkpoints, run implementation council for non-trivial work, encode handled findings before EXECUTE→VERIFY.
+- **How it does it:** load plan, create/dispatch bounded units, apply patches, run local tests, record checkpoints, run implementation council for non-trivial work, encode handled findings before EXECUTE→VERIFY. Each work_unit is handled as its own loop — understand its intent from the PIV contract, measure it to a decidable result bound to its `obligation_id`, then record the checkpoint.
 - **Constraints:** do not expand scope without re-plan; do not use forbidden tools; do not bypass Guardian/Heartgate; do not treat worker self-report as verified.
 - **Reason / rational intent / decisions:** intent is controlled mutation: decisions are patch boundaries, worker dispatch, evidence sufficiency, whether execution is complete enough for VERIFY.
 - **Tools to use / not use:** use: patch/write_file/terminal tests/delegate_task/Kanban/external agents only if planned; avoid: production changes, secrets, unmanaged background writes, broad external runtimes without approval.

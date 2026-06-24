@@ -22,6 +22,8 @@ allowed-tools:
 
 Use this skill when the user has a vague idea, ambiguous scope, or multiple possible directions. Brainstorming is an **optional formal entry phase** of the UACP lifecycle. Its job is to help the user understand what they actually want and trim it down to a bounded scope before TRIAGE.
 
+Brainstorm is the lifecycle's **comprehend** step (see AGENTS.md Core Principle): it raises a vague idea into one bounded, gate-admissible scope — the trim (Phase 5) is the grounded reduction, and the scope package plus Heartgate (Phases 7–8) is the provenanced handoff a separate authority admits. That is why the phase order is explore → trim → serialize-to-gate rather than an arbitrary checklist.
+
 **This skill is a governed phase.** On entry it registers a UACP run at `phase: brainstorm` using `uacp_state_write`, writes the scope package as a real lifecycle artifact using `uacp_entity_write`, and runs `uacp_heartgate_check` for the `brainstorm→triage` transition before handing off. Brainstorm artifacts are state-persistent.
 
 **Hard rule:** do not invoke implementation skills during brainstorming. Exploration only.
