@@ -14,6 +14,22 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-06-24 — CMS-principle branch developed pre-governance (UACP bootstrapping exception)
+
+Decision: The `cms-principle` branch — which ratifies the CMS core principle ([ADR-0018](../architecture/0018-cms-semantic-thinking-principle.md)), edits canonical docs (`AGENTS.md`, `UACP.md`) and adds runtime-adapter code (the `SessionStart` cognition-injection hook) — was developed **outside a formal UACP governed run**: no `.uacp/state/` run, no `PLAN_VALIDATION` ledger entry, no recorded council artifact. Per UACP's own Key Invariant #4, canonical/kernel changes require council review before PLAN exits. This entry records that gap **openly** and accepts it as a bounded **bootstrapping exception**.
+
+Rationale: UACP's governance runtime is still half-built — you cannot put a change fully through `TRIAGE → … → RESOLVE` with mechanical Heartgate enforcement when that lifecycle tooling is itself the thing under construction. (UACP's own multi-dimensional audit *caught* this self-violation — which is itself evidence the discipline works.) In lieu of a formal run, the change received **stronger-than-standard review**: two counterexample hunts + a three-provider adversarial panel (Codex / Kimi / MiniMax) + a six-dimension find→verify audit, all cross-provider to avoid same-model bias. That review is the council-equivalent for this change.
+
+Status: accepted (as a bootstrapping exception, not a precedent).
+
+Canonical targets:
+
+- `AGENTS.md`, `UACP.md`, `docs/architecture/0018-cms-semantic-thinking-principle.md`
+- `runtime-adapters/hooks/inject_uacp_md.py`, `hooks/hooks.json`
+- `design/comprehend-measure-serialize/`
+
+Follow-up: once a governed run with mechanical Heartgate enforcement is reproducible, changes of this class MUST go through it — this exception does not generalize. Re-affirm invariant #4 for canonical/kernel changes thereafter.
+
 ### 2026-06-17 — Open Knowledge Format (OKF) alignment of the reference/knowledge layer (Step 2 Slice 7)
 
 Decision: Adopted the **Open Knowledge Format** (OKF — markdown + YAML frontmatter, per-directory `index.md`, cross-linked graph) for UACP's reference/knowledge layer. Every `skills/uacp-core/references/*.md` and `docs/knowledge/*.md` doc (per-dir `index.md` exempt) carries OKF frontmatter: `type` (UACP 5-type vocab — `contract` | `pattern` | `digest` | `lessons` | `analysis`), `title`, `description`, `tags`, `timestamp`, and `resource:` on `digest` docs. Each dir's `README.md` was renamed to `index.md` and `docs/INDEX.md` repointed. The shared council vocabulary `uacp-council-taxonomy` (a skill read by 6 skills as a reference, never as a true dependency) was folded into `uacp-core/references/council-taxonomy.md` (`type: contract`). Enforced by `tests/unit/skills/test_okf_frontmatter.py` (mutation-verified non-vacuous). OKF applies to the reference/knowledge layer only — SKILL.md files keep the Claude Code plugin frontmatter.

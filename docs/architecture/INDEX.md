@@ -32,6 +32,7 @@ The template is at [0000-template.md](0000-template.md). Numbering is sequential
 | [0015](0015-web-backends-separate-from-bridge-adapters.md) | Web backends remain separate from bridge-* runtime adapters | accepted |
 | [0016](0016-goal-driven-track.md) | Goal-driven track — second lifecycle track for semantic/exploratory work | accepted |
 | [0017](0017-skill-authoring-convention.md) | UACP skill-authoring convention | accepted |
+| [0018](0018-cms-semantic-thinking-principle.md) | CMS — comprehend → measure → serialize as the principle for semantic thinking | accepted |
 
 ## Related
 

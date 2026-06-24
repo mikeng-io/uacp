@@ -153,3 +153,15 @@ These are the settled design decisions the shim implements.
 The shim and kernel use only the Python standard library plus the existing UACP
 kernel (`core`, `config`, `hook_kernel`, `engines.io`, and optionally PyYAML for
 the phase fallback). The shim does **not** import `mcp`.
+
+## Companion hook: SessionStart cognition injection
+
+A second, independent hook lives beside this one: `runtime-adapters/hooks/inject_uacp_md.py`,
+registered as a `SessionStart` hook in the same `hooks/hooks.json`. It injects the UACP coherence
+preamble (`UACP.md`, minus its HTML-comment header) as `SessionStart` `additionalContext` — the
+**cognition-layer enforcement surface** of the CMS principle (see ADR-0018 and
+`design/comprehend-measure-serialize/25-enforcement-surfaces.md`). Like the Guardian shim it
+**fails open**: a missing *or undecodable* `UACP.md` yields `exit 0` with no output and never blocks a
+session (it is a cognition nudge, not a gate — the architecture surface is the fail-closed one). It is
+**Claude-Code-only today**; Kimi/opencode would each need their own session-start hook (a follow-up,
+analogous to the manual `config.toml` paste above). Stdlib only; imports nothing from the kernel.

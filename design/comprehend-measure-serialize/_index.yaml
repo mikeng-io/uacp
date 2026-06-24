@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the aggregate root of the comprehend-measure-serialize (CMS) bundle —
+#                the ABSTRACT primitive the graph-engine, verification-method, and
+#                lifecycle bundles all instantiate. The "underlying logic", one layer
+#                below UACP-execution.
+# NOTE: the root (00) is deliberately THIN; substance is one-entity-per-node (the three
+#       verbs 10-12, the facets 20-25, the rigor/mapping 30-31) — the bundle obeys the
+#       very granularity discipline it documents.
+
+kind: design_index
+title: Comprehend → Measure → Serialize — the Coherence Invariant (Design Bundle)
+description: >-
+  The COHERENCE INVARIANT under UACP: one discipline -- comprehend -> measure -> serialize --
+  imposed across governance, execution, and LLM cognition so the system stays consistent with itself.
+  Architectural, not empirical: not an axiom/law operations naturally obey, but a chosen unifying
+  discipline (most ops already comply; the rest are enforced). Enforced two ways -- architecture
+  (gates) + prompt-injection (cognition). Synthesized 2026-06-21 (mike + ChatGPT); reclassified
+  2026-06-24 after a cross-provider adversarial panel (kimi + minimax).
+status: design
+governance: pre-governance-input
+timestamp: '2026-06-21'
+origin: session 2026-06-21 (abstract-principle thread; reference = a mike/ChatGPT discussion, synthesized)
+schema_dir: ../graph-engine/schema/
+
+# 00 = thin root;  10-12 = the three verbs (the core entities);
+# 20-25 = facets/composition/enforcement;  30-31 = rigor + mapping.
+members:
+  - 00-the-axiom.md             # ROOT (thin): the coherence-invariant claim + the map
+  - 10-comprehend.md            # verb: unstructured -> computable context
+  - 11-measure.md               # verb: reduce to a decidable signal (redefined, not numeric)
+  - 12-serialize.md             # verb: canonicalize to durable state; many targets; UACP-as-IPA
+  - 20-reductions.md            # capabilities are compositions (the primitivity evidence)
+  - 21-decision-hinge.md        # measure -> route -> serialize | drop; no-self-attestation
+  - 22-differentia.md # the differentia: coherence + per-verb discipline
+  - 23-composition.md           # applied at every grain FOR COHERENCE (fractal + iterated)
+  - 24-phase-crosswalk.md       # the 7 phases as CMS, grounded; enforced at the gates
+  - 25-enforcement-surfaces.md  # two surfaces: architecture (governance/exec) + injection (cognition)
+  - 30-validation-matrix.md     # the cross-domain reductions + the reclassification ledger
+  - 31-instantiations.md        # graph-engine / verification / lifecycle; UACP-as-IPA reframe
+
+# DERIVED: mirror of each node's `edges:` frontmatter (each node points to the root).
+# rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
+edges:
+  - {src: 10-comprehend, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 11-measure, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 12-serialize, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 20-reductions, dst: 00-the-axiom, rel: realizes, provenance: asserted}
+  - {src: 21-decision-hinge, dst: 00-the-axiom, rel: depends_on, provenance: derived}
+  - {src: 22-differentia, dst: 00-the-axiom, rel: extends, provenance: asserted}
+  - {src: 23-composition, dst: 00-the-axiom, rel: extends, provenance: asserted}
+  - {src: 24-phase-crosswalk, dst: 23-composition, rel: depends_on, provenance: derived}
+  - {src: 24-phase-crosswalk, dst: 31-instantiations, rel: extends, provenance: asserted}
+  - {src: 25-enforcement-surfaces, dst: 00-the-axiom, rel: extends, provenance: asserted}
+  - {src: 25-enforcement-surfaces, dst: 22-differentia, rel: depends_on, provenance: asserted}
+  - {src: 30-validation-matrix, dst: 00-the-axiom, rel: decides_on, provenance: asserted}
+  - {src: 31-instantiations, dst: 00-the-axiom, rel: depends_on, provenance: derived}
