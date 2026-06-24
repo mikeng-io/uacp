@@ -44,6 +44,7 @@ members:
   - 11-substrate.md
   - 12-delivery.md
   - 13-multi-language.md
+  - 14-prior-art-and-adoption.md
 
 # Intra-bundle design graph. Mirrors each node's own `edges:` frontmatter (the node
 # doc is canonical). Cross-bundle references (graph-engine D12/D29/D44) are expressed
@@ -65,6 +66,7 @@ edges:
   - {src: 11-substrate, dst: 01b-store, rel: depends_on, provenance: asserted}
   - {src: 12-delivery, dst: 09-abstraction, rel: depends_on, provenance: asserted}
   - {src: 13-multi-language, dst: 02-probes, rel: depends_on, provenance: asserted}
+  - {src: 14-prior-art-and-adoption, dst: 00-overview, rel: relates_to, provenance: asserted}
 
 # v1 scope guard (see 00-overview): a code-plane ENGINE — build (SCIP indexing) + store + a read-only
 # query layer (heatmap). The build-side writes a rebuildable index (a derived cache, not governed state);

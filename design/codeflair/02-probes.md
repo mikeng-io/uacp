@@ -20,14 +20,23 @@ their results* is the benchmarked policy ([03](03-expansion-loop.md)).
 |---|---|---|---|---|
 | **LSP** | live language server | refs / impls / call-hierarchy — live, stale-tolerant | `parsed` (real edge) | ✓ now |
 | **grep** | raw text | strings, config keys, cross-language, dynamic/reflective refs | in-memory hit (text match) | ✓ now |
+| **tree-sitter** | syntactic parse (any language, no toolchain) | structural edges (name-based defs/refs) — the **breadth floor**: works on unsupported langs, broken code, dirty files | `syntactic` (fuzzy; below `parsed`) | ✓ now (adopt) |
 | **manifest-graph** | the **Manifest engine** read-side projection (D43/D44) | `derives_from` / work_unit / proposal edges | the edge's own provenance (`derives_from`=`asserted`; FK=`derived`) | adapter only |
 | **code_anchor** | adapter join (Manifest checkpoint ↔ `code_symbol`) | the cross-plane hop | `parsed` | adapter only |
 | **co-change** | commit history | files/symbols that change **together** — temporal | in-memory result (`inferred`-grade; not a manifest edge) | ✓ now |
 | **SCIP** | per-commit symbol index, produced by [01a](01a-indexer.md) | `defines` / `references` / `calls` — precise symbol edges | `parsed` (real edge) | core, phase-1 |
 
-> **Probe layers (CF-D9, [09-abstraction](09-abstraction.md)):** SCIP / LSP / grep / co-change are
-> **core** — they run standalone on any git repo. `manifest-graph` and `code_anchor` are the
+> **Probe layers (CF-D9, [09-abstraction](09-abstraction.md)):** SCIP / LSP / grep / tree-sitter /
+> co-change are **core** — they run standalone on any git repo. `manifest-graph` and `code_anchor` are the
 > **UACP adapter** — registered only when embedded in UACP. The loop is blind to which are present.
+>
+> **Precision ladder (CF-D14, [14-prior-art-and-adoption](14-prior-art-and-adoption.md)):** the probes form
+> a precision gradient that the fuse step (④) ranks by — **SCIP/LSP (`parsed`, precise) > tree-sitter
+> (`syntactic`, fuzzy/all-languages/broken-code-tolerant) > grep (text) > co-change (`inferred`)**.
+> tree-sitter is the **breadth/fallback floor** — a node it finds where SCIP can't reach (unsupported
+> language, uncompilable code, no toolchain) is kept, tagged lower-confidence, rather than lost. So
+> Codeflair **degrades to tree-sitter quality** instead of failing, and **upgrades to SCIP/LSP precision**
+> where the toolchain allows. Most of these layers are **adopted, not built** (CF-D14).
 
 > **The query layer writes nothing** (see [01](01-contract.md)). The "result tag" is the confidence/source
 > label it attaches to a *heatmap node in memory* — it is the manifest edge's real provenance **only

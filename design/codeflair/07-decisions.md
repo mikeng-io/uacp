@@ -136,8 +136,9 @@ re-derivability and steals the orchestrator's job). Semantics lives in the **orc
 ## CF-D12 — Standalone, zero-UACP, installable package; repo location reversible; Go is the product home
 
 **Chosen:** a standalone, **zero-UACP** package — lib + CLI + MCP + plugin (CF-D9 faces), independently
-installable, a CI lint enforcing "no UACP import in core." **Repo location is reversible:** in-repo
-package now, extract to its own repo when adoption/release-cadence demands. **Product language = Go**
+installable, a CI lint enforcing "no UACP import in core." **DECIDED: it lives as an in-UACP abstracted
+package** (the boundary, not the repo, makes it standalone) — extract to its own repo only if
+adoption/release-cadence later demands; reversible. **Product language = Go**
 (single static binary for portable execution, SCIP-ecosystem-native, embeds scip-go, dogfoods); Python is
 the spike language; perf is language-agnostic (SCIP+SQLite do the work). **Install model:** one binary;
 Codeflair auto-fetches **prebuilt** SCIP indexers (not `go install` — empirically broken); LSP is
@@ -158,3 +159,16 @@ shared string, no contract, and no co-change — **weak-by-definition**, probabl
 Revisit an LLM only if real usage proves the residual matters. Cross-language edges are `inferred`,
 hypothesis-only. Detail in [13-multi-language](13-multi-language.md). *(This, with CF-D11, lands the whole
 design: Codeflair is deterministic, core and cross-language; the LLM is a maybe-never.)*
+
+## CF-D14 — Adopt the substrate, build only the fuse + UACP adapter (tree-sitter base + SCIP/LSP refine)
+
+**Chosen:** a 2026 prior-art check ([14-prior-art-and-adoption](14-prior-art-and-adoption.md)) shows the
+code-graph-for-agents engine is **commodity** (Serena, Aider repo-map, Codebase-Memory, codegraph, knowing,
+…). So Codeflair **adopts the substrate and builds only the novelty.** **Rejected:** building the engine
+from scratch. **The probe stack is a precision ladder** — **tree-sitter** is added as the *breadth/fallback
+floor* (all languages, no toolchain, parses broken code; fuzzy) under **LSP/SCIP** *refinement where
+available* (precise). This resolves efficiency-vs-quality by **layering, not choosing**: tree-sitter where
+SCIP can't reach, SCIP where the toolchain allows (UACP's trust-grade case). **Build:** the fuse/reconcile
++ ranking + the **UACP cross-plane adapter** (the only genuine novelty). **Adopt:** tree-sitter (base),
+**Serena/multilspy** (live LSP — don't hand-integrate N servers), `scip-go` etc. (precise SCIP). The spike
+is the eval harness for choosing among adoptable graph tools.

@@ -45,8 +45,12 @@ codeflair query Pool.Conn
 - **LSP is discovered/provisioned, never dropped** — it's the freshness half of the SCIP⊕LSP reconcile
   ([10-freshness](10-freshness.md)). Present → full reconcile; **absent → degrade** (single-file SCIP
   re-index, or grep+stale-flag), clearly flagged. A *fallback*, never silent removal, never "set up
-  servers first."
-- **No toolchain for a language → that language degrades to grep-only**, with a message. Never blocks install.
+  servers first." **Adopt the multi-LSP layer, don't hand-integrate N servers** (CF-D14): **Serena**
+  (MCP, 40+ langs) or **multilspy** (embeddable library) already abstract the per-server lifecycle/quirks
+  — Codeflair uses one of them as its LSP backend. *(Note: adopting Serena leans the core toward Python or
+  a sidecar — a real coupling vs. the single-Go-binary goal; decide consciously.)*
+- **No toolchain for a language → that language degrades to grep + tree-sitter**, with a message — never
+  blocks install (the tree-sitter breadth floor, [02-probes](02-probes.md)).
 
 ## Product language (decided by the delivery goal, not perf)
 
