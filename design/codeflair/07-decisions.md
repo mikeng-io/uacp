@@ -133,17 +133,21 @@ all.** *If* a deferred LLM policy is ever revisited, its use is confined to **st
 **never content** (no summarizing/"semanticfy" — that breaks
 re-derivability and steals the orchestrator's job). Semantics lives in the **orchestrator**, not Codeflair.
 
-## CF-D12 — Standalone, zero-UACP, installable package; repo location reversible; Go is the product home
+## CF-D12 — Standalone, zero-UACP, installable package; in-UACP (reversible); Python is the product language
 
 **Chosen:** a standalone, **zero-UACP** package — lib + CLI + MCP + plugin (CF-D9 faces), independently
 installable, a CI lint enforcing "no UACP import in core." **DECIDED: it lives as an in-UACP abstracted
 package** (the boundary, not the repo, makes it standalone) — extract to its own repo only if
-adoption/release-cadence later demands; reversible. **Product language = Go**
-(single static binary for portable execution, SCIP-ecosystem-native, embeds scip-go, dogfoods); Python is
-the spike language; perf is language-agnostic (SCIP+SQLite do the work). **Install model:** one binary;
-Codeflair auto-fetches **prebuilt** SCIP indexers (not `go install` — empirically broken); LSP is
-**discovered/provisioned and degrades gracefully, never dropped** (it's the freshness half of the SCIP⊕LSP
-reconcile); the host installs only Codeflair + the toolchain it already has for its own code. Detail in
+adoption/release-cadence later demands; reversible. **Product language = Python (DECIDED)** — it adopts
+**Serena** (Python) for LSP natively, matches the MCP Python SDK + UACP's kernel, and is fastest to build;
+perf is language-agnostic (SCIP + SQLite do the work). (The single-Go-binary option is dropped: the
+"portable binary" goal is traded for build speed + native Serena/MCP integration.) **Install model (DECIDED, kept simple):**
+the plugin ships **Codeflair (Python MCP) + Serena declared in the bundled `.mcp.json` (via `uvx`)** — so
+installing the plugin brings both, auto-registered. **`uv`/`uvx` is the user's responsibility**, not
+ours: we do **not** auto-provision it or engineer a degrade path. **LSP is the Serena layer — not
+"optional by design"**; if the user hasn't set up `uv`, Serena simply doesn't load (they lose the live
+LSP/freshness overlay; SCIP/tree-sitter/grep still work) — that's a *user config gap*, not a feature.
+Codeflair auto-fetches the **prebuilt** SCIP indexers it needs. Detail in
 [12-delivery](12-delivery.md). *(No tension with [CF-D4](07-decisions.md): CF-D4's "not a standalone
 service" was about not being a separate **application-ring service inside UACP**; CF-D12 is the
 **packaging/distribution** boundary — orthogonal axes.)*
