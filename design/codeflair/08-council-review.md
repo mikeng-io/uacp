@@ -101,6 +101,13 @@ engine; storage-touched-only-by-engines). All substrate citations check out.
 | R3-3 | **D34/D36/D38 nuance missing** — codegraph-vs-SCIP build-time bake-off; store ≠ SCIP's own file | kimi | [01a-indexer](01a-indexer.md): D34/D36 bake-off obligation + D38 re-derived-projection note |
 | R3-4 | **Stale "read-only / writes nothing" framing** — `_index` scope guard, `02-probes`, `01-contract` bare subject, **`06` one-line guard literally outlawed the indexer write** | all three (gemini caught the `06` one) | all qualified to "the query layer" / "write governed state" |
 
-Round-3 verdict: **SOUND-WITH-FIXES, all applied.** No further council required before PROPOSE; the
-remaining open items (eval-set owner, the build-path sanction mechanism, service-graduation trigger) are
-governance decisions, not review findings.
+Round-3 verdict: **SOUND-WITH-FIXES, all applied.**
+
+## Round 4 — the core/UACP-adapter abstraction (CF-D9) — REQUIRED
+
+After R3 the bundle gained **CF-D9** ([09-abstraction](09-abstraction.md)): Codeflair's core is
+UACP-independent (standalone on any git repo); UACP is a pluggable adapter (manifest-graph + `code_anchor`
++ the governed-writer wrapper). This reshapes 00/01/02/01b and adds node 09. **A Round 4 council must**
+verify: (1) the seam (probe registry + stable `query()` API) genuinely keeps UACP out of the core; (2) no
+node still hard-codes a UACP dependency into a core capability; (3) the governed-writer preconditions are
+consistently scoped adapter-only. Include a cross-provider voice.

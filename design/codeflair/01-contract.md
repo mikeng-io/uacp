@@ -21,6 +21,10 @@ Engine** scope that is reversed, deliberately ([CF-D8](07-decisions.md)):
   **is** the **Code engine**, UACP's 4th, exactly the slot `29-ddd-ca-reference.md` and D44 reserve.
 - The council's "not an engine" was **correct for the discarded lookup-only scope** (a pure reader owns
   no storage). Owning the index makes it an engine. No contradiction — a scope change.
+- **Standalone vs embedded (CF-D9, [09-abstraction](09-abstraction.md)):** it is an engine that owns its
+  store in *both* modes. Standalone (no UACP) it is simply a code-intelligence engine. The
+  *"calling skill above the UACP ring"* framing + the D44:912 cross-plane join below are the **UACP-
+  embedded** identity only — supplied by the adapter, not the core.
 
 Two halves, one bounded context:
 

@@ -11,8 +11,9 @@
 kind: design_index
 title: Codeflair — The Code Engine (Design Bundle)
 description: >-
-  Codeflair is UACP's 4th engine (alongside State / Manifest / Oracle) — the
-  codespace plane end-to-end, and graph-engine's code-plane sibling. It PRODUCES
+  Codeflair is a STANDALONE code-intelligence engine (runs on any git repo, zero
+  UACP, CF-D9); embedded in UACP it serves as the 4th engine (the codespace plane,
+  alongside State / Manifest / Oracle) via a thin adapter. It PRODUCES
   the code graph (SCIP per-commit + LSP live, emitting code_symbol/code_anchor),
   STORES it (SQLite, a rebuildable watermarked projection it owns), and QUERIES
   it (a light-model-pruned expansion loop returning a read-only heatmap — blast
@@ -38,6 +39,7 @@ members:
   - 06-open-questions.md
   - 07-decisions.md
   - 08-council-review.md
+  - 09-abstraction.md
 
 # Intra-bundle design graph. Mirrors each node's own `edges:` frontmatter (the node
 # doc is canonical). Cross-bundle references (graph-engine D12/D29/D44) are expressed
@@ -54,6 +56,7 @@ edges:
   - {src: 02-probes, dst: 01b-store, rel: consumes, provenance: asserted}
   - {src: 07-decisions, dst: 00-overview, rel: decides_on, provenance: asserted}
   - {src: 08-council-review, dst: 05-benchmark, rel: relates_to, provenance: asserted}
+  - {src: 09-abstraction, dst: 00-overview, rel: realizes, provenance: asserted}
 
 # v1 scope guard (see 00-overview): a code-plane ENGINE — build (SCIP indexing) + store + a read-only
 # query layer (heatmap). The build-side writes a rebuildable index (a derived cache, not governed state);

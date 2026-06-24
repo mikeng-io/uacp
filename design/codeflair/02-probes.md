@@ -25,6 +25,10 @@ their results* is the benchmarked policy ([03](03-expansion-loop.md)).
 | **SCIP** | per-commit symbol index, produced by [01a](01a-indexer.md) | `defines` / `references` / `calls` — precise symbol edges | `parsed` (real edge) | engine phase-1 |
 | **code_anchor** | produced by [01a](01a-indexer.md) | the cross-plane hop: a checkpoint → its `code_symbol` | `parsed` (real edge) | engine phase-1 |
 
+> **Probe layers (CF-D9, [09-abstraction](09-abstraction.md)):** SCIP / LSP / grep / co-change are
+> **core** — they run standalone on any git repo. `manifest-graph` and `code_anchor` are the
+> **UACP adapter** — registered only when embedded in UACP. The loop is blind to which are present.
+
 > **The query layer writes nothing** (see [01](01-contract.md)). The "result tag" is the confidence/source
 > label it attaches to a *heatmap node in memory* — it is the manifest edge's real provenance **only
 > when** the probe surfaces an already-serialized edge (LSP/SCIP/`code_anchor`/manifest-graph). grep
