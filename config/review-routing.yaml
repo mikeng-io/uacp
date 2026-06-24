@@ -183,7 +183,7 @@ checkpoint_review_policy:
       disposition: lightweight_governed_path
       lifecycle_entry: propose
       artifact_policy: lightweight
-    standard_uacp:
+    standard:
       disposition: standard_governed_path
       lifecycle_entry: propose
       artifact_policy: standard

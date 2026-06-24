@@ -413,7 +413,7 @@ def validate_triage(path: Path, obj: dict, issues: list[str]) -> None:
     ]
     check_required(str(path), obj, required, issues)
     routing = obj.get("routing_outcome")
-    if routing and routing not in {"direct", "lightweight", "standard_uacp", "full_governance", "block_or_clarify"}:
+    if routing and routing not in {"direct", "lightweight", "standard", "full_governance", "block_or_clarify"}:
         issues.append(f"BLOCK {path}: invalid routing_outcome {routing!r}")
     authority = obj.get("authority") if isinstance(obj.get("authority"), dict) else {}
     if authority.get("status") not in {"pass", "warn", "block"}:

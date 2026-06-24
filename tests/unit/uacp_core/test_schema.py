@@ -405,7 +405,7 @@ def _valid_triage() -> dict:
         "request_summary": "do the thing",
         "authority": {"status": "pass", "source": "user"},
         "factor_scores": {"impact": 5},
-        "routing_outcome": "standard_uacp",
+        "routing_outcome": "standard",
         "track": "standard",
         "next_step": "propose",
         # canonical routing/scoring field the consumers read (reconciled 2026-06-24)
@@ -459,7 +459,7 @@ def test_brainstorm_scope_package_flat_required_open():
     nested = {
         "kind": "uacp.brainstorm_scope_package",
         "selected_scope": {"title": "T", "description": "D", "in_scope": ["a"]},
-        "estimated_governance": {"routing_advisory": "standard_uacp"},
+        "estimated_governance": {"routing_advisory": "standard"},
         "declared_side_effects": [],
         "authority": {"source": "user"},
     }
@@ -476,6 +476,18 @@ def test_brainstorm_scope_package_flat_required_open():
         "title" in e
         for e in validate("uacp.brainstorm_scope_package", {**_valid_brainstorm(), "title": ""})
     )
+    # routing_advisory out of the 4-depth enum -> fails. "standard_uacp" (the retired suffixed name)
+    # and "block_or_clarify" (impossible when admitting) both reject; "standard" is now the valid value.
+    assert any(
+        "routing_advisory" in e
+        for e in validate(
+            "uacp.brainstorm_scope_package",
+            {**_valid_brainstorm(), "routing_advisory": "standard_uacp"},
+        )
+    ), "retired 'standard_uacp' value must now fail the enum"
+    assert validate(
+        "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "routing_advisory": "block_or_clarify"}
+    ), "block_or_clarify is not a valid brainstorm routing_advisory"
     # wrong kind const -> fails (mis-dispatch guard)
     bad4 = {**_valid_brainstorm(), "kind": "uacp.WRONG"}
     assert any(

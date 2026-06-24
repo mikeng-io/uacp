@@ -55,7 +55,7 @@ reality (the inc-3b failure was authoring from spike fixtures instead).
 
 | kind | fmt | SHAPE (required count + key enums) | REFERENTIAL (→ uacp-lint) | validate ref |
 |---|---|---|---|---|
-| `uacp.triage` | YAML | 8 req; `routing_outcome`∈{direct,lightweight,standard_uacp,full_governance,block_or_clarify}; `authority.status`∈{pass,warn,block}; `track`∈{standard,goal-driven} | none | :409 |
+| `uacp.triage` | YAML | 8 req; `routing_outcome`∈{direct,lightweight,standard,full_governance,block_or_clarify}; `authority.status`∈{pass,warn,block}; `track`∈{standard,goal-driven} | none | :409 |
 | `uacp.scope` | YAML | req: run_id, write_paths, blast_radius, rollback_path; `blast_radius`∈{low,medium,high,critical}; 6 optional | none (path reachability checked elsewhere) | artifact_schema.py ScopeSchema:65 |
 | `uacp.run_registry` | YAML | req: active_runs; item: {run_id, phase, write_paths, scope_artifact_path, started_at} | none | artifact_schema.py:133 |
 | `uacp.phase_intent_verification_contract` | YAML | 10 req; non-empty work_units `{id,intent,expected_outputs}` + evidence_obligations `{id,work_unit_id,evidence_type,required,sufficiency}`; checkpoint_policy.required_checkpoints∈VALID_PIV_CHECKPOINTS | intra-doc FK: obligation.work_unit_id ∈ work_units[].id (:867) | :828 |

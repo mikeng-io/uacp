@@ -33,7 +33,7 @@ def _minimal_triage(extra: dict) -> dict:
         "authority": {"status": "pass"},
         "factor_scores": {},
         "granularity_level": 1,
-        "routing_outcome": "standard_uacp",
+        "routing_outcome": "standard",
         "next_step": "propose",
     }
     base.update(extra)

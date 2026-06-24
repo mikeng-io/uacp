@@ -23,7 +23,7 @@ declared_side_effects:
 authority:
   source: "User request via uacp-brainstorm"
   approved_by: []
-routing_advisory: direct | lightweight | standard_uacp | full_governance
+routing_advisory: direct | lightweight | standard | full_governance
 
 # Optional richer context (open-world; NOT part of the required admission contract):
 approach_id: "A1"

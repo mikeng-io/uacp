@@ -225,7 +225,7 @@ _PRESLIM_ENTERS_FROM = {
 _PRESLIM_TRIAGE_ROUTING_OUTCOMES = {
     "direct": "terminal_direct",
     "lightweight": "propose",
-    "standard_uacp": "propose",
+    "standard": "propose",
     "full_governance": "propose",
     "block_or_clarify": "terminal_blocked",
 }

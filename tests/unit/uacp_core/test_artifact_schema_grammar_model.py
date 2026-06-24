@@ -74,7 +74,7 @@ _PROD_TERMINAL_KIND_VALUES = [
     "none",
     "direct",
     "lightweight",
-    "standard_uacp",
+    "standard",
     "full_governance",
     "block_or_clarify",
 ]

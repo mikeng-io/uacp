@@ -283,7 +283,7 @@ STAGE_ENTERS_FROM: dict[str, list[str]] = {
 TRIAGE_ROUTING_OUTCOMES: dict[str, str] = {
     "direct": "terminal_direct",
     "lightweight": "propose",
-    "standard_uacp": "propose",
+    "standard": "propose",
     "full_governance": "propose",
     "block_or_clarify": "terminal_blocked",
 }
@@ -321,7 +321,7 @@ PHASE_TRANSITION_TERMINAL_KIND_VALUES: list[str] = [
     "none",
     "direct",
     "lightweight",
-    "standard_uacp",
+    "standard",
     "full_governance",
     "block_or_clarify",
 ]

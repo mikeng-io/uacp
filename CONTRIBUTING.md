@@ -18,7 +18,7 @@ Create `proposals/{run_id}-triage.yaml` describing the request. TRIAGE routes to
 |---|---|
 | `direct` | Trivial work (typo fix, single-line doc edit). Bypasses the full lifecycle. |
 | `lightweight` | Bounded operational change (e.g. update a config value). |
-| `standard_uacp` | Full lifecycle with adaptive evidence selection. |
+| `standard` | Full lifecycle with adaptive evidence selection. |
 | `full_governance` | Architectural change. Requires multi-phase plan + council review per phase. |
 | `block_or_clarify` | Authority unclear or scope exceeds operator authorization. |
 

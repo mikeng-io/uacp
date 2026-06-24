@@ -235,7 +235,7 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                 "enum": [
                     "direct",
                     "lightweight",
-                    "standard_uacp",
+                    "standard",
                     "full_governance",
                     "block_or_clarify",
                 ],
@@ -248,9 +248,11 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     # serialize). FLAT shape (reconciled 2026-06-24): the phase-7 doc, the e2e producer, and this
     # schema now all use flat root admission fields — the nested selected_scope/estimated_governance
     # wrappers are retired (nothing consumed them; the Heartgate only globs for file-existence, so
-    # this schema IS the shape contract at write time). `routing_advisory` stays a free string — its
-    # vocabulary ("standard" vs "standard_uacp") is a separate reconciliation. OPEN-world for the
-    # advisory / provenance extras (approach_id, signals, anticipated_phases, risks, …).
+    # this schema IS the shape contract at write time). `routing_advisory` is enum'd to the four
+    # governance DEPTHS (direct/lightweight/standard/full_governance) — NOT the 5-value
+    # routing_outcome set: `block_or_clarify` is impossible here because the package is only written
+    # when admitting (enter_uacp==true), so "don't admit / clarify first" cannot apply. OPEN-world
+    # for the advisory / provenance extras (approach_id, signals, anticipated_phases, risks, …).
     "uacp.brainstorm_scope_package": {
         "$schema": _DRAFT,
         "type": "object",
@@ -269,7 +271,9 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "description": {"type": "string", "minLength": 1},
             "in_scope": {"type": "array", "minItems": 1},
             "authority": {"type": "object", "properties": {"source": {"type": "string"}}},
-            "routing_advisory": {"type": "string"},
+            "routing_advisory": {
+                "enum": ["direct", "lightweight", "standard", "full_governance"],
+            },
         },
     },
     "uacp.run_registry": {

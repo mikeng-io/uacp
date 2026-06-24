@@ -54,7 +54,7 @@ adaptive_proposal_package_gate:
     proposal artifact is only a lifecycle envelope.
   applies_to_transition: propose->plan
   selected_when_any:
-    routing_outcomes: [standard_uacp, full_governance]
+    routing_outcomes: [standard, full_governance]
     risk_levels: [high, critical]
     domains:
       - governance
@@ -91,7 +91,7 @@ adaptive_plan_package_gate:
     the YAML plan artifact is only a lifecycle envelope.
   applies_to_transition: plan->execute
   selected_when_any:
-    routing_outcomes: [standard_uacp, full_governance]
+    routing_outcomes: [standard, full_governance]
     risk_levels: [high, critical]
     domains:
       - governance
@@ -132,7 +132,7 @@ adaptive_execute_evidence_gate:
   applies_to_transition: execute->verify
   selected_when_any:
     plan_has_piv_contract: true
-    routing_outcomes: [standard_uacp, full_governance]
+    routing_outcomes: [standard, full_governance]
     risk_levels: [high, critical]
     domains:
       - governance
@@ -176,7 +176,7 @@ adaptive_verify_evidence_gate:
   applies_to_transition: verify->resolve
   selected_when_any:
     execute_used_piv_contract: true
-    routing_outcomes: [standard_uacp, full_governance]
+    routing_outcomes: [standard, full_governance]
     risk_levels: [high, critical]
     domains:
       - governance
@@ -262,7 +262,7 @@ artifact_schema:
       values:
       - direct
       - lightweight
-      - standard_uacp
+      - standard
       - full_governance
       - block_or_clarify
       description: TRIAGE routing outcome; terminal_kind uses the same vocabulary
@@ -496,7 +496,7 @@ adaptive_resolve_closure_gate:
   applies_to_phase: resolve
   selected_when_any:
     verify_readiness_present: true
-    routing_outcomes: [standard_uacp, full_governance]
+    routing_outcomes: [standard, full_governance]
     risk_levels: [high, critical]
     domains:
       - governance
