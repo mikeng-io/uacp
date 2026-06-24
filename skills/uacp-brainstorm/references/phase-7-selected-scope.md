@@ -9,46 +9,36 @@ kind: uacp.brainstorm_scope_package
 session_id: "{session_id}"
 run_id: ""  # populated by TRIAGE if admitted
 timestamp: "{ISO-8601}"
-
 source_vault: ".uacp/brainstorm/{session_id}/"
 
-selected_scope:
-  title: "..."
-  description: "..."
-  approach_id: "A1"
-  in_scope:
-    - "..."
-  out_of_scope:
-    - "..."
+# Admission-contract fields are FLAT at the root — this is the written artifact's shape, which the
+# entity-writer schema validates. (The vault manifest's `selected_scope` in §7.1 below is SEPARATE
+# working state, not this package; don't confuse the two.)
+title: "..."
+description: "..."
+in_scope:
+  - "..."
+declared_side_effects:
+  - "..."
+authority:
+  source: "User request via uacp-brainstorm"
+  approved_by: []
+routing_advisory: direct | lightweight | standard_uacp | full_governance
 
+# Optional richer context (open-world; NOT part of the required admission contract):
+approach_id: "A1"
+out_of_scope:
+  - "..."
 signals:
   artifact_type: code | docs | research | creative | mixed
   domains: []
   concerns: []
   constraints: []
-
-estimated_governance:
-  routing_advisory: direct | lightweight | standard_uacp | full_governance
-  reasoning: "..."
-  anticipated_phases:
-    - triage
-    - propose
-    - plan
-    - execute
-    - verify
-    - resolve
-
-declared_side_effects:
-  - "..."
-
-authority:
-  source: "User request via uacp-brainstorm"
-  approved_by: []
-
+governance_reasoning: "..."
+anticipated_phases: [triage, propose, plan, execute, verify, resolve]
 human_involvement:
   required: true | false
   reason: ""
-
 risks:
   - description: "..."
     severity: low | medium | high

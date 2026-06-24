@@ -203,10 +203,11 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     # uacp.triage — the admission verdict (TRIAGE serialize). OPEN-world: the producer
     # (skills/uacp-triage) emits optional fields the gate does not require (granularity, council,
     # human_involvement, artifact_policy); closing it would false-reject real docs.
-    # `granularity_level` is the canonical composite-granularity field that gate-selection, the
-    # route-bands, and validate_triage all consume; the triage skill now emits it (alongside the
-    # newer composite_granularity / phase_local_granularity), so it is required here too
-    # (producer<->consumer reconciled 2026-06-24).
+    # `granularity_level` is the canonical composite-granularity REQUIRED key — gate-selection, the
+    # route-bands, and validate_triage all REQUIRE it (composite_granularity is the value the gate
+    # actually scores on; granularity_level is the contract key, never read). The triage skill now
+    # emits it (with the newer composite_granularity / phase_local_granularity), so it is required
+    # here too (producer<->consumer reconciled 2026-06-24).
     "uacp.triage": {
         "$schema": _DRAFT,
         "type": "object",
@@ -244,18 +245,31 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         },
     },
     # uacp.brainstorm_scope_package — the bounded scope crossing brainstorm->triage (BRAINSTORM
-    # serialize). MINIMAL shape (kind-const + OPEN-world) on purpose: its producers DISAGREE on
-    # structure — the phase-7 skill doc prescribes a NESTED shape (selected_scope{title,...} +
-    # estimated_governance{routing_advisory}), while the e2e harness writes a FLAT root. There is no
-    # kernel validator to arbitrate, and the Heartgate only requires the file to exist. Imposing
-    # either shape here would false-reject the other, so we validate only the kind and accept any
-    # fields. FOLLOW-ON: reconcile the model to ONE shape (doc vs e2e), then tighten this schema.
+    # serialize). FLAT shape (reconciled 2026-06-24): the phase-7 doc, the e2e producer, and this
+    # schema now all use flat root admission fields — the nested selected_scope/estimated_governance
+    # wrappers are retired (nothing consumed them; the Heartgate only globs for file-existence, so
+    # this schema IS the shape contract at write time). `routing_advisory` stays a free string — its
+    # vocabulary ("standard" vs "standard_uacp") is a separate reconciliation. OPEN-world for the
+    # advisory / provenance extras (approach_id, signals, anticipated_phases, risks, …).
     "uacp.brainstorm_scope_package": {
         "$schema": _DRAFT,
         "type": "object",
-        "required": ["kind"],
+        "required": [
+            "kind",
+            "title",
+            "description",
+            "in_scope",
+            "declared_side_effects",
+            "authority",
+            "routing_advisory",
+        ],
         "properties": {
             "kind": {"const": "uacp.brainstorm_scope_package"},
+            "title": {"type": "string", "minLength": 1},
+            "description": {"type": "string", "minLength": 1},
+            "in_scope": {"type": "array", "minItems": 1},
+            "authority": {"type": "object", "properties": {"source": {"type": "string"}}},
+            "routing_advisory": {"type": "string"},
         },
     },
     "uacp.run_registry": {

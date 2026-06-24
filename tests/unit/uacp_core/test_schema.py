@@ -451,11 +451,11 @@ def _valid_brainstorm() -> dict:
     }
 
 
-def test_brainstorm_scope_package_kind_const_open_both_shapes():
-    # MINIMAL schema: kind-const + OPEN-world. Its producers DISAGREE on structure (the phase-7 doc
-    # prescribes NESTED selected_scope/estimated_governance; the e2e harness writes FLAT root fields),
-    # so BOTH shapes must pass — neither is false-rejected. (Tighten once the model is reconciled.)
-    assert validate("uacp.brainstorm_scope_package", _valid_brainstorm()) == []  # FLAT (e2e)
+def test_brainstorm_scope_package_flat_required_open():
+    # FLAT shape (reconciled 2026-06-24): the schema now enforces the flat admission contract — the
+    # phase-7 doc, the e2e producer, and the schema all agree on flat root fields.
+    assert validate("uacp.brainstorm_scope_package", _valid_brainstorm()) == []  # flat producer
+    # the RETIRED nested shape now FAILS (the tightening bites — non-vacuous): no flat title/in_scope
     nested = {
         "kind": "uacp.brainstorm_scope_package",
         "selected_scope": {"title": "T", "description": "D", "in_scope": ["a"]},
@@ -463,13 +463,25 @@ def test_brainstorm_scope_package_kind_const_open_both_shapes():
         "declared_side_effects": [],
         "authority": {"source": "user"},
     }
-    assert validate("uacp.brainstorm_scope_package", nested) == []  # NESTED (the phase-7 doc shape)
+    assert any(
+        "title" in e or "in_scope" in e or "routing_advisory" in e
+        for e in validate("uacp.brainstorm_scope_package", nested)
+    ), "retired nested shape must fail on the missing flat root fields"
+    # missing a required flat field (in_scope) -> fails
+    bad = _valid_brainstorm()
+    del bad["in_scope"]
+    assert any("in_scope" in e for e in validate("uacp.brainstorm_scope_package", bad))
+    # empty title -> fails (non-empty admission rule)
+    assert any(
+        "title" in e
+        for e in validate("uacp.brainstorm_scope_package", {**_valid_brainstorm(), "title": ""})
+    )
     # wrong kind const -> fails (mis-dispatch guard)
-    bad = {**_valid_brainstorm(), "kind": "uacp.WRONG"}
+    bad4 = {**_valid_brainstorm(), "kind": "uacp.WRONG"}
     assert any(
         e.startswith("kind") or "const" in e.lower()
-        for e in validate("uacp.brainstorm_scope_package", bad)
+        for e in validate("uacp.brainstorm_scope_package", bad4)
     )
-    # missing kind -> fails
-    nokind = {k: v for k, v in _valid_brainstorm().items() if k != "kind"}
-    assert any("kind" in e for e in validate("uacp.brainstorm_scope_package", nokind))
+    # OPEN-world: advisory / provenance extras pass
+    extra = {**_valid_brainstorm(), "approach_id": "A1", "signals": {}, "risks": []}
+    assert validate("uacp.brainstorm_scope_package", extra) == []
