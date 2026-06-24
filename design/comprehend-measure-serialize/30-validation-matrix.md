@@ -70,17 +70,17 @@ A second hunt against **formal CS** (Paxos · Raft · SAT · SMT · compiler-opt
 
 **[SUPERSEDED — see Status in node 00]** Promotion status (round-1): QUALIFIED-READY. CMS earns promotion as *"the discipline for governed/decision-bearing operations"* (NOT "every operation is CMS"). The AGENTS.md line + the portable `uacp.md` MUST carry the governed-scope qualification, or they overclaim.
 
-## The naming sub-question
+## The naming sub-question — RESOLVED (`measure` kept)
 
-While testing, challenge step 2's name: do all of `compare / validate / infer / rank / select` sit comfortably under **"measure"**? If yes, the name holds. If one resists, the primitive may need a broader verb (the property is *"reduce to a decidable signal"*, not *"quantify"*).
+While testing, the name was challenged: do `compare / validate / infer / rank / select` all sit under **"measure"**? Resolved 2026-06-24: **`measure` is kept** as the corrective name (it is normative, not descriptive — see [11-measure](11-measure.md)). The recommendation to rename to `decide` was declined.
 
 ## Self-reference (the proof is the method)
 
 We validate this axiom **the way the axiom prescribes**: *comprehend* the claim → *measure* it against adversarial cases → *serialize* the verdict. The verification method (a planned sibling bundle, not present on this branch) is the instrument judging its own foundation — if it cannot, that is itself a finding.
 
-## The promotion gate
+## The promotion gate — SATISFIED (PROMOTED 2026-06-24)
 
-Only when this matrix is full and counterexample-free does CMS earn promotion to a canonical principle (a neutral line in AGENTS.md + the per-phase mapping in `docs/`) — via a governed run, not an assertion. Until then it is a **named hypothesis**.
+The original gate: CMS earns promotion only when validated (not by assertion). That is now met — two cross-domain hunts + a three-provider adversarial panel cleared it (reclassified from "axiom" to *coherence invariant for semantic cognition*; the only "breaks" are out-of-domain deterministic machine ops). CMS is **promoted**: a neutral line in **AGENTS.md** ("Core Principle") + ratified in **[ADR-0018](../../docs/architecture/0018-cms-semantic-thinking-principle.md)** + the per-phase mapping in [24-phase-crosswalk](24-phase-crosswalk.md). Note: this promotion did **not** go through a formal governed run — it is a recorded **bootstrapping exception** (the governance runtime is half-built; see `docs/decisions/decision-log.md`, 2026-06-24).
 
 ## To expand
 - Fill the matrix (one row per session; cite the reasoning, not just a verdict).
