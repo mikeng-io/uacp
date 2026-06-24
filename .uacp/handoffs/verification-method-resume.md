@@ -64,11 +64,19 @@ now projects `inherited_artifacts` so goal-chained runs can't bypass coverage; T
 `handle_transition(plan→execute)` with `GP_UNCOVERED_INTENT`; covered advances; node 15 records Option C).
 #3 (referential check) DEFERRED (redundant w/ GP_PHANTOM_EDGE); #4 (gameable) = council/semantic scope.
 
-**REMAINING FAIL-OPEN = the enforcement increment (NEXT):** coverage binds only when the keyed proposal+PIV
-are produced; the kernel PROPOSE gate (`adaptive_proposal_package_gate`) requires only the package_selection
-envelope, NOT a registered keyed `uacp.proposal`. Closing it = REQUIRE the keyed `uacp.proposal` at the
-PROPOSE gate — broad ripple (every package-selection fixture needs keyed scope), so a deliberate separable
-increment, not rushed. Then capsule #3 (the generator). Branch UNPUSHED.
+**Enforcement increment LANDED (mike: do it now).** `validate_adaptive_proposal_package_gate` now REQUIRES
+the `scope` concern be `covered` by a keyed scope module (`scope.in_scope:[{id,statement}]`); na/markdown
+scope is a blocker (`_scope_concern_is_keyed`). Structured intent scope is now mandatory for governed
+package-selection PROPOSE→PLAN. TDD `tests/e2e/test_proposal_scope_gate.py` (non-vacuity proven); shared
+`_seed_proposal_package` emits a keyed scope module (one fix cascade-cleared 49 fixtures). Suite **1881 green**.
+
+**Two precise residuals remain (smaller, separable — NEXT):** (1) the gate is in `validate_transition`
+(agent-invoked), not forced `handle_transition` — like ALL adaptive package gates; closing = the broader
+"force validate_transition" item. (2) The required scope module is REFERENCED not REGISTERED, so
+`projection` doesn't see its scope_items → coverage CHECK (GP_UNCOVERED) doesn't BIND for package-selection
+runs (only the gate REQUIREMENT is enforced); full binding needs register-scope-module + register-PIV +
+fire `_check_uncovered` on scope-presence. **Governed entity-write runs already fully bind+enforce** (proven
+`test_transition_coverage_enforced.py`). Then capsule #3 (the generator). Branch UNPUSHED (~11 commits).
 
 ---
 

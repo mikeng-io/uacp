@@ -78,13 +78,28 @@ PIV covers only si-1) is BLOCKED by `state_machine.handle_transition(plan→exec
 and a fully-covered run advances. So Option C's mechanism (keyed `uacp.proposal` as the scope module + the
 auto-registered PIV) is **already wired and now regression-tested end-to-end** for governed runs.
 
-**What remains (the agent-omission fail-open).** Coverage binds *when the keyed proposal+PIV are produced*.
-The kernel's PROPOSE→PLAN gate (`adaptive_proposal_package_gate`) requires only the `*_package_selection`
-envelope, not a registered keyed `uacp.proposal` — so a run that emits only the envelope + markdown scope
-advances with coverage silently skipped. Fully closing the fail-open = REQUIRE a registered keyed
-`uacp.proposal` (scope module) at the PROPOSE gate. That is a real contract change with broad ripple (every
-package-selection fixture/test would need the keyed scope), so it is a **deliberate, separable enforcement
-increment**, not bundled into the wiring. Deferred to a focused next step.
+**Enforcement increment LANDED (2026-06-25, session 2b).** `validate_adaptive_proposal_package_gate` now
+REQUIRES the `scope` universal-core concern be `covered` by a keyed scope module
+(`scope.in_scope:[{id,statement}]`, ≥1) — `not_applicable` / unstructured-markdown scope is now a blocker
+(`_scope_concern_is_keyed`). So structured intent scope is **mandatory** for the package-selection
+PROPOSE→PLAN. TDD: `tests/e2e/test_proposal_scope_gate.py` (na + bare-string scope blocked; keyed passes;
+non-vacuity proven). The shared `_seed_proposal_package` now emits a keyed scope module (one fix
+cascade-cleared the 49 fixtures that drive this gate). Suite 1881 green.
+
+**Honest residual (two precise gaps that remain, smaller and separable):**
+1. **The gate is in `validate_transition` (agent-invoked), not the forced `handle_transition` path** — like
+   *all* the adaptive package gates. A non-compliant agent that never calls `uacp_heartgate_check` bypasses
+   it. Closing that is the broader "force `validate_transition`" concern (the package gates aren't forced),
+   an initiative-level item, not specific to coverage. The forced structural coverage (my `plan_exit`
+   `GP_UNCOVERED`) still fires for governed entity-write runs (keyed proposal + PIV auto-register).
+2. **The required scope module is referenced, not registered.** In package-selection mode the seeder writes
+   the scope module + points the scope concern at it, but does not `register_artifact` it — so
+   `projection._load_and_project` (reads `manifest.artifacts`) does not project its scope_items, and the
+   coverage *check* (GP_UNCOVERED) does not BIND for package-selection runs (only the gate *requirement* is
+   enforced). Full binding on the package-selection path additionally needs: register the scope module +
+   register the PIV + fire `_check_uncovered` on scope-presence (drop the `_coverage_adopted` skip when
+   scope_items exist). For **governed entity-write runs this already fully binds + is enforced** (auto-register
+   + the forced plan_exit gate — proven by `test_transition_coverage_enforced.py`).
 
 ## The open decision (what to actually settle) — RESOLVED to Option C above; kept for context
 
