@@ -9,6 +9,7 @@ later config refactor.
 
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -278,6 +279,41 @@ def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str
             phase=frm,
         )
         assert tr.get("ok") is True, tr
+
+    # RESOLVE: author + register the lessons (closure) artifact BEFORE finalize.
+    # handle_finalize now runs the closure sweep on the live path, which requires a
+    # genuinely closeable run (coherence C4 needs the lessons artifact).
+    lessons_rel = f"resolutions/{valid_run_id}-lessons.yaml"
+    (temp_uacp_root / ".uacp" / "resolutions").mkdir(parents=True, exist_ok=True)
+    (temp_uacp_root / ".uacp" / lessons_rel).write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.lessons",
+                "run_id": valid_run_id,
+                "lessons": [
+                    {
+                        "id": "L1",
+                        "category": "process",
+                        "finding": "Full lifecycle e2e run.",
+                        "recommendation": "None.",
+                        "applies_to_future_runs": False,
+                    }
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+    reg = json.loads(
+        state_machine.handle_register_artifact(
+            {
+                "workspace": str(temp_uacp_root),
+                "run_id": valid_run_id,
+                "artifact_type": "lessons",
+                "path": lessons_rel,
+            }
+        )
+    )
+    assert reg.get("ok") is True, reg
 
     fin = d.call(
         "uacp_state_write",

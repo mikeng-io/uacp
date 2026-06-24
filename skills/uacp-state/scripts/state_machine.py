@@ -11,9 +11,12 @@ import sys
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
+
+if TYPE_CHECKING:
+    from core import HeartgateDecision
 
 # Ensure uacp-core/scripts is on the path for filesystem utilities.
 _CORE_DIR = Path(__file__).resolve().parents[2] / "uacp-core" / "scripts"
@@ -439,8 +442,47 @@ def handle_workspace(args: dict[str, Any]) -> str:
         return json.dumps({"error": f"workspace update failed: {type(exc).__name__}: {exc}"})
 
 
+def _run_closure_gate(workspace: Path, run_id: str) -> HeartgateDecision:
+    """Run the Heartgate closure sweep (the full computed-engine pass) for a run.
+
+    This is the LIVE wiring of ``Heartgate.validate_closure``: it expects the run
+    to already be finalized on disk (the engines' terminal checks assume the
+    resolved/closed state). ``validate_closure`` never raises — but the kernel
+    import / config load can — so we fail CLOSED: any failure to even run the gate
+    is surfaced as a block, never a silent pass.
+
+    Lazy import: keeps the state machine free of the kernel for callers that never
+    finalize, and avoids the engines->state_machine import cycle (the engines
+    package imports this module, so importing it at module load would cycle).
+    """
+    try:
+        from core import Heartgate
+
+        return Heartgate.load(workspace).validate_closure(run_id)
+    except Exception as exc:  # fail-closed: an unrunnable gate must not finalize
+        return _closure_unavailable_block(exc)
+
+
+def _closure_unavailable_block(exc: Exception) -> HeartgateDecision:
+    from core import HeartgateDecision as _Decision
+
+    return _Decision(
+        "block",
+        "closure gate could not be run",
+        [f"CLOSURE_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"],
+        [],
+    )
+
+
 def handle_finalize(args: dict[str, Any]) -> str:
-    """Finalize a run from verify -> resolved."""
+    """Finalize a run from verify -> resolved, gated by the closure sweep.
+
+    Finalizing stamps the run resolved/finalized, THEN runs the Heartgate closure
+    sweep (all computed engines) over the now-finalized state. If the sweep blocks
+    the run is reverted to its pre-finalize state and an error with the engine
+    blockers is returned — a run can no longer be stamped 'resolved' while the
+    strongest verification the system owns goes unrun. Fail-closed.
+    """
     try:
         workspace = Path(str(args.get("workspace") or ".")).resolve()
         run_id = str(args.get("run_id") or "").strip()
@@ -455,16 +497,43 @@ def handle_finalize(args: dict[str, Any]) -> str:
                 "error": f"finalize refused: run is in phase '{manifest.current_phase}', not in terminal phase ({sorted(TERMINAL_PHASES)})",
             })
 
-        if manifest.status != Status.resolved:
-            manifest.status = Status.resolved
-
+        # Tentatively finalize so the closure engines see a resolved/finalized run
+        # (their terminal checks false-positive on a not-yet-finalized run). Keep
+        # the prior state to revert if the gate blocks.
+        prior_status = manifest.status
+        prior_finalized_at = manifest.finalized_at
+        manifest.status = Status.resolved
         manifest.finalized_at = _iso_now()
         _save_manifest(workspace, manifest)
+
+        # Fail-closed: a gate that blocks OR cannot run at all reverts the
+        # tentative finalize. Wrapped so even a pathological gate failure (e.g.
+        # the kernel is unimportable) can never leave a run finalized-on-disk.
+        try:
+            decision = _run_closure_gate(workspace, run_id)
+            blocked = decision.blocks_transition
+        except Exception as exc:  # pragma: no cover - kernel totally unavailable
+            decision = _closure_unavailable_block(exc)
+            blocked = True
+
+        if blocked:
+            manifest.status = prior_status
+            manifest.finalized_at = prior_finalized_at
+            _save_manifest(workspace, manifest)
+            return json.dumps({
+                "error": "finalize blocked by closure sweep",
+                "decision": decision.decision,
+                "blockers": decision.blockers,
+                "warnings": decision.warnings,
+            }, ensure_ascii=False)
+
         return json.dumps({
             "ok": True,
             "run_id": run_id,
             "status": manifest.status.value,
             "finalized_at": manifest.finalized_at,
+            "closure": decision.decision,
+            "warnings": decision.warnings,
         }, ensure_ascii=False)
     except FileNotFoundError as exc:
         return json.dumps({"error": f"finalize failed: {exc}"})

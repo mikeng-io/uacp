@@ -25,13 +25,20 @@ from tests.e2e.driver import Driver
 from tests.e2e.test_full_lifecycle import _SEEDERS, PHASES
 
 
-def drive_happy_path(root: Path, run_id: str) -> None:
+def drive_happy_path(root: Path, run_id: str, *, finalize: bool = True) -> None:
     """Drive a full INIT -> ... -> FINALIZE run through the real kernel.
 
     Reuses the seeders and phase list from test_full_lifecycle so the happy path
     stays in lockstep with the canonical lifecycle test (no duplicated gate
-    knowledge). On return the run is resolved with a complete manifest, gate
-    ledger, and current.yaml pointer.
+    knowledge). The run's lessons (closure) artifact is authored + registered
+    during RESOLVE *before* finalize, so the closure sweep now wired into
+    ``handle_finalize`` sees a genuinely closeable run.
+
+    With ``finalize=False`` the run is driven through the verify -> resolved
+    transition (lessons authored) but ``handle_finalize`` is NOT called — leaving
+    a resolved-but-not-finalized run for tests that drive finalize themselves.
+    On return (finalize=True) the run is resolved + finalized with a complete
+    manifest, gate ledger, and current.yaml pointer.
     """
     d = Driver(root, run_id)
     heartgate = Heartgate.load(str(root))
@@ -83,6 +90,13 @@ def drive_happy_path(root: Path, run_id: str) -> None:
         )
         assert tr.get("ok") is True, tr
 
+    # RESOLVE: author + register the lessons (closure) artifact BEFORE finalize so
+    # the closure sweep wired into handle_finalize sees a closeable run (C4).
+    _author_and_register_lessons(root, run_id)
+
+    if not finalize:
+        return
+
     fin = d.call(
         "uacp_state_write",
         lambda a: state_machine.handle_finalize(a),
@@ -90,6 +104,36 @@ def drive_happy_path(root: Path, run_id: str) -> None:
         phase="verify",
     )
     assert fin.get("ok") is True and fin["status"] == "resolved", fin
+
+
+def _author_and_register_lessons(root: Path, run_id: str) -> None:
+    """Author + register the lessons (closure) artifact for a resolved run.
+
+    Shared by drive_happy_path (RESOLVE step) and seed_coherent_run so the
+    closure C4 check (resolved run must reference a 'lessons' artifact) is
+    satisfied in exactly one place.
+    """
+    lessons_rel = f"resolutions/{run_id}-lessons.yaml"
+    (root / ".uacp" / "resolutions").mkdir(parents=True, exist_ok=True)
+    (root / ".uacp" / lessons_rel).write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.lessons",
+                "run_id": run_id,
+                "lessons": [
+                    {
+                        "id": "L1",
+                        "category": "process",
+                        "finding": "Coherent e2e run.",
+                        "recommendation": "None.",
+                        "applies_to_future_runs": False,
+                    }
+                ],
+            },
+            sort_keys=False,
+        )
+    )
+    _register_artifact(root, run_id, "lessons", lessons_rel)
 
 
 def _register_artifact(root: Path, run_id: str, atype: str, rel: str) -> None:
@@ -113,28 +157,9 @@ def seed_coherent_run(root: Path, run_id: str) -> None:
     scope_rel = f"plans/{run_id}-scope.yaml"
     _register_artifact(root, run_id, "scope", scope_rel)
 
-    # Author + register the lessons (closure) artifact for the resolved run.
-    lessons_rel = f"resolutions/{run_id}-lessons.yaml"
-    (root / ".uacp" / "resolutions").mkdir(parents=True, exist_ok=True)
-    (root / ".uacp" / lessons_rel).write_text(
-        yaml.safe_dump(
-            {
-                "kind": "uacp.lessons",
-                "run_id": run_id,
-                "lessons": [
-                    {
-                        "id": "L1",
-                        "category": "process",
-                        "finding": "Coherent e2e run.",
-                        "recommendation": "None.",
-                        "applies_to_future_runs": False,
-                    }
-                ],
-            },
-            sort_keys=False,
-        )
-    )
-    _register_artifact(root, run_id, "lessons", lessons_rel)
+    # The lessons (closure) artifact is authored + registered by drive_happy_path
+    # during RESOLVE; re-author here is idempotent (kept explicit for clarity).
+    _author_and_register_lessons(root, run_id)
 
     # Align the run-registry write_paths with scope.write_paths ([]) so C6 is a
     # clean pass. The plan seeder leaves active_runs == []; register this run.
