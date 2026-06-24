@@ -200,6 +200,78 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "side_effects": {"description": "Optional; type unconstrained until grounded."},
         },
     },
+    # uacp.triage — the admission verdict (TRIAGE serialize). OPEN-world: the producer
+    # (skills/uacp-triage) emits optional fields the gate does not require (granularity, council,
+    # human_involvement, artifact_policy); closing it would false-reject real docs. NOTE: a
+    # granularity field is intentionally NOT required — the kernel validator names it
+    # `granularity_level` while the skill emits `composite_granularity`/`phase_local_granularity`;
+    # that producer<->validator naming mismatch is a separate pre-existing fix, so granularity stays
+    # optional here to avoid a write-time false-reject (verify schema against the real producer).
+    "uacp.triage": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": [
+            "kind",
+            "triage_id",
+            "request_summary",
+            "authority",
+            "factor_scores",
+            "routing_outcome",
+            "next_step",
+        ],
+        "properties": {
+            "kind": {"const": "uacp.triage"},
+            "triage_id": {"type": "string", "minLength": 1},
+            "request_summary": {"type": "string", "minLength": 1},
+            "authority": {
+                "type": "object",
+                "properties": {"status": {"enum": ["pass", "warn", "block"]}},
+            },
+            "factor_scores": {"type": "object"},
+            "routing_outcome": {
+                "enum": [
+                    "direct",
+                    "lightweight",
+                    "standard_uacp",
+                    "full_governance",
+                    "block_or_clarify",
+                ],
+            },
+            "track": {"enum": ["standard", "goal-driven"]},
+            "next_step": {"type": "string", "minLength": 1},
+        },
+    },
+    # uacp.brainstorm_scope_package — the bounded scope crossing brainstorm->triage (BRAINSTORM
+    # serialize). Shape grounded on the ACTUAL gate-passing producer (the FLAT fields the real
+    # entity-write emits + the Heartgate admission contract): flat title/description/in_scope
+    # (non-empty), declared_side_effects, authority.source, routing_advisory. Grounded on the
+    # RUNTIME producer, NOT the phase-7 doc (which wraps these in selected_scope /
+    # estimated_governance — producer/doc mismatch; runtime is flat). routing_advisory stays
+    # enum-free (producers disagree: "standard" vs "standard_uacp"). OPEN-world (inc-3b lesson).
+    "uacp.brainstorm_scope_package": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": [
+            "kind",
+            "title",
+            "description",
+            "in_scope",
+            "declared_side_effects",
+            "authority",
+            "routing_advisory",
+        ],
+        "properties": {
+            "kind": {"const": "uacp.brainstorm_scope_package"},
+            "title": {"type": "string", "minLength": 1},
+            "description": {"type": "string", "minLength": 1},
+            "in_scope": {"type": "array", "minItems": 1},
+            "authority": {
+                "type": "object",
+                "properties": {"source": {"type": "string"}},
+            },
+            "routing_advisory": {"type": "string"},
+        },
+    },
     "uacp.run_registry": {
         "$schema": _DRAFT,
         "type": "object",
@@ -391,6 +463,12 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "run_id": {"type": "string", "minLength": 1},
             "checkpoint_type": {"enum": list(_CHECKPOINT_TYPES)},
             "evidence": {"type": "array", "minItems": 1},
+            # The boundary / negative-judgment slot: EXECUTE measures the negative too — what it
+            # did NOT do (stayed inside its declared bounds) is evidence. Typed as an object here;
+            # the four boundary keys (authority/write_boundary/rollback/privacy_preserved) are
+            # required by the OFFLINE validator (validate_uacp_artifacts.py), not at write time —
+            # so a minimal / in-flight checkpoint is not false-rejected (verify schema vs producer).
+            "invariants": {"type": "object"},
         },
     },
     "uacp.piv_assessment": {

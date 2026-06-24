@@ -68,7 +68,7 @@ def _cp_fields(result="pass"):
         "decisions": [],
         "evidence": [{"obligation_id": "ev-1", "result": result, "summary": "green"}],
         "intent_drift": {},
-        "invariants": [],
+        "invariants": {},
         "next_phase_readiness": "ready",
     }
 
