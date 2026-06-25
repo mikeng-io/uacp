@@ -152,9 +152,10 @@ timeout_multiplier = 1.0
 model = ""                    # optional provider/model override (OpenRouter form); empty = hermes model.default
 allowed_models = []           # model AUTHORIZATION allowlist (fail-closed). Multi-provider, so empty +
                               # enforce_model_allowlist => SKIP until an approved model is listed.
-read_only_toolset = ""        # --enabled_toolsets profile for inspect tasks. MUST be a read-ONLY profile that
-                              # INCLUDES file reads (the built-in "safe" set excludes file reads — unusable for
-                              # review). Empty = bridge composes/verifies an inspect profile; never defaults to "safe".
+read_only_toolset = ""        # comma-separated `-t/--toolsets` for inspect (e.g. "web,file,vision"). NOTE: the
+                              # built-in `file` toolset bundles read+write, so toolset gating alone is NOT read-only —
+                              # it MUST be paired with `--worktree` (hermes's built-in isolation). Empty = bridge
+                              # composes a minimal read set + --worktree. See references/hermes.md Read-Only Enforcement.
 
 # --- Reasonix (DeepSeek-native) ---
 # CLI bridge; SKIPPED-only (no HALT). Requires the 1.x Go line (`reasonix review`
