@@ -62,6 +62,24 @@ contract; in brief:
   (`GP_UNCHECKED_TARGET`), the floor (`CHK_FLOOR_UNMET`), entailment (`CHK_CLASS_UNDERCLAIM`), and
   replay see it. A target you leave unchecked blocks the VERIFY exit.
 
+### Step 2c — Run the harness loop to convergence (RUN → RECONCILE → LOOP → ESCALATE)
+The fixed, deterministic machinery (design node 11) drives the frozen checks to a verdict — no
+comprehension lives here. After authoring (Step 2b), loop:
+
+- **RUN / RECONCILE** are the kernel's job: the engine sweep replays every check
+  (`validate_check_replay`) and reconciles it with the structural findings (`GP_*`, contradiction).
+  You do not re-run these by hand — they fire at the forced `verify_exit` gate and at closure.
+- **LOOP** — each round you author a check (or a fix surfaces a new target → author another) and
+  **record the move** as a `uacp.investigation_entry` (`move`, fail-closed `verdict`, `check_ref`,
+  `target`; `supersedes` the prior attempt when re-trying). Read `investigation_status` (or
+  `convergence_status`) from `engines.graph_projection`: keep going while it is **not `dry`**; stop
+  when dry (no open `fail`/`error` move, no open contradiction). An open move blocks closure
+  (`GP_OPEN_INVESTIGATION`), so you cannot exit a non-dry loop.
+- **ESCALATE** — when `convergence_status(...)["escalate"]` lists a target (≥N failing moves, still
+  open), stop patching the symptom and emit the **architecture verdict**: fire a `uacp_escalation_event`
+  ("the design, not the code, is wrong" for that target). The escalation is recorded in the
+  investigation trail and surfaced to the transition gate; it is not a magic phase number.
+
 ### Step 3 — Classify every item
 Sort each gathered item into exactly one bucket, kept separate in both machine artifacts and semantic packages (see `references/verify-truth-gate-checklist.md` for the canonical distinctions and must-block cases):
 
