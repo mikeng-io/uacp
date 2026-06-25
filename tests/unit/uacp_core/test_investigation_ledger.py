@@ -73,6 +73,30 @@ def test_self_supersede_does_not_clear_a_failure(tmp_path):
     assert "GP_OPEN_INVESTIGATION" in _codes(validate_graph_projection(ws, "r"))
 
 
+def test_supersede_cycle_does_not_clear_failures(tmp_path):
+    # Council BLOCKER: a 2-cycle of mutually-superseding fails must NOT erase both — a cycle reaches
+    # no `pass`, so cycled failures stay open (fail-closed; the src!=dst guard alone missed this).
+    ws = _ws(tmp_path, [_entry("e1", "run", verdict="fail", supersedes="e2"),
+                        _entry("e2", "run", verdict="fail", supersedes="e1")])
+    assert "GP_OPEN_INVESTIGATION" in _codes(validate_graph_projection(ws, "r"))
+
+
+def test_non_resolving_supersede_does_not_clear(tmp_path):
+    # Council (kimi MAJOR): only a PASS remediation clears a failure. A later non-measuring (or
+    # non-pass) revision pointing at a fail must NOT clear it.
+    ws = _ws(tmp_path, [_entry("e1", "run", verdict="fail"),
+                        _entry("e2", "enumerate", supersedes="e1")])  # e2 has no verdict
+    assert "GP_OPEN_INVESTIGATION" in _codes(validate_graph_projection(ws, "r"))
+
+
+def test_transitive_pass_resolves_a_fail_chain(tmp_path):
+    # the legitimate clear: fail e1 <- fail e2 <- PASS e3 — the eventual pass resolves the chain.
+    ws = _ws(tmp_path, [_entry("e1", "run", verdict="fail"),
+                        _entry("e2", "run", verdict="fail", supersedes="e1"),
+                        _entry("e3", "reconcile", verdict="pass", supersedes="e2")])
+    assert "GP_OPEN_INVESTIGATION" not in _codes(validate_graph_projection(ws, "r"))
+
+
 def test_passing_and_nonmeasuring_entries_do_not_block(tmp_path):
     # a passing run + a non-measuring enumerate move (no verdict) are not open.
     ws = _ws(tmp_path, [_entry("e1", "enumerate"), _entry("e2", "run", verdict="pass")])
@@ -92,7 +116,7 @@ def test_dry_predicate_reports_open_then_converged(tmp_path):
     dry_ws = _ws(tmp_path / "dry", [_entry("e1", "run", verdict="fail"),
                                     _entry("e2", "reconcile", verdict="pass", supersedes="e1")])
     st2 = investigation_status(dry_ws, "r")
-    assert st2["dry"] is True and st2["open"] == [] and st2["entries"] == 1
+    assert st2["dry"] is True and st2["open"] == [] and st2["entries"] == 2  # both entries kept
 
 
 def test_dry_predicate_no_manifest_is_trivially_dry_but_load_error_is_not(tmp_path):
@@ -103,8 +127,13 @@ def test_dry_predicate_no_manifest_is_trivially_dry_but_load_error_is_not(tmp_pa
 def test_investigation_entry_governed_authoring(tmp_path):
     # BOTH-registries: a layout Entry AND a schema, so the entity-writer accepts it + the move enum
     # is enforced at write (an unknown move is rejected).
+    from engines.domain import layout, schema
     from engines.manifest.entity_writer import create_entity
     from state_machine import handle_init
+
+    # BOTH-registries parity (explicit pin, like the check kinds): layout Entry AND schema.
+    assert "uacp.investigation_entry" in layout.all_kinds()
+    assert schema.has_schema("uacp.investigation_entry")
 
     handle_init({"workspace": str(tmp_path), "run_id": "r", "source": "operator-request"})
     ok = create_entity(

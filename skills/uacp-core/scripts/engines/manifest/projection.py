@@ -433,34 +433,58 @@ def _check_unverified(nodes: dict, edges: list) -> list[Violation]:
     ]
 
 
-def _latest_investigation(nodes: dict, edges: list) -> list[dict]:
-    """The NON-superseded investigation entries (node 13 revisable trail): an entry whose id is the
-    dst of a `supersedes` edge from a DIFFERENT entry has been revised by a later one, so the LATEST
-    trail drops it. A SELF-supersede (src == dst) does NOT clear an entry — else a failing entry
-    could supersede itself out of the open set (fail-closed)."""
-    superseded = {e["dst"] for e in edges if e["rel"] == "supersedes" and e["src"] != e["dst"]}
+def _open_investigation_ids(nodes: dict, edges: list) -> list[str]:
+    """The OPEN investigation entries (node 13, fail-closed): a `fail`/`error` move that no acyclic
+    chain of newer revisions RESOLVES with a `pass`. Only a passing remediation clears a failure — a
+    later non-pass revision (another fail, or a non-measuring move) does NOT, and a supersede CYCLE
+    reaches no pass, so cycled/self-superseding failures stay open. (Council: the naive "superseded
+    = any inbound supersedes edge" let a 2+ cycle, a non-resolving supersede, and a self-supersede
+    erase a recorded failure.)"""
+    entries = {n["id"]: n for n in nodes.values() if n["kind"] == "investigation_entry"}
+    newer: dict[str, set[str]] = {}  # newer[A] = entries that supersede A (its revisions)
+    for e in edges:
+        if (
+            e["rel"] == "supersedes"
+            and e["src"] != e["dst"]
+            and e["src"] in entries
+            and e["dst"] in entries
+        ):
+            newer.setdefault(e["dst"], set()).add(e["src"])
+
+    def resolved_by_pass(start: str) -> bool:
+        # Acyclic forward walk over revisions: is `start` (or any revision of it) a `pass`?
+        seen, stack = {start}, [start]
+        while stack:
+            cur = stack.pop()
+            if entries[cur].get("verdict") == "pass":
+                return True
+            for nxt in newer.get(cur, ()):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        return False
+
     return [
-        n
-        for n in nodes.values()
-        if n["kind"] == "investigation_entry" and n["id"] not in superseded
+        eid
+        for eid, n in entries.items()
+        if n.get("verdict") in ("fail", "error") and not resolved_by_pass(eid)
     ]
 
 
 def _check_open_investigation(nodes: dict, edges: list) -> list[Violation]:
     """An OPEN investigation blocks (node 13 — the ledger's teeth + the no-self-attesting-closure
-    invariant): a non-superseded investigation_entry whose verdict is `fail` or `error` is an
-    unresolved move. ERROR is fail-closed (never a pass). A later entry that `supersedes` it (e.g. a
-    remediation that now `pass`es) clears it — revisable, history kept."""
+    invariant): a `fail`/`error` investigation_entry that no `pass` remediation resolved is an open
+    move. ERROR is fail-closed (never a pass)."""
+    by_id = {n["id"]: n for n in nodes.values()}
     return [
         _v(
             "GP_OPEN_INVESTIGATION",
-            f"investigation_entry '{n['id']}' is {n.get('verdict')!r} and not superseded "
-            f"(an unresolved verify move — done cannot close over it)",
-            entry=n["id"],
-            verdict=n.get("verdict"),
+            f"investigation_entry '{eid}' is {by_id[eid].get('verdict')!r} and unresolved "
+            f"(no passing remediation supersedes it — done cannot close over it)",
+            entry=eid,
+            verdict=by_id[eid].get("verdict"),
         )
-        for n in _latest_investigation(nodes, edges)
-        if n.get("verdict") in ("fail", "error")
+        for eid in _open_investigation_ids(nodes, edges)
     ]
 
 
@@ -594,27 +618,29 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
 
 def investigation_status(workspace: str | Path, run_id: str) -> dict:
     """The investigation convergence read (node 13 dry-predicate). Returns a dict with ``dry``
-    (bool), ``open`` (entry ids), ``contradictions``, and ``entries`` (the non-superseded count).
+    (bool), ``open`` (entry ids), ``contradictions``, and ``entries`` (the total entry count).
 
-    DRY == the verify loop has no OPEN move left to resolve: no non-superseded investigation_entry
-    with verdict ``fail``/``error``, AND no open ``GP_CONTRADICTED`` (the ``reconcile`` move signal,
+    DRY == the verify loop has no OPEN move left to resolve: no ``fail``/``error`` move left
+    unresolved by a passing remediation, AND no open ``GP_CONTRADICTED`` (the ``reconcile`` signal,
     node 13). The harness reads this to decide keep-generating-vs-stop; the open set ALSO blocks
-    closure via ``GP_OPEN_INVESTIGATION``. Fail-closed: an ``error`` entry keeps it not-dry; a load/
-    input failure reports ``dry=False`` rather than a false convergence. Never raises."""
+    closure via ``GP_OPEN_INVESTIGATION``. Fail-closed: an ``error`` keeps it not-dry; a load/input
+    failure -> ``dry=False`` rather than a false convergence. NB ``dry=True`` + ``entries==0`` means
+    "no investigation recorded yet" (not-started), distinct from converged-after-work — the harness
+    should check ``entries`` to tell them apart. Never raises."""
     if _validate_inputs(workspace, run_id) is not None:
         return {"dry": False, "open": [], "contradictions": [], "entries": 0, "error": "bad input"}
     graph = _load_and_project(workspace, run_id)
     if graph is None:
         return {"dry": True, "open": [], "contradictions": [], "entries": 0}
     nodes, edges = graph
-    latest = _latest_investigation(nodes, edges)
-    open_ids = [n["id"] for n in latest if n.get("verdict") in ("fail", "error")]
+    open_ids = _open_investigation_ids(nodes, edges)
     contradictions = [v.detail for v in _check_contradicted(nodes, edges)]
+    total = sum(1 for n in nodes.values() if n["kind"] == "investigation_entry")
     return {
         "dry": not open_ids and not contradictions,
         "open": open_ids,
         "contradictions": contradictions,
-        "entries": len(latest),
+        "entries": total,
     }
 
 
