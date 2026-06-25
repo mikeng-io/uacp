@@ -87,6 +87,17 @@ def test_authored_check_persists_projects_and_replays(tmp_path):
     assert not [v for v in replay if v.code.startswith("CHK_")], replay
 
 
+def test_governed_check_severity_must_be_block(tmp_path):
+    # Reviewer (MAJOR): a gate check cannot be authored non-blocking. The governed path rejects
+    # severity 'warn' — slice-0 checks gate, they don't advise (policy-graded severity is L2).
+    run_id = "uacp-auth-3"
+    _init(tmp_path, run_id)
+    fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
+    fields["severity"] = "warn"
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert "error" in res and "validate-on-write rejected" in res["error"], res
+
+
 def test_validate_on_write_rejects_malformed_check(tmp_path):
     # A check missing the required `from.target` is shape-invalid -> REJECTED, nothing
     # persisted/registered. Non-vacuity: the well-formed sibling above is accepted.

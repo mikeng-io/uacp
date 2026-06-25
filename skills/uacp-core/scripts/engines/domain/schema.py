@@ -615,7 +615,10 @@ def _check_schema(sub: str) -> dict[str, Any]:
                 "properties": {"target": {"type": "string", "minLength": 1}},
             },
             "bind": {"type": "object"},
-            "severity": {"enum": ["block", "warn"]},
+            # A slice-0 check GATES — it cannot be authored non-blocking (reviewer finding: a
+            # `warn` severity let a gated agent self-demote a failing check). Policy-graded
+            # severities are an L2 concern; until then the only governed value is `block`.
+            "severity": {"const": "block"},
         },
     }
 

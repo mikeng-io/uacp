@@ -70,6 +70,24 @@ def test_field_equals_fails_on_mismatch(temp_uacp_root: Path):
     assert "CHK_FIELD_EQUALS" in codes, codes  # status=broken != ready -> FAIL (block)
 
 
+def test_failing_check_blocks_regardless_of_declared_severity(temp_uacp_root: Path):
+    """Reviewer (MAJOR): the gated agent must not self-demote a FAILING check to non-blocking.
+    A field_equals that FAILS, authored with severity 'warn', must STILL emit a block-severity
+    violation — the gate's "block done if a check fails" guarantee is not opt-out by the author."""
+    run_id = "uacp-sev-1"
+    _init(temp_uacp_root, run_id)
+    data_rel = f"plans/{run_id}-data.yaml"
+    _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "broken"})
+    check = _field_equals_check("wu-1", data_rel, "status", "ready")
+    check["severity"] = "warn"  # agent tries to declare its own failing check non-blocking
+    _write(temp_uacp_root, f"verification/{run_id}-chk-1.yaml", check)
+    _register(temp_uacp_root, run_id, "data", data_rel)
+    _register(temp_uacp_root, run_id, "check_1", f"verification/{run_id}-chk-1.yaml")
+
+    vs = validate_check_replay(str(temp_uacp_root), run_id)
+    assert any(v.code == "CHK_FIELD_EQUALS" and v.severity == "block" for v in vs), vs
+
+
 def test_field_equals_passes_on_match(temp_uacp_root: Path):
     run_id = "uacp-chk-2"
     _init(temp_uacp_root, run_id)

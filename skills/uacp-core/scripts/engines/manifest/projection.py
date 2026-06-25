@@ -322,12 +322,16 @@ def _check_unchecked_target(nodes: dict, edges: list) -> list[Violation]:
     # ORPHAN's derives_from adoption gate, so the existing suite — which authors no
     # checks — is never flooded.
     #
-    # HONEST LIMIT (do not overclaim): adoption-gating means this closes the
-    # RECURSIVE/PARTIAL omission (class D — checks for some targets, a risky one
-    # dropped). It does NOT, alone, force a zero-check run to adopt checks; making the
-    # gate MANDATORY for a target class is the required-kinds floor's job (node 34
-    # Layer 2, slice 2), and an HONEST class is the council's (Layer 3). Structural
-    # coverage is necessary, not sufficient.
+    # HONEST LIMIT (do not overclaim): this proves a check NAMES each target, not that the
+    # check's assertion is RELEVANT to it. Coverage reads the agent-declared `from.target`
+    # edge; the check's actual `bind` (what replay evaluates) is decoupled from that target —
+    # so a check that names `wu-1` but binds a trivial field on an unrelated artifact still
+    # satisfies coverage (and can still pass replay). Closing that — check-relevance / honest
+    # class — is the required-kinds floor (node 34 L2), content-entailment (L2b), the council
+    # (L3), and ultimately the code plane (class entailed from the real symbol), NOT this gate.
+    # Adoption-gating likewise means this closes only RECURSIVE/PARTIAL omission (class D —
+    # checks for some targets, a risky one dropped); it does NOT force a zero-check run to adopt
+    # checks (L2). Structural coverage is necessary, not sufficient.
     if not any(n["kind"] == "check" for n in nodes.values()):
         return []
     measured = {e["dst"] for e in edges if e["rel"] == "measured_by"}
@@ -407,7 +411,14 @@ _TERMINAL_CHECKS = (_check_uncovered, _check_orphan, _check_phantom, _check_cont
 _SCOPE_CHECKS = {
     "plan_exit": (_check_uncovered, _check_orphan, _check_phantom, _check_obligation_coverage),
     "execute_exit": (_check_checkpoint_coverage,),
-    "verify_exit": (_check_unverified, _check_contradicted, _check_unchecked_target),
+    # verify_exit also re-runs _check_phantom so a check whose `from.target` is a ghost node is
+    # caught HERE (the gate it was authored into), not only at terminal closure (reviewer finding).
+    "verify_exit": (
+        _check_unverified,
+        _check_contradicted,
+        _check_unchecked_target,
+        _check_phantom,
+    ),
 }
 
 
@@ -495,6 +506,12 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
     out: list[Violation] = []
     for check in checks:
         out.extend(check(nodes, edges))
+    # The REPLAY half of "prove each task" on the FORCED path: coverage (above) proves a check
+    # EXISTS per target; replay proves the checks that exist PASS. Enforcing coverage at
+    # verify_exit but replay only at closure would let a run exit VERIFY with FAILING checks
+    # (reviewer finding) — so a failing/erroring frozen check blocks the VERIFY exit here too.
+    if scope == "verify_exit":
+        out.extend(validate_check_replay(workspace, run_id))
     return out
 
 
@@ -621,8 +638,12 @@ def validate_check_replay(workspace: str | Path, run_id: str) -> list[Violation]
             status, detail = "ERROR", f"{type(exc).__name__}: {exc}"
         if status in ("FAIL", "ERROR"):
             code = "CHK_" + (kind.removeprefix("uacp.check.") or "UNKNOWN").upper()
-            # ERROR is fail-closed to block regardless of the check's declared severity.
-            sev = "block" if status == "ERROR" else (n.get("severity") or "block")
+            # FAIL and ERROR both BLOCK — the check's own declared `severity` is NOT trusted to
+            # downgrade a failing gate check (reviewer finding: a gated agent could author its
+            # check as `severity: warn` and ship failing work non-blocked). A slice-0 check GATES;
+            # policy-graded (advisory) severities are an L2 concern and, when added, must not count
+            # toward coverage.
+            sev = "block"
             out.append(
                 _v(
                     code,

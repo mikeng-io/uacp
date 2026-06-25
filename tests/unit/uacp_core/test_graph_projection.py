@@ -510,6 +510,45 @@ def test_verify_exit_check_coverage_self_gates_on_adoption(tmp_path):
     )
 
 
+def _failing_field_equals(check_id: str, target: str) -> dict:
+    # binds to the plan doc's `kind` (= "uacp.plan") but expects a wrong value -> FAIL on replay.
+    return {
+        "kind": "uacp.check.field_equals",
+        "id": check_id,
+        "from": {"target": target, "basis": f"{target} sets kind"},
+        "bind": {"plane": "artifact", "ref": {"artifact": "plans/p.yaml", "path": "kind"}},
+        "expect": {"value": "WRONG-VALUE"},
+        "severity": "block",
+    }
+
+
+def test_verify_exit_replays_checks_and_blocks_on_failure(tmp_path):
+    # Fix C (reviewer): replay runs on the FORCED verify_exit path — a FAILING frozen check
+    # blocks the VERIFY exit, not only at closure. Coverage proves a check exists per target;
+    # replay proves the checks PASS. Both targets are covered so only the replay FAIL fires.
+    ws = _checked_run(
+        tmp_path,
+        checks=[
+            _check("chk-1", "si-1"),
+            _check("chk-2", "wu-1"),
+            _failing_field_equals("chk-f", "wu-1"),
+        ],
+    )
+    codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
+    assert "CHK_FIELD_EQUALS" in codes, codes
+
+
+def test_verify_exit_flags_phantom_check_target(tmp_path):
+    # Fix B (reviewer): a check whose from.target is a ghost node is caught as a phantom edge
+    # at the verify_exit gate, not only at terminal closure.
+    ws = _checked_run(
+        tmp_path,
+        checks=[_check("chk-1", "si-1"), _check("chk-2", "wu-1"), _check("chk-g", "GHOST-NODE")],
+    )
+    codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
+    assert "GP_PHANTOM_EDGE" in codes, codes
+
+
 def test_check_coverage_not_emitted_at_terminal_closure(tmp_path):
     # Phase-gated like the other coverage checks: GP_UNCHECKED_TARGET is enforced at
     # verify_exit, NOT in the terminal/closure set (validate_graph_projection).
