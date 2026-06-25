@@ -795,6 +795,9 @@ def validate_check_replay(workspace: str | Path, run_id: str) -> list[Violation]
         # NOT the current one was authored under a DIFFERENT catalog whose kind semantics we cannot
         # vouch for — refuse it (ERROR, block) rather than re-run it under today's evaluators. A
         # missing version is tolerated (legacy/raw checks); the writer injects the current version.
+        # NB the coverage/floor/entailment gates count a check's EXISTENCE (not its replay outcome),
+        # so a foreign-version check still satisfies them at projection — but it blocks HERE, and
+        # removing it re-triggers GP_UNCHECKED_TARGET; either path is fail-closed (council).
         cv = n.get("catalog_version")
         if cv is not None and str(cv) != CATALOG_VERSION:
             out.append(

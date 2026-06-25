@@ -97,14 +97,21 @@ heaviest council burden.
 
 ## Versioning
 
-The catalog is versioned (a `catalog_version` in config). A frozen check records the version it was
-authored under, so a later catalog change cannot silently re-interpret an old check (the class-F
-spec↔runner drift guard, applied to the catalog itself). Replay engines must read old checks under
-their recorded version.
+The catalog is versioned (`CATALOG_VERSION`, a constant in `engines/domain/layout.py` — the module
+that owns the kind catalog). A frozen check records the version it was authored under, so a later
+catalog change cannot silently re-interpret an old check (the class-F spec↔runner drift guard,
+applied to the catalog itself).
 
-> YAGNI (council): for Slice 0 ship a single `catalog_version` constant + record it on each check; defer
-> any multi-version migration machinery until a second version is actually imminent. The *field* is cheap
-> insurance against drift; the *migration engine* is not slice-0 work.
+> AS-BUILT (the YAGNI shape, council-confirmed): ship a single `CATALOG_VERSION` constant; the
+> entity-writer INJECTS it onto every `uacp.check.*` it writes (the caller cannot forge it); replay
+> REFUSES a check whose recorded version is present but foreign (`CHK_CATALOG_VERSION`, ERROR/block)
+> rather than re-running it under today's evaluators — fail-closed, the strict form of "don't
+> silently re-interpret". A *missing* version is tolerated (legacy/raw checks). Multi-version
+> MIGRATION machinery (read-old-checks-under-their-version, version→engine dispatch) is deferred
+> until a second version is imminent; the field + the foreign-version refusal are the cheap, durable
+> part. (Note: the coverage / floor / class-entailment gates count a check's EXISTENCE, so a
+> foreign-version check still satisfies them at projection — but it blocks at replay, and removing it
+> re-triggers `GP_UNCHECKED_TARGET`; either path is fail-closed.)
 
 ## To build (slice 0)
 
