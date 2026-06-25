@@ -8,7 +8,7 @@ scope:
   out: [the note-gardening essay for mikeng.io, UACP kernel/governance changes, hosting/rendering (MkDocs etc.), the graph-engine initiative]
 attribution:
   generated_by: { agent: claude-code, model: claude-opus-4-8[1m], runtime: cc }
-  updated_at: '2026-06-24'
+  updated_at: '2026-06-25'
 edges:                                      # ANCHORS — reconstructable refs live ONLY here
   - {dst: 'branch:main', rel: anchored_to, provenance: parsed}
   - {dst: 'commit:048332d', rel: anchored_to, provenance: parsed}
@@ -35,6 +35,16 @@ plugin**, NOT a new UACP kernel feature, and it carries no governance authority.
   full re-index"), BYO-LLM via LiteLLM (point at a LOCAL model → private kernel stays
   in-house), emits committed markdown with deterministic placement, and "you author
   the ~few-hundred-line pipeline" fits UACP's own-your-engines ethos.
+- [2026-06-25 revisit] **CocoIndex SUPERSEDED as the ② indexer by Codeflair** (now
+  built+merged): Codeflair already provides deterministic, incremental, repo-local,
+  no-LLM, no-external-dep code indexing (SCIP Go/Py/TS + tree-sitter + co-change) —
+  which was CocoIndex's *entire* technical justification. Revised ② = a thin generator
+  over **Codeflair's index** + a render/prose step (template or local LLM) →
+  `docs/generated/`. CocoIndex (alpha `1.0.0a6` Rust+LMDB external dep) is dropped — it
+  would re-derive what Codeflair already holds, contradicting own-your-engines/fewer-deps.
+  The ①/② split + write-boundary are unchanged; only the engine flips. Caveat: Codeflair
+  indexes *code* (3 langs); docs derivable from config/skills/YAML aren't in its
+  wheelhouse — but those fall in the hand-authored ① set anyway, so not a real gap.
 - [locked] **NOT a UACP kernel feature.** It is a separate doc-generation concern that
   READS the repo; no Heartgate/Guardian authority, not part of the lifecycle. (User
   corrected this ~3×: "doc generator FOR UACP, not UACP generating docs.")

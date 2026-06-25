@@ -21,5 +21,5 @@ entries:
     hook: "capsule #3 (generative gate): design bundle (nodes 30-34) council-reviewed + slice 0a built (replay engine + projection arm, 6b58a94, suite 1894); next: slice 0b check-coverage gate"
   - workstream: docs-topology-cocoindex
     status: active
-    updated_at: '2026-06-24'
-    hook: "Hybrid doc strategy LOCKED: hand-authored ① doctrine + CocoIndex-generated ② derived layer; 4-class taxonomy + write-boundary agreed; 4 sub-decisions OPEN; next = per-doc audit (archived/reference/runtime) before standing up CocoIndex"
+    updated_at: '2026-06-25'
+    hook: "Hybrid doc strategy LOCKED: hand-authored ① doctrine + ② derived layer; 4-class taxonomy + write-boundary agreed. ENGINE FLIP (2026-06-25): CocoIndex superseded by Codeflair as the ② indexer — revised ② = thin generator over Codeflair's index. 4 sub-decisions still OPEN; next = per-doc audit (archived/reference/runtime)"
