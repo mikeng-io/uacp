@@ -235,16 +235,18 @@ For every `inspect` task type, a bridge MUST run under at least the configured m
 
 **Containment ladder** (escalate by how little the tool can be trusted):
 
-| Tier | Mechanism | Protects against | `read_only_enforcement` |
-|------|-----------|------------------|--------------------------|
-| 1 | Tool-native read-only mode — codex `--sandbox read-only`, claude `--allowedTools`, gemini/opencode/kimi plan mode, reasonix `review` | the tool's own writes, *if it honors the mode* | `tool-mode` |
-| 2 | **Ephemeral worktree** — orchestrator provisions a disposable copy of the scope (see `docs/lifecycle/worktree-protocol.md`), points the bridge at it, discards after | repo mutation, regardless of tool behavior | `worktree` |
-| 3 | Container / OS sandbox — read-only repo mount + network egress allowlist (deferred) | host FS, network exfil, **unauthorized providers** | `container` |
+| Tier | Mechanism | What it ACTUALLY guarantees | `read_only_enforcement` |
+|------|-----------|------------------------------|--------------------------|
+| 1 | Tool-native read-only mode — codex `--sandbox read-only` (OS sandbox), claude `--allowedTools` (no write tools), gemini/opencode/kimi plan mode, reasonix `review` | Read-only **for a cooperating tool**. OS-level for codex; tool-level (harness-enforced) for the rest. A *buggy/malicious* tool that ignores its own mode is NOT contained here. | `tool-mode` |
+| 2 | **Ephemeral worktree** — orchestrator provisions a disposable detached worktree of the scope, points the bridge at it, discards after | **Scope isolation + accidental-write containment only.** It is **NOT a security boundary**: the worktree shares the repo's `.git` and lives under the repo root, so a process can still `git commit`/`push` or write via parent/absolute paths. It limits an *accidental relative write* by a cooperating tool, nothing more. | `worktree` |
+| 3 | Container / OS sandbox — read-only repo mount + network egress allowlist (**deferred — see below**) | The only **hard** boundary: an untrusted process *cannot* write the host or reach an unapproved provider. Required for tools without a trustworthy OS read-only mode. | `container` |
 
-**Current requirement (MVP): Tier 1 AND Tier 2.** The orchestrator provisions an ephemeral worktree and passes its path as the bridge's working directory (`--dir` / `--cd` / cwd); the bridge additionally selects its strongest available read-only mode. A bridge whose Tier-1 mode is **not verifiable** (e.g. reasonix `run`, hermes toolset gating) relies on Tier 2 as the floor and MUST declare `read_only_enforcement: worktree`. If no worktree is provided **and** no read-only mode is verifiable → SKIP.
+> **Honesty about the trust model (read this).** Bridges are reference docs an orchestrator LLM follows; the Guardian does not see a shelled-out reviewer's syscalls. So **the only *code/OS-enforced* read-only is Tier 1 codex `--sandbox read-only` and Tier 3 container** — everything else (worktree placement, plan-mode for the other tools, the SKIP-on-no-containment rule, the model allowlist) is **orchestrator contract** (convention the LLM must honor), *unless* backed by a callable check. Two such checks exist as real teeth: `review_sandbox.sh` (provisioning) and `check_model_authorized.py` (authorization gate). Do **not** describe convention-tier controls as hard guarantees.
 
-- **Orchestrator responsibility:** provision/teardown the ephemeral worktree; **never run a reviewer against the live working tree.**
-- **Bridge responsibility:** select the read-only mode, run against the provided worktree path, declare `read_only_enforcement`.
+**Current requirement: Tier 1 AND Tier 2, with the limits above understood.** The orchestrator provisions an ephemeral worktree and passes its path as the bridge's working directory; the bridge selects its strongest read-only mode. For a tool **without** a trustworthy OS read-only mode (reasonix `run`; hermes/reasonix `review`/opencode/gemini/kimi plan modes are harness-level, not OS-level) this combination gives **accident-containment, not hard containment** — a high-assurance or low-trust review MUST escalate to Tier 3 (deferred) or SKIP. If no worktree is provided **and** no read-only mode is verifiable → SKIP.
+
+- **Orchestrator responsibility:** provision/teardown the ephemeral worktree (`review_sandbox.sh`); **never run a reviewer against the live working tree**; before completing an `inspect` report, verify `read_only_enforcement != none` and `model_authorized == true` (the synthesis step rejects reports that fail this).
+- **Bridge responsibility:** select the read-only mode, run against the provided worktree path, declare `read_only_enforcement` truthfully (tool-mode only if the mode is real for that tool).
 
 #### Tier 3 — Container sandbox (hardening; `inspect_containment = "container"`)
 
