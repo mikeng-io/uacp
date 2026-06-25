@@ -302,13 +302,95 @@ def test_forced_propose_plan_blocks_unregistered_keyed_scope(temp_uacp_root: Pat
 
 
 def test_forced_propose_plan_ignores_bare_transition(temp_uacp_root: Path):
-    """Non-vacuity / no-ripple guard: the forced precondition self-gates. A run with
-    NO package-selection envelope (a bare transition) advances propose->plan
-    untouched — the forced check only fires for governed package runs that declare a
-    covered keyed scope."""
+    """Non-vacuity / no-ripple guard: the forced precondition self-gates on ENVELOPE
+    PRESENCE. A run with NO package-selection envelope (a bare transition) advances
+    propose->plan untouched — the forced check only fires for governed package runs."""
     run_id = "uacp-pkgcov-forced-2"
     _init(temp_uacp_root, run_id)
     assert _transition(temp_uacp_root, run_id, "triage", "propose").get("ok")
     out = _transition(temp_uacp_root, run_id, "propose", "plan")
     assert out.get("ok") is True, out
     assert _phase(temp_uacp_root, run_id) == "plan"
+
+
+def _envelope_path(root: Path, run_id: str) -> Path:
+    return root / ".uacp" / "proposals" / f"{run_id}-package-selection.yaml"
+
+
+def test_forced_propose_plan_blocks_not_applicable_scope(temp_uacp_root: Path):
+    """Council finding A (fail-open) FIXED. An agent that skips validate_transition and
+    marks its package scope 'not_applicable' (declaring its real intent elsewhere) used
+    to advance the FORCED path uncaught — now the forced precondition is fail-CLOSED:
+    an envelope is present but its scope is not covered+keyed, so propose->plan blocks."""
+    run_id = "uacp-pkgcov-na-1"
+    _init(temp_uacp_root, run_id)
+    scope_rel = f"proposals/{run_id}/scope-module.yaml"
+    _write(temp_uacp_root, scope_rel, _scope_doc([{"id": "si-1", "statement": "the intent"}]))
+    _seed_package_envelope(temp_uacp_root, run_id, scope_rel)
+    # Flip the scope concern to not_applicable (the pre-fix forced-path bypass).
+    env = yaml.safe_load(_envelope_path(temp_uacp_root, run_id).read_text())
+    env["universal_core"]["scope"] = {
+        "status": "not_applicable",
+        "reason": "x",
+        "accepted_by": "x",
+        "owner": "x",
+        "residual_risk": "none",
+        "revisit_phase": "resolved",
+    }
+    _envelope_path(temp_uacp_root, run_id).write_text(yaml.safe_dump(env, sort_keys=False))
+
+    assert _transition(temp_uacp_root, run_id, "triage", "propose").get("ok")
+    out = _transition(temp_uacp_root, run_id, "propose", "plan")
+    assert "error" in out, f"not_applicable scope must block the forced path, got {out}"
+    assert any("must be 'covered'" in b for b in out.get("blockers", [])), out
+    assert _phase(temp_uacp_root, run_id) == "propose"
+
+
+def test_forced_propose_plan_blocks_garbled_envelope(temp_uacp_root: Path):
+    """Council finding A (fail-open) FIXED. A garbled (non-mapping) package-selection
+    envelope must NOT bypass the forced precondition: an envelope file is present, so
+    it must parse — otherwise propose->plan blocks (fail-closed)."""
+    run_id = "uacp-pkgcov-garbled-1"
+    _init(temp_uacp_root, run_id)
+    _envelope_path(temp_uacp_root, run_id).parent.mkdir(parents=True, exist_ok=True)
+    _envelope_path(temp_uacp_root, run_id).write_text("just a bare string, not a mapping\n")
+
+    assert _transition(temp_uacp_root, run_id, "triage", "propose").get("ok")
+    out = _transition(temp_uacp_root, run_id, "propose", "plan")
+    assert "error" in out, f"garbled envelope must block the forced path, got {out}"
+    assert any("must parse as a mapping" in b for b in out.get("blockers", [])), out
+    assert _phase(temp_uacp_root, run_id) == "propose"
+
+
+def test_forced_propose_plan_accepts_inherited_scope_registration(temp_uacp_root: Path):
+    """Council finding B (false-block) FIXED. A goal-chained child that REUSES a parent's
+    registered keyed scope module via inherited_artifacts must NOT be false-blocked: the
+    registration precondition counts inherited_artifacts too (matching projection's load
+    set), so the child advances propose->plan."""
+    parent_id = "uacp-pkgcov-parent"
+    child_id = "uacp-pkgcov-child"
+    # Parent: register a keyed scope module under the reusable 'proposal' phase key.
+    state_machine.handle_init(
+        {"workspace": str(temp_uacp_root), "run_id": parent_id, "source": "operator-request"}
+    )
+    scope_rel = f"proposals/{parent_id}/scope-module.yaml"
+    _write(temp_uacp_root, scope_rel, _scope_doc([{"id": "si-1", "statement": "the intent"}]))
+    assert _register(temp_uacp_root, parent_id, "proposal", scope_rel).get("ok")
+    # Child inherits the parent's reusable prior-phase artifacts (incl. 'proposal').
+    state_machine.handle_init(
+        {
+            "workspace": str(temp_uacp_root),
+            "run_id": child_id,
+            "source": "operator-request",
+            "track": "goal-driven",
+            "goal_id": "g-1",
+            "inherits_from": parent_id,
+        }
+    )
+    # Child's package envelope points its (covered, keyed) scope at the INHERITED module.
+    _seed_package_envelope(temp_uacp_root, child_id, scope_rel)
+
+    assert _transition(temp_uacp_root, child_id, "triage", "propose").get("ok")
+    out = _transition(temp_uacp_root, child_id, "propose", "plan")
+    assert out.get("ok") is True, f"inherited registered scope must not false-block: {out}"
+    assert _phase(temp_uacp_root, child_id) == "plan"
