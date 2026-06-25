@@ -81,6 +81,44 @@ def test_symbol_resolves_passes_when_symbol_in_index(temp_uacp_root: Path):
     assert "CHK_SYMBOL_RESOLVES" not in _codes(temp_uacp_root, run_id)
 
 
+def test_symbol_resolves_no_substring_false_pass(temp_uacp_root: Path):
+    # Council (all 3): the resolver must match EXACT identity, not a substring (the L2b bug one
+    # plane up). `route` must NOT pass against an index containing only `reroute`/`router`.
+    run_id = "uacp-cp-sub"
+    _init(temp_uacp_root, run_id)
+    _build_index(temp_uacp_root, ["reroute", "router"])
+    _put_check(temp_uacp_root, run_id, "route")
+    vs = validate_check_replay(str(temp_uacp_root), run_id)
+    assert any(v.code == "CHK_SYMBOL_RESOLVES" and v.severity == "block" for v in vs), vs
+
+
+def test_symbol_resolves_no_like_wildcard_false_pass(temp_uacp_root: Path):
+    # Council (Claude): a LIKE-wildcard bind ('%' / '_') must NOT match everything — exact match
+    # treats them literally, so they resolve to nothing -> FAIL (block), not a universal bypass.
+    run_id = "uacp-cp-wild"
+    _init(temp_uacp_root, run_id)
+    _build_index(temp_uacp_root, ["settle_route"])
+    _put_check(temp_uacp_root, run_id, "%")
+    vs = validate_check_replay(str(temp_uacp_root), run_id)
+    assert any(v.code == "CHK_SYMBOL_RESOLVES" and v.severity == "block" for v in vs), vs
+
+
+def test_symbol_resolves_does_not_write_into_the_index(temp_uacp_root: Path):
+    # Council (kimi): UACP CONSUMES the index (CF-D9) — resolving must NOT create the adapter's
+    # `code_anchor` table (or any table) in it. Open read-only after a resolve and confirm.
+    import sqlite3
+
+    run_id = "uacp-cp-ro"
+    _init(temp_uacp_root, run_id)
+    _build_index(temp_uacp_root, ["settle_route"])
+    _put_check(temp_uacp_root, run_id, "settle_route")
+    validate_check_replay(str(temp_uacp_root), run_id)
+    con = sqlite3.connect(str(index_path(temp_uacp_root)))
+    tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    con.close()
+    assert "code_anchor" not in tables, tables
+
+
 def test_symbol_resolves_fails_when_symbol_absent(temp_uacp_root: Path):
     # index present but the claimed symbol is NOT in it -> FAIL (block), not a pass.
     run_id = "uacp-cp-2"

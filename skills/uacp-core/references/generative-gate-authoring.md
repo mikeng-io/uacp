@@ -51,10 +51,13 @@ These are the kinds you can author today (they match `layout.CHECK_KINDS` /
 | `uacp.check.artifact_integrity` | an artifact is unchanged since its watermark | the watermark index |
 | `uacp.check.symbol_resolves` | a claimed symbol resolves to ≥1 real SCIP descriptor — the `wires_symbol` floor kind; `bind.ref.symbol` = the name | the Codeflair code index |
 
-**`symbol_resolves` is fail-closed-until-an-index-exists (code plane, slice 3):** it resolves against
-the run's Codeflair SCIP index. If that index has not been built for the run it ERRORs (block) — so a
-`wires_symbol` target cannot close until the code plane is actually built; it never false-passes on a
-textual shadow (the #503 `grep route_mounted` fix).
+**`symbol_resolves` is fail-closed-until-an-index-exists (code plane, slice 3):** it matches
+`bind.ref.symbol` against the run's Codeflair SCIP index by **EXACT identity** (the SCIP descriptor or
+the exact indexed name — never a substring), reading the index read-only. If the index has not been
+built for the run it ERRORs (block) — so a `wires_symbol` target cannot close until the code plane is
+actually built. This binds to a real indexed symbol rather than a `grep` shadow (the #503 fix);
+because the agent still names the symbol, *whether that symbol is the right one for the target* remains
+the council's call (the honest limit below) — but a near-name or wildcard no longer false-passes.
 
 **Still not authorable (do NOT select):** `uacp.check.behavioral` (the `changes_behavior` floor kind)
 is the behavioral plane — a sandboxed runner, deliberately last (node 32). A `changes_behavior` target
