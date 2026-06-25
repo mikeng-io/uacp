@@ -217,14 +217,14 @@ with the coverage close.
   gates onto `handle_transition` (we forced only the coverage precondition, to avoid the bare-transition
   ripple). Plus the earlier session-2 blind spots: transition-time `derives_from` referential check
   (deferred — redundant with `GP_PHANTOM_EDGE`); topology-only gate is gameable (council/semantic scope).
-- **MANIFEST INTEGRITY (council-surfaced, PRE-EXISTING, NOT this branch — high priority).** The run
-  manifest `state/runs/{run_id}.yaml` is writable via `uacp_state_write` (the writer carves out
+- **MANIFEST INTEGRITY (council-surfaced) — FIXED (commit `5e19dd7`).** The run manifest
+  `state/runs/{run_id}.yaml` had been writable via the generic `uacp_state_write` (the writer carved out
   gate-ledger / run-registry / escalations / current.yaml, but **not** the run manifest). Since every
   graph-trust invariant in this initiative reads `manifest.artifacts` (coverage projection, the
   registration precondition, scope-conformance's governance-by-kind exemption), a forgeable manifest
-  undermines them all. Kernel-hardening item: carve `state/runs/*.yaml` out of `uacp_state_write`,
-  routing manifest mutation only through `handle_register_artifact` / `handle_transition` /
-  `entity_writer.create_entity`. The whole verification plane depends on this; track it explicitly.
+  undermined them all. `uacp_state_write` now refuses `state/runs/` entirely (mirroring the existing
+  carve-outs); run state is mutated only by the uacp-state operations, which write the manifest directly.
+  Nothing legitimate routed through the tool (verified). Proven: `test_state_write_refuses_run_manifest_forge`.
 
 ---
 
