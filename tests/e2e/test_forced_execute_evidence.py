@@ -30,9 +30,10 @@ def _blockers(root: Path, run_id: str) -> list[str]:
     return Heartgate.load(str(root)).forced_execute_evidence_blockers(run_id)
 
 
-def _seed_checkpoint(root: Path, run_id: str) -> None:
+def _seed_checkpoint(root: Path, run_id: str, seq: str = "001") -> None:
     # the governed-execute marker the forced precondition self-gates on (standard-track checkpoint).
-    _write(root, f"executions/{run_id}-checkpoint-001.yaml", {"kind": "uacp.execution_checkpoint"})
+    rel = f"executions/{run_id}-checkpoint-{seq}.yaml"
+    _write(root, rel, {"kind": "uacp.execution_checkpoint"})
 
 
 def test_bare_execute_without_checkpoint_skips(temp_uacp_root: Path):
@@ -49,11 +50,35 @@ def test_governed_execute_without_piv_blocks(temp_uacp_root: Path):
     assert blockers and any("PIV" in b for b in blockers), blockers
 
 
+def _piv(run_id: str) -> dict:
+    return {"kind": "uacp.phase_intent_verification_contract", "run_id": run_id}
+
+
 def test_governed_execute_with_piv_passes(temp_uacp_root: Path):
     _init(temp_uacp_root, "r")
     _seed_checkpoint(temp_uacp_root, "r")
-    _write(temp_uacp_root, "plans/r-piv.yaml", {"kind": "uacp.phase_intent_verification"})
+    _write(temp_uacp_root, "plans/r-piv.yaml", _piv("r"))
     assert _blockers(temp_uacp_root, "r") == []
+
+
+def test_non_001_checkpoint_is_also_gated(temp_uacp_root: Path):
+    # Council MAJOR: the self-gate is ANY checkpoint, not the -001 literal — a governed run whose
+    # covering checkpoint is -002 (no -001) must NOT skip the PIV demand (the moved-bypass the
+    # council demonstrated end-to-end).
+    _init(temp_uacp_root, "r")
+    _seed_checkpoint(temp_uacp_root, "r", seq="002")  # no -001 present
+    blockers = _blockers(temp_uacp_root, "r")
+    assert blockers and any("PIV" in b for b in blockers), blockers
+
+
+def test_piv_wrong_identity_blocks(temp_uacp_root: Path):
+    # Council MINOR: a placeholder PIV cannot satisfy the precondition — kind + run_id must match.
+    _init(temp_uacp_root, "r")
+    _seed_checkpoint(temp_uacp_root, "r")
+    _write(temp_uacp_root, "plans/r-piv.yaml", {"kind": "garbage", "run_id": "r"})
+    assert any("kind" in b for b in _blockers(temp_uacp_root, "r"))
+    _write(temp_uacp_root, "plans/r-piv.yaml", _piv("OTHER"))  # right kind, wrong run_id
+    assert any("run_id" in b for b in _blockers(temp_uacp_root, "r"))
 
 
 def test_unparseable_piv_blocks(temp_uacp_root: Path):

@@ -314,17 +314,23 @@ class Heartgate:
         :meth:`forced_proposal_coverage_blockers`); requiring only the PIV closes the bypass with no
         such ripple.
 
-        Self-gating is on the GOVERNED-EXECUTE marker (``executions/{run_id}-checkpoint-001.yaml``,
-        the standard-track first checkpoint): absent -> a bare/ungoverned EXECUTE->VERIFY (or a
-        goal-driven run, whose checkpoints live in a manifest, not this path) -> ``[]`` (no ripple).
-        Track relaxation is REPLICATED from the adaptive gate (ADR-0016): a GOAL-DRIVEN run is
-        satisfied by a coherent checkpoint manifest IN LIEU OF the PIV, so it delegates to the same
-        ``_validate_goal_driven_checkpoint_gate`` the agent path uses rather than demanding a PIV.
-        Fail-closed: once the marker is present, a missing or unparseable standard-track PIV BLOCKS.
+        Self-gating is on the GOVERNED-EXECUTE marker — the presence of ANY execution checkpoint
+        ``executions/{run_id}-checkpoint-*.yaml`` (NOT only ``-001``: a council probe showed a run
+        whose covering checkpoint is ``-002`` would otherwise skip the PIV demand, MOVING the bypass
+        rather than closing it; checkpoints are ``{seq}``-parametrized). No checkpoint -> a bare /
+        ungoverned EXECUTE->VERIFY -> ``[]`` (no ripple). Track relaxation is REPLICATED from the
+        adaptive gate (ADR-0016): a GOAL-DRIVEN run is satisfied by a coherent checkpoint manifest
+        in lieu of the PIV, delegating to the same ``_validate_goal_driven_checkpoint_gate`` the
+        agent path uses. The track is read from the run manifest; relabeling a standard run as
+        goal-driven is not a free pass (it swaps the PIV demand for the manifest-coherence demand) —
+        the track-vs-TRIAGE cross-check lives in the PROPOSE->PLAN convergence-budget gate.
+        Fail-closed: once a checkpoint is present, a standard-track PIV that is missing,
+        unparseable, of wrong ``kind``, or whose ``run_id`` mismatches BLOCKS (the adaptive
+        PIV-identity check, forced).
         """
-        checkpoint_rel = f"executions/{run_id}-checkpoint-001.yaml"
-        # Self-gate on the governed-execute marker — no checkpoint -> bare/ungoverned -> skip.
-        if not (self.governed_root / checkpoint_rel).exists():
+        executions = self.governed_root / "executions"
+        # Self-gate on the governed-execute marker — ANY checkpoint, not the -001 literal.
+        if not any(executions.glob(f"{run_id}-checkpoint-*.yaml")):
             return []
         # Track relaxation (ADR-0016): goal-driven is satisfied by a coherent manifest, not a PIV.
         if self._run_track(run_id) == "goal-driven":
@@ -338,6 +344,12 @@ class Heartgate:
         doc = self._load_yaml_under_root(piv_rel, [], "forced_execute_evidence")
         if not isinstance(doc, Mapping):
             return [f"{prefix} the PIV ({piv_rel}) must parse as a mapping"]
+        # PIV-IDENTITY (mirror the adaptive gate, scope-minimal): a placeholder file cannot satisfy
+        # the precondition — the contract kind + run_id must match.
+        if doc.get("kind") != "uacp.phase_intent_verification_contract":
+            return [f"{prefix} the PIV kind must be uacp.phase_intent_verification_contract"]
+        if doc.get("run_id") != run_id:
+            return [f"{prefix} the PIV run_id must match the run ({run_id})"]
         return []
 
     def validate_transition_file(self, path: str | Path) -> HeartgateDecision:
