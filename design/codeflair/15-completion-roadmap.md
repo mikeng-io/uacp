@@ -65,7 +65,7 @@ tests arbitrate (house style: don't over-serialize).
 | 2 | **Replayable search trace** (re-derivability) | 04-outputs | UNBUILT — `HeatmapEntry` carries only symbol/hop/score/via |
 | 3 | **Watermark + per-file/per-source freshness** | 10-freshness, 11-substrate | UNBUILT — no watermark in `_SCHEMA`; `freshness` table exists (`store.py:48`) but is never written/read |
 | 4 | **Probe registry** (pluggable seam, CF-D9) | 02-probes, 09-abstraction | UNBUILT — probes hardcoded in `expand.py` |
-| 5 | **Cross-plane: read-only join + (separately) governed write** | 09-abstraction, 01a-indexer | UNBUILT — `manifest_anchor.py:94` marks the governed write deferred |
+| 5 | **Cross-plane read-only join** (governed write-back deferred to its own design — OD-2) | 09-abstraction, 01a-indexer | UNBUILT — read-only join in P7; `manifest_anchor.py:94` governed write stays deferred |
 | 6 | **Delivery faces** (CLI / MCP / `.mcp.json`) | 12-delivery | UNBUILT — no `[project.scripts]`, no MCP server, no `.mcp.json` |
 | 7 | **Full heat formula** (recency, fan-in, PMI, agreement) | 03-expansion-loop | PARTIAL — `query.py:19` has rel·trust·decay^hop only |
 | 8 | **Eval seed-set ≥20 + recall@K harness** | 05-benchmark | PARTIAL — `eval/seed-set.yaml` has 6 (4 ungrounded) |
@@ -95,7 +95,8 @@ tests arbitrate (house style: don't over-serialize).
 - **D5 — inferred manifest-granularity anchor vs the parsed edge schema.** `manifest_anchor.py`
   anchors by mining intent text at `manifest_id` granularity (`inferred`); the edge schema
   mandates `code_anchor = checkpoint → code_symbol`, provenance `PARSED`. This is a real
-  divergence the prior ledger missed; bounded in **P7** (see OD-2). *(Added per council.)*
+  divergence the prior ledger missed; it belongs to the **deferred governed write-back**
+  design node (OD-2), not this roadmap's P7 read-only join. *(Added per council.)*
 
 ## The dependency spine — why freshness is the keystone
 
@@ -183,21 +184,18 @@ as-built reality ([[verification-must-improvise-and-ground]]).
   the P2↔formula tension the council flagged).
 - **Specified by:** 03-expansion-loop.
 
-### P7 — Cross-plane completion + delivery · closes #5, #6, #11, fixes D5
+### P7 — Cross-plane read-only join + delivery · closes #5 (read-only half), #6, #11
 - **Goal:** (a) **read-only join** — register a cross-plane probe so the heatmap *spans* both
   planes (relation-plane manifest nodes appear in the output when the adapter is registered,
-  #11) using the read-only-safe adapter from P0; (b) **governed write** — Step-B
-  (`code_anchor = checkpoint → code_symbol`, provenance `PARSED`, from the EXECUTE diff) is
-  **split out** and treated as needing its own schema/projection/governed-writer design
-  (OD-2) — *not* claimed as a "no-kernel-change" drop-in; (c) delivery faces — CLI
-  (`[project.scripts]`), MCP server, and the bundled `.mcp.json` (agent-facing Serena),
-  **all** delivery artifacts owned here (not split into P2).
+  #11) using the read-only-safe adapter from P0; (b) delivery faces — CLI (`[project.scripts]`),
+  MCP server, and the bundled `.mcp.json` (agent-facing Serena), **all** delivery artifacts
+  owned here (not split into P2). The **governed `code_anchor` write-back (Step-B) is OUT OF
+  SCOPE** for this roadmap (OD-2 RESOLVED → deferred to its own design node; see D5).
 - **Acceptance:** a registered cross-plane query returns a heatmap containing relation-plane
-  nodes; the read-only join performs no governed write; `codeflair query`/`index` run from the
-  CLI; the MCP server registers and answers; Step-B governed write proceeds only after OD-2 is
-  resolved with its own design + tests.
+  nodes; the read-only join performs **no** governed write into UACP state; `codeflair
+  query`/`index` run from the CLI; the MCP server registers and answers.
 - **Specified by:** 09-abstraction (CF-D9 boundary), 04-outputs (spanning), 12-delivery,
-  05-benchmark; seam correctness per the Shim-B rejection (07-decisions / edge schema).
+  05-benchmark.
 
 ## Open design decisions (resolve at PROPOSE, before building the affected phase)
 
@@ -206,12 +204,12 @@ as-built reality ([[verification-must-improvise-and-ground]]).
   degrades to SCIP/tree-sitter/grep with an explicit `lsp_degraded` warning to the
   orchestrator. The persisted working-layer stays deferred; `"lsp"` leaves `VALID_SOURCES`
   (now a query-time tag). Folded into Locked decisions, D3, and P2 above.
-- **OD-2 (P7) — Step-B governed write.** The read-only join (query/join anchors) is safe to
-  build now; the *governed* `code_anchor` write into UACP's graph contradicts the current
-  "Codeflair outputs are not governed writes / edge promotion deferred" stance and the prior
-  Shim-B rejection. **Recommendation:** ship the read-only join in P7; gate the governed write
-  behind its own design node (correct seam: checkpoint→code_symbol, PARSED, adapter-emitted,
-  neutral `code_refs` at most in the kernel) before any kernel change.
+- **OD-2 (P7) — Step-B governed write. RESOLVED (mike 2026-06-26): read-only join now,
+  governed write-back DEFERRED to its own design node.** P7 ships only the read-only spanning
+  join (zero kernel risk). The governed `code_anchor` write-back is out of this roadmap's
+  scope; when taken up it gets its own design node, re-scoping Shim B to the correct seam
+  (checkpoint→code_symbol, PARSED, adapter-emitted, neutral `code_refs` at most in the kernel)
+  — addressing D5. No kernel change in this initiative.
 - **OD-3 (P5/P6) — policy interface.** 03-expansion-loop specifies a swappable
   `next_probes`/`score` interface so A/B/C could plug in later; CF-D11 defers A/B/C. Decide:
   build the interface seam now (cheap, future-proofs P6) or note it explicitly deferred. *(Not
