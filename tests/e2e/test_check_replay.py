@@ -203,6 +203,30 @@ def test_obligation_satisfied_unresolvable_bind_is_error_block(temp_uacp_root: P
     assert any(v.code == "CHK_OBLIGATION_SATISFIED" and v.severity == "block" for v in vs), vs
 
 
+def test_code_plane_check_is_error_for_any_kind(temp_uacp_root: Path):
+    # mimo MINOR #2: the code/behavior fail-closed-until-wired guard must apply to ANY kind, so an
+    # IMPLEMENTED kind cannot be mislabeled onto an unwired plane to dodge it. A field_equals that
+    # declares `plane: code` ERRORs (block) rather than being silently evaluated on the artifact.
+    run_id = "uacp-plane-1"
+    _init(temp_uacp_root, run_id)
+    data_rel = f"plans/{run_id}-d.yaml"
+    _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "ready"})
+    check = {
+        "kind": "uacp.check.field_equals",
+        "id": "chk-cp",
+        "from": {"target": "wu-1", "basis": "x"},
+        "bind": {"plane": "code", "ref": {"artifact": data_rel, "path": "status"}},
+        "expect": {"value": "ready"},
+        "severity": "block",
+    }
+    _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "ready"})
+    _write(temp_uacp_root, f"verification/{run_id}-chk-cp.yaml", check)
+    _register(temp_uacp_root, run_id, "data", data_rel)
+    _register(temp_uacp_root, run_id, "check_cp", f"verification/{run_id}-chk-cp.yaml")
+    vs = validate_check_replay(str(temp_uacp_root), run_id)
+    assert any(v.code == "CHK_FIELD_EQUALS" and v.severity == "block" for v in vs), vs
+
+
 def _integrity_check(target: str, artifact: str) -> dict:
     return {
         "kind": "uacp.check.artifact_integrity",

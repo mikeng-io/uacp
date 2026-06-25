@@ -549,6 +549,19 @@ def test_verify_exit_flags_phantom_check_target(tmp_path):
     assert "GP_PHANTOM_EDGE" in codes, codes
 
 
+def test_known_l1_gap_irrelevant_binding_passes_today(tmp_path):
+    # KNOWN L1 LIMITATION pinned (mimo #4 + the _check_unchecked_target honest-limit comment):
+    # coverage proves a check NAMES each target, NOT that its bind is RELEVANT to it. Here BOTH
+    # targets are "covered" by field_present checks binding an UNRELATED-but-present artifact field
+    # (plans/p.yaml#kind) — coverage is satisfied AND replay passes, though the checks prove nothing
+    # about si-1/wu-1. Closing this is L2 (required-kinds floor) + L3 (council) + the code plane.
+    # When L2 lands and entails relevance, THIS test should change (it documents the current gap).
+    ws = _checked_run(tmp_path, checks=[_check("chk-1", "si-1"), _check("chk-2", "wu-1")])
+    codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
+    assert "GP_UNCHECKED_TARGET" not in codes  # both targets NAMED -> coverage satisfied
+    assert not any(c.startswith("CHK_") for c in codes)  # irrelevant-but-present -> replay passes
+
+
 def test_check_coverage_is_a_terminal_closure_backstop(tmp_path):
     # Council (opencode, MAJOR): coverage is enforced at the verify_exit TRANSITION, but the
     # closure sweep (run_all_engines -> validate_graph_projection) is the ONE gate that runs on

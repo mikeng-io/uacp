@@ -601,25 +601,34 @@ _CHECK_SUBKINDS = (
 
 
 def _check_schema(sub: str) -> dict[str, Any]:
+    props: dict[str, Any] = {
+        "kind": {"const": f"uacp.check.{sub}"},
+        "run_id": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "minLength": 1},
+        "from": {
+            "type": "object",
+            "required": ["target"],
+            "properties": {"target": {"type": "string", "minLength": 1}},
+        },
+        "bind": {"type": "object"},
+        # A slice-0 check GATES — it cannot be authored non-blocking (reviewer finding: a
+        # `warn` severity let a gated agent self-demote a failing check). Policy-graded
+        # severities are an L2 concern; until then the only governed value is `block`.
+        "severity": {"const": "block"},
+    }
+    required = ["kind", "run_id", "id", "from", "bind"]
+    # field_equals MUST declare what value it expects (mimo #3): a field_equals with no `expect`
+    # always FAILs at replay (exp = _MISSING), so reject it at write time rather than ship a check
+    # that can never pass. The other kinds do not use `expect` (field_present/artifact_integrity/
+    # edge_exists/obligation_satisfied), so it stays optional for them.
+    if sub == "field_equals":
+        props["expect"] = {"type": "object", "required": ["value"]}
+        required = [*required, "expect"]
     return {
         "$schema": _DRAFT,
         "type": "object",
-        "required": ["kind", "run_id", "id", "from", "bind"],
-        "properties": {
-            "kind": {"const": f"uacp.check.{sub}"},
-            "run_id": {"type": "string", "minLength": 1},
-            "id": {"type": "string", "minLength": 1},
-            "from": {
-                "type": "object",
-                "required": ["target"],
-                "properties": {"target": {"type": "string", "minLength": 1}},
-            },
-            "bind": {"type": "object"},
-            # A slice-0 check GATES — it cannot be authored non-blocking (reviewer finding: a
-            # `warn` severity let a gated agent self-demote a failing check). Policy-graded
-            # severities are an L2 concern; until then the only governed value is `block`.
-            "severity": {"const": "block"},
-        },
+        "required": required,
+        "properties": props,
     }
 
 

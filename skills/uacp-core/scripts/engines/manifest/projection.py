@@ -591,6 +591,13 @@ def _evaluate_check(
     root: Path, kind: str, bind: dict, expect: Any, edge_set: set, nodes: dict, hash_index: dict
 ) -> tuple[str, str]:
     """Return (PASS|FAIL|ERROR, detail) for one frozen check. Pure: data vs data."""
+    # Fail-closed-until-wired guard FIRST (council/mimo #2): ANY kind declaring the code/behavior
+    # plane ERRORs (block) until those planes are built — so an IMPLEMENTED kind can't be mislabeled
+    # onto an unwired plane (e.g. field_equals with `plane: code`) to slip past it. This guard sat
+    # at the bottom before and was unreachable for the implemented kinds (they return earlier).
+    if bind.get("plane") in ("code", "behavior"):
+        return ("ERROR", f"{kind}: the {bind.get('plane')} plane is not wired yet (fail-closed)")
+
     if kind == "uacp.check.edge_exists":
         triple = (str(bind.get("src")), str(bind.get("rel")), str(bind.get("dst")))
         return ("PASS", "") if triple in edge_set else ("FAIL", f"edge {triple} absent")
@@ -636,8 +643,6 @@ def _evaluate_check(
             return ("PASS", "")
         return ("FAIL", f"{ref.get('path')!r} = {val!r} != expected {exp!r}")
 
-    if bind.get("plane") in ("code", "behavior"):
-        return ("ERROR", f"{kind}: the {bind.get('plane')} plane is not wired yet (fail-closed)")
     return ("ERROR", f"unknown check kind {kind!r}")
 
 

@@ -42,11 +42,11 @@ def test_check_kind_is_in_layout_and_schema_registries():
         assert schema.has_schema(kind), kind
 
 
-def test_every_layout_check_kind_has_a_schema():
-    # The catalog is duplicated (layout owns it; schema keeps a stdlib-leaf copy). This pins
-    # the harmful direction — a kind added to the layout catalog but missing a schema would be
-    # writable UNVALIDATED (the BOTH-registries gap the council flagged). Every catalog kind
-    # must be both governed-located AND shape-enforced.
+def test_layout_and_schema_check_catalogs_are_in_lockstep():
+    # The catalog is duplicated (layout owns it; schema keeps a stdlib-leaf copy). Pin BOTH
+    # directions (mimo #1): layout-without-schema -> writable UNVALIDATED; schema-without-layout ->
+    # a dead schema for a kind that can never be authored. Asserting the tuples equal closes both.
+    assert tuple(schema._CHECK_SUBKINDS) == tuple(layout.CHECK_KINDS)
     for sub in layout.CHECK_KINDS:
         kind = f"uacp.check.{sub}"
         assert layout.fmt_of(kind) == layout.YAML, kind
@@ -94,6 +94,21 @@ def test_governed_check_severity_must_be_block(tmp_path):
     _init(tmp_path, run_id)
     fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
     fields["severity"] = "warn"
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert "error" in res and "validate-on-write rejected" in res["error"], res
+
+
+def test_field_equals_requires_expect(tmp_path):
+    # mimo MINOR #3: a field_equals with no `expect` always FAILs at replay (exp = _MISSING).
+    # Reject it at write time instead — a field_equals must declare what value it expects.
+    run_id = "uacp-auth-4"
+    _init(tmp_path, run_id)
+    fields = {
+        "id": "chk-ne",
+        "from": {"target": "wu-1", "basis": "x"},
+        "bind": {"plane": "artifact", "ref": {"artifact": f"plans/{run_id}-d.yaml", "path": "k"}},
+        # no `expect`
+    }
     res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
     assert "error" in res and "validate-on-write rejected" in res["error"], res
 
