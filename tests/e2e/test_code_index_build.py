@@ -39,6 +39,56 @@ def test_build_is_fail_closed_when_ingester_unavailable(tmp_path: Path, monkeypa
     assert not index_path(tmp_path).exists()  # no partial index left behind
 
 
+def _install_fake_ingester(monkeypatch, fn):
+    # codeflair.treesitter_ingest can't import here (tree-sitter dep absent), so inject a fake
+    # module exposing a controllable index_repo_tree_sitter; build_code_index uses the REAL Store.
+    import sys
+    import types
+
+    mod = types.ModuleType("codeflair.treesitter_ingest")
+    mod.index_repo_tree_sitter = fn
+    monkeypatch.setitem(sys.modules, "codeflair.treesitter_ingest", mod)
+
+
+def test_build_exception_leaves_no_partial_index(tmp_path: Path, monkeypatch):
+    # Council BLOCKER: a crash mid-ingest must NOT publish a partial db the resolver reads as truth.
+    from codeflair.store import Store, Symbol
+
+    def _crash(store: Store, repo_path: str, **_):
+        store.add_symbol(Symbol(symbol="scip . . `foo`().", lang="python", file="a.py", name="foo"))
+        store.con.commit()
+        raise RuntimeError("boom mid-ingest")
+
+    _install_fake_ingester(monkeypatch, _crash)
+    res = build_code_index(tmp_path, tmp_path)
+    assert res["ok"] is False and "boom" in res["reason"]
+    assert not index_path(tmp_path).exists()  # nothing published at the canonical path
+    assert resolve_symbol(tmp_path, "foo")[0] == "ERROR"  # fail-closed, no partial-db false resolve
+
+
+def test_rebuild_is_fresh_not_appended(tmp_path: Path, monkeypatch):
+    # Council HIGH: a rebuild fully REPLACES the prior index — a since-removed symbol must not stay.
+    from types import SimpleNamespace
+
+    from codeflair.store import Store, Symbol
+
+    def _ingest(name):
+        def _fn(store: Store, repo_path: str, **_):
+            store.add_symbol(Symbol(symbol=f"scip . . `{name}`().", lang="python",
+                                    file="a.py", name=name))
+            store.con.commit()
+            return SimpleNamespace(files=1, symbols=1, edges=0)
+        return _fn
+
+    _install_fake_ingester(monkeypatch, _ingest("old_func"))
+    assert build_code_index(tmp_path, tmp_path)["ok"] is True
+    assert resolve_symbol(tmp_path, "old_func")[0] == "PASS"
+    _install_fake_ingester(monkeypatch, _ingest("new_func"))  # rebuild ingesting a DIFFERENT symbol
+    assert build_code_index(tmp_path, tmp_path)["ok"] is True
+    assert resolve_symbol(tmp_path, "new_func")[0] == "PASS"
+    assert resolve_symbol(tmp_path, "old_func")[0] == "FAIL"  # stale symbol purged, not appended
+
+
 def test_built_index_resolves_a_real_symbol_end_to_end(tmp_path: Path):
     # the real path — exercised only where codeflair's tree-sitter dep is installed.
     pytest.importorskip("tree_sitter_languages")
