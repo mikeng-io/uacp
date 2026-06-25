@@ -4,6 +4,28 @@ Dispatch branches first on **mode**, then on **tier**.
 
 ---
 
+### Phase 4.0: Review Containment (MANDATORY for `capability_profile: inspect`)
+
+Before dispatching **any** reviewer (every tier) for an `inspect` task type (review, analysis, research, audit, planning), the orchestrator MUST contain it per the **Review Containment** ladder in `uacp-bridge/SKILL.md` — **fail-closed**. A shelled-out reviewer CLI runs *outside* the Guardian PreToolUse hook, so read-only is not kernel-guaranteed; it is enforced at this boundary.
+
+**Provision a disposable sandbox (Tier 2 floor) and run all reviewers against it — never the live working tree:**
+
+```bash
+SANDBOX=$(bash skills/uacp-council/scripts/review_sandbox.sh provision "{session_id}" "${scope_ref:-HEAD}") \
+  || echo "containment provisioning failed → SKIP inspect dispatch"   # fail-closed
+# Pass $SANDBOX as each bridge's working dir (--dir / --cd / cwd). For uncommitted-diff
+# review, also embed the diff in the prompt (the sandbox is at the committed ref).
+```
+
+Then each bridge additionally selects its **tool-native read-only mode** (Tier 1): codex `--sandbox read-only`, claude `--allowedTools`, gemini/opencode/kimi plan mode, reasonix `review`, hermes verified read-only toolset. Each records `read_only_enforcement` in its output.
+
+- The configured minimum is `[bridges.defaults].inspect_containment` (default `worktree`). If provisioning fails **and** no tool-native read-only mode is verifiable for a bridge → that bridge returns **SKIPPED** (`skip_reason: "cannot guarantee read-only containment"`). Never run an `inspect` reviewer write-capable against the live tree.
+- **Teardown** in Phase 7 (synthesis) after findings are collected: `bash skills/uacp-council/scripts/review_sandbox.sh teardown "{session_id}"`.
+
+`modify` task types (implementation) are exempt — they follow `docs/lifecycle/worktree-protocol.md` for their own branch/worktree.
+
+---
+
 ### Tier 0: Single Review
 
 Single agent, no diversity. Use only when the scope is trivial (1 domain, no integration concerns). Allowed modes: open-ended only (not `finding-driven` — see Step 6.0).

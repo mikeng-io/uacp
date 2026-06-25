@@ -137,7 +137,10 @@ path = "auto"
 [bridges.opencode]
 enabled = true
 timeout_multiplier = 1.5
-models = []
+models = []                        # multi-model DISPATCH list (empty = single default)
+allowed_models = ["mimo-v2.5"]     # model AUTHORIZATION allowlist (fail-closed). opencode-go/mimo-v2.5
+                                   # is the approved reviewer; minimax-m3 is NOT approved (a rejected swap).
+                                   # A resolved model outside this list -> SKIP. Empty + enforce = SKIP.
 
 # --- Hermes (Nous Research hermes-agent) ---
 # Host-can-also-be-a-bridge: Hermes is UACP's host runtime AND a dispatch target.
@@ -147,6 +150,8 @@ models = []
 enabled = true
 timeout_multiplier = 1.0
 model = ""                    # optional provider/model override (OpenRouter form); empty = hermes model.default
+allowed_models = []           # model AUTHORIZATION allowlist (fail-closed). Multi-provider, so empty +
+                              # enforce_model_allowlist => SKIP until an approved model is listed.
 read_only_toolset = ""        # --enabled_toolsets profile for inspect tasks. MUST be a read-ONLY profile that
                               # INCLUDES file reads (the built-in "safe" set excludes file reads — unusable for
                               # review). Empty = bridge composes/verifies an inspect profile; never defaults to "safe".
@@ -167,6 +172,12 @@ invocation_mode = "run"    # run (primary, general prompt) | review (diff-scoped
 enabled = true
 timeout_multiplier = 1.0
 reasoning_level = "medium"    # quick | medium | high | xhigh
+# Fail-closed model authorization. When true, a bridge may only use a model that is
+# either (a) resolved from its [models.tier_mappings.<bridge>] (single-provider bridges),
+# or (b) in its [bridges.<bridge>].allowed_models list (multi-provider bridges: opencode,
+# hermes). A resolved/selected model outside the allowed set => the bridge SKIPs. Prevents
+# silent unapproved-provider use (e.g. the rejected opencode minimax-m3 swap).
+enforce_model_allowlist = true
 # Minimum containment tier for capability_profile=inspect (reviews). Fail-closed:
 # a bridge that cannot meet this tier returns SKIPPED. worktree = ephemeral
 # disposable copy (Tier 2) + tool-native read-only (Tier 1). container = Tier 3

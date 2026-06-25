@@ -246,7 +246,27 @@ For every `inspect` task type, a bridge MUST run under at least the configured m
 - **Orchestrator responsibility:** provision/teardown the ephemeral worktree; **never run a reviewer against the live working tree.**
 - **Bridge responsibility:** select the read-only mode, run against the provided worktree path, declare `read_only_enforcement`.
 
-Tier 3 (container + egress allowlist) is the planned hardening for untrusted/soft-tier bridges; it also closes the provider-authorization gap (a reviewer cannot reach an unapproved model if egress is allowlisted).
+#### Tier 3 — Container sandbox (hardening; `inspect_containment = "container"`)
+
+For untrusted or soft-tier bridges (reasonix `run`, hermes), or any environment where the repo and host must be protected regardless of tool behavior, escalate to a container. This is the only tier that is *enforced by the OS/runtime*, not by the tool's cooperation — and it simultaneously closes the **model-authorization** gap (a reviewer cannot reach an unapproved provider if egress is allowlisted).
+
+```bash
+# Reviewer CLI runs inside a container: read-only repo mount, no host FS write, egress
+# allowlisted to the approved provider endpoint(s) only, resource-capped.
+docker run --rm \
+  --read-only \                                  # read-only root filesystem
+  --mount type=bind,src="$SANDBOX",dst=/work,ro \ # repo scope mounted read-only
+  --tmpfs /tmp \                                  # scratch only
+  --network "$EGRESS_ALLOWLIST_NET" \             # egress restricted to provider API (see below)
+  --cap-drop ALL --security-opt no-new-privileges \
+  --memory 4g --cpus 2 \
+  <reviewer-image> <reviewer CLI in its read-only mode>
+# read_only_enforcement: container
+```
+
+- **Egress allowlist** = the network is constrained (e.g. an internal proxy / firewalled network namespace) to the approved provider endpoints only. This is what makes the unapproved-provider use (the rejected `minimax-m3` swap) *physically impossible*, complementing the fail-closed `allowed_models` check.
+- **Per-agent images:** maintain one image per reviewer runtime (codex, gemini, opencode, hermes, reasonix). Reference implementation: **OpenAB** (`github.com/openabdev/openab`, MIT) ships `Dockerfile.{claude,codex,hermes,opencode,gemini,…}` and mandates sandbox-only execution (read-only root FS, no escape) — mine its images/patterns rather than authoring from scratch.
+- **Status:** the contract and config knob (`inspect_containment = "container"`) are defined; the per-agent image build + egress-proxy wiring is a follow-up (tracked separately). Until built, the orchestrator MUST NOT claim `container` enforcement it cannot provide — it falls back to the Tier 2 worktree floor and records `read_only_enforcement: worktree`.
 
 ### Council Capability Profile
 
@@ -381,6 +401,7 @@ Apply only when `task_type` is `review`, `analysis`, or `audit`. Set `null` for 
   "task_type": "review | planning | implementation | analysis | research",
   "capability_profile": "inspect | modify",
   "read_only_enforcement": "tool-mode | worktree | container | none",
+  "model_authorized": true,
   "tier": 2,
   "resolved_model": "<resolved from registry>",
   "resolved_reasoning": "high",
@@ -824,6 +845,12 @@ Models must use `provider/model` format as required by OpenCode (e.g., `glm/glm-
 - Continue execution with the provider's default model if the specified model is invalid
 
 This prevents silent capability reduction when committed model identifiers become stale.
+
+**Model authorization (fail-closed).** Distinct from validation: when `[bridges.defaults].enforce_model_allowlist = true`, a bridge may only use an **authorized** model — fail-closed, not best-effort. Authorization sources:
+- **Single-provider bridges** (claude, codex, gemini, kimi, reasonix): the model resolved from `[models.tier_mappings.{bridge}]` is implicitly authorized.
+- **Multi-provider bridges** (opencode, hermes): the selected model MUST appear in `[bridges.{bridge}].allowed_models`. An empty list under enforcement → the bridge returns **SKIPPED** (`skip_reason: "no authorized model"`). A selected model outside the list → SKIPPED.
+
+Record `model_authorized: true|false` in the output. This closes the silent-unapproved-provider gap (e.g. an opencode dispatch silently using `minimax-m3` — a rejected swap; the approved reviewer is `mimo-v2.5`). Validation answers "does the model exist?"; authorization answers "are we *allowed* to use it?" — both apply.
 
 ---
 

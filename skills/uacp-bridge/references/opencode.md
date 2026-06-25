@@ -390,7 +390,11 @@ Built-in agents:
 Build the prompt using the [uacp-bridge/SKILL.md](../SKILL.md) Agent Prompt Template.
 
 ```bash
-timeout {final_timeout} opencode run "{constructed_prompt}" \
+# run_to = OS-portable timeout helper from uacp-bridge/SKILL.md. Run with cwd at the provisioned
+# review sandbox (Review Containment). For inspect, use the read-only `plan` agent
+# (`--agent plan`) = read_only_enforcement: tool-mode.
+run_to {final_timeout} opencode run "{constructed_prompt}" \
+  --agent plan \
   --format json \
   --model {RESOLVED_MODEL}
 ```
