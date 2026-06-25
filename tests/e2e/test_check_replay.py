@@ -117,9 +117,9 @@ def test_dangling_bind_is_error_block_not_pass(temp_uacp_root: Path):
     _register(temp_uacp_root, run_id, "check_1", f"verification/{run_id}-chk-1.yaml")
 
     violations = validate_check_replay(str(temp_uacp_root), run_id)
-    assert any(
-        v.code == "CHK_FIELD_EQUALS" and v.severity == "block" for v in violations
-    ), violations
+    assert any(v.code == "CHK_FIELD_EQUALS" and v.severity == "block" for v in violations), (
+        violations
+    )
 
 
 def _obl_run(root: Path, run_id: str, *, assessment_state: str, checkpoint_result: str) -> None:

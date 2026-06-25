@@ -34,14 +34,18 @@ def _init(root: Path, run_id: str) -> None:
 
 
 def _blockers(root: Path, run_id: str) -> list[str]:
-    return Heartgate.load(str(root)).validate_transition(
-        {
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": run_id,
-            "artifact_path": "plans/test.yaml",
-        }
-    ).blockers
+    return (
+        Heartgate.load(str(root))
+        .validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
+        .blockers
+    )
 
 
 def _selection_path(root: Path, run_id: str) -> Path:

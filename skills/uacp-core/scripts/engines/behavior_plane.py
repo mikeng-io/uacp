@@ -92,8 +92,13 @@ def resolve_behavior(workspace: str | Path, bind: object, expect: object) -> tup
         with tempfile.TemporaryFile() as out:
             try:
                 proc = subprocess.Popen(
-                    cmd, cwd=str(cwd), env=env, stdin=subprocess.DEVNULL,
-                    stdout=out, stderr=subprocess.DEVNULL, start_new_session=True,
+                    cmd,
+                    cwd=str(cwd),
+                    env=env,
+                    stdin=subprocess.DEVNULL,
+                    stdout=out,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
                 )
             except (OSError, ValueError) as exc:
                 return ("ERROR", f"behavioral: command could not run: {type(exc).__name__}: {exc}")

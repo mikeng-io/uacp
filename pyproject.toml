@@ -27,7 +27,10 @@ dev = [
     "pytest>=7.0",
     "pytest-cov",
     "pytest-xdist",
-    "ruff>=0.15",
+    # Pinned: ruff's formatter is version-sensitive; an unpinned range lets CI
+    # float to a newer release that reformats files and reddens unrelated PRs.
+    # Bump deliberately, reformatting in the same commit (also pinned in CI).
+    "ruff==0.15.17",
 ]
 # Optional MCP stdio server adapter (runtime-adapters/mcp/uacp_mcp_server.py).
 # Kept out of core `dependencies` so the kernel stays installable on its

@@ -109,9 +109,9 @@ def _try_plan_to_execute(root: Path, run_id: str) -> dict:
 def _phase(root: Path, run_id: str) -> str:
     import yaml
 
-    return yaml.safe_load(
-        (root / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text()
-    )["current_phase"]
+    return yaml.safe_load((root / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text())[
+        "current_phase"
+    ]
 
 
 def test_dropped_intent_blocks_plan_to_execute(temp_uacp_root: Path):

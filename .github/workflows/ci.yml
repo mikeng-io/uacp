@@ -17,8 +17,12 @@ jobs:
         with:
           python-version: '3.13'
 
+      # Pinned: an unpinned ruff floats to the latest release, whose formatter
+      # can disagree with the version files were last formatted under — silently
+      # reddening this job on unrelated PRs. Bump deliberately, reformatting in
+      # the same commit. Keep in sync with pyproject [project.optional-dependencies].dev.
       - name: Install ruff
-        run: pip install ruff
+        run: pip install ruff==0.15.17
 
       # Scoped to the paths kept clean under the full ruleset. The legacy
       # modules predate ruff and are intentionally NOT linted here (they are

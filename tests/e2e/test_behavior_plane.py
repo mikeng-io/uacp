@@ -94,8 +94,9 @@ def test_timeout_kills_the_process_group(tmp_path: Path):
     gc = tmp_path / "gc.py"
     gc.write_text(f"import time; time.sleep(3); open(r'{marker}', 'w').write('x')")
     parent = tmp_path / "parent.py"
-    parent.write_text(f"import subprocess,sys,time; subprocess.Popen([sys.executable, r'{gc}']); "
-                      "time.sleep(10)")
+    parent.write_text(
+        f"import subprocess,sys,time; subprocess.Popen([sys.executable, r'{gc}']); time.sleep(10)"
+    )
     status, _ = resolve_behavior(tmp_path, {"command": [PY, str(parent)], "timeout": 1}, {})
     assert status == "ERROR"
     time.sleep(4)  # past the grandchild's 3s sleep
@@ -111,6 +112,7 @@ def test_behavioral_wired_into_replay_not_unwired_error(tmp_path: Path):
     status, detail = _evaluate_check(tmp_path, "uacp.check.behavioral", bind, {}, set(), {}, {})
     assert status == "PASS", (status, detail)
     # a DIFFERENT behavior-plane kind still ERRORs fail-closed-until-wired.
-    s2, d2 = _evaluate_check(tmp_path, "uacp.check.field_equals", {"plane": "behavior"}, {},
-                             set(), {}, {})
+    s2, d2 = _evaluate_check(
+        tmp_path, "uacp.check.field_equals", {"plane": "behavior"}, {}, set(), {}, {}
+    )
     assert s2 == "ERROR" and "not wired" in d2

@@ -113,6 +113,7 @@ class TestMarketplaceJson:
         data = _load_json(MARKETPLACE_JSON)
         name = data.get("name", "")
         import re
+
         assert re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", name), (
             f"marketplace.json 'name' must be kebab-case; got: {name!r}"
         )
@@ -124,9 +125,7 @@ class TestMarketplaceJson:
         assert isinstance(owner, dict), (
             f"marketplace.json 'owner' must be an object; got: {type(owner).__name__}"
         )
-        assert owner.get("name"), (
-            "marketplace.json 'owner.name' must be a non-empty string"
-        )
+        assert owner.get("name"), "marketplace.json 'owner.name' must be a non-empty string"
 
     def test_has_plugins_array(self) -> None:
         data = _load_json(MARKETPLACE_JSON)
@@ -141,8 +140,7 @@ class TestMarketplaceJson:
         plugins = data.get("plugins", [])
         names = [p.get("name") for p in plugins]
         assert "uacp" in names, (
-            f"marketplace.json 'plugins' must contain an entry with name='uacp'; "
-            f"found: {names}"
+            f"marketplace.json 'plugins' must contain an entry with name='uacp'; found: {names}"
         )
 
     def test_uacp_plugin_has_source(self) -> None:
@@ -168,8 +166,7 @@ class TestMarketplaceJson:
         )
         resolved_plugin_json = plugin_root / ".claude-plugin" / "plugin.json"
         assert resolved_plugin_json.is_file(), (
-            f"uacp source '{source}' → {plugin_root} does not contain "
-            f".claude-plugin/plugin.json"
+            f"uacp source '{source}' → {plugin_root} does not contain .claude-plugin/plugin.json"
         )
 
     def test_author_is_not_string(self) -> None:
@@ -184,18 +181,14 @@ class TestPluginJson:
     """Validate .claude-plugin/plugin.json structure."""
 
     def test_file_exists(self) -> None:
-        assert PLUGIN_JSON.is_file(), (
-            f"{PLUGIN_JSON.relative_to(REPO_ROOT)} missing"
-        )
+        assert PLUGIN_JSON.is_file(), f"{PLUGIN_JSON.relative_to(REPO_ROOT)} missing"
 
     def test_parses_as_json(self) -> None:
         _load_json(PLUGIN_JSON)
 
     def test_has_name(self) -> None:
         data = _load_json(PLUGIN_JSON)
-        assert "name" in data and data["name"], (
-            "plugin.json must have a non-empty 'name' field"
-        )
+        assert "name" in data and data["name"], "plugin.json must have a non-empty 'name' field"
 
     def test_hooks_pointer_resolves(self) -> None:
         """plugin.json 'hooks' pointer (./hooks/hooks.json) must exist."""
@@ -205,8 +198,7 @@ class TestPluginJson:
         hooks_rel = data["hooks"]
         hooks_path = (REPO_ROOT / hooks_rel).resolve()
         assert hooks_path.is_file(), (
-            f"plugin.json 'hooks' → '{hooks_rel}' resolves to {hooks_path}, "
-            f"which does not exist"
+            f"plugin.json 'hooks' → '{hooks_rel}' resolves to {hooks_path}, which does not exist"
         )
 
     def test_author_is_not_string(self) -> None:
@@ -222,7 +214,7 @@ class TestPluginJson:
         data = _load_json(PLUGIN_JSON)
         author = data.get("author")
         assert isinstance(author, dict), (
-            "plugin.json must declare an 'author' object (e.g. {\"name\": \"mikeng-io\"}); "
+            'plugin.json must declare an \'author\' object (e.g. {"name": "mikeng-io"}); '
             f"got: {author!r}"
         )
         assert author.get("name"), "plugin.json 'author.name' must be a non-empty string"
@@ -268,15 +260,11 @@ class TestMcpServerShipsInManifest:
         entry = self._plugin_mcp_servers()["uacp"]
         tokens = [entry.get("command", ""), *entry.get("args", [])]
         py_tokens = [t for t in tokens if isinstance(t, str) and t.endswith(".py")]
-        assert py_tokens, (
-            "uacp MCP server command/args must reference a .py server script"
-        )
+        assert py_tokens, "uacp MCP server command/args must reference a .py server script"
         for tok in py_tokens:
             rel = tok.replace("${CLAUDE_PLUGIN_ROOT}/", "").replace("${CLAUDE_PLUGIN_ROOT}", "")
             script = REPO_ROOT / rel
-            assert script.is_file(), (
-                f"uacp MCP server references '{rel}', not found at {script}"
-            )
+            assert script.is_file(), f"uacp MCP server references '{rel}', not found at {script}"
 
     def test_with_deps_cover_kernel_runtime_deps(self) -> None:
         """The server's handlers import the full UACP kernel transitively
@@ -369,9 +357,7 @@ class TestMcpServerBoots:
         data = _load_json(PLUGIN_JSON)
         entry = data["mcpServers"]["uacp"]
         command = entry["command"]
-        args = [
-            a.replace("${CLAUDE_PLUGIN_ROOT}", str(REPO_ROOT)) for a in entry["args"]
-        ]
+        args = [a.replace("${CLAUDE_PLUGIN_ROOT}", str(REPO_ROOT)) for a in entry["args"]]
         return command, args
 
     def _expected_tool_names(self) -> set[str]:
@@ -439,9 +425,7 @@ class TestBundledComponents:
     def test_all_skill_md_files_exist_and_parse(self) -> None:
         """Every skills/<n>/SKILL.md must exist and be readable UTF-8 text."""
         skill_mds = list(SKILLS_DIR.glob("*/SKILL.md"))
-        assert len(skill_mds) >= 16, (
-            f"Expected at least 16 SKILL.md files; found {len(skill_mds)}"
-        )
+        assert len(skill_mds) >= 16, f"Expected at least 16 SKILL.md files; found {len(skill_mds)}"
         for skill_md in skill_mds:
             text = skill_md.read_text(encoding="utf-8")
             assert len(text) > 0, f"{skill_md.relative_to(REPO_ROOT)} is empty"
@@ -542,8 +526,12 @@ class TestClaudeCliValidation:
         # Clean up any stale state from a previous partial run.
         self._cleanup()
         result = self._run(
-            "plugin", "marketplace", "add", str(REPO_ROOT),
-            "--name", self._MKTPLACE_NAME,
+            "plugin",
+            "marketplace",
+            "add",
+            str(REPO_ROOT),
+            "--name",
+            self._MKTPLACE_NAME,
         )
         try:
             # Some versions don't support --name; fall back without it.

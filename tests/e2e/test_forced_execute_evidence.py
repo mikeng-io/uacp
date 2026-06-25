@@ -94,8 +94,14 @@ def test_goal_driven_run_is_relaxed_to_manifest_not_piv(temp_uacp_root: Path):
     # track relaxation (ADR-0016): a goal-driven run is satisfied by a coherent checkpoint manifest
     # in lieu of the PIV — it must NOT be held to the standard PIV demand. (It may still block on
     # manifest coherence via the delegated goal-driven gate, but never with the PIV message.)
-    handle_init({"workspace": str(temp_uacp_root), "run_id": "g", "source": "operator-request",
-                 "track": "goal-driven"})
+    handle_init(
+        {
+            "workspace": str(temp_uacp_root),
+            "run_id": "g",
+            "source": "operator-request",
+            "track": "goal-driven",
+        }
+    )
     _seed_checkpoint(temp_uacp_root, "g")
     blockers = _blockers(temp_uacp_root, "g")
     assert not any("a PIV (" in b for b in blockers), blockers
