@@ -51,7 +51,9 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from config import base_dir
 from engines.base import ENGINES, Violation
+from engines.domain.artifact_hashes import content_hash, load_hash_index
 from engines.io import load_artifact, load_manifest
 
 
@@ -402,9 +404,20 @@ def _check_unverified(nodes: dict, edges: list) -> list[Violation]:
     ]
 
 
-# Terminal (closure) check set — STRUCTURAL only; the phase-gated coverage
-# checks are NOT run here (they have a transition-of-enforcement, final-review T2).
-_TERMINAL_CHECKS = (_check_uncovered, _check_orphan, _check_phantom, _check_contradicted)
+# Terminal (closure) check set — STRUCTURAL only; the phase-gated coverage checks
+# (obligation/checkpoint/unverified) are NOT run here (they have a transition-of-enforcement and
+# legitimate close-with-deferred reasons to be absent at terminal — final-review T2). EXCEPTION:
+# _check_unchecked_target IS a terminal backstop (council/opencode) — unlike those, it is
+# adoption-gated and a HARD invariant (a run that adopted checks must cover every target), and the
+# closure sweep (run_all_engines) is the one gate that runs on EVERY closure regardless of path, so
+# coverage is enforced at BOTH the verify_exit transition and closure — robust to any bypass path.
+_TERMINAL_CHECKS = (
+    _check_uncovered,
+    _check_orphan,
+    _check_phantom,
+    _check_contradicted,
+    _check_unchecked_target,
+)
 
 # Phase-keyed gates (D35): the subset enforced at each transition, keyed by the
 # `from_phase`-exit gate where each check's inputs first complete.
@@ -575,7 +588,7 @@ def _obligation_satisfied(oid: str, nodes: dict) -> tuple[str, str]:
 
 
 def _evaluate_check(
-    root: Path, kind: str, bind: dict, expect: Any, edge_set: set, nodes: dict
+    root: Path, kind: str, bind: dict, expect: Any, edge_set: set, nodes: dict, hash_index: dict
 ) -> tuple[str, str]:
     """Return (PASS|FAIL|ERROR, detail) for one frozen check. Pure: data vs data."""
     if kind == "uacp.check.edge_exists":
@@ -599,7 +612,21 @@ def _evaluate_check(
         if loaded.error is not None or not isinstance(loaded.value, dict):
             return ("ERROR", f"cannot bind artifact {art!r}: {loaded.error or 'not a mapping'}")
         if kind == "uacp.check.artifact_integrity":
-            return ("PASS", "")  # resolved on disk; watermark/content binding = later slice
+            # REAL integrity (council/kimi: was a no-op PASS — a usable gaming vector). Verify the
+            # artifact's CURRENT content against its recorded watermark (state/hashes). No watermark
+            # -> ERROR (integrity unverifiable, fail-closed — #503 class A), NOT a silent pass; a
+            # hash mismatch -> FAIL (out-of-band tamper since the governed write). Reuses the same
+            # watermark the AI_ artifact-integrity engine uses, so the check and that engine agree.
+            recorded = hash_index.get(str(art))
+            if not recorded:
+                return ("ERROR", f"no watermark recorded for {art!r} — integrity unverifiable")
+            try:
+                raw = (base_dir(root) / str(art)).read_text(encoding="utf-8")
+            except OSError as exc:
+                return ("ERROR", f"cannot read {art!r} for integrity: {exc}")
+            if content_hash(raw) == recorded:
+                return ("PASS", "")
+            return ("FAIL", f"{art} content diverged from its watermark (out-of-band tamper)")
         val = _read_path(loaded.value, str(ref.get("path") or ""))
         if kind == "uacp.check.field_present":
             empty = val is _MISSING or val in (None, "", [], {})
@@ -626,6 +653,7 @@ def validate_check_replay(workspace: str | Path, run_id: str) -> list[Violation]
     nodes, edges = graph
     root = Path(str(workspace)).resolve()
     edge_set = {(e["src"], e["rel"], e["dst"]) for e in edges}
+    hash_index = load_hash_index(workspace, run_id)  # artifact_integrity watermark lookup (once)
     out: list[Violation] = []
     for n in nodes.values():
         if n.get("kind") != "check":
@@ -633,7 +661,9 @@ def validate_check_replay(workspace: str | Path, run_id: str) -> list[Violation]
         kind = str(n.get("check_kind") or "")
         bind = n.get("bind") if isinstance(n.get("bind"), dict) else {}
         try:
-            status, detail = _evaluate_check(root, kind, bind, n.get("expect"), edge_set, nodes)
+            status, detail = _evaluate_check(
+                root, kind, bind, n.get("expect"), edge_set, nodes, hash_index
+            )
         except Exception as exc:  # any evaluator raise is an ERROR (block), never a pass
             status, detail = "ERROR", f"{type(exc).__name__}: {exc}"
         if status in ("FAIL", "ERROR"):

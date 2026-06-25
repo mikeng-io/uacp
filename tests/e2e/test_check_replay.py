@@ -73,7 +73,7 @@ def test_field_equals_fails_on_mismatch(temp_uacp_root: Path):
 def test_failing_check_blocks_regardless_of_declared_severity(temp_uacp_root: Path):
     """Reviewer (MAJOR): the gated agent must not self-demote a FAILING check to non-blocking.
     A field_equals that FAILS, authored with severity 'warn', must STILL emit a block-severity
-    violation — the gate's "block done if a check fails" guarantee is not opt-out by the author."""
+    violation — "block done if a check fails" is not opt-out by the author."""
     run_id = "uacp-sev-1"
     _init(temp_uacp_root, run_id)
     data_rel = f"plans/{run_id}-data.yaml"
@@ -201,6 +201,73 @@ def test_obligation_satisfied_unresolvable_bind_is_error_block(temp_uacp_root: P
     _register(temp_uacp_root, run_id, "check_obl", f"verification/{run_id}-chk-obl.yaml")
     vs = validate_check_replay(str(temp_uacp_root), run_id)
     assert any(v.code == "CHK_OBLIGATION_SATISFIED" and v.severity == "block" for v in vs), vs
+
+
+def _integrity_check(target: str, artifact: str) -> dict:
+    return {
+        "kind": "uacp.check.artifact_integrity",
+        "id": "chk-int",
+        "from": {"target": target, "basis": f"{artifact} intact"},
+        "bind": {"plane": "artifact", "ref": {"artifact": artifact}},
+        "severity": "block",
+    }
+
+
+def _watermark(root: Path, run_id: str, rel: str) -> None:
+    # Record the watermark over the artifact's EXACT on-disk bytes (what a governed write does).
+    from engines.domain.artifact_hashes import record_hash
+
+    from config import base_dir
+
+    raw = (base_dir(root) / rel).read_text(encoding="utf-8")
+    record_hash(str(root), run_id, rel, raw)
+
+
+def _put_integrity_check(root: Path, run_id: str, artifact: str) -> None:
+    rel = f"verification/{run_id}-chk-int.yaml"
+    _write(root, rel, _integrity_check("wu-1", artifact))
+    _register(root, run_id, "check_int", rel)
+
+
+def test_artifact_integrity_passes_when_watermark_matches(temp_uacp_root: Path):
+    """Council (kimi, MAJOR): artifact_integrity was a no-op PASS. It now verifies the artifact's
+    content against its recorded watermark — an intact, watermarked artifact passes."""
+    run_id = "uacp-int-1"
+    _init(temp_uacp_root, run_id)
+    data_rel = f"plans/{run_id}-d.yaml"
+    _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "ready"})
+    _watermark(temp_uacp_root, run_id, data_rel)
+    _register(temp_uacp_root, run_id, "data", data_rel)
+    _put_integrity_check(temp_uacp_root, run_id, data_rel)
+    assert "CHK_ARTIFACT_INTEGRITY" not in _codes(temp_uacp_root, run_id)
+
+
+def test_artifact_integrity_fails_on_tamper(temp_uacp_root: Path):
+    # watermark the original, then tamper the file -> content diverges -> FAIL (block).
+    run_id = "uacp-int-2"
+    _init(temp_uacp_root, run_id)
+    data_rel = f"plans/{run_id}-d.yaml"
+    _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "ready"})
+    _watermark(temp_uacp_root, run_id, data_rel)
+    # out-of-band edit AFTER the watermark:
+    _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "TAMPERED"})
+    _register(temp_uacp_root, run_id, "data", data_rel)
+    _put_integrity_check(temp_uacp_root, run_id, data_rel)
+    assert "CHK_ARTIFACT_INTEGRITY" in _codes(temp_uacp_root, run_id)
+
+
+def test_artifact_integrity_unwatermarked_is_error_block(temp_uacp_root: Path):
+    # #503 class A: an artifact with NO watermark cannot have its integrity verified -> ERROR
+    # (block), NOT a silent pass. This is the fix for the no-op gaming vector (cover every target
+    # with trivially-passing integrity checks).
+    run_id = "uacp-int-3"
+    _init(temp_uacp_root, run_id)
+    data_rel = f"plans/{run_id}-d.yaml"  # raw write, never watermarked
+    _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "ready"})
+    _register(temp_uacp_root, run_id, "data", data_rel)
+    _put_integrity_check(temp_uacp_root, run_id, data_rel)
+    vs = validate_check_replay(str(temp_uacp_root), run_id)
+    assert any(v.code == "CHK_ARTIFACT_INTEGRITY" and v.severity == "block" for v in vs), vs
 
 
 def test_edge_exists_graph_plane(temp_uacp_root: Path):

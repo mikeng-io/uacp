@@ -549,11 +549,17 @@ def test_verify_exit_flags_phantom_check_target(tmp_path):
     assert "GP_PHANTOM_EDGE" in codes, codes
 
 
-def test_check_coverage_not_emitted_at_terminal_closure(tmp_path):
-    # Phase-gated like the other coverage checks: GP_UNCHECKED_TARGET is enforced at
-    # verify_exit, NOT in the terminal/closure set (validate_graph_projection).
+def test_check_coverage_is_a_terminal_closure_backstop(tmp_path):
+    # Council (opencode, MAJOR): coverage is enforced at the verify_exit TRANSITION, but the
+    # closure sweep (run_all_engines -> validate_graph_projection) is the ONE gate that runs on
+    # EVERY closure regardless of path. So GP_UNCHECKED_TARGET is ALSO in the terminal set as a
+    # backstop — a run that adopted checks but left a target uncovered is caught at closure even if
+    # some path bypassed the verify_exit transition. Adoption-gated, so a no-check run stays silent.
     ws = _checked_run(tmp_path, checks=[_check("chk-1", "si-1")])  # wu-1 uncovered
-    assert "GP_UNCHECKED_TARGET" not in _codes_set(validate_graph_projection(ws, "r"))
+    assert "GP_UNCHECKED_TARGET" in _codes_set(validate_graph_projection(ws, "r"))
+    # non-flood: a fully-covered run with NO checks is silent at terminal (adoption-gated)
+    clean = _covered_run(tmp_path / "ok")
+    assert "GP_UNCHECKED_TARGET" not in _codes_set(validate_graph_projection(clean, "r"))
 
 
 # ------------------------------------------------------- scope / robustness
