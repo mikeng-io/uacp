@@ -12,6 +12,9 @@ attribution:
 edges:
   - {dst: 'branch:verification-generator', rel: anchored_to, provenance: parsed}
   - {dst: 'commit:6b58a94', rel: anchored_to, provenance: parsed}      # slice 0a (replay engine + projection arm)
+  - {dst: 'commit:5546bc9', rel: anchored_to, provenance: parsed}      # slice 0b (check-coverage gate GP_UNCHECKED_TARGET)
+  - {dst: 'commit:5164d8b', rel: anchored_to, provenance: parsed}      # slice 0c (governed authoring path + obligation_satisfied)
+  - {dst: 'commit:bd484cf', rel: anchored_to, provenance: parsed}      # slice 0 adversarial-review hardening (3 holes + honesty)
   - {dst: 'commit:5f454f5', rel: anchored_to, provenance: parsed}      # design council corrections
   - {dst: 'commit:c03a599', rel: anchored_to, provenance: parsed}      # design bundle (nodes 30-34)
   - {dst: 'commit:bab0fab', rel: derived_from, provenance: parsed}     # PR #18 merge: builds #1/#2/residual#1/F2
@@ -51,9 +54,12 @@ generation failures) that hardcoded checks can't.
   UACP's SKILLS wired in (`.claude/skills` symlinks) — NOT the governed-writer tools (`uacp_entity_write`
   /`uacp_state_write`) or the Heartgate MCP. And you don't bootstrap the framework by running it through
   itself; kernel dev is plain repo software-dev (exempt from the governed-writer rule, like all session work).
-- [open] **Where the replay engine binds on the FORCED path.** It is registered in `ENGINES` (so it runs
-  at CLOSURE via `run_all_engines`) but is NOT in the phase-keyed `_SCOPE_CHECKS`. Deciding which
-  phase-exit replays which checks (and wiring it onto the forced transition gate) is unresolved.
+- [RESOLVED] **Where the replay engine binds on the FORCED path.** Decided + built: replay runs at
+  `verify_exit` (`validate_graph_invariants` re-runs `validate_check_replay` for that scope) AND at
+  closure (the `ENGINES` sweep). Coverage (`GP_UNCHECKED_TARGET`) proves a check EXISTS per target at
+  verify_exit; replay proves the checks PASS at verify_exit too — a failing/erroring frozen check blocks
+  the VERIFY exit, not only closure. (Was a review finding: coverage-at-verify + replay-only-at-closure
+  let a run exit VERIFY with failing checks.)
 
 ## Rejected / not-this
 - **Free-form predicate DSL** for checks — black box; can't validate fail-closed. (→ closed catalog.)
@@ -87,15 +93,27 @@ generation failures) that hardcoded checks can't.
   That belongs as a skill enhancement (a RESUME-PROMPT verb/output), tracked here.
 
 ## Now → next
-- **Position:** see Anchors (branch + commits live there).
-- **Next intent:** slice **0b** — the **check-coverage gate** (`GP_UNCHECKED_TARGET`): reuse this
-  session's coverage pattern so every scope_item/work_unit must be `measured_by` ≥1 check (Layer 1, the
-  thing that makes "prove each task" enforced). Then **0c** — the `uacp.check.*` schemas + layout Entries
-  (the governed authoring path) + `obligation_satisfied`; and decide the forced-phase-gate wiring for the
-  replay engine. Floor (L2/2b), council (L3), generator SKILL (slice 1), code plane (slice 3) are later.
+- **Position:** slice **0 is BUILT + green (suite 1909)** — 0a (replay) + 0b (coverage gate) + 0c
+  (governed authoring path + `obligation_satisfied`) + review-hardening. See Anchors for the commits.
+- **The from.target↔bind DECOUPLING (carry into L2 — the BLOCKER a reviewer led with).** Coverage proves a
+  check NAMES each target, NOT that the check's `bind` (what replay evaluates) is RELEVANT to it. So a
+  check that names `wu-1` but binds a trivial field on an unrelated artifact satisfies coverage and can
+  pass replay. This is the DESIGNED residual for **L2** (required-kinds floor), **L2b** (content/class
+  entailment), **L3** (council), and ultimately the **code plane** (class entailed from the real symbol).
+  Slice 0 is L1 (omission) only — named honestly in the `_check_unchecked_target` limit comment; do NOT
+  claim slice 0 closes relevance. For graph-plane kinds (`obligation_satisfied`/`edge_exists`) the bind IS
+  structural, so L2 could cheaply cross-check bind-relates-to-target there; for `field_*` it's semantic (L3).
+- **Next:** (1) the **cross-provider council** (kimi + opencode `-m minimax-cn-coding-plan/MiniMax-M3`) +
+  default-to-refute — the standing PRE-MERGE gate; the Claude subagent lens is DONE (drove the hardening
+  commit). Then merge slice 0. (2) Slice **2 = the floor (L2/2b)**: `verification-floor.yaml` + the floor
+  engine (`CHK_FLOOR_UNMET`/`CHK_CLASS_UNDERCLAIM`) + the council enumeration of checks-as-claims. Then
+  generator SKILL (slice 1), code/SCIP plane (slice 3).
 
 ## Anchors
-- branch: `verification-generator` (off merged `main`; pushed)
+- branch: `verification-generator` (off merged `main`; 0a pushed; 0b/0c/hardening local — push before PR)
+- commit: `bd484cf` — slice 0 review-hardening: severity-block fix + replay@verify_exit + phantom@verify_exit + honesty; suite 1909
+- commit: `5164d8b` — slice 0c: `uacp.check.*` schemas + layout Entries (governed authoring) + `obligation_satisfied` (graph-plane)
+- commit: `5546bc9` — slice 0b: `GP_UNCHECKED_TARGET` coverage gate (`_check_unchecked_target` in `_SCOPE_CHECKS["verify_exit"]`)
 - commit: `6b58a94` — slice 0a: replay engine (`validate_check_replay`, 4 kinds) + `_project` check arm; suite 1894 green
 - commit: `5f454f5` — design council corrections (honesty fixes: anti-gaming framing, projection overclaim, slice-0 #503 scope)
 - commit: `c03a599` — capsule #3 design bundle (nodes 30-34 + business overview)
