@@ -363,9 +363,10 @@ except: pass
 ")
 MODEL_FLAG=${RESOLVED_MODEL:+--model $RESOLVED_MODEL}
 
-timeout {final_timeout} codex exec "{constructed_prompt}" \
+# run_to = OS-portable timeout helper from uacp-bridge/SKILL.md. Run with cwd/--cd at the
+# provisioned review sandbox (Review Containment). `--sandbox read-only` = read_only_enforcement: tool-mode.
+run_to {final_timeout} codex exec "{constructed_prompt}" \
   --sandbox read-only \
-  --ask-for-approval never \
   --json \
   --output-last-message /tmp/codex-bridge-{session_id}.json \
   --ephemeral \
@@ -373,6 +374,8 @@ timeout {final_timeout} codex exec "{constructed_prompt}" \
   $MODEL_FLAG \
   --config reasoning-effort={RESOLVED_REASONING}
 ```
+
+> **Flag note (verified 2026-06-25):** current `codex exec` does **not** accept `--ask-for-approval`/`-a` (it errors "unexpected argument"); approval is governed by `--sandbox`. For read-only review, `--sandbox read-only` is sufficient and sole — nothing can be written, so nothing needs approval. Verify with `codex exec --help`.
 
 ### CLI Error Handling
 
@@ -416,7 +419,7 @@ Output ID prefix: `X` (e.g., `X001`, `X002`).
 - **CLI path is stateless** — each `codex exec` call starts fresh; embed full prior-round context in Round N prompts (unlike MCP)
 - **Auto-setup option** — orchestrator can write `.mcp.json` to enable MCP server without user installing anything
 - **`codex exec` ≠ `codex`** — bare `codex` opens an interactive session; always use `codex exec` for programmatic use
-- **`--sandbox read-only` + `--ask-for-approval never`** are required for analysis-only mode
+- **`--sandbox read-only`** is required and sufficient for analysis-only mode (it is the read-only enforcement; `codex exec` no longer takes `--ask-for-approval` — see Flag note). `read_only_enforcement: tool-mode`; still run inside the provisioned review sandbox (SKILL.md Review Containment)
 - **HALTED ≠ SKIPPED** — HALTED means the user must make a choice before the review can continue; connection_preference step 4 is HALT, not skip
 - **Model**: resolved from tier mapping in `config/uacp.toml`; never hardcoded
 - **X-high reasoning requires explicit user confirmation** before proceeding — never activate silently; silently activating xhigh is an explicit anti-pattern
@@ -450,7 +453,7 @@ Output ID prefix: `X` (e.g., `X001`, `X002`).
 |------|--------|---------|---------|
 | (message) | string | required | Prompt — first positional argument |
 | `--sandbox`, `-s` | `read-only`, `workspace-write`, `full` | `workspace-write` | Filesystem access level |
-| `--ask-for-approval`, `-a` | `never`, `on-write`, `always` | `on-write` | When to pause for user approval |
+| `--ask-for-approval`, `-a` | `never`, `on-write`, `always` | — | ⚠ NOT accepted by `codex exec` in current builds (errors "unexpected argument"); approval is governed by `--sandbox`. Verify with `codex exec --help`. |
 | `--json` | flag | off | Emit newline-delimited JSON event stream |
 | `--output-last-message` | path | none | Write final assistant response to file |
 | `--ephemeral` | flag | off | Skip disk persistence (no session stored) |

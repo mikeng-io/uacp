@@ -347,7 +347,9 @@ When any non-Claude-Code executor can call the `claude` CLI:
 
 **Read-only analysis (research, review, audit) — `capability_profile: inspect`:**
 ```bash
-timeout {final_timeout} claude -p "{constructed_prompt}" \
+# run_to = OS-portable timeout helper from uacp-bridge/SKILL.md. Run with cwd at the provisioned
+# review sandbox (Review Containment). `--allowedTools` (read-only) = read_only_enforcement: tool-mode.
+run_to {final_timeout} claude -p "{constructed_prompt}" \
   --model {RESOLVED_MODEL} \
   --effort {RESOLVED_EFFORT} \
   --output-format json \

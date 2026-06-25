@@ -22,7 +22,7 @@ If you are reading this from another skill that read-tooled into it: continue ba
 An AI agent executor: Claude Code, Codex CLI, Gemini CLI, Kimi Code, OpenCode, or a custom executor (e.g., Hermes). Each runtime has its own native tools, sub-agent dispatch mechanism, model defaults, and tool surface.
 
 ### Runtime adapter (Bridge)
-A skill that defines how to dispatch a council task to a specific runtime. Lives at `skills/uacp-bridge/references/{name}.md`. Examples: `uacp-bridge/references/claude.md`, `uacp-bridge/references/codex.md`, `uacp-bridge/references/kimi.md`, `uacp-bridge/references/gemini.md`, `uacp-bridge/references/opencode.md`. Each adapter is a reference document — read via the `Read` tool and embedded into an executor agent's prompt. *(In the parent agent-skills repo these were called "runtime-*".)*
+A skill that defines how to dispatch a council task to a specific runtime. Lives at `skills/uacp-bridge/references/{name}.md`. Examples: `uacp-bridge/references/claude.md`, `uacp-bridge/references/codex.md`, `uacp-bridge/references/kimi.md`, `uacp-bridge/references/gemini.md`, `uacp-bridge/references/opencode.md`, `uacp-bridge/references/reasonix.md`, `uacp-bridge/references/hermes.md`. Each adapter is a reference document — read via the `Read` tool and embedded into an executor agent's prompt. *(In the parent agent-skills repo these were called "runtime-*".)*
 
 ### Bridge Commons (uacp-bridge)
 The shared schema all runtime adapters implement: input format, output schema, capability profiles, status values, agent prompt template, artifact format, and the post-analysis protocol. Lives at `skills/uacp-bridge/SKILL.md`. *(In the parent repo this was `runtime-contracts`.)*
@@ -293,5 +293,5 @@ Finding-driven mode performs up to four checks (resolution, regression, design-d
 
 - `uacp-council/SKILL.md` — the unified, tier-parameterized council skill
 - `uacp-bridge/SKILL.md` — the shared contract all runtime adapters implement
-- `uacp-bridge/references/{claude,codex,gemini,kimi,opencode}.md` — runtime adapter specs
+- `uacp-bridge/references/{claude,codex,gemini,kimi,opencode,reasonix,hermes}.md` — runtime adapter specs
 - `uacp-core/references/domains/README.md` — domain definitions and trigger signals

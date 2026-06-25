@@ -358,22 +358,32 @@ council_model:
       reasoning: high
       write_scope: findings_only
     uacp-adapter-claude-code:
-      positioning: Hermes controller profile for Claude Code external runtime
+      positioning: Host-orchestrator controller profile for Claude Code external runtime
       default_surface: external_coding_agent
       reasoning: low_medium_controller
       write_scope: adapter_evidence_and_declared_runtime_changes
     uacp-adapter-codex:
-      positioning: Hermes controller profile for Codex external runtime
+      positioning: Host-orchestrator controller profile for Codex external runtime
       default_surface: external_coding_agent
       reasoning: low_medium_controller
       write_scope: adapter_evidence_and_declared_runtime_changes
     uacp-adapter-opencode:
-      positioning: Hermes controller profile for OpenCode external runtime
+      positioning: Host-orchestrator controller profile for OpenCode external runtime
       default_surface: external_coding_agent
       reasoning: low_medium_controller
       write_scope: adapter_evidence_and_declared_runtime_changes
     uacp-adapter-kimi:
-      positioning: Hermes controller profile for Kimi external runtime
+      positioning: Host-orchestrator controller profile for Kimi external runtime
+      default_surface: external_coding_agent
+      reasoning: low_medium_controller
+      write_scope: adapter_evidence_and_declared_runtime_changes
+    uacp-adapter-reasonix:
+      positioning: Host-orchestrator controller profile for Reasonix external runtime
+      default_surface: external_coding_agent
+      reasoning: low_medium_controller
+      write_scope: adapter_evidence_and_declared_runtime_changes
+    uacp-adapter-hermes:
+      positioning: Host-orchestrator controller profile for Hermes (hermes-agent) external runtime — host-can-also-be-a-bridge
       default_surface: external_coding_agent
       reasoning: low_medium_controller
       write_scope: adapter_evidence_and_declared_runtime_changes

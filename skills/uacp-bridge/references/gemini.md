@@ -137,10 +137,11 @@ Resolve tier and model before invocation:
 ```
 
 ```bash
-TIMEOUT={calculated_timeout}
 PROMPT="{constructed_prompt}"
 
-timeout $TIMEOUT gemini -p "$PROMPT" \
+# run_to = OS-portable timeout helper from uacp-bridge/SKILL.md. Run with cwd at the provisioned
+# review sandbox (Review Containment). `--approval-mode plan` = read_only_enforcement: tool-mode.
+run_to {final_timeout} gemini -p "$PROMPT" \
   --model ${RESOLVED_MODEL} \
   --approval-mode plan \
   --output-format json

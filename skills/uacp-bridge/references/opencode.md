@@ -116,9 +116,16 @@ opencode auth list
 ```
 
 **Outcomes:**
-- Default model configured + providers authenticated → proceed to CLI path, record `resolved_model`
-- No default, but providers authenticated → proceed to CLI path, `resolved_model: "opencode-default"`
+- Default model configured + providers authenticated → record `resolved_model`, then **gate it** (below)
+- No default, but providers authenticated → resolve the concrete model OpenCode would use; **gate it** (below). Do NOT proceed on an opaque `"opencode-default"` — an un-pinned default is exactly the unapproved-provider path (e.g. a silent `minimax-m3`).
 - No providers configured → **go to Step 2 (Advisory)** with `reason: no_provider_configured`
+
+**Model authorization gate (fail-closed — OpenCode is multi-provider):**
+```bash
+python3 skills/uacp-council/scripts/check_model_authorized.py opencode "{resolved_model}" \
+  || { echo "model not authorized → SKIP"; }   # exit 3 → return SKIPPED (skip_reason: "no authorized model")
+```
+`resolved_model` MUST appear in `[bridges.opencode].allowed_models` (e.g. `mimo-v2.5`). If it cannot be resolved to a concrete, authorized id → return SKIPPED. Set `model_authorized` accordingly in the output. See `uacp-bridge/SKILL.md` Model authorization.
 
 ---
 
@@ -390,7 +397,11 @@ Built-in agents:
 Build the prompt using the [uacp-bridge/SKILL.md](../SKILL.md) Agent Prompt Template.
 
 ```bash
-timeout {final_timeout} opencode run "{constructed_prompt}" \
+# run_to = OS-portable timeout helper from uacp-bridge/SKILL.md. Run with cwd at the provisioned
+# review sandbox (Review Containment). For inspect, use the read-only `plan` agent
+# (`--agent plan`) = read_only_enforcement: tool-mode.
+run_to {final_timeout} opencode run "{constructed_prompt}" \
+  --agent plan \
   --format json \
   --model {RESOLVED_MODEL}
 ```

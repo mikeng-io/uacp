@@ -33,6 +33,8 @@ references/gemini.md    ←  implements it: gemini CLI → SKIPPED
 references/codex.md     ←  implements it: MCP → codex exec → HALTED
 references/opencode.md  ←  implements it: HTTP API → opencode run → HALTED
 references/kimi.md      ←  implements it: kimi CLI → SKIPPED
+references/reasonix.md  ←  implements it: reasonix run (review fallback) → SKIPPED
+references/hermes.md    ←  implements it: delegate_task (native) / run_agent.py CLI → SKIPPED
 ```
 
 ## Part of

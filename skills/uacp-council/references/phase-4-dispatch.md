@@ -4,6 +4,38 @@ Dispatch branches first on **mode**, then on **tier**.
 
 ---
 
+### Phase 4.0: Review Containment (MANDATORY for `capability_profile: inspect`)
+
+Before dispatching **any** reviewer (every tier) for an `inspect` task type (review, analysis, research, audit, planning), the orchestrator MUST contain it per the **Review Containment** ladder in `uacp-bridge/SKILL.md` — **fail-closed**. A shelled-out reviewer CLI runs *outside* the Guardian PreToolUse hook, so read-only is not kernel-guaranteed; it is enforced at this boundary.
+
+**Provision a disposable sandbox (Tier 2 floor) and run all reviewers against it — never the live working tree. Fail CLOSED:**
+
+```bash
+# 1. Provision the sandbox. On failure, SKIP the whole inspect dispatch — do NOT continue.
+if ! SANDBOX=$(bash skills/uacp-council/scripts/review_sandbox.sh provision "{session_id}" "${scope_ref:-HEAD}"); then
+  echo "containment provisioning failed → SKIP inspect dispatch"; return 1   # fail-closed (no $SANDBOX → no dispatch)
+fi
+# Pass $SANDBOX as each bridge's working dir (--dir / --cd / cwd). For uncommitted-diff
+# review, embed the diff in the prompt (the sandbox is at the committed ref).
+
+# 2. Per bridge, gate the resolved model BEFORE dispatch (fail-closed authorization):
+for each bridge with its {resolved_model}:
+  if ! python3 skills/uacp-council/scripts/check_model_authorized.py "{bridge}" "{resolved_model}"; then
+    record bridge SKIPPED (skip_reason: "no authorized model"); continue   # do NOT dispatch this bridge
+  fi
+```
+
+Then each bridge additionally selects its **tool-native read-only mode** (Tier 1): codex `--sandbox read-only`, claude `--allowedTools`, gemini/opencode/kimi plan mode, reasonix `review`, hermes verified read-only toolset. Each records `read_only_enforcement` and `model_authorized` in its output.
+
+> **Limits (do not overclaim).** The worktree (Tier 2) gives **scope isolation + accidental-write containment**, not a hard boundary — it shares `.git` and is under the repo root, so a misbehaving process can still mutate the repo. Real read-only comes from the tool's OS mode (codex `--sandbox read-only`) or Tier 3 (container, deferred). For a low-trust / high-assurance review of an untrusted tool, escalate to Tier 3 or SKIP. See `uacp-bridge/SKILL.md` Review Containment.
+
+- The configured minimum is `[bridges.defaults].inspect_containment` (default `worktree`). If provisioning fails **and** no tool-native read-only mode is verifiable for a bridge → that bridge returns **SKIPPED** (`skip_reason: "cannot guarantee read-only containment"`). Never run an `inspect` reviewer write-capable against the live tree.
+- **Teardown** in Phase 7 (synthesis) after findings are collected: `bash skills/uacp-council/scripts/review_sandbox.sh teardown "{session_id}"`.
+
+`modify` task types (implementation) are exempt — they follow `docs/lifecycle/worktree-protocol.md` for their own branch/worktree.
+
+---
+
 ### Tier 0: Single Review
 
 Single agent, no diversity. Use only when the scope is trivial (1 domain, no integration concerns). Allowed modes: open-ended only (not `finding-driven` — see Step 6.0).

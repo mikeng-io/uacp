@@ -269,8 +269,8 @@ Output ID prefix: `K` (e.g., `K001`, `K002`).
 | `-h, --help` | — | — | Show help |
 
 **For bridge use:** `kimi -p "prompt" --output-format json` is the standard invocation.
-**For implementation tasks:** add `-y` for auto-approval.
-**For read-only analysis:** add `--plan` for safer defaults.
+**For implementation tasks (`modify`):** add `-y` for auto-approval.
+**For read-only analysis (`inspect`):** MUST add `--plan` (read-only mode) and MUST NOT pass `-y`/`--yolo`/`--auto` — those grant write/auto-approval and break read-only containment (and `kimi -p` rejects `--auto`/`--yolo` anyway). `--plan` = `read_only_enforcement: tool-mode`; still run with cwd at the provisioned review sandbox (SKILL.md Review Containment). Wrap the call with the OS-portable `run_to` helper from SKILL.md, not bare `timeout`.
 
 > **Note on `--skills-dir`:** This flag is repeatable and Kimi-specific — no equivalent exists in the Gemini or Codex CLI bridges.
 

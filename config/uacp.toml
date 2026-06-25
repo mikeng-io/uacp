@@ -137,7 +137,32 @@ path = "auto"
 [bridges.opencode]
 enabled = true
 timeout_multiplier = 1.5
-models = []
+models = []                        # multi-model DISPATCH list (empty = single default)
+allowed_models = ["mimo-v2.5"]     # model AUTHORIZATION allowlist (fail-closed). opencode-go/mimo-v2.5
+                                   # is the approved reviewer; minimax-m3 is NOT approved (a rejected swap).
+                                   # A resolved model outside this list -> SKIP. Empty + enforce = SKIP.
+
+# --- Hermes (Nous Research hermes-agent) ---
+# Host-can-also-be-a-bridge: Hermes is UACP's host runtime AND a dispatch target.
+# Multi-provider (OpenRouter default) — like OpenCode, intentionally absent from
+# [models]; model is resolved from hermes-agent's own config or `model` below.
+[bridges.hermes]
+enabled = true
+timeout_multiplier = 1.0
+model = ""                    # optional provider/model override (OpenRouter form); empty = hermes model.default
+allowed_models = []           # model AUTHORIZATION allowlist (fail-closed). Multi-provider, so empty +
+                              # enforce_model_allowlist => SKIP until an approved model is listed.
+read_only_toolset = ""        # --enabled_toolsets profile for inspect tasks. MUST be a read-ONLY profile that
+                              # INCLUDES file reads (the built-in "safe" set excludes file reads — unusable for
+                              # review). Empty = bridge composes/verifies an inspect profile; never defaults to "safe".
+
+# --- Reasonix (DeepSeek-native) ---
+# CLI bridge; SKIPPED-only (no HALT). Requires the 1.x Go line (`reasonix review`
+# + the v2 CLI surface) — the bridge SKIPs on a legacy 0.x install.
+[bridges.reasonix]
+enabled = true
+timeout_multiplier = 1.0
+invocation_mode = "run"    # run (primary, general prompt) | review (diff-scoped fallback)
 
 # =============================================================================
 # BRIDGE DEFAULTS
@@ -147,6 +172,17 @@ models = []
 enabled = true
 timeout_multiplier = 1.0
 reasoning_level = "medium"    # quick | medium | high | xhigh
+# Fail-closed model authorization. When true, a bridge may only use a model that is
+# either (a) resolved from its [models.tier_mappings.<bridge>] (single-provider bridges),
+# or (b) in its [bridges.<bridge>].allowed_models list (multi-provider bridges: opencode,
+# hermes). A resolved/selected model outside the allowed set => the bridge SKIPs. Prevents
+# silent unapproved-provider use (e.g. the rejected opencode minimax-m3 swap).
+enforce_model_allowlist = true
+# Minimum containment tier for capability_profile=inspect (reviews). Fail-closed:
+# a bridge that cannot meet this tier returns SKIPPED. worktree = ephemeral
+# disposable copy (Tier 2) + tool-native read-only (Tier 1). container = Tier 3
+# (RO mount + egress allowlist; deferred). See uacp-bridge/SKILL.md Review Containment.
+inspect_containment = "worktree"    # tool-mode | worktree | container
 
 # =============================================================================
 # COUNCIL
@@ -174,6 +210,8 @@ prefix_gemini = "G"
 prefix_codex = "X"
 prefix_opencode = "O"
 prefix_kimi = "K"
+prefix_reasonix = "R"
+prefix_hermes = "H"
 
 # =============================================================================
 # PHASES
@@ -881,8 +919,20 @@ name = "Moonshot"
 base_url = "https://api.moonshot.cn"
 
 [models.providers.moonshot.models.kimi-default]
-concrete_id = "kimi-k2.6"
-description = "Kimi K2.6 — Moonshot's current flagship model"
+concrete_id = "kimi-k2.7-code"
+description = "Kimi K2.7-Code — Moonshot's current coding flagship model"
+
+[models.providers.deepseek]
+name = "DeepSeek"
+base_url = "https://api.deepseek.com"
+
+[models.providers.deepseek.models.deepseek-flash]
+concrete_id = "deepseek-v4-flash"
+description = "Fast, cache-first DeepSeek model — cheap high-throughput review"
+
+[models.providers.deepseek.models.deepseek-pro]
+concrete_id = "deepseek-v4-pro"
+description = "Higher-capability DeepSeek model for deeper analysis"
 
 # --- Tier mappings (bridge → tier 0-4 → alias + reasoning level) -------------
 # When a provider releases a new model, update concrete_id above only —
@@ -920,6 +970,18 @@ description = "Kimi K2.6 — Moonshot's current flagship model"
 2 = { alias = "kimi-default", reasoning = "thinking" }
 3 = { alias = "kimi-default", reasoning = "thinking" }
 4 = { alias = "kimi-default", reasoning = "thinking" }
+
+[models.tier_mappings.reasonix]
+# DeepSeek: flash for tiers 0-1 (cache-first/cheap), pro for 2-4.
+# NOTE: Reasonix 1.x has NO per-call --effort flag — effort is baked into the
+# reasonix.toml provider entry. So `reasoning` here is ADVISORY ONLY: the bridge
+# selects the model via `alias`; it cannot apply `reasoning` per-invocation and
+# does not pretend to. See references/reasonix.md (Tier Resolution).
+0 = { alias = "deepseek-flash", reasoning = "medium" }
+1 = { alias = "deepseek-flash", reasoning = "high" }
+2 = { alias = "deepseek-pro",   reasoning = "high" }
+3 = { alias = "deepseek-pro",   reasoning = "high" }
+4 = { alias = "deepseek-pro",   reasoning = "max" }
 
 # =============================================================================
 # RUNTIME BINDINGS
