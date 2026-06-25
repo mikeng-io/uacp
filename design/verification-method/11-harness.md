@@ -41,7 +41,30 @@ The systematic-debugging idea of "3+ failed fixes → question the architecture"
 - **New (BUILD):** the convergence **controller** (dry-rounds K, escalate-threshold N, how depth adapts to phase + risk) — built *on* the goal-driven machinery, not beside it — and the escalation **verdict trigger** (the rule that fires `uacp_escalation_event` when ≥N rounds fail to move the verdict).
 - **UPDATE (the honest gap):** the machinery is phase-agnostic and runs at `execute_exit`, but it is **not yet wired at intra-EXECUTE *checkpoint* granularity**. Running the loop *between* EXECUTE iterations (vs only at the built `execute_exit` gate) is the wiring UPDATE — the goal-driven track already records per-iteration checkpoints, so the hook exists; what's missing is driving the sweep off each one.
 
+## Convergence over the generative gate (how LOOP wraps the new pieces)
+
+The loop closes over the generator + replay engine ([10](10-generative-gate.md)/[31](31-replay-engine.md)):
+
+1. **RUN** the replay engine — every frozen `uacp.check.*` is re-evaluated against bound reality.
+2. **RECONCILE** its `CHK_*` Violations with the structural findings (`GP_*`, `evidence_completeness`).
+3. If FAILs remain, the run iterates (EXECUTE produces a fix; VERIFY may **author new checks** for a
+   newly-surfaced target — the generator runs again). A round is **dry** when it surfaces no new failing
+   check and no new target.
+4. **LOOP** until **K consecutive dry rounds** (default K=2 — loop-until-dry, not a fixed pass count).
+5. **ESCALATE** when **N rounds** (default N=3) fail to move a given check's verdict: stop patching the
+   symptom and fire the architecture-verdict `uacp_escalation_event` — "the design, not the code, is
+   wrong" — for *that* check's target.
+
+K and N are **the goal-driven checkpoint budget**, not new counters: a "round" is a `gate: CHECKPOINT`
+ledger entry (`goal_driven.goal_checkpoint_count`); "dry" / "converged on a keep" is that gate's existing
+final-verdict rule; the escalate-threshold N is a second reading of the same budget. Depth adapts to
+phase + risk by setting the budget per phase-profile ([12](12-phase-profiles.md)), not by branching code.
+
 ## To expand
-- The convergence controller's exact stop conditions (dry-rounds K, escalate-threshold N) and how depth adapts to phase + risk — expressed in terms of the goal-driven checkpoint budget it IMPROVISES.
-- The reconcile dedup algorithm (cross-finder, cross-round) and how it avoids re-surfacing judge-rejected findings — building on `_check_contradicted`'s per-assessment dedup.
-- The intra-EXECUTE-checkpoint wiring (the UPDATE): driving RUN/RECONCILE off each goal-driven checkpoint, not only at `execute_exit`.
+- Tune K/N defaults per phase-profile + risk tier (expressed as the goal-driven budget per profile).
+- The reconcile dedup algorithm (cross-finder, cross-round) and how it avoids re-surfacing
+  judge-rejected findings — building on `_check_contradicted`'s per-assessment dedup; a check
+  refuted by the council ([34](34-adequacy-and-coverage.md)/[14](14-council-method.md)) must not
+  re-enter as a fresh target.
+- The intra-EXECUTE-checkpoint wiring (the UPDATE): driving RUN/RECONCILE off each goal-driven
+  checkpoint, not only at `execute_exit`.

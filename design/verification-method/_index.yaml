@@ -27,7 +27,9 @@ schema_dir: ../graph-engine/schema/ # reuses the graph-engine bundle's design_in
 
 # Numbered by NATURE, not phase (UACP is in active development — no "Phase 4.5" naming):
 #   00-01 = the spine + its evidence;  10-14 = the two layers (dynamic gate / fixed harness)
-#   + their supports;  20 = the build/improvise/update roadmap.
+#   + their supports;  20 = the build/improvise/update roadmap;
+#   30-34 = the generative-gate BUILD design (capsule #3): assertion model / replay engine /
+#   reality binder / generator synthesis / adequacy+coverage.
 members:
   - 00-the-primitive.md          # ROOT: verification as CMS (references ../comprehend-measure-serialize/, not re-derived)
   - 01-evidence-503.md           # the failure taxonomy this is built to prevent
@@ -36,8 +38,13 @@ members:
   - 12-phase-profiles.md         # per-phase instantiation (measure-mode + authority; EXECUTE excluded from generation)
   - 13-investigation-ledger.md   # the revisable, phase-rooted serialized trail
   - 14-council-method.md         # the council as generative-gate panel — narrowed to default-to-refute + serialize-to-ledger
-  - 15-coverage-serialization.md # D43 as-built (keyed scope_items + derives_from already enforced) + the package-selection coverage residual
+  - 15-coverage-serialization.md # D43 as-built + Option B package-selection coverage BINDING (built + merged, PR #18)
   - 20-build-improvise-update.md # what to BUILD vs IMPROVISE (existing engines) vs UPDATE
+  - 30-assertion-model.md        # capsule #3: the typed check catalog (uacp.check.*) — the frozen form
+  - 31-replay-engine.md          # capsule #3: deterministic re-execution of frozen checks (an Engine in run_all_engines)
+  - 32-reality-binder.md         # capsule #3: BIND by plane (graph/artifact now; code/SCIP + behavior later)
+  - 33-generator-synthesis.md    # capsule #3: comprehend→author contract + per-phase synthesis (extends 12)
+  - 34-adequacy-and-coverage.md  # capsule #3: 3-layer anti-gaming (structural coverage + required-kinds floor + council)
 
 # DERIVED: mirror of each node's `edges:` frontmatter (src = the node that owns the edge).
 # rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
@@ -52,3 +59,15 @@ edges:
   - {src: 15-coverage-serialization, dst: 01-evidence-503, rel: motivated_by, provenance: asserted}
   - {src: 15-coverage-serialization, dst: 12-phase-profiles, rel: depends_on, provenance: derived}
   - {src: 20-build-improvise-update, dst: 00-the-primitive, rel: sequences, provenance: asserted}
+  - {src: 30-assertion-model, dst: 10-generative-gate, rel: realizes, provenance: asserted}
+  - {src: 30-assertion-model, dst: 31-replay-engine, rel: depends_on, provenance: derived}
+  - {src: 31-replay-engine, dst: 30-assertion-model, rel: consumes, provenance: derived}
+  - {src: 31-replay-engine, dst: 11-harness, rel: realizes, provenance: asserted}
+  - {src: 32-reality-binder, dst: 30-assertion-model, rel: depends_on, provenance: derived}
+  - {src: 32-reality-binder, dst: 31-replay-engine, rel: realizes, provenance: asserted}
+  - {src: 33-generator-synthesis, dst: 10-generative-gate, rel: realizes, provenance: asserted}
+  - {src: 33-generator-synthesis, dst: 12-phase-profiles, rel: extends, provenance: derived}
+  - {src: 33-generator-synthesis, dst: 30-assertion-model, rel: depends_on, provenance: derived}
+  - {src: 34-adequacy-and-coverage, dst: 31-replay-engine, rel: depends_on, provenance: derived}
+  - {src: 34-adequacy-and-coverage, dst: 15-coverage-serialization, rel: extends, provenance: derived}
+  - {src: 34-adequacy-and-coverage, dst: 14-council-method, rel: depends_on, provenance: derived}
