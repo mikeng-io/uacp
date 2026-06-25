@@ -129,12 +129,14 @@ as-built reality ([[verification-must-improvise-and-ground]]).
 ### P1 — Freshness substrate · closes #3 (schema + population only)
 - **Goal:** add the `watermark(repo_commit, built_at)` table; **populate** the existing
   `files`/`freshness` tables (per-file content hash, per-source `commit_sha`/`tool_version`)
-  at ingest; per-file hash compare at query time.
+  at ingest; per-file hash compare at query time. The `.codeflair/` store is **keyed to the
+  worktree root and gitignored** (OD-4); the shared-base optimization stays deferred.
 - **Acceptance:** after an ingest, watermark + per-source freshness rows exist and match the
-  real index (not synthetic); a hash-mismatched file is *detected* `stale`. **No reconcile-tag
-  claims here** — `live`/`unreconciled` require the LSP overlay (P2), so they are verified
-  there. (Council: the old "zero re-index" criterion was vacuous; restated to schema+population.)
-- **Specified by:** 10-freshness (index side), 11-substrate (schema).
+  real index (not synthetic); a hash-mismatched file is *detected* `stale`; the store path
+  resolves under the worktree root. **No reconcile-tag claims here** — `live`/`unreconciled`
+  require the LSP overlay (P2), so they are verified there. (Council: the old "zero re-index"
+  criterion was vacuous; restated to schema+population.)
+- **Specified by:** 10-freshness (index side + per-worktree store), 11-substrate (schema).
 
 ### P2 — LSP/Serena overlay + 3-zone reconcile · closes #1
 - **Goal:** wire Serena (Python lib) as a registered, **query-time, always-live** overlay
@@ -181,7 +183,8 @@ as-built reality ([[verification-must-improvise-and-ground]]).
 - **Acceptance:** each term independently tested; constants tuned against **P5's** eval set
   (recall@K improves or is neutral, never regresses); the `agreement_bonus` is defined to
   apply only to non-conflicting probes — it never re-blends an `unreconciled` node (resolves
-  the P2↔formula tension the council flagged).
+  the P2↔formula tension the council flagged); the formula is exposed as a **named, swappable
+  `score()` policy** (Policy-D = default), no A/B/C harness (OD-3).
 - **Specified by:** 03-expansion-loop.
 
 ### P7 — Cross-plane read-only join + delivery · closes #5 (read-only half), #6, #11
@@ -210,12 +213,17 @@ as-built reality ([[verification-must-improvise-and-ground]]).
   scope; when taken up it gets its own design node, re-scoping Shim B to the correct seam
   (checkpoint→code_symbol, PARSED, adapter-emitted, neutral `code_refs` at most in the kernel)
   — addressing D5. No kernel change in this initiative.
-- **OD-3 (P5/P6) — policy interface.** 03-expansion-loop specifies a swappable
-  `next_probes`/`score` interface so A/B/C could plug in later; CF-D11 defers A/B/C. Decide:
-  build the interface seam now (cheap, future-proofs P6) or note it explicitly deferred. *(Not
-  a gap — a stated deferral, per council.)*
-- **OD-4 (P1/P2) — per-worktree store keying.** Confirm `.codeflair/` is keyed to the worktree
-  root and gitignored (10-freshness) before the freshness block lands.
+- **OD-3 (P6) — policy interface. RESOLVED (mike 2026-06-26): thin score-policy seam only.**
+  In P6, make the heat formula a named, swappable `score()` policy (Policy-D = the default
+  impl) — one clean seam, **no** A/B/C comparison harness (P5's recall@K already measures any
+  future swap). Honors 03-expansion-loop's "interface exists" intent at near-zero cost without
+  speculative machinery for the CF-D11-deferred A/B/C policies.
+- **OD-4 (P1) — per-worktree store keying. RESOLVED (mike 2026-06-26): per-worktree, keyed +
+  gitignored.** `.codeflair/` is keyed to the worktree root and gitignored (10-freshness) — a
+  P1 constraint. The shared-committed-base-across-worktrees optimization stays deferred
+  (per-worktree is the "simple correct v1").
+
+All open decisions are now resolved; PROPOSE starts with zero open forks.
 
 ## Cadence & invariants
 
