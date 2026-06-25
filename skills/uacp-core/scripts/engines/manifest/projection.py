@@ -89,6 +89,29 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
     def add_edge(src: str, dst: str, rel: str) -> None:
         edges.append({"src": src, "dst": dst, "rel": rel})
 
+    # uacp.check.* — a generated, FROZEN verification check (capsule #3, slice 0). Project it as a
+    # `check` node carrying its replay payload (catalog kind + bind + expect + severity) and a
+    # `measured_by` edge to the target it proves, so the check-coverage gate can require every
+    # target carry a check and the replay engine (validate_check_replay) can re-run it. NET-NEW
+    # arm: a check doc matches none of the structural extractors below, so without this arm it
+    # projects ZERO nodes (the built-vs-new correction in design node 30 — not "for free").
+    doc_kind = doc.get("kind")
+    if isinstance(doc_kind, str) and doc_kind.startswith("uacp.check.") and doc.get("id"):
+        frm = doc.get("from")
+        frm = frm if isinstance(frm, dict) else {}
+        bind = doc.get("bind")
+        add_node(
+            doc["id"],
+            "check",
+            check_kind=doc_kind,
+            bind=bind if isinstance(bind, dict) else {},
+            expect=doc.get("expect"),
+            severity=str(doc.get("severity") or "block"),
+        )
+        target = frm.get("target")
+        if target:
+            add_edge(doc["id"], str(target), "measured_by")
+
     scope = doc.get("scope")
     scope = scope if isinstance(scope, dict) else {}
     for item in _aslist(scope.get("in_scope")):
@@ -443,6 +466,110 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
     return out
 
 
+# --- the replay engine (capsule #3, slice 0) -----------------------------------
+#
+# The deterministic re-execution of the FROZEN typed checks projected above as
+# `check` nodes (design nodes 30/31/32). NO agent code runs here — each kind has a
+# fixed evaluator that compares the check's `expect` (data) against the bound
+# reality (data). Fail-closed: a bind that cannot resolve or an unknown kind is an
+# ERROR, and ERROR is always a BLOCK, never a silent pass (#503 class A). Slice 0
+# binds the RELATION (`graph`) + `artifact` planes only; `code`/`behavior` planes
+# ERROR-block until wired (fail-closed-until-wired — node 32).
+
+_MISSING = object()
+
+
+def _read_path(doc: dict, path: str) -> Any:
+    """Read a dotted json-path out of an artifact mapping; _MISSING if any segment
+    is absent. Lists are addressable by integer index segment."""
+    cur: Any = doc
+    for seg in str(path).split(".") if path else []:
+        if isinstance(cur, dict) and seg in cur:
+            cur = cur[seg]
+        elif isinstance(cur, list) and seg.lstrip("-").isdigit() and -len(cur) <= int(seg) < len(cur):  # noqa: E501
+            cur = cur[int(seg)]
+        else:
+            return _MISSING
+    return cur
+
+
+def _evaluate_check(
+    root: Path, kind: str, bind: dict, expect: Any, edge_set: set
+) -> tuple[str, str]:
+    """Return (PASS|FAIL|ERROR, detail) for one frozen check. Pure: data vs data."""
+    if kind == "uacp.check.edge_exists":
+        triple = (str(bind.get("src")), str(bind.get("rel")), str(bind.get("dst")))
+        return ("PASS", "") if triple in edge_set else ("FAIL", f"edge {triple} absent")
+
+    if kind in (
+        "uacp.check.field_equals",
+        "uacp.check.field_present",
+        "uacp.check.artifact_integrity",
+    ):
+        ref = bind.get("ref")
+        ref = ref if isinstance(ref, dict) else {}
+        art = ref.get("artifact")
+        if not art:
+            return ("ERROR", "bind.ref.artifact missing")
+        loaded = load_artifact(root, str(art))
+        if loaded.error is not None or not isinstance(loaded.value, dict):
+            return ("ERROR", f"cannot bind artifact {art!r}: {loaded.error or 'not a mapping'}")
+        if kind == "uacp.check.artifact_integrity":
+            return ("PASS", "")  # resolved on disk; watermark/content binding = later slice
+        val = _read_path(loaded.value, str(ref.get("path") or ""))
+        if kind == "uacp.check.field_present":
+            empty = val is _MISSING or val in (None, "", [], {})
+            return ("FAIL", f"{ref.get('path')!r} missing/empty") if empty else ("PASS", "")
+        exp = expect.get("value") if isinstance(expect, dict) else _MISSING
+        if val is not _MISSING and val == exp:
+            return ("PASS", "")
+        return ("FAIL", f"{ref.get('path')!r} = {val!r} != expected {exp!r}")
+
+    if bind.get("plane") in ("code", "behavior"):
+        return ("ERROR", f"{kind}: the {bind.get('plane')} plane is not wired yet (fail-closed)")
+    return ("ERROR", f"unknown check kind {kind!r}")
+
+
+def validate_check_replay(workspace: str | Path, run_id: str) -> list[Violation]:
+    """Re-run every FROZEN ``uacp.check.*`` projected for the run against its bound
+    reality; emit a ``CHK_*`` Violation on FAIL/ERROR (ERROR always block — class A).
+    One ``Engine`` in the shared ``run_all_engines`` sweep. Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    nodes, edges = graph
+    root = Path(str(workspace)).resolve()
+    edge_set = {(e["src"], e["rel"], e["dst"]) for e in edges}
+    out: list[Violation] = []
+    for n in nodes.values():
+        if n.get("kind") != "check":
+            continue
+        kind = str(n.get("check_kind") or "")
+        bind = n.get("bind") if isinstance(n.get("bind"), dict) else {}
+        try:
+            status, detail = _evaluate_check(root, kind, bind, n.get("expect"), edge_set)
+        except Exception as exc:  # any evaluator raise is an ERROR (block), never a pass
+            status, detail = "ERROR", f"{type(exc).__name__}: {exc}"
+        if status in ("FAIL", "ERROR"):
+            code = "CHK_" + (kind.removeprefix("uacp.check.") or "UNKNOWN").upper()
+            # ERROR is fail-closed to block regardless of the check's declared severity.
+            sev = "block" if status == "ERROR" else (n.get("severity") or "block")
+            out.append(
+                _v(
+                    code,
+                    f"check '{n['id']}' ({kind}) {status}: {detail}",
+                    severity=sev,
+                    check=n["id"],
+                    status=status,
+                )
+            )
+    return out
+
+
 # Register this engine (guard against double-registration under alias imports).
 if not any(name == "graph_projection" for name, _ in ENGINES):
     ENGINES.append(("graph_projection", validate_graph_projection))
+if not any(name == "check_replay" for name, _ in ENGINES):
+    ENGINES.append(("check_replay", validate_check_replay))
