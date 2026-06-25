@@ -15,20 +15,22 @@ edges:
 
 Before driving any lifecycle, prove the **plugin itself works when installed** — skills load, hooks fire, the MCP server starts and its tools are callable, commands resolve. If the plugin doesn't register and function in a fresh agent, the lifecycle test is meaningless. So Increment 0 measures *plugin actionability*; the **MCP/lifecycle governance measurement ([21](21-assertions.md)) is Priority 2 (next time)**.
 
-## CRITICAL as-built finding (council) — the manifest is NOT the capability declaration
+## As-built capability surface (RESOLVED — adapter session, commit 7da7ed8)
 
-A plugin install does NOT ship a rich manifest. The real `.claude-plugin/plugin.json` declares
-**hooks ONLY** (`{name, description, version, hooks}`); skills are **convention-discovered** by the
-runtime from `skills/<dir>/SKILL.md` (ADR-0017), and the **MCP server is currently wired via an
-untracked, repo-root `.mcp.json` that the plugin does not ship** (and which leaks dev API keys). So
-"parse the manifest into capabilities" is false-to-fact: it would find a near-empty manifest and pass
-**vacuously** — the exact false-coverage this measurement exists to prevent.
+The council caught that an earlier plugin install shipped **hooks only** (the MCP server was wired
+via a gitignored, personal `.mcp.json` — a marketplace install got zero governed tools). The parallel
+adapter session **fixed this**: `.claude-plugin/plugin.json` now declares the capability surface a CC
+install actually exposes, so the EXPECTED ∪ DISCOVERED model below has concrete sources:
 
-This is the **#1 prerequisite + coordination item with the parallel adapter session**: for the MCP
-tools (and skills) to be a real plugin capability, the adapter work must make the **plugin actually
-ship + register them on install** (not a repo-root dev file). Until then, the MCP/skills probes
-**correctly FAIL** — and that failure *is the harness doing its job* (catching a packaging gap), not a
-harness bug.
+- **MCP tools** → `plugin.json:mcpServers.uacp` — launched via
+  `uv run --no-project --with mcp>=1.0 … python ${CLAUDE_PLUGIN_ROOT}/runtime-adapters/mcp/uacp_mcp_server.py`
+  (uv self-provisions the server's deps; the **one host prereq is `uv`** in the runner image). The
+  probe starts THIS command and asserts `tools/list` == `tool_specs()`.
+- **Hooks** → `plugin.json:hooks` → `./hooks/hooks.json`.
+- **Skills** → convention-discovered from the shipped `skills/<dir>/SKILL.md` tree (ADR-0017).
+
+The conformance harness still operates **expected-vs-actual** (a regression that un-ships any of these
+must FAIL, not vacuously pass) — but the discovery recipe for Claude Code is now pinned, not pending.
 
 ## How measurement works here, exactly (expected-vs-actual, not manifest-parse)
 
@@ -80,7 +82,8 @@ A packaging regression: the manifest references a moved skill; the MCP config po
 Plugin conformance proves the capabilities are **live and callable**. It does NOT drive a governed run or measure governance-correctness — that is the lifecycle measurement ([21](21-assertions.md)), explicitly deferred. The clean seam: conformance answers *"can the agent USE UACP?"*; the lifecycle measurement answers *"when it does, does the governance hold?"*.
 
 ## To expand (build-detail — the MODEL above is the design; these are for BUILD)
-- The exact per-runtime DISCOVERY recipe (which files/keys CC loads from a plugin install) — pinned once the parallel adapter session finalizes how the plugin ships its MCP + skills surface. The MODEL (expected ∪ discovered, fail-on-mismatch) is fixed here; the file paths are build.
+- The CC discovery recipe is now PINNED (plugin.json `mcpServers`/`hooks` + the skills tree, commit 7da7ed8); the Hermes/Codex recipes are pinned when those runners are added.
+- The runner image must include `uv` (the MCP server's launch prereq) — a runner-image build detail ([11](11-runner-adapter-seam.md)).
 - The minimal seeded fixture for the `tools/call` dispatch probe.
 - A per-capability evidence schema feeding the same `result.json` corpus ([22](22-benchmark.md)) so conformance is benchmarkable across runtimes too.
 - Whether a skill "invokable" probe needs a live agent turn or can be a static+dispatch check (runtime-dependent).
