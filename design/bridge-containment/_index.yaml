@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS: aggregate root of the bridge-containment design bundle.
+# WHAT IT DOES: lists member nodes (reading order), declares the inter-node graph,
+#               records status/governance/scope.
+
+kind: design_index
+title: UACP Bridge Containment & Review Evidence — Design Bundle
+description: >-
+  How an external reviewer agent (a bridge UACP shells out to: codex, gemini, opencode,
+  kimi, claude, reasonix, hermes) is kept read-only and model-authorized during a review,
+  and how its review evidence is captured at fidelity. Core principle: a shelled-out
+  reviewer runs OUTSIDE the Guardian, so containment and evidence must be enforced/captured
+  at a boundary UACP owns (worktree / OS sandbox / MCP tool layer), fail-closed. Captures
+  the as-built MVP (Tier 1+2 + callable model-auth gate) and the honest trust model
+  (code/OS-enforced vs orchestrator-convention), plus the deferred hard tier (Tier 3
+  container) and the universal evidence ladder.
+status: building                    # MVP built (Tier 1+2 + model-auth gate); Tier 3 + evidence ladder open
+governance: pre-governance-input
+timestamp: '2026-06-25'
+origin: uacp-bridge reasonix+hermes work + read-only/sandbox discussion + cross-provider council (2026-06-25)
+schema_dir: ../graph-engine/schema/
+
+members:
+  - 00-overview.md
+  - 10-containment-ladder.md
+  - 20-model-authorization.md
+  - 30-evidence-capture.md
+  - 40-open-items.md
+
+edges:
+  - {src: 10-containment-ladder, dst: 00-overview, rel: realizes, provenance: asserted}
+  - {src: 20-model-authorization, dst: 00-overview, rel: realizes, provenance: asserted}
+  - {src: 30-evidence-capture, dst: 00-overview, rel: extends, provenance: asserted}
+  - {src: 40-open-items, dst: 00-overview, rel: relates_to, provenance: asserted}
+
+scope:
+  in: [external-reviewer-containment, read-only-enforcement, model-authorization, review-evidence-capture, boundary-uacp-owns]
+  out: [implementation-task-sandboxing, guardian-kernel-changes, chat-broker-product]
