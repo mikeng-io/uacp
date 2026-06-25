@@ -312,6 +312,38 @@ def _check_contradicted(nodes: dict, edges: list) -> list[Violation]:
     return list(flagged.values())
 
 
+def _check_unchecked_target(nodes: dict, edges: list) -> list[Violation]:
+    # Adequacy Layer 1 (design node 34): once a run has ADOPTED the generative gate,
+    # every scope_item/work_unit must be `measured_by` >=1 frozen check — the
+    # structural half of "prove each task" (replay proves the checks that exist pass;
+    # this proves a check exists per target). Reuses the coverage pattern exactly:
+    # projection emits a `measured_by` edge per check; a target with no inbound one is
+    # GP_UNCHECKED_TARGET (block). Self-gates on ADOPTION (>=1 `check` node), mirroring
+    # ORPHAN's derives_from adoption gate, so the existing suite — which authors no
+    # checks — is never flooded.
+    #
+    # HONEST LIMIT (do not overclaim): adoption-gating means this closes the
+    # RECURSIVE/PARTIAL omission (class D — checks for some targets, a risky one
+    # dropped). It does NOT, alone, force a zero-check run to adopt checks; making the
+    # gate MANDATORY for a target class is the required-kinds floor's job (node 34
+    # Layer 2, slice 2), and an HONEST class is the council's (Layer 3). Structural
+    # coverage is necessary, not sufficient.
+    if not any(n["kind"] == "check" for n in nodes.values()):
+        return []
+    measured = {e["dst"] for e in edges if e["rel"] == "measured_by"}
+    return [
+        _v(
+            "GP_UNCHECKED_TARGET",
+            f"{n['kind']} '{n['id']}' is measured_by no check "
+            f"(claimed work with no frozen verification)",
+            target=n["id"],
+            target_kind=n["kind"],
+        )
+        for n in nodes.values()
+        if n["kind"] in ("scope_item", "work_unit") and n["id"] not in measured
+    ]
+
+
 def _check_obligation_coverage(nodes: dict, edges: list) -> list[Violation]:
     covered = {e["dst"] for e in edges if e["rel"] == "obligation_for"}
     return [
@@ -375,7 +407,7 @@ _TERMINAL_CHECKS = (_check_uncovered, _check_orphan, _check_phantom, _check_cont
 _SCOPE_CHECKS = {
     "plan_exit": (_check_uncovered, _check_orphan, _check_phantom, _check_obligation_coverage),
     "execute_exit": (_check_checkpoint_coverage,),
-    "verify_exit": (_check_unverified, _check_contradicted),
+    "verify_exit": (_check_unverified, _check_contradicted, _check_unchecked_target),
 }
 
 

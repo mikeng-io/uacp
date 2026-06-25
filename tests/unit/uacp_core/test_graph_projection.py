@@ -51,6 +51,21 @@ def _verif(asmts: list) -> dict:
     return {"kind": "uacp.piv_assessment", "assessments": asmts}
 
 
+def _check(check_id: str, target: str, kind: str = "uacp.check.field_present") -> dict:
+    # A FROZEN uacp.check.* doc (capsule #3). It projects as a `check` node + a
+    # `measured_by` edge to its `from.target`. The coverage gate reads only that edge
+    # and check-node presence — the bind/expect payload is the replay engine's concern,
+    # not coverage's, so it is kept minimal here.
+    return {
+        "kind": kind,
+        "id": check_id,
+        "from": {"target": target, "basis": f"{target} proven"},
+        "bind": {"plane": "artifact", "ref": {"artifact": "plans/p.yaml", "path": "kind"}},
+        "expect": {},
+        "severity": "block",
+    }
+
+
 def _ws(
     tmp_path: Path, run: str, proposal: dict, plan: dict, extra_docs: list | None = None
 ) -> Path:
@@ -443,6 +458,65 @@ def test_verify_exit_clean_passes_non_vacuously(tmp_path):
     assert validate_graph_invariants(_covered_run(tmp_path / "ok"), "r", "verify_exit") == []
 
 
+# ------------------------------------------- verify_exit: check-coverage (L1, slice 0b)
+# GP_UNCHECKED_TARGET (design node 34 Layer 1): once a run has ADOPTED the generative
+# gate (>=1 projected `check` node), EVERY scope_item/work_unit must be `measured_by`
+# >=1 check. Self-gates on adoption (like ORPHAN on derives_from) so the existing
+# suite — which authors no checks — is never flooded.
+
+
+def _checked_run(tmp_path, *, checks):
+    """A fully-covered run (si-1 <- wu-1 <- ev-1 <- cp-1 <- as-1) plus the given
+    uacp.check.* docs, so the check-coverage gate is exercised at verify_exit."""
+    return _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "pass"),
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+            *checks,
+        ],
+    )
+
+
+def test_verify_exit_blocks_unchecked_target(tmp_path):
+    # The gate is adopted (a check measures si-1) but wu-1 is measured_by nothing.
+    ws = _checked_run(tmp_path, checks=[_check("chk-1", "si-1")])
+    vs = validate_graph_invariants(ws, "r", "verify_exit")
+    targets = [v.detail.get("target") for v in vs if v.code == "GP_UNCHECKED_TARGET"]
+    assert targets == ["wu-1"], [v.code for v in vs]
+    assert all(v.severity == "block" for v in vs if v.code == "GP_UNCHECKED_TARGET")
+
+
+def test_verify_exit_check_coverage_passes_non_vacuously(tmp_path):
+    # break: only si-1 is checked -> wu-1 fires; fix: both checked -> silent.
+    broken = validate_graph_invariants(
+        _checked_run(tmp_path / "bad", checks=[_check("chk-1", "si-1")]), "r", "verify_exit"
+    )
+    assert any(v.code == "GP_UNCHECKED_TARGET" for v in broken)
+    ok = _checked_run(tmp_path / "ok", checks=[_check("chk-1", "si-1"), _check("chk-2", "wu-1")])
+    assert "GP_UNCHECKED_TARGET" not in _codes_set(validate_graph_invariants(ok, "r", "verify_exit"))
+
+
+def test_verify_exit_check_coverage_self_gates_on_adoption(tmp_path):
+    # A fully-covered run with NO check nodes (the entire existing suite shape) must NOT
+    # flood GP_UNCHECKED_TARGET — the gate is adoption-gated, like ORPHAN.
+    ws = _covered_run(tmp_path)
+    assert "GP_UNCHECKED_TARGET" not in _codes_set(
+        validate_graph_invariants(ws, "r", "verify_exit")
+    )
+
+
+def test_check_coverage_not_emitted_at_terminal_closure(tmp_path):
+    # Phase-gated like the other coverage checks: GP_UNCHECKED_TARGET is enforced at
+    # verify_exit, NOT in the terminal/closure set (validate_graph_projection).
+    ws = _checked_run(tmp_path, checks=[_check("chk-1", "si-1")])  # wu-1 uncovered
+    assert "GP_UNCHECKED_TARGET" not in _codes_set(validate_graph_projection(ws, "r"))
+
+
 # ------------------------------------------------------- scope / robustness
 def test_unknown_scope_is_a_block_violation(tmp_path):
     vs = validate_graph_invariants(_covered_run(tmp_path), "r", "bogus_exit")
@@ -462,3 +536,4 @@ def test_terminal_projection_unchanged_by_new_checks(tmp_path):
     assert "GP_WORK_UNIT_NO_OBLIGATION" not in codes
     assert "GP_WORK_UNIT_NO_CHECKPOINT" not in codes
     assert "GP_UNVERIFIED" not in codes
+    assert "GP_UNCHECKED_TARGET" not in codes
