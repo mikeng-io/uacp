@@ -355,6 +355,25 @@ def _run_forced_proposal_coverage_gate(workspace: Path, run_id: str, from_phase:
         return [f"FORCED_PROPOSAL_COVERAGE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
 
 
+def _run_forced_execute_evidence_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
+    """Force the execute-evidence PIV precondition onto EXECUTE->VERIFY on the live path (the
+    "force one ripple-free precondition" pattern, extended to EXECUTE). Without this, a run could
+    register covering execution checkpoints, never author a PIV, skip ``validate_transition``, and
+    advance via ``handle_transition`` — the forced ``execute_exit`` gate only checks checkpoint
+    coverage, not the PIV the adaptive execute-evidence gate demands. Self-gating: only fires at
+    EXECUTE exit and only when the governed-execute marker (checkpoint-001) is present (bare /
+    ungoverned transitions return []); goal-driven runs are relaxed to the coherent checkpoint
+    manifest. Fail-closed: an unrunnable gate blocks. Lazy import (engines<->state cycle)."""
+    if from_phase != "execute":
+        return []
+    try:
+        from core import Heartgate
+
+        return Heartgate.load(str(workspace)).forced_execute_evidence_blockers(run_id)
+    except Exception as exc:  # fail-closed
+        return [f"FORCED_EXECUTE_EVIDENCE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+
+
 def handle_transition(args: dict[str, Any]) -> str:
     """Locked phase transition with validation + the phase-exit structural gate."""
     try:
@@ -395,6 +414,7 @@ def handle_transition(args: dict[str, Any]) -> str:
         # thereby starve the plan_exit coverage gate.
         gate_blockers = _run_transition_graph_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_proposal_coverage_gate(workspace, run_id, from_phase)
+        gate_blockers += _run_forced_execute_evidence_gate(workspace, run_id, from_phase)
         if gate_blockers:
             return json.dumps({
                 "error": "transition blocked by phase-exit structural gate",

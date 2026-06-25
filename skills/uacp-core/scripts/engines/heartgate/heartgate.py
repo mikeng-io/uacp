@@ -297,6 +297,49 @@ class Heartgate:
             ]
         return []
 
+    def forced_execute_evidence_blockers(self, run_id: str) -> list[str]:
+        """The ONE execute-evidence precondition that must hold on the FORCED transition path
+        (``state_machine.handle_transition`` EXECUTE->VERIFY), not only the agent-invoked
+        ``validate_transition`` — extending the "force a ripple-free precondition" pattern of
+        :meth:`forced_proposal_coverage_blockers` to the EXECUTE exit.
+
+        Why only this precondition, forced: the forced ``execute_exit`` structural gate enforces
+        checkpoint COVERAGE (checkpoints span the work units), but NOT that the standard-track
+        Phase-Intent-Verification (PIV) evidence artifact exists — so a run that registers covering
+        checkpoints but never authors a PIV can advance EXECUTE->VERIFY via ``handle_transition``,
+        skipping the PIV the agent-invoked ``validate_adaptive_execute_evidence_gate`` demands. This
+        forces JUST that PIV precondition. Forcing the gate's FULL artifact set (package dir,
+        offline validation) would demand every execution artifact on every transition — the bare
+        ripple the structural gate deliberately avoids (see
+        :meth:`forced_proposal_coverage_blockers`); requiring only the PIV closes the bypass with no
+        such ripple.
+
+        Self-gating is on the GOVERNED-EXECUTE marker (``executions/{run_id}-checkpoint-001.yaml``,
+        the standard-track first checkpoint): absent -> a bare/ungoverned EXECUTE->VERIFY (or a
+        goal-driven run, whose checkpoints live in a manifest, not this path) -> ``[]`` (no ripple).
+        Track relaxation is REPLICATED from the adaptive gate (ADR-0016): a GOAL-DRIVEN run is
+        satisfied by a coherent checkpoint manifest IN LIEU OF the PIV, so it delegates to the same
+        ``_validate_goal_driven_checkpoint_gate`` the agent path uses rather than demanding a PIV.
+        Fail-closed: once the marker is present, a missing or unparseable standard-track PIV BLOCKS.
+        """
+        checkpoint_rel = f"executions/{run_id}-checkpoint-001.yaml"
+        # Self-gate on the governed-execute marker — no checkpoint -> bare/ungoverned -> skip.
+        if not (self.governed_root / checkpoint_rel).exists():
+            return []
+        # Track relaxation (ADR-0016): goal-driven is satisfied by a coherent manifest, not a PIV.
+        if self._run_track(run_id) == "goal-driven":
+            blockers: list[str] = []
+            self._validate_goal_driven_checkpoint_gate(run_id, blockers)
+            return blockers
+        prefix = f"forced_execute_evidence[{run_id}]: governed execute (checkpoint registered), so"
+        piv_rel = f"plans/{run_id}-piv.yaml"
+        if not (self.governed_root / piv_rel).exists():
+            return [f"{prefix} a PIV ({piv_rel}) must be present before EXECUTE->VERIFY"]
+        doc = self._load_yaml_under_root(piv_rel, [], "forced_execute_evidence")
+        if not isinstance(doc, Mapping):
+            return [f"{prefix} the PIV ({piv_rel}) must parse as a mapping"]
+        return []
+
     def validate_transition_file(self, path: str | Path) -> HeartgateDecision:
         raw_path = Path(path)
         if not raw_path.is_absolute():
