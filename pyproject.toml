@@ -34,6 +34,10 @@ dev = [
 # minimal core (pydantic + pyyaml + jsonschema); install with `pip install -e ".[mcp]"`.
 mcp = [
     "mcp>=1.0",
+    # anyio is imported directly by the server (uacp_mcp_server.py); the mcp SDK
+    # also depends on it, but we declare it explicitly so it is never relied on as
+    # a transitive-only dep (and so the plugin manifest's drift guard requires it).
+    "anyio",
 ]
 # Optional heavy deps for the GATED Oracle real-model e2e
 # (tests/e2e/test_oracle_realmodel_e2e.py). Kept out of core `dependencies` so
