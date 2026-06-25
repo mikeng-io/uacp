@@ -171,29 +171,42 @@ governance artifacts **by RELATION-plane KIND** (`_is_governance_manifest`) — 
 `executions/patch.py` has no RELATION kind → still flagged. Regression test +
 non-vacuity proof in `tests/e2e/test_scope_conformance.py`.
 
-## Honest residual after Option B (UNCHANGED by this work — the broader item)
+## Residual #1 — coverage half now CLOSED on the forced path (session 3, follow-up)
 
-The Option-B enforcement lives in `validate_adaptive_proposal_package_gate`, which runs only on the
-**agent-invoked** `Heartgate.validate_transition`. `state_machine.handle_transition(propose→plan)` does
-NOT run it (`propose ∉ _GRAPH_GATED_PHASES`). So a run that advances using ONLY `handle_transition` and
-never calls `validate_transition` is never compelled to register its scope module → at `plan_exit` no
-scope_items project → a dropped intent escapes. This is **residual #1 above** (the package gates aren't
-forced — the broader "force `validate_transition`" concern), confirmed independently by cross-provider
-(kimi) + subagent review. It is NOT specific to coverage and was explicitly OUT of Option B's scope.
-Closing it = an initiative-level item (force the Heartgate gate onto the live transition path, or have
-the forced graph gate refuse to advance a package-selection run whose scope concern references an
-unregistered artifact — the latter couples the state machine to the package format, so the former is
-preferred). NOT done here; do not overclaim Option B as closing it.
+Originally: the Option-B enforcement lived only in `validate_adaptive_proposal_package_gate`
+(**agent-invoked** `validate_transition`); `handle_transition(propose→plan)` did not run it, so a run
+that advances using ONLY `handle_transition` and never calls `validate_transition` was never compelled
+to register its scope module → at `plan_exit` no scope_items projected → a dropped intent escaped.
+Confirmed independently by cross-provider (kimi) + subagent review.
+
+**Closed (coverage half).** `Heartgate.forced_proposal_coverage_blockers(run_id)` + the state-machine
+wiring `_run_forced_proposal_coverage_gate` now force JUST the registration precondition onto
+`handle_transition(propose→plan)`: if a package-selection envelope declares a `covered` keyed scope
+module, that module MUST be registered in `manifest.artifacts`, else the live transition is blocked
+(fail-closed). It self-gates on package-envelope presence, so bare/ungoverned transitions are
+untouched (no ripple). With registration compelled on the live path, the forced `plan_exit`
+`GP_UNCOVERED_INTENT` then binds even for an agent that skips `uacp_heartgate_check`. Proven:
+`tests/e2e/test_package_selection_coverage_binding.py::test_forced_propose_plan_blocks_unregistered_keyed_scope`
+(+ a bare-transition self-gate test; non-vacuity verified by disabling the wiring).
+
+**Still open (separate, broader kernel item — NOT verification-method's coverage concern):** forcing the
+FULL adaptive package/evidence gates (proposal/plan/execute/verify/resolve) onto `handle_transition`. We
+deliberately forced ONLY the coverage precondition, because forcing the whole gate would demand every
+package artifact on every transition (the bare-transition ripple the structural gate avoids). The
+fully-general "force `validate_transition`" is a kernel-architecture initiative item; do not conflate it
+with the coverage close.
 
 ## Done / residual ledger
 
 - DONE: D43 producer-serialization (session 2); coverage binds on the governed entity-write path
   (auto-register); Option B registration enforcement + package-selection forced-path binding +
-  lifecycle cascade (session 3); SC governance-by-kind exemption (containment-safe).
-- RESIDUAL (separable, initiative-level): force `validate_transition` onto `handle_transition` so the
-  proposal-gate registration requirement is not bypassable (residual #1). Plus the earlier session-2
-  blind spots: transition-time `derives_from` referential check (deferred — redundant with
-  `GP_PHANTOM_EDGE`); topology-only gate is gameable (council/semantic scope).
+  lifecycle cascade (session 3); SC governance-by-kind exemption (containment-safe); residual #1
+  COVERAGE HALF — the forced PROPOSE→PLAN registration precondition (`forced_proposal_coverage_blockers`)
+  so the bypass-by-skipping-`validate_transition` no longer starves the plan_exit coverage gate.
+- RESIDUAL (separable, broader kernel-architecture item): force the FULL adaptive package/evidence
+  gates onto `handle_transition` (we forced only the coverage precondition, to avoid the bare-transition
+  ripple). Plus the earlier session-2 blind spots: transition-time `derives_from` referential check
+  (deferred — redundant with `GP_PHANTOM_EDGE`); topology-only gate is gameable (council/semantic scope).
 
 ---
 

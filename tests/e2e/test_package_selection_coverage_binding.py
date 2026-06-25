@@ -26,12 +26,12 @@ regardless of how they were registered; what Option B adds is COMPELLING the
 package-selection producer to register at the proposal gate, so a COMPLIANT run (one that
 exits PROPOSE through ``validate_transition``) can no longer skip coverage.
 
-BOUNDARY (node 15 residual #1, UNCHANGED by Option B): the registration requirement lives in
-the agent-invoked ``validate_transition`` proposal gate, NOT the forced
-``state_machine.handle_transition(propose->plan)`` (propose is not graph-gated). A run that
-advances using ONLY ``handle_transition`` and never calls ``validate_transition`` is never
-compelled to register, projects no scope_items, and escapes coverage. Closing that is the
-separate, initiative-level "force ``validate_transition``" item — not in Option B's scope.
+RESIDUAL #1 (coverage half) — CLOSED on the forced path: the registration requirement also
+runs on ``state_machine.handle_transition(propose->plan)`` now, via the forced precondition
+``Heartgate.forced_proposal_coverage_blockers`` (see the two ``test_forced_propose_plan_*``
+cases below). So an agent that skips ``validate_transition`` can no longer leave the keyed
+scope module unregistered and starve the plan_exit coverage gate. Forcing the FULL adaptive
+package/evidence gates onto the live path remains a separate, broader kernel item.
 """
 
 from __future__ import annotations
