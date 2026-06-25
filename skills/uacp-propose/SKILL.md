@@ -14,6 +14,7 @@ who authorized it, what changes are in scope, and what side effects are declared
 
 ## Read first
 - `UACP_ROOT/config/evidence-clusters.yaml`
+- `UACP_ROOT/skills/uacp-core/references/generative-gate-authoring.md` (the producer contract — how to author the frozen `uacp.check.*` checks per scope_item)
 
 ## Rules
 - Capture authority, scope, side effects, and containment explicitly.
@@ -71,6 +72,16 @@ who authorized it, what changes are in scope, and what side effects are declared
   (name: `<proposal-id>-gate-selection.yaml`)
 - reference to originating triage artifact
 - for medium/high consequence work: adaptive proposal package under `proposals/{run_id}/`
+
+## Author the frozen verification checks (generative gate)
+PROPOSE owns the **scope_items** (the keyed intents written above). For each one, `uacp_entity_write`
+ONE `uacp.check.field_present` proving the intent is concretely stated, with `from.target` = the
+scope_item id (the `measured_by` edge) and `severity: block`. Record what PLAN must eventually prove
+as the check's `from.basis` (a forward-reference) — do NOT stamp a strong `from.class` (e.g.
+`wires_symbol`) on this presence-check: the floor binds the WORK's class at PLAN, and a strong class
+here would trip `CHK_FLOOR_UNMET`. This makes PROPOSE→PLAN→VERIFY a coverage chain a break in which is
+caught. Full contract: `UACP_ROOT/skills/uacp-core/references/generative-gate-authoring.md`; the
+class→required-kind floor is authoritative in `UACP_ROOT/config/verification-floor.yaml`.
 
 ## Adaptive proposal package requirement
 
