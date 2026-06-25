@@ -39,6 +39,9 @@ For each target the phase owns:
 
 ## The closed catalog (SELECT from these — authority: the schema + layout registries)
 
+These five are the kinds you can author today (they match `layout.CHECK_KINDS` /
+`schema._CHECK_SUBKINDS` — the entity-writer rejects any other kind at validate-on-write):
+
 | kind | proves | binds against |
 |---|---|---|
 | `uacp.check.field_present` | a field/section is concretely present & non-empty | an artifact `ref` |
@@ -46,21 +49,28 @@ For each target the phase owns:
 | `uacp.check.edge_exists` | a required coverage/topology edge exists | the projected graph |
 | `uacp.check.obligation_satisfied` | an evidence obligation has a passing assessment, no uncleared block | the projected graph |
 | `uacp.check.artifact_integrity` | an artifact is unchanged since its watermark | the watermark index |
-| `uacp.check.symbol_resolves` ·  `uacp.check.behavioral` | (code/behavior plane) a symbol resolves / a behavior holds | the code plane — **blocks until wired** |
 
-A `wires_symbol` / `changes_behavior` target requires a code/behavior-plane kind that is **not yet
-authorable** — such a target correctly **blocks until that plane is wired**, rather than closing on
-a weak proxy. Do not down-classify it to dodge that (the class-entailment check reads your intent
-text and blocks an underclaim).
+**Not yet authorable (do NOT select these):** the floor names `uacp.check.symbol_resolves` (for
+`wires_symbol`) and `uacp.check.behavioral` (for `changes_behavior`), but they are **code/behavior-plane
+kinds that do not exist in the catalog yet** (slice 3). A target of class `wires_symbol`/`changes_behavior`
+therefore has **no authorable check that satisfies its floor** and correctly **blocks until that plane
+is wired**, rather than closing on a weak proxy. Do **not** down-classify such a target to dodge that —
+the class-entailment check (`CHK_CLASS_UNDERCLAIM`) reads your intent text and blocks an underclaim.
 
 ## Per-phase synthesis (what each phase authors)
 
 | phase | targets | typically authors | binds against |
 |---|---|---|---|
-| **PROPOSE** | each `scope_item` (intent) | `field_present` that the intent is concretely stated + an intent-class basis naming what PLAN must prove | the proposal graph |
-| **PLAN** | each `work_unit` | the class-required kind: `field_equals` (set), `obligation_satisfied` (ensure), `edge_exists` (required coverage), `symbol_resolves` (wire — code plane) | graph + (later) code |
+| **PROPOSE** | each `scope_item` (intent) | one `field_present` that the intent is concretely stated; record what PLAN must prove as its `from.basis` (a forward-reference) | the proposal artifact (`ref`) |
+| **PLAN** | each `work_unit` | the floor-required kind for its class — `field_equals` (set), `obligation_satisfied` (ensure), `symbol_resolves` (wire — code plane); plus `edge_exists` where coverage topology must hold (author-judgment, not floor-required) | artifact / graph (+ later code) |
 | **EXECUTE** | — | **nothing** — EXECUTE produces the *evidence* the VERIFY checks bind to; it does not author checks | — |
-| **VERIFY** | each obligation / done-claim | `obligation_satisfied`, `artifact_integrity`, and (later) `behavioral` — the reality-binding pass | artifact + (later) behavior |
+| **VERIFY** | each obligation / done-claim | `obligation_satisfied` (graph), `artifact_integrity` (watermark), and (later) `behavioral` — the reality-binding pass | graph / watermark (+ later behavior) |
+
+> **PROPOSE and `from.class`:** a PROPOSE `field_present` proves only *"the intent is stated"* — do
+> NOT stamp it with a strong `from.class` (e.g. `wires_symbol`). The floor binds the class of the
+> WORK at PLAN/VERIFY; a strong class on a PROPOSE presence-check would trip `CHK_FLOOR_UNMET` (its
+> floor kind isn't `field_present`). Carry the intent's eventual class as `from.basis` prose (what
+> PLAN must prove), not as a floor-triggering `from.class`.
 
 The PROPOSE→PLAN→VERIFY chain is itself a coverage chain: a PROPOSE intent-class basis names what
 PLAN must prove; PLAN binds it to a symbol/field; VERIFY binds it to evidence. A break anywhere is

@@ -4,7 +4,9 @@ The generative-gate-authoring contract (skills/uacp-core/references/generative-g
 wired into uacp-propose/uacp-plan/uacp-verify) says: each phase authors a uacp.check.* per target
 via the governed writer, and the kernel then sees it. This proves that producer path reaches the
 FORCED verify_exit gate — a target whose check was authored via `create_entity` satisfies coverage;
-a target left unchecked is blocked (`GP_UNCHECKED_TARGET`). This is the producer side of node 34.
+a target left unchecked is blocked (`GP_UNCHECKED_TARGET`). Scope: the producer side of node 34
+**Layer 1 (structural coverage)** only — the floor (CHK_FLOOR_UNMET) and class entailment
+(CHK_CLASS_UNDERCLAIM) have their own unit tests; this exercises the authoring->coverage path.
 """
 
 from __future__ import annotations
@@ -94,7 +96,7 @@ def test_authored_checks_satisfy_coverage_at_verify_exit(temp_uacp_root: Path):
 
 
 def test_unchecked_target_is_blocked_at_verify_exit(temp_uacp_root: Path):
-    # the producer side of node 34: a target whose phase did NOT author a check is blocked.
+    # the producer side of node 34 Layer 1: a target whose phase did NOT author a check is blocked.
     run_id = "uacp-gen-2"
     _init(temp_uacp_root, run_id)
     _seed_targets(temp_uacp_root, run_id)
