@@ -23,7 +23,7 @@ Bridges are reference adapters — they define how to dispatch tasks to specific
 
 Each runtime adapter spec lives in this skill's `references/` directory:
 
-- `references/claude.md`, `references/codex.md`, `references/gemini.md`, `references/kimi.md`, `references/opencode.md` — per-runtime dispatch specs.
+- `references/claude.md`, `references/codex.md`, `references/gemini.md`, `references/kimi.md`, `references/opencode.md`, `references/reasonix.md`, `references/hermes.md` — per-runtime dispatch specs.
 - `references/kimi-codex-agent-council-audit-loop.md` — **read when** Mike asks for both Kimi Code and Codex to review UACP changes: the prompt skeleton, Kimi coding-model invocation, command-level timeouts, and contamination checks for running them as a bounded read-only Agent Council audit loop.
 
 ### Sub-agent dispatch primitive per runtime
@@ -40,6 +40,7 @@ Orchestration skills (e.g. `uacp-debate`, `uacp-council`) describe dispatch in *
 | Kimi | sub-agent / "core agent" (Agent tool) | Swarm |
 | Codex | native multi-agent dispatch (one sub-agent per domain) | — |
 | Gemini / OpenCode | native subagent dispatch | — |
+| Reasonix | sub-agent (`task` / `review` subagent) | — |
 
 Detect the available primitive by tool availability; fall back to native sub-agent dispatch (and then to CLI re-prompting) when a shared live session is not offered.
 
@@ -126,7 +127,7 @@ Once the tier is known, the bridge resolves the actual model from `config/uacp.t
 
 **Model validation:** During availability checks, if a resolved model alias cannot be mapped to a provider-known model ID, emit a warning and continue with the provider's default model. Record the warning in `model_validation_warnings`.
 
-**OpenCode exception:** OpenCode is multi-provider and user-configured. It is intentionally absent from `config/uacp.toml` `[models]`. OpenCode discovers its own model from local config (`opencode config get model`, `opencode auth list`). UACP does not select or validate OpenCode models.
+**Multi-provider exception (OpenCode, Hermes):** Some bridges are provider-agnostic and user-configured, so they are intentionally absent from `config/uacp.toml` `[models]` (no `[models.tier_mappings.{bridge}]`). OpenCode discovers its own model from local config (`opencode config get model`, `opencode auth list`). Hermes (hermes-agent) resolves its model from its own config or an optional `[bridges.hermes].model` override. UACP does not select or validate these bridges' models.
 
 ---
 
@@ -153,7 +154,19 @@ Apply any bridge-specific multiplier on top (e.g., OpenCode applies 1.5× for pr
 final_timeout = base_timeout × intensity_multiplier × bridge_multiplier
 ```
 
-Wrap every CLI invocation with `timeout {final_timeout}` or equivalent.
+Wrap every CLI invocation with a timeout. **`timeout` is not portable** — it is absent on macOS by default (where it ships as `gtimeout` via coreutils, if at all). Resolve the wrapper once and reuse it:
+
+```bash
+# OS-portable timeout: prefer timeout, then gtimeout, else a perl alarm shim
+TO=$(command -v timeout || command -v gtimeout)
+run_to() {  # run_to <seconds> <cmd...>
+  local secs="$1"; shift
+  if [ -n "$TO" ]; then "$TO" "$secs" "$@"; else perl -e 'alarm shift; exec @ARGV or die' "$secs" "$@"; fi
+}
+# usage: run_to {final_timeout} <bridge CLI invocation>
+```
+
+Bridges MUST NOT assume a bare `timeout` binary exists. Exit code `124` (timeout) handling is unchanged.
 
 ---
 
@@ -213,6 +226,27 @@ Bridges MUST follow this process:
 4. Record the resolved profile in the bridge output
 
 Bridges MUST NOT treat runtime-specific controls as global policy. Values such as CLI permission flags, sandbox modes, agent names, or tool allowlists are implementation details of the selected bridge and must be chosen through this shared profile rather than hardcoded as the only execution mode.
+
+### Review Containment (`capability_profile: inspect`)
+
+A reviewer that can mutate state during a review is a containment breach — and a shelled-out CLI bridge runs **outside** the Guardian PreToolUse hook (the Guardian intercepts the *host runtime's* tool calls, not a child process's own filesystem I/O). So read-only for `inspect` is **not** guaranteed by the kernel; it MUST be enforced at a boundary UACP owns, **fail-closed**.
+
+For every `inspect` task type, a bridge MUST run under at least the configured minimum containment tier (`[bridges.defaults].inspect_containment`, default `worktree`) and record `read_only_enforcement` in its output. If it cannot meet the minimum → return **SKIPPED** (`skip_reason: "cannot guarantee read-only containment"`). Never resolve `inspect` to a write-capable, uncontained invocation.
+
+**Containment ladder** (escalate by how little the tool can be trusted):
+
+| Tier | Mechanism | Protects against | `read_only_enforcement` |
+|------|-----------|------------------|--------------------------|
+| 1 | Tool-native read-only mode — codex `--sandbox read-only`, claude `--allowedTools`, gemini/opencode/kimi plan mode, reasonix `review` | the tool's own writes, *if it honors the mode* | `tool-mode` |
+| 2 | **Ephemeral worktree** — orchestrator provisions a disposable copy of the scope (see `docs/lifecycle/worktree-protocol.md`), points the bridge at it, discards after | repo mutation, regardless of tool behavior | `worktree` |
+| 3 | Container / OS sandbox — read-only repo mount + network egress allowlist (deferred) | host FS, network exfil, **unauthorized providers** | `container` |
+
+**Current requirement (MVP): Tier 1 AND Tier 2.** The orchestrator provisions an ephemeral worktree and passes its path as the bridge's working directory (`--dir` / `--cd` / cwd); the bridge additionally selects its strongest available read-only mode. A bridge whose Tier-1 mode is **not verifiable** (e.g. reasonix `run`, hermes toolset gating) relies on Tier 2 as the floor and MUST declare `read_only_enforcement: worktree`. If no worktree is provided **and** no read-only mode is verifiable → SKIP.
+
+- **Orchestrator responsibility:** provision/teardown the ephemeral worktree; **never run a reviewer against the live working tree.**
+- **Bridge responsibility:** select the read-only mode, run against the provided worktree path, declare `read_only_enforcement`.
+
+Tier 3 (container + egress allowlist) is the planned hardening for untrusted/soft-tier bridges; it also closes the provider-authorization gap (a reviewer cannot reach an unapproved model if egress is allowlisted).
 
 ### Council Capability Profile
 
@@ -340,12 +374,13 @@ Apply only when `task_type` is `review`, `analysis`, or `audit`. Set `null` for 
 
 ```json
 {
-  "bridge": "claude | gemini | codex | opencode | kimi",
-  "model_family": "anthropic/claude | google/gemini | openai/codex | multi-provider | moonshot/kimi",
+  "bridge": "claude | gemini | codex | opencode | kimi | reasonix | hermes",
+  "model_family": "anthropic/claude | google/gemini | openai/codex | multi-provider | moonshot/kimi | deepseek/reasonix",
   "connection_used": "native-dispatch | cli | api | http-api | mcp | acp-server",
   "session_id": "...",
   "task_type": "review | planning | implementation | analysis | research",
   "capability_profile": "inspect | modify",
+  "read_only_enforcement": "tool-mode | worktree | container | none",
   "tier": 2,
   "resolved_model": "<resolved from registry>",
   "resolved_reasoning": "high",
@@ -384,7 +419,7 @@ Apply only when `task_type` is `review`, `analysis`, or `audit`. Set `null` for 
 }
 ```
 
-**Output ID prefixes:** `C` (claude), `G` (gemini), `X` (codex), `O` (opencode), `K` (kimi).
+**Output ID prefixes:** `C` (claude), `G` (gemini), `X` (codex), `O` (opencode), `K` (kimi), `R` (reasonix), `H` (hermes).
 
 Status placement rules:
 - confirmed: appears in `outputs` array
@@ -603,6 +638,9 @@ Since non-Claude bridges lack async messaging, context flows **explicitly** — 
 | Codex (CLI) | No session state | New `codex exec` with embedded context |
 | Gemini (subagents) | No cross-call state | New `gemini -p` call with embedded context |
 | Kimi (CLI) | No session state | New `kimi -p` call with embedded context |
+| Reasonix (CLI) | Sessions persist (`--continue`/`--resume`) | Embed context in new `reasonix run`, or reuse session via `--resume` |
+| Hermes (native-dispatch) | Parent agent / Swarm holds state | Re-`delegate_task` Round N with context packet |
+| Hermes (CLI/ACP) | No session state | New `run_agent.py` call with embedded context |
 | Claude (Task tool) | Parent agent holds all state | Spawn Round 2 sub-agents with context from parent |
 | Claude (Agent Teams) | Teammates use SendMessage | Superseded by debate-protocol |
 | Claude (Workflows) | Parent workflow orchestrates | Context passed via workflow state |
@@ -740,7 +778,7 @@ agent-council
       Output: confirmed / downgraded / disputed / withdrawn / integration findings
 ```
 
-**Why the asymmetry exists:** bridge-claude has native sub-agent dispatch (Task tool, Agent Teams, Workflows) — it can run truly parallel, async-communicating agents. CLI bridges (gemini, codex, opencode, kimi) are single-process invocations — they can only achieve multi-round analysis through sequential re-prompting, which is the Post-Analysis Protocol.
+**Why the asymmetry exists:** bridge-claude has native sub-agent dispatch (Task tool, Agent Teams, Workflows) — it can run truly parallel, async-communicating agents. CLI bridges (gemini, codex, opencode, kimi, reasonix, and hermes in CLI/ACP mode) are single-process invocations — they can only achieve multi-round analysis through sequential re-prompting, which is the Post-Analysis Protocol. (Hermes in native-dispatch mode is the exception — its Swarm/`delegate_task` gives it richer Layer-2 analysis closer to bridge-claude.)
 
 **Multi-model opencode fills the gap:** With 2+ models configured in `config/uacp.toml`, bridge-opencode spawns one invocation per model in parallel — each model produces independent findings, and a mini-synthesis deduplicates and elevates multi-model-confirmed findings. This gives bridge-opencode a Layer 2 that is closer in depth to bridge-claude, without requiring native sub-agent dispatch.
 
