@@ -10,6 +10,7 @@ this module re-exports its public validators so existing importers
 from __future__ import annotations
 
 from engines.manifest.projection import (
+    investigation_status,
     validate_check_floor,
     validate_check_replay,
     validate_class_underclaim,
@@ -18,6 +19,7 @@ from engines.manifest.projection import (
 )
 
 __all__ = [
+    "investigation_status",
     "validate_check_floor",
     "validate_check_replay",
     "validate_class_underclaim",

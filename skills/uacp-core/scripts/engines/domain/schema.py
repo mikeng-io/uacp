@@ -582,6 +582,27 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "closed_scope": {"type": "array", "minItems": 1},
         },
     },
+    # uacp.investigation_entry (capsule #3 node 13): one move in the verify loop. The move enum +
+    # the fail-closed verdict enum are the load-bearing constraints (unknown move/verdict rejected
+    # at write); the projection reads the entry dict (no parallel typed model).
+    "uacp.investigation_entry": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": ["kind", "run_id", "entry_id", "phase", "move"],
+        "properties": {
+            "kind": {"const": "uacp.investigation_entry"},
+            "run_id": {"type": "string", "minLength": 1},
+            "entry_id": {"type": "string", "minLength": 1},
+            "phase": {"type": "string", "minLength": 1},
+            "move": {
+                "enum": ["enumerate", "route", "bind", "run", "reconcile", "revise", "escalate"]
+            },
+            "verdict": {"enum": ["pass", "fail", "error"]},
+            "target": {"type": "string"},
+            "check_ref": {"type": "string"},
+            "supersedes": {"type": "string"},
+        },
+    },
 }
 
 # uacp.check.* — frozen generative-gate checks (capsule #3, slice 0c). Open-world (like the
