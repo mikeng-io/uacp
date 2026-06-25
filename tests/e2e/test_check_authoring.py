@@ -98,6 +98,33 @@ def test_governed_check_severity_must_be_block(tmp_path):
     assert "error" in res and "validate-on-write rejected" in res["error"], res
 
 
+def test_from_class_vocabulary_matches_the_floor():
+    # The class enum is duplicated (schema leaf-copy vs verification_floor.CLASSES). Pin them equal
+    # so the authoring vocabulary and the floor table cannot drift (slice 2 / node 34 L2).
+    from engines.domain import verification_floor
+
+    assert tuple(schema._TARGET_CLASSES) == tuple(verification_floor.CLASSES)
+
+
+def test_governed_check_rejects_unknown_from_class(tmp_path):
+    # from.class is a CLOSED vocabulary (the floor keys). An unknown class is rejected at write.
+    run_id = "uacp-auth-5"
+    _init(tmp_path, run_id)
+    fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
+    fields["from"]["class"] = "not_a_real_class"
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert "error" in res and "validate-on-write rejected" in res["error"], res
+
+
+def test_governed_check_accepts_valid_from_class(tmp_path):
+    run_id = "uacp-auth-6"
+    _init(tmp_path, run_id)
+    fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
+    fields["from"]["class"] = "sets_value"
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert res.get("ok") is True, res
+
+
 def test_field_equals_requires_expect(tmp_path):
     # mimo MINOR #3: a field_equals with no `expect` always FAILs at replay (exp = _MISSING).
     # Reject it at write time instead — a field_equals must declare what value it expects.

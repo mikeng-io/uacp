@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 
 from engines.graph_projection import (
+    validate_check_floor,
     validate_graph_invariants,
     validate_graph_projection,
 )
@@ -560,6 +561,70 @@ def test_known_l1_gap_irrelevant_binding_passes_today(tmp_path):
     codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
     assert "GP_UNCHECKED_TARGET" not in codes  # both targets NAMED -> coverage satisfied
     assert not any(c.startswith("CHK_") for c in codes)  # irrelevant-but-present -> replay passes
+
+
+# ------------------------------------------- the required-kinds FLOOR (L2, slice 2)
+# CHK_FLOOR_UNMET (design node 34 Layer 2): a target whose checks declare class X must carry
+# >=1 check of a floor[X]-required kind. Closes the weakness coverage can't — a present-but-weak
+# check (field_present on a "wire up X" target). The floor self-limits to DECLARED classes; an
+# undeclared class places no floor requirement (that omission is Layer 2b's content cross-check).
+
+
+def _class_check(check_id: str, target: str, cls: str, kind: str) -> dict:
+    return {
+        "kind": kind,
+        "id": check_id,
+        "from": {"target": target, "class": cls, "basis": f"{target} is {cls}"},
+        "bind": {"plane": "artifact", "ref": {"artifact": "plans/p.yaml", "path": "kind"}},
+        "expect": {"value": "uacp.plan"},
+        "severity": "block",
+    }
+
+
+def test_floor_unmet_when_class_demands_a_stronger_kind(tmp_path):
+    # wu-1's check declares class `sets_value` (floor: field_equals) but is a field_present -> unmet.
+    ws = _checked_run(
+        tmp_path,
+        checks=[_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_present")],
+    )
+    vs = validate_check_floor(ws, "r")
+    unmet = [v.detail.get("target") for v in vs if v.code == "CHK_FLOOR_UNMET"]
+    assert unmet == ["wu-1"], [v.code for v in vs]
+    assert all(v.severity == "block" for v in vs if v.code == "CHK_FLOOR_UNMET")
+
+
+def test_floor_met_non_vacuously(tmp_path):
+    # break: sets_value target carries only field_present -> unmet; fix: a field_equals -> silent.
+    broken = validate_check_floor(
+        _checked_run(
+            tmp_path / "bad",
+            checks=[_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_present")],
+        ),
+        "r",
+    )
+    assert any(v.code == "CHK_FLOOR_UNMET" for v in broken)
+    ok = _checked_run(
+        tmp_path / "ok",
+        checks=[_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_FLOOR_UNMET" not in _codes_set(validate_check_floor(ok, "r"))
+
+
+def test_floor_code_plane_class_blocks_until_wired(tmp_path):
+    # a `wires_symbol` target requires uacp.check.symbol_resolves (code plane, not yet authorable),
+    # so NO present check satisfies it -> CHK_FLOOR_UNMET, by design (block-until-wired, node 32).
+    ws = _checked_run(
+        tmp_path,
+        checks=[_class_check("chk-1", "wu-1", "wires_symbol", "uacp.check.field_equals")],
+    )
+    assert "CHK_FLOOR_UNMET" in _codes_set(validate_check_floor(ws, "r"))
+
+
+def test_floor_undeclared_class_places_no_requirement(tmp_path):
+    # a check with NO from.class -> the floor self-limits (omission is Layer 2b's concern), so a
+    # field_present check on wu-1 with no declared class does NOT fire CHK_FLOOR_UNMET.
+    ws = _checked_run(tmp_path, checks=[_check("chk-1", "wu-1")])  # _check sets no class
+    assert "CHK_FLOOR_UNMET" not in _codes_set(validate_check_floor(ws, "r"))
 
 
 def test_check_coverage_is_a_terminal_closure_backstop(tmp_path):

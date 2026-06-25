@@ -10,11 +10,15 @@ this module re-exports its public validators so existing importers
 from __future__ import annotations
 
 from engines.manifest.projection import (
+    validate_check_floor,
+    validate_check_replay,
     validate_graph_invariants,
     validate_graph_projection,
 )
 
 __all__ = [
+    "validate_check_floor",
+    "validate_check_replay",
     "validate_graph_invariants",
     "validate_graph_projection",
 ]
