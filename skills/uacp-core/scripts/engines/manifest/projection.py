@@ -525,13 +525,48 @@ def _read_path(doc: dict, path: str) -> Any:
     return cur
 
 
+def _obligation_satisfied(oid: str, nodes: dict) -> tuple[str, str]:
+    """Graph-plane: is evidence_obligation ``oid`` satisfied in the projected manifest? PASS iff a
+    passing assessment binds to it AND it has no UNCLEARED block evidence — the same node semantics
+    `_check_unverified`/`_check_contradicted` use, so the frozen check and the structural gates
+    agree. ERROR (fail-closed, #503 class A) when ``oid`` resolves to no obligation node — an
+    unresolvable bind is never a silent pass."""
+    if not oid or not any(
+        n.get("kind") == "evidence_obligation" and n["id"] == oid for n in nodes.values()
+    ):
+        return ("ERROR", f"obligation {oid!r} not found in manifest graph (unresolvable bind)")
+    passing = any(
+        n.get("kind") == "assessment"
+        and n.get("obligation_id") == oid
+        and n.get("result") == "pass"
+        for n in nodes.values()
+    )
+    ev = [
+        n
+        for n in nodes.values()
+        if n.get("kind") == "evidence" and n.get("obligation_id") == oid
+    ]
+    has_block = any(n.get("result") == "block" for n in ev)
+    cleared = any(n.get("result") == "pass" and n.get("remediation") for n in ev)
+    if passing and not (has_block and not cleared):
+        return ("PASS", "")
+    return (
+        "FAIL",
+        f"obligation {oid} not satisfied (passing_assessment={passing}, "
+        f"uncleared_block={has_block and not cleared})",
+    )
+
+
 def _evaluate_check(
-    root: Path, kind: str, bind: dict, expect: Any, edge_set: set
+    root: Path, kind: str, bind: dict, expect: Any, edge_set: set, nodes: dict
 ) -> tuple[str, str]:
     """Return (PASS|FAIL|ERROR, detail) for one frozen check. Pure: data vs data."""
     if kind == "uacp.check.edge_exists":
         triple = (str(bind.get("src")), str(bind.get("rel")), str(bind.get("dst")))
         return ("PASS", "") if triple in edge_set else ("FAIL", f"edge {triple} absent")
+
+    if kind == "uacp.check.obligation_satisfied":
+        return _obligation_satisfied(str(bind.get("obligation_id") or ""), nodes)
 
     if kind in (
         "uacp.check.field_equals",
@@ -581,7 +616,7 @@ def validate_check_replay(workspace: str | Path, run_id: str) -> list[Violation]
         kind = str(n.get("check_kind") or "")
         bind = n.get("bind") if isinstance(n.get("bind"), dict) else {}
         try:
-            status, detail = _evaluate_check(root, kind, bind, n.get("expect"), edge_set)
+            status, detail = _evaluate_check(root, kind, bind, n.get("expect"), edge_set, nodes)
         except Exception as exc:  # any evaluator raise is an ERROR (block), never a pass
             status, detail = "ERROR", f"{type(exc).__name__}: {exc}"
         if status in ("FAIL", "ERROR"):

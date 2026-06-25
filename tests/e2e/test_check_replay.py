@@ -104,6 +104,87 @@ def test_dangling_bind_is_error_block_not_pass(temp_uacp_root: Path):
     ), violations
 
 
+def _obl_run(root: Path, run_id: str, *, assessment_state: str, checkpoint_result: str) -> None:
+    """A run whose work_unit wu-1 carries obligation ev-1, an EXECUTE checkpoint, and a
+    VERIFY assessment — the substrate an `obligation_satisfied` check reads from the graph."""
+    _init(root, run_id)
+    _write(
+        root,
+        f"proposals/{run_id}-proposal.yaml",
+        {"kind": "uacp.proposal", "scope": {"in_scope": [{"id": "si-1", "statement": "x"}]}},
+    )
+    _write(
+        root,
+        f"plans/{run_id}-piv.yaml",
+        {
+            "kind": "uacp.phase_intent_verification_contract",
+            "work_units": [{"id": "wu-1", "intent": "x", "derives_from": ["si-1"]}],
+            "evidence_obligations": [{"id": "ev-1", "work_unit_id": "wu-1"}],
+        },
+    )
+    _write(
+        root,
+        f"executions/{run_id}-cp-1.yaml",
+        {
+            "kind": "uacp.execution_checkpoint",
+            "checkpoint_id": "cp-1",
+            "work_unit_id": "wu-1",
+            "checkpoint_type": "after_work_unit",
+            "evidence": [{"obligation_id": "ev-1", "result": checkpoint_result, "summary": "x"}],
+        },
+    )
+    _write(
+        root,
+        f"verification/{run_id}-assessment.yaml",
+        {
+            "kind": "uacp.piv_assessment",
+            "assessments": [{"id": "as-1", "obligation_id": "ev-1", "state": assessment_state}],
+        },
+    )
+    _register(root, run_id, "proposal", f"proposals/{run_id}-proposal.yaml")
+    _register(root, run_id, "piv", f"plans/{run_id}-piv.yaml")
+    _register(root, run_id, "checkpoint", f"executions/{run_id}-cp-1.yaml")
+    _register(root, run_id, "assessment", f"verification/{run_id}-assessment.yaml")
+
+
+def _obl_check(obligation_id: str) -> dict:
+    return {
+        "kind": "uacp.check.obligation_satisfied",
+        "id": "chk-obl",
+        "from": {"target": "wu-1", "basis": f"obligation {obligation_id} is satisfied"},
+        "bind": {"plane": "graph", "obligation_id": obligation_id},
+        "severity": "block",
+    }
+
+
+def test_obligation_satisfied_passes_when_obligation_verified(temp_uacp_root: Path):
+    run_id = "uacp-obl-1"
+    _obl_run(temp_uacp_root, run_id, assessment_state="pass", checkpoint_result="pass")
+    _write(temp_uacp_root, f"verification/{run_id}-chk-obl.yaml", _obl_check("ev-1"))
+    _register(temp_uacp_root, run_id, "check_obl", f"verification/{run_id}-chk-obl.yaml")
+    assert "CHK_OBLIGATION_SATISFIED" not in _codes(temp_uacp_root, run_id)
+
+
+def test_obligation_satisfied_fails_when_unverified_or_blocked(temp_uacp_root: Path):
+    # no passing assessment -> FAIL
+    run_id = "uacp-obl-2"
+    _obl_run(temp_uacp_root, run_id, assessment_state="block", checkpoint_result="pass")
+    _write(temp_uacp_root, f"verification/{run_id}-chk-obl.yaml", _obl_check("ev-1"))
+    _register(temp_uacp_root, run_id, "check_obl", f"verification/{run_id}-chk-obl.yaml")
+    assert "CHK_OBLIGATION_SATISFIED" in _codes(temp_uacp_root, run_id)
+
+
+def test_obligation_satisfied_unresolvable_bind_is_error_block(temp_uacp_root: Path):
+    # #503 class A: a check bound to an obligation that does NOT exist is ERROR (block),
+    # never a silent pass — even though the run is otherwise fully verified.
+    run_id = "uacp-obl-3"
+    _obl_run(temp_uacp_root, run_id, assessment_state="pass", checkpoint_result="pass")
+    _write(temp_uacp_root, f"verification/{run_id}-chk-obl.yaml", _obl_check("ev-NOPE"))
+    _register(temp_uacp_root, run_id, "check_obl", f"verification/{run_id}-chk-obl.yaml")
+    vs = validate_check_replay(str(temp_uacp_root), run_id)
+    assert any(v.code == "CHK_OBLIGATION_SATISFIED" and v.severity == "block" for v in vs), vs
+
+
 def test_edge_exists_graph_plane(temp_uacp_root: Path):
     """A graph-plane check binds to the projected manifest graph (no artifact load)."""
     run_id = "uacp-chk-4"

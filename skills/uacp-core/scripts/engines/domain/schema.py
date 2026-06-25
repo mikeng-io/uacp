@@ -584,6 +584,45 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     },
 }
 
+# uacp.check.* — frozen generative-gate checks (capsule #3, slice 0c). Open-world (like the
+# other document kinds): enforce the COMMON authoring contract every catalog kind shares — a
+# check must declare WHAT it measures (`from.target`) and HOW (`bind`) — plus the writer-injected
+# `kind`/`run_id` consts. Bind RESOLVABILITY (does the artifact/edge/obligation exist?) is the
+# replay engine's fail-closed concern (ERROR on an unresolvable bind, #503 class A), deliberately
+# NOT duplicated here. The catalog tuple is local to keep this module a stdlib+jsonschema leaf; a
+# registry-parity test pins it to layout.CHECK_KINDS so the two cannot drift.
+_CHECK_SUBKINDS = (
+    "field_equals",
+    "field_present",
+    "edge_exists",
+    "artifact_integrity",
+    "obligation_satisfied",
+)
+
+
+def _check_schema(sub: str) -> dict[str, Any]:
+    return {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": ["kind", "run_id", "id", "from", "bind"],
+        "properties": {
+            "kind": {"const": f"uacp.check.{sub}"},
+            "run_id": {"type": "string", "minLength": 1},
+            "id": {"type": "string", "minLength": 1},
+            "from": {
+                "type": "object",
+                "required": ["target"],
+                "properties": {"target": {"type": "string", "minLength": 1}},
+            },
+            "bind": {"type": "object"},
+            "severity": {"enum": ["block", "warn"]},
+        },
+    }
+
+
+for _sub in _CHECK_SUBKINDS:
+    _SCHEMAS[f"uacp.check.{_sub}"] = _check_schema(_sub)
+
 
 def has_schema(kind: str) -> bool:
     """True if ``kind`` has a registered declarative schema.
