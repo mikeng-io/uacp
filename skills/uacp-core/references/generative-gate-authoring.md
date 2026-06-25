@@ -63,11 +63,18 @@ indexed symbol rather than a `grep` shadow (the #503 fix);
 because the agent still names the symbol, *whether that symbol is the right one for the target* remains
 the council's call (the honest limit below) — but a near-name or wildcard no longer false-passes.
 
-**Still not authorable (do NOT select):** `uacp.check.behavioral` (the `changes_behavior` floor kind)
-is the behavioral plane — a sandboxed runner, deliberately last (node 32). A `changes_behavior` target
-therefore has no authorable check that satisfies its floor and correctly **blocks until that plane is
-wired**. Do **not** down-classify a target to dodge that — the class-entailment check
-(`CHK_CLASS_UNDERCLAIM`) reads your intent text and blocks an underclaim.
+**`behavioral` exercises the work and binds to the RESULT (behavior plane, node 32 slice 0):** it
+runs a DECLARED command and binds PASS/FAIL/ERROR to the outcome — `bind.command` is an **argv list**
+(NOT a shell string), with an optional contained `bind.cwd` (relative, may not escape the workspace)
+and `bind.timeout` (seconds, capped); `expect.exit_code` (default 0) and an optional
+`expect.stdout_contains`. The command runs ISOLATED for reproducibility (contained cwd, a scrubbed
+PATH-only env, no inherited stdin, bounded timeout) — the **class-E env-fragility** isolation, NOT a
+security sandbox against a hostile command (container-grade jails are the deferred follow-on). Make
+the command **idempotent** (the replay engine re-runs it at the gate). Fail-closed: a malformed
+command, a cwd escape, a timeout, or a spawn failure ERRORs (block); a wrong exit code / missing
+stdout FAILs. This is what satisfies the `changes_behavior` floor — do **not** down-classify a target
+to dodge it (the `CHK_CLASS_UNDERCLAIM` entailment check reads your intent text and blocks an
+underclaim).
 
 ## Per-phase synthesis (what each phase authors)
 
