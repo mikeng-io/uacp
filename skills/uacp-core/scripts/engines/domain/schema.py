@@ -597,6 +597,7 @@ _CHECK_SUBKINDS = (
     "edge_exists",
     "artifact_integrity",
     "obligation_satisfied",
+    "symbol_resolves",
 )
 
 # `from.class` = the target's class (the generator's comprehension), the key the required-kinds

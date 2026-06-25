@@ -16,6 +16,11 @@ UACP_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(UACP_ROOT / "skills" / "uacp-core" / "scripts"))
 sys.path.insert(0, str(UACP_ROOT / "skills" / "uacp-state" / "scripts"))
 sys.path.insert(0, str(UACP_ROOT / "runtime-adapters" / "hermes" / "plugins" / "uacp_guardian"))
+# codeflair (the code-plane substrate UACP CONSUMES — capsule #3 slice 3). Its src/ is on the path
+# so the code-plane TESTS can build a fixture SCIP index via codeflair's Store/Symbol. The kernel
+# resolver itself does NOT import codeflair — it reads the index sqlite READ-ONLY — so a deployment
+# without codeflair (only an index file) still resolves; a missing/corrupt index is fail-closed ERROR.
+sys.path.insert(0, str(UACP_ROOT / "codeflair" / "src"))
 
 
 @pytest.fixture(autouse=True)
