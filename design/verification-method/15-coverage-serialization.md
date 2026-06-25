@@ -179,15 +179,25 @@ that advances using ONLY `handle_transition` and never calls `validate_transitio
 to register its scope module → at `plan_exit` no scope_items projected → a dropped intent escaped.
 Confirmed independently by cross-provider (kimi) + subagent review.
 
-**Closed (coverage half).** `Heartgate.forced_proposal_coverage_blockers(run_id)` + the state-machine
-wiring `_run_forced_proposal_coverage_gate` now force JUST the registration precondition onto
-`handle_transition(propose→plan)`: if a package-selection envelope declares a `covered` keyed scope
-module, that module MUST be registered in `manifest.artifacts`, else the live transition is blocked
-(fail-closed). It self-gates on package-envelope presence, so bare/ungoverned transitions are
-untouched (no ripple). With registration compelled on the live path, the forced `plan_exit`
-`GP_UNCOVERED_INTENT` then binds even for an agent that skips `uacp_heartgate_check`. Proven:
-`tests/e2e/test_package_selection_coverage_binding.py::test_forced_propose_plan_blocks_unregistered_keyed_scope`
-(+ a bare-transition self-gate test; non-vacuity verified by disabling the wiring).
+**Closed (coverage half) — FAIL-CLOSED after a council fix.** `Heartgate.forced_proposal_coverage_blockers(run_id)`
++ the state-machine wiring `_run_forced_proposal_coverage_gate` force the scope-coverage precondition
+onto `handle_transition(propose→plan)`. It self-gates ONLY on package-envelope-file ABSENCE (bare /
+ungoverned transitions untouched → no ripple); once an envelope is present the run is a governed
+package PROPOSE, so its scope concern MUST be `covered` by a keyed module that is REGISTERED in
+`manifest.artifacts` (or inherited) — a **garbled / `not_applicable` / markdown / unregistered** scope
+all BLOCK. With registration compelled on the live path, the forced `plan_exit` `GP_UNCOVERED_INTENT`
+binds even for an agent that skips `uacp_heartgate_check`. Proven:
+`tests/e2e/test_package_selection_coverage_binding.py` (unregistered, not_applicable, garbled block;
+bare-transition + inherited-scope do not; non-vacuity by reverting each fix).
+
+> **Council correction (do not repeat the overclaim).** The FIRST cut of this forced precondition was
+> FAIL-OPEN: it returned no blocker for a non-mapping / `not_applicable` / markdown scope, so an agent
+> skipping `validate_transition` could simply decline to mark its scope covered and the dropped intent
+> escaped — yet the node claimed the coverage half "CLOSED." An adversarial council (3 Claude lenses +
+> cross-provider kimi + gemini; default-to-refute) caught it (finding A, 4/5 reviewers) plus an
+> inherited-artifacts false-block (finding B). Both fixed (commit `48e38f3`). Lesson re-confirmed:
+> a "closed" claim must be fail-closed against the *non-compliant* agent the residual is about, not just
+> the well-formed happy path — and a cross-provider council grounds that.
 
 **Still open (separate, broader kernel item — NOT verification-method's coverage concern):** forcing the
 FULL adaptive package/evidence gates (proposal/plan/execute/verify/resolve) onto `handle_transition`. We
@@ -207,6 +217,14 @@ with the coverage close.
   gates onto `handle_transition` (we forced only the coverage precondition, to avoid the bare-transition
   ripple). Plus the earlier session-2 blind spots: transition-time `derives_from` referential check
   (deferred — redundant with `GP_PHANTOM_EDGE`); topology-only gate is gameable (council/semantic scope).
+- **MANIFEST INTEGRITY (council-surfaced, PRE-EXISTING, NOT this branch — high priority).** The run
+  manifest `state/runs/{run_id}.yaml` is writable via `uacp_state_write` (the writer carves out
+  gate-ledger / run-registry / escalations / current.yaml, but **not** the run manifest). Since every
+  graph-trust invariant in this initiative reads `manifest.artifacts` (coverage projection, the
+  registration precondition, scope-conformance's governance-by-kind exemption), a forgeable manifest
+  undermines them all. Kernel-hardening item: carve `state/runs/*.yaml` out of `uacp_state_write`,
+  routing manifest mutation only through `handle_register_artifact` / `handle_transition` /
+  `entity_writer.create_entity`. The whole verification plane depends on this; track it explicitly.
 
 ---
 
