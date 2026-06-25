@@ -20,17 +20,45 @@ unexpected code (or whose stdout lacks the expected text) is a FAIL. Never raise
 from __future__ import annotations
 
 import os
+import signal
 import subprocess
+import tempfile
 from pathlib import Path
 
 _DEFAULT_TIMEOUT = 30
 _MAX_TIMEOUT = 300
+_MAX_OUTPUT = 1 << 20  # 1 MiB captured is ample for a stdout_contains check (bounds gate memory)
 
 
-def resolve_behavior(workspace: str | Path, bind: dict, expect: object) -> tuple[str, str]:
+def _int_field(value: object) -> int | None:
+    """A strict int (YAML ints), rejecting bool (an int subclass) + float/str. None == reject."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    return value
+
+
+def _terminate_group(proc: subprocess.Popen) -> None:
+    """SIGKILL the child's whole process GROUP and reap it — a double-forking command must not leak
+    orphan/grandchild processes past the gate (council). Best-effort; never raises."""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, OSError):
+        try:
+            proc.kill()
+        except OSError:
+            pass
+    try:
+        proc.wait(timeout=5)
+    except (subprocess.TimeoutExpired, OSError):
+        pass
+
+
+def resolve_behavior(workspace: str | Path, bind: object, expect: object) -> tuple[str, str]:
     """Return ``(PASS|FAIL|ERROR, detail)`` for a ``uacp.check.behavioral`` bind by running
     ``bind.command`` (argv list) in an isolated subprocess and comparing its result to ``expect``
     (``exit_code`` default 0, optional ``stdout_contains``). Never raises."""
+    if not isinstance(bind, dict):
+        return ("ERROR", "behavioral: bind must be a mapping")
     cmd = bind.get("command")
     if not isinstance(cmd, list) or not cmd or not all(isinstance(a, str) for a in cmd):
         return ("ERROR", "behavioral: bind.command must be a non-empty list of string args (argv)")
@@ -46,29 +74,41 @@ def resolve_behavior(workspace: str | Path, bind: dict, expect: object) -> tuple
         return ("ERROR", f"behavioral: cwd {cwd_rel!r} escapes the workspace")
     if not cwd.is_dir():
         return ("ERROR", f"behavioral: cwd {cwd_rel!r} is not a directory")
-    try:
-        timeout = max(1, min(int(bind.get("timeout", _DEFAULT_TIMEOUT)), _MAX_TIMEOUT))
-    except (TypeError, ValueError):
-        return ("ERROR", f"behavioral: timeout {bind.get('timeout')!r} is not an integer")
+    raw_to = bind.get("timeout", _DEFAULT_TIMEOUT)
+    secs = _int_field(raw_to)
+    if secs is None or secs < 1:
+        return ("ERROR", f"behavioral: timeout {raw_to!r} must be a positive integer (seconds)")
+    timeout = min(secs, _MAX_TIMEOUT)
     exp = expect if isinstance(expect, dict) else {}
-    try:
-        expected_code = int(exp.get("exit_code", 0))
-    except (TypeError, ValueError):
-        return ("ERROR", f"behavioral: expect.exit_code {exp.get('exit_code')!r} is not an integer")
+    expected_code = _int_field(exp.get("exit_code", 0))
+    if expected_code is None:
+        return ("ERROR", f"behavioral: expect.exit_code {exp.get('exit_code')!r} must be an int")
     # SCRUBBED env (isolation from incidental state): PATH only, never the inherited os.environ.
     env = {"PATH": os.environ.get("PATH", "")}
+    # Capture stdout to a TEMP FILE (not an in-memory pipe) so a runaway command cannot OOM the
+    # verifying gate (council: 80MB stdout drove RSS +280MB); read back only a bounded slice. The
+    # child runs in its OWN process group (start_new_session) so a timeout kills the whole tree.
     try:
-        proc = subprocess.run(
-            cmd, cwd=str(cwd), env=env, capture_output=True, text=True,
-            timeout=timeout, stdin=subprocess.DEVNULL, check=False,
-        )
-    except subprocess.TimeoutExpired:
-        return ("ERROR", f"behavioral: command timed out after {timeout}s")
-    except (OSError, ValueError) as exc:
-        return ("ERROR", f"behavioral: command could not run: {type(exc).__name__}: {exc}")
+        with tempfile.TemporaryFile() as out:
+            try:
+                proc = subprocess.Popen(
+                    cmd, cwd=str(cwd), env=env, stdin=subprocess.DEVNULL,
+                    stdout=out, stderr=subprocess.DEVNULL, start_new_session=True,
+                )
+            except (OSError, ValueError) as exc:
+                return ("ERROR", f"behavioral: command could not run: {type(exc).__name__}: {exc}")
+            try:
+                proc.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                _terminate_group(proc)
+                return ("ERROR", f"behavioral: command timed out after {timeout}s")
+            out.seek(0)
+            stdout = out.read(_MAX_OUTPUT).decode("utf-8", "replace")
+    except OSError as exc:
+        return ("ERROR", f"behavioral: capture failed: {type(exc).__name__}: {exc}")
     if proc.returncode != expected_code:
         return ("FAIL", f"command exited {proc.returncode} != expected {expected_code}")
     contains = exp.get("stdout_contains")
-    if contains is not None and str(contains) not in proc.stdout:
+    if contains is not None and str(contains) not in stdout:
         return ("FAIL", f"stdout does not contain {str(contains)!r}")
     return ("PASS", "")
