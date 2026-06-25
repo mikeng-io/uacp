@@ -599,6 +599,18 @@ _CHECK_SUBKINDS = (
     "obligation_satisfied",
 )
 
+# `from.class` = the target's class (the generator's comprehension), the key the required-kinds
+# FLOOR (node 34 L2) routes on. A CLOSED vocabulary; OPTIONAL on the check (a check may omit it —
+# the floor self-limits to declared classes, and Layer 2b cross-checks omission against content).
+# Leaf-local copy (this module stays stdlib+jsonschema); a parity test pins it to
+# verification_floor.CLASSES so the authoring vocabulary and the floor table cannot drift.
+_TARGET_CLASSES = (
+    "wires_symbol",
+    "sets_value",
+    "ensures_obligation",
+    "changes_behavior",
+)
+
 
 def _check_schema(sub: str) -> dict[str, Any]:
     props: dict[str, Any] = {
@@ -608,7 +620,13 @@ def _check_schema(sub: str) -> dict[str, Any]:
         "from": {
             "type": "object",
             "required": ["target"],
-            "properties": {"target": {"type": "string", "minLength": 1}},
+            "properties": {
+                "target": {"type": "string", "minLength": 1},
+                "class": {"enum": list(_TARGET_CLASSES)},
+                # `basis` = the text the generator derived `class` from (serialize the entailment,
+                # not just the class — node 34 L2b). Optional; shape-validated when present (mimo).
+                "basis": {"type": "string"},
+            },
         },
         "bind": {"type": "object"},
         # A slice-0 check GATES — it cannot be authored non-blocking (reviewer finding: a

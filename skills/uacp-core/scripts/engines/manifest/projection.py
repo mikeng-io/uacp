@@ -54,6 +54,7 @@ from typing import Any
 from config import base_dir
 from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
+from engines.domain.verification_floor import candidate_class, class_rank, load_floor
 from engines.io import load_artifact, load_manifest
 
 
@@ -109,6 +110,11 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
             bind=bind if isinstance(bind, dict) else {},
             expect=doc.get("expect"),
             severity=str(doc.get("severity") or "block"),
+            # `from.class` = the generator's recorded comprehension of the target's class (capsule
+            # #3 slice 2 / design node 34 L2); `from.basis` = the text it derived from. The floor
+            # engine reads `class` to require a class-appropriate check kind per target.
+            target_class=frm.get("class"),
+            basis=frm.get("basis"),
         )
         target = frm.get("target")
         if target:
@@ -124,7 +130,14 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
 
     for wu in _aslist(doc.get("work_units")):
         if isinstance(wu, dict) and wu.get("id"):
-            add_node(wu["id"], "work_unit", intent=wu.get("intent", ""))
+            # `expected_outputs` is carried too: node 34 L2b derives the candidate class from the
+            # work_unit's intent AND expected_outputs, so strong content can't be hidden there.
+            add_node(
+                wu["id"],
+                "work_unit",
+                intent=wu.get("intent", ""),
+                expected_outputs=wu.get("expected_outputs"),
+            )
             # derives_from = the PROPOSE->PLAN coverage edge. NOTE (D42 producer gap): the real PIV
             # validator does NOT require it on work_units (only id/intent/expected_outputs), so the
             # coverage checks (GP_UNCOVERED/GP_ORPHAN) only bind once the PIV producer emits it —
@@ -525,6 +538,8 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
     # (reviewer finding) — so a failing/erroring frozen check blocks the VERIFY exit here too.
     if scope == "verify_exit":
         out.extend(validate_check_replay(workspace, run_id))
+        out.extend(validate_check_floor(workspace, run_id))
+        out.extend(validate_class_underclaim(workspace, run_id))
     return out
 
 
@@ -691,8 +706,112 @@ def validate_check_replay(workspace: str | Path, run_id: str) -> list[Violation]
     return out
 
 
+def validate_check_floor(workspace: str | Path, run_id: str) -> list[Violation]:
+    """Required-kinds FLOOR (design node 34 Layer 2): a target whose checks declare class X must
+    carry >=1 check of a floor[X]-required kind, else ``CHK_FLOOR_UNMET`` (block). This closes the
+    weakness coverage cannot — a present-but-weak check (e.g. ``field_present`` on a "wire up X"
+    target). Self-limits to DECLARED classes: a target whose checks declare no class places no floor
+    requirement here (that omission is Layer 2b's content cross-check, a follow-on). The floor table
+    is loaded fail-closed (config YAML or the shipped code default). Never raises.
+
+    Honest residual (do NOT overclaim): the class is the AGENT-declared ``from.class`` — the floor
+    forces a class-appropriate KIND given an honest class, not an honest class. Layer 2b (content
+    entailment) shrinks the mis-classification surface; only the code plane closes it."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    nodes, edges = graph
+    floor = load_floor(workspace)
+    check_nodes = {n["id"]: n for n in nodes.values() if n.get("kind") == "check"}
+    inbound: dict[str, list[str]] = {}
+    for e in edges:
+        if e["rel"] == "measured_by":
+            inbound.setdefault(e["dst"], []).append(e["src"])
+    out: list[Violation] = []
+    for tnode in nodes.values():
+        if tnode["kind"] not in ("scope_item", "work_unit"):
+            continue
+        cids = [cid for cid in inbound.get(tnode["id"], []) if cid in check_nodes]
+        present_kinds = {str(check_nodes[cid].get("check_kind") or "") for cid in cids}
+        declared = {check_nodes[cid].get("target_class") for cid in cids}
+        for cls in sorted(c for c in declared if c in floor):
+            required = set(floor[cls])
+            if not (present_kinds & required):
+                out.append(
+                    _v(
+                        "CHK_FLOOR_UNMET",
+                        f"target '{tnode['id']}' is class '{cls}' but carries no check of a "
+                        f"required kind {sorted(required)} (has {sorted(present_kinds)})",
+                        target=tnode["id"],
+                        target_class=cls,
+                        required=sorted(required),
+                        present=sorted(present_kinds),
+                    )
+                )
+    return out
+
+
+def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violation]:
+    """Layer 2b — class ENTAILMENT (design node 34): derive a CANDIDATE class from a target's own
+    intent/statement text; if the strongest class its checks DECLARE is weaker than the content
+    implies, the agent under-classified to satisfy the floor with a weak kind -> a block violation
+    (block). Catches the omitted-class dodge too (undeclared = rank 0). Heuristic + PARTIAL: it
+    raises the cost of mis-classification (the intent text must also be corrupted), it does not
+    make class honesty deterministic — only the code plane does; Layer 3 owns the residual. Never
+    raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    nodes, edges = graph
+    check_nodes = {n["id"]: n for n in nodes.values() if n.get("kind") == "check"}
+    inbound: dict[str, list[str]] = {}
+    for e in edges:
+        if e["rel"] == "measured_by":
+            inbound.setdefault(e["dst"], []).append(e["src"])
+    out: list[Violation] = []
+    for tnode in nodes.values():
+        if tnode["kind"] not in ("scope_item", "work_unit"):
+            continue
+        cids = [cid for cid in inbound.get(tnode["id"], []) if cid in check_nodes]
+        if not cids:
+            continue
+        declared_rank = max(
+            (class_rank(check_nodes[cid].get("target_class")) for cid in cids), default=0
+        )
+        # Candidate is derived from ALL the target's own content — intent + expected_outputs (node
+        # 34 L2b names both) for a work_unit, statement for a scope_item — so strong content can't
+        # be hidden in a field the heuristic doesn't read. expected_outputs may be a str or a list.
+        eo = tnode.get("expected_outputs")
+        eo_text = " ".join(map(str, eo)) if isinstance(eo, list) else str(eo or "")
+        text = " ".join(
+            s for s in (tnode.get("intent"), eo_text, tnode.get("statement")) if s
+        )
+        cand, kw = candidate_class(text)
+        if cand and class_rank(cand) > declared_rank:
+            out.append(
+                _v(
+                    "CHK_CLASS_UNDERCLAIM",
+                    f"target '{tnode['id']}' content implies class '{cand}' (matched «{kw}») but "
+                    f"its checks declare a weaker class — mis-classification under the floor",
+                    target=tnode["id"],
+                    candidate=cand,
+                    keyword=kw,
+                    declared_rank=declared_rank,
+                )
+            )
+    return out
+
+
 # Register this engine (guard against double-registration under alias imports).
 if not any(name == "graph_projection" for name, _ in ENGINES):
     ENGINES.append(("graph_projection", validate_graph_projection))
 if not any(name == "check_replay" for name, _ in ENGINES):
     ENGINES.append(("check_replay", validate_check_replay))
+if not any(name == "check_floor" for name, _ in ENGINES):
+    ENGINES.append(("check_floor", validate_check_floor))
+if not any(name == "check_class_underclaim" for name, _ in ENGINES):
+    ENGINES.append(("check_class_underclaim", validate_class_underclaim))

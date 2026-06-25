@@ -11,6 +11,7 @@ from pathlib import Path
 import yaml
 
 from engines.graph_projection import (
+    validate_check_floor,
     validate_graph_invariants,
     validate_graph_projection,
 )
@@ -560,6 +561,228 @@ def test_known_l1_gap_irrelevant_binding_passes_today(tmp_path):
     codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
     assert "GP_UNCHECKED_TARGET" not in codes  # both targets NAMED -> coverage satisfied
     assert not any(c.startswith("CHK_") for c in codes)  # irrelevant-but-present -> replay passes
+
+
+# ------------------------------------------- the required-kinds FLOOR (L2, slice 2)
+# CHK_FLOOR_UNMET (design node 34 Layer 2): a target whose checks declare class X must carry
+# >=1 check of a floor[X]-required kind. Closes the weakness coverage can't — a present-but-weak
+# check (field_present on a "wire up X" target). The floor self-limits to DECLARED classes; an
+# undeclared class places no floor requirement (that omission is Layer 2b's content cross-check).
+
+
+def _class_check(check_id: str, target: str, cls: str, kind: str) -> dict:
+    return {
+        "kind": kind,
+        "id": check_id,
+        "from": {"target": target, "class": cls, "basis": f"{target} is {cls}"},
+        "bind": {"plane": "artifact", "ref": {"artifact": "plans/p.yaml", "path": "kind"}},
+        "expect": {"value": "uacp.plan"},
+        "severity": "block",
+    }
+
+
+def test_floor_unmet_when_class_demands_a_stronger_kind(tmp_path):
+    # wu-1's check declares class `sets_value` (floor: field_equals) but is a field_present -> unmet.
+    ws = _checked_run(
+        tmp_path,
+        checks=[_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_present")],
+    )
+    vs = validate_check_floor(ws, "r")
+    unmet = [v.detail.get("target") for v in vs if v.code == "CHK_FLOOR_UNMET"]
+    assert unmet == ["wu-1"], [v.code for v in vs]
+    assert all(v.severity == "block" for v in vs if v.code == "CHK_FLOOR_UNMET")
+
+
+def test_floor_met_non_vacuously(tmp_path):
+    # break: sets_value target carries only field_present -> unmet; fix: a field_equals -> silent.
+    broken = validate_check_floor(
+        _checked_run(
+            tmp_path / "bad",
+            checks=[_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_present")],
+        ),
+        "r",
+    )
+    assert any(v.code == "CHK_FLOOR_UNMET" for v in broken)
+    ok = _checked_run(
+        tmp_path / "ok",
+        checks=[_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_FLOOR_UNMET" not in _codes_set(validate_check_floor(ok, "r"))
+
+
+def test_floor_code_plane_class_blocks_until_wired(tmp_path):
+    # a `wires_symbol` target requires uacp.check.symbol_resolves (code plane, not yet authorable),
+    # so NO present check satisfies it -> CHK_FLOOR_UNMET, by design (block-until-wired, node 32).
+    ws = _checked_run(
+        tmp_path,
+        checks=[_class_check("chk-1", "wu-1", "wires_symbol", "uacp.check.field_equals")],
+    )
+    assert "CHK_FLOOR_UNMET" in _codes_set(validate_check_floor(ws, "r"))
+
+
+def test_load_floor_malformed_entry_keeps_default(tmp_path):
+    # MAJOR (kimi): a malformed per-entry value (scalar, not a list) must NOT silently weaken the
+    # floor — it falls back to the shipped default for that class (fail-closed, matching the comment).
+    from engines.domain.verification_floor import load_floor
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "verification-floor.yaml").write_text(
+        "target_class_floor:\n  sets_value: uacp.check.field_present\n", encoding="utf-8"
+    )
+    floor = load_floor(tmp_path)
+    assert floor.get("sets_value") == ("uacp.check.field_equals",)  # default, not the scalar
+
+
+def test_load_floor_partial_override_keeps_other_defaults(tmp_path):
+    # MINOR (kimi+Claude): a partial YAML must not silently DROP the floor for omitted classes.
+    # Merge over the default: the listed class is overridden; omitted classes retain their default.
+    from engines.domain.verification_floor import load_floor
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "verification-floor.yaml").write_text(
+        "target_class_floor:\n  sets_value: [uacp.check.field_present]\n", encoding="utf-8"
+    )
+    floor = load_floor(tmp_path)
+    assert floor["sets_value"] == ("uacp.check.field_present",)  # explicit override honored
+    assert floor.get("wires_symbol") == ("uacp.check.symbol_resolves",)  # default RETAINED
+
+
+def test_floor_undeclared_class_places_no_requirement(tmp_path):
+    # a check with NO from.class -> the floor self-limits (omission is Layer 2b's concern), so a
+    # field_present check on wu-1 with no declared class does NOT fire CHK_FLOOR_UNMET.
+    ws = _checked_run(tmp_path, checks=[_check("chk-1", "wu-1")])  # _check sets no class
+    assert "CHK_FLOOR_UNMET" not in _codes_set(validate_check_floor(ws, "r"))
+
+
+# ----------------------------------------- Layer 2b: class ENTAILMENT (CHK_CLASS_UNDERCLAIM)
+# Derive a candidate class from the target's OWN intent text; if the declared class is WEAKER than
+# the content implies, the agent under-classified to satisfy the floor with a weak kind -> block.
+
+
+def _run_with_intent(tmp_path, intent: str, checks: list) -> Path:
+    return _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"], "intent": intent}]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "pass"),
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+            *checks,
+        ],
+    )
+
+
+def test_underclaim_when_declared_weaker_than_content(tmp_path):
+    # intent "wire up the /settle route" implies wires_symbol, but the check declares sets_value.
+    ws = _run_with_intent(
+        tmp_path,
+        "wire up the /settle route handler",
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    from engines.graph_projection import validate_class_underclaim
+
+    vs = validate_class_underclaim(ws, "r")
+    under = [v.detail.get("target") for v in vs if v.code == "CHK_CLASS_UNDERCLAIM"]
+    assert under == ["wu-1"], [v.code for v in vs]
+    assert all(v.severity == "block" for v in vs if v.code == "CHK_CLASS_UNDERCLAIM")
+
+
+def test_underclaim_non_vacuous(tmp_path):
+    from engines.graph_projection import validate_class_underclaim
+
+    # break: declare sets_value for a "register the route" intent -> underclaim
+    broken = validate_class_underclaim(
+        _run_with_intent(
+            tmp_path / "bad",
+            "register the webhook route",
+            [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+        ),
+        "r",
+    )
+    assert any(v.code == "CHK_CLASS_UNDERCLAIM" for v in broken)
+    # fix: declare wires_symbol (matches content) -> no underclaim
+    ok = _run_with_intent(
+        tmp_path / "ok",
+        "register the webhook route",
+        [_class_check("chk-1", "wu-1", "wires_symbol", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ok, "r"))
+
+
+def test_underclaim_catches_omitted_class(tmp_path):
+    # the omit-from.class dodge: a check with NO declared class on a "wire up" target still
+    # underclaims (declared rank 0 < content-implied wires_symbol).
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_intent(
+        tmp_path, "mount the /settle route", [_check("chk-1", "wu-1")]  # _check sets no class
+    )
+    assert "CHK_CLASS_UNDERCLAIM" in _codes_set(validate_class_underclaim(ws, "r"))
+
+
+def test_underclaim_no_false_fire_on_substring_keywords(tmp_path):
+    # MAJOR (council, all 3 reviewers): substring matching false-BLOCKED honest weak-class work
+    # whose intent merely CONTAINS a keyword as a substring. Word-boundary matching closes it.
+    from engines.graph_projection import validate_class_underclaim
+
+    benign = [
+        "configure the list of registered users",  # 'register' in 'registered'
+        "reroute the running total into the summary",  # 'route' in 'reroute'
+        "compute the router latency metric",  # 'route' in 'router'
+    ]
+    for i, intent in enumerate(benign):
+        ws = _run_with_intent(
+            tmp_path / f"b{i}",
+            intent,
+            [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+        )
+        assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(
+            validate_class_underclaim(ws, "r")
+        ), intent
+
+
+def test_underclaim_reads_expected_outputs(tmp_path):
+    # MAJOR (kimi): node 34 derives the candidate from intent / expected_outputs. Strong content
+    # hidden in expected_outputs (bland intent) must still be caught.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan(
+            [
+                {
+                    "id": "wu-1",
+                    "derives_from": ["si-1"],
+                    "intent": "do the settle task",  # bland
+                    "expected_outputs": "the /settle route is registered and mounted",  # strong
+                }
+            ]
+        ),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "pass"),
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+            _class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals"),
+        ],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" in _codes_set(validate_class_underclaim(ws, "r"))
+
+
+def test_no_underclaim_without_strong_keyword(tmp_path):
+    # conservative: an intent with no strong keyword does NOT false-fire (a false block is worse
+    # than a missed underclaim — Layer 3 owns the residual).
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_intent(
+        tmp_path,
+        "compute the running total for the invoice",
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ws, "r"))
 
 
 def test_check_coverage_is_a_terminal_closure_backstop(tmp_path):
