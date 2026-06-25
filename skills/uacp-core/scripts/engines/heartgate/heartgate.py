@@ -232,6 +232,49 @@ class Heartgate:
             )
         return HeartgateDecision("pass", "transition passes", [], [])
 
+    def forced_proposal_coverage_blockers(self, run_id: str) -> list[str]:
+        """The ONE proposal-gate check that must hold on the FORCED transition path
+        (``state_machine.handle_transition``), not only the agent-invoked
+        ``validate_transition`` — closing the coverage half of node-15 residual #1
+        ("the package gates aren't forced").
+
+        Why only this check, forced: the forced ``plan_exit`` structural gate can
+        only enforce intent coverage over REGISTERED scope_items. A package-selection
+        run can declare a covered keyed scope module but reference it WITHOUT
+        registering it, so projection sees nothing and a dropped intent escapes on a
+        run that never calls ``validate_transition``. Forcing the full proposal
+        package gate would demand every package artifact on every transition (the
+        bare-transition ripple the structural gate deliberately avoids); forcing just
+        the registration precondition closes the coverage bypass with no such ripple.
+
+        Self-gating (so bare / ungoverned transitions are untouched): returns ``[]``
+        unless a package-selection envelope exists for ``run_id`` AND its ``scope``
+        universal-core concern is ``covered`` by a non-empty keyed scope module. A
+        not-covered / non-keyed / markdown scope is the agent-invoked gate's concern,
+        not this forced precondition. The single blocker it can emit: that covered
+        keyed module is not registered in ``manifest.artifacts``.
+        """
+        selection_rel = f"proposals/{run_id}-package-selection.yaml"
+        doc = self._load_yaml_under_root(selection_rel, [], "forced_proposal_coverage")
+        if not isinstance(doc, Mapping):
+            return []
+        core = doc.get("universal_core") if isinstance(doc.get("universal_core"), Mapping) else {}
+        scope_concern = core.get("scope") if isinstance(core, Mapping) else None
+        if not (
+            isinstance(scope_concern, Mapping) and str(scope_concern.get("status")) == "covered"
+        ):
+            return []
+        rel = str(scope_concern.get("artifact") or "")
+        if not adaptive_gates._scope_concern_is_keyed(self, rel):
+            return []  # non-keyed/markdown covered scope -> the agent-invoked gate owns it
+        if rel not in self._registered_artifact_rels(run_id):
+            return [
+                f"forced_proposal_coverage: keyed scope module '{rel}' must be registered "
+                "in the run manifest so the forced plan_exit coverage gate can project its "
+                "scope_items (D43 Option B / residual #1)"
+            ]
+        return []
+
     def validate_transition_file(self, path: str | Path) -> HeartgateDecision:
         raw_path = Path(path)
         if not raw_path.is_absolute():

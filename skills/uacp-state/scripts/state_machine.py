@@ -336,6 +336,25 @@ def _run_transition_graph_gate(workspace: Path, run_id: str, from_phase: str) ->
         return [f"TRANSITION_GRAPH_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
 
 
+def _run_forced_proposal_coverage_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
+    """Force the proposal-gate REGISTRATION precondition onto PROPOSE->PLAN on the
+    live path (node-15 residual #1, coverage half). Without this, a package-selection
+    run could declare a covered keyed scope module, never register it, skip
+    ``validate_transition``, and advance via ``handle_transition`` — leaving the
+    forced ``plan_exit`` gate with no scope_items to enforce (a dropped intent
+    escapes). Self-gating: only fires at PROPOSE exit and only when a package-selection
+    envelope declares a covered keyed scope (bare/ungoverned transitions return []).
+    Fail-closed: an unrunnable gate blocks. Lazy import (engines<->state cycle)."""
+    if from_phase != "propose":
+        return []
+    try:
+        from core import Heartgate
+
+        return Heartgate.load(str(workspace)).forced_proposal_coverage_blockers(run_id)
+    except Exception as exc:  # fail-closed
+        return [f"FORCED_PROPOSAL_COVERAGE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+
+
 def handle_transition(args: dict[str, Any]) -> str:
     """Locked phase transition with validation + the phase-exit structural gate."""
     try:
@@ -371,7 +390,11 @@ def handle_transition(args: dict[str, Any]) -> str:
         # this exit BEFORE advancing. Forces the gate onto the live path so a
         # phase can no longer advance past a dropped/orphan/phantom/contradicted
         # graph just because the agent skipped uacp_heartgate_check. Fail-closed.
+        # Plus the forced PROPOSE->PLAN registration precondition (residual #1) so a
+        # package-selection run cannot leave its keyed scope module unregistered and
+        # thereby starve the plan_exit coverage gate.
         gate_blockers = _run_transition_graph_gate(workspace, run_id, from_phase)
+        gate_blockers += _run_forced_proposal_coverage_gate(workspace, run_id, from_phase)
         if gate_blockers:
             return json.dumps({
                 "error": "transition blocked by phase-exit structural gate",

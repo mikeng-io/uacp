@@ -259,3 +259,56 @@ def test_registered_covered_run_advances_at_forced_plan_exit(temp_uacp_root: Pat
     out = _try_plan_to_execute(temp_uacp_root, run_id)
     assert out.get("ok") is True, out
     assert _phase(temp_uacp_root, run_id) == "execute"
+
+
+# --- residual #1 (coverage half) CLOSED on the FORCED handle_transition path ---
+
+
+def _transition(root: Path, run_id: str, frm: str, to: str) -> dict:
+    return json.loads(
+        state_machine.handle_transition(
+            {"workspace": str(root), "run_id": run_id, "from_phase": frm, "to_phase": to}
+        )
+    )
+
+
+def test_forced_propose_plan_blocks_unregistered_keyed_scope(temp_uacp_root: Path):
+    """node-15 residual #1 (coverage half) CLOSED. A package-selection envelope whose
+    scope concern is COVERED by a keyed module that is NOT registered is blocked at
+    ``state_machine.handle_transition(propose->plan)`` — the FORCED path, with NO
+    ``validate_transition`` call — because the forced registration precondition runs
+    there now. Registering the scope module lets it through. This is what stops an
+    agent that skips ``uacp_heartgate_check`` from starving the plan_exit coverage
+    gate (leaving a dropped intent uncatchable)."""
+    run_id = "uacp-pkgcov-forced-1"
+    _init(temp_uacp_root, run_id)
+    scope_rel = f"proposals/{run_id}/scope-module.yaml"
+    _write(temp_uacp_root, scope_rel, _scope_doc([{"id": "si-1", "statement": "the intent"}]))
+    _seed_package_envelope(temp_uacp_root, run_id, scope_rel)  # scope concern covered -> scope_rel
+
+    assert _transition(temp_uacp_root, run_id, "triage", "propose").get("ok")
+
+    # Forced propose->plan with the keyed scope UNREGISTERED -> blocked on the live path.
+    out = _transition(temp_uacp_root, run_id, "propose", "plan")
+    assert "error" in out, f"expected forced block on unregistered keyed scope, got {out}"
+    assert any(_REGISTER_MSG in b for b in out.get("blockers", [])), out
+    assert _phase(temp_uacp_root, run_id) == "propose", "blocked transition must not advance"
+
+    # Register the scope module -> the forced precondition is satisfied, advance.
+    assert _register(temp_uacp_root, run_id, "scope", scope_rel).get("ok")
+    out = _transition(temp_uacp_root, run_id, "propose", "plan")
+    assert out.get("ok") is True, out
+    assert _phase(temp_uacp_root, run_id) == "plan"
+
+
+def test_forced_propose_plan_ignores_bare_transition(temp_uacp_root: Path):
+    """Non-vacuity / no-ripple guard: the forced precondition self-gates. A run with
+    NO package-selection envelope (a bare transition) advances propose->plan
+    untouched — the forced check only fires for governed package runs that declare a
+    covered keyed scope."""
+    run_id = "uacp-pkgcov-forced-2"
+    _init(temp_uacp_root, run_id)
+    assert _transition(temp_uacp_root, run_id, "triage", "propose").get("ok")
+    out = _transition(temp_uacp_root, run_id, "propose", "plan")
+    assert out.get("ok") is True, out
+    assert _phase(temp_uacp_root, run_id) == "plan"
