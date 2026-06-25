@@ -46,9 +46,14 @@ tests arbitrate (house style: don't over-serialize).
 - **Scope = full design completion.** Close all gaps and divergences, not a subset.
 - **Serena is reached as a Python library** (not over MCP) — `lsp_ingest.py` imports
   Serena's language-server API directly. This is *how Codeflair reaches LSP*; it is why the
-  engine is Python (12-delivery.md:74). **Open (see OD-1):** whether LSP edges are
-  *persisted* into the store or supplied as a *live query-time overlay* — the council found
-  these are different freshness architectures and 10-freshness defaults to the latter.
+  engine is Python (12-delivery.md:74).
+- **LSP is ALWAYS live, never persisted (OD-1 RESOLVED, mike 2026-06-26).** Every query
+  attempts the LSP overlay live at query time; it never writes `source="lsp"` rows (the
+  persisted working-layer stays deferred — 10-freshness). **Fail-soft + warn:** if Serena/MCP
+  is absent or fails *mid-query*, the query still **succeeds** on SCIP/tree-sitter/grep, but
+  it **surfaces a degraded-LSP warning to the orchestrator** (not silent). Consequence: the
+  `"lsp"` slot leaves `VALID_SOURCES` (the persisted-edge enum) — `"lsp"` becomes a
+  query-time provenance/freshness tag (`live`), not a stored edge source.
 - **Kickoff = plan first.** This node is authored as pre-governance input for review; the
   formal run (TRIAGE→PROPOSE→PLAN→build slices) is a separate decision.
 
@@ -80,9 +85,10 @@ tests arbitrate (house style: don't over-serialize).
   specifies `defines`/`references`/`calls`. Reconciled in **P3**.
 - **D3 — `VALID_SOURCES` vs the coupling axis.** `grep`→`shared_string` and `co_change`→
   `co_change` flow through `add_coupling` (`store.py:64` `VALID_COUPLING`), NOT as edge
-  sources — consistent with 02-probes but divergent from 11-substrate. **Resolved in P0**
-  (no longer "open"): tighten `VALID_SOURCES` to edge-emitting sources and amend 11-substrate
-  to describe the two axes (coupling axis is the as-built truth; 02-probes agrees).
+  sources — consistent with 02-probes but divergent from 11-substrate. **Resolved in P0**:
+  tighten `VALID_SOURCES` (the *persisted-edge* enum) to `{scip, tree_sitter}`; `grep`/
+  `co_change` live on the coupling axis; `"lsp"` is a query-time overlay tag, not a stored
+  source (per OD-1). Amend 11-substrate to describe the two axes + the live-overlay tier.
 - **D4 — `CrossPlaneAdapter.__init__` mutates.** `crossplane.py:63` runs
   `CREATE TABLE code_anchor`, so a UACP consumer cannot instantiate it read-only. **Moved to
   P0** (council: a foundational read-only-safety fix, not an end-phase afterthought).
@@ -130,15 +136,18 @@ as-built reality ([[verification-must-improvise-and-ground]]).
 - **Specified by:** 10-freshness (index side), 11-substrate (schema).
 
 ### P2 — LSP/Serena overlay + 3-zone reconcile · closes #1
-- **Goal:** wire Serena (Python lib) as a registered probe supplying LSP refs/defs over the
-  working tree; the query-time **3-zone reconcile** uses P1's watermark/hashes to tag nodes
-  `trusted`/`live`/`unreconciled`. **OD-1 decides** whether LSP is a live query-time overlay
-  (10-freshness default) or persists `source="lsp"` rows (the deferred working-layer) — resolve
-  before building.
-- **Acceptance:** on a dirty file the LSP overlay supersedes stale SCIP and the node is `live`;
-  on SCIP↔LSP conflict the node is `unreconciled` and surfaced, never silently blended; Serena
-  absent → clean two-zone degrade (`trusted`/`stale`), not an error.
-- **Specified by:** 10-freshness (3-zone), 12-delivery (Serena, uvx).
+- **Goal:** wire Serena (Python lib) as a registered, **query-time, always-live** overlay
+  supplying LSP refs/defs over the working tree — **never persisted** (OD-1). The 3-zone
+  reconcile uses P1's watermark/hashes to tag nodes `trusted`/`live`/`unreconciled`. The
+  overlay is attempted on **every** query and is **fail-soft**: Serena absent or failing
+  mid-query degrades gracefully and **emits a warning the orchestrator can read**.
+- **Acceptance:** on a dirty file the live overlay supersedes stale SCIP and the node is
+  `live`; on SCIP↔LSP conflict the node is `unreconciled` and surfaced, never silently
+  blended; **Serena absent OR a mid-query Serena failure → the query still returns** on
+  SCIP/tree-sitter/grep (two-zone `trusted`/`stale`) **AND the result carries an explicit
+  `lsp_degraded` warning** (tested: a fault-injected Serena failure does not error the query
+  and does set the warning); no `source="lsp"` row is ever written to the store.
+- **Specified by:** 10-freshness (3-zone + fail-soft degrade), 12-delivery (Serena, uvx).
 
 ### P3 — SCIP enrichment + tree-sitter change-detection · closes #9, fixes D1, D2
 - **Goal:** emit `defines`/`references` edges (D2); **add** tree-sitter change-detection driving
@@ -192,15 +201,11 @@ as-built reality ([[verification-must-improvise-and-ground]]).
 
 ## Open design decisions (resolve at PROPOSE, before building the affected phase)
 
-- **OD-1 (P2) — LSP: live overlay vs persisted edges.** 10-freshness defaults to a
-  *query-time live overlay* that does **not** write dirty-file rows; persisting `source="lsp"`
-  edges is the explicitly-**deferred** working-overlay layer. Yet `"lsp"` sits in
-  `VALID_SOURCES` as an edge source. **Council finding (2 reviewers, blocker):** the locked
-  "writes `source=lsp` edges" describes the deferred working-layer, contradicting the live
-  default. **Recommendation:** build the live query-time overlay first (default), keep the
-  persisted working-layer deferred until a measured edit-then-query loop proves it's needed;
-  reconcile the `VALID_SOURCES` `"lsp"` slot with that choice. **Needs mike's ruling — it
-  touches the locked Serena decision.**
+- **OD-1 (P2) — LSP live vs persisted. RESOLVED (mike 2026-06-26): ALWAYS LIVE, never
+  persisted, fail-soft + warn.** Every query attempts the live overlay; Serena/MCP failure
+  degrades to SCIP/tree-sitter/grep with an explicit `lsp_degraded` warning to the
+  orchestrator. The persisted working-layer stays deferred; `"lsp"` leaves `VALID_SOURCES`
+  (now a query-time tag). Folded into Locked decisions, D3, and P2 above.
 - **OD-2 (P7) — Step-B governed write.** The read-only join (query/join anchors) is safe to
   build now; the *governed* `code_anchor` write into UACP's graph contradicts the current
   "Codeflair outputs are not governed writes / edge promotion deferred" stance and the prior
