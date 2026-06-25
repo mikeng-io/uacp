@@ -22,18 +22,19 @@ def test_build_writes_to_the_conventioned_index_path(tmp_path: Path):
 
 
 def test_build_is_fail_closed_when_ingester_unavailable(tmp_path: Path, monkeypatch):
-    # simulate the optional dep being absent: build is a no-op with status, never a crash, never a
+    # simulate the REAL optional dep (tree_sitter_languages) being absent — NOT all of codeflair
+    # (codeflair.store is always present): build is a no-op with status, never a crash, never a
     # partial db -> the code plane then ERRORs (fail-closed), never a false pass.
     import builtins
 
     real_import = builtins.__import__
 
-    def _no_codeflair(name, *a, **k):
-        if name.startswith("codeflair"):
-            raise ImportError("simulated: codeflair tree-sitter ingester unavailable")
+    def _no_treesitter(name, *a, **k):
+        if name == "tree_sitter_languages" or name.startswith("tree_sitter_languages."):
+            raise ImportError("simulated: tree-sitter optional dep absent")
         return real_import(name, *a, **k)
 
-    monkeypatch.setattr(builtins, "__import__", _no_codeflair)
+    monkeypatch.setattr(builtins, "__import__", _no_treesitter)
     res = build_code_index(tmp_path, tmp_path)
     assert res["ok"] is False and "unavailable" in res["reason"]
     assert not index_path(tmp_path).exists()  # no partial index left behind
