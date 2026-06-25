@@ -50,6 +50,7 @@ CHECK_KINDS: tuple[str, ...] = (
     "edge_exists",
     "artifact_integrity",
     "obligation_satisfied",
+    "symbol_resolves",  # code plane (slice 3): resolves against the Codeflair SCIP index
 )
 
 

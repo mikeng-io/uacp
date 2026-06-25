@@ -16,6 +16,10 @@ UACP_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(UACP_ROOT / "skills" / "uacp-core" / "scripts"))
 sys.path.insert(0, str(UACP_ROOT / "skills" / "uacp-state" / "scripts"))
 sys.path.insert(0, str(UACP_ROOT / "runtime-adapters" / "hermes" / "plugins" / "uacp_guardian"))
+# codeflair (the code-plane substrate UACP CONSUMES — capsule #3 slice 3). Its src/ is on the
+# path so the code-plane resolver adapter + its tests can import it; the kernel imports it lazily
+# and fail-closed, so a deployment without codeflair degrades to ERROR rather than crashing.
+sys.path.insert(0, str(UACP_ROOT / "codeflair" / "src"))
 
 
 @pytest.fixture(autouse=True)

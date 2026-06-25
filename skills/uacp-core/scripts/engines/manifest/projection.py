@@ -605,11 +605,20 @@ def _obligation_satisfied(oid: str, nodes: dict) -> tuple[str, str]:
 def _evaluate_check(
     root: Path, kind: str, bind: dict, expect: Any, edge_set: set, nodes: dict, hash_index: dict
 ) -> tuple[str, str]:
-    """Return (PASS|FAIL|ERROR, detail) for one frozen check. Pure: data vs data."""
-    # Fail-closed-until-wired guard FIRST (council/mimo #2): ANY kind declaring the code/behavior
-    # plane ERRORs (block) until those planes are built — so an IMPLEMENTED kind can't be mislabeled
-    # onto an unwired plane (e.g. field_equals with `plane: code`) to slip past it. This guard sat
-    # at the bottom before and was unreachable for the implemented kinds (they return earlier).
+    """Return (PASS|FAIL|ERROR, detail) for one frozen check. Pure: data vs data (the code plane
+    resolves against the run's Codeflair index)."""
+    # symbol_resolves is the ONE wired code-plane kind (slice 3): resolve the bound symbol against
+    # the run's SCIP index via the code_plane adapter (fail-closed when no index / no codeflair),
+    # handled BEFORE the unwired-plane guard which still ERRORs every OTHER code/behavior kind.
+    if kind == "uacp.check.symbol_resolves":
+        from engines.code_plane import resolve_symbol
+
+        ref = bind.get("ref")
+        ref = ref if isinstance(ref, dict) else {}
+        return resolve_symbol(root, str(ref.get("symbol") or ""))
+    # Fail-closed-until-wired guard (council/mimo #2): ANY OTHER kind declaring the code/behavior
+    # plane ERRORs (block) until those planes are built (behavioral is still deferred — node 32), so
+    # an implemented kind can't be mislabeled onto an unwired plane (field_equals `plane: code`).
     if bind.get("plane") in ("code", "behavior"):
         return ("ERROR", f"{kind}: the {bind.get('plane')} plane is not wired yet (fail-closed)")
 

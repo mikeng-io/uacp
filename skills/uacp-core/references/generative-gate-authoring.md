@@ -39,7 +39,7 @@ For each target the phase owns:
 
 ## The closed catalog (SELECT from these — authority: the schema + layout registries)
 
-These five are the kinds you can author today (they match `layout.CHECK_KINDS` /
+These are the kinds you can author today (they match `layout.CHECK_KINDS` /
 `schema._CHECK_SUBKINDS` — the entity-writer rejects any other kind at validate-on-write):
 
 | kind | proves | binds against |
@@ -49,20 +49,25 @@ These five are the kinds you can author today (they match `layout.CHECK_KINDS` /
 | `uacp.check.edge_exists` | a required coverage/topology edge exists | the projected graph |
 | `uacp.check.obligation_satisfied` | an evidence obligation has a passing assessment, no uncleared block | the projected graph |
 | `uacp.check.artifact_integrity` | an artifact is unchanged since its watermark | the watermark index |
+| `uacp.check.symbol_resolves` | a claimed symbol resolves to ≥1 real SCIP descriptor — the `wires_symbol` floor kind; `bind.ref.symbol` = the name | the Codeflair code index |
 
-**Not yet authorable (do NOT select these):** the floor names `uacp.check.symbol_resolves` (for
-`wires_symbol`) and `uacp.check.behavioral` (for `changes_behavior`), but they are **code/behavior-plane
-kinds that do not exist in the catalog yet** (slice 3). A target of class `wires_symbol`/`changes_behavior`
-therefore has **no authorable check that satisfies its floor** and correctly **blocks until that plane
-is wired**, rather than closing on a weak proxy. Do **not** down-classify such a target to dodge that —
-the class-entailment check (`CHK_CLASS_UNDERCLAIM`) reads your intent text and blocks an underclaim.
+**`symbol_resolves` is fail-closed-until-an-index-exists (code plane, slice 3):** it resolves against
+the run's Codeflair SCIP index. If that index has not been built for the run it ERRORs (block) — so a
+`wires_symbol` target cannot close until the code plane is actually built; it never false-passes on a
+textual shadow (the #503 `grep route_mounted` fix).
+
+**Still not authorable (do NOT select):** `uacp.check.behavioral` (the `changes_behavior` floor kind)
+is the behavioral plane — a sandboxed runner, deliberately last (node 32). A `changes_behavior` target
+therefore has no authorable check that satisfies its floor and correctly **blocks until that plane is
+wired**. Do **not** down-classify a target to dodge that — the class-entailment check
+(`CHK_CLASS_UNDERCLAIM`) reads your intent text and blocks an underclaim.
 
 ## Per-phase synthesis (what each phase authors)
 
 | phase | targets | typically authors | binds against |
 |---|---|---|---|
 | **PROPOSE** | each `scope_item` (intent) | one `field_present` that the intent is concretely stated; record what PLAN must prove as its `from.basis` (a forward-reference) | the proposal artifact (`ref`) |
-| **PLAN** | each `work_unit` | the floor-required kind for its class — `field_equals` (set), `obligation_satisfied` (ensure), `symbol_resolves` (wire — code plane); plus `edge_exists` where coverage topology must hold (author-judgment, not floor-required) | artifact / graph (+ later code) |
+| **PLAN** | each `work_unit` | the floor-required kind for its class — `field_equals` (set), `obligation_satisfied` (ensure), `symbol_resolves` (wire — code plane, resolves against the code index); plus `edge_exists` where coverage topology must hold (author-judgment, not floor-required) | artifact / graph / code index |
 | **EXECUTE** | — | **nothing** — EXECUTE produces the *evidence* the VERIFY checks bind to; it does not author checks | — |
 | **VERIFY** | each obligation / done-claim | `obligation_satisfied` (graph), `artifact_integrity` (watermark), and (later) `behavioral` — the reality-binding pass | graph / watermark (+ later behavior) |
 
