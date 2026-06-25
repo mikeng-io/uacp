@@ -54,7 +54,7 @@ from typing import Any
 from config import base_dir
 from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
-from engines.domain.verification_floor import load_floor
+from engines.domain.verification_floor import candidate_class, class_rank, load_floor
 from engines.io import load_artifact, load_manifest
 
 
@@ -532,6 +532,7 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
     if scope == "verify_exit":
         out.extend(validate_check_replay(workspace, run_id))
         out.extend(validate_check_floor(workspace, run_id))
+        out.extend(validate_class_underclaim(workspace, run_id))
     return out
 
 
@@ -745,6 +746,52 @@ def validate_check_floor(workspace: str | Path, run_id: str) -> list[Violation]:
     return out
 
 
+def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violation]:
+    """Layer 2b — class ENTAILMENT (design node 34): derive a CANDIDATE class from a target's own
+    intent/statement text; if the strongest class its checks DECLARE is weaker than the content
+    implies, the agent under-classified to satisfy the floor with a weak kind -> a block violation
+    (block). Catches the omitted-class dodge too (undeclared = rank 0). Heuristic + PARTIAL: it
+    raises the cost of mis-classification (the intent text must also be corrupted), it does not
+    make class honesty deterministic — only the code plane does; Layer 3 owns the residual. Never
+    raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    nodes, edges = graph
+    check_nodes = {n["id"]: n for n in nodes.values() if n.get("kind") == "check"}
+    inbound: dict[str, list[str]] = {}
+    for e in edges:
+        if e["rel"] == "measured_by":
+            inbound.setdefault(e["dst"], []).append(e["src"])
+    out: list[Violation] = []
+    for tnode in nodes.values():
+        if tnode["kind"] not in ("scope_item", "work_unit"):
+            continue
+        cids = [cid for cid in inbound.get(tnode["id"], []) if cid in check_nodes]
+        if not cids:
+            continue
+        declared_rank = max(
+            (class_rank(check_nodes[cid].get("target_class")) for cid in cids), default=0
+        )
+        text = str(tnode.get("intent") or tnode.get("statement") or "")
+        cand, kw = candidate_class(text)
+        if cand and class_rank(cand) > declared_rank:
+            out.append(
+                _v(
+                    "CHK_CLASS_UNDERCLAIM",
+                    f"target '{tnode['id']}' content implies class '{cand}' (matched «{kw}») but "
+                    f"its checks declare a weaker class — mis-classification under the floor",
+                    target=tnode["id"],
+                    candidate=cand,
+                    keyword=kw,
+                    declared_rank=declared_rank,
+                )
+            )
+    return out
+
+
 # Register this engine (guard against double-registration under alias imports).
 if not any(name == "graph_projection" for name, _ in ENGINES):
     ENGINES.append(("graph_projection", validate_graph_projection))
@@ -752,3 +799,5 @@ if not any(name == "check_replay" for name, _ in ENGINES):
     ENGINES.append(("check_replay", validate_check_replay))
 if not any(name == "check_floor" for name, _ in ENGINES):
     ENGINES.append(("check_floor", validate_check_floor))
+if not any(name == "check_class_underclaim" for name, _ in ENGINES):
+    ENGINES.append(("check_class_underclaim", validate_class_underclaim))

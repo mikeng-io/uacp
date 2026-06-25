@@ -12,6 +12,7 @@ from __future__ import annotations
 from engines.manifest.projection import (
     validate_check_floor,
     validate_check_replay,
+    validate_class_underclaim,
     validate_graph_invariants,
     validate_graph_projection,
 )
@@ -19,6 +20,7 @@ from engines.manifest.projection import (
 __all__ = [
     "validate_check_floor",
     "validate_check_replay",
+    "validate_class_underclaim",
     "validate_graph_invariants",
     "validate_graph_projection",
 ]

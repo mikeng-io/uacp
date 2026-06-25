@@ -627,6 +627,87 @@ def test_floor_undeclared_class_places_no_requirement(tmp_path):
     assert "CHK_FLOOR_UNMET" not in _codes_set(validate_check_floor(ws, "r"))
 
 
+# ----------------------------------------- Layer 2b: class ENTAILMENT (CHK_CLASS_UNDERCLAIM)
+# Derive a candidate class from the target's OWN intent text; if the declared class is WEAKER than
+# the content implies, the agent under-classified to satisfy the floor with a weak kind -> block.
+
+
+def _run_with_intent(tmp_path, intent: str, checks: list) -> Path:
+    return _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"], "intent": intent}]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "pass"),
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+            *checks,
+        ],
+    )
+
+
+def test_underclaim_when_declared_weaker_than_content(tmp_path):
+    # intent "wire up the /settle route" implies wires_symbol, but the check declares sets_value.
+    ws = _run_with_intent(
+        tmp_path,
+        "wire up the /settle route handler",
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    from engines.graph_projection import validate_class_underclaim
+
+    vs = validate_class_underclaim(ws, "r")
+    under = [v.detail.get("target") for v in vs if v.code == "CHK_CLASS_UNDERCLAIM"]
+    assert under == ["wu-1"], [v.code for v in vs]
+    assert all(v.severity == "block" for v in vs if v.code == "CHK_CLASS_UNDERCLAIM")
+
+
+def test_underclaim_non_vacuous(tmp_path):
+    from engines.graph_projection import validate_class_underclaim
+
+    # break: declare sets_value for a "register the route" intent -> underclaim
+    broken = validate_class_underclaim(
+        _run_with_intent(
+            tmp_path / "bad",
+            "register the webhook route",
+            [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+        ),
+        "r",
+    )
+    assert any(v.code == "CHK_CLASS_UNDERCLAIM" for v in broken)
+    # fix: declare wires_symbol (matches content) -> no underclaim
+    ok = _run_with_intent(
+        tmp_path / "ok",
+        "register the webhook route",
+        [_class_check("chk-1", "wu-1", "wires_symbol", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ok, "r"))
+
+
+def test_underclaim_catches_omitted_class(tmp_path):
+    # the omit-from.class dodge: a check with NO declared class on a "wire up" target still
+    # underclaims (declared rank 0 < content-implied wires_symbol).
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_intent(
+        tmp_path, "mount the /settle route", [_check("chk-1", "wu-1")]  # _check sets no class
+    )
+    assert "CHK_CLASS_UNDERCLAIM" in _codes_set(validate_class_underclaim(ws, "r"))
+
+
+def test_no_underclaim_without_strong_keyword(tmp_path):
+    # conservative: an intent with no strong keyword does NOT false-fire (a false block is worse
+    # than a missed underclaim — Layer 3 owns the residual).
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_intent(
+        tmp_path,
+        "compute the running total for the invoice",
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ws, "r"))
+
+
 def test_check_coverage_is_a_terminal_closure_backstop(tmp_path):
     # Council (opencode, MAJOR): coverage is enforced at the verify_exit TRANSITION, but the
     # closure sweep (run_all_engines -> validate_graph_projection) is the ONE gate that runs on

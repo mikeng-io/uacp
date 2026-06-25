@@ -33,6 +33,50 @@ _DEFAULT_FLOOR: dict[str, tuple[str, ...]] = {
 # The closed class vocabulary (the floor keys). Used by the schema enum + Layer 2b.
 CLASSES: tuple[str, ...] = tuple(_DEFAULT_FLOOR)
 
+# --- Layer 2b: content ENTAILMENT (design node 34) --------------------------------------------
+# The floor (above) keys off the AGENT-declared class, so a mis-classifier can declare a weak class
+# (sets_value) for a strong-class target (wires_symbol) and satisfy the floor with a weak kind. 2b
+# shrinks that surface DETERMINISTICALLY but PARTIALLY: derive a CANDIDATE class from the target's
+# OWN intent/statement text; if the declared class is WEAKER than the content implies, the agent
+# under-classified — emit CHK_CLASS_UNDERCLAIM. This forces a mis-classifier to also corrupt the
+# intent text (which the council reads + other gates consume), not just a private label. It does NOT
+# make class honesty deterministic — only the code plane (class entailed from the real symbol) does.
+#
+# STRENGTH RANK (higher demands a stronger check). The critical boundary is WEAK (sets_value/
+# ensures_obligation — satisfiable now) vs STRONG (wires_symbol/changes_behavior — code/behavior
+# plane, block-until-wired): declaring a weak class for strong content is the dodge 2b catches.
+_CLASS_RANK: dict[str, int] = {
+    "sets_value": 1,
+    "ensures_obligation": 2,
+    "wires_symbol": 3,
+    "changes_behavior": 4,
+}
+
+# CONSERVATIVE keyword map (distinctive tokens only) — a false CHK_CLASS_UNDERCLAIM is a false
+# BLOCK, so under-match (miss) over over-match (false-fire); Layer 3 (council) owns the residual.
+_CLASS_KEYWORDS: dict[str, tuple[str, ...]] = {
+    "changes_behavior": ("behavior", "behaviour", "side effect", "side-effect"),
+    "wires_symbol": ("wire", "mount", "register", "route", "endpoint", "expose"),
+    "ensures_obligation": ("ensure", "guarantee", "enforce", "obligation"),
+    "sets_value": ("configure", "assign", "default to", "set value"),
+}
+
+
+def class_rank(cls: str | None) -> int:
+    """Strength rank of a class (0 for None/unknown — an undeclared class is the weakest)."""
+    return _CLASS_RANK.get(cls or "", 0)
+
+
+def candidate_class(text: str | None) -> tuple[str | None, str]:
+    """The STRONGEST class whose keyword appears in ``text`` (case-insensitive), with the matched
+    keyword; ``(None, "")`` if none matches. Strongest-first so the most demanding signal wins."""
+    low = (text or "").lower()
+    for cls in sorted(_CLASS_KEYWORDS, key=lambda c: -_CLASS_RANK[c]):
+        for kw in _CLASS_KEYWORDS[cls]:
+            if kw in low:
+                return cls, kw
+    return None, ""
+
 
 def default_floor() -> dict[str, tuple[str, ...]]:
     return dict(_DEFAULT_FLOOR)
