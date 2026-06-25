@@ -36,10 +36,11 @@ members:
   - 10-topology.md               # the multi-container compose topology (model / proxy / runner / harness)
   - 11-runner-adapter-seam.md    # the AGENT-under-test seam — CC now (consumes the adapter), Hermes/Codex later
   - 12-model-backend-seam.md     # the provider-NEUTRAL model backend (Ollama default / OpenAI-format / Anthropic URL)
-  - 20-scenario.md               # the golden-path governed run the agent must drive (TRIAGE -> RESOLVE)
-  - 21-assertions.md             # TIERED: governance-correctness (hard gate) + agent-completion (soft score)
+  - 13-plugin-conformance.md     # PRIORITY 1: is the installed plugin actionable? (the first measurement)
+  - 20-scenario.md               # PRIORITY 2: the golden-path governed run the agent must drive (TRIAGE -> RESOLVE)
+  - 21-assertions.md             # PRIORITY 2: TIERED lifecycle measurement — governance-correctness (hard) + completion (soft)
   - 22-benchmark.md              # the structured scored-result artifact (the benchmark future)
-  - 30-roadmap.md                # walking skeleton first -> scale scenarios + runtimes
+  - 30-roadmap.md                # walking skeleton first (plugin conformance) -> lifecycle -> scale
 
 # DERIVED: mirror of each node's `edges:` frontmatter (src = the node that owns the edge).
 # rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
@@ -47,6 +48,8 @@ edges:
   - {src: 10-topology, dst: 00-intent, rel: realizes, provenance: asserted}
   - {src: 11-runner-adapter-seam, dst: 10-topology, rel: depends_on, provenance: derived}
   - {src: 12-model-backend-seam, dst: 10-topology, rel: depends_on, provenance: derived}
+  - {src: 13-plugin-conformance, dst: 10-topology, rel: depends_on, provenance: derived}
+  - {src: 13-plugin-conformance, dst: 11-runner-adapter-seam, rel: depends_on, provenance: derived}
   - {src: 20-scenario, dst: 00-intent, rel: depends_on, provenance: derived}
   - {src: 21-assertions, dst: 20-scenario, rel: depends_on, provenance: derived}
   - {src: 21-assertions, dst: 00-intent, rel: decides_on, provenance: asserted}

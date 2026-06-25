@@ -11,6 +11,19 @@ edges:
 
 # Assertions — tiered
 
+> **Priority 2 (next time).** This node is the **lifecycle/governance** measurement — deferred behind plugin conformance ([13](13-plugin-conformance.md), Priority 1). It is designed now so the seam is right, but built after the plugin is proven actionable.
+
+## How this measurement happens, exactly (reuse the kernel's own predicates)
+
+Governance-correctness is **not** re-implemented in the harness. After the container run, the harness opens the produced workspace and calls the SAME engine predicates the kernel uses, off the real serialized state:
+
+- `validate_graph_invariants(ws, run_id, "<phase>_exit")` — coverage / replay / floor / underclaim / open-investigation at each exit.
+- `investigation_status(ws, run_id)` / `convergence_status(...)` — the dry/escalate read.
+- the run manifest `state_history` — phase-order legality + per-transition gate-ledger evidence.
+- the gate ledger + watermark chain — no ungated close, no raw write.
+
+So "how we measure" = **load the container-produced UACP state, run the kernel's own measurement engines on it, assert their verdicts.** Deterministic despite the non-deterministic run, and single-sourced with the in-process integration tests (no second definition of "what the kernel promises" to drift).
+
 ## The decision (mike: "both, tiered")
 
 A run's verdict has two tiers with different force:

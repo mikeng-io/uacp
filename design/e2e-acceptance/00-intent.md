@@ -43,7 +43,16 @@ The harness *core* — scenario, assertions, orchestration, scoring — must not
 - **(a) Benchmark.** Each run emits a **structured, scored result** ([22](22-benchmark.md)), not a bare pass/fail — so the same harness becomes a cross-agent / cross-model UACP-competence benchmark without re-architecture.
 - **(b) Runtime breadth.** The runner-adapter seam means a new agent runtime is a new *container + entrypoint*, not a harness rewrite.
 
-## What it asserts (the crux — see [21](21-assertions.md))
+## Priority order (mike): plugin actionability FIRST, lifecycle measurement NEXT
+
+The harness is built in two priorities, not one:
+
+- **Priority 1 — plugin conformance ([13](13-plugin-conformance.md)).** Is the installed plugin *actionable*? Install UACP as a plugin in a fresh agent container and prove every declared capability works — skills load, hooks fire, the MCP server starts and its tools are callable, commands dispatch. If the plugin doesn't function installed, nothing downstream matters. This is the first build.
+- **Priority 2 — lifecycle/governance measurement ([20](20-scenario.md)/[21](21-assertions.md)).** Drive a real governed run and measure that the governance held. Deferred to "next time."
+
+The clean seam between them: conformance answers *"can the agent USE UACP?"*; the lifecycle measurement answers *"when it does, does the governance hold?"*.
+
+## What the lifecycle test asserts (Priority 2 — the crux, see [21](21-assertions.md))
 
 Because a weak local model **will not reliably finish the lifecycle**, "the agent reached RESOLVE" cannot be the pass/fail gate. Assertions are **tiered**: **governance-correctness is the HARD gate** (whatever the agent did, the kernel never let an invalid state through — no skipped transition, dirty VERIFY blocked, no self-attested closure); **agent-completion is a SOFT, scored signal**. The harness can be GREEN on a run where the model floundered — because the *governance* held — and that is the correct semantics for an acceptance test of a governance framework.
 
