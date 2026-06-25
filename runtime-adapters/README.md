@@ -9,6 +9,11 @@ Claude Code steps are first; for Kimi see [Kimi Code](#kimi-code).
 
 - Claude Code (`claude --version`) and/or Kimi Code installed.
 - Python 3.11+ available as `python3`.
+- [`uv`](https://docs.astral.sh/uv/) on `PATH` — the MCP governed-tools server
+  self-provisions its Python dependencies through `uv run` (see
+  [MCP server setup](#mcp-server-setup)). This is the only host prerequisite for
+  the MCP server; if `uv` is absent, skills and the Guardian hook still load — only
+  the governed-tools server fails to start.
 - The UACP repository cloned or the GitHub repo URL to hand.
 
 ## Claude Code — install from the marketplace
@@ -36,16 +41,29 @@ claude plugin details uacp   # lists all 17 skills + hook + MCP server
 
 ## MCP server setup
 
-The bundled MCP server (`runtime-adapters/mcp/uacp_mcp_server.py`) requires the
-`[mcp]` extra. Install it once inside the plugin directory:
+No manual step is required. The bundled MCP server
+(`runtime-adapters/mcp/uacp_mcp_server.py`) is declared in
+`.claude-plugin/plugin.json` under `mcpServers`, launched via:
 
-```bash
-cd /path/to/uacp
-pip install -e ".[mcp]"
+```jsonc
+"uacp": {
+  "command": "uv",
+  "args": ["run", "--no-project",
+           "--with", "mcp", "--with", "pyyaml", "--with", "pydantic", "--with", "jsonschema",
+           "python", "${CLAUDE_PLUGIN_ROOT}/runtime-adapters/mcp/uacp_mcp_server.py"]
+}
 ```
 
-Claude Code passes `CLAUDE_PLUGIN_ROOT` to the server at runtime, so no additional
-path configuration is needed after installation.
+`uv run --no-project --with …` provisions the server's dependencies (`mcp` plus
+the kernel's core runtime deps — `pydantic`, `pyyaml`, `jsonschema`) into an
+ephemeral, cached environment on launch — so a fresh plugin install needs only
+`uv` on `PATH`, no `pip install`. Claude Code passes `CLAUDE_PLUGIN_ROOT` so the
+server resolves its own path. (The `--with` set is kept in lockstep with
+`pyproject.toml`'s core dependencies by a drift-guard test in
+`tests/unit/skills/test_cc_install_readiness.py`.)
+
+For a manual or dev run outside the plugin, install the extra instead:
+`pip install -e ".[mcp]"`.
 
 ## Enforcement
 

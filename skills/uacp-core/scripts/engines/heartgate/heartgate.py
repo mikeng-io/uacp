@@ -270,8 +270,7 @@ class Heartgate:
         doc = self._load_yaml_under_root(selection_rel, [], "forced_proposal_coverage")
         if not isinstance(doc, Mapping):
             return [
-                f"{prefix} it must parse as a mapping "
-                "(a garbled envelope cannot bypass coverage)"
+                f"{prefix} it must parse as a mapping (a garbled envelope cannot bypass coverage)"
             ]
         core = doc.get("universal_core") if isinstance(doc.get("universal_core"), Mapping) else {}
         scope_concern = core.get("scope") if isinstance(core, Mapping) else None

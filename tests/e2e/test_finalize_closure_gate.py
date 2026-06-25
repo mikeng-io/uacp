@@ -32,9 +32,7 @@ from tests.e2e.test_coherence import (
 
 
 def _finalize(root: Path, run_id: str) -> dict:
-    return json.loads(
-        state_machine.handle_finalize({"workspace": str(root), "run_id": run_id})
-    )
+    return json.loads(state_machine.handle_finalize({"workspace": str(root), "run_id": run_id}))
 
 
 def _make_ledger_non_monotonic(root: Path, run_id: str) -> None:

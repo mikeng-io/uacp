@@ -296,6 +296,21 @@ Skills and runtimes do not override docs. Config does not override docs. If a YA
 
 ---
 
+## Installing as a Claude Code plugin
+
+UACP ships as a Claude Code plugin (skills + the Guardian PreToolUse hook + the
+`uacp` MCP governed-tools server):
+
+```bash
+claude plugin marketplace add mikeng-io/uacp   # once per machine
+claude plugin install uacp@uacp
+```
+
+The MCP server self-provisions its Python dependencies via `uv`, so the one host
+prerequisite is [`uv`](https://docs.astral.sh/uv/) on `PATH` (skills and the hook
+load even without it). Full instructions — local-clone install, Kimi Code, and
+the enforcement model — are in [`runtime-adapters/README.md`](runtime-adapters/README.md).
+
 ## Runtime Support
 
 UACP is designed to be runtime-neutral. The current host runtime is **Hermes**. Adapter bridge contracts exist for: **Claude Code**, **Codex**, **Kimi**, **OpenCode**, and **Gemini** — see `skills/uacp-bridge/references/` for the dispatch contracts for each.

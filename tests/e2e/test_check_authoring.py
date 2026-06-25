@@ -153,6 +153,8 @@ def test_validate_on_write_rejects_malformed_check(tmp_path):
         seq="1",
     )
     assert "error" in res and "validate-on-write rejected" in res["error"], res
-    assert not list((tmp_path / ".uacp" / "verification").glob("*")) if (
-        tmp_path / ".uacp" / "verification"
-    ).exists() else True
+    assert (
+        not list((tmp_path / ".uacp" / "verification").glob("*"))
+        if (tmp_path / ".uacp" / "verification").exists()
+        else True
+    )

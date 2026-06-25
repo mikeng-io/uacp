@@ -42,7 +42,9 @@ def test_writer_injects_current_catalog_version(temp_uacp_root: Path):
     data_rel = f"plans/{run_id}-d.yaml"
     _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "ready"})
     res = create_entity(
-        str(temp_uacp_root), run_id, "uacp.check.field_equals",
+        str(temp_uacp_root),
+        run_id,
+        "uacp.check.field_equals",
         {
             "id": "chk-1",
             "from": {"target": "wu-1", "basis": "x"},
@@ -65,12 +67,16 @@ def test_foreign_catalog_version_is_error_block(temp_uacp_root: Path):
     data_rel = f"plans/{run_id}-d.yaml"
     _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "ready"})
     _write(
-        temp_uacp_root, f"verification/{run_id}-chk.yaml",
+        temp_uacp_root,
+        f"verification/{run_id}-chk.yaml",
         {
-            "kind": "uacp.check.field_equals", "id": "chk-old", "catalog_version": "0",
+            "kind": "uacp.check.field_equals",
+            "id": "chk-old",
+            "catalog_version": "0",
             "from": {"target": "wu-1", "basis": "x"},
             "bind": {"plane": "artifact", "ref": {"artifact": data_rel, "path": "status"}},
-            "expect": {"value": "ready"}, "severity": "block",
+            "expect": {"value": "ready"},
+            "severity": "block",
         },
     )
     _register(temp_uacp_root, run_id, "data", data_rel)
@@ -87,12 +93,15 @@ def test_missing_catalog_version_is_tolerated(temp_uacp_root: Path):
     data_rel = f"plans/{run_id}-d.yaml"
     _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "ready"})
     _write(
-        temp_uacp_root, f"verification/{run_id}-chk.yaml",
+        temp_uacp_root,
+        f"verification/{run_id}-chk.yaml",
         {
-            "kind": "uacp.check.field_equals", "id": "chk-legacy",
+            "kind": "uacp.check.field_equals",
+            "id": "chk-legacy",
             "from": {"target": "wu-1", "basis": "x"},
             "bind": {"plane": "artifact", "ref": {"artifact": data_rel, "path": "status"}},
-            "expect": {"value": "ready"}, "severity": "block",
+            "expect": {"value": "ready"},
+            "severity": "block",
         },
     )
     _register(temp_uacp_root, run_id, "data", data_rel)
