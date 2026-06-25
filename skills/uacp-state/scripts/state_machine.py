@@ -11,9 +11,12 @@ import sys
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
+
+if TYPE_CHECKING:
+    from core import HeartgateDecision
 
 # Ensure uacp-core/scripts is on the path for filesystem utilities.
 _CORE_DIR = Path(__file__).resolve().parents[2] / "uacp-core" / "scripts"
@@ -303,8 +306,57 @@ def handle_read(args: dict[str, Any]) -> str:
         return json.dumps({"error": f"read failed: {type(exc).__name__}: {exc}"})
 
 
+# Phases whose exit has a defined structural-graph subset (D35). Earlier phases
+# (triage/propose) have no graph layer yet, so their exit is not graph-gated.
+_GRAPH_GATED_PHASES: frozenset[str] = frozenset({"plan", "execute", "verify"})
+
+
+def _run_transition_graph_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
+    """Phase-scoped structural graph gate for a LIVE transition (D35).
+
+    Forces ``validate_graph_invariants('<from_phase>_exit')`` onto the live
+    transition path — the state-derived structural subset of the Heartgate
+    transition gate (dropped intent / orphan / phantom / missing coverage /
+    contradiction), which otherwise runs only inside the agent-invoked
+    ``validate_transition``. Returns block-severity violations as ``"CODE: message"``
+    strings (empty == pass). Phase-independent, so it runs BEFORE the phase mutation
+    (no revert needed). Fail-closed: a gate that cannot run blocks the transition.
+
+    Lazy import: keeps the state machine free of the engines package for callers
+    that never transition, and avoids the engines->state_machine import cycle.
+    """
+    if from_phase not in _GRAPH_GATED_PHASES:
+        return []
+    try:
+        from engines.graph_projection import validate_graph_invariants
+
+        violations = validate_graph_invariants(workspace, run_id, f"{from_phase}_exit")
+        return [f"{v.code}: {v.message}" for v in violations if v.severity == "block"]
+    except Exception as exc:  # fail-closed: an unrunnable gate must not advance
+        return [f"TRANSITION_GRAPH_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+
+
+def _run_forced_proposal_coverage_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
+    """Force the proposal-gate REGISTRATION precondition onto PROPOSE->PLAN on the
+    live path (node-15 residual #1, coverage half). Without this, a package-selection
+    run could declare a covered keyed scope module, never register it, skip
+    ``validate_transition``, and advance via ``handle_transition`` — leaving the
+    forced ``plan_exit`` gate with no scope_items to enforce (a dropped intent
+    escapes). Self-gating: only fires at PROPOSE exit and only when a package-selection
+    envelope declares a covered keyed scope (bare/ungoverned transitions return []).
+    Fail-closed: an unrunnable gate blocks. Lazy import (engines<->state cycle)."""
+    if from_phase != "propose":
+        return []
+    try:
+        from core import Heartgate
+
+        return Heartgate.load(str(workspace)).forced_proposal_coverage_blockers(run_id)
+    except Exception as exc:  # fail-closed
+        return [f"FORCED_PROPOSAL_COVERAGE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+
+
 def handle_transition(args: dict[str, Any]) -> str:
-    """Locked phase transition with validation."""
+    """Locked phase transition with validation + the phase-exit structural gate."""
     try:
         workspace = Path(str(args.get("workspace") or ".")).resolve()
         run_id = str(args.get("run_id") or "").strip()
@@ -333,6 +385,23 @@ def handle_transition(args: dict[str, Any]) -> str:
             return json.dumps({
                 "error": f"transition not allowed: {from_phase} -> {to_phase} (allowed: {sorted(allowed)})",
             })
+
+        # Phase-exit structural gate: run the state-derived graph invariants for
+        # this exit BEFORE advancing. Forces the gate onto the live path so a
+        # phase can no longer advance past a dropped/orphan/phantom/contradicted
+        # graph just because the agent skipped uacp_heartgate_check. Fail-closed.
+        # Plus the forced PROPOSE->PLAN registration precondition (residual #1) so a
+        # package-selection run cannot leave its keyed scope module unregistered and
+        # thereby starve the plan_exit coverage gate.
+        gate_blockers = _run_transition_graph_gate(workspace, run_id, from_phase)
+        gate_blockers += _run_forced_proposal_coverage_gate(workspace, run_id, from_phase)
+        if gate_blockers:
+            return json.dumps({
+                "error": "transition blocked by phase-exit structural gate",
+                "from_phase": from_phase,
+                "to_phase": to_phase,
+                "blockers": gate_blockers,
+            }, ensure_ascii=False)
 
         manifest.current_phase = to_phase
         if to_phase in TERMINAL_PHASES:
@@ -439,8 +508,47 @@ def handle_workspace(args: dict[str, Any]) -> str:
         return json.dumps({"error": f"workspace update failed: {type(exc).__name__}: {exc}"})
 
 
+def _run_closure_gate(workspace: Path, run_id: str) -> HeartgateDecision:
+    """Run the Heartgate closure sweep (the full computed-engine pass) for a run.
+
+    This is the LIVE wiring of ``Heartgate.validate_closure``: it expects the run
+    to already be finalized on disk (the engines' terminal checks assume the
+    resolved/closed state). ``validate_closure`` never raises — but the kernel
+    import / config load can — so we fail CLOSED: any failure to even run the gate
+    is surfaced as a block, never a silent pass.
+
+    Lazy import: keeps the state machine free of the kernel for callers that never
+    finalize, and avoids the engines->state_machine import cycle (the engines
+    package imports this module, so importing it at module load would cycle).
+    """
+    try:
+        from core import Heartgate
+
+        return Heartgate.load(workspace).validate_closure(run_id)
+    except Exception as exc:  # fail-closed: an unrunnable gate must not finalize
+        return _closure_unavailable_block(exc)
+
+
+def _closure_unavailable_block(exc: Exception) -> HeartgateDecision:
+    from core import HeartgateDecision as _Decision
+
+    return _Decision(
+        "block",
+        "closure gate could not be run",
+        [f"CLOSURE_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"],
+        [],
+    )
+
+
 def handle_finalize(args: dict[str, Any]) -> str:
-    """Finalize a run from verify -> resolved."""
+    """Finalize a run from verify -> resolved, gated by the closure sweep.
+
+    Finalizing stamps the run resolved/finalized, THEN runs the Heartgate closure
+    sweep (all computed engines) over the now-finalized state. If the sweep blocks
+    the run is reverted to its pre-finalize state and an error with the engine
+    blockers is returned — a run can no longer be stamped 'resolved' while the
+    strongest verification the system owns goes unrun. Fail-closed.
+    """
     try:
         workspace = Path(str(args.get("workspace") or ".")).resolve()
         run_id = str(args.get("run_id") or "").strip()
@@ -455,16 +563,43 @@ def handle_finalize(args: dict[str, Any]) -> str:
                 "error": f"finalize refused: run is in phase '{manifest.current_phase}', not in terminal phase ({sorted(TERMINAL_PHASES)})",
             })
 
-        if manifest.status != Status.resolved:
-            manifest.status = Status.resolved
-
+        # Tentatively finalize so the closure engines see a resolved/finalized run
+        # (their terminal checks false-positive on a not-yet-finalized run). Keep
+        # the prior state to revert if the gate blocks.
+        prior_status = manifest.status
+        prior_finalized_at = manifest.finalized_at
+        manifest.status = Status.resolved
         manifest.finalized_at = _iso_now()
         _save_manifest(workspace, manifest)
+
+        # Fail-closed: a gate that blocks OR cannot run at all reverts the
+        # tentative finalize. Wrapped so even a pathological gate failure (e.g.
+        # the kernel is unimportable) can never leave a run finalized-on-disk.
+        try:
+            decision = _run_closure_gate(workspace, run_id)
+            blocked = decision.blocks_transition
+        except Exception as exc:  # pragma: no cover - kernel totally unavailable
+            decision = _closure_unavailable_block(exc)
+            blocked = True
+
+        if blocked:
+            manifest.status = prior_status
+            manifest.finalized_at = prior_finalized_at
+            _save_manifest(workspace, manifest)
+            return json.dumps({
+                "error": "finalize blocked by closure sweep",
+                "decision": decision.decision,
+                "blockers": decision.blockers,
+                "warnings": decision.warnings,
+            }, ensure_ascii=False)
+
         return json.dumps({
             "ok": True,
             "run_id": run_id,
             "status": manifest.status.value,
             "finalized_at": manifest.finalized_at,
+            "closure": decision.decision,
+            "warnings": decision.warnings,
         }, ensure_ascii=False)
     except FileNotFoundError as exc:
         return json.dumps({"error": f"finalize failed: {exc}"})

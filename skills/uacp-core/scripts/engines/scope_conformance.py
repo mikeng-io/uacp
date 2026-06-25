@@ -71,9 +71,11 @@ from config import base_dir
 # The shared violation type + engine registry. Every engine reports the same
 # Violation; this engine registers itself in ENGINES at the bottom of the module.
 from engines.base import ENGINES, Violation
+from engines.domain import layout
 
 # All filesystem access is delegated to the io layer (no raw reads here).
 from engines.io import (
+    load_artifact,
     load_manifest,
     load_registry,
     load_scope,
@@ -87,6 +89,17 @@ from engines.io.loaders import ManifestDoc
 # are system-owned write surfaces, not free-form EXECUTE writes, so a referenced
 # artifact under one of them is treated as in-scope. Strings are base-relative
 # (resolved under .uacp/), so `resolutions` replaces the old `.outputs`.
+#
+# NOTE (D43 Option B): the run's own RELATION-plane GOVERNANCE artifacts (proposal,
+# keyed scope module, PIV, checkpoint, assessment — under proposals/plans/executions)
+# are exempted by KIND, not by prefix (see _is_governance_manifest). A dir-prefix
+# whitelist over those homes would be a CONTAINMENT REGRESSION: uacp_artifact_write
+# accepts ARBITRARY non-manifest files under plans/proposals/executions (it only
+# refuses RELATION-plane *manifest kinds*), so an EXECUTE product could be written to
+# e.g. executions/patch.py, registered, and pass scope-conformance. The kind exemption
+# avoids that: a RELATION-plane manifest can only be produced by the governed manifest
+# writer (raw .uacp/ writes are Guardian-blocked; artifact_write refuses RELATION
+# content), so a non-manifest file under those dirs is still flagged.
 _ALLOWED_OUTPUT_PREFIXES = ("resolutions", "state", "verification")
 
 # Canonical blast_radius values — sourced from the codified Pydantic model
@@ -322,6 +335,42 @@ def _check_scope_registry(
     return out
 
 
+def _is_governance_manifest(root: Path, rel: str, apath: Path) -> bool:
+    """True iff ``rel`` is one of the run's own RELATION-plane GOVERNANCE manifests
+    (proposal / keyed scope module / PIV / checkpoint / assessment / lessons / ...),
+    which are lifecycle process artifacts, NOT EXECUTE write products — so they are
+    in-scope wherever they live under the governed namespace.
+
+    Spoof-resistance (this is a containment exemption, so it must not be forgeable):
+
+    * The kind is taken PATH-CANONICALLY first (``layout.kind_for_relpath``). That is
+      unspoofable for an attacker: ``uacp_artifact_write`` refuses to write any file
+      whose path resolves to a RELATION-plane manifest kind, and ``uacp_entity_write``
+      schema-validates, so a canonical RELATION path cannot hold arbitrary content.
+    * It falls back to the artifact's own ``kind`` field ONLY for files resolving
+      UNDER the governed namespace (``.uacp/``). A RELATION-kind document there can
+      only have been produced by the governed manifest writer: raw ``.uacp/`` writes
+      are Guardian-blocked, and ``uacp_artifact_write`` refuses RELATION-kind content
+      at ANY path. So an EXECUTE product (repo file, or an arbitrary non-manifest file
+      like ``executions/patch.py``) is never mistaken for governance and stays subject
+      to the write_path boundary.
+    """
+    kind = layout.kind_for_relpath(rel)
+    if kind is None:
+        try:
+            base = base_dir(root).resolve()
+            under_governed = apath == base or base in apath.parents
+        except Exception:
+            under_governed = False
+        if under_governed:
+            doc = load_artifact(root, rel)
+            if doc.error is None and isinstance(doc.value, dict):
+                k = doc.value.get("kind")
+                if isinstance(k, str):
+                    kind = k
+    return bool(kind) and layout.plane_of(kind) == layout.RELATION
+
+
 # ------------------------------------------------------- SC artifact containment
 def _check_artifact_containment(
     root: Path,
@@ -365,6 +414,12 @@ def _check_artifact_containment(
             continue  # escaping path is coherence C5's concern
         # The scope artifact declares the boundary; it is not an in-scope product.
         if scope_resolved is not None and apath == scope_resolved:
+            continue
+        # The run's own RELATION-plane governance manifests are lifecycle process
+        # artifacts, not EXECUTE products — exempt by KIND (D43 Option B), never by a
+        # dir whitelist (which arbitrary-content files could exploit). See
+        # _is_governance_manifest for the spoof-resistance argument.
+        if _is_governance_manifest(root, rel, apath):
             continue
         if any(_is_contained(apath, base) for base in allowed_roots):
             continue

@@ -32,6 +32,25 @@ except ImportError:  # pragma: no cover - Hermes ships with PyYAML in normal use
     yaml = None  # type: ignore[assignment]
 
 
+def _scope_concern_is_keyed(hg: Heartgate, artifact_rel: str) -> bool:
+    """True iff the scope concern's artifact declares a non-empty keyed
+    ``scope.in_scope:[{id,statement}]`` — the D43 coverage source (the scope_item
+    nodes the graph projection reads). A markdown / unstructured scope returns False.
+    """
+    if not artifact_rel:
+        return False
+    doc = hg._load_yaml_under_root(artifact_rel, [], "scope module")
+    if not isinstance(doc, Mapping):
+        return False
+    scope = doc.get("scope")
+    in_scope = scope.get("in_scope") if isinstance(scope, Mapping) else None
+    if not isinstance(in_scope, list) or not in_scope:
+        return False
+    return all(
+        isinstance(i, Mapping) and i.get("id") and i.get("statement") is not None for i in in_scope
+    )
+
+
 def validate_adaptive_proposal_package_gate(
     hg: Heartgate, artifact: Mapping[str, Any], blockers: list[str]
 ) -> None:
@@ -109,6 +128,39 @@ def validate_adaptive_proposal_package_gate(
                 f"adaptive_proposal_package_gate: universal_core.{key} status must be "
                 "covered|not_applicable"
             )
+    # D43 (Option C) — the scope concern must be COVERED by a keyed scope module
+    # (scope.in_scope:[{id,statement}]), not markdown / not_applicable, so the
+    # coverage graph has scope_items to verify (GP_UNCOVERED_INTENT at plan_exit /
+    # closure). Only governed package-selection runs reach this gate, so bare /
+    # mechanical runs are unaffected. This is what makes intent coverage mandatory
+    # rather than skippable for the package-selection representation.
+    scope_concern = core.get("scope") if isinstance(core, Mapping) else None
+    scope_artifact_rel = (
+        str(scope_concern.get("artifact") or "") if isinstance(scope_concern, Mapping) else ""
+    )
+    if not (isinstance(scope_concern, Mapping) and str(scope_concern.get("status")) == "covered"):
+        blockers.append(
+            "adaptive_proposal_package_gate: scope must be 'covered' by a keyed scope module "
+            "(scope.in_scope:[{id,statement}]); D43 coverage requires structured intents"
+        )
+    elif not _scope_concern_is_keyed(hg, scope_artifact_rel):
+        blockers.append(
+            "adaptive_proposal_package_gate: scope artifact must declare a non-empty keyed "
+            "scope.in_scope:[{id,statement}] (D43)"
+        )
+    elif scope_artifact_rel not in hg._registered_artifact_rels(run_id):
+        # D43 Option B — the keyed scope module must also be REGISTERED in the run
+        # manifest (manifest.artifacts), not merely present on disk: graph projection
+        # reads only registered artifacts, so an unregistered scope module yields no
+        # scope_item nodes and the forced plan_exit coverage gate (GP_UNCOVERED_INTENT)
+        # would have nothing to enforce. Requiring registration is what makes intent
+        # coverage BIND for the package-selection representation, not just the keyed
+        # uacp.proposal entity-write path (which auto-registers).
+        blockers.append(
+            "adaptive_proposal_package_gate: keyed scope module "
+            f"'{scope_artifact_rel}' must be registered in the run manifest "
+            "(uacp_run_registry_update / register-artifact) so coverage binds (D43 Option B)"
+        )
     modules = (
         selection.get("selected_modules")
         if isinstance(selection.get("selected_modules"), Mapping)

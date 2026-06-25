@@ -232,6 +232,71 @@ class Heartgate:
             )
         return HeartgateDecision("pass", "transition passes", [], [])
 
+    def forced_proposal_coverage_blockers(self, run_id: str) -> list[str]:
+        """The ONE proposal-gate check that must hold on the FORCED transition path
+        (``state_machine.handle_transition``), not only the agent-invoked
+        ``validate_transition`` — closing the coverage half of node-15 residual #1
+        ("the package gates aren't forced").
+
+        Why only this check, forced: the forced ``plan_exit`` structural gate can
+        only enforce intent coverage over REGISTERED scope_items. A package-selection
+        run can declare a covered keyed scope module but reference it WITHOUT
+        registering it, so projection sees nothing and a dropped intent escapes on a
+        run that never calls ``validate_transition``. Forcing the full proposal
+        package gate would demand every package artifact on every transition (the
+        bare-transition ripple the structural gate deliberately avoids); forcing just
+        the registration precondition closes the coverage bypass with no such ripple.
+
+        Self-gating is on ENVELOPE PRESENCE, and the body is FAIL-CLOSED (a council
+        review caught the earlier fail-open): it returns ``[]`` only when NO
+        package-selection envelope file exists for ``run_id`` (a bare / ungoverned
+        transition). Once an envelope IS present — i.e. the run is a governed
+        package-selection PROPOSE — its ``scope`` concern MUST be ``covered`` by a
+        non-empty keyed scope module that is REGISTERED in ``manifest.artifacts`` (or
+        inherited), else this forced precondition BLOCKS. A garbled envelope, a
+        ``not_applicable`` / markdown scope, or an unregistered keyed module all block
+        here — closing the bypass where an agent skips ``validate_transition`` and
+        simply declines to mark its scope covered (which would otherwise leave the
+        plan_exit coverage gate with no scope_items to enforce). This mirrors the
+        agent-invoked ``validate_adaptive_proposal_package_gate`` scope requirement,
+        but forced and scope-only (no other package artifacts demanded → no
+        bare-transition ripple).
+        """
+        selection_rel = f"proposals/{run_id}-package-selection.yaml"
+        # Self-gate on FILE PRESENCE: no envelope -> bare/ungoverned transition -> skip.
+        if not (self.governed_root / selection_rel).exists():
+            return []
+        prefix = f"forced_proposal_coverage[{run_id}]: package-selection envelope present, so"
+        doc = self._load_yaml_under_root(selection_rel, [], "forced_proposal_coverage")
+        if not isinstance(doc, Mapping):
+            return [
+                f"{prefix} it must parse as a mapping "
+                "(a garbled envelope cannot bypass coverage)"
+            ]
+        core = doc.get("universal_core") if isinstance(doc.get("universal_core"), Mapping) else {}
+        scope_concern = core.get("scope") if isinstance(core, Mapping) else None
+        if not (
+            isinstance(scope_concern, Mapping) and str(scope_concern.get("status")) == "covered"
+        ):
+            return [
+                f"{prefix} its scope concern must be 'covered' by a keyed scope module "
+                "(scope.in_scope:[{id,statement}]); not_applicable/markdown scope cannot "
+                "bypass intent coverage on the forced path (D43 Option B / residual #1)"
+            ]
+        rel = str(scope_concern.get("artifact") or "")
+        if not adaptive_gates._scope_concern_is_keyed(self, rel):
+            return [
+                f"{prefix} the covered scope artifact '{rel}' must declare a non-empty keyed "
+                "scope.in_scope:[{id,statement}] (D43)"
+            ]
+        if rel not in self._registered_artifact_rels(run_id):
+            return [
+                f"{prefix} the keyed scope module '{rel}' must be registered in the run "
+                "manifest so the forced plan_exit coverage gate can project its scope_items "
+                "(D43 Option B / residual #1)"
+            ]
+        return []
+
     def validate_transition_file(self, path: str | Path) -> HeartgateDecision:
         raw_path = Path(path)
         if not raw_path.is_absolute():
@@ -261,10 +326,12 @@ class Heartgate:
         registered. The engines' terminal checks (coherence C4, evidence
         ``EV_RESOLVED_WITHOUT_EVIDENCE``, deferral ``DF_DEFERRAL_DROPPED_AT_RESOLVE``)
         assume the closed/resolved state; calling it on a run that has not yet
-        been finalized would false-positive. It is invoked by the RESOLVE flow /
-        runtime (and exposed by the future MCP ``uacp_validate_closure`` tool) —
-        it is NOT auto-called inside ``state_machine.handle_finalize`` to keep
-        the state machine decoupled from the kernel.
+        been finalized would false-positive — which is why ``handle_finalize``
+        sets ``finalized_at`` FIRST, then runs this gate, reverting if it blocks.
+        It is auto-called on the live RESOLVE path: ``state_machine.handle_finalize``
+        runs it (via ``_run_closure_gate``) so a run cannot be stamped resolved
+        while the engine sweep finds blockers. Also exposed to the RESOLVE
+        runtime (and the future MCP ``uacp_validate_closure`` tool).
 
         Never raises: the engines themselves never raise, and the whole sweep is
         wrapped defensively so a closure check can never crash the kernel — an
@@ -342,6 +409,31 @@ class Heartgate:
             return resolved.exists()
         except Exception:
             return False
+
+    def _registered_artifact_rels(self, run_id: str) -> set[str]:
+        """The run-root-relative artifact paths REGISTERED in the run manifest's
+        ``artifacts`` map — i.e. exactly what :mod:`engines.manifest.projection`
+        loads into the coverage graph. Package gates use this to require that a
+        referenced coverage artifact (the keyed scope module; the PIV) be
+        *registered*, not merely present on disk — so the forced phase-exit graph
+        gate (D35 ``plan_exit``) projects its scope_items/work_units and the
+        dropped-intent detector can BIND (D43 Option B). A missing/garbled manifest
+        yields the empty set (caller treats "not registered" as a blocker —
+        fail-closed)."""
+        loaded = io_loaders.load_manifest(self.uacp_root, run_id)
+        if loaded.error is not None or loaded.value is None:
+            return set()
+        rels: set[str] = set()
+        # Match graph projection's load set EXACTLY (projection._load_and_project reads
+        # artifacts + inherited_artifacts). A goal-chained child REUSES a parent's
+        # registered scope module / PIV via inherited_artifacts; counting only `artifacts`
+        # would false-block such a child at the registration precondition even though
+        # projection sees (and the coverage gate verifies) the inherited scope.
+        for field in ("artifacts", "inherited_artifacts"):
+            m = loaded.value.raw.get(field)
+            if isinstance(m, dict):
+                rels |= {str(v) for v in m.values()}
+        return rels
 
     def _validate_checkpoint_entry(self, entry: Any, blockers: list[str]) -> None:
         goal_driven.validate_checkpoint_entry(self, entry, blockers)

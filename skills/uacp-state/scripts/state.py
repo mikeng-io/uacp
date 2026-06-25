@@ -179,6 +179,19 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         escalations_root = (base / "state" / "escalations").resolve()
         if target == escalations_root or escalations_root in target.parents:
             return json.dumps({"error": "uacp_state_write may not write under state/escalations/; use uacp_escalation_event"})
+        # F2 (verification-method council, 2026-06-25): state/runs/ holds the run
+        # MANIFEST (state/runs/{run_id}.yaml) whose `artifacts:` map is the graph that
+        # the coverage projection, the registration precondition, and scope-conformance's
+        # governance-by-kind exemption all TRUST. A generic uacp_state_write to this
+        # subdir let an EXECUTE-phase caller forge manifest.artifacts / phase and defeat
+        # every graph-trust gate. Mirror the gate-ledger / run-registry / escalations
+        # carve-outs: run state is authoritative and mutated ONLY by the uacp-state
+        # operations (handle_init / handle_transition / handle_register_artifact /
+        # handle_finalize / handle_workspace), which write it directly — never through
+        # this generic escape hatch.
+        runs_root = (base / "state" / "runs").resolve()
+        if target == runs_root or runs_root in target.parents:
+            return json.dumps({"error": "uacp_state_write may not write under state/runs/; run state (the run manifest + transition artifacts) is mutated only via the uacp-state operations (init/transition/register-artifact/finalize), which own manifest.artifacts integrity"})
         # Global review R1 (SKEP-G-005): state/current.yaml is the active-run
         # pointer. Phase 5 will introduce kernel readers for current.yaml's
         # uacp_mode and active_phase fields; allowing any phase's caller to

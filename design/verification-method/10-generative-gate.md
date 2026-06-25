@@ -1,0 +1,49 @@
+---
+type: design
+title: Layer 2 — the Generative Gate (comprehend → measure → serialize)
+description: The dynamic gate whose verification ACTIONS are generated from the artifact's content/context, not hardcoded. The comprehend→measure→serialize operation; its re-derivable property (semantic generates, deterministic runs, generation recorded); the antidote to #503's weak-proxy + coverage-gap classes. Grounded in the as-built schema registry + projection enumerator.
+tags: [verification, generative-gate, adaptive, comprehend-measure-serialize, re-derivable]
+timestamp: 2026-06-24
+edges:
+  - {dst: 00-the-primitive, rel: realizes, provenance: asserted}
+---
+
+# Layer 2 — the Generative Gate
+
+## The distinction it embodies
+
+Some parts of verification are an **activity** (a fixed procedure — the [harness](11-harness.md)). Other parts must be a **dynamically-defined gate** whose *actions are generated from the content/context*, because the set of things to verify and the right way to verify each cannot be hardcoded without decaying into weak proxies (#503 classes **B** and **D**).
+
+The generative gate is the operation that produces those actions: **`comprehend → measure → serialize`** run in *generate* mode. This is the verification instantiation of CMS — the canonical principle lives in [`design/comprehend-measure-serialize/`](../comprehend-measure-serialize/00-the-axiom.md); this node does not re-derive it.
+
+## The operation — `comprehend → measure → serialize`
+
+- **comprehend** (semantic, judgment, recorded): read the artifact's actual intent — *"this proposal wires a route / adds a settlement path / changes an invariant."*
+- **measure** (the agent's **grounded judgment** of *which specific check would prove it* — author an executable assertion, **not** "does the file exist"). This is a *semantic* act, **not** deterministic — determinism is relocated to where the authored check is replayed (the CMS thesis: [11-measure](../comprehend-measure-serialize/11-measure.md), [25-enforcement-surfaces](../comprehend-measure-serialize/25-enforcement-surfaces.md)).
+- **serialize** (freeze): canonicalize those measurements as auditable assertions that then **run fail-closed, deterministically, forever.**
+
+## Why it is re-derivable (the load-bearing property)
+
+The semantic touch is **bounded to generation** and is **recorded**; the **run is deterministic** — *semantic generates, deterministic runs*. Same move as the graph-engine's `asserted` edge — *judgment made once, serialized, replayed deterministically after.* The gate does not "use AI to check"; it uses comprehension to **author a deterministic check**, freezes it, then the [harness](11-harness.md) replays it. The investigation ledger ([13](13-investigation-ledger.md)) records what was generated and why, so the generation is auditable, not a black box. This *is* the CMS determinism-relocation framing ([25-enforcement-surfaces](../comprehend-measure-serialize/25-enforcement-surfaces.md)): the agent's `measure` is grounded, not deterministic; determinism belongs to the replaying gate.
+
+## The antidote to #503
+
+#503's gate had a *hardcoded* `grep route_mounted` — a weak proxy that couldn't tell a symbol's *use* from its *name*, and churned rounds. A generative gate *comprehends* "route wiring" → *measures* by symbol resolution → *serializes*. **Hardcoded checks can't adapt to content; generated measurements do.** That is the difference between 7 rounds and one.
+
+## What is already built vs. what is genuinely new
+
+The substrate exists — be honest about which is which:
+
+- **The serialization sink (BUILT).** The per-kind schema registry — `engines/domain/schema.py`: a `kind → JSON-Schema` map + `validate(kind, doc)` that never raises (malformed input returns error strings). This is the real **IMPROVISE** target: a new generated assertion / check is a new `kind` added here, validated at write time via the entity-writer's `has_schema`-gated path. The `Engine`/`Violation` model (`engines/base.py`) is the matching run-side contract — a generated check is an engine returning `Violation`s.
+- **The ENUMERATE substrate (BUILT).** `engines/manifest/projection.py:_load_and_project` already loads a run's manifest and projects **every** artifact into `(nodes, edges)`; the `artifact_integrity` engine is the reality-binder precedent (a deterministic check bound to on-disk reality). `graph_projection.py` is now a re-export shim → `engines.manifest.projection`.
+- **The designed measurement primitive (NOT built).** D7's `metric` / `prohibition` / `method_constraint` nodes + `constrains` / `measured_by` / `violated` edges ([graph-engine D7](../graph-engine/15-constraints-metrics.md)) are **graph-engine Slice 3, design-only** — the projection emits no such kinds and the schema registry has none. This is the *designed* deterministic-measurable-check primitive, to be built; do **not** present it as something UACP already provides.
+- **The generation precedent (BUILT, narrow).** #503's own "propose emits executable assertions" — generalize it to every phase.
+- **The BUILD (genuinely new).** The **generator** itself (comprehend content → author a check) is new. **ROUTE-by-provenance** and **symbol-resolution BIND** are also new: the projection types edges only by `rel` (no provenance routing), and symbol BIND needs the not-yet-built code / SCIP plane. See [20](20-build-improvise-update.md).
+
+## The generative moves (content-derived)
+`ENUMERATE` (targets from the manifest/content — the projection enumerator is the substrate) → `ROUTE` (per target's provenance D17/D23 — new) → `BIND` (resolve to the real artifact/symbol/infra — `artifact_integrity` is the precedent; symbol BIND awaits the code plane). These feed the fixed harness's `RUN/RECONCILE/LOOP/ESCALATE`.
+
+## To expand
+- The assertion model + schema (what a serialized measurement looks like as a `kind` in the registry — extends `engines/domain/schema.py`; D7 supplies the *designed* `metric`/`constraint` shapes once Slice 3 lands).
+- The reality binder (how BIND resolves spec→real; ties to `artifact_integrity` + the code plane / SCIP).
+- The synthesis rules per phase (how PROPOSE/PLAN/VERIFY each generate their measurements from content).

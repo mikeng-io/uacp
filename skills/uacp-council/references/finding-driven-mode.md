@@ -140,3 +140,13 @@ Consumer-side filtering (examples):
 Defined canonically in `uacp-bridge/SKILL.md` "Verdict Logic" → "For `mode == finding-driven`". Do not duplicate the table here. The short version: any unaddressed CRITICAL/HIGH or any CRITICAL new-issue (regression/drift/interaction) → `FAIL`. Any HIGH new-issue → `CONCERNS`. Otherwise → `PASS`.
 
 A re-review that says "all fixes addressed their findings" but introduces design drift is still `CONCERNS` — that's the point of the mode.
+
+### Adversarial posture — verification-gate mode (default-to-refute, majority-clear)
+
+When a finding-driven council runs as a **verification gate** — the council as the generative gate run as a panel (`design/verification-method/14-council-method.md`) — invert the default and raise the bar to clear. This is the posture, not a new schema: it changes the *prior* and the *clearing threshold*.
+
+- **Default-to-refute.** Each verifier starts from *the claim is unproven* and must be argued INTO a clear by evidence bound to the real artifact — never the reverse. "No objection found" is **not** a clear: absence of evidence is a refutation, not a pass (fail-closed — the #503 class-A failure, treating a check that found nothing as PASS). State the refutation you could not overturn, with its grounding.
+- **Majority-clear.** A claim clears only when a **majority** of the dispatched verifiers affirm it on grounded evidence; a tie, or a lone affirmation against silence, does **not** clear it. This is where cross-runtime diversity (the higher-tier Integration Checker, above) earns its keep — a shared blind spot cannot manufacture a majority.
+- **Serialize the verdicts.** Each verifier's refute/affirm + its evidence ref is written to the investigation ledger (`design/verification-method/13-investigation-ledger.md`) as the auditable trail — not collapsed into the council's single PASS/CONCERNS/FAIL.
+
+Net effect: the gate **fails closed when the panel is uncertain**. Use this posture for verification/phase-end councils; the open and standard finding-driven defaults (above) are unchanged for non-gate reviews.

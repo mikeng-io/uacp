@@ -299,55 +299,50 @@ class TestStateMachineRegisterArtifact:
 class TestStateMachineFinalize:
     """Tests for handle_finalize."""
 
-    def test_finalize_resolved_run(self, temp_uacp_root: Path):
+    def test_finalize_blocked_when_run_not_closeable(self, temp_uacp_root: Path):
+        """A run driven to the terminal phase but NOT actually closeable (no
+        lessons/closure artifact, etc.) must be REFUSED by handle_finalize: the
+        closure sweep is now wired onto the live finalize path. The block must
+        also REVERT — the run is left un-finalized to be fixed and retried.
+
+        The closeable-run positive (finalize succeeds + stamps finalized_at) is
+        covered end-to-end in tests/e2e/test_finalize_closure_gate.py, which drives
+        a genuinely closeable run through the real kernel.
+        """
         handle_init({
             "workspace": str(temp_uacp_root),
             "run_id": "uacp-test-001",
             "source": "operator-request",
         })
-        # Move through phases to resolved
-        handle_transition({
-            "workspace": str(temp_uacp_root),
-            "run_id": "uacp-test-001",
-            "from_phase": "triage",
-            "to_phase": "propose",
-        })
-        handle_transition({
-            "workspace": str(temp_uacp_root),
-            "run_id": "uacp-test-001",
-            "from_phase": "propose",
-            "to_phase": "plan",
-        })
-        handle_transition({
-            "workspace": str(temp_uacp_root),
-            "run_id": "uacp-test-001",
-            "from_phase": "plan",
-            "to_phase": "execute",
-        })
-        handle_transition({
-            "workspace": str(temp_uacp_root),
-            "run_id": "uacp-test-001",
-            "from_phase": "execute",
-            "to_phase": "verify",
-        })
-        handle_transition({
-            "workspace": str(temp_uacp_root),
-            "run_id": "uacp-test-001",
-            "from_phase": "verify",
-            "to_phase": "resolved",
-        })
+        # Move through phases to resolved (structural transitions only — no
+        # lessons artifact authored, so the run is NOT closeable).
+        for frm, to in [
+            ("triage", "propose"),
+            ("propose", "plan"),
+            ("plan", "execute"),
+            ("execute", "verify"),
+            ("verify", "resolved"),
+        ]:
+            handle_transition({
+                "workspace": str(temp_uacp_root),
+                "run_id": "uacp-test-001",
+                "from_phase": frm,
+                "to_phase": to,
+            })
 
         result = json.loads(handle_finalize({
             "workspace": str(temp_uacp_root),
             "run_id": "uacp-test-001",
         }))
-        assert result["ok"] is True
-        assert result["status"] == "resolved"
+        # Refused by the closure sweep, with the engine blocker(s) surfaced.
+        assert "error" in result, result
+        assert result.get("decision") == "block", result
+        assert any("C4_CLOSURE_ARTIFACT_MISSING" in b for b in result.get("blockers", [])), result
 
+        # Reverted: the run is NOT finalized.
         manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-test-001.yaml"
         data = yaml.safe_load(manifest_path.read_text())
-        assert data["status"] == "resolved"
-        assert data["finalized_at"] is not None
+        assert data["finalized_at"] is None
 
     def test_rejects_finalize_from_non_terminal_phase(self, temp_uacp_root: Path):
         handle_init({

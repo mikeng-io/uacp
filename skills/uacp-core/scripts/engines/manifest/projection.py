@@ -166,20 +166,25 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
 # graph yields no false positives.
 
 
-# Scope-coverage adoption gate (D43): the intent->task coverage checks (uncovered/orphan) bind on
-# `derives_from` edges, which require keyed scope_items the PROPOSE producer does not yet emit
-# (proposal scope is markdown today — the unresolved D43 scope-serialization decision). Until a run
-# ADOPTS the coverage layer (emits >=1 derives_from edge), these two checks SKIP — else activating
-# the gate would false-flood every real run as all-orphan/all-uncovered. Once adopted, they bind
-# fully (a dropped intent / unanchored task among covered siblings is a real defect). The OTHER
-# checks (phantom/contradicted) and the execute/verify coverage checks do NOT depend on scope_items
-# and stay unconditional.
+# Scope-coverage adoption gate (D43): used now ONLY by the ORPHAN check. A work_unit
+# with no `derives_from` should not be flooded as an orphan in a run that has adopted NO
+# coverage edges at all (the pre-keys / unprojected-coverage shape). UNCOVERED no longer
+# uses this gate — an intent that nothing derives from is uncovered on scope PRESENCE (it
+# self-gates on "are there any scope_item nodes?"), so a run that declares intents and
+# covers NONE is caught rather than skipped. Phantom/contradicted and the execute/verify
+# coverage checks do not depend on scope_items and stay unconditional.
 def _coverage_adopted(edges: list) -> bool:
     return any(e["rel"] == "derives_from" for e in edges)
 
 
 def _check_uncovered(nodes: dict, edges: list) -> list[Violation]:
-    if not _coverage_adopted(edges):
+    # Fire whenever scope_items are PRESENT: an uncovered intent is uncovered whether
+    # or not ANY derives_from edge exists. Skipping only on no-edges (the old adoption
+    # gate) over-skipped the worst case — a run that declares intents but covers NONE.
+    # We skip ONLY when there are no scope_item nodes at all (nothing declared to
+    # cover: a pre-keys / unprojected-scope run), which is the real false-flood guard.
+    scope_items = [n for n in nodes.values() if n["kind"] == "scope_item"]
+    if not scope_items:
         return []
     df_dst = {e["dst"] for e in edges if e["rel"] == "derives_from"}
     return [
@@ -189,8 +194,8 @@ def _check_uncovered(nodes: dict, edges: list) -> list[Violation]:
             f"(dropped intent): «{(n.get('statement') or '')[:60]}»",
             scope_item=n["id"],
         )
-        for n in nodes.values()
-        if n["kind"] == "scope_item" and n["id"] not in df_dst
+        for n in scope_items
+        if n["id"] not in df_dst
     ]
 
 
@@ -361,9 +366,19 @@ def _load_and_project(workspace: str | Path, run_id: str) -> tuple[dict, list] |
     artifacts = loaded.value.raw.get("artifacts")
     if not isinstance(artifacts, dict):
         return None
+    # Goal-chained runs REUSE parent prior-phase outputs via inherited_artifacts
+    # (triage/proposal/plan refs copied at init), not their own `artifacts`. Project
+    # those too — otherwise a child run's coverage graph is missing the inherited
+    # scope_items/work_units and a dropped intent silently passes. Own artifacts are
+    # projected FIRST so a child's re-authored doc wins over an inherited one
+    # (add_node uses setdefault).
+    inherited = loaded.value.raw.get("inherited_artifacts")
+    rels = list(artifacts.values())
+    if isinstance(inherited, dict):
+        rels += list(inherited.values())
     nodes: dict[str, dict] = {}
     edges: list[dict] = []
-    for rel in artifacts.values():
+    for rel in rels:
         if not isinstance(rel, str) or not rel:
             continue
         doc = load_artifact(root, rel)

@@ -98,6 +98,10 @@ def _piv(run_id: str) -> dict:
         "evidence_obligations": [
             {
                 "id": "ob-1",
+                "work_unit_id": "wu-1",  # D43: links the obligation to its work_unit so the
+                # manifest graph carries obligation_for(ob-1 -> wu-1) — needed by the forced
+                # plan_exit obligation-coverage and verify_exit unverified checks once this PIV
+                # is REGISTERED (Option B coverage binding).
                 "required": True,
                 "description": "patch lands",
                 "evidence_type": "artifact",

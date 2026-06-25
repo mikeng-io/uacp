@@ -85,7 +85,7 @@ Decide one of: `pass` / `pass_with_deferred_items` / `block_return_to_execute` /
 > **Read `references/piv-execution-evidence-contract.md`** to judge the PLAN-authored PIV/evidence contract against EXECUTE checkpoints. If the PIV contract is missing for non-trivial/governed work, or evidence is YAML-only/raw-file-list without rationale/decision/invariant/drift/evidence mapping, return to EXECUTE or PLAN rather than improvising a pass.
 > **Read `../uacp-execute/references/phase-intent-verification-execute-evidence-20260519.md`** for EXECUTE phases referencing `kind: uacp.phase_intent_verification_contract`.
 
-**4d — Council (when tier requires it).** Run a role-diverse Agent Council (Primary Reviewer, Devil's Advocate, Integration Checker, Synthesis Lead) in verify/audit/review mode. Wire it via Step 6.
+**4d — Council (when tier requires it).** Run a role-diverse Agent Council (Primary Reviewer, Devil's Advocate, Integration Checker, Synthesis Lead) in verify/audit/review mode. Wire it via Step 6. In verify mode, run it with the **verification-gate posture** — default-to-refute + majority-clear (`uacp-council/references/finding-driven-mode.md`): a claim clears only when a majority of verifiers affirm it on grounded evidence, so the gate fails closed when the panel is uncertain.
 
 ### Step 5 — Synthesize blockers and concerns with file/path evidence
 Assemble the verification package; keep verified facts separate from assumptions/deferred items.

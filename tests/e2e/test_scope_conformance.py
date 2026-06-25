@@ -138,6 +138,35 @@ def test_sc_artifact_in_declared_write_path_is_ok(temp_uacp_root: Path, valid_ru
     assert "SC_ARTIFACT_OUT_OF_SCOPE" not in codes, codes
 
 
+def test_sc_arbitrary_file_under_governance_home_is_still_flagged(
+    temp_uacp_root: Path, valid_run_id: str
+):
+    """Containment is preserved by KIND, not by a dir-prefix whitelist (D43 Option B).
+
+    ``uacp_artifact_write`` permits ARBITRARY non-manifest files under the governance
+    homes (plans/proposals/executions) — it only refuses RELATION-plane *manifest*
+    kinds. So a real EXECUTE product dumped under ``executions/`` and registered must
+    STILL be flagged out-of-scope. Whitelisting ``executions/`` by prefix would let it
+    pass — a containment bypass. The RELATION-plane governance chain that
+    ``seed_coherent_run`` registers (keyed scope module, PIV, checkpoint, assessment)
+    is exempt by KIND, so the good run stays clean."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)  # write_paths == []
+    assert "SC_ARTIFACT_OUT_OF_SCOPE" not in _codes(validate(temp_uacp_root, valid_run_id))
+
+    # An arbitrary, NON-manifest file under executions/ (a governance HOME), registered.
+    # It has no RELATION manifest kind, so it is NOT governance and is out-of-scope.
+    evil_rel = f"executions/{valid_run_id}-exfil.py"
+    (temp_uacp_root / ".uacp" / "executions").mkdir(parents=True, exist_ok=True)
+    (temp_uacp_root / ".uacp" / evil_rel).write_text("print('arbitrary execute product')\n")
+    manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / f"{valid_run_id}.yaml"
+    data = yaml.safe_load(manifest_path.read_text())
+    data.setdefault("artifacts", {})["exfil"] = evil_rel
+    manifest_path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    codes = _codes(validate(temp_uacp_root, valid_run_id))
+    assert "SC_ARTIFACT_OUT_OF_SCOPE" in codes, codes
+
+
 # -------------------------------------------------------- SC_BLAST_RADIUS_INVALID
 def test_sc_blast_radius_invalid(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)
