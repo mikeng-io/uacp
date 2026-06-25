@@ -39,19 +39,44 @@ def _seed_root(tmp_path: Path) -> None:
 def test_state_write_lands_under_uacp(tmp_path: Path, monkeypatch):
     monkeypatch.setenv("UACP_ROOT", str(tmp_path))
     _seed_root(tmp_path)
+    # NB: state/runs/ is carved out of uacp_state_write (F2 — run-manifest integrity),
+    # so this containment test uses a generic state path, not a run-state path.
     args = {
         **_common_ctx(tmp_path, "uacp-test-001"),
-        "target_path": "state/runs/r1.yaml",
+        "target_path": "state/scratch/r1.yaml",
         "content": "run_id: r1\n",
         "reason": "containment test",
     }
     out = json.loads(state_mod._handle_uacp_state_write(args))
     assert out.get("ok") is True, out
     # C-1: lands under .uacp/state, NOT flat state/.
-    assert (tmp_path / ".uacp" / "state" / "runs" / "r1.yaml").exists()
-    assert not (tmp_path / "state" / "runs" / "r1.yaml").exists()
+    assert (tmp_path / ".uacp" / "state" / "scratch" / "r1.yaml").exists()
+    assert not (tmp_path / "state" / "scratch" / "r1.yaml").exists()
     # Response path stays base-relative (not prefixed with .uacp/).
-    assert out.get("path") == "state/runs/r1.yaml"
+    assert out.get("path") == "state/scratch/r1.yaml"
+
+
+def test_state_write_refuses_run_manifest_forge(tmp_path: Path, monkeypatch):
+    """F2 (council): the run manifest state/runs/{run_id}.yaml holds manifest.artifacts —
+    the graph the coverage projection, the registration precondition, and
+    scope-conformance's governance-by-kind exemption all TRUST. uacp_state_write must
+    refuse it so an EXECUTE-phase caller cannot forge artifacts/phase and defeat the
+    gates (mirrors the gate-ledger / run-registry / escalations carve-outs)."""
+    monkeypatch.setenv("UACP_ROOT", str(tmp_path))
+    _seed_root(tmp_path)
+    args = {
+        **_common_ctx(tmp_path, "uacp-test-001"),
+        "target_path": "state/runs/uacp-test-001.yaml",
+        "content": (
+            "kind: uacp.run_manifest\nrun_id: uacp-test-001\n"
+            "artifacts:\n  forged: plans/attacker.yaml\n"
+        ),
+        "reason": "forge manifest.artifacts",
+    }
+    out = json.loads(state_mod._handle_uacp_state_write(args))
+    assert "error" in out, f"forging the run manifest via uacp_state_write must be refused: {out}"
+    assert "state/runs/" in out["error"], out
+    assert not (tmp_path / ".uacp" / "state" / "runs" / "uacp-test-001.yaml").exists()
 
 
 def test_gate_ledger_append_lands_under_uacp(tmp_path: Path, monkeypatch):
