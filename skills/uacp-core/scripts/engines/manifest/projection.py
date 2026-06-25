@@ -435,8 +435,10 @@ def _check_unverified(nodes: dict, edges: list) -> list[Violation]:
 
 def _latest_investigation(nodes: dict, edges: list) -> list[dict]:
     """The NON-superseded investigation entries (node 13 revisable trail): an entry whose id is the
-    dst of a `supersedes` edge has been revised by a later one, so the LATEST trail drops it."""
-    superseded = {e["dst"] for e in edges if e["rel"] == "supersedes"}
+    dst of a `supersedes` edge from a DIFFERENT entry has been revised by a later one, so the LATEST
+    trail drops it. A SELF-supersede (src == dst) does NOT clear an entry — else a failing entry
+    could supersede itself out of the open set (fail-closed)."""
+    superseded = {e["dst"] for e in edges if e["rel"] == "supersedes" and e["src"] != e["dst"]}
     return [
         n
         for n in nodes.values()

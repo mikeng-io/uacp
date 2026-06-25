@@ -67,6 +67,12 @@ def test_supersede_clears_an_earlier_failure(tmp_path):
     assert "GP_OPEN_INVESTIGATION" not in _codes(validate_graph_projection(ws, "r"))
 
 
+def test_self_supersede_does_not_clear_a_failure(tmp_path):
+    # fail-closed: an entry that supersedes ITSELF must NOT drop out of the open set.
+    ws = _ws(tmp_path, [_entry("e1", "run", verdict="fail", supersedes="e1")])
+    assert "GP_OPEN_INVESTIGATION" in _codes(validate_graph_projection(ws, "r"))
+
+
 def test_passing_and_nonmeasuring_entries_do_not_block(tmp_path):
     # a passing run + a non-measuring enumerate move (no verdict) are not open.
     ws = _ws(tmp_path, [_entry("e1", "enumerate"), _entry("e2", "run", verdict="pass")])
