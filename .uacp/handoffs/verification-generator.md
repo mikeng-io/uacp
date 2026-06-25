@@ -93,8 +93,19 @@ generation failures) that hardcoded checks can't.
   That belongs as a skill enhancement (a RESUME-PROMPT verb/output), tracked here.
 
 ## Now → next
-- **Position:** slice **0 is BUILT + green (suite 1909)** — 0a (replay) + 0b (coverage gate) + 0c
-  (governed authoring path + `obligation_satisfied`) + review-hardening. See Anchors for the commits.
+- **Position:** slice **0 is BUILT + COUNCILLED + green (suite 1915)** — 0a (replay) + 0b (coverage gate)
+  + 0c (governed authoring + `obligation_satisfied`) + hardening + the cross-provider council fixes.
+  See Anchors for the commits.
+- **Council DONE (the pre-merge gate is satisfied).** Claude subagent lens + cross-provider **kimi** +
+  **opencode-go/mimo-v2.5**, all default-to-refute, throwaway-test-grounded. Verdict: 0 surviving
+  blockers/majors. Findings, all FIXED: (a) `artifact_integrity` was a no-op PASS (kimi + opencode,
+  independent) → now a REAL watermark hash-equality check (no watermark=ERROR, mismatch=FAIL); (b)
+  coverage was enforced only at the verify_exit transition (opencode) → `GP_UNCHECKED_TARGET` added to
+  the terminal closure set as a backstop; (c) mimo minors — code/behavior plane guard hoisted so ANY
+  mislabeled kind ERRORs, `field_equals` now requires `expect`, registry parity made bidirectional, and
+  the L1 gap is now PINNED by a test. **Routing note:** the canonical `minimax-cn-coding-plan/MiniMax-M3`
+  key was INVALID; an interim `opencode-go/minimax-m3` substitution was REJECTED by mike — use
+  **`opencode-go/mimo-v2.5`** (his choice) until the canonical key is re-authed.
 - **The from.target↔bind DECOUPLING (carry into L2 — the BLOCKER a reviewer led with).** Coverage proves a
   check NAMES each target, NOT that the check's `bind` (what replay evaluates) is RELEVANT to it. So a
   check that names `wu-1` but binds a trivial field on an unrelated artifact satisfies coverage and can
@@ -103,15 +114,17 @@ generation failures) that hardcoded checks can't.
   Slice 0 is L1 (omission) only — named honestly in the `_check_unchecked_target` limit comment; do NOT
   claim slice 0 closes relevance. For graph-plane kinds (`obligation_satisfied`/`edge_exists`) the bind IS
   structural, so L2 could cheaply cross-check bind-relates-to-target there; for `field_*` it's semantic (L3).
-- **Next:** (1) the **cross-provider council** (kimi + opencode `-m minimax-cn-coding-plan/MiniMax-M3`) +
-  default-to-refute — the standing PRE-MERGE gate; the Claude subagent lens is DONE (drove the hardening
-  commit). Then merge slice 0. (2) Slice **2 = the floor (L2/2b)**: `verification-floor.yaml` + the floor
-  engine (`CHK_FLOOR_UNMET`/`CHK_CLASS_UNDERCLAIM`) + the council enumeration of checks-as-claims. Then
-  generator SKILL (slice 1), code/SCIP plane (slice 3).
+- **Next:** (1) **MERGE slice 0** — council satisfied; push the branch + open the PR (0b/0c/hardening/
+  council commits are local). (2) Slice **2 = the floor (L2/2b)**: `verification-floor.yaml` + the floor
+  engine (`CHK_FLOOR_UNMET`/`CHK_CLASS_UNDERCLAIM`) + the council enumeration of checks-as-claims — this
+  is what closes the from.target↔bind decoupling (the pinned L1 gap). Then generator SKILL (slice 1),
+  code/SCIP plane (slice 3).
 
 ## Anchors
-- branch: `verification-generator` (off merged `main`; 0a pushed; 0b/0c/hardening local — push before PR)
-- commit: `bd484cf` — slice 0 review-hardening: severity-block fix + replay@verify_exit + phantom@verify_exit + honesty; suite 1909
+- branch: `verification-generator` (off merged `main`; 0a pushed; 0b/0c/hardening/council local — push before PR)
+- commit: `1723869` — mimo-v2.5 council minors: plane-guard hoist + field_equals requires expect + bidirectional parity + L1-gap pin; suite 1915
+- commit: `6c51282` — cross-provider council fixes: artifact_integrity real watermark check + GP_UNCHECKED_TARGET terminal backstop
+- commit: `bd484cf` — slice 0 review-hardening: severity-block fix + replay@verify_exit + phantom@verify_exit + honesty
 - commit: `5164d8b` — slice 0c: `uacp.check.*` schemas + layout Entries (governed authoring) + `obligation_satisfied` (graph-plane)
 - commit: `5546bc9` — slice 0b: `GP_UNCHECKED_TARGET` coverage gate (`_check_unchecked_target` in `_SCOPE_CHECKS["verify_exit"]`)
 - commit: `6b58a94` — slice 0a: replay engine (`validate_check_replay`, 4 kinds) + `_project` check arm; suite 1894 green
