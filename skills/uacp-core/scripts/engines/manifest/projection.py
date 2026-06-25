@@ -120,6 +120,22 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
         if target:
             add_edge(doc["id"], str(target), "measured_by")
 
+    # uacp.investigation_entry — one move in the verify loop (capsule #3 node 13). Project it as an
+    # `investigation_entry` node carrying its move/verdict and a `supersedes` edge to the entry it
+    # revises, so the open-investigation closure check + the dry-predicate read the latest trail.
+    if doc_kind == "uacp.investigation_entry" and doc.get("entry_id"):
+        add_node(
+            doc["entry_id"],
+            "investigation_entry",
+            move=doc.get("move"),
+            verdict=doc.get("verdict"),
+            check_ref=doc.get("check_ref"),
+            inv_target=doc.get("target"),
+        )
+        sup = doc.get("supersedes")
+        if sup:
+            add_edge(doc["entry_id"], str(sup), "supersedes")
+
     scope = doc.get("scope")
     scope = scope if isinstance(scope, dict) else {}
     for item in _aslist(scope.get("in_scope")):
@@ -417,6 +433,35 @@ def _check_unverified(nodes: dict, edges: list) -> list[Violation]:
     ]
 
 
+def _latest_investigation(nodes: dict, edges: list) -> list[dict]:
+    """The NON-superseded investigation entries (node 13 revisable trail): an entry whose id is the
+    dst of a `supersedes` edge has been revised by a later one, so the LATEST trail drops it."""
+    superseded = {e["dst"] for e in edges if e["rel"] == "supersedes"}
+    return [
+        n
+        for n in nodes.values()
+        if n["kind"] == "investigation_entry" and n["id"] not in superseded
+    ]
+
+
+def _check_open_investigation(nodes: dict, edges: list) -> list[Violation]:
+    """An OPEN investigation blocks (node 13 — the ledger's teeth + the no-self-attesting-closure
+    invariant): a non-superseded investigation_entry whose verdict is `fail` or `error` is an
+    unresolved move. ERROR is fail-closed (never a pass). A later entry that `supersedes` it (e.g. a
+    remediation that now `pass`es) clears it — revisable, history kept."""
+    return [
+        _v(
+            "GP_OPEN_INVESTIGATION",
+            f"investigation_entry '{n['id']}' is {n.get('verdict')!r} and not superseded "
+            f"(an unresolved verify move — done cannot close over it)",
+            entry=n["id"],
+            verdict=n.get("verdict"),
+        )
+        for n in _latest_investigation(nodes, edges)
+        if n.get("verdict") in ("fail", "error")
+    ]
+
+
 # Terminal (closure) check set — STRUCTURAL only; the phase-gated coverage checks
 # (obligation/checkpoint/unverified) are NOT run here (they have a transition-of-enforcement and
 # legitimate close-with-deferred reasons to be absent at terminal — final-review T2). EXCEPTION:
@@ -430,6 +475,7 @@ _TERMINAL_CHECKS = (
     _check_phantom,
     _check_contradicted,
     _check_unchecked_target,
+    _check_open_investigation,
 )
 
 # Phase-keyed gates (D35): the subset enforced at each transition, keyed by the
@@ -444,6 +490,7 @@ _SCOPE_CHECKS = {
         _check_contradicted,
         _check_unchecked_target,
         _check_phantom,
+        _check_open_investigation,
     ),
 }
 
@@ -541,6 +588,32 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
         out.extend(validate_check_floor(workspace, run_id))
         out.extend(validate_class_underclaim(workspace, run_id))
     return out
+
+
+def investigation_status(workspace: str | Path, run_id: str) -> dict:
+    """The investigation convergence read (node 13 dry-predicate). Returns a dict with ``dry``
+    (bool), ``open`` (entry ids), ``contradictions``, and ``entries`` (the non-superseded count).
+
+    DRY == the verify loop has no OPEN move left to resolve: no non-superseded investigation_entry
+    with verdict ``fail``/``error``, AND no open ``GP_CONTRADICTED`` (the ``reconcile`` move signal,
+    node 13). The harness reads this to decide keep-generating-vs-stop; the open set ALSO blocks
+    closure via ``GP_OPEN_INVESTIGATION``. Fail-closed: an ``error`` entry keeps it not-dry; a load/
+    input failure reports ``dry=False`` rather than a false convergence. Never raises."""
+    if _validate_inputs(workspace, run_id) is not None:
+        return {"dry": False, "open": [], "contradictions": [], "entries": 0, "error": "bad input"}
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return {"dry": True, "open": [], "contradictions": [], "entries": 0}
+    nodes, edges = graph
+    latest = _latest_investigation(nodes, edges)
+    open_ids = [n["id"] for n in latest if n.get("verdict") in ("fail", "error")]
+    contradictions = [v.detail for v in _check_contradicted(nodes, edges)]
+    return {
+        "dry": not open_ids and not contradictions,
+        "open": open_ids,
+        "contradictions": contradictions,
+        "entries": len(latest),
+    }
 
 
 # --- the replay engine (capsule #3, slice 0) -----------------------------------

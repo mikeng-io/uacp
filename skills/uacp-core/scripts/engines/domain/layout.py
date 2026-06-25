@@ -104,6 +104,15 @@ _ENTRIES: tuple[Entry, ...] = (
         "uacp.execution_checkpoint", RELATION, "executions", "{run_id}-checkpoint-{seq}.yaml", YAML
     ),
     Entry("uacp.piv_assessment", RELATION, "verification", "{run_id}-piv-assessment.yaml", YAML),
+    # investigation-ledger entry (capsule #3 node 13): one move in the verify loop, revisable via
+    # `supersedes`; multi-instance ({seq}). Needs a schema too (BOTH-registries rule).
+    Entry(
+        "uacp.investigation_entry",
+        RELATION,
+        "verification",
+        "{run_id}-investigation-{seq}.yaml",
+        YAML,
+    ),
     Entry(
         "uacp.verification_package",
         RELATION,
