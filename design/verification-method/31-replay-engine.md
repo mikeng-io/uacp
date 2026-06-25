@@ -39,7 +39,7 @@ block/warn severity). So it does not invent any new run machinery:
 ## The algorithm (per run)
 
 ```
-load (nodes, edges) via projection._load_and_project        # registered check nodes are already here
+load (nodes, edges) via projection._load_and_project        # NB: requires the new _project arm (below)
 for each node n where n.kind startswith "uacp.check.":
     evaluator = CATALOG[n.kind].evaluator                   # closed dispatch; unknown kind -> ERROR (block)
     try:
@@ -65,10 +65,13 @@ Three fail-closed rules (each closes a #503 class):
 ## What is built vs new
 
 - **Built / IMPROVISE:** the `Engine`/`Violation` contract, `run_all_engines` + its crash-guard, the
-  closure + phase-exit wiring, `projection._load_and_project` (loads the check nodes for free),
-  `artifact_integrity` (the precedent reality-bound engine).
-- **New (BUILD, slice 0):** the dispatch table (kind → evaluator), the per-kind evaluators for the
-  graph + artifact-content catalog, and registering the engine into `ENGINES`.
+  closure + phase-exit wiring, the `_load_and_project` *manifest-loading* loop (it iterates every
+  registered artifact), `artifact_integrity` (the precedent reality-bound engine).
+- **New (BUILD, slice 0):** the `uacp.check.*` arm in `_project` that turns a check doc into a `check`
+  node + `measured_by` edge (the manifest is loaded for free; the **check nodes are not** — `_project` is
+  a hardcoded extractor today, council finding, [30](30-assertion-model.md)); the dispatch table (kind →
+  evaluator); the per-kind evaluators for the graph + artifact-content catalog; registering the engine
+  into `ENGINES`.
 - **New (later):** evaluators for the code/SCIP + behavioral kinds (need the binder's code plane —
   [32](32-reality-binder.md)).
 

@@ -20,8 +20,17 @@ edges:
 
 The generator ([33](33-generator-synthesis.md)) is a *semantic* step, so it cannot be trusted alone — a
 lazy or adversarial agent could author **weak** checks (always-true — #503 class B) or **omit** checks
-for some targets (class D, recursively). This node is the governance over the generation. Three layers,
-**determinism first** — judgment is used only where determinism cannot reach.
+for some targets (class D, recursively). This node is the governance over the generation. Three layers.
+
+> **Honest framing (council correction, 2026-06-25 — unanimous cross-provider + subagent).** Determinism
+> here does **less** than "determinism-first / can't be gamed" would imply. Layers 1-2 deterministically
+> force **omission** (D) and **gross wrong-kind *given an honest class*** (B-coarse). They do **not** force
+> an **honest classification** — and the floor (Layer 2) keys off the agent's *declared* class. So the
+> residual the council (Layer 3) owns is **classification honesty + subtle weakness**, and that residual is
+> larger than a "3 deterministic layers" reading suggests. The accurate claim: *determinism NARROWS the
+> council's surface to classification-honesty; it does not eliminate it.* The mitigation in Layer 2b below
+> shrinks that surface further by grounding the class in content; it does not fully close it (only the code
+> plane, which entails the class from the real symbol kind, does — and that is later).
 
 ## Layer 1 — STRUCTURAL coverage (deterministic; reuses what we built)
 
@@ -59,9 +68,27 @@ enforced rule, not advice. (Honest edge: a `changes_behavior` floor requires a b
 which BLOCKS until that plane is wired — [32](32-reality-binder.md) — correctly refusing to let such work
 close on a weak proxy in the meantime.)
 
-> Anti-circularity note: the class is agent-declared, so the floor is only as honest as the
-> classification. That residual is Layer 3's job — but note the floor still raises the *cost* of gaming
-> (the agent must mis-classify in writing, which the council reads).
+### Layer 2b — class ENTAILMENT cross-check (deterministic, partial)
+
+The loophole all three reviewers led with: the floor keys off an **agent-declared** class, so an agent can
+mis-classify a `wires_symbol` work_unit as `sets_value`, satisfy the floor with a weak `field_equals`, and
+pass Layers 1-2 green. Layer 2b shrinks that surface deterministically (it cannot fully close it):
+
+- **Content cross-check.** Derive a *candidate* class from the target's OWN serialized content — the
+  `work_unit.intent` / `expected_outputs` text (a fixed keyword/pattern map: `wire|mount|register|route`
+  → `wires_symbol`; `set|update|configure` → `sets_value`; …). If the declared class is *weaker* than the
+  candidate the content implies, emit `CHK_CLASS_UNDERCLAIM` (block / council-priority). This forces the
+  agent to mis-state the **intent text too** — which the council reads and other gates already consume —
+  not just a private label.
+- **Serialize the entailment, not just the class.** The check records `from.class` AND the basis it was
+  derived from, so an auditor can see *whether the class follows from the content*, not just assert it.
+- **The code plane closes it fully (later).** Once the `code` plane lands ([32](32-reality-binder.md)), a
+  `wires_symbol` claim's check binds to the real symbol kind — the class is then *entailed by reality*, not
+  declared. Until then, 2b is a heuristic floor and Layer 3 owns the residual.
+
+Honest residual: 2b raises the cost of gaming (mis-classification must now also corrupt the intent text and
+survive the council); it does not make classification-honesty deterministic. Only the code/behavioral plane
+does — the bundle does not claim otherwise.
 
 ## Layer 3 — COUNCIL default-to-refute (the only judgment)
 

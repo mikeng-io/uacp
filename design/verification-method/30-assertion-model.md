@@ -24,8 +24,18 @@ black box [10](10-generative-gate.md) warns against). It is a **typed entity** t
 - has a JSON-Schema in the registry (`engines/domain/schema.py` — the BUILT serialization sink), so a
   malformed check is rejected fail-closed at write time (the entity-writer's `has_schema`-gated path);
 - has exactly one **deterministic replay engine** ([31](31-replay-engine.md)) that computes its verdict;
-- is registered in `manifest.artifacts` and projected as a `check` node ([32](32-reality-binder.md)),
-  carrying a `measured_by` edge to the target it proves.
+- is registered in `manifest.artifacts` and projected as a `check` node carrying a `measured_by` edge to
+  the target it proves.
+
+> **Built-vs-new correction (council, 2026-06-25).** This projection is **net-new code, not "for free."**
+> `projection._load_and_project` loads every registered artifact, but `_project` is a **hardcoded
+> extractor** — today it emits nodes only from `scope.in_scope` / `work_units` / `evidence_obligations` /
+> `checkpoint_id` / `assessments`. A `uacp.check.*` doc fed through it produces **zero nodes**. Slice 0
+> must add a `uacp.check.*` arm to `_project` that emits the `check` node + the `measured_by` edge. (Node
+> 34's "a new check function in projection.py + a new edge" is the accurate statement; do not read "the
+> substrate is built" as "checks project themselves.") Likewise, a new `kind` needs BOTH a JSON-Schema in
+> `schema.py` AND a layout `Entry` (`layout.fmt_of`/`plane_of`) — the entity-writer refuses an unknown
+> kind before validation. "Auto-register" = schema + layout, not schema alone.
 
 This is the verification realization of graph-engine **D7** (`metric` / `prohibition` /
 `method_constraint` + `measured_by` / `constrains` / `violated`): D7 designs the *shape* of a
@@ -91,6 +101,10 @@ The catalog is versioned (a `catalog_version` in config). A frozen check records
 authored under, so a later catalog change cannot silently re-interpret an old check (the class-F
 spec↔runner drift guard, applied to the catalog itself). Replay engines must read old checks under
 their recorded version.
+
+> YAGNI (council): for Slice 0 ship a single `catalog_version` constant + record it on each check; defer
+> any multi-version migration machinery until a second version is actually imminent. The *field* is cheap
+> insurance against drift; the *migration engine* is not slice-0 work.
 
 ## To build (slice 0)
 

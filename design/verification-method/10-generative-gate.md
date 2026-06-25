@@ -40,6 +40,16 @@ file), freezes them so they cannot drift, and makes passing them a **hard gate o
 *"and is each task actually proven to work — by a real check, not a rubber stamp?"* Together: nothing
 is dropped, and nothing is falsely claimed verified.
 
+> **What ships when (council honesty — the route example is later).** The `symbol_resolves(settle_route)`
+> example above is a **code-plane** check, which lands in **Slice 3** (it depends on the Codeflair SCIP
+> index — [32](32-reality-binder.md)). **Slice 0** (RELATION graph + artifact-content, buildable now)
+> closes #503 classes **A** (ERROR≠PASS), **D** (every target has a check — partial: keyed/graph targets),
+> and **F** (frozen checks replayed verbatim, no spec↔runner drift); it does **not** yet close **B**
+> (weak-proxy) for *code* claims — those `wires_symbol` checks correctly **block** (fail-closed) until the
+> code plane is wired, rather than passing on a textual shadow. So Slice 0 makes "done" *fail-closed and
+> drift-proof for what it can prove now*, and *refuses to close on a weak proxy for what it can't yet* —
+> the headline `grep route_mounted` killer (class B) arrives with the code plane, not at Slice 0.
+
 The rest of this node is the mechanism behind that guarantee.
 
 ## The distinction it embodies

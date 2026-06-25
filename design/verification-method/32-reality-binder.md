@@ -34,10 +34,12 @@ land incrementally.
 | `code` | a symbol / call-site in the codebase | the code plane (SCIP index — Codeflair) | **later** |
 | `behavior` | the observed result of exercising the work | a sandboxed runner | **later** (heaviest) |
 
-The first two planes need **no new substrate** — they bind to data the kernel already has (the manifest
-graph + governed artifacts). That is why slice 0 is real without Codeflair: it closes class C *for the
-RELATION + artifact-content planes* immediately, and the *same envelope* extends to `code` / `behavior`
-when those planes exist.
+The first two planes bind to data the kernel **already has** (the manifest graph + governed artifacts) —
+they need no new *plane* (no SCIP, no runner). They are **not zero-code**, though: the `graph` resolver
+depends on the new `uacp.check.*` `_project` arm + `measured_by` edge ([30](30-assertion-model.md)/[31](31-replay-engine.md)
+council correction), and the resolver functions themselves are net-new. The honest claim: slice 0 is
+real without Codeflair — it closes class C *for the RELATION + artifact-content planes* with no new
+substrate plane — and the *same envelope* extends to `code` / `behavior` when those planes exist.
 
 ## The code plane (designed, gated on Codeflair)
 
