@@ -55,7 +55,11 @@ These are the kinds you can author today (they match `layout.CHECK_KINDS` /
 `bind.ref.symbol` against the run's Codeflair SCIP index by **EXACT identity** (the SCIP descriptor or
 the exact indexed name — never a substring), reading the index read-only. If the index has not been
 built for the run it ERRORs (block) — so a `wires_symbol` target cannot close until the code plane is
-actually built. This binds to a real indexed symbol rather than a `grep` shadow (the #503 fix);
+actually built. **Build the index first:** `engines.code_index_build.build_code_index(workspace,
+repo_root)` runs Codeflair's tree-sitter ingest into the conventioned index path (or wire Codeflair's
+own `scip_ingest.index_repo` for SCIP precision as a CI/pre-verify step); it is fail-closed — when
+Codeflair's ingester dep is absent it is a no-op and the resolver stays ERROR. This binds to a real
+indexed symbol rather than a `grep` shadow (the #503 fix);
 because the agent still names the symbol, *whether that symbol is the right one for the target* remains
 the council's call (the honest limit below) — but a near-name or wildcard no longer false-passes.
 
