@@ -37,6 +37,21 @@ JSON = "json"
 RELATION = "relation"
 STATE = "state"
 
+# The CLOSED catalog of generative-gate check kinds (capsule #3). Each `uacp.check.<sub>`
+# is a distinct kind: the entity-writer injects `doc["kind"] = <the layout kind>`, so the
+# layout kind MUST equal the catalog kind the projection/replay engine switches on
+# (`uacp.check.<sub>`). Distinct filename suffix per sub-kind keeps the reverse path->kind
+# lookup unambiguous; `{seq}` gives multi-instance (many checks per run), mirroring
+# execution_checkpoint. Adding a sub-kind here is half the contract — it needs a schema in
+# schema.py too (BOTH-registries rule), or the writer accepts it unvalidated.
+CHECK_KINDS: tuple[str, ...] = (
+    "field_equals",
+    "field_present",
+    "edge_exists",
+    "artifact_integrity",
+    "obligation_satisfied",
+)
+
 
 @dataclass(frozen=True)
 class Entry:
@@ -108,6 +123,20 @@ _ENTRIES: tuple[Entry, ...] = (
         "verification",
         "{run_id}-{cluster}-{half}.md",
         MARKDOWN,
+    ),
+    # uacp.check.* — frozen generative-gate checks (capsule #3, slice 0c). One Entry per
+    # catalog sub-kind, distinct filename suffix for unambiguous reverse lookup; multi-instance
+    # via {seq}. Generated from CHECK_KINDS so the layout + the projection/replay catalog cannot
+    # drift apart.
+    *(
+        Entry(
+            f"uacp.check.{sub}",
+            RELATION,
+            "verification",
+            f"{{run_id}}-check-{{seq}}-{sub}.yaml",
+            YAML,
+        )
+        for sub in CHECK_KINDS
     ),
     Entry("uacp.resolve_package", RELATION, "resolutions", "{run_id}-resolve-selection.yaml", YAML),
     Entry("uacp.resolve_closure", RELATION, "resolutions", "{run_id}-closure.yaml", YAML),

@@ -51,6 +51,21 @@ def _verif(asmts: list) -> dict:
     return {"kind": "uacp.piv_assessment", "assessments": asmts}
 
 
+def _check(check_id: str, target: str, kind: str = "uacp.check.field_present") -> dict:
+    # A FROZEN uacp.check.* doc (capsule #3). It projects as a `check` node + a
+    # `measured_by` edge to its `from.target`. The coverage gate reads only that edge
+    # and check-node presence — the bind/expect payload is the replay engine's concern,
+    # not coverage's, so it is kept minimal here.
+    return {
+        "kind": kind,
+        "id": check_id,
+        "from": {"target": target, "basis": f"{target} proven"},
+        "bind": {"plane": "artifact", "ref": {"artifact": "plans/p.yaml", "path": "kind"}},
+        "expect": {},
+        "severity": "block",
+    }
+
+
 def _ws(
     tmp_path: Path, run: str, proposal: dict, plan: dict, extra_docs: list | None = None
 ) -> Path:
@@ -443,6 +458,123 @@ def test_verify_exit_clean_passes_non_vacuously(tmp_path):
     assert validate_graph_invariants(_covered_run(tmp_path / "ok"), "r", "verify_exit") == []
 
 
+# ------------------------------------------- verify_exit: check-coverage (L1, slice 0b)
+# GP_UNCHECKED_TARGET (design node 34 Layer 1): once a run has ADOPTED the generative
+# gate (>=1 projected `check` node), EVERY scope_item/work_unit must be `measured_by`
+# >=1 check. Self-gates on adoption (like ORPHAN on derives_from) so the existing
+# suite — which authors no checks — is never flooded.
+
+
+def _checked_run(tmp_path, *, checks):
+    """A fully-covered run (si-1 <- wu-1 <- ev-1 <- cp-1 <- as-1) plus the given
+    uacp.check.* docs, so the check-coverage gate is exercised at verify_exit."""
+    return _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "pass"),
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+            *checks,
+        ],
+    )
+
+
+def test_verify_exit_blocks_unchecked_target(tmp_path):
+    # The gate is adopted (a check measures si-1) but wu-1 is measured_by nothing.
+    ws = _checked_run(tmp_path, checks=[_check("chk-1", "si-1")])
+    vs = validate_graph_invariants(ws, "r", "verify_exit")
+    targets = [v.detail.get("target") for v in vs if v.code == "GP_UNCHECKED_TARGET"]
+    assert targets == ["wu-1"], [v.code for v in vs]
+    assert all(v.severity == "block" for v in vs if v.code == "GP_UNCHECKED_TARGET")
+
+
+def test_verify_exit_check_coverage_passes_non_vacuously(tmp_path):
+    # break: only si-1 is checked -> wu-1 fires; fix: both checked -> silent.
+    broken = validate_graph_invariants(
+        _checked_run(tmp_path / "bad", checks=[_check("chk-1", "si-1")]), "r", "verify_exit"
+    )
+    assert any(v.code == "GP_UNCHECKED_TARGET" for v in broken)
+    ok = _checked_run(tmp_path / "ok", checks=[_check("chk-1", "si-1"), _check("chk-2", "wu-1")])
+    assert "GP_UNCHECKED_TARGET" not in _codes_set(validate_graph_invariants(ok, "r", "verify_exit"))
+
+
+def test_verify_exit_check_coverage_self_gates_on_adoption(tmp_path):
+    # A fully-covered run with NO check nodes (the entire existing suite shape) must NOT
+    # flood GP_UNCHECKED_TARGET — the gate is adoption-gated, like ORPHAN.
+    ws = _covered_run(tmp_path)
+    assert "GP_UNCHECKED_TARGET" not in _codes_set(
+        validate_graph_invariants(ws, "r", "verify_exit")
+    )
+
+
+def _failing_field_equals(check_id: str, target: str) -> dict:
+    # binds to the plan doc's `kind` (= "uacp.plan") but expects a wrong value -> FAIL on replay.
+    return {
+        "kind": "uacp.check.field_equals",
+        "id": check_id,
+        "from": {"target": target, "basis": f"{target} sets kind"},
+        "bind": {"plane": "artifact", "ref": {"artifact": "plans/p.yaml", "path": "kind"}},
+        "expect": {"value": "WRONG-VALUE"},
+        "severity": "block",
+    }
+
+
+def test_verify_exit_replays_checks_and_blocks_on_failure(tmp_path):
+    # Fix C (reviewer): replay runs on the FORCED verify_exit path — a FAILING frozen check
+    # blocks the VERIFY exit, not only at closure. Coverage proves a check exists per target;
+    # replay proves the checks PASS. Both targets are covered so only the replay FAIL fires.
+    ws = _checked_run(
+        tmp_path,
+        checks=[
+            _check("chk-1", "si-1"),
+            _check("chk-2", "wu-1"),
+            _failing_field_equals("chk-f", "wu-1"),
+        ],
+    )
+    codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
+    assert "CHK_FIELD_EQUALS" in codes, codes
+
+
+def test_verify_exit_flags_phantom_check_target(tmp_path):
+    # Fix B (reviewer): a check whose from.target is a ghost node is caught as a phantom edge
+    # at the verify_exit gate, not only at terminal closure.
+    ws = _checked_run(
+        tmp_path,
+        checks=[_check("chk-1", "si-1"), _check("chk-2", "wu-1"), _check("chk-g", "GHOST-NODE")],
+    )
+    codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
+    assert "GP_PHANTOM_EDGE" in codes, codes
+
+
+def test_known_l1_gap_irrelevant_binding_passes_today(tmp_path):
+    # KNOWN L1 LIMITATION pinned (mimo #4 + the _check_unchecked_target honest-limit comment):
+    # coverage proves a check NAMES each target, NOT that its bind is RELEVANT to it. Here BOTH
+    # targets are "covered" by field_present checks binding an UNRELATED-but-present artifact field
+    # (plans/p.yaml#kind) — coverage is satisfied AND replay passes, though the checks prove nothing
+    # about si-1/wu-1. Closing this is L2 (required-kinds floor) + L3 (council) + the code plane.
+    # When L2 lands and entails relevance, THIS test should change (it documents the current gap).
+    ws = _checked_run(tmp_path, checks=[_check("chk-1", "si-1"), _check("chk-2", "wu-1")])
+    codes = _codes_set(validate_graph_invariants(ws, "r", "verify_exit"))
+    assert "GP_UNCHECKED_TARGET" not in codes  # both targets NAMED -> coverage satisfied
+    assert not any(c.startswith("CHK_") for c in codes)  # irrelevant-but-present -> replay passes
+
+
+def test_check_coverage_is_a_terminal_closure_backstop(tmp_path):
+    # Council (opencode, MAJOR): coverage is enforced at the verify_exit TRANSITION, but the
+    # closure sweep (run_all_engines -> validate_graph_projection) is the ONE gate that runs on
+    # EVERY closure regardless of path. So GP_UNCHECKED_TARGET is ALSO in the terminal set as a
+    # backstop — a run that adopted checks but left a target uncovered is caught at closure even if
+    # some path bypassed the verify_exit transition. Adoption-gated, so a no-check run stays silent.
+    ws = _checked_run(tmp_path, checks=[_check("chk-1", "si-1")])  # wu-1 uncovered
+    assert "GP_UNCHECKED_TARGET" in _codes_set(validate_graph_projection(ws, "r"))
+    # non-flood: a fully-covered run with NO checks is silent at terminal (adoption-gated)
+    clean = _covered_run(tmp_path / "ok")
+    assert "GP_UNCHECKED_TARGET" not in _codes_set(validate_graph_projection(clean, "r"))
+
+
 # ------------------------------------------------------- scope / robustness
 def test_unknown_scope_is_a_block_violation(tmp_path):
     vs = validate_graph_invariants(_covered_run(tmp_path), "r", "bogus_exit")
@@ -462,3 +594,4 @@ def test_terminal_projection_unchanged_by_new_checks(tmp_path):
     assert "GP_WORK_UNIT_NO_OBLIGATION" not in codes
     assert "GP_WORK_UNIT_NO_CHECKPOINT" not in codes
     assert "GP_UNVERIFIED" not in codes
+    assert "GP_UNCHECKED_TARGET" not in codes

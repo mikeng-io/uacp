@@ -10,6 +10,48 @@ edges:
 
 # Layer 2 — the Generative Gate
 
+## What this does, and why it matters (plain language — read this first)
+
+**The problem.** When an AI agent says *"I verified this — it's done,"* you usually can't tell
+whether it ran a real check, a fake one, or just asserted "looks good." A real verification feature
+(Trustless #503, used here as evidence only — [01](01-evidence-503.md)) went through **7 rounds of
+automated review and still shipped live bugs**, because its checks were rubber stamps: a
+`grep "route_mounted"` "passed" but only proved the *string* existed, not that the route worked.
+
+**What the generative gate does.** It forces the agent to write a **specific, runnable check for
+each thing it claimed to do** — derived from what it actually built — freezes those checks, and the
+kernel **re-runs them automatically and blocks "done" if any are missing, fake, or failing.**
+
+> Example. A plan task says *"wire up the /settle payment route."* Today the agent marks it done,
+> maybe greps a string, and a broken route ships. With this gate the agent must emit a check derived
+> from that task — `symbol_resolves(settle_route) == true` — frozen as a record. The kernel then
+> (1) refuses to close unless **every** claimed target carries a check (no silent gaps),
+> (2) requires the **right kind** of check (a "wires up X" claim needs a *resolution* check, not
+> "a file exists"), (3) **re-runs the check** deterministically and blocks on FAIL/ERROR (an error is
+> never a pass), and (4) lets a reviewer panel refute checks that are present-but-weak. The agent
+> cannot skip a target, rubber-stamp it, or let the criteria drift from what is actually run.
+
+**How it differs from CI.** CI runs *fixed* tests a human wrote in advance. This makes the **agent
+generate the right checks from what it actually did** (coverage adapts to the work, not a stale test
+file), freezes them so they cannot drift, and makes passing them a **hard gate on declaring work done.**
+
+**Where it sits.** The coverage work already shipped ([15](15-coverage-serialization.md)) answers
+*"did the agent cover every declared intent with a task?"* This gate goes one level deeper:
+*"and is each task actually proven to work — by a real check, not a rubber stamp?"* Together: nothing
+is dropped, and nothing is falsely claimed verified.
+
+> **What ships when (council honesty — the route example is later).** The `symbol_resolves(settle_route)`
+> example above is a **code-plane** check, which lands in **Slice 3** (it depends on the Codeflair SCIP
+> index — [32](32-reality-binder.md)). **Slice 0** (RELATION graph + artifact-content, buildable now)
+> closes #503 classes **A** (ERROR≠PASS), **D** (every target has a check — partial: keyed/graph targets),
+> and **F** (frozen checks replayed verbatim, no spec↔runner drift); it does **not** yet close **B**
+> (weak-proxy) for *code* claims — those `wires_symbol` checks correctly **block** (fail-closed) until the
+> code plane is wired, rather than passing on a textual shadow. So Slice 0 makes "done" *fail-closed and
+> drift-proof for what it can prove now*, and *refuses to close on a weak proxy for what it can't yet* —
+> the headline `grep route_mounted` killer (class B) arrives with the code plane, not at Slice 0.
+
+The rest of this node is the mechanism behind that guarantee.
+
 ## The distinction it embodies
 
 Some parts of verification are an **activity** (a fixed procedure — the [harness](11-harness.md)). Other parts must be a **dynamically-defined gate** whose *actions are generated from the content/context*, because the set of things to verify and the right way to verify each cannot be hardcoded without decaying into weak proxies (#503 classes **B** and **D**).

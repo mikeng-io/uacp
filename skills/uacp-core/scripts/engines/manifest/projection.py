@@ -51,7 +51,9 @@ import hashlib
 from pathlib import Path
 from typing import Any
 
+from config import base_dir
 from engines.base import ENGINES, Violation
+from engines.domain.artifact_hashes import content_hash, load_hash_index
 from engines.io import load_artifact, load_manifest
 
 
@@ -88,6 +90,29 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
 
     def add_edge(src: str, dst: str, rel: str) -> None:
         edges.append({"src": src, "dst": dst, "rel": rel})
+
+    # uacp.check.* — a generated, FROZEN verification check (capsule #3, slice 0). Project it as a
+    # `check` node carrying its replay payload (catalog kind + bind + expect + severity) and a
+    # `measured_by` edge to the target it proves, so the check-coverage gate can require every
+    # target carry a check and the replay engine (validate_check_replay) can re-run it. NET-NEW
+    # arm: a check doc matches none of the structural extractors below, so without this arm it
+    # projects ZERO nodes (the built-vs-new correction in design node 30 — not "for free").
+    doc_kind = doc.get("kind")
+    if isinstance(doc_kind, str) and doc_kind.startswith("uacp.check.") and doc.get("id"):
+        frm = doc.get("from")
+        frm = frm if isinstance(frm, dict) else {}
+        bind = doc.get("bind")
+        add_node(
+            doc["id"],
+            "check",
+            check_kind=doc_kind,
+            bind=bind if isinstance(bind, dict) else {},
+            expect=doc.get("expect"),
+            severity=str(doc.get("severity") or "block"),
+        )
+        target = frm.get("target")
+        if target:
+            add_edge(doc["id"], str(target), "measured_by")
 
     scope = doc.get("scope")
     scope = scope if isinstance(scope, dict) else {}
@@ -289,6 +314,42 @@ def _check_contradicted(nodes: dict, edges: list) -> list[Violation]:
     return list(flagged.values())
 
 
+def _check_unchecked_target(nodes: dict, edges: list) -> list[Violation]:
+    # Adequacy Layer 1 (design node 34): once a run has ADOPTED the generative gate,
+    # every scope_item/work_unit must be `measured_by` >=1 frozen check — the
+    # structural half of "prove each task" (replay proves the checks that exist pass;
+    # this proves a check exists per target). Reuses the coverage pattern exactly:
+    # projection emits a `measured_by` edge per check; a target with no inbound one is
+    # GP_UNCHECKED_TARGET (block). Self-gates on ADOPTION (>=1 `check` node), mirroring
+    # ORPHAN's derives_from adoption gate, so the existing suite — which authors no
+    # checks — is never flooded.
+    #
+    # HONEST LIMIT (do not overclaim): this proves a check NAMES each target, not that the
+    # check's assertion is RELEVANT to it. Coverage reads the agent-declared `from.target`
+    # edge; the check's actual `bind` (what replay evaluates) is decoupled from that target —
+    # so a check that names `wu-1` but binds a trivial field on an unrelated artifact still
+    # satisfies coverage (and can still pass replay). Closing that — check-relevance / honest
+    # class — is the required-kinds floor (node 34 L2), content-entailment (L2b), the council
+    # (L3), and ultimately the code plane (class entailed from the real symbol), NOT this gate.
+    # Adoption-gating likewise means this closes only RECURSIVE/PARTIAL omission (class D —
+    # checks for some targets, a risky one dropped); it does NOT force a zero-check run to adopt
+    # checks (L2). Structural coverage is necessary, not sufficient.
+    if not any(n["kind"] == "check" for n in nodes.values()):
+        return []
+    measured = {e["dst"] for e in edges if e["rel"] == "measured_by"}
+    return [
+        _v(
+            "GP_UNCHECKED_TARGET",
+            f"{n['kind']} '{n['id']}' is measured_by no check "
+            f"(claimed work with no frozen verification)",
+            target=n["id"],
+            target_kind=n["kind"],
+        )
+        for n in nodes.values()
+        if n["kind"] in ("scope_item", "work_unit") and n["id"] not in measured
+    ]
+
+
 def _check_obligation_coverage(nodes: dict, edges: list) -> list[Violation]:
     covered = {e["dst"] for e in edges if e["rel"] == "obligation_for"}
     return [
@@ -343,16 +404,34 @@ def _check_unverified(nodes: dict, edges: list) -> list[Violation]:
     ]
 
 
-# Terminal (closure) check set — STRUCTURAL only; the phase-gated coverage
-# checks are NOT run here (they have a transition-of-enforcement, final-review T2).
-_TERMINAL_CHECKS = (_check_uncovered, _check_orphan, _check_phantom, _check_contradicted)
+# Terminal (closure) check set — STRUCTURAL only; the phase-gated coverage checks
+# (obligation/checkpoint/unverified) are NOT run here (they have a transition-of-enforcement and
+# legitimate close-with-deferred reasons to be absent at terminal — final-review T2). EXCEPTION:
+# _check_unchecked_target IS a terminal backstop (council/opencode) — unlike those, it is
+# adoption-gated and a HARD invariant (a run that adopted checks must cover every target), and the
+# closure sweep (run_all_engines) is the one gate that runs on EVERY closure regardless of path, so
+# coverage is enforced at BOTH the verify_exit transition and closure — robust to any bypass path.
+_TERMINAL_CHECKS = (
+    _check_uncovered,
+    _check_orphan,
+    _check_phantom,
+    _check_contradicted,
+    _check_unchecked_target,
+)
 
 # Phase-keyed gates (D35): the subset enforced at each transition, keyed by the
 # `from_phase`-exit gate where each check's inputs first complete.
 _SCOPE_CHECKS = {
     "plan_exit": (_check_uncovered, _check_orphan, _check_phantom, _check_obligation_coverage),
     "execute_exit": (_check_checkpoint_coverage,),
-    "verify_exit": (_check_unverified, _check_contradicted),
+    # verify_exit also re-runs _check_phantom so a check whose `from.target` is a ghost node is
+    # caught HERE (the gate it was authored into), not only at terminal closure (reviewer finding).
+    "verify_exit": (
+        _check_unverified,
+        _check_contradicted,
+        _check_unchecked_target,
+        _check_phantom,
+    ),
 }
 
 
@@ -440,9 +519,180 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
     out: list[Violation] = []
     for check in checks:
         out.extend(check(nodes, edges))
+    # The REPLAY half of "prove each task" on the FORCED path: coverage (above) proves a check
+    # EXISTS per target; replay proves the checks that exist PASS. Enforcing coverage at
+    # verify_exit but replay only at closure would let a run exit VERIFY with FAILING checks
+    # (reviewer finding) — so a failing/erroring frozen check blocks the VERIFY exit here too.
+    if scope == "verify_exit":
+        out.extend(validate_check_replay(workspace, run_id))
+    return out
+
+
+# --- the replay engine (capsule #3, slice 0) -----------------------------------
+#
+# The deterministic re-execution of the FROZEN typed checks projected above as
+# `check` nodes (design nodes 30/31/32). NO agent code runs here — each kind has a
+# fixed evaluator that compares the check's `expect` (data) against the bound
+# reality (data). Fail-closed: a bind that cannot resolve or an unknown kind is an
+# ERROR, and ERROR is always a BLOCK, never a silent pass (#503 class A). Slice 0
+# binds the RELATION (`graph`) + `artifact` planes only; `code`/`behavior` planes
+# ERROR-block until wired (fail-closed-until-wired — node 32).
+
+_MISSING = object()
+
+
+def _read_path(doc: dict, path: str) -> Any:
+    """Read a dotted json-path out of an artifact mapping; _MISSING if any segment
+    is absent. Lists are addressable by integer index segment."""
+    cur: Any = doc
+    for seg in str(path).split(".") if path else []:
+        if isinstance(cur, dict) and seg in cur:
+            cur = cur[seg]
+        elif isinstance(cur, list) and seg.lstrip("-").isdigit() and -len(cur) <= int(seg) < len(cur):  # noqa: E501
+            cur = cur[int(seg)]
+        else:
+            return _MISSING
+    return cur
+
+
+def _obligation_satisfied(oid: str, nodes: dict) -> tuple[str, str]:
+    """Graph-plane: is evidence_obligation ``oid`` satisfied in the projected manifest? PASS iff a
+    passing assessment binds to it AND it has no UNCLEARED block evidence — the same node semantics
+    `_check_unverified`/`_check_contradicted` use, so the frozen check and the structural gates
+    agree. ERROR (fail-closed, #503 class A) when ``oid`` resolves to no obligation node — an
+    unresolvable bind is never a silent pass."""
+    if not oid or not any(
+        n.get("kind") == "evidence_obligation" and n["id"] == oid for n in nodes.values()
+    ):
+        return ("ERROR", f"obligation {oid!r} not found in manifest graph (unresolvable bind)")
+    passing = any(
+        n.get("kind") == "assessment"
+        and n.get("obligation_id") == oid
+        and n.get("result") == "pass"
+        for n in nodes.values()
+    )
+    ev = [
+        n
+        for n in nodes.values()
+        if n.get("kind") == "evidence" and n.get("obligation_id") == oid
+    ]
+    has_block = any(n.get("result") == "block" for n in ev)
+    cleared = any(n.get("result") == "pass" and n.get("remediation") for n in ev)
+    if passing and not (has_block and not cleared):
+        return ("PASS", "")
+    return (
+        "FAIL",
+        f"obligation {oid} not satisfied (passing_assessment={passing}, "
+        f"uncleared_block={has_block and not cleared})",
+    )
+
+
+def _evaluate_check(
+    root: Path, kind: str, bind: dict, expect: Any, edge_set: set, nodes: dict, hash_index: dict
+) -> tuple[str, str]:
+    """Return (PASS|FAIL|ERROR, detail) for one frozen check. Pure: data vs data."""
+    # Fail-closed-until-wired guard FIRST (council/mimo #2): ANY kind declaring the code/behavior
+    # plane ERRORs (block) until those planes are built — so an IMPLEMENTED kind can't be mislabeled
+    # onto an unwired plane (e.g. field_equals with `plane: code`) to slip past it. This guard sat
+    # at the bottom before and was unreachable for the implemented kinds (they return earlier).
+    if bind.get("plane") in ("code", "behavior"):
+        return ("ERROR", f"{kind}: the {bind.get('plane')} plane is not wired yet (fail-closed)")
+
+    if kind == "uacp.check.edge_exists":
+        triple = (str(bind.get("src")), str(bind.get("rel")), str(bind.get("dst")))
+        return ("PASS", "") if triple in edge_set else ("FAIL", f"edge {triple} absent")
+
+    if kind == "uacp.check.obligation_satisfied":
+        return _obligation_satisfied(str(bind.get("obligation_id") or ""), nodes)
+
+    if kind in (
+        "uacp.check.field_equals",
+        "uacp.check.field_present",
+        "uacp.check.artifact_integrity",
+    ):
+        ref = bind.get("ref")
+        ref = ref if isinstance(ref, dict) else {}
+        art = ref.get("artifact")
+        if not art:
+            return ("ERROR", "bind.ref.artifact missing")
+        loaded = load_artifact(root, str(art))
+        if loaded.error is not None or not isinstance(loaded.value, dict):
+            return ("ERROR", f"cannot bind artifact {art!r}: {loaded.error or 'not a mapping'}")
+        if kind == "uacp.check.artifact_integrity":
+            # REAL integrity (council/kimi: was a no-op PASS — a usable gaming vector). Verify the
+            # artifact's CURRENT content against its recorded watermark (state/hashes). No watermark
+            # -> ERROR (integrity unverifiable, fail-closed — #503 class A), NOT a silent pass; a
+            # hash mismatch -> FAIL (out-of-band tamper since the governed write). Reuses the same
+            # watermark the AI_ artifact-integrity engine uses, so the check and that engine agree.
+            recorded = hash_index.get(str(art))
+            if not recorded:
+                return ("ERROR", f"no watermark recorded for {art!r} — integrity unverifiable")
+            try:
+                raw = (base_dir(root) / str(art)).read_text(encoding="utf-8")
+            except OSError as exc:
+                return ("ERROR", f"cannot read {art!r} for integrity: {exc}")
+            if content_hash(raw) == recorded:
+                return ("PASS", "")
+            return ("FAIL", f"{art} content diverged from its watermark (out-of-band tamper)")
+        val = _read_path(loaded.value, str(ref.get("path") or ""))
+        if kind == "uacp.check.field_present":
+            empty = val is _MISSING or val in (None, "", [], {})
+            return ("FAIL", f"{ref.get('path')!r} missing/empty") if empty else ("PASS", "")
+        exp = expect.get("value") if isinstance(expect, dict) else _MISSING
+        if val is not _MISSING and val == exp:
+            return ("PASS", "")
+        return ("FAIL", f"{ref.get('path')!r} = {val!r} != expected {exp!r}")
+
+    return ("ERROR", f"unknown check kind {kind!r}")
+
+
+def validate_check_replay(workspace: str | Path, run_id: str) -> list[Violation]:
+    """Re-run every FROZEN ``uacp.check.*`` projected for the run against its bound
+    reality; emit a ``CHK_*`` Violation on FAIL/ERROR (ERROR always block — class A).
+    One ``Engine`` in the shared ``run_all_engines`` sweep. Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    nodes, edges = graph
+    root = Path(str(workspace)).resolve()
+    edge_set = {(e["src"], e["rel"], e["dst"]) for e in edges}
+    hash_index = load_hash_index(workspace, run_id)  # artifact_integrity watermark lookup (once)
+    out: list[Violation] = []
+    for n in nodes.values():
+        if n.get("kind") != "check":
+            continue
+        kind = str(n.get("check_kind") or "")
+        bind = n.get("bind") if isinstance(n.get("bind"), dict) else {}
+        try:
+            status, detail = _evaluate_check(
+                root, kind, bind, n.get("expect"), edge_set, nodes, hash_index
+            )
+        except Exception as exc:  # any evaluator raise is an ERROR (block), never a pass
+            status, detail = "ERROR", f"{type(exc).__name__}: {exc}"
+        if status in ("FAIL", "ERROR"):
+            code = "CHK_" + (kind.removeprefix("uacp.check.") or "UNKNOWN").upper()
+            # FAIL and ERROR both BLOCK — the check's own declared `severity` is NOT trusted to
+            # downgrade a failing gate check (reviewer finding: a gated agent could author its
+            # check as `severity: warn` and ship failing work non-blocked). A slice-0 check GATES;
+            # policy-graded (advisory) severities are an L2 concern and, when added, must not count
+            # toward coverage.
+            sev = "block"
+            out.append(
+                _v(
+                    code,
+                    f"check '{n['id']}' ({kind}) {status}: {detail}",
+                    severity=sev,
+                    check=n["id"],
+                    status=status,
+                )
+            )
     return out
 
 
 # Register this engine (guard against double-registration under alias imports).
 if not any(name == "graph_projection" for name, _ in ENGINES):
     ENGINES.append(("graph_projection", validate_graph_projection))
+if not any(name == "check_replay" for name, _ in ENGINES):
+    ENGINES.append(("check_replay", validate_check_replay))

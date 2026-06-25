@@ -584,6 +584,57 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
     },
 }
 
+# uacp.check.* — frozen generative-gate checks (capsule #3, slice 0c). Open-world (like the
+# other document kinds): enforce the COMMON authoring contract every catalog kind shares — a
+# check must declare WHAT it measures (`from.target`) and HOW (`bind`) — plus the writer-injected
+# `kind`/`run_id` consts. Bind RESOLVABILITY (does the artifact/edge/obligation exist?) is the
+# replay engine's fail-closed concern (ERROR on an unresolvable bind, #503 class A), deliberately
+# NOT duplicated here. The catalog tuple is local to keep this module a stdlib+jsonschema leaf; a
+# registry-parity test pins it to layout.CHECK_KINDS so the two cannot drift.
+_CHECK_SUBKINDS = (
+    "field_equals",
+    "field_present",
+    "edge_exists",
+    "artifact_integrity",
+    "obligation_satisfied",
+)
+
+
+def _check_schema(sub: str) -> dict[str, Any]:
+    props: dict[str, Any] = {
+        "kind": {"const": f"uacp.check.{sub}"},
+        "run_id": {"type": "string", "minLength": 1},
+        "id": {"type": "string", "minLength": 1},
+        "from": {
+            "type": "object",
+            "required": ["target"],
+            "properties": {"target": {"type": "string", "minLength": 1}},
+        },
+        "bind": {"type": "object"},
+        # A slice-0 check GATES — it cannot be authored non-blocking (reviewer finding: a
+        # `warn` severity let a gated agent self-demote a failing check). Policy-graded
+        # severities are an L2 concern; until then the only governed value is `block`.
+        "severity": {"const": "block"},
+    }
+    required = ["kind", "run_id", "id", "from", "bind"]
+    # field_equals MUST declare what value it expects (mimo #3): a field_equals with no `expect`
+    # always FAILs at replay (exp = _MISSING), so reject it at write time rather than ship a check
+    # that can never pass. The other kinds do not use `expect` (field_present/artifact_integrity/
+    # edge_exists/obligation_satisfied), so it stays optional for them.
+    if sub == "field_equals":
+        props["expect"] = {"type": "object", "required": ["value"]}
+        required = [*required, "expect"]
+    return {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": required,
+        "properties": props,
+    }
+
+
+for _sub in _CHECK_SUBKINDS:
+    _SCHEMAS[f"uacp.check.{_sub}"] = _check_schema(_sub)
+
 
 def has_schema(kind: str) -> bool:
     """True if ``kind`` has a registered declarative schema.
