@@ -37,6 +37,7 @@ Per-record DoS resistance: Heartgate scans ALL `PLAN_VALIDATION` pass records an
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified `plan_validation_gate_default()` and PLAN_VALIDATION pv-check list
 - `UACP_ROOT/config/uacp.toml` (`[heartgate.*]` — operator-tunable knobs)
 - `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`)
+- `UACP_ROOT/skills/uacp-core/references/generative-gate-authoring.md` (the producer contract — how to author the frozen `uacp.check.*` checks per work_unit)
 
 ## Rules
 - Keep the plan bounded.
@@ -52,6 +53,18 @@ Per-record DoS resistance: Heartgate scans ALL `PLAN_VALIDATION` pass records an
 - phased plan artifact in `plans/` for broad UACP doctrine/runtime/skill work
 - plan artifact in `plans/` for ordinary bounded runs
 - for selected medium/high consequence work: adaptive PLAN package under `plans/{run_id}/`, with `plans/{run_id}-plan-selection.yaml` as the machine bridge
+
+## Author the frozen verification checks (generative gate)
+PLAN owns the **work_units**: for each one, author the check that would PROVE it, so VERIFY re-runs
+it and "done" cannot be self-attested. Read
+`UACP_ROOT/skills/uacp-core/references/generative-gate-authoring.md`; in brief — **comprehend** the
+work_unit's intent and classify it (`from.class`/`from.basis`; the class→required-kind floor is
+authoritative in `UACP_ROOT/config/verification-floor.yaml`), then **author** one `uacp.check.<kind>`
+per work_unit via `uacp_entity_write` with `from.target` = the work_unit id (the `measured_by` edge):
+the class-required kind — `field_equals` (set a value), `obligation_satisfied` (ensure an obligation),
+`edge_exists` (required coverage), or `symbol_resolves` (wire a symbol — code plane, blocks until
+wired). A work_unit you leave unchecked is blocked by the coverage gate; a too-weak kind for its
+class is blocked by the floor.
 
 ## Adaptive PLAN package requirement
 

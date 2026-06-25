@@ -15,6 +15,7 @@ VERIFY is the lifecycle truth boundary before RESOLVE — the measure verb the d
 - `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`)
 - `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`)
 - `UACP_ROOT/skills/uacp-core/references/agent-council-followthrough.md` (council dispatch protocol, modes, tiers, retrieval-led rule, finding schema, mid-phase escalation)
+- `UACP_ROOT/skills/uacp-core/references/generative-gate-authoring.md` (the producer contract — how to author the frozen `uacp.check.*` checks this phase must emit)
 
 ---
 
@@ -44,6 +45,22 @@ For each claim, collect traceable evidence — never self-attestation.
 
 > **Read `references/retrieval-led-phase-verify.md`** for governance/runtime VERIFY: deterministic-first ordering, validating current council synthesis, and grounding out-of-repo skill alignment.
 > **Read `references/read-only-containment-validation.md`** when running Python validation under read-only containment — use `PYTHONDONTWRITEBYTECODE=1` + AST parsing; do not treat bytecode-write failures as source failures.
+
+### Step 2b — Author the frozen verification checks (generative gate)
+For **each obligation / done-claim** this phase owns, author a specific runnable check so the
+kernel can re-run it and block "done" if it is missing, weak, or failing — never a self-attested
+verdict. Read `UACP_ROOT/skills/uacp-core/references/generative-gate-authoring.md` for the full
+contract; in brief:
+
+- **comprehend** the claim and classify it (`from.class`, recording `from.basis`); the class→required
+  kind floor is authoritative in `UACP_ROOT/config/verification-floor.yaml`.
+- **author** one `uacp.check.<kind>` per target via `uacp_entity_write` — typically
+  `obligation_satisfied` (the obligation has a passing assessment, no uncleared block) or
+  `artifact_integrity` (the evidence artifact is unchanged since its watermark) — with
+  `from.target` = the obligation/work_unit node id, `from.class`, `bind`, and `severity: block`.
+- **serialize** — the entity-writer validates + watermarks + registers it, so the coverage gate
+  (`GP_UNCHECKED_TARGET`), the floor (`CHK_FLOOR_UNMET`), entailment (`CHK_CLASS_UNDERCLAIM`), and
+  replay see it. A target you leave unchecked blocks the VERIFY exit.
 
 ### Step 3 — Classify every item
 Sort each gathered item into exactly one bucket, kept separate in both machine artifacts and semantic packages (see `references/verify-truth-gate-checklist.md` for the canonical distinctions and must-block cases):
