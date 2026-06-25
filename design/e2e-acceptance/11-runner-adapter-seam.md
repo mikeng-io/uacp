@@ -32,7 +32,9 @@ The `runner:claude-code` image wraps the Claude Code CLI + UACP installed as a C
 
 UACP today exposes the governed **writers** as MCP tools but **not the lifecycle ops** (init / transition / register / finalize) — those run via the `uacp-state` skill scripts (where the verify gate fires). So a runner advances phases either by (i) the skill scripts over the agent's shell, or (ii) lifecycle ops newly exposed as tools (if the parallel adapter session adds them).
 
-**The seam is defined so EITHER resolution works:** the harness asserts on the resulting *state*, not on *how* the transition was issued. The runner contract says "advance the lifecycle" and is silent on the mechanism — so the adapter session can choose, and the harness needs no change.
+**The seam is defined so EITHER resolution works on the ASSERTION side:** the harness asserts on the resulting *state*, not on *how* the transition was issued — so the adapter session can choose the mechanism and the harness needs no change to *measure*.
+
+**But the DRIVE side is a HARD Priority-2 dependency, not a symmetric "either works" (council).** The runner still has to *issue* init/transition/register/finalize somehow, and today there is **no MCP/tool channel** for them — they exist only as Python callables in `state_machine.py`. So Increment 1 (the lifecycle pipe) is **blocked until** the adapter session delivers a real drive channel: either (i) lifecycle ops exposed as governed tools, or (ii) a sanctioned way for the runner to invoke the `uacp-state` skill scripts in-container. Asserting on state does not conjure that channel. Priority 1 (plugin conformance) does **not** need it — which is another reason it goes first.
 
 ## Why this seam is the multi-runtime future
 

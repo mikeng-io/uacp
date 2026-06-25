@@ -24,6 +24,8 @@ Governance-correctness is **not** re-implemented in the harness. After the conta
 
 So "how we measure" = **load the container-produced UACP state, run the kernel's own measurement engines on it, assert their verdicts.** Deterministic despite the non-deterministic run, and single-sourced with the in-process integration tests (no second definition of "what the kernel promises" to drift).
 
+**Naming honesty (council):** execution is **black-box** (the agent drives the real install as a user would, no hooks into its reasoning), but the **assertion is WHITE-BOX on serialized state** — the harness imports the repo's engine predicates. That is correct for a self-test, but it means the harness needs the UACP engine source available to assert; a truly *foreign* install (no repo) would need those predicates packaged. "Black-box smoke test" describes the *execution*, not the *assertion*.
+
 ## The decision (mike: "both, tiered")
 
 A run's verdict has two tiers with different force:
