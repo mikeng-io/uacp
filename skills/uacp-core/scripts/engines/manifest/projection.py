@@ -769,9 +769,16 @@ def _evaluate_check(
         ref = bind.get("ref")
         ref = ref if isinstance(ref, dict) else {}
         return resolve_symbol(root, str(ref.get("symbol") or ""))
+    # behavioral is the ONE wired behavior-plane kind (node 32 slice 0): run the declared argv
+    # command in an isolated subprocess and bind to its result, handled BEFORE the unwired-plane
+    # guard (which still ERRORs every OTHER behavior/code kind).
+    if kind == "uacp.check.behavioral":
+        from engines.behavior_plane import resolve_behavior
+
+        return resolve_behavior(root, bind, expect)
     # Fail-closed-until-wired guard (council/mimo #2): ANY OTHER kind declaring the code/behavior
-    # plane ERRORs (block) until those planes are built (behavioral is still deferred — node 32), so
-    # an implemented kind can't be mislabeled onto an unwired plane (field_equals `plane: code`).
+    # plane ERRORs (block) until those planes are built, so an implemented kind can't be mislabeled
+    # onto an unwired plane (e.g. a field_equals authored with `plane: code`).
     if bind.get("plane") in ("code", "behavior"):
         return ("ERROR", f"{kind}: the {bind.get('plane')} plane is not wired yet (fail-closed)")
 

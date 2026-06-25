@@ -32,7 +32,7 @@ land incrementally.
 | `graph` | a node/edge in the run's projected manifest graph | `projection._load_and_project` (already loaded) | **now** |
 | `artifact` | a field/section of a registered on-disk artifact | `engines.io` loaders + `artifact_integrity` (watermark) | **now** |
 | `code` | a symbol / call-site in the codebase | the code plane (SCIP index — Codeflair) | **later** |
-| `behavior` | the observed result of exercising the work | a sandboxed runner | **later** (heaviest) |
+| `behavior` | the observed result of exercising the work | an isolated command runner (env-isolation for reproducibility, NOT a security sandbox; slice 0 built, container-grade jails later) | **slice 0 built** |
 
 The first two planes bind to data the kernel **already has** (the manifest graph + governed artifacts) —
 they need no new *plane* (no SCIP, no runner). They are **not zero-code**, though: the `graph` resolver

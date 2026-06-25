@@ -51,6 +51,7 @@ CHECK_KINDS: tuple[str, ...] = (
     "artifact_integrity",
     "obligation_satisfied",
     "symbol_resolves",  # code plane (slice 3): resolves against the Codeflair SCIP index
+    "behavioral",  # behavior plane (node 32 slice 0): runs a declared command, binds to the result
 )
 
 # The catalog VERSION (design node 30 + the council YAGNI): a frozen check records the catalog
