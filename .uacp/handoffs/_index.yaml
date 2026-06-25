@@ -8,8 +8,13 @@ description: >-
   counterpart to a private memory note's table of contents.
 members:
   - build-uacp-handoff-skill.md
+  - verification-generator.md
 entries:
   - workstream: build-uacp-handoff-skill
     status: active
     updated_at: '2026-06-22'
     hook: "uacp-handoff skill built + suite-green (b267811); next: merge to main + register in layout/uacp-lint"
+  - workstream: verification-generator
+    status: active
+    updated_at: '2026-06-25'
+    hook: "capsule #3 (generative gate): design bundle (nodes 30-34) council-reviewed + slice 0a built (replay engine + projection arm, 6b58a94, suite 1894); next: slice 0b check-coverage gate"
