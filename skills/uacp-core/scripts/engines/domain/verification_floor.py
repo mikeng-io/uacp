@@ -18,6 +18,7 @@ let such work close on a weak proxy meanwhile.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -68,12 +69,16 @@ def class_rank(cls: str | None) -> int:
 
 
 def candidate_class(text: str | None) -> tuple[str | None, str]:
-    """The STRONGEST class whose keyword appears in ``text`` (case-insensitive), with the matched
-    keyword; ``(None, "")`` if none matches. Strongest-first so the most demanding signal wins."""
+    """The STRONGEST class whose keyword appears in ``text`` as a WHOLE WORD (case-insensitive),
+    with the matched keyword; ``(None, "")`` if none matches. Strongest-first so the most demanding
+    signal wins. Word-boundary (not substring) matching is what keeps this conservative — council
+    (all 3 reviewers): substring matching false-FIRED on registered/reroute/router/configured,
+    hard-blocking honest weak-class work. A false CHK_CLASS_UNDERCLAIM is a false BLOCK, so we
+    under-match (miss `behavioral`) rather than over-match."""
     low = (text or "").lower()
     for cls in sorted(_CLASS_KEYWORDS, key=lambda c: -_CLASS_RANK[c]):
         for kw in _CLASS_KEYWORDS[cls]:
-            if kw in low:
+            if re.search(rf"\b{re.escape(kw)}\b", low):
                 return cls, kw
     return None, ""
 
@@ -83,19 +88,27 @@ def default_floor() -> dict[str, tuple[str, ...]]:
 
 
 def load_floor(workspace: str | Path) -> dict[str, tuple[str, ...]]:
-    """The class->required-kinds floor for ``workspace``: ``config/verification-floor.yaml``'s
-    ``target_class_floor`` when present + well-formed, else the shipped default (fail-closed).
-    Never raises."""
+    """The class->required-kinds floor for ``workspace``: the shipped default MERGED with
+    ``config/verification-floor.yaml``'s ``target_class_floor``. A WELL-FORMED entry (string class,
+    list-of-strings kinds) OVERRIDES the default for that class; an OMITTED class RETAINS its
+    default (a partial YAML can't silently drop a strong-class floor); a MALFORMED entry (scalar/
+    garbled value) is IGNORED and the default for that class stands. A missing/garbled file -> the
+    full default. **Fail-CLOSED**: config can override or add, but neither omission nor garble
+    weakens the floor below the default. (Council: wholesale-override + silent-drop of malformed
+    entries were fail-OPEN footguns.) Never raises."""
+    floor = default_floor()
     path = Path(str(workspace)) / "config" / "verification-floor.yaml"
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError):
-        return default_floor()
+        return floor
     table = raw.get("target_class_floor") if isinstance(raw, dict) else None
     if not isinstance(table, dict):
-        return default_floor()
-    out: dict[str, tuple[str, ...]] = {}
+        return floor
     for cls, kinds in table.items():
-        if isinstance(cls, str) and isinstance(kinds, list):
-            out[cls] = tuple(str(k) for k in kinds if isinstance(k, str))
-    return out or default_floor()
+        # Only a well-formed entry overrides; a malformed one leaves the default (fail-closed).
+        if not (isinstance(cls, str) and isinstance(kinds, list)):
+            continue
+        if all(isinstance(k, str) for k in kinds):
+            floor[cls] = tuple(kinds)
+    return floor

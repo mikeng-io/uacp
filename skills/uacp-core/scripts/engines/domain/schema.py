@@ -623,6 +623,9 @@ def _check_schema(sub: str) -> dict[str, Any]:
             "properties": {
                 "target": {"type": "string", "minLength": 1},
                 "class": {"enum": list(_TARGET_CLASSES)},
+                # `basis` = the text the generator derived `class` from (serialize the entailment,
+                # not just the class — node 34 L2b). Optional; shape-validated when present (mimo).
+                "basis": {"type": "string"},
             },
         },
         "bind": {"type": "object"},

@@ -5,8 +5,9 @@
 # fails the floor (CHK_FLOOR_UNMET, block). This is what makes "a 'wires up X' claim needs a
 # *resolution* check, not 'a file exists'" an enforced rule, not advice.
 #
-# Doctrine YAML — authoritative when present; the engine falls back to the identical code default
-# (engines/domain/verification_floor.py) if this file is missing or garbled (fail-closed).
+# Doctrine YAML — MERGED over the identical code default (engines/domain/verification_floor.py): a
+# well-formed entry overrides that class; an omitted or malformed entry KEEPS the default. Config can
+# override or add, but neither omission nor garble weakens the floor below the default (fail-closed).
 #
 # Honest edge: wires_symbol / changes_behavior require the code/behavior-plane kinds, which are not
 # yet in the catalog (slice 3) — a target of those classes BLOCKS until that plane is wired.

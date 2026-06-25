@@ -620,6 +620,33 @@ def test_floor_code_plane_class_blocks_until_wired(tmp_path):
     assert "CHK_FLOOR_UNMET" in _codes_set(validate_check_floor(ws, "r"))
 
 
+def test_load_floor_malformed_entry_keeps_default(tmp_path):
+    # MAJOR (kimi): a malformed per-entry value (scalar, not a list) must NOT silently weaken the
+    # floor — it falls back to the shipped default for that class (fail-closed, matching the comment).
+    from engines.domain.verification_floor import load_floor
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "verification-floor.yaml").write_text(
+        "target_class_floor:\n  sets_value: uacp.check.field_present\n", encoding="utf-8"
+    )
+    floor = load_floor(tmp_path)
+    assert floor.get("sets_value") == ("uacp.check.field_equals",)  # default, not the scalar
+
+
+def test_load_floor_partial_override_keeps_other_defaults(tmp_path):
+    # MINOR (kimi+Claude): a partial YAML must not silently DROP the floor for omitted classes.
+    # Merge over the default: the listed class is overridden; omitted classes retain their default.
+    from engines.domain.verification_floor import load_floor
+
+    (tmp_path / "config").mkdir()
+    (tmp_path / "config" / "verification-floor.yaml").write_text(
+        "target_class_floor:\n  sets_value: [uacp.check.field_present]\n", encoding="utf-8"
+    )
+    floor = load_floor(tmp_path)
+    assert floor["sets_value"] == ("uacp.check.field_present",)  # explicit override honored
+    assert floor.get("wires_symbol") == ("uacp.check.symbol_resolves",)  # default RETAINED
+
+
 def test_floor_undeclared_class_places_no_requirement(tmp_path):
     # a check with NO from.class -> the floor self-limits (omission is Layer 2b's concern), so a
     # field_present check on wu-1 with no declared class does NOT fire CHK_FLOOR_UNMET.
@@ -691,6 +718,56 @@ def test_underclaim_catches_omitted_class(tmp_path):
 
     ws = _run_with_intent(
         tmp_path, "mount the /settle route", [_check("chk-1", "wu-1")]  # _check sets no class
+    )
+    assert "CHK_CLASS_UNDERCLAIM" in _codes_set(validate_class_underclaim(ws, "r"))
+
+
+def test_underclaim_no_false_fire_on_substring_keywords(tmp_path):
+    # MAJOR (council, all 3 reviewers): substring matching false-BLOCKED honest weak-class work
+    # whose intent merely CONTAINS a keyword as a substring. Word-boundary matching closes it.
+    from engines.graph_projection import validate_class_underclaim
+
+    benign = [
+        "configure the list of registered users",  # 'register' in 'registered'
+        "reroute the running total into the summary",  # 'route' in 'reroute'
+        "compute the router latency metric",  # 'route' in 'router'
+    ]
+    for i, intent in enumerate(benign):
+        ws = _run_with_intent(
+            tmp_path / f"b{i}",
+            intent,
+            [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+        )
+        assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(
+            validate_class_underclaim(ws, "r")
+        ), intent
+
+
+def test_underclaim_reads_expected_outputs(tmp_path):
+    # MAJOR (kimi): node 34 derives the candidate from intent / expected_outputs. Strong content
+    # hidden in expected_outputs (bland intent) must still be caught.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan(
+            [
+                {
+                    "id": "wu-1",
+                    "derives_from": ["si-1"],
+                    "intent": "do the settle task",  # bland
+                    "expected_outputs": "the /settle route is registered and mounted",  # strong
+                }
+            ]
+        ),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": "wu-1"}]),
+            _exec("cp-1", "wu-1", "pass"),
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+            _class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals"),
+        ],
     )
     assert "CHK_CLASS_UNDERCLAIM" in _codes_set(validate_class_underclaim(ws, "r"))
 

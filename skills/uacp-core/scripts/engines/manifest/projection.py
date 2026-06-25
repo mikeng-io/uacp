@@ -130,7 +130,14 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
 
     for wu in _aslist(doc.get("work_units")):
         if isinstance(wu, dict) and wu.get("id"):
-            add_node(wu["id"], "work_unit", intent=wu.get("intent", ""))
+            # `expected_outputs` is carried too: node 34 L2b derives the candidate class from the
+            # work_unit's intent AND expected_outputs, so strong content can't be hidden there.
+            add_node(
+                wu["id"],
+                "work_unit",
+                intent=wu.get("intent", ""),
+                expected_outputs=wu.get("expected_outputs"),
+            )
             # derives_from = the PROPOSE->PLAN coverage edge. NOTE (D42 producer gap): the real PIV
             # validator does NOT require it on work_units (only id/intent/expected_outputs), so the
             # coverage checks (GP_UNCOVERED/GP_ORPHAN) only bind once the PIV producer emits it —
@@ -775,7 +782,14 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
         declared_rank = max(
             (class_rank(check_nodes[cid].get("target_class")) for cid in cids), default=0
         )
-        text = str(tnode.get("intent") or tnode.get("statement") or "")
+        # Candidate is derived from ALL the target's own content — intent + expected_outputs (node
+        # 34 L2b names both) for a work_unit, statement for a scope_item — so strong content can't
+        # be hidden in a field the heuristic doesn't read. expected_outputs may be a str or a list.
+        eo = tnode.get("expected_outputs")
+        eo_text = " ".join(map(str, eo)) if isinstance(eo, list) else str(eo or "")
+        text = " ".join(
+            s for s in (tnode.get("intent"), eo_text, tnode.get("statement")) if s
+        )
         cand, kw = candidate_class(text)
         if cand and class_rank(cand) > declared_rank:
             out.append(
