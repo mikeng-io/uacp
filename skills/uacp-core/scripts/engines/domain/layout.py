@@ -53,6 +53,13 @@ CHECK_KINDS: tuple[str, ...] = (
     "symbol_resolves",  # code plane (slice 3): resolves against the Codeflair SCIP index
 )
 
+# The catalog VERSION (design node 30 + the council YAGNI): a frozen check records the catalog
+# version it was authored under, so replay can refuse a check bound to a DIFFERENT catalog (whose
+# kind semantics we cannot vouch for) rather than re-running it under today's evaluators. The
+# entity-writer injects this onto every uacp.check.* it writes; multi-version migration machinery is
+# deferred until a second version is actually imminent (the field is the cheap, durable part).
+CATALOG_VERSION = "1"
+
 
 @dataclass(frozen=True)
 class Entry:
