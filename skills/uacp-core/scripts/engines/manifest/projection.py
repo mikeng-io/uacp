@@ -646,6 +646,56 @@ def investigation_status(workspace: str | Path, run_id: str) -> dict:
     }
 
 
+# N: how many failing moves on ONE target before the harness stops patching and emits the
+# architecture verdict (node 11 ESCALATE; loop-engineering "3 failed fixes -> question the design").
+# A default; per-phase/risk tuning (via the goal-driven budget) is a documented follow-on.
+_ESCALATE_THRESHOLD = 3
+
+
+def escalation_candidates(
+    workspace: str | Path, run_id: str, threshold: int = _ESCALATE_THRESHOLD
+) -> list[dict]:
+    """Architecture-verdict candidates (node 11 ESCALATE): a target on which >= ``threshold``
+    failing investigation moves accumulated AND which is STILL OPEN (no passing remediation resolved
+    it) — the deterministic rule for "the design, not the code, is wrong; stop patching symptoms."
+    A READ only: the harness fires ``uacp_escalation_event`` for each candidate (the writer exists).
+    The target is already blocked by ``GP_OPEN_INVESTIGATION``; this is the escalate SIGNAL atop it.
+    Never raises."""
+    if _validate_inputs(workspace, run_id) is not None:
+        return []
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    nodes, edges = graph
+    open_targets = {
+        nodes[eid].get("inv_target")
+        for eid in _open_investigation_ids(nodes, edges)
+        if eid in nodes
+    }
+    fails: dict[str, int] = {}
+    for n in nodes.values():
+        tgt = n.get("inv_target")
+        if n["kind"] == "investigation_entry" and n.get("verdict") in ("fail", "error") and tgt:
+            fails[tgt] = fails.get(tgt, 0) + 1
+    return [
+        {"target": t, "failed_moves": c}
+        for t, c in sorted(fails.items())
+        if c >= threshold and t in open_targets
+    ]
+
+
+def convergence_status(
+    workspace: str | Path, run_id: str, escalate_threshold: int = _ESCALATE_THRESHOLD
+) -> dict:
+    """The harness LOOP+ESCALATE read (node 11) in one call: the node-13 dry-predicate
+    (:func:`investigation_status`) PLUS the escalation verdict — which targets crossed the
+    failed-fix threshold and are still open. Returns the ``investigation_status`` dict + an
+    ``escalate`` list. The harness loops while not ``dry`` and escalates those targets."""
+    status = investigation_status(workspace, run_id)
+    status["escalate"] = escalation_candidates(workspace, run_id, escalate_threshold)
+    return status
+
+
 # --- the replay engine (capsule #3, slice 0) -----------------------------------
 #
 # The deterministic re-execution of the FROZEN typed checks projected above as

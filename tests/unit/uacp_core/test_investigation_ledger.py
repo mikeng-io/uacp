@@ -47,6 +47,53 @@ def _codes(vs) -> set[str]:
     return {v.code for v in vs}
 
 
+def _te(eid: str, target: str, verdict: str, supersedes: str | None = None) -> dict:
+    # a target-bearing measuring move (for the harness escalation tests).
+    d = _entry(eid, "run", verdict=verdict, supersedes=supersedes)
+    d["target"] = target
+    return d
+
+
+def test_escalation_after_n_failed_moves_on_a_target(tmp_path):
+    # node 11 ESCALATE: a target failing >= N (=3) times, still open, is an architecture-verdict
+    # candidate ("the design, not the code, is wrong").
+    from engines.graph_projection import escalation_candidates
+
+    ws = _ws(tmp_path, [_te("e1", "wu-1", "fail"), _te("e2", "wu-1", "fail"),
+                        _te("e3", "wu-1", "fail")])
+    cand = escalation_candidates(ws, "r")
+    assert [c["target"] for c in cand] == ["wu-1"] and cand[0]["failed_moves"] == 3
+
+
+def test_no_escalation_below_threshold(tmp_path):
+    from engines.graph_projection import escalation_candidates
+
+    ws = _ws(tmp_path, [_te("e1", "wu-1", "fail"), _te("e2", "wu-1", "fail")])  # 2 < 3
+    assert escalation_candidates(ws, "r") == []
+
+
+def test_no_escalation_once_resolved(tmp_path):
+    # re-attempted 3x (a supersede chain), then a PASS resolves the chain -> no longer open -> NOT an
+    # escalation target (the failures are historical; the latest move is a pass).
+    from engines.graph_projection import escalation_candidates
+
+    ws = _ws(tmp_path, [_te("e1", "wu-1", "fail"),
+                        _te("e2", "wu-1", "fail", supersedes="e1"),
+                        _te("e3", "wu-1", "fail", supersedes="e2"),
+                        _te("e4", "wu-1", "pass", supersedes="e3")])
+    assert escalation_candidates(ws, "r") == []
+
+
+def test_convergence_status_composes_dry_and_escalate(tmp_path):
+    from engines.graph_projection import convergence_status
+
+    ws = _ws(tmp_path, [_te("e1", "wu-1", "fail"), _te("e2", "wu-1", "fail"),
+                        _te("e3", "wu-1", "fail")])
+    st = convergence_status(ws, "r")
+    assert st["dry"] is False  # open failures
+    assert [c["target"] for c in st["escalate"]] == ["wu-1"]
+
+
 def test_open_failing_entry_blocks_closure(tmp_path):
     ws = _ws(tmp_path, [_entry("e1", "run", verdict="fail")])
     vs = validate_graph_projection(ws, "r")
