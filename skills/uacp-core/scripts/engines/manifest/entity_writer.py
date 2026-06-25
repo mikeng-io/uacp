@@ -112,6 +112,11 @@ def create_entity(
         # writer-owned kind/run_id (Kimi #1 / Codex PR#5: for ratchet-unschematised kinds a
         # forged `kind` would otherwise persist with no const check).
         doc: dict[str, Any] = {**fields, "kind": kind, "run_id": run_id}
+        # A frozen check records the catalog version it was authored under (node 30) — injected by
+        # the writer (not the caller) so it is always the CURRENT version at authoring time; replay
+        # refuses a check from a foreign catalog. Only check kinds carry it.
+        if kind.startswith("uacp.check."):
+            doc["catalog_version"] = layout.CATALOG_VERSION
         content = yaml.safe_dump(doc, sort_keys=False, allow_unicode=True)
         # VALIDATE-ON-WRITE, RATCHETED (node 33 / node 35 §5): enforce shape only for kinds with a
         # registered schema, so the ratchet grows per-kind. Reject on any violation: NO write.

@@ -54,6 +54,7 @@ from typing import Any
 from config import base_dir
 from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
+from engines.domain.layout import CATALOG_VERSION
 from engines.domain.verification_floor import candidate_class, class_rank, load_floor
 from engines.io import load_artifact, load_manifest
 
@@ -115,6 +116,7 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
             # engine reads `class` to require a class-appropriate check kind per target.
             target_class=frm.get("class"),
             basis=frm.get("basis"),
+            catalog_version=doc.get("catalog_version"),
         )
         target = frm.get("target")
         if target:
@@ -789,6 +791,23 @@ def validate_check_replay(workspace: str | Path, run_id: str) -> list[Violation]
         if n.get("kind") != "check":
             continue
         kind = str(n.get("check_kind") or "")
+        # CATALOG VERSION guard (node 30): a check whose recorded catalog_version is present but is
+        # NOT the current one was authored under a DIFFERENT catalog whose kind semantics we cannot
+        # vouch for — refuse it (ERROR, block) rather than re-run it under today's evaluators. A
+        # missing version is tolerated (legacy/raw checks); the writer injects the current version.
+        cv = n.get("catalog_version")
+        if cv is not None and str(cv) != CATALOG_VERSION:
+            out.append(
+                _v(
+                    "CHK_CATALOG_VERSION",
+                    f"check '{n['id']}' was authored under catalog_version {cv!r} != current "
+                    f"{CATALOG_VERSION!r} — its kind semantics are not vouched for (re-author it)",
+                    severity="block",
+                    check=n["id"],
+                    status="ERROR",
+                )
+            )
+            continue
         bind = n.get("bind") if isinstance(n.get("bind"), dict) else {}
         try:
             status, detail = _evaluate_check(

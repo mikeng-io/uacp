@@ -655,6 +655,10 @@ def _check_schema(sub: str) -> dict[str, Any]:
         # `warn` severity let a gated agent self-demote a failing check). Policy-graded
         # severities are an L2 concern; until then the only governed value is `block`.
         "severity": {"const": "block"},
+        # The catalog version the check was authored under (node 30). The entity-writer injects it;
+        # the EXACT-version match is replay's fail-closed concern (a foreign version is an ERROR),
+        # not duplicated here — the schema only requires it be a string.
+        "catalog_version": {"type": "string"},
     }
     required = ["kind", "run_id", "id", "from", "bind"]
     # field_equals MUST declare what value it expects (mimo #3): a field_equals with no `expect`
