@@ -43,3 +43,18 @@ have been written. This rules out an explicit status index.
 - [02-gate-integration.md](02-gate-integration.md) — Heartgate extension + goal-driven boundary
 - [03-skill-contract.md](03-skill-contract.md) — changes to PLAN / EXECUTE / VERIFY + resume instructions
 - [04-impl-tasks.md](04-impl-tasks.md) — implementation task checklist (worktree + Codeflair required)
+
+## Backlog (accepted, deferred — not in this change)
+
+- **B1 — no-checkpoint self-gate.** A PIV declaring required work_units but with
+  ZERO checkpoints passes `forced_execute_evidence_blockers` (returns `[]`). This
+  is the pre-existing intentional adaptive boundary (D7): no checkpoint = bare /
+  ungoverned EXECUTE. The agent-path adaptive gate (`validate_transition`) covers
+  the PIV-with-no-checkpoints case separately. Tightening the forced path to also
+  block a checkpoint-less PIV-bearing run is a possible follow-up; deferred to
+  avoid changing established self-gate semantics. (Raised by cross-provider review.)
+- **B2 — backward-compat for in-flight runs.** Any run already in EXECUTE with a
+  PIV containing `work_units` but no `after_work_unit` checkpoints will be blocked
+  at EXECUTE→VERIFY after this ships. New convention → no active runs expected to
+  hit it. If one does, it must write the missing `after_work_unit` checkpoints or
+  amend the PIV. No migration shim built; accepted.
