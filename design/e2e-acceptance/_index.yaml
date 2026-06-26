@@ -20,7 +20,10 @@ description: >-
   in from v1: a runtime BENCHMARK (scored results, not just pass/fail) and runtime breadth
   (Claude Code now; Hermes / Codex / others later). Assertions are TIERED: governance-correctness is
   the HARD gate (the kernel never let an invalid state through); agent-completion is a SOFT score.
-status: design                      # enum: design|proposed|accepted|building|built
+status: building                    # enum: design|proposed|accepted|building|built
+# DEFERRED 2026-06-26: Increment 0 (plugin conformance) is BUILT + MERGED (PR #36), but the initiative
+# is PAUSED — it will be dogfooded through UACP's own lifecycle once UACP is fully up, NOT hand-built
+# further. The live status + checkpoint is the "Status / Checkpoint" block at the top of 30-roadmap.md.
 governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
 timestamp: '2026-06-26'             # ISO date (YYYY-MM-DD)
 origin: session 2026-06-26 (post verification-method completion; mike's "E2E acceptance test" spec — containerized real-agent full-lifecycle, Ollama-default but backend-neutral, benchmark + multi-runtime futures). The Claude Code adapter itself is built in a PARALLEL session; this bundle CONSUMES it, does not specify it.
