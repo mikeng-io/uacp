@@ -6,6 +6,7 @@ E2E     := tests/e2e/
 PYRIGHT_PATHS := \
 	skills/uacp-core/scripts/engines/guardian \
 	skills/uacp-core/scripts/engines/domain/paths.py \
+	skills/uacp-core/scripts/engines/domain/design_lint.py \
 	skills/uacp-core/scripts/engines/heartgate/models.py \
 	skills/uacp-core/scripts/engines/heartgate/validators/helpers.py
 
