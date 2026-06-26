@@ -12,6 +12,19 @@ The core has ZERO dependency on UACP (CF-D9). UACP plugs in as an adapter.
 """
 
 from codeflair.delta import ChangeSet, FileIndex, delta_reindex, detect_changed_files
+from codeflair.eval import (
+    EvalReport,
+    GroundTruthNode,
+    Pair,
+    PairResult,
+    SeedSet,
+    build_fixture_store,
+    evaluate,
+    load_seed_set,
+    parse_seed_set,
+    recall_at_k,
+    run_pair,
+)
 from codeflair.expand import ExpandResult, Gap, expand, find_test_gaps
 from codeflair.freshness import FileStatus, compare_file, content_hash
 from codeflair.overlay import (
@@ -98,4 +111,15 @@ __all__ = [
     "TraceCandidate",
     "ReplayNode",
     "TRACE_SCHEMA",
+    "EvalReport",
+    "GroundTruthNode",
+    "Pair",
+    "PairResult",
+    "SeedSet",
+    "build_fixture_store",
+    "evaluate",
+    "load_seed_set",
+    "parse_seed_set",
+    "recall_at_k",
+    "run_pair",
 ]
