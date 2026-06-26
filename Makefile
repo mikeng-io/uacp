@@ -1,4 +1,5 @@
-.PHONY: lint format types quality test ci-pr ci-push help
+.PHONY: lint format fmt types quality test ci-pr ci-push help
+.DEFAULT_GOAL := help
 
 ENGINES := skills/uacp-core/scripts/engines/
 E2E     := tests/e2e/
@@ -22,6 +23,8 @@ types:
 
 quality: lint format types
 
+# Note: full CI parity requires `pip install -e '.[dev,mcp]'` + uv installed
+# so the MCP boot test (TestMcpServerBoots) runs instead of skipping silently.
 test:
 	pytest tests/ -n auto -q
 
