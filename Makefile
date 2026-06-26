@@ -1,4 +1,4 @@
-.PHONY: lint format fmt types quality test ci-pr ci-push help
+.PHONY: lint format fmt types quality test acceptance ci-pr ci-push help
 .DEFAULT_GOAL := help
 
 ENGINES := skills/uacp-core/scripts/engines/
@@ -28,6 +28,13 @@ quality: lint format types
 test:
 	pytest tests/ -n auto -q
 
+# E2E acceptance harness — plugin conformance (Increment 0) in a clean container: launch the MCP
+# server as plugin.json configures it, assert the surface == tool_specs() + hooks/skills are loadable.
+# The deterministic prober also runs in `make test` (tests/acceptance/); this target is the
+# containerized plugin-source conformance smoke (not a `claude plugin install` round-trip). Needs docker.
+acceptance:
+	docker compose -f acceptance/compose.yml run --rm conformance
+
 # Simulate the PR gate (quality + test) via act — mirrors what runs on pull_request.
 ci-pr:
 	act pull_request -W .github/workflows/ci.yml
@@ -44,5 +51,6 @@ help:
 	@echo "  types      pyright (strict-scoped engines)"
 	@echo "  quality    lint + format + types"
 	@echo "  test       pytest -n auto (all suites)"
+	@echo "  acceptance E2E plugin-conformance smoke in a container (needs docker)"
 	@echo "  ci-pr      act pull_request — simulate PR gate locally"
 	@echo "  ci-push    act push — simulate post-merge jobs locally"
