@@ -22,9 +22,9 @@ from pathlib import Path
 
 @dataclass
 class CapResult:
-    name: str          # capability id (a tool/hook/skill name, or the group)
-    kind: str          # mcp_tools | hooks | skills
-    status: str        # pass | fail
+    name: str  # capability id (a tool/hook/skill name, or the group)
+    kind: str  # mcp_tools | hooks | skills
+    status: str  # pass | fail
     detail: str
     evidence: object = None
 
@@ -59,8 +59,11 @@ def _list_tools_over_stdio(command: str, args: list[str], plugin_root: Path) -> 
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 
-    env = {"PATH": os.environ.get("PATH", ""), "CLAUDE_PLUGIN_ROOT": str(plugin_root),
-           "HOME": os.environ.get("HOME", str(plugin_root))}
+    env = {
+        "PATH": os.environ.get("PATH", ""),
+        "CLAUDE_PLUGIN_ROOT": str(plugin_root),
+        "HOME": os.environ.get("HOME", str(plugin_root)),
+    }
 
     async def _go() -> list[str]:
         params = StdioServerParameters(command=command, args=args, env=env)
@@ -81,15 +84,28 @@ def probe_mcp(plugin_root: Path) -> CapResult:
         command, args = _mcp_launch(plugin_root)
         listed = set(_list_tools_over_stdio(command, args, plugin_root))
     except Exception as exc:  # server won't launch / mcp absent / manifest broken -> FAIL, not skip
-        return CapResult("mcp:uacp", "mcp_tools", "fail",
-                         f"MCP server not actionable: {type(exc).__name__}: {exc}")
+        return CapResult(
+            "mcp:uacp",
+            "mcp_tools",
+            "fail",
+            f"MCP server not actionable: {type(exc).__name__}: {exc}",
+        )
     missing, extra = expected - listed, listed - expected
     if missing or extra:
-        return CapResult("mcp:uacp", "mcp_tools", "fail",
-                         f"tool set != tool_specs: missing={sorted(missing)} extra={sorted(extra)}",
-                         {"listed": sorted(listed)})
-    return CapResult("mcp:uacp", "mcp_tools", "pass",
-                     f"all {len(expected)} governed tools listed", {"tools": sorted(listed)})
+        return CapResult(
+            "mcp:uacp",
+            "mcp_tools",
+            "fail",
+            f"tool set != tool_specs: missing={sorted(missing)} extra={sorted(extra)}",
+            {"listed": sorted(listed)},
+        )
+    return CapResult(
+        "mcp:uacp",
+        "mcp_tools",
+        "pass",
+        f"all {len(expected)} governed tools listed",
+        {"tools": sorted(listed)},
+    )
 
 
 def probe_hooks(plugin_root: Path) -> list[CapResult]:
@@ -113,8 +129,15 @@ def probe_hooks(plugin_root: Path) -> list[CapResult]:
         cmds = [h.get("command", "") for grp in (groups or []) for h in (grp.get("hooks") or [])]
         bad = [c for c in cmds if not c]
         status = "fail" if (not cmds or bad) else "pass"
-        out.append(CapResult(f"hook:{event}", "hooks", status,
-                             f"{event}: {len(cmds)} hook command(s) declared", {"commands": cmds}))
+        out.append(
+            CapResult(
+                f"hook:{event}",
+                "hooks",
+                status,
+                f"{event}: {len(cmds)} hook command(s) declared",
+                {"commands": cmds},
+            )
+        )
     return out or [CapResult("hooks", "hooks", "fail", "hooks file declares no events")]
 
 
@@ -140,8 +163,14 @@ def probe_skills(plugin_root: Path) -> list[CapResult]:
             label = f"{fm['name']}" + (f" (kind={kind})" if kind else " (no UACP kind — 3rd-party)")
             out.append(CapResult(f"skill:{d.name}", "skills", "pass", label))
         except Exception as exc:
-            out.append(CapResult(f"skill:{d.name}", "skills", "fail",
-                                 f"SKILL.md not loadable: {type(exc).__name__}: {exc}"))
+            out.append(
+                CapResult(
+                    f"skill:{d.name}",
+                    "skills",
+                    "fail",
+                    f"SKILL.md not loadable: {type(exc).__name__}: {exc}",
+                )
+            )
     return out or [CapResult("skills", "skills", "fail", "no skills with a SKILL.md found")]
 
 

@@ -42,8 +42,9 @@ def test_probe_catches_a_missing_tool(monkeypatch):
     # NON-VACUITY: a governed tool EXPECTED but not listed by the server -> the MCP probe FAILs
     # (this is the council's #1 regression — "the plugin shipped zero MCP servers" — being caught).
     real = conformance._expected_tool_names
-    monkeypatch.setattr(conformance, "_expected_tool_names",
-                        lambda root: real(root) | {"uacp_phantom_tool"})
+    monkeypatch.setattr(
+        conformance, "_expected_tool_names", lambda root: real(root) | {"uacp_phantom_tool"}
+    )
     res = conformance.probe_mcp(REPO)
     assert res.status == "fail" and "uacp_phantom_tool" in res.detail
 
