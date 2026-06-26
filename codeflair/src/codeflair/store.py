@@ -14,6 +14,7 @@ clock via source-scoped delete-and-replace.
 
 from __future__ import annotations
 
+import math
 import os
 import sqlite3
 from dataclasses import dataclass
@@ -50,7 +51,9 @@ CREATE TABLE IF NOT EXISTS edges(
 CREATE INDEX IF NOT EXISTS i_edges_dst ON edges(dst);
 CREATE INDEX IF NOT EXISTS i_edges_src ON edges(src);
 CREATE TABLE IF NOT EXISTS files(
-    path TEXT PRIMARY KEY, lang TEXT, content_hash TEXT, commit_sha TEXT
+    path TEXT PRIMARY KEY, lang TEXT, content_hash TEXT, commit_sha TEXT,
+    changed_at INTEGER NOT NULL DEFAULT 0   -- INJECTED recency ordinal (commit index / epoch);
+                                            -- 0 = unrecorded -> recency is neutral (P6)
 );
 CREATE TABLE IF NOT EXISTS freshness(
     source TEXT, file TEXT, content_hash TEXT, commit_sha TEXT, tool_version TEXT,
@@ -214,13 +217,24 @@ class Store:
         return (row[0], row[1]) if row else None
 
     def record_file(
-        self, path: str, content_hash: str, *, lang: str = "", commit_sha: str = ""
+        self,
+        path: str,
+        content_hash: str,
+        *,
+        lang: str = "",
+        commit_sha: str = "",
+        changed_at: int = 0,
     ) -> None:
         """Record (or update) a file's content hash — the freshness anchor a dirty-tree
-        compare checks against (10-freshness). Re-recording the same path updates in place."""
+        compare checks against (10-freshness). Re-recording the same path updates in place.
+
+        ``changed_at`` is the INJECTED recency ordinal (a commit index / epoch day — the
+        caller's reference scale; the store never reads the wall clock). It feeds the P6
+        recency term; 0 (the default) means 'unrecorded' -> recency stays neutral."""
         self.con.execute(
-            "INSERT OR REPLACE INTO files(path,lang,content_hash,commit_sha) VALUES (?,?,?,?)",
-            (path, lang, content_hash, commit_sha),
+            "INSERT OR REPLACE INTO files(path,lang,content_hash,commit_sha,changed_at) "
+            "VALUES (?,?,?,?,?)",
+            (path, lang, content_hash, commit_sha, changed_at),
         )
 
     def record_freshness(
@@ -316,6 +330,59 @@ class Store:
                 "SELECT symbol FROM symbols WHERE file=? ORDER BY line, symbol", (file,)
             ).fetchall()
         ]
+
+    def fan_in(self, symbol: str) -> int:
+        """How many edges land ON ``symbol`` (its incoming-edge count) — the P6 ubiquity
+        signal. A high fan-in marks a utility 'everything calls'; the heat formula divides by
+        ``1 + w·log(fan_in)`` so such a node does not dominate every blast radius."""
+        return self.con.execute(
+            "SELECT COUNT(*) FROM edges WHERE dst=?", (symbol,)
+        ).fetchone()[0]
+
+    def file_changed_at(self, path: str) -> int:
+        """The INJECTED recency ordinal recorded for ``path`` (``record_file``), or 0 if the
+        file is unknown / unrecorded. Feeds the P6 recency term against an injected ``now``."""
+        row = self.con.execute("SELECT changed_at FROM files WHERE path=?", (path,)).fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+    def cochange_pmi(self, file_a: str, file_b: str) -> float:
+        """Positive pointwise mutual information of the co-change coupling between two files
+        (the P6 temporal term, replacing raw co-change weight).
+
+        ``PMI = log( (w_ab · T) / (s_a · s_b) )`` where ``w_ab`` is the pair's co-change
+        weight, ``s_a``/``s_b`` each file's total co-change mass, and ``T`` the corpus total.
+        Clamped at 0 — only *positive* temporal corroboration adds heat (anti-correlation
+        never penalises a parsed edge). 0 when the two files never co-change. Deterministic."""
+        if file_a == file_b:
+            return 0.0
+        a, b = (file_a, file_b) if file_a < file_b else (file_b, file_a)
+        row = self.con.execute(
+            "SELECT weight FROM coupling WHERE file_a=? AND file_b=? AND kind='co_change'",
+            (a, b),
+        ).fetchone()
+        if not row or not row[0]:
+            return 0.0
+        w_ab = float(row[0])
+        total = float(
+            self.con.execute(
+                "SELECT COALESCE(SUM(weight),0) FROM coupling WHERE kind='co_change'"
+            ).fetchone()[0]
+        )
+
+        def _marginal(f: str) -> float:
+            return float(
+                self.con.execute(
+                    "SELECT COALESCE(SUM(weight),0) FROM coupling "
+                    "WHERE kind='co_change' AND (file_a=? OR file_b=?)",
+                    (f, f),
+                ).fetchone()[0]
+            )
+
+        s_a, s_b = _marginal(file_a), _marginal(file_b)
+        if total <= 0 or s_a <= 0 or s_b <= 0:
+            return 0.0
+        pmi = math.log((w_ab * total) / (s_a * s_b))
+        return pmi if pmi > 0.0 else 0.0
 
     def count_symbols(self) -> int:
         return self.con.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]

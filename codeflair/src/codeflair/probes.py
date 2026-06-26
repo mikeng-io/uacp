@@ -18,6 +18,7 @@ from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
+from codeflair.policy import ScorePolicy
 from codeflair.query import HeatmapEntry, heatmap
 from codeflair.store import Store
 
@@ -42,6 +43,10 @@ class ProbeContext:
     seed: str
     params: ProbeParams
     entries: dict[str, HeatmapEntry] = field(default_factory=dict)
+    # P6: the swappable score policy + the injected recency reference (OD-3). ``None`` ->
+    # the scoring helpers fall back to the package default policy / neutral recency.
+    policy: ScorePolicy | None = None
+    now: int | None = None
 
     def bases(self) -> list[tuple[str, int]]:
         """Springboard nodes for projection probes: the seed plus the top-``beam`` already
@@ -75,6 +80,8 @@ class PreciseEdgeWalkProbe:
             k=2_000_000_000,
             max_hops=ctx.params.max_hops,
             direction=ctx.params.direction,
+            policy=ctx.policy,
+            now=ctx.now,
         )
 
 

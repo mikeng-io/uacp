@@ -29,6 +29,8 @@ import json
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
+from codeflair.policy import default_policy
+
 if TYPE_CHECKING:  # pragma: no cover - typing only, no runtime import cycle
     from codeflair.expand import ExpandResult
     from codeflair.store import Store
@@ -126,22 +128,37 @@ def replay(trace: SearchTrace) -> list[ReplayNode]:
     """Reconstruct the ranked heatmap from the trace's hop log, WITHOUT the store.
 
     Re-applies exactly the merge expand performed: probes in order, first claim on a symbol
-    wins (so the recorded ``admitted`` flags fall out the same way), then sort by
-    ``(-score, symbol)`` and truncate to ``k``. Because the log records the real candidates
-    each probe produced, this re-derives the same ranked nodes/scores/order — the
-    re-derivability reconciliation. Corrupt a logged score and the reconstruction diverges."""
+    wins (so the recorded ``admitted`` flags fall out the same way); adds the P6 multi-probe
+    corroboration bonus (the only score component NOT already baked into each logged
+    candidate, since it depends on the cross-probe count the log itself records); then sorts
+    by ``(-score, symbol)`` and truncates to ``k``. This re-derives the same ranked
+    nodes/scores/order on the store-authoritative path — the re-derivability reconciliation.
+    Corrupt a logged score and the reconstruction diverges.
+
+    Scope: replay reconstructs the PRE-reconcile ranking (the bare hop log). When a query
+    ran with a live overlay, the reconcile's freshness re-tagging — and its strip of the
+    corroboration bonus from an ``unreconciled`` node — are overlay state, recorded under
+    ``trace.signals``, not replayable from the hop log alone; replay assumes the default
+    policy's non-conflicting bonus."""
     k = int(trace.query.get("k", len(trace.result_order)))
     seed = trace.seed
     merged: dict[str, TraceCandidate] = {}
+    found_by: dict[str, set[str]] = {}
     for hop in trace.hops:
         for cand in hop.candidates:
+            found_by.setdefault(cand.symbol, set()).add(hop.probe)
             if cand.symbol == seed or cand.symbol in merged:
                 continue  # first claim wins — mirrors expand's merge precedence
             merged[cand.symbol] = cand
-    ranked = sorted(merged.values(), key=lambda c: (-c.score, c.symbol))[:k]
+    policy = default_policy()
+    scored: list[tuple[TraceCandidate, float]] = []
+    for cand in merged.values():
+        bonus = policy.agreement_bonus(len(found_by.get(cand.symbol, ())), False)
+        scored.append((cand, round(cand.score + bonus, 6) if bonus else cand.score))
+    ranked = sorted(scored, key=lambda t: (-t[1], t[0].symbol))[:k]
     return [
-        ReplayNode(symbol=c.symbol, score=c.score, hop=c.hop, via=c.via, source=c.source)
-        for c in ranked
+        ReplayNode(symbol=c.symbol, score=s, hop=c.hop, via=c.via, source=c.source)
+        for c, s in ranked
     ]
 
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from codeflair.policy import ScorePolicy, ScoreSignals, default_policy, recency_factor
 from codeflair.store import Store
 
 # The query-time freshness zones a reconciled node can carry (overlay.py, P2). Defined here
@@ -36,8 +37,7 @@ _REL_WEIGHT = {
     "co_change": 0.4,
 }
 
-_DEFAULT_REL_WEIGHT = 0.5
-_HOP_DECAY = 0.5  # each hop away from the seed halves contribution
+_DEFAULT_REL_WEIGHT = 0.5  # base weight of a transitive node with no inbound edge of its own
 
 
 @dataclass(frozen=True)
@@ -96,27 +96,44 @@ def heatmap(
     k: int = 20,
     max_hops: int = 3,
     direction: str = "callers",
+    *,
+    policy: ScorePolicy | None = None,
+    now: int | None = None,
 ) -> list[HeatmapEntry]:
     """Rank the blast radius into a top-``k`` heatmap by deterministic relevance.
 
-    Score of a node = best over the edges that reach it of
-    ``rel_weight * provenance_trust * hop_decay**hop``. The seed is excluded (it is
-    not its own impact). Ties break by symbol string so the order is total + stable.
+    The strongest single edge reaching a node fixes its precision-ladder *base weight*
+    (``rel_weight × provenance_trust``); the swappable ``policy`` (Policy-D by default, OD-3)
+    then folds in the node-level signals — hop decay, recency (against the injected ``now``),
+    the fan-in ubiquity penalty, and the co-change-PMI temporal term — to produce its heat.
+    The multi-probe corroboration bonus is added later by the expansion loop (which alone
+    knows the cross-probe count). The seed is excluded (not its own impact); ties break by
+    symbol string so the order is total + stable.
     """
+    if policy is None:
+        policy = default_policy()
     radius = blast_radius(store, seed, max_hops=max_hops, direction=direction)
     radius.pop(seed, None)
     if not radius:
         return []
 
+    seed_row = store.symbol(seed)
+    seed_file = seed_row.file if seed_row else ""
+
     # For each reached node, find the strongest single edge that lands on it (from a
-    # node also in the radius), and combine with hop decay.
+    # node also in the radius), then score the node via the policy.
     entries: list[HeatmapEntry] = []
     # A reached node sits on the FAR side of its edge from the seed: walking callers we
     # arrived at a node via an edge it emits (src=sym -> something closer); walking
     # callees, via an edge that lands on it (dst=sym).
     join_col = "src" if direction == "callers" else "dst"
     for sym, hop in radius.items():
-        best_score = -1.0
+        # Pick the strongest edge by BASE evidence (rel · trust). recency/fan-in/PMI are
+        # node-level (identical across a node's edges), so the base-best edge is also the
+        # full-formula best — and it is what names ``via``/``source``.
+        best_base = -1.0
+        best_rel_w = _DEFAULT_REL_WEIGHT
+        best_trust = 1.0
         best_via = ""
         best_source = ""
         cur = store.con.execute(
@@ -125,19 +142,41 @@ def heatmap(
         for rel, source, provenance in cur.fetchall():
             rel_w = _REL_WEIGHT.get(rel, _DEFAULT_REL_WEIGHT)
             trust = _PROVENANCE_TRUST.get(provenance, 0.3)
-            s = rel_w * trust * (_HOP_DECAY**hop)
-            if s > best_score:
-                best_score = s
+            base = rel_w * trust
+            if base > best_base:
+                best_base = base
+                best_rel_w = rel_w
+                best_trust = trust
                 best_via = f"{rel}/{source}"
                 best_source = source  # carry the source for the source-scoped freshness check
-        if best_score < 0:
+        if best_base < 0:
             # reached only as a seed-side endpoint with no inbound edge of its own
-            best_score = _DEFAULT_REL_WEIGHT * (_HOP_DECAY**hop)
+            best_rel_w = _DEFAULT_REL_WEIGHT
+            best_trust = 1.0
             best_via = "transitive"
             best_source = ""
+
+        node_row = store.symbol(sym)
+        node_file = node_row.file if node_row else ""
+        signals = ScoreSignals(
+            rel_weight=best_rel_w,
+            provenance_trust=best_trust,
+            hop=hop,
+            recency_factor=(
+                recency_factor(store.file_changed_at(node_file), now) if node_file else 1.0
+            ),
+            fan_in=store.fan_in(sym),
+            co_change_pmi=(
+                store.cochange_pmi(seed_file, node_file) if seed_file and node_file else 0.0
+            ),
+        )
         entries.append(
             HeatmapEntry(
-                symbol=sym, hop=hop, score=round(best_score, 6), via=best_via, source=best_source
+                symbol=sym,
+                hop=hop,
+                score=round(policy.score(signals), 6),
+                via=best_via,
+                source=best_source,
             )
         )
 

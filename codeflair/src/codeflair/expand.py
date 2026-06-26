@@ -13,9 +13,10 @@ output scored separately from the heatmap (CF-D6).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from codeflair.overlay import FileConflict, LspOverlay, reconcile_overlay
+from codeflair.policy import ScorePolicy, default_policy
 from codeflair.probes import ProbeContext, ProbeParams, ProbeRegistry, default_registry
 from codeflair.query import HeatmapEntry
 from codeflair.store import Store
@@ -72,6 +73,8 @@ def expand(
     working_files: dict[str, bytes] | None = None,
     overlay: LspOverlay | None = None,
     capture_trace: bool = False,
+    policy: ScorePolicy | None = None,
+    now: int | None = None,
 ) -> ExpandResult:
     """Grow the relation subgraph from ``seed`` and rank it into a top-``k`` heatmap + gaps.
 
@@ -90,14 +93,20 @@ def expand(
     """
     if registry is None:
         registry = default_registry(include_coupling=include_coupling)
+    if policy is None:
+        policy = default_policy()
     params = ProbeParams(k=k, max_hops=max_hops, beam=beam, direction=direction)
-    ctx = ProbeContext(store=store, seed=seed, params=params)
+    ctx = ProbeContext(store=store, seed=seed, params=params, policy=policy, now=now)
 
     counts = {"precise": 0, "inferred": 0}
     hops: list[HopRecord] = []
+    # P6: which distinct probes corroborated each symbol (admitted-or-not — a second probe
+    # finding a node IS corroboration even when first-claim-wins drops its duplicate).
+    found_by: dict[str, set[str]] = {}
     for probe in registry.probes:
         candidates: list[TraceCandidate] = []
         for entry in probe.expand(ctx):
+            found_by.setdefault(entry.symbol, set()).add(probe.name)
             admitted = not (entry.symbol == seed or entry.symbol in ctx.entries)
             if capture_trace:
                 candidates.append(
@@ -117,6 +126,16 @@ def expand(
         if capture_trace:
             hops.append(HopRecord(probe=probe.name, kind=probe.kind, candidates=tuple(candidates)))
 
+    # P6 multi-probe corroboration: add the policy's agreement bonus to each node BEFORE the
+    # top-k cut (so corroboration can affect selection). Applied with conflicting=False here;
+    # the reconcile below strips it from any node it later tags 'unreconciled'. ``core_scores``
+    # keeps the pre-bonus score so that strip is exact.
+    core_scores: dict[str, float] = {sym: e.score for sym, e in ctx.entries.items()}
+    for sym, e in list(ctx.entries.items()):
+        bonus = policy.agreement_bonus(len(found_by.get(sym, ())), False)
+        if bonus:
+            ctx.entries[sym] = replace(e, score=round(e.score + bonus, 6))
+
     ordered = sorted(ctx.entries.values(), key=lambda e: (-e.score, e.symbol))
     ranked = ordered[:k]
 
@@ -131,6 +150,17 @@ def expand(
         warnings = rec.warnings
         conflicts = rec.conflicts
         overlay_only = rec.overlay_only
+        # Never boost an unreconciled node: strip the corroboration bonus from any node the
+        # reconcile flagged 'unreconciled' (a SCIP↔overlay conflict is surfaced, not blended).
+        stripped: list[HeatmapEntry] = []
+        changed = False
+        for e in ranked:
+            if e.freshness == "unreconciled" and len(found_by.get(e.symbol, ())) > 1:
+                stripped.append(replace(e, score=core_scores.get(e.symbol, e.score)))
+                changed = True
+            else:
+                stripped.append(e)
+        ranked = sorted(stripped, key=lambda e: (-e.score, e.symbol)) if changed else stripped
 
     gaps = find_test_gaps(store, ranked)
 

@@ -34,6 +34,13 @@ from codeflair.overlay import (
     ReconcileResult,
     reconcile_overlay,
 )
+from codeflair.policy import (
+    PolicyD,
+    ScorePolicy,
+    ScoreSignals,
+    default_policy,
+    recency_factor,
+)
 from codeflair.probes import (
     CouplingProjectionProbe,
     PreciseEdgeWalkProbe,
@@ -84,6 +91,11 @@ __all__ = [
     "blast_radius",
     "heatmap",
     "HeatmapEntry",
+    "ScorePolicy",
+    "ScoreSignals",
+    "PolicyD",
+    "default_policy",
+    "recency_factor",
     "expand",
     "find_test_gaps",
     "ExpandResult",
