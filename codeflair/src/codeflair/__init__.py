@@ -11,6 +11,12 @@ reindex; the descriptor is the stable anchor `code_anchor` needs.)
 The core has ZERO dependency on UACP (CF-D9). UACP plugs in as an adapter.
 """
 
+from codeflair.crossplane import (
+    AnchorResult,
+    CrossPlaneAdapter,
+    CrossPlaneProbe,
+    ManifestRef,
+)
 from codeflair.delta import ChangeSet, FileIndex, delta_reindex, detect_changed_files
 from codeflair.eval import (
     EvalReport,
@@ -77,6 +83,10 @@ __all__ = [
     "Store",
     "Symbol",
     "Edge",
+    "CrossPlaneAdapter",
+    "CrossPlaneProbe",
+    "ManifestRef",
+    "AnchorResult",
     "VALID_SOURCES",
     "VALID_PROVENANCE",
     "VALID_COUPLING",

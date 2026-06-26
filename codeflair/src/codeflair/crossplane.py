@@ -17,8 +17,11 @@ stable SCIP descriptor via the store — fuzzy reference in, stable anchor out.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 
+from codeflair.probes import ProbeContext
+from codeflair.query import HeatmapEntry
 from codeflair.store import Store
 
 _VALID_REL = frozenset({"realizes", "derives_from", "governs"})
@@ -180,3 +183,49 @@ class CrossPlaneAdapter:
             ).fetchall()
         }
         return [m for m in manifest_ids if m not in anchored]
+
+
+class CrossPlaneProbe:
+    """The read-only cross-plane SPANNING probe (P7, gap #11). Registered into the expansion
+    loop's :class:`~codeflair.probes.ProbeRegistry`, it makes the heatmap *span* both planes:
+    for the seed and every code node the precise/coupling probes already found, it joins to
+    the RELATION-plane manifest nodes that anchor them (``CrossPlaneAdapter.governs``) and
+    yields those manifest ids as heatmap entries ALONGSIDE the code symbols.
+
+    This realizes 04-outputs: standalone the heatmap is code-plane only (CF-D9); *only when
+    this adapter probe is registered* does it ADD relation-plane node types — the schema is
+    identical either way.
+
+    READ-ONLY (OD-2). It calls only ``governs`` — a pure ``SELECT`` that tolerates an absent
+    ``code_anchor`` table and never creates it — so the probe runs against a **read-only**
+    index and performs **no** governed write into UACP state. The governed ``code_anchor``
+    write-back (Step-B) is a separate, deferred design node (D5/OD-2) — NOT done here.
+    """
+
+    name = "crossplane"
+    # A DISTINCT bucket: a manifest node is neither a precise code edge nor an inferred code
+    # coupling, so it must not inflate the precise/inferred CODE counts the loop reports
+    # (``counts[probe.kind]`` — an unknown kind is simply never read back as n_precise/n_inferred).
+    kind = "crossplane"
+
+    # Relation-plane nodes are floored well below any code edge: they are governance context,
+    # surfaced in rank but never outranking the code blast radius they annotate.
+    _MANIFEST_TRUST = 0.25
+    _HOP_DECAY = 0.5
+
+    def __init__(self, adapter: CrossPlaneAdapter) -> None:
+        self.adapter = adapter
+
+    def expand(self, ctx: ProbeContext) -> Iterator[HeatmapEntry]:
+        # Join on the seed + every code node earlier probes admitted (insertion order =
+        # deterministic). ``governs(code)`` -> the manifest nodes anchored to that code symbol.
+        code_nodes: list[tuple[str, int]] = [(ctx.seed, 0)]
+        code_nodes += [(e.symbol, e.hop) for e in ctx.entries.values()]
+        for code_sym, code_hop in code_nodes:
+            for manifest_id, _kind, rel in self.adapter.governs(code_sym):
+                yield HeatmapEntry(
+                    symbol=manifest_id,
+                    hop=code_hop,
+                    score=round(self._MANIFEST_TRUST * (self._HOP_DECAY**code_hop), 6),
+                    via=f"{rel}/manifest",
+                )

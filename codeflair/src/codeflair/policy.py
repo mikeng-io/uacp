@@ -62,7 +62,13 @@ class ScorePolicy(Protocol):
     the cross-probe count is known (kept separate so the loop can add it without re-deriving
     the multiplicative base)."""
 
-    name: str
+    @property
+    def name(self) -> str:
+        """The policy's name. A READ-ONLY property in the Protocol (not a writable attribute):
+        a writable protocol member is invariant, which would reject an implementer (PolicyD)
+        that exposes ``name`` as a plain dataclass field. Read-only relaxes it to covariant
+        read — any class with a readable ``name`` satisfies the seam (pyright-clean)."""
+        ...
 
     def score(self, sig: ScoreSignals) -> float: ...
 
