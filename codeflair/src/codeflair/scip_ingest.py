@@ -20,6 +20,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -229,6 +230,12 @@ def index_repo(
     tmp = tempfile.mkdtemp(prefix="cf-scip-")
     out = os.path.join(tmp, "index.scip")
     try:
+        # Capture the instant indexing begins. A repo file modified at/after this instant was
+        # edited DURING (or after) the index run, so the SCIP edges may reflect older content
+        # than the bytes we are about to read (the ingest-time TOCTOU, F5). Such files have
+        # their freshness WITHHELD below — the index still gets their symbols/edges, but no
+        # "this is fresh" stamp, so a later query treats them 'unverified', never trusted.
+        index_started = time.time()
         subprocess.run(
             _indexer_cmd(lang, out, repo_path), cwd=repo_path, check=True, capture_output=True
         )
@@ -236,7 +243,7 @@ def index_repo(
             [_resolve_bin(scip), "print", "--json", out], check=True, capture_output=True
         )
         index = json.loads(printed.stdout)
-        file_contents = _read_repo_bytes(repo_path, index)
+        file_contents = _read_repo_bytes(repo_path, index, index_started=index_started)
         stats = ingest_scip_json(store, index, file_contents=file_contents, commit_sha=commit_sha)
         if built_at is not None:
             store.set_watermark(commit_sha, built_at)
@@ -245,9 +252,28 @@ def index_repo(
         shutil.rmtree(tmp, ignore_errors=True)
 
 
-def _read_repo_bytes(repo_path: str, index: dict) -> dict[str, bytes]:
-    """Read the on-disk bytes of each SCIP document that lives in the repo, for hashing."""
+def _modified_during_index(mtimes: dict[str, float], index_started: float) -> set[str]:
+    """Files whose mtime is at/after ``index_started`` — edited during (or after) the index
+    run, so their SCIP edges and the bytes we read may disagree (F5). Pure + deterministic
+    (mtimes + threshold injected) so it is unit-testable without a real indexer."""
+    return {p for p, mt in mtimes.items() if mt >= index_started}
+
+
+def _read_repo_bytes(
+    repo_path: str, index: dict, *, index_started: float | None = None
+) -> dict[str, bytes]:
+    """Read the on-disk bytes of each SCIP document that lives in the repo, for hashing.
+
+    When ``index_started`` is given, files modified at/after that instant are EXCLUDED from
+    the returned bytes (F5): their freshness is withheld so a later query cannot mistake their
+    possibly-stale SCIP edges for fresh. The residual — a sub-second edit the filesystem mtime
+    cannot resolve, or an edit AFTER this read — is not closeable without an atomic
+    snapshot-with-indexer; the coarse guard for it is the watermark ``repo_commit`` (a query
+    against a different commit reads the whole store as stale). Documented, not silently
+    swallowed.
+    """
     out: dict[str, bytes] = {}
+    mtimes: dict[str, float] = {}
     for d in index.get("documents", []):
         path = d.get("relative_path", "")
         if not _is_repo_path(path):
@@ -256,6 +282,11 @@ def _read_repo_bytes(repo_path: str, index: dict) -> dict[str, bytes]:
         try:
             with open(full, "rb") as fh:
                 out[path] = fh.read()
+            mtimes[path] = os.stat(full).st_mtime
         except OSError:
+            out.pop(path, None)
             continue
+    if index_started is not None:
+        for suspect in _modified_during_index(mtimes, index_started):
+            out.pop(suspect, None)  # withhold freshness for TOCTOU-suspect files
     return out

@@ -33,15 +33,24 @@ def content_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def compare_file(store: Store, path: str, working_bytes: bytes) -> FileStatus:
+def compare_file(
+    store: Store, path: str, working_bytes: bytes, *, source: str | None = None
+) -> FileStatus:
     """Compare a working-tree file's current content to what the index recorded.
 
     Returns ``"clean"`` when the working bytes hash to the stored hash, ``"stale"`` when
     they diverge (the file was edited since indexing → its store rows are stale), and
     ``"unknown"`` when the index has no hash for ``path`` (nothing to reconcile against).
-    Pure detection — no overlay, no reconcile, no write (those are P2).
+    Pure detection — no overlay, no reconcile, no write.
+
+    With ``source`` given, the comparison is SOURCE-SCOPED (F1): it checks the working bytes
+    against the hash that *that* source (``scip`` / ``tree_sitter``) recorded for the file, so
+    a node's staleness is judged against its OWN producer's view — not the last-writer-wins
+    global ``files`` hash, which a later re-ingest by a different source silently overwrites
+    (the stale-served-as-fresh hole). With ``source=None`` it uses the global ``files`` hash
+    (the standalone P1 detection primitive).
     """
-    stored = store.file_hash(path)
+    stored = store.source_file_hash(source, path) if source else store.file_hash(path)
     if stored is None:
         return "unknown"
     return "clean" if content_hash(working_bytes) == stored else "stale"

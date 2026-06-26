@@ -37,8 +37,10 @@ ORIGINAL_G = b"package p\nfunc Y() { S() }\n"
 
 
 def _store() -> Store:
-    """X (in dirty f.go) and Y (in clean g.go) both call seed S. Indexed file hashes are of
-    the ORIGINAL bytes, so EDITED f.go reads 'stale' while unchanged g.go reads 'clean'."""
+    """X (in dirty f.go) and Y (in clean g.go) both call seed S. The PER-SOURCE freshness
+    rows (source=scip) record the ORIGINAL hashes, so EDITED f.go reads 'stale' for scip
+    while unchanged g.go reads 'clean'. (The reconcile is source-scoped — F1 — so the node's
+    own source's hash is what's compared, not the global files row.)"""
     s = Store()
     s.add_symbol(Symbol(symbol="S", file="s.go", name="S"))
     s.add_symbol(Symbol(symbol="X", file="f.go", name="X"))
@@ -47,6 +49,8 @@ def _store() -> Store:
     s.add_edge(Edge("Y", "S", "calls", "scip"))  # Y calls S -> caller of S
     s.record_file("f.go", content_hash(ORIGINAL_F))
     s.record_file("g.go", content_hash(ORIGINAL_G))
+    s.record_freshness("scip", "f.go", content_hash(ORIGINAL_F))
+    s.record_freshness("scip", "g.go", content_hash(ORIGINAL_G))
     s.commit()
     return s
 
@@ -192,7 +196,10 @@ def test_expand_reconciles_when_working_files_given():
     assert isinstance(res, ExpandResult)
     tags = {e.symbol: e.freshness for e in res.heatmap}
     assert tags["X"] == "live" and tags["Y"] == "trusted"
-    assert res.lsp_degraded is False and res.warnings == [] and res.conflicts == []
+    assert res.lsp_degraded is False and res.conflicts == [] and res.overlay_only == []
+    # 'live' is presence-only (F3): it carries an explicit edge-currency-unverified warning,
+    # so the live path is NOT silent (warnings is no longer empty for a live node).
+    assert any(w.startswith("live:") for w in res.warnings)
 
 
 def test_expand_wiring_surfaces_degrade_and_conflict():

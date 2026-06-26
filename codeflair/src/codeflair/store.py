@@ -246,9 +246,34 @@ class Store:
         )
 
     def file_hash(self, path: str) -> str | None:
-        """The content hash the index recorded for ``path``, or ``None`` if unindexed."""
+        """The content hash the global ``files`` row recorded for ``path``, or ``None``.
+
+        NOTE: this is the LAST-writer-wins global hash; ``record_file`` overwrites it on every
+        ingest, so it cannot tell WHICH source is stale (F1). The reconcile must NOT trust it
+        for serving — it uses the per-source ``freshness`` rows below. Kept for the P1
+        detection primitive (``compare_file`` with no source) and advisory lookups."""
         row = self.con.execute("SELECT content_hash FROM files WHERE path=?", (path,)).fetchone()
         return row[0] if row else None
+
+    def source_file_hash(self, source: str, path: str) -> str | None:
+        """The content hash recorded for ``path`` BY A SPECIFIC source (F1), or ``None`` if
+        that source never indexed the file. Each source stales on its own clock — a
+        tree-sitter re-ingest of a file does not refresh SCIP's view of it — so a node's
+        staleness must be judged against its OWN source's hash, not the global one."""
+        row = self.con.execute(
+            "SELECT content_hash FROM freshness WHERE source=? AND file=?", (source, path)
+        ).fetchone()
+        return row[0] if row else None
+
+    def file_source_hashes(self, path: str) -> dict[str, str]:
+        """Every source's recorded hash for ``path`` as ``{source: content_hash}`` — for the
+        conservative reconcile of a node with no single source (transitive/coupling)."""
+        return {
+            src: ch
+            for src, ch in self.con.execute(
+                "SELECT source, content_hash FROM freshness WHERE file=?", (path,)
+            ).fetchall()
+        }
 
     def commit(self) -> None:
         self.con.commit()

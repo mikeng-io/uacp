@@ -8,8 +8,17 @@ byte-identical heatmap. The expensive model never walks; SQLite does.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 from codeflair.store import Store
+
+# The query-time freshness zones a reconciled node can carry (overlay.py, P2). Defined here
+# (not in overlay.py) so HeatmapEntry can be typed without a circular import; overlay.py
+# re-exports it. "trusted" = clean store; "live" = dirty + overlay confirms symbol PRESENCE
+# (edge-currency is NOT certified — see overlay.py F3); "unreconciled" = SCIP↔LSP conflict;
+# "stale" = dirty + overlay degraded; "unverified" = present in the working set but with NO
+# recorded hash to certify against (the OPPOSITE of clean — never silently "trusted").
+FreshnessTag = Literal["trusted", "live", "unreconciled", "stale", "unverified"]
 
 # Relevance weights — deterministic, tunable, no model. "Impact" = who is affected
 # when the seed changes = walk *incoming* edges (callers/referencers), transitively.
@@ -37,11 +46,16 @@ class HeatmapEntry:
     hop: int  # shortest distance from the seed (0 = the seed itself)
     score: float  # deterministic relevance, descending
     via: str  # the strongest (rel, source) that reached it, for explainability
-    # Query-time freshness tag from the 3-zone reconcile (overlay.py, P2). Default
-    # "trusted" so a node produced WITHOUT a reconcile (the store-authoritative path) reads
-    # as clean — additive, no break to callers that never run the overlay. The live overlay
-    # re-tags dirty-file nodes "live"/"unreconciled"/"stale"; it NEVER persists an lsp edge.
-    freshness: str = "trusted"
+    # The PERSISTED-edge source of the strongest edge that reached this node (scip /
+    # tree_sitter), or "" for a transitive/coupling node with no single persisted source.
+    # The reconcile judges staleness against THIS source's recorded hash, not a global one
+    # (F1): a node's edge came from a specific source, so its freshness is source-scoped.
+    source: str = ""
+    # Query-time freshness tag from the 3-zone reconcile (overlay.py, P2). Typed to the
+    # FreshnessTag set (F6). Default "trusted" so a node produced WITHOUT a reconcile (the
+    # store-authoritative path) reads as clean — additive, no break to callers that never run
+    # the overlay. The live overlay re-tags dirty-file nodes; it NEVER persists an lsp edge.
+    freshness: FreshnessTag = "trusted"
 
 
 def blast_radius(
@@ -104,6 +118,7 @@ def heatmap(
     for sym, hop in radius.items():
         best_score = -1.0
         best_via = ""
+        best_source = ""
         cur = store.con.execute(
             f"SELECT rel, source, provenance FROM edges WHERE {join_col}=?", (sym,)
         )
@@ -114,11 +129,17 @@ def heatmap(
             if s > best_score:
                 best_score = s
                 best_via = f"{rel}/{source}"
+                best_source = source  # carry the source for the source-scoped freshness check
         if best_score < 0:
             # reached only as a seed-side endpoint with no inbound edge of its own
             best_score = _DEFAULT_REL_WEIGHT * (_HOP_DECAY**hop)
             best_via = "transitive"
-        entries.append(HeatmapEntry(symbol=sym, hop=hop, score=round(best_score, 6), via=best_via))
+            best_source = ""
+        entries.append(
+            HeatmapEntry(
+                symbol=sym, hop=hop, score=round(best_score, 6), via=best_via, source=best_source
+            )
+        )
 
     entries.sort(key=lambda e: (-e.score, e.symbol))
     return entries[:k]

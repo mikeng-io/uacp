@@ -43,6 +43,7 @@ class ExpandResult:
     lsp_degraded: bool = False  # a dirty file needed the live LSP overlay but it was absent/failed
     warnings: list[str] = field(default_factory=list)  # agent-readable (lsp_degraded, unreconciled)
     conflicts: list[FileConflict] = field(default_factory=list)  # SCIP↔LSP disagreements, surfaced
+    overlay_only: list[str] = field(default_factory=list)  # F4: live symbols the store lacks
 
 
 def is_test_file(path: str) -> bool:
@@ -95,12 +96,14 @@ def expand(
     lsp_degraded = False
     warnings: list[str] = []
     conflicts: list[FileConflict] = []
+    overlay_only: list[str] = []
     if working_files is not None:
         rec = reconcile_overlay(store, ranked, working_files, overlay)
         ranked = rec.entries
         lsp_degraded = rec.lsp_degraded
         warnings = rec.warnings
         conflicts = rec.conflicts
+        overlay_only = rec.overlay_only
 
     gaps = find_test_gaps(store, ranked)
     return ExpandResult(
@@ -111,6 +114,7 @@ def expand(
         lsp_degraded=lsp_degraded,
         warnings=warnings,
         conflicts=conflicts,
+        overlay_only=overlay_only,
     )
 
 
