@@ -247,6 +247,8 @@ The PIV contract must define phase intent, neutral `work_units`, evidence obliga
 
 Write it with **`uacp_entity_write`** (`kind: uacp.phase_intent_verification_contract`) — the governed, registering manifest writer. **Each `work_unit` MUST carry `derives_from: [scope_item_id, …]`** referencing the keyed `scope.in_scope` ids from the PROPOSE proposal — this is the PROPOSE→PLAN coverage edge the graph gate enforces (a work_unit with no `derives_from` is an orphan; a scope_item nothing derives from is a dropped intent). This coverage edge is PLAN's fail-closed measure — the gate blocks on a dropped intent or an orphan work_unit rather than passing on the planner's assertion that coverage is complete.
 
+A `work_unit` may also carry an optional **`required: false`** flag to mark it as non-blocking for the EXECUTE→VERIFY coverage gate (`forced_execute_evidence_blockers`). Omit it (or set `required: true`) for units that must be completed — these block the transition until EXECUTE writes an `after_work_unit` checkpoint for each. Mark stretch goals, conditional paths, or best-effort units as `required: false` so they neither block the transition nor imply dropped work.
+
 ## Operator phase-return presentation
 
 Default Telegram/Discord phase returns MUST follow the operator summary layer from `UACP_ROOT/skills/uacp-core/references/operator-phase-return-presentation.md`. Return information, not raw data.
