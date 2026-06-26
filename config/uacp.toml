@@ -1030,7 +1030,7 @@ source_root = "runtime-adapters/opencode/"
 status = "planned"
 
 [runtime_bindings.future_runtimes.claude_code]
-source_root = "runtime-adapters/claude-code/"
+source_root = "runtime-adapters/claude/"
 status = "planned"
 
 [runtime_bindings.future_runtimes.codex]

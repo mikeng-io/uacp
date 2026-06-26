@@ -125,7 +125,8 @@ three-`dirname` plugin-root fallback remain correct.
 
 - A one-time churn of references: `hooks/hooks.json` command paths, test path
   constants, and doc/config string references all had to move in lockstep. The
-  regrep guard (`grep -rn "runtime-adapters/hooks"` → zero) covers it.
+  regrep guard (`grep -rn "runtime-adapters/hooks"` → zero outside this ADR's own
+  migration notes) covers it.
 - `shared/` is a slightly abstract bucket; if it ever grows beyond genuinely
   cross-runtime logic it could re-accrete the "mixed axis" smell. Kept disciplined
   by the rule: `shared/` holds only logic identical across runtimes.
@@ -140,7 +141,8 @@ three-`dirname` plugin-root fallback remain correct.
   `claude/` path and still injects / fails open.
 - `tests/unit/skills/test_mcp_manifests.py` — the MCP server path is unchanged and
   still resolves.
-- `grep -rn "runtime-adapters/hooks"` returns zero references repo-wide.
+- `grep -rn "runtime-adapters/hooks"` returns zero operational references (only this
+  ADR's own old→new migration arrows remain).
 - The full suite stays green.
 
 ## Related ADRs
