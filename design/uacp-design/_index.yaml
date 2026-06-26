@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the aggregate root of the uacp-design bundle — the convention + enforcement for
+#                UACP design bundles themselves (the meta-design).
+# VALIDATED BY:  ../graph-engine/schema/design-index.schema.json (and, once built, the very lint this
+#                bundle specifies — it must validate ITSELF: the first dogfood).
+
+kind: design_index
+title: uacp-design — the design-bundle convention, gated
+description: >-
+  Codify + ENFORCE the UACP design-bundle convention (design/<topic>/ = decomposed facet nodes +
+  _index, the design_index schema, node frontmatter, edges, placement, the reference boundary, the
+  Status/Checkpoint pattern) by SPLITTING it per comprehend->measure->serialize: a `uacp-design`
+  SKILL owns the JUDGMENT (decomposition quality, no over-serialization, single-source), and a
+  design-bundle LINT in uacp-lint owns the decidable STRUCTURE (schema conformance, members==files,
+  edges mirror, >=2 nodes, under design/, valid node type). Motivated by the as-built reality: the
+  "design = decomposed bundle" rule is a documented but 100+x-violated convention (guidance-only has
+  empirically failed), and an audit found a non-conforming _index + an 11-value node-`type` sprawl.
+  Mirrors uacp-skills (a skill paired with hard frontmatter/OKF lints), not skill-only. Gets ADR-0020.
+status: design                      # enum: design|proposed|accepted|building|built
+governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
+timestamp: '2026-06-26'             # ISO date (YYYY-MM-DD)
+origin: "session 2026-06-26 (post e2e-acceptance; mike asked whether the design-doc convention should be a uacp-design skill or live in brainstorm, and whether enforcement is strict-schema vs skill-only — decided on a dedicated skill + staged lint, split by decidability)."
+schema_dir: ../graph-engine/schema/
+
+# Numbered by NATURE: 00 = the spine; 10 = the grounded as-built audit (comprehend first); 20-21 =
+# the two halves (skill = judgment, lint = structure); 22 = the rollout + the settled decisions.
+members:
+  - 00-intent.md                 # ROOT: what uacp-design is + the skill/lint split (CMS applied to design docs)
+  - 10-taxonomy-audit.md         # the AS-BUILT audit — the real bundle/type taxonomy + its violations (grounding)
+  - 20-skill.md                  # the uacp-design SKILL — the JUDGMENT layer (decomposition, anti-patterns, checkpoint)
+  - 21-lint.md                   # the design-bundle LINT — the decidable STRUCTURE gate (the exact checks)
+  - 22-rollout-and-decisions.md  # reconcile-then-enforce rollout + the 4 settled decisions + ADR-0020
+
+edges:
+  - {src: 10-taxonomy-audit, dst: 00-intent, rel: motivated_by, provenance: derived}
+  - {src: 20-skill, dst: 00-intent, rel: realizes, provenance: asserted}
+  - {src: 20-skill, dst: 10-taxonomy-audit, rel: depends_on, provenance: derived}
+  - {src: 21-lint, dst: 00-intent, rel: realizes, provenance: asserted}
+  - {src: 21-lint, dst: 10-taxonomy-audit, rel: depends_on, provenance: derived}
+  - {src: 22-rollout-and-decisions, dst: 00-intent, rel: decides_on, provenance: asserted}
+  - {src: 22-rollout-and-decisions, dst: 21-lint, rel: sequences, provenance: asserted}
+  - {src: 22-rollout-and-decisions, dst: 20-skill, rel: sequences, provenance: asserted}
