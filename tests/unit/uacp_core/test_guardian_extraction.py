@@ -68,7 +68,7 @@ def test_resolve_uacp_root_fail_closed_when_unset(monkeypatch, tmp_path):
     # legacy ~/.hermes/uacp default.
     monkeypatch.delenv("UACP_ROOT", raising=False)
     monkeypatch.delenv("HERMES_HOME", raising=False)
-    with pytest.raises(domain_paths.UacpRootUnresolved):
+    with pytest.raises(domain_paths.UacpRootUnresolvedError):
         domain_paths.resolve_uacp_root()
 
     # NON-VACUITY: the raise is specifically due to absence — setting UACP_ROOT

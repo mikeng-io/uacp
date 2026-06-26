@@ -1,10 +1,10 @@
 """MAJOR 3 regression: the Hermes ``uacp_guardian`` adapter must FAIL CLOSED —
 not raise — when the UACP root cannot be resolved.
 
-``resolve_uacp_root`` is now fail-closed (raises ``UacpRootUnresolved`` when no
+``resolve_uacp_root`` is now fail-closed (raises ``UacpRootUnresolvedError`` when no
 explicit root and neither ``UACP_ROOT`` nor ``HERMES_HOME`` is set). That call
 sits inside ``GuardianPolicy.load`` OUTSIDE the policy-load ``try``, and
-``UacpRootUnresolved`` is a *sibling* of ``GuardianPolicyError`` (both
+``UacpRootUnresolvedError`` is a *sibling* of ``GuardianPolicyError`` (both
 ``RuntimeError``). The adapter's pre-tool-call path caught only
 ``GuardianPolicyError``, so with no root env the exception propagated UNCAUGHT
 past the clean ``_block_for_policy_error`` path.

@@ -18,7 +18,7 @@ import os
 from pathlib import Path
 
 
-class UacpRootUnresolved(RuntimeError):
+class UacpRootUnresolvedError(RuntimeError):
     """Raised when the UACP root cannot be resolved from arg or environment."""
 
 
@@ -29,7 +29,7 @@ def resolve_uacp_root(uacp_root: str | Path | None = None) -> Path:
         return Path(os.environ["UACP_ROOT"]).expanduser().resolve()
     if os.getenv("HERMES_HOME"):
         return (Path(os.environ["HERMES_HOME"]).expanduser() / "uacp").resolve()
-    raise UacpRootUnresolved(
+    raise UacpRootUnresolvedError(
         "cannot resolve the UACP root: pass an explicit root, or set UACP_ROOT "
         "(or HERMES_HOME for the Hermes runtime). The legacy ~/.hermes/uacp "
         "default was removed as stale/legacy."

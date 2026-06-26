@@ -22,7 +22,7 @@ from .kernel import (
     GuardianEvent,
     GuardianPolicy,
     GuardianPolicyError,
-    UacpRootUnresolved,
+    UacpRootUnresolvedError,
     make_event,
     write_audit_record,
 )
@@ -106,7 +106,7 @@ def _phase_config() -> dict[str, Any]:
 def _self_attesting_tools() -> frozenset[str]:
     try:
         return _policy().self_attesting_tools
-    except (GuardianPolicyError, UacpRootUnresolved):
+    except (GuardianPolicyError, UacpRootUnresolvedError):
         return frozenset()
 
 
@@ -118,8 +118,8 @@ def _policy() -> GuardianPolicy:
         _POLICY = GuardianPolicy.load()
         _POLICY_ERROR = ""
         return _POLICY
-    except (GuardianPolicyError, UacpRootUnresolved) as exc:
-        # UacpRootUnresolved is a sibling of GuardianPolicyError (both
+    except (GuardianPolicyError, UacpRootUnresolvedError) as exc:
+        # UacpRootUnresolvedError is a sibling of GuardianPolicyError (both
         # RuntimeError) raised by resolve_uacp_root OUTSIDE GuardianPolicy.load's
         # own try when no UACP_ROOT/HERMES_HOME is set. Catch it here so the
         # adapter fails closed (clean block) instead of propagating uncaught.
@@ -161,7 +161,7 @@ def _filesystem_guard_verified(tool_name: str, args: Mapping[str, Any] | None) -
         # attestation whenever the workspace root's schema_version differs from
         # the env root's — a fail-closed mint/validate mismatch. Match the mint.
         policy_version = str(GuardianPolicy.load(args.get("workspace")).version)
-    except (GuardianPolicyError, UacpRootUnresolved):
+    except (GuardianPolicyError, UacpRootUnresolvedError):
         return False
     ok, _ = _validate_contained_shell_attestation(attestation_id, policy_version)
     return ok
@@ -219,7 +219,7 @@ def on_pre_tool_call(
         if decision.blocks_execution:
             return decision.to_hook_result()
         return None
-    except (GuardianPolicyError, UacpRootUnresolved):
+    except (GuardianPolicyError, UacpRootUnresolvedError):
         return _block_for_policy_error(tool_name, args)
 
 
@@ -253,7 +253,7 @@ def on_post_tool_call(
         record["duration_ms"] = duration_ms
         record["result_preview"] = str(result)[:500]
         write_audit_record(record)
-    except (GuardianPolicyError, UacpRootUnresolved):
+    except (GuardianPolicyError, UacpRootUnresolvedError):
         return None
 
 
