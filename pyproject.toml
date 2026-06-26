@@ -93,6 +93,11 @@ extraPaths = [
     "skills/uacp-core/scripts",
     "skills/uacp-state/scripts",
     "runtime-adapters/hermes/plugins/uacp_guardian",
+    # The plugins PARENT, so `import uacp_guardian` (the package) resolves —
+    # mirrors the runtime sys.path (tests/conftest.py + the integration-test
+    # bootstraps add this dir). Without it pyright false-flags every
+    # `import uacp_guardian` as unresolved.
+    "runtime-adapters/hermes/plugins",
 ]
 pythonVersion = "3.13"
 # Basic mode repo-wide (the legacy tree is largely untyped).
