@@ -131,6 +131,10 @@ def ingest_tree_sitter(
                             line=nm.start_point[0],
                         )
                     )
+                    # per-source ownership (F1): tree_sitter OWNS the symbols it defines, so
+                    # the multi-source GC guard holds when both scip and tree_sitter define a
+                    # symbol (a scip delta that drops it must not GC what tree_sitter still owns).
+                    store.record_symbol_source("tree_sitter", sym)
                     n_symbols += 1
                     defnode_to_sym[node.id] = sym
                     name_index.setdefault(name, []).append(sym)

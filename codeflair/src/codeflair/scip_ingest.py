@@ -162,6 +162,12 @@ def ingest_scip_json(
             )
         )
 
+    # per-source ownership (F1): scip OWNS the symbols it DEFINES here (those with a definition
+    # occurrence in a repo doc) — not the merely-referenced external symbols. This lets a later
+    # per-file delta GC a symbol scip stops defining, but only when no other source defines it.
+    for sym in sym_def_loc:
+        store.record_symbol_source("scip", sym)
+
     # edges (D2): three distinct relations, deduped by (src, dst, rel).
     n_edges = 0
     seen: set[tuple[str, str, str]] = set()
@@ -272,6 +278,7 @@ def index_repo(
     scip: str = "scip",
     commit_sha: str = "",
     built_at: str | None = None,
+    index_started: float | None = None,
 ) -> IngestStats:
     """Index ``repo_path`` with the SCIP indexer for ``lang`` (go|python|typescript), convert
     to JSON, and ingest. Reads the repo READ-ONLY; the index is written to a temp dir OUTSIDE
@@ -279,7 +286,12 @@ def index_repo(
 
     File bytes are read from the repo to populate the freshness substrate (per-file hash +
     per-source ``freshness`` row). When ``built_at`` is given the store watermark is set —
-    ``built_at`` is injected (the store never reads the wall clock)."""
+    ``built_at`` is injected (the store never reads the wall clock).
+
+    ``index_started`` is the TOCTOU mtime-withhold threshold (a repo file modified at/after it
+    is treated as edited-during-index, F5). It is INJECTED so freshness population is
+    deterministic by construction; this outermost integration boundary defaults it to
+    ``time.time()`` ONLY when the caller passes ``None`` (the one sanctioned clock read)."""
     tmp = tempfile.mkdtemp(prefix="cf-scip-")
     out = os.path.join(tmp, "index.scip")
     try:
@@ -288,7 +300,8 @@ def index_repo(
         # than the bytes we are about to read (the ingest-time TOCTOU, F5). Such files have
         # their freshness WITHHELD below — the index still gets their symbols/edges, but no
         # "this is fresh" stamp, so a later query treats them 'unverified', never trusted.
-        index_started = time.time()
+        if index_started is None:
+            index_started = time.time()
         subprocess.run(
             _indexer_cmd(lang, out, repo_path), cwd=repo_path, check=True, capture_output=True
         )

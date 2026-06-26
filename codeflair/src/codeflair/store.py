@@ -59,6 +59,12 @@ CREATE TABLE IF NOT EXISTS freshness(
     source TEXT, file TEXT, content_hash TEXT, commit_sha TEXT, tool_version TEXT,
     PRIMARY KEY (source, file)
 );
+CREATE TABLE IF NOT EXISTS symbol_source(
+    source TEXT NOT NULL,                 -- a VALID_SOURCES edge producer that DEFINES the symbol
+    symbol TEXT NOT NULL,                 -- symbols.symbol it owns (per-source ownership axis, F1)
+    PRIMARY KEY (source, symbol)
+);
+CREATE INDEX IF NOT EXISTS i_symsrc_sym ON symbol_source(symbol);
 CREATE TABLE IF NOT EXISTS coupling(
     file_a TEXT NOT NULL,                -- file_a < file_b (canonical unordered pair)
     file_b TEXT NOT NULL,
@@ -296,10 +302,18 @@ class Store:
         ``file`` column, so the order matters). Source-scoped — other sources are untouched."""
         if source not in VALID_SOURCES:
             raise ValueError(f"unknown source {source!r}")
+        owned = self.symbols_owned_in_file(source, path)
         self.replace_source_file(source, path, [])  # delete this source's edges for the file
         self.con.execute("DELETE FROM freshness WHERE source=? AND file=?", (source, path))
+        # release this source's ownership of the file's symbols, then GC each one that NO
+        # source still defines — dropping its (possibly cross-file) referencing edges too (F1).
+        for sym in owned:
+            self.drop_symbol_ownership(source, sym)
+            if not self.symbol_owners(sym):
+                self.gc_symbol(sym)
         if not self.con.execute("SELECT 1 FROM freshness WHERE file=? LIMIT 1", (path,)).fetchone():
-            # no source still indexes this file -> drop the global file row + its symbols
+            # no source still indexes this file -> drop the global file row + any residual
+            # (bare-added, unowned) symbols still attributed to it
             self.con.execute("DELETE FROM symbols WHERE file=?", (path,))
             self.con.execute("DELETE FROM files WHERE path=?", (path,))
 
@@ -312,6 +326,56 @@ class Store:
                 "SELECT source, content_hash FROM freshness WHERE file=?", (path,)
             ).fetchall()
         }
+
+    # -- per-source symbol ownership + GC (F1) -------------------------------
+    def record_symbol_source(self, source: str, symbol: str) -> None:
+        """Record that ``source`` OWNS (defines) ``symbol`` — the per-source ownership axis
+        (mirrors the per-source ``freshness`` rows). It lets a single source's delta safely
+        GC a symbol only when NO source still defines it (avoids phantom symbols + dangling
+        cross-file edges on intra-file deletion). Ownership is recorded by the ingest/delta
+        producers, not by a bare ``add_symbol``."""
+        if source not in VALID_SOURCES:
+            raise ValueError(f"unknown source {source!r}; expected one of {sorted(VALID_SOURCES)}")
+        self.con.execute(
+            "INSERT OR IGNORE INTO symbol_source(source, symbol) VALUES (?, ?)", (source, symbol)
+        )
+
+    def symbols_owned_in_file(self, source: str, file: str) -> set[str]:
+        """Symbols ``source`` owns whose definition currently lives in ``file`` — the set a
+        per-file delta diffs against the producer's fresh output to find intra-file deletions."""
+        return {
+            r[0]
+            for r in self.con.execute(
+                "SELECT ss.symbol FROM symbol_source ss JOIN symbols s ON s.symbol = ss.symbol "
+                "WHERE ss.source = ? AND s.file = ?",
+                (source, file),
+            ).fetchall()
+        }
+
+    def drop_symbol_ownership(self, source: str, symbol: str) -> None:
+        """Release ``source``'s ownership of ``symbol`` (it no longer defines it). The symbol
+        is GC'd separately, only once NO source still owns it (the multi-source guard)."""
+        self.con.execute(
+            "DELETE FROM symbol_source WHERE source=? AND symbol=?", (source, symbol)
+        )
+
+    def symbol_owners(self, symbol: str) -> set[str]:
+        """The sources that still own (define) ``symbol`` — empty means it is a phantom that
+        no source defines, so it (and every edge referencing it) may be GC'd."""
+        return {
+            r[0]
+            for r in self.con.execute(
+                "SELECT source FROM symbol_source WHERE symbol=?", (symbol,)
+            ).fetchall()
+        }
+
+    def gc_symbol(self, symbol: str) -> None:
+        """Delete an UNOWNED (phantom) symbol and EVERY edge referencing it (``src`` or
+        ``dst``) — including dangling cross-file edges from files this delta never re-indexed
+        (F1: a `Y -> B` reference in an untouched file must not survive B's deletion)."""
+        self.con.execute("DELETE FROM edges WHERE src=? OR dst=?", (symbol, symbol))
+        self.con.execute("DELETE FROM symbols WHERE symbol=?", (symbol,))
+        self.con.execute("DELETE FROM symbol_source WHERE symbol=?", (symbol,))
 
     def commit(self) -> None:
         self.con.commit()

@@ -64,35 +64,51 @@ def build_index(
 
     The same ingest ladder the demo uses: SCIP (precise, degrades if the indexer is absent)
     -> the tree-sitter breadth floor (if SCIP found nothing and the optional dep is present)
-    -> co-change (git) + shared-string (pure text) couplings. The watermark is set from the
-    repo HEAD; ``built_at`` defaults to that same commit so the trace is deterministic."""
+    -> co-change (git) + shared-string (pure text) couplings.
+
+    F4 — the watermark is the store's "I authoritatively index HEAD" claim, so it is advanced
+    ONLY when the run actually produced index content. A SCIP step that RAISES is rolled back
+    (no half-ingested rows persist) and surfaced under ``errors``; if NOTHING was indexed by
+    any source the watermark is NOT advanced and ``indexed`` is False (the CLI exits nonzero),
+    so a later delta never mistakes a failed/empty build for a current snapshot of HEAD."""
     path = default_store_path(repo, create=True)
+    errors: list[str] = []
     with Store(path) as store:
         try:
             index_repo(store, repo, lang)
-        except Exception:  # noqa: BLE001 - SCIP indexer missing/failed -> degrade to the floor
-            pass
+        except Exception as exc:  # noqa: BLE001 - SCIP indexer missing/failed
+            # Discard any partial, uncommitted SCIP writes so no half-index persists (F4).
+            store.con.rollback()
+            errors.append(f"scip: {type(exc).__name__}: {exc}")
         if store.count_symbols() == 0 and index_repo_tree_sitter is not None:
             ext = _TS_EXT.get(lang, ".py")
             index_repo_tree_sitter(store, repo, suffix_lang={ext: lang})
         try:
             index_repo_cochange(store, repo, path_suffixes=_SUFFIX.get(lang))
-        except Exception:  # noqa: BLE001 - not a git repo / git absent -> no co-change signal
-            pass
+        except Exception as exc:  # noqa: BLE001 - not a git repo / git absent -> no co-change
+            errors.append(f"cochange: {type(exc).__name__}: {exc}")
         try:
             index_repo_strings(store, repo)
-        except Exception:  # noqa: BLE001 - unreadable tree -> no shared-string signal
-            pass
+        except Exception as exc:  # noqa: BLE001 - unreadable tree -> no shared-string signal
+            errors.append(f"strings: {type(exc).__name__}: {exc}")
+        n_couplings = store.con.execute("SELECT COUNT(*) FROM coupling").fetchone()[0]
+        produced = store.count_symbols() + store.count_edges() + n_couplings
+        indexed = produced > 0
         repo_commit = _git_head(repo)
-        store.set_watermark(repo_commit, repo_commit if built_at is None else built_at)
+        if indexed:
+            # advance the watermark ONLY for a non-empty build (F4)
+            store.set_watermark(repo_commit, repo_commit if built_at is None else built_at)
         store.commit()
-        return {
-            "indexed": True,
+        summary: dict[str, object] = {
+            "indexed": indexed,
             "store": path,
-            "repo_commit": repo_commit,
+            "repo_commit": repo_commit if indexed else "",
             "symbols": store.count_symbols(),
             "edges": store.count_edges(),
         }
+        if errors:
+            summary["errors"] = errors
+        return summary
 
 
 def _resolve_seed(store: Store, seed: str) -> str | None:
@@ -144,7 +160,8 @@ def query_to_json(
 def _cmd_index(args: argparse.Namespace) -> int:
     summary = build_index(args.repo, lang=args.lang, built_at=args.built_at)
     print(json.dumps(summary, sort_keys=True, indent=args.indent))
-    return 0
+    # F4: surface a failed/empty build (no watermark advanced) as a nonzero exit.
+    return 0 if summary["indexed"] else 1
 
 
 def _cmd_query(args: argparse.Namespace) -> int:

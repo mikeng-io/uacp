@@ -95,13 +95,26 @@ def delta_reindex(
     changes = detect_changed_files(store, current, source=source)
 
     for path in sorted(changes.changed):
+        # F1: snapshot the symbols THIS source owned in this file BEFORE re-indexing, so the
+        # diff against the producer's fresh output finds intra-file deletions.
+        prev_owned = store.symbols_owned_in_file(source, path)
         produced = reindex_file(path, current[path])
+        emitted: set[str] = set()
         for sym in produced.symbols:
             store.add_symbol(sym)
+            store.record_symbol_source(source, sym.symbol)
+            emitted.add(sym.symbol)
         store.replace_source_file(source, path, produced.edges)
         h = content_hash(current[path])
         store.record_file(path, h, commit_sha=commit_sha)
         store.record_freshness(source, path, h, commit_sha=commit_sha, tool_version=tool_version)
+        # F1: a symbol this source previously owned in the file but no longer emits is dropped
+        # from this source's ownership; GC it (symbol + its possibly-cross-file dangling edges)
+        # only when NO source still owns it — the multi-source guard ``forget_file`` also uses.
+        for sym in sorted(prev_owned - emitted):
+            store.drop_symbol_ownership(source, sym)
+            if not store.symbol_owners(sym):
+                store.gc_symbol(sym)
 
     for path in sorted(changes.removed):
         store.forget_file(source, path)

@@ -79,6 +79,11 @@ class SearchTrace:
     result_order: tuple[str, ...]  # the kept beam, in final rank order
     pruned: tuple[TraceCandidate, ...]  # admitted but cut below top-k
     stale: bool = False
+    # F3: symbols the live-overlay reconcile tagged ``unreconciled`` (SCIP↔LSP conflict). Their
+    # corroboration bonus was STRIPPED in the final ranking, so replay must reproduce that —
+    # NOT re-add the bonus. Empty on the store-authoritative path (no overlay), keeping that
+    # path's replay byte-identical to before.
+    unreconciled: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -135,13 +140,15 @@ def replay(trace: SearchTrace) -> list[ReplayNode]:
     nodes/scores/order on the store-authoritative path — the re-derivability reconciliation.
     Corrupt a logged score and the reconstruction diverges.
 
-    Scope: replay reconstructs the PRE-reconcile ranking (the bare hop log). When a query
-    ran with a live overlay, the reconcile's freshness re-tagging — and its strip of the
-    corroboration bonus from an ``unreconciled`` node — are overlay state, recorded under
-    ``trace.signals``, not replayable from the hop log alone; replay assumes the default
-    policy's non-conflicting bonus."""
+    Overlay reconcile (F3): when a query ran with a live overlay, the reconcile STRIPPED the
+    corroboration bonus from any node it tagged ``unreconciled`` (a SCIP↔LSP conflict). Those
+    symbols are recorded on the trace (``trace.unreconciled``); replay applies the SAME strip
+    (bonus computed with ``conflicting=True`` → 0) so it reproduces the final ranking EXACTLY,
+    not the pre-reconcile one. On the store-authoritative path that set is empty, so replay is
+    byte-identical to before."""
     k = int(trace.query.get("k", len(trace.result_order)))
     seed = trace.seed
+    unreconciled = set(trace.unreconciled)
     merged: dict[str, TraceCandidate] = {}
     found_by: dict[str, set[str]] = {}
     for hop in trace.hops:
@@ -153,7 +160,10 @@ def replay(trace: SearchTrace) -> list[ReplayNode]:
     policy = default_policy()
     scored: list[tuple[TraceCandidate, float]] = []
     for cand in merged.values():
-        bonus = policy.agreement_bonus(len(found_by.get(cand.symbol, ())), False)
+        # conflicting=True for an unreconciled node => agreement_bonus is 0 (never re-blend a
+        # conflict), reproducing expand's post-reconcile strip exactly.
+        conflicting = cand.symbol in unreconciled
+        bonus = policy.agreement_bonus(len(found_by.get(cand.symbol, ())), conflicting)
         scored.append((cand, round(cand.score + bonus, 6) if bonus else cand.score))
     ranked = sorted(scored, key=lambda t: (-t[1], t[0].symbol))[:k]
     return [
@@ -198,6 +208,9 @@ def _trace_json(trace: SearchTrace, signals: dict[str, Any]) -> dict[str, Any]:
         ],
         "result_order": list(trace.result_order),
         "pruned": [_candidate_json(c, with_admitted=False) for c in trace.pruned],
+        # F3: the unreconciled symbols whose corroboration bonus was stripped — so the final
+        # ranking is replayable from the serialized contract, not just the in-memory trace.
+        "unreconciled": list(trace.unreconciled),
     }
 
 

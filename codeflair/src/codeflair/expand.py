@@ -143,9 +143,13 @@ def expand(
     warnings: list[str] = []
     conflicts: list[FileConflict] = []
     overlay_only: list[str] = []
+    unreconciled_syms: tuple[str, ...] = ()
     if working_files is not None:
-        rec = reconcile_overlay(store, ranked, working_files, overlay)
-        ranked = rec.entries
+        # Reconcile the FULL candidate set BEFORE the top-k cut (F5): the unreconciled
+        # bonus-strip can drop a node below one at ordered[k:], so the strip must precede
+        # selection — else a bonus-promoted-then-stripped node keeps a slot the rightful
+        # node should take.
+        rec = reconcile_overlay(store, ordered, working_files, overlay)
         lsp_degraded = rec.lsp_degraded
         warnings = rec.warnings
         conflicts = rec.conflicts
@@ -153,14 +157,18 @@ def expand(
         # Never boost an unreconciled node: strip the corroboration bonus from any node the
         # reconcile flagged 'unreconciled' (a SCIP↔overlay conflict is surfaced, not blended).
         stripped: list[HeatmapEntry] = []
-        changed = False
-        for e in ranked:
+        for e in rec.entries:
             if e.freshness == "unreconciled" and len(found_by.get(e.symbol, ())) > 1:
                 stripped.append(replace(e, score=core_scores.get(e.symbol, e.score)))
-                changed = True
             else:
                 stripped.append(e)
-        ranked = sorted(stripped, key=lambda e: (-e.score, e.symbol)) if changed else stripped
+        ordered = sorted(stripped, key=lambda e: (-e.score, e.symbol))  # re-sort, THEN cut
+        ranked = ordered[:k]
+        # F3: record the unreconciled symbols so replay reproduces the post-reconcile ranking
+        # exactly — it must NOT re-add the corroboration bonus to a conflicting node.
+        unreconciled_syms = tuple(
+            sorted(e.symbol for e in rec.entries if e.freshness == "unreconciled")
+        )
 
     gaps = find_test_gaps(store, ranked)
 
@@ -182,7 +190,8 @@ def expand(
             basis_hash=compute_basis_hash(store),
             hops=tuple(hops),
             # ``ranked`` is reconcile-tagged but order/scores are preserved, so the kept beam
-            # is exactly the final heatmap order; the pruned beam is what the top-k cut dropped.
+            # is exactly the final heatmap order; the pruned beam is what the top-k cut dropped
+            # (from the post-reconcile, post-strip ``ordered`` so it matches the kept beam).
             result_order=tuple(e.symbol for e in ranked),
             pruned=tuple(
                 TraceCandidate(
@@ -195,6 +204,7 @@ def expand(
                 )
                 for e in ordered[k:]
             ),
+            unreconciled=unreconciled_syms,
         )
 
     return ExpandResult(

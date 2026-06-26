@@ -17,6 +17,13 @@ store, runs the engine, and measures recall. Same seed-set -> byte-identical num
 CF-D9: this harness imports only ``codeflair`` + the stdlib — zero dependency on UACP and
 zero third-party dependency (the seed-set is parsed by a tiny in-module YAML subset reader,
 since the dev venv ships no PyYAML).
+
+**HONESTY (F6): the exercised baseline is CIRCULAR.** A by-construction fixture's blast
+radius is known *because we built the graph* — so the recall number validates that the
+harness + Policy-D MECHANICS work, NOT that Codeflair retrieves the right code on a real
+repo. The non-circular, real-grounded baseline is still OUTSTANDING: it needs a built
+SCIP/tree-sitter index of the repo (the **gated** pairs) plus human inter-labeler
+adjudication (the CF-D5 build gate). Never cite the exercised number as retrieval quality.
 """
 
 from __future__ import annotations
@@ -432,6 +439,10 @@ def format_report(report: EvalReport) -> str:
         f"pairs: {report.n_pairs}  exercised: {report.n_exercised}  gated: {report.n_gated}",
         "",
         "BASELINE recall@K (micro-avg over exercised must_find nodes):",
+        "  ⚠ CIRCULAR — measured on BY-CONSTRUCTION fixtures (the graph IS the answer key),",
+        "    so this number validates harness MECHANICS, not real-repo relevance. The",
+        "    non-circular baseline awaits a built SCIP/tree-sitter index + human adjudication",
+        "    (the gated pairs below); do NOT cite this as Codeflair's retrieval quality.",
         f"  overall : {_fmt(report.baseline_overall)}  "
         f"({report.parsed_hit + report.inferred_hit}/{report.parsed_gt + report.inferred_gt})",
         f"  parsed  : {_fmt(report.baseline_parsed)}  ({report.parsed_hit}/{report.parsed_gt})",
