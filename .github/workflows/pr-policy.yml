@@ -1,0 +1,38 @@
+name: PR Policy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, assigned, unassigned]
+
+jobs:
+  pr-policy:
+    name: PR Policy
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Check assignee
+        env:
+          ASSIGNEES_JSON: ${{ toJson(github.event.pull_request.assignees) }}
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, sys
+          assignees = json.loads(os.environ['ASSIGNEES_JSON'])
+          if not assignees:
+              print("::error::PR must have at least one assignee.")
+              sys.exit(1)
+          print(f"Assignee check passed ({len(assignees)} assignee(s)).")
+          PYEOF
+
+      - name: Check type label
+        env:
+          LABELS_JSON: ${{ toJson(github.event.pull_request.labels) }}
+        run: |
+          python3 - <<'PYEOF'
+          import json, os, sys
+          labels = [l['name'] for l in json.loads(os.environ['LABELS_JSON'])]
+          if not any(l.startswith('type:') for l in labels):
+              print("::error::PR must have at least one 'type:' label (e.g. type: feat, type: fix, type: chore).")
+              sys.exit(1)
+          print(f"Label check passed (labels: {labels}).")
+          PYEOF
