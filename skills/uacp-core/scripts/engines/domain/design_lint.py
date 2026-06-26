@@ -194,9 +194,7 @@ def _check1_index(bundle_path: Path, viols: list[Violation]) -> dict | None:
 
     # Extra _index* files alongside the canonical one
     extra = sorted(
-        p
-        for p in bundle_path.iterdir()
-        if p.name.startswith("_index") and p.name != "_index.yaml"
+        p for p in bundle_path.iterdir() if p.name.startswith("_index") and p.name != "_index.yaml"
     )
     if extra:
         viols.append(
@@ -525,8 +523,7 @@ def _check6_edges_mirror(bundle_path: Path, index: dict, viols: list[Violation])
         # even if edges: [] (a node that declares edges:[] but is listed as src in _index
         # has contradictory state: the index says it has an edge but the node denies it).
         found = any(
-            isinstance(e, dict) and e.get("dst") == dst and e.get("rel") == rel
-            for e in node_edges
+            isinstance(e, dict) and e.get("dst") == dst and e.get("rel") == rel for e in node_edges
         )
         if not found:
             viols.append(
