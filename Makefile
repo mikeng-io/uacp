@@ -1,4 +1,4 @@
-.PHONY: lint format fmt types quality test acceptance ci-pr ci-push act-pr-policy act-pr-policy-fail-assignee act-pr-policy-fail-title act-pr-policy-fail-branch help
+.PHONY: lint format fmt types quality test acceptance ci-pr ci-push act-pr-policy act-pr-policy-fail-assignee act-pr-policy-fail-title act-pr-policy-fail-branch release-dry release-prep help
 .DEFAULT_GOAL := help
 
 ENGINES := skills/uacp-core/scripts/engines/
@@ -76,6 +76,17 @@ act-pr-policy-fail-branch:
 	    && echo "PASS: workflow correctly rejected bad branch name (exit $$code)." \
 	    || echo "FAIL: expected non-zero exit, got 0."
 
+# Preview what a version bump would change — no files written.
+# Usage: make release-dry TYPE=minor
+TYPE ?= patch
+release-dry:
+	python3 scripts/bump_version.py $(TYPE) --dry-run
+
+# Apply the version bump across all manifests. Prints git commands to run next.
+# Usage: make release-prep TYPE=minor
+release-prep:
+	python3 scripts/bump_version.py $(TYPE)
+
 help:
 	@echo "Targets:"
 	@echo "  lint       ruff check (scoped to engines + e2e)"
@@ -89,3 +100,5 @@ help:
 	@echo "  ci-push                act push — simulate post-merge jobs locally"
 	@echo "  act-pr-policy          run PR Policy with a passing event"
 	@echo "  act-pr-policy-fail-*   run PR Policy with a failing event (assignee/title/branch)"
+	@echo "  release-dry  TYPE=minor  preview version bump (no files written)"
+	@echo "  release-prep TYPE=minor  bump version across all manifests"
