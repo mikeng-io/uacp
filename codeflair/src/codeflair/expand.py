@@ -19,6 +19,12 @@ from codeflair.overlay import FileConflict, LspOverlay, reconcile_overlay
 from codeflair.probes import ProbeContext, ProbeParams, ProbeRegistry, default_registry
 from codeflair.query import HeatmapEntry
 from codeflair.store import Store
+from codeflair.trace import (
+    HopRecord,
+    SearchTrace,
+    TraceCandidate,
+    compute_basis_hash,
+)
 
 _TEST_FILE_RE = re.compile(
     r"(_test\.go$|_test\.py$|test_.*\.py$|\.test\.[jt]sx?$|\.spec\.[jt]sx?$|(^|/)tests?/)"
@@ -44,6 +50,9 @@ class ExpandResult:
     warnings: list[str] = field(default_factory=list)  # agent-readable (lsp_degraded, unreconciled)
     conflicts: list[FileConflict] = field(default_factory=list)  # SCIP↔LSP disagreements, surfaced
     overlay_only: list[str] = field(default_factory=list)  # F4: live symbols the store lacks
+    # P4 (additive) — the replayable, watermarked search trace. ``None`` unless ``expand`` was
+    # called with ``capture_trace=True``; the result is otherwise byte-identical to before.
+    trace: SearchTrace | None = None
 
 
 def is_test_file(path: str) -> bool:
@@ -62,6 +71,7 @@ def expand(
     registry: ProbeRegistry | None = None,
     working_files: dict[str, bytes] | None = None,
     overlay: LspOverlay | None = None,
+    capture_trace: bool = False,
 ) -> ExpandResult:
     """Grow the relation subgraph from ``seed`` and rank it into a top-``k`` heatmap + gaps.
 
@@ -84,14 +94,31 @@ def expand(
     ctx = ProbeContext(store=store, seed=seed, params=params)
 
     counts = {"precise": 0, "inferred": 0}
+    hops: list[HopRecord] = []
     for probe in registry.probes:
+        candidates: list[TraceCandidate] = []
         for entry in probe.expand(ctx):
-            if entry.symbol == seed or entry.symbol in ctx.entries:
+            admitted = not (entry.symbol == seed or entry.symbol in ctx.entries)
+            if capture_trace:
+                candidates.append(
+                    TraceCandidate(
+                        symbol=entry.symbol,
+                        score=entry.score,
+                        hop=entry.hop,
+                        via=entry.via,
+                        source=entry.source,
+                        admitted=admitted,
+                    )
+                )
+            if not admitted:
                 continue  # first claim wins — precise evidence (earlier probe) is never displaced
             ctx.entries[entry.symbol] = entry
             counts[probe.kind] = counts.get(probe.kind, 0) + 1
+        if capture_trace:
+            hops.append(HopRecord(probe=probe.name, kind=probe.kind, candidates=tuple(candidates)))
 
-    ranked = sorted(ctx.entries.values(), key=lambda e: (-e.score, e.symbol))[:k]
+    ordered = sorted(ctx.entries.values(), key=lambda e: (-e.score, e.symbol))
+    ranked = ordered[:k]
 
     lsp_degraded = False
     warnings: list[str] = []
@@ -106,6 +133,40 @@ def expand(
         overlay_only = rec.overlay_only
 
     gaps = find_test_gaps(store, ranked)
+
+    trace: SearchTrace | None = None
+    if capture_trace:
+        repo_commit, built_at = store.watermark() or ("", "")
+        trace = SearchTrace(
+            seed=seed,
+            query={
+                "seed": seed,
+                "k": k,
+                "max_hops": max_hops,
+                "beam": beam,
+                "direction": direction,
+                "include_coupling": include_coupling,
+            },
+            repo_commit=repo_commit,
+            built_at=built_at,
+            basis_hash=compute_basis_hash(store),
+            hops=tuple(hops),
+            # ``ranked`` is reconcile-tagged but order/scores are preserved, so the kept beam
+            # is exactly the final heatmap order; the pruned beam is what the top-k cut dropped.
+            result_order=tuple(e.symbol for e in ranked),
+            pruned=tuple(
+                TraceCandidate(
+                    symbol=e.symbol,
+                    score=e.score,
+                    hop=e.hop,
+                    via=e.via,
+                    source=e.source,
+                    admitted=True,
+                )
+                for e in ordered[k:]
+            ),
+        )
+
     return ExpandResult(
         heatmap=ranked,
         gaps=gaps,
@@ -115,6 +176,7 @@ def expand(
         warnings=warnings,
         conflicts=conflicts,
         overlay_only=overlay_only,
+        trace=trace,
     )
 
 

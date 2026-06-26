@@ -41,6 +41,17 @@ from codeflair.store import (
     Symbol,
     default_store_path,
 )
+from codeflair.trace import (
+    TRACE_SCHEMA,
+    HopRecord,
+    ReplayNode,
+    SearchTrace,
+    TraceCandidate,
+    compute_basis_hash,
+    mark_stale,
+    replay,
+    to_json,
+)
 
 __all__ = [
     "Store",
@@ -78,4 +89,13 @@ __all__ = [
     "reconcile_overlay",
     "SerenaOverlay",
     "load_serena_overlay",
+    "to_json",
+    "replay",
+    "mark_stale",
+    "compute_basis_hash",
+    "SearchTrace",
+    "HopRecord",
+    "TraceCandidate",
+    "ReplayNode",
+    "TRACE_SCHEMA",
 ]
