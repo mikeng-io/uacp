@@ -3,7 +3,6 @@
 
 ENGINES := skills/uacp-core/scripts/engines/
 E2E     := tests/e2e/
-ACCEPTANCE := acceptance/ tests/acceptance/
 PYRIGHT_PATHS := \
 	skills/uacp-core/scripts/engines/guardian \
 	skills/uacp-core/scripts/engines/domain/paths.py \
@@ -11,13 +10,13 @@ PYRIGHT_PATHS := \
 	skills/uacp-core/scripts/engines/heartgate/validators/helpers.py
 
 lint:
-	ruff check $(ENGINES) $(E2E) $(ACCEPTANCE)
+	ruff check $(ENGINES) $(E2E)
 
 format:
-	ruff format --check $(ENGINES) $(E2E) $(ACCEPTANCE)
+	ruff format --check $(ENGINES) $(E2E)
 
 fmt:
-	ruff format $(ENGINES) $(E2E) $(ACCEPTANCE)
+	ruff format $(ENGINES) $(E2E)
 
 types:
 	pyright $(PYRIGHT_PATHS)

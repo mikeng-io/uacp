@@ -8,3 +8,7 @@
 .venv
 acceptance/out
 .uacp
+# local dev state a fresh user would NOT have — excluding it keeps the reproduction faithful.
+.mcp.json
+.claude
+.claude.json

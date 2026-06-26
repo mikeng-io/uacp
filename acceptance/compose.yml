@@ -1,18 +1,18 @@
 # UACP E2E acceptance harness — compose stack.
 #
-# Increment 0 (THIS): the `conformance` service only — prove the installed plugin is actionable in a
-# clean container. No model/proxy/runner yet (those arrive with the lifecycle increments, design
-# nodes 10/11/12): plugin conformance needs neither a model nor a real agent.
+# Increment 0 (THIS): the `conformance` service only — install Claude Code + a REAL `claude plugin
+# install` of UACP, then assert via Claude Code's own view that it loaded + exposed its components.
+# No model/proxy/runner yet (those arrive with the lifecycle increments, design nodes 10/11/12).
 #
 #   docker compose -f acceptance/compose.yml run --rm conformance
 #
-# Exit 0 + a conformance.json under ./acceptance/out == every expected capability is actionable.
+# Exit 0 + a conformance.json under ./acceptance/out == Claude Code loaded the plugin and its
+# components are present. (Network is allowed: `claude mcp list` health-checks the MCP server, which
+# launches `uv run`.)
 services:
   conformance:
     build:
       context: ..
       dockerfile: acceptance/Dockerfile
-    # offline at run — the build warmed the uv env; conformance launches the MCP server locally only.
-    network_mode: none
     volumes:
       - ./out:/out
