@@ -394,7 +394,8 @@ class Heartgate:
                     missing.append(wu_id)
             if missing:
                 return [
-                    f"{prefix} required work_units lack a clean after_work_unit checkpoint: {missing}"
+                    f"{prefix} required work_units lack a clean "
+                    f"after_work_unit checkpoint: {missing}"
                 ]
         return []
 
