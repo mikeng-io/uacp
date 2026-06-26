@@ -2,12 +2,16 @@ name: PR Policy
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled, unlabeled, assigned, unassigned]
+    # 'edited' catches title changes after the PR is open.
+    types: [opened, synchronize, reopened, labeled, unlabeled, assigned, unassigned, edited]
 
 jobs:
   pr-policy:
     name: PR Policy
+    # Only enforce on PRs targeting main — feature-branch PRs skip this check.
+    if: github.base_ref == 'main'
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     permissions:
       pull-requests: read
     steps:
@@ -46,7 +50,8 @@ jobs:
           python3 - <<'PYEOF'
           import os, re, sys
           title = os.environ['PR_TITLE']
-          pattern = r'^(feat|fix|chore|docs|design|test|refactor|verify|ci)(\(.+\))?(!)?: .+|^Revert ".+'
+          # Match: type(scope)!: description  OR  Revert "original title"
+          pattern = r'^(feat|fix|chore|docs|design|test|refactor|verify|ci)(\(.+\))?(!)?: .+|^Revert ".+"$'
           if not re.match(pattern, title):
               print("::error title=Invalid PR title::PR title must follow Conventional Commits format.")
               print("::error title=Invalid PR title::Format: type(scope): description  —  e.g.  feat: add oracle reranker, fix(kernel): correct heartgate timeout")
@@ -62,12 +67,17 @@ jobs:
           python3 - <<'PYEOF'
           import os, re, sys
           branch = os.environ['HEAD_REF']
-          # Allow: type/description or type-description (lowercase, hyphens/slashes)
-          # Also allow: dependabot/ecosystem/package-version
-          pattern = r'^(dependabot\/[a-z0-9_-]+\/.+|[a-z][a-z0-9]*([-\/][a-z0-9][a-z0-9-]*)*)$'
-          if not re.match(pattern, branch):
+          # Two disjoint alternatives to avoid overlapping quantifiers (ReDoS):
+          #   1. dependabot/<ecosystem>/<rest>  (underscores OK inside dependabot paths)
+          #   2. Standard: lowercase, hyphens/slashes, no underscores
+          #      Each segment: starts [a-z0-9], continues [a-z0-9-], separated by [-/]
+          DEPENDABOT = r'dependabot/[a-z0-9_-]+/.+'
+          STANDARD   = r'[a-z][a-z0-9]*(?:[/-][a-z0-9][a-z0-9-]*)*'
+          pattern = rf'^(?:{DEPENDABOT}|{STANDARD})$'
+          if not re.fullmatch(pattern, branch):
               print(f"::error title=Invalid branch name::Branch '{branch}' violates naming convention.")
-              print("::error title=Invalid branch name::Format: type/description or type-description (lowercase, hyphens/slashes only, no underscores)")
+              print("::error title=Invalid branch name::Format: type/description or type-description (lowercase, hyphens/slashes, no underscores)")
+              print("::error title=Invalid branch name::Dependabot branches (underscores OK): dependabot/<ecosystem>/<package>")
               print("::error title=Invalid branch name::Examples: feat/add-oracle, fix-kernel-timeout, gitops/release-strategy, design/graph-engine-v2")
               sys.exit(1)
           print(f"OK: branch name '{branch}' is valid.")
