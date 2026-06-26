@@ -361,9 +361,11 @@ def _run_forced_execute_evidence_gate(workspace: Path, run_id: str, from_phase: 
     register covering execution checkpoints, never author a PIV, skip ``validate_transition``, and
     advance via ``handle_transition`` — the forced ``execute_exit`` gate only checks checkpoint
     coverage, not the PIV the adaptive execute-evidence gate demands. Self-gating: only fires at
-    EXECUTE exit and only when the governed-execute marker (checkpoint-001) is present (bare /
-    ungoverned transitions return []); goal-driven runs are relaxed to the coherent checkpoint
-    manifest. Fail-closed: an unrunnable gate blocks. Lazy import (engines<->state cycle)."""
+    EXECUTE exit and only when the governed-execute marker (ANY ``{run_id}-checkpoint-*.yaml``, not
+    only ``-001``) is present (bare / ungoverned transitions return []); goal-driven runs are
+    relaxed to the coherent checkpoint manifest. When the PIV declares ``work_units`` it also
+    derives per-unit coverage from ``after_work_unit`` checkpoints (each required unit needs a clean
+    one). Fail-closed: an unrunnable gate blocks. Lazy import (engines<->state cycle)."""
     if from_phase != "execute":
         return []
     try:

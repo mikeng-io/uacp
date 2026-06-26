@@ -106,3 +106,62 @@ def test_partial_execution_blocks_only_incomplete(temp_uacp_root):
     blockers = _hg(temp_uacp_root).forced_execute_evidence_blockers("run-p")
     assert any("wu-b" in b for b in blockers), blockers
     assert not any("'wu-a'" in b for b in blockers), blockers
+
+
+def test_after_work_unit_with_block_evidence_does_not_count(temp_uacp_root):
+    # Review concern #1: an after_work_unit checkpoint whose evidence records a
+    # `block` result is EXECUTE's own admission the unit did not complete -> the
+    # gate must NOT count it as coverage, so the transition blocks.
+    _write(temp_uacp_root, "plans/run-blk-piv.yaml",
+           _piv("run-blk", [{"id": "wu-1", "intent": "x", "expected_outputs": ["y"]}]))
+    cp = _checkpoint("run-blk", "after_work_unit", "wu-1")
+    cp["evidence"] = [{"obligation_id": "ev-1", "result": "block", "summary": "blocked"}]
+    _write(temp_uacp_root, "executions/run-blk-checkpoint-001.yaml", cp)
+    blockers = _hg(temp_uacp_root).forced_execute_evidence_blockers("run-blk")
+    assert any("wu-1" in b for b in blockers), blockers
+
+
+def test_after_work_unit_with_warn_evidence_counts(temp_uacp_root):
+    # Non-vacuity counterpart: warn/deferred are acceptable — only `block`
+    # disqualifies. A unit with a warn result still counts as executed -> passes.
+    _write(temp_uacp_root, "plans/run-warn-piv.yaml",
+           _piv("run-warn", [{"id": "wu-1", "intent": "x", "expected_outputs": ["y"]}]))
+    cp = _checkpoint("run-warn", "after_work_unit", "wu-1")
+    cp["evidence"] = [{"obligation_id": "ev-1", "result": "warn", "summary": "minor"}]
+    _write(temp_uacp_root, "executions/run-warn-checkpoint-001.yaml", cp)
+    assert _hg(temp_uacp_root).forced_execute_evidence_blockers("run-warn") == []
+
+
+def test_required_null_is_fail_closed(temp_uacp_root):
+    # Review concern #2: `required: null` (and any non-False value) must be
+    # treated as required, not silently optional. Unit is unexecuted -> blocks.
+    _write(temp_uacp_root, "plans/run-null-piv.yaml",
+           _piv("run-null", [
+               {"id": "wu-1", "intent": "x", "expected_outputs": ["y"], "required": None},
+           ]))
+    _write(temp_uacp_root, "executions/run-null-checkpoint-001.yaml",
+           _checkpoint("run-null", "before_side_effect", "wu-1"))
+    blockers = _hg(temp_uacp_root).forced_execute_evidence_blockers("run-null")
+    assert any("wu-1" in b for b in blockers), blockers
+
+
+def test_required_explicit_true_blocks(temp_uacp_root):
+    _write(temp_uacp_root, "plans/run-true-piv.yaml",
+           _piv("run-true", [
+               {"id": "wu-1", "intent": "x", "expected_outputs": ["y"], "required": True},
+           ]))
+    _write(temp_uacp_root, "executions/run-true-checkpoint-001.yaml",
+           _checkpoint("run-true", "before_side_effect", "wu-1"))
+    blockers = _hg(temp_uacp_root).forced_execute_evidence_blockers("run-true")
+    assert any("wu-1" in b for b in blockers), blockers
+
+
+def test_required_unit_missing_id_blocks(temp_uacp_root):
+    # Review concern #3: a required work_unit with no id is a malformed PIV and
+    # must BLOCK, not be silently skipped.
+    _write(temp_uacp_root, "plans/run-noid-piv.yaml",
+           _piv("run-noid", [{"intent": "x", "expected_outputs": ["y"]}]))
+    _write(temp_uacp_root, "executions/run-noid-checkpoint-001.yaml",
+           _checkpoint("run-noid", "before_side_effect"))
+    blockers = _hg(temp_uacp_root).forced_execute_evidence_blockers("run-noid")
+    assert blockers, "a required work_unit with no id must block"

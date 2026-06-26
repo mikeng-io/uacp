@@ -355,26 +355,46 @@ class Heartgate:
         # after_work_unit checkpoint referencing its id before EXECUTE->VERIFY.
         work_units = doc.get("work_units")
         if isinstance(work_units, list) and work_units:
+            # A unit is "executed" iff it has an after_work_unit checkpoint whose
+            # evidence records NO `block` result. A blocked after_work_unit checkpoint
+            # is EXECUTE's own admission the unit did not complete cleanly, so it does
+            # not count as coverage (matches the design's executed-vs-blocked status
+            # model). warn/deferred remain acceptable — only `block` disqualifies.
             executed_ids: set[str] = set()
             for cp_path in executions.glob(f"{run_id}-checkpoint-*.yaml"):
                 cp = self._load_yaml_under_root(
                     f"executions/{cp_path.name}", [], "forced_execute_evidence"
                 )
-                if isinstance(cp, Mapping) and cp.get("checkpoint_type") == "after_work_unit":
-                    wu_id = cp.get("work_unit_id")
-                    if wu_id:
-                        executed_ids.add(wu_id)
-            missing = [
-                wu.get("id")
-                for wu in work_units
-                if isinstance(wu, Mapping)
-                and wu.get("required", True)
-                and wu.get("id")
-                and wu.get("id") not in executed_ids
-            ]
+                if not isinstance(cp, Mapping):
+                    continue
+                if cp.get("checkpoint_type") != "after_work_unit":
+                    continue
+                wu_id = cp.get("work_unit_id")
+                if not wu_id:
+                    continue
+                evidence = cp.get("evidence")
+                has_block = isinstance(evidence, list) and any(
+                    isinstance(ev, Mapping) and ev.get("result") == "block" for ev in evidence
+                )
+                if not has_block:
+                    executed_ids.add(wu_id)
+            # Fail-closed: a unit is required UNLESS it explicitly sets `required: False`.
+            # Absent / null / any non-False value is treated as required. A required unit
+            # with no id is a malformed PIV and BLOCKS (it is not silently skipped).
+            missing: list[str] = []
+            for wu in work_units:
+                if not isinstance(wu, Mapping):
+                    continue
+                if wu.get("required", True) is False:
+                    continue
+                wu_id = wu.get("id")
+                if not wu_id:
+                    missing.append("<work_unit with no id>")
+                elif wu_id not in executed_ids:
+                    missing.append(wu_id)
             if missing:
                 return [
-                    f"{prefix} required work_units lack an after_work_unit checkpoint: {missing}"
+                    f"{prefix} required work_units lack a clean after_work_unit checkpoint: {missing}"
                 ]
         return []
 
