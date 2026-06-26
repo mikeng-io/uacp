@@ -1,11 +1,41 @@
-# Installing the UACP Plugin
+# Runtime adapters
+
+UACP is runtime-neutral; this directory is where it meets a concrete host. It is
+organized **by runtime**, with a `shared/` layer for the logic that is identical
+across runtimes (see [ADR-0020](../docs/architecture/0020-runtime-adapters-regroup-by-runtime.md)).
+
+## Layout
+
+| Directory | Axis | Contents |
+|---|---|---|
+| `shared/` | shared logic | The cross-runtime PreToolUse Guardian shim (`guardian_pretooluse.py`) — identical across runtimes; per-runtime wiring lives in each runtime dir. |
+| `mcp/` | shared logic | The one MCP governed-tools server (`uacp_mcp_server.py`) — all runtimes register the same server. |
+| `claude/` | per-runtime wiring | Claude Code wiring: the SessionStart `UACP.md` injector + how CC registers the shared shim (auto-bundled via `hooks/hooks.json`). |
+| `kimi/` | per-runtime wiring | Kimi Code wiring: reuses `shared/` + `mcp/`; the PreToolUse shim is a manual `~/.kimi-code/config.toml` paste. |
+| `codex/` | per-runtime wiring | Codex wiring: reuses `shared/` + `mcp/`; MCP-governed-only if it has no PreToolUse hook surface (honest degrade). |
+| `hermes/` | per-runtime wiring | The existing Hermes plugins (`uacp_guardian`, `thread_title_sync`) — the native Hermes adapter path. |
+
+**Shared logic vs per-runtime wiring.** The *behavior* (the `.uacp/` PreToolUse
+predicate, the governed-tools server) is written once in `shared/` and `mcp/`. The
+*wiring* — how a given host discovers and invokes that behavior — differs per host
+(a plugin manifest, a `config.toml` paste, an MCP registration) and lives in the
+runtime's own directory. Adding a runtime is therefore a thin per-runtime dir that
+reuses `shared/` + `mcp/`; a runtime with no hook surface degrades to
+MCP-governed-only. The runtime-neutral kernel
+(`skills/uacp-core/scripts/hook_kernel.py`) stays neutral — no host names leak into
+it.
+
+Per-runtime install + enforcement detail lives in each runtime's README:
+[`claude/`](claude/README.md) · [`kimi/`](kimi/README.md) ·
+[`codex/`](codex/README.md) · [`shared/`](shared/README.md) (the shim).
+
+## Installing the UACP plugin
 
 UACP ships as a plugin for both **Claude Code** and **Kimi Code** — skills + an
 MCP governed-tools server. Claude Code additionally bundles the Guardian
-PreToolUse hook automatically; on Kimi the hook is a one-time config edit. The
-Claude Code steps are first; for Kimi see [Kimi Code](#kimi-code).
+PreToolUse hook automatically; on Kimi the hook is a one-time config edit.
 
-## Prerequisites
+### Prerequisites
 
 - Claude Code (`claude --version`) and/or Kimi Code installed.
 - Python 3.11+ available as `python3`.
@@ -16,7 +46,7 @@ Claude Code steps are first; for Kimi see [Kimi Code](#kimi-code).
   the governed-tools server fails to start.
 - The UACP repository cloned or the GitHub repo URL to hand.
 
-## Claude Code — install from the marketplace
+### Claude Code — install from the marketplace
 
 ```bash
 # 1. Register the UACP marketplace (do this once per machine).
@@ -36,10 +66,13 @@ claude plugin install uacp@uacp
 Confirm the install:
 
 ```bash
-claude plugin details uacp   # lists all 17 skills + hook + MCP server
+claude plugin details uacp   # lists all skills + hooks + MCP server
 ```
 
-## MCP server setup
+Claude-Code-specific hook wiring (SessionStart injector + PreToolUse shim) is
+documented in [`claude/README.md`](claude/README.md).
+
+### MCP server setup
 
 No manual step is required. The bundled MCP server
 (`runtime-adapters/mcp/uacp_mcp_server.py`) is declared in
@@ -65,24 +98,23 @@ server resolves its own path. (The `--with` set is kept in lockstep with
 For a manual or dev run outside the plugin, install the extra instead:
 `pip install -e ".[mcp]"`.
 
-## Enforcement
+### Enforcement
 
-Two enforcement layers activate automatically once the plugin is installed:
+Two enforcement layers activate automatically once the plugin is installed on
+Claude Code:
 
 | Layer | Mechanism | What it does |
 |---|---|---|
 | Guardian (primary) | MCP governed handlers (`uacp_state_write`, `uacp_doc_write`, …) | Path-bounded, authoritative containment for all governed writes |
-| PreToolUse hook (defense-in-depth) | `hooks/hooks.json` → `runtime-adapters/hooks/guardian_pretooluse.py` | Stops raw host `Write`/`Bash` calls before dispatch |
+| PreToolUse hook (defense-in-depth) | `hooks/hooks.json` → `runtime-adapters/shared/guardian_pretooluse.py` | Stops raw host `Write`/`Edit` calls into `.uacp/` before dispatch |
 
 The hook is registered by `plugin.json → "hooks": "./hooks/hooks.json"` and
 executes on every tool call (`matcher: "*"`). It fails open: if the hook crashes,
 the call proceeds, because the MCP governed handlers provide the authoritative
-containment.
+containment. (That auto-bundling is Claude-Code-specific. On Kimi the hook is
+installed manually — see [`kimi/README.md`](kimi/README.md).)
 
-(That auto-bundling is Claude-Code-specific. On Kimi the hook is installed
-manually — see [Kimi Code](#kimi-code).)
-
-## Verifying the install
+### Verifying the install
 
 ```bash
 # Run the static readiness smoke test (no claude CLI required).
@@ -92,40 +124,16 @@ pytest tests/unit/skills/test_cc_install_readiness.py -q
 All static checks should pass. If `claude` is on `PATH`, the real CLI tests also
 run and perform an actual `marketplace add` + `plugin install` + cleanup cycle.
 
-## Updating
+### Updating / uninstalling (Claude Code)
 
 ```bash
 claude plugin update uacp
-```
-
-## Uninstalling
-
-```bash
 claude plugin uninstall uacp
 claude plugin marketplace remove uacp   # if you no longer need the marketplace entry
 ```
 
-## Kimi Code
+### Kimi Code
 
-Kimi Code installs the plugin **natively from GitHub** — this wires up the 17
-skills + the MCP governed-tools server. (It does *not* carry the enforcement
-hook: Kimi's plugin manifest ignores a `hooks` field — that's a one-time config
-edit, below.) In the Kimi Code TUI, use a full HTTPS GitHub URL (shorthand like
-`owner/repo` is not accepted):
-
-```text
-# Install the plugin from GitHub (latest release, else default branch):
-/plugins install https://github.com/mikeng-io/uacp
-
-# A plugin's MCP servers start only in a NEW session — enable + restart:
-/plugins mcp enable uacp uacp
-/new
-```
-
-The MCP server needs the `[mcp]` extra installed in the clone Kimi created
-(`pip install -e ".[mcp]"` in the plugin directory).
-
-**Enforcement (one-time manual step).** The Guardian PreToolUse gate cannot ride
-in the Kimi plugin, so add it to `~/.kimi-code/config.toml` yourself — see
-[hooks/README.md → Kimi Code](hooks/README.md#kimi-code) for the `[[hooks]]`
-block. There is no install script, by design.
+Kimi installs the skills + MCP server natively from GitHub, and the PreToolUse
+gate is a one-time `~/.kimi-code/config.toml` paste. Full steps:
+[`kimi/README.md`](kimi/README.md).

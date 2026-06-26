@@ -9,7 +9,7 @@
   skill, not this file.
 
   INJECTION MECHANISM (this is the cognition-enforcement surface): the SessionStart hook
-  runtime-adapters/hooks/inject_uacp_md.py reads this file (minus this comment) and emits it as
+  runtime-adapters/claude/inject_uacp_md.py reads this file (minus this comment) and emits it as
   SessionStart additionalContext; registered in hooks/hooks.json. Source of truth for the wording:
   design/comprehend-measure-serialize/ (the CMS bundle), kept in sync from here.
 -->

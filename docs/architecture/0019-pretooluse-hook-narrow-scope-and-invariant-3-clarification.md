@@ -14,13 +14,13 @@ status: proposed
 - **Status**: proposed
 - **Date**: 2026-06-26
 - **Decision Makers**: UACP maintainer
-- **Consulted**: as-built `runtime-adapters/hooks/guardian_pretooluse.py`; `docs/runtime/runtime-enforcement.md` (command-string inspection insufficiency); the worktree-protocol (Invariant #2) and checkpoint/diff evidence coverage (EXECUTE→VERIFY)
+- **Consulted**: as-built `runtime-adapters/shared/guardian_pretooluse.py`; `docs/runtime/runtime-enforcement.md` (command-string inspection insufficiency); the worktree-protocol (Invariant #2) and checkpoint/diff evidence coverage (EXECUTE→VERIFY)
 - **Informed**: all agents; hook/runtime-adapter authors
-- **Related**: AGENTS.md Key Invariant #2 (no main writes) and #3 (governed writers only); `runtime-adapters/hooks/README.md`
+- **Related**: AGENTS.md Key Invariant #2 (no main writes) and #3 (governed writers only); `runtime-adapters/shared/README.md`
 
 ## Context and Problem Statement
 
-The Guardian **PreToolUse hook** (`runtime-adapters/hooks/guardian_pretooluse.py`) is a defense-in-depth shim for Claude Code / Kimi Code: it inspects a host tool call *before* it runs and can deny it. The MCP governed writers remain the authoritative containment; the hook is an extra boundary.
+The Guardian **PreToolUse hook** (`runtime-adapters/shared/guardian_pretooluse.py`) is a defense-in-depth shim for Claude Code / Kimi Code: it inspects a host tool call *before* it runs and can deny it. The MCP governed writers remain the authoritative containment; the hook is an extra boundary.
 
 In a real Claude Code session the shim **over-blocked** and bricked the session — even with **no active UACP run** in the repo. Three root causes:
 
@@ -81,6 +81,6 @@ Concretely:
 
 ## References
 
-- Implementation: `runtime-adapters/hooks/guardian_pretooluse.py`
+- Implementation: `runtime-adapters/shared/guardian_pretooluse.py`
 - Tests: `tests/integration/test_pretooluse_hook.py`
-- Docs: `runtime-adapters/hooks/README.md`; `docs/runtime/runtime-enforcement.md`
+- Docs: `runtime-adapters/shared/README.md`; `docs/runtime/runtime-enforcement.md`

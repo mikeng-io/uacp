@@ -56,7 +56,7 @@ The three verbs map to three consistencies — comprehend→semantic, measure→
 ## Consequences
 
 - **Generalizes beyond agents, with a non-circular boundary.** The formal-CS hunt found CMS reduces cleanly across all *decision-bearing* computation (consensus, solvers, compilers, symbolic execution); the "breaks" (a SHA round, a DFA transition, a GPU shader) are *deterministic machine operations* — out of domain by the *semantic vs deterministic* criterion, which is independently checkable (not "satisfies CMS").
-- **The cognition surface is now real** — the SessionStart hook (`runtime-adapters/hooks/inject_uacp_md.py`) injects the preamble; "decoration" was a build gap, now closed.
+- **The cognition surface is now real** — the SessionStart hook (`runtime-adapters/claude/inject_uacp_md.py`) injects the preamble; "decoration" was a build gap, now closed.
 - **Follow-up:** (1) cross-runtime injection for Kimi/opencode (their hook formats); (2) finish the `trustless`→`re-derivable` sweep across the bundle and re-ground node 31 against the merged graph engine; (3) a labeled evalset measuring the injection's actual behavioral effect on a host agent.
 
-Canonical targets: `AGENTS.md` (Core Principle section), `design/comprehend-measure-serialize/`, `UACP.md`, `hooks/hooks.json` + `runtime-adapters/hooks/inject_uacp_md.py`.
+Canonical targets: `AGENTS.md` (Core Principle section), `design/comprehend-measure-serialize/`, `UACP.md`, `hooks/hooks.json` + `runtime-adapters/claude/inject_uacp_md.py`.

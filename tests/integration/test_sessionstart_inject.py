@@ -1,6 +1,6 @@
 """Integration: the SessionStart cognition-injection hook.
 
-`runtime-adapters/hooks/inject_uacp_md.py` is the COGNITION-layer enforcement surface of CMS — it
+`runtime-adapters/claude/inject_uacp_md.py` is the COGNITION-layer enforcement surface of CMS — it
 emits the UACP.md preamble (minus its HTML-comment header) as SessionStart `additionalContext`, so a
 host agent inherits the comprehend->measure->serialize discipline at session start. It must FAIL OPEN
 (exit 0, no output) when UACP.md is absent — a cognition nudge, never a gate.
@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SHIM = _REPO_ROOT / "runtime-adapters" / "hooks" / "inject_uacp_md.py"
+_SHIM = _REPO_ROOT / "runtime-adapters" / "claude" / "inject_uacp_md.py"
 
 
 def _run(plugin_root: Path) -> subprocess.CompletedProcess:

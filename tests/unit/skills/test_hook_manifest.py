@@ -8,7 +8,7 @@ asserts:
     entry that invokes the shim via the ``${CLAUDE_PLUGIN_ROOT}`` token with a
     sane timeout;
   * the referenced shim path resolves to
-    ``runtime-adapters/hooks/guardian_pretooluse.py`` and exists;
+    ``runtime-adapters/shared/guardian_pretooluse.py`` and exists;
   * plugin.json references ``./hooks/hooks.json`` so Claude Code discovers it.
 """
 
@@ -18,7 +18,7 @@ import json
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_SHIM_REL = "runtime-adapters/hooks/guardian_pretooluse.py"
+_SHIM_REL = "runtime-adapters/shared/guardian_pretooluse.py"
 
 
 def test_shim_file_exists() -> None:

@@ -1,14 +1,22 @@
-# Claude Code / Kimi Code PreToolUse Guardian Hook
+# Shared runtime-adapter logic — the PreToolUse Guardian shim
 
-This guide documents the UACP Guardian **PreToolUse hook companion** — a CLI shim
-that lets Claude Code and Kimi Code enforce Guardian policy *before* a tool runs,
-without going through the Hermes runtime.
+This directory holds the **cross-runtime** adapter logic: code that is identical
+across host runtimes and is reused by their per-runtime wiring. Today that is the
+UACP Guardian **PreToolUse hook companion** — a CLI shim that lets a host
+(Claude Code, Kimi Code, …) enforce Guardian policy *before* a tool runs, without
+going through the Hermes runtime.
 
-The shim lives at `runtime-adapters/hooks/guardian_pretooluse.py`. It is a thin,
+The shim lives at `runtime-adapters/shared/guardian_pretooluse.py`. It is a thin,
 self-contained `.uacp/` guard — it does **not** share the broad Guardian category
 model with the Hermes adapter. (The shared kernel
 `skills/uacp-core/scripts/hook_kernel.py` → `evaluate_pre_tool_call` is unchanged
 and still drives the Hermes `uacp_guardian` plugin; the shim no longer calls it.)
+
+It is profile-parameterized — `--profile {claude,kimi}` is accepted for invocation
+compatibility but no longer changes the predicate, because the host tool names it
+guards (`Write` / `Edit` / `MultiEdit` / `NotebookEdit`) are identical across the
+runtimes that drive UACP through bare host tools. That sameness is exactly why the
+shim lives in `shared/` rather than in a per-runtime directory.
 
 ## Threat model: accidental corruption of governed state only
 
@@ -67,53 +75,6 @@ Consequences (each is intentional — see ADR-0019):
   out of this hook's threat model; it remains the MCP server's and the kernel's
   job.
 
-## Install
-
-### Claude Code
-
-Claude Code auto-discovers `hooks/hooks.json` at the plugin root, and the plugin
-manifest (`.claude-plugin/plugin.json`) also references it explicitly via
-`"hooks": "./hooks/hooks.json"`. No manual step is required once the plugin is
-installed. The wired hook is:
-
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/runtime-adapters/hooks/guardian_pretooluse.py\" --profile claude",
-            "timeout": 10
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Kimi Code
-
-The Kimi plugin (skills + the MCP governed-tools server) installs natively from
-GitHub — see [the adapter README](../README.md#kimi-code). Kimi's plugin manifest
-ignores a `hooks` field, so the enforcement hook **cannot** ship inside the
-plugin; it is a **one-time manual edit** to `~/.kimi-code/config.toml`. Add this
-`[[hooks]]` block, replacing `<abs>` with the absolute path to your clone:
-
-```toml
-[[hooks]]
-event = "PreToolUse"
-matcher = "*"
-command = "python3 <abs>/runtime-adapters/hooks/guardian_pretooluse.py --profile kimi"
-timeout = 10
-```
-
-Then start a new session (`/new`). There is no install script — this is a single
-documented paste, by design (the gate can't ride in the plugin).
-
 ## How membership is decided (no project-root resolution)
 
 The membership decision needs **no** single "project root": it walks the resolved
@@ -127,6 +88,18 @@ active run's governed state.
 The only context used is the payload `cwd`, and only to resolve a **relative**
 target path (against the tree the agent is in). The shim reads **no** lifecycle
 phase and **no** governed-context fields: the predicate is run-state-independent.
+
+## Per-runtime wiring (where this shim is registered)
+
+The shim is shared; *how a runtime invokes it* is per-runtime and lives in the
+runtime's own directory:
+
+- **Claude Code** — auto-bundled via `hooks/hooks.json` (plugin root). See
+  [`../claude/README.md`](../claude/README.md).
+- **Kimi Code** — one-time manual `~/.kimi-code/config.toml` paste (Kimi's plugin
+  manifest ignores a `hooks` field). See [`../kimi/README.md`](../kimi/README.md).
+- **Codex** — no PreToolUse hook surface today → MCP-governed-only. See
+  [`../codex/README.md`](../codex/README.md).
 
 ## Settled design decisions
 
@@ -155,18 +128,5 @@ phase and **no** governed-context fields: the predicate is run-state-independent
 
 ## No new dependencies
 
-The shim uses only the Python standard library plus `config.base_dir` from the
-existing UACP kernel (for the `[paths] base`-aware governed namespace). It does
-**not** import `mcp`, and no longer imports `core` / `hook_kernel` / `engines.io`.
-
-## Companion hook: SessionStart cognition injection
-
-A second, independent hook lives beside this one: `runtime-adapters/hooks/inject_uacp_md.py`,
-registered as a `SessionStart` hook in the same `hooks/hooks.json`. It injects the UACP coherence
-preamble (`UACP.md`, minus its HTML-comment header) as `SessionStart` `additionalContext` — the
-**cognition-layer enforcement surface** of the CMS principle (see ADR-0018 and
-`design/comprehend-measure-serialize/25-enforcement-surfaces.md`). Like the Guardian shim it
-**fails open**: a missing *or undecodable* `UACP.md` yields `exit 0` with no output and never blocks a
-session (it is a cognition nudge, not a gate — the architecture surface is the fail-closed one). It is
-**Claude-Code-only today**; Kimi/opencode would each need their own session-start hook (a follow-up,
-analogous to the manual `config.toml` paste above). Stdlib only; imports nothing from the kernel.
+The shim uses only the Python standard library. It does **not** import `mcp`, and
+no longer imports `core` / `hook_kernel` / `engines.io`.

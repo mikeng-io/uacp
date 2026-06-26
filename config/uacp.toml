@@ -418,7 +418,7 @@ names = [
 # --- Host tool classification (host tool name -> KERNEL tool name) ---------
 # Maps a host runtime's native tool names onto the kernel tool names the
 # Guardian classifier already understands. The PreToolUse shim
-# (runtime-adapters/hooks/guardian_pretooluse.py via hook_kernel.normalize_tool_name)
+# (runtime-adapters/shared/guardian_pretooluse.py via hook_kernel.normalize_tool_name)
 # rewrites the incoming host tool name to the kernel name BEFORE classify() runs,
 # so host tools resolve to a real category instead of falling through to
 # external.unknown_mutator (which would brick the agent's read/exec tools during a
