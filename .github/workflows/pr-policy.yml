@@ -19,9 +19,9 @@ jobs:
           import json, os, sys
           assignees = json.loads(os.environ['ASSIGNEES_JSON'])
           if not assignees:
-              print("::error::PR must have at least one assignee.")
+              print("::error title=Missing assignee::PR must have at least one assignee. Assign it before requesting a merge.")
               sys.exit(1)
-          print(f"Assignee check passed ({len(assignees)} assignee(s)).")
+          print(f"OK: {len(assignees)} assignee(s).")
           PYEOF
 
       - name: Check type label
@@ -31,8 +31,44 @@ jobs:
           python3 - <<'PYEOF'
           import json, os, sys
           labels = [l['name'] for l in json.loads(os.environ['LABELS_JSON'])]
-          if not any(l.startswith('type:') for l in labels):
-              print("::error::PR must have at least one 'type:' label (e.g. type: feat, type: fix, type: chore).")
+          type_labels = [l for l in labels if l.startswith('type:')]
+          if not type_labels:
+              print("::error title=Missing type label::PR must have at least one 'type:' label.")
+              print("::error title=Missing type label::Valid labels: type: feat, type: fix, type: chore, type: docs, type: design, type: test, type: refactor, type: verify, type: ci")
               sys.exit(1)
-          print(f"Label check passed (labels: {labels}).")
+          print(f"OK: type labels = {type_labels}.")
+          PYEOF
+
+      - name: Check PR title (conventional commits)
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, re, sys
+          title = os.environ['PR_TITLE']
+          pattern = r'^(feat|fix|chore|docs|design|test|refactor|verify|ci)(\(.+\))?(!)?: .+|^Revert ".+'
+          if not re.match(pattern, title):
+              print("::error title=Invalid PR title::PR title must follow Conventional Commits format.")
+              print("::error title=Invalid PR title::Format: type(scope): description  —  e.g.  feat: add oracle reranker, fix(kernel): correct heartgate timeout")
+              print("::error title=Invalid PR title::Valid types: feat, fix, chore, docs, design, test, refactor, verify, ci")
+              sys.exit(1)
+          print(f"OK: title matches conventional commits.")
+          PYEOF
+
+      - name: Check branch name convention
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          python3 - <<'PYEOF'
+          import os, re, sys
+          branch = os.environ['HEAD_REF']
+          # Allow: type/description or type-description (lowercase, hyphens/slashes)
+          # Also allow: dependabot/ecosystem/package-version
+          pattern = r'^(dependabot\/[a-z0-9_-]+\/.+|[a-z][a-z0-9]*([-\/][a-z0-9][a-z0-9-]*)*)$'
+          if not re.match(pattern, branch):
+              print(f"::error title=Invalid branch name::Branch '{branch}' violates naming convention.")
+              print("::error title=Invalid branch name::Format: type/description or type-description (lowercase, hyphens/slashes only, no underscores)")
+              print("::error title=Invalid branch name::Examples: feat/add-oracle, fix-kernel-timeout, gitops/release-strategy, design/graph-engine-v2")
+              sys.exit(1)
+          print(f"OK: branch name '{branch}' is valid.")
           PYEOF
