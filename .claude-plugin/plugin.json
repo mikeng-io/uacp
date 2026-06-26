@@ -9,7 +9,6 @@
   "homepage": "https://github.com/mikeng-io/uacp",
   "repository": "https://github.com/mikeng-io/uacp",
   "license": "MIT",
-  "hooks": "./hooks/hooks.json",
   "mcpServers": {
     "uacp": {
       "command": "uv",
