@@ -51,6 +51,26 @@ def _scheme_lang(symbol: str) -> str:
     return {"scip-go": "go", "scip-typescript": "ts", "scip-python": "py"}.get(head, head or "?")
 
 
+def _descriptor(symbol: str) -> str:
+    """The trailing descriptor token of a SCIP symbol (the last whitespace-separated field).
+    SCIP descriptor suffixes encode the kind: ``).`` method, ``.`` term, ``#`` type,
+    ``/`` namespace. Mirrors ``_display_name``'s convention (descriptor = last space token)."""
+    return symbol.split(" ")[-1]
+
+
+def _is_callable(symbol: str) -> bool:
+    """True for a SCIP **method** descriptor (ends ``).``) — a call TARGET. A reference to a
+    callable is a ``calls`` edge; a reference to a non-callable (term/type) is ``references``."""
+    return _descriptor(symbol).endswith(").")
+
+
+def _is_container(symbol: str) -> bool:
+    """True for a SCIP **type** (``#``) or **namespace** (``/``) descriptor — a scope that can
+    DEFINE members. ``defines`` edges run container -> member; siblings never define siblings."""
+    desc = _descriptor(symbol)
+    return desc.endswith("#") or desc.endswith("/")
+
+
 def _display_name(symbol: str) -> str:
     """Last descriptor of a SCIP symbol, for human display (not identity)."""
     return symbol.split(" ")[-1].split("/")[-1] or symbol
@@ -78,9 +98,20 @@ def ingest_scip_json(
 ) -> IngestStats:
     """Ingest a parsed SCIP index (the JSON shape of ``scip print --json``) into ``store``.
 
-    Adds a :class:`Symbol` per distinct non-local symbol (keyed by its SCIP descriptor)
-    and a ``calls`` :class:`Edge` (source=``scip``) from each reference's enclosing
-    definition to the referenced symbol. Returns counts.
+    Adds a :class:`Symbol` per distinct non-local symbol (keyed by its SCIP descriptor) and
+    THREE distinct SCIP-sourced :class:`Edge` relations (source=``scip``) per 01b-store (D2):
+
+    - ``defines`` — a container definition (type/namespace) -> each member it defines (the
+      nearest enclosing **container** def, so sibling methods never "define" one another);
+    - ``calls`` — a reference whose target is a **callable** (a SCIP method descriptor, ``).``)
+      attributed to its enclosing definition (caller -> callee);
+    - ``references`` — a reference whose target is **not** callable (a term/type use)
+      attributed to its enclosing definition.
+
+    SCIP occurrences carry only symbol + role (no explicit call graph), so call/reference
+    edges are attributed to the nearest preceding ``Definition`` in the same document, and
+    the call/reference split is decided by the *callee*'s descriptor kind. Returns counts
+    (``edges`` totals all three relations).
 
     When ``file_contents`` (``{relative_path: source_bytes}``) is supplied, a per-file
     content hash + a per-source ``freshness`` row (source=``scip``) are recorded for each
@@ -131,9 +162,40 @@ def ingest_scip_json(
             )
         )
 
-    # edges: each reference -> its enclosing (nearest preceding) definition in the same doc
+    # edges (D2): three distinct relations, deduped by (src, dst, rel).
     n_edges = 0
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
+
+    def _emit(src: str, dst: str, rel: str) -> None:
+        nonlocal n_edges
+        if src == dst:
+            return
+        key = (src, dst, rel)
+        if key in seen:
+            return
+        seen.add(key)
+        store.add_edge(Edge(src=src, dst=dst, rel=rel, source="scip", provenance=provenance))
+        n_edges += 1
+
+    # `defines`: each member definition -> its nearest enclosing CONTAINER definition
+    # (type/namespace). Container -> member, never sibling -> sibling (a sibling method is
+    # not a container, so it is never picked as an enclosing scope).
+    for defs in defs_by_doc.values():
+        containers = [(ln, sym) for ln, sym in defs if _is_container(sym)]
+        if not containers:
+            continue
+        for ln, sym in defs:
+            enclosing: str | None = None
+            for cln, csym in containers:  # ascending; keep the last container at/above `ln`
+                if cln > ln:
+                    break
+                if csym != sym:
+                    enclosing = csym
+            if enclosing is not None:
+                _emit(enclosing, sym, "defines")
+
+    # `calls` / `references`: each reference -> its nearest preceding definition in the same
+    # doc; the relation is `calls` iff the referenced symbol is callable, else `references`.
     for path, refs in refs_by_doc.items():
         defs = defs_by_doc.get(path)
         if not defs:
@@ -143,16 +205,7 @@ def ingest_scip_json(
             if i < 0:
                 continue
             caller = defs[i][1]
-            if caller == ref_sym:
-                continue
-            key = (caller, ref_sym)
-            if key in seen:
-                continue
-            seen.add(key)
-            store.add_edge(
-                Edge(src=caller, dst=ref_sym, rel="calls", source="scip", provenance=provenance)
-            )
-            n_edges += 1
+            _emit(caller, ref_sym, "calls" if _is_callable(ref_sym) else "references")
 
     # freshness substrate: hash each actually-ingested repo file (10-freshness). Only
     # files SCIP ingested AND for which bytes were supplied get a row.

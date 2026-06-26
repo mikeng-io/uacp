@@ -11,6 +11,7 @@ reindex; the descriptor is the stable anchor `code_anchor` needs.)
 The core has ZERO dependency on UACP (CF-D9). UACP plugs in as an adapter.
 """
 
+from codeflair.delta import ChangeSet, FileIndex, delta_reindex, detect_changed_files
 from codeflair.expand import ExpandResult, Gap, expand, find_test_gaps
 from codeflair.freshness import FileStatus, compare_file, content_hash
 from codeflair.overlay import (
@@ -52,6 +53,10 @@ __all__ = [
     "content_hash",
     "compare_file",
     "FileStatus",
+    "ChangeSet",
+    "FileIndex",
+    "delta_reindex",
+    "detect_changed_files",
     "blast_radius",
     "heatmap",
     "HeatmapEntry",

@@ -265,6 +265,30 @@ class Store:
         ).fetchone()
         return row[0] if row else None
 
+    def source_files(self, source: str) -> set[str]:
+        """Every file ``source`` has a freshness row for — the set the delta re-index diffs
+        the working tree against to find what changed/was removed since the last index."""
+        return {
+            r[0]
+            for r in self.con.execute(
+                "SELECT file FROM freshness WHERE source=?", (source,)
+            ).fetchall()
+        }
+
+    def forget_file(self, source: str, path: str) -> None:
+        """Drop a file that no longer exists in the working tree: remove ``source``'s edges
+        for it, its per-source freshness row, the global ``files`` row, and the symbols it
+        defined. Edges are deleted BEFORE the symbols (the edge-delete keys off the symbols'
+        ``file`` column, so the order matters). Source-scoped — other sources are untouched."""
+        if source not in VALID_SOURCES:
+            raise ValueError(f"unknown source {source!r}")
+        self.replace_source_file(source, path, [])  # delete this source's edges for the file
+        self.con.execute("DELETE FROM freshness WHERE source=? AND file=?", (source, path))
+        if not self.con.execute("SELECT 1 FROM freshness WHERE file=? LIMIT 1", (path,)).fetchone():
+            # no source still indexes this file -> drop the global file row + its symbols
+            self.con.execute("DELETE FROM symbols WHERE file=?", (path,))
+            self.con.execute("DELETE FROM files WHERE path=?", (path,))
+
     def file_source_hashes(self, path: str) -> dict[str, str]:
         """Every source's recorded hash for ``path`` as ``{source: content_hash}`` — for the
         conservative reconcile of a node with no single source (transitive/coupling)."""
