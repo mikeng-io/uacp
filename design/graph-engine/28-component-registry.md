@@ -1,7 +1,12 @@
 ---
 type: reference
 title: UACP Component Registry — the six component kinds (canonical, as-built)
-description: The single authoritative taxonomy of UACP components by KIND — Engine / Gate / Check / Leaf / Skill / Adapter — grounded in the real code. The load-bearing rule: only the 3 engines (State, Manifest, Oracle) touch the file system or LanceDB; everything else goes through them. Resolves the overloaded word "engine". Read before naming or placing any component; nothing else is canonical for component kinds.
+description: >-
+  The single authoritative taxonomy of UACP components by KIND — Engine / Gate / Check / Leaf /
+  Skill / Adapter — grounded in the real code. The load-bearing rule: only the 3 engines
+  (State, Manifest, Oracle) touch the file system or LanceDB; everything else goes through them.
+  Resolves the overloaded word "engine". Read before naming or placing any component; nothing
+  else is canonical for component kinds.
 tags: [uacp, components, engines, gates, kinds, nomenclature, reference, drift-guard]
 timestamp: 2026-06-22
 edges:
