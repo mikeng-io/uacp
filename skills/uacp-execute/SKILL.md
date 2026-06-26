@@ -77,6 +77,15 @@ When EXECUTE produces a local code patch in a project worktree, do not stop at "
 
 If an external coding runtime returns success but produces no output or no diff, treat that as no verified work. Inspect git state and either rerun with a narrower prompt or continue manually; never report success from the worker's exit code alone.
 
+## Per-work_unit completion + resume (standard track)
+
+When the PIV declares `work_units`, completion is signalled per unit, and the EXECUTE→VERIFY gate (`forced_execute_evidence_blockers`) derives coverage from it — there is no separate status file to keep in sync.
+
+- **Signal completion:** when a work_unit is finished, write a checkpoint of type `after_work_unit` with its `work_unit_id` set. This `after_work_unit` checkpoint is the *sole* completion signal the gate reads. Every `required` work_unit (a unit with `required: true` or no `required` field) must have one before EXECUTE→VERIFY, or Heartgate blocks the transition naming the missing units. A unit explicitly marked `required: false` does not block.
+- **Resume after interruption:** reconstruct progress from artifacts — no extra state needed. (1) Load `plans/{run_id}-piv.yaml` for the declared `work_units`. (2) Scan `executions/{run_id}-checkpoint-*.yaml` for checkpoints with `checkpoint_type: after_work_unit`; their `work_unit_id`s are the completed units. (3) Resume from the first declared unit with no matching `after_work_unit` checkpoint. Do not re-execute a unit that already has one.
+
+This applies to the standard track only. Goal-driven EXECUTE uses the checkpoint manifest (below), not `after_work_unit` per-unit signals; resume there reads the manifest and continues from the last `keep` checkpoint.
+
 ## Goal-driven track — the checkpoint loop
 
 When the run is `track: goal-driven` (the goal-driven track — see `uacp-core/references/goal-driven-track.md`), EXECUTE is not a single bounded implementation pass — it is an iterative loop of **disposable probes** toward the persistent goal (`goal_id`). Each iteration is recorded as a governed checkpoint; nothing is committed as "the result" until a probe *satisfies* the goal. This loop is what `uacp-plan`'s standard PIV/execution package is replaced by here.
