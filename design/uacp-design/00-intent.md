@@ -46,6 +46,20 @@ cross-run architecture** that is maintained outside any one run (this very bundl
 Status/Checkpoint we add to old ones, are not brainstorm runs). `uacp-brainstorm` *references*
 `uacp-design` when a brainstorm crystallizes into a bundle; it does not own the convention.
 
+## Why a skill at all (not just the lint + a CONTRIBUTING paragraph)
+
+Steelman: 100% of the *100+× violation* pain is structural (single-doc, wrong placement) — and that is
+**entirely the lint's** job. So why a skill? Because the lint is necessary but **not sufficient**: a
+bundle can pass every structural check and still be a *bad* design — monolithic nodes that happen to
+number ≥2, restated concepts (propagation), build-detail pre-resolved in prose (over-serialization).
+That half is **not decidable**, it is where authoring judgment lives, and it has **already been written
+down** (CONTRIBUTING + three memory notes) and **still failed** — the same evidence that prose-guidance
+alone doesn't hold. A skill is the *teaching* surface (progressive disclosure, invoked at authoring
+time), not another paragraph in a doc no one opens mid-task. Cost is bounded by precedent: `uacp-skills`
+is already exactly this shape (a skill + hard lints). If review later finds the judgment half too thin
+for a standalone skill, the fallback is a `references/` page under `uacp-skills` — same content, smaller
+footprint. Lean: standalone, per the precedent.
+
 ## To expand
 - The precise authority chain vs `CONTRIBUTING.md` (consolidate the design-placement policy into the
   skill, reference not duplicate) — single-source per the skill's own anti-propagation rule.

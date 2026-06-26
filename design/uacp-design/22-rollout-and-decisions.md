@@ -20,19 +20,27 @@ edges:
    (below), because the live corpus has never been gated.
 3. **Status/Checkpoint — SOFT.** Skill-recommended, lint does NOT require it; the lint only validates
    its *shape if present* ([21](21-lint.md) check 7). No retroactive flag.
-4. **Node `type` taxonomy — DERIVED, not invented.** The closed set comes from the as-built audit
-   ([10](10-taxonomy-audit.md)): `analysis | design | contract | reference | pattern | decision`,
-   reconciling `design-node → design`, the one-off `_index.md`, and folding `roadmap`/`lessons`/
-   `evidence` (lean: fold; one open sub-decision — see [10](10-taxonomy-audit.md)).
+4. **Node `type` taxonomy — DERIVED, not invented; CORE settled, closure DEFERRED.** The CORE set is
+   derived from the audit ([10](10-taxonomy-audit.md)): `analysis | design | contract | reference |
+   decision | pattern`, reconciling `design-node → design`. What is **settled** is the *method*
+   (derive-don't-invent) + the **two-tier** check (hard-fail missing/malformed `type`, warn-only on
+   unknown). What is **deferred** (NOT settled): whether to *close* the vocabulary and how to dispose
+   of the one-offs (`roadmap`/`lessons`/`evidence`) — `evidence` is likely admitted, not folded (the
+   framework's evidence thesis). That decision waits for the REPORT pass. *(So this node and
+   [10](10-taxonomy-audit.md) agree: core derived, closure open.)*
 
 ## Reconcile-then-enforce rollout (the whole point of "validate all" not being a red wall)
 
 1. **REPORT** — land the lint in report-only mode; run it over all `design/**`; produce the violation
    inventory (expected from the audit: 1 `_index.md`, the `design-node` rename, the type one-offs,
    any members/edge drift).
-2. **RECONCILE** — fix the cheap violations (convert the `_index.md`, rename `design-node`→`design`,
-   fold the one-offs, repair members/edges) in a focused PR; **grandfather** anything genuinely not
-   worth fixing via an explicit allowlist (the `ruff` per-file-ignores pattern the repo already uses).
+2. **RECONCILE** — fix the cheap violations (RECONSTRUCT `work-unit-status/_index.md` = kind+members+
+   edges, rename `design-node`→`design`, repair members/edges) in a focused PR; **grandfather** only
+   what is genuinely not worth fixing via an explicit allowlist (the `ruff` per-file-ignores pattern
+   the repo already uses). **Allowlist discipline (so the gate doesn't erode back into guidance-only):**
+   each entry carries a tracking reference + a reason, and the allowlist is **itself linted for
+   staleness** — an entry whose target now conforms (or no longer exists) is a failure. The allowlist
+   is a debt ledger, not a silent opt-out.
 3. **ENFORCE** — flip the lint **fail-closed** in CI once the corpus (minus the allowlist) is clean.
 4. **DOGFOOD** — this `uacp-design` bundle is the first conformance case; it must pass before enforce.
 

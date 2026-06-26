@@ -19,46 +19,48 @@ designed in a vacuum, and the lint enforces only what reality + the schema actua
 
 ## The corpus (survey 2026-06-26, `design/*/`)
 
-**9 bundles:** `bridge-containment`, `codeflair`, `comprehend-measure-serialize`, `e2e-acceptance`,
-`entrypoints`, `graph-engine`, `handoff`, `verification-method`, `work-unit-status`.
+**10 bundles** (incl. `uacp-design` itself): `bridge-containment`, `codeflair`, `comprehend-measure-
+serialize`, `e2e-acceptance`, `entrypoints`, `graph-engine`, `handoff`, `uacp-design`, `verification-
+method`, `work-unit-status`.
 
-**`_index`:** 8 are `_index.yaml` with `kind: design_index`; **1 is an `_index.md`** (non-conforming —
-the lone `.md`, surfacing as the one-off node-type `design-bundle-index`). → a real violation the lint
-should catch (and the rollout must reconcile).
+> **The inventory is NOT frozen here — it is the lint's REPORT mode.** A prose frequency table rots
+> (a first draft of this node already drifted *and missed `type: prompt`*). So the canonical,
+> re-derivable inventory is produced by the lint in report mode ([21](21-lint.md);
+> [22](22-rollout-and-decisions.md) step REPORT) — this node records only the *shape* + the *decisions*.
 
-**Node `type:` values across all bundles (frequency):**
+### A node is TOP-LEVEL; nested files are SUB-ASSETS (the file model)
 
-| type | count | disposition (proposed) |
-|---|---|---|
-| `analysis` | 47 | **canonical** |
-| `design` | 20 | **canonical** |
-| `contract` | 15 | **canonical** |
-| `reference` | 7 | **canonical** |
-| `design-node` | 4 | **alias → `design`** (duplicate; reconcile) |
-| `pattern` | 2 | **canonical** |
-| `decision` | 2 | **canonical** |
-| `roadmap` | 1 | fold → `design` (a roadmap is design) OR keep — DECISION below |
-| `lessons` | 1 | fold → `analysis` OR keep — DECISION below |
-| `evidence` | 1 | fold → `analysis` OR keep — DECISION below |
-| `design-bundle-index` | 1 | NOT a node type — it is the non-conforming `_index.md`; reconcile to `_index.yaml` |
+A bundle's **nodes** are its **top-level `*.md`** (excluding `_index*`). Nested `*.md` under a subdir
+are **sub-assets, NOT nodes** — confirmed in the corpus: `comprehend-measure-serialize/prompts/` (7
+files, `type: prompt`), `codeflair/eval/README.md` (typeless). This one distinction resolves two
+would-be lint false-positives at once: `members == files` is **top-level-only** ([21](21-lint.md)
+check 2), and the node-`type` vocabulary does **not** include sub-asset types like `prompt` (out of
+node scope). The schema's `members` pattern (no `/`) already implies top-level-only — we make it explicit.
 
-## Derived canonical node-`type` set (proposed, closed)
+### Node `type:` values (the SHAPE, not frozen counts)
 
-`analysis | design | contract | reference | pattern | decision` — the six recurring, non-redundant
-values. Reconcile `design-node → design`; convert the `_index.md` → `_index.yaml`. The three one-offs
-(`roadmap`, `lessons`, `evidence`) are the **open taxonomy decision**: fold them into the six (a
-roadmap/lessons/evidence node *is* design/analysis content) — RECOMMENDED, smallest closed set — or
-admit them as canonical. Lean: fold; keep the set to six.
+Across **top-level nodes**: a recurring CORE — `analysis`, `design`, `contract`, `reference`,
+`decision`, `pattern` — plus a duplicate (`design-node`, reconcile → `design`) and a few one-offs
+(`roadmap`, `lessons`, `evidence`). Among **sub-assets**: `prompt` (nested; out of node scope).
+`design-bundle-index` is NOT a node type — it is `work-unit-status/_index.md` (see below).
 
-## What this means for the lint + rollout
+## Derived node-`type` set — CORE derived, vocabulary NOT closed in v1
 
-- The lint validates node `type` against the closed set — but **only after** the corpus is reconciled
-  (rename `design-node`→`design`, fix the `_index.md`, fold/keep the one-offs). Flipping the type
-  check fail-closed before reconciling = a red wall.
-- This is exactly why the rollout ([22](22-rollout-and-decisions.md)) is **reconcile-then-enforce**,
-  not flip-and-break.
+CORE (derived, recurring): `analysis | design | contract | reference | decision | pattern`. Reconcile
+`design-node → design`. The one-offs (`roadmap`, `lessons`, `evidence`) are **deferred, not folded**:
+the framework's own thesis is *evidence, not assertion*, so collapsing `evidence`→`analysis` would
+erase the distinction it cares about most — folding is the wrong default. So the lint's type check is
+**two-tier** ([21](21-lint.md) check 5): **hard-fail** on missing/malformed `type`; **warn-only** on
+an unknown value against an allowlist (CORE + the known one-offs). **Closing** the vocabulary is a
+*later* decision, taken only after the REPORT pass surveys the corpus — not asserted here.
+
+## The hardest reconcile: `work-unit-status/_index.md` is a RECONSTRUCT, not a rename
+
+It is not merely a `.md`-extension slip. As-built it has **no `kind: design_index`, no `members`, no
+`edges`** — a single-doc-shaped index (`type: design-bundle-index`). So the lint's `_index` parse must
+be **fail-closed against absent keys** (report a clean violation, not crash), and the reconcile pass
+must **reconstruct** the index (kind + members + edges), not flip an extension.
 
 ## To expand
-- Confirm the per-bundle node-type usage (which bundle owns each one-off) before folding, so a fold
-  doesn't lose a meaningful distinction.
-- Verify the `_index.md` bundle's identity + convert it as the first reconciliation PR.
+- The REPORT-mode output is the real per-bundle disposition of each one-off (which bundle owns it)
+  before any vocabulary-closure decision.
