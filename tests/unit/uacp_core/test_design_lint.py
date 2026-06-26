@@ -865,36 +865,7 @@ def test_nonvacuity_valid_bundle_has_no_violations(tmp_path: Path, monkeypatch) 
 # Allowlist: bundle-name -> reason
 # Each entry must still EXIST (the allowlist itself is checked for staleness).
 # Violations listed are expected; any new violation outside this allowlist is a failure.
-KNOWN_NONCONFORMING: dict[str, str] = {
-    "work-unit-status": (
-        "_index.md instead of _index.yaml (RECONSTRUCT needed: kind+members+edges missing); "
-        "node type 'design-node' (unknown); nodes missing 'description' and 'edges' fields"
-    ),
-    "graph-engine": (
-        "4 nodes with YAML-invalid frontmatter (unquoted colons in title/description values: "
-        "16a-control-plane-schema.md, 25-schema-source-spec.md, 28-component-registry.md); "
-        "2 nodes missing 'edges' key (01-context-intent.md, 18-glossary.md)"
-    ),
-    "verification-method": (
-        "14-council-method.md has YAML-invalid frontmatter (unquoted colon in description)"
-    ),
-    "bridge-containment": (
-        "_index.yaml scope block has unexpected 'in'/'out' keys (schema violation); "
-        "4 nodes declare edges not mirrored in _index (edge drift: relates_to edges absent)"
-    ),
-    "codeflair": (
-        "02-probes.md missing an edge that _index claims (DESIGN_EDGE_UNMIRRORED); "
-        "15-completion-roadmap.md declares 3 edges not in _index (edge drift)"
-    ),
-    "entrypoints": (
-        "both nodes declare edges absent from _index (edge drift); "
-        "00-unified-entrypoints.md has a cross-bundle edge dst"
-    ),
-    "handoff": (
-        "_index.yaml scope block has unexpected 'in'/'out' keys (schema violation); "
-        "2 nodes declare edges absent from _index (edge drift)"
-    ),
-}
+KNOWN_NONCONFORMING: dict[str, str] = {}
 
 
 def _bundle_names() -> list[str]:

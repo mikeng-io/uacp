@@ -1,9 +1,13 @@
 ---
-type: design-node
+type: design
 title: Implementation Task Checklist
-bundle: work-unit-status
+description: >-
+  The ordered implementation task checklist for shipping work-unit status tracking:
+  worktree setup, PIV schema extension (required field), Heartgate gate extension,
+  skill doc updates, and the Codeflair blast-radius check.
 tags: [tasks, implementation, checklist, worktree, codeflair]
 timestamp: 2026-06-26
+edges: []
 ---
 
 # Implementation Task Checklist

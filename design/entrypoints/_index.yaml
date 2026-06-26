@@ -26,6 +26,7 @@ members:
 # rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences|relates_to|corrects|grounds|supersedes. provenance enum: derived|parsed|asserted|inferred.
 edges:
   - {src: 00-unified-entrypoints, dst: 01-command-map, rel: depends_on, provenance: asserted}
+  - {src: 01-command-map, dst: 00-unified-entrypoints, rel: depends_on, provenance: asserted}
 
 scope:
   v1: [command-registry, cli-adapter, mcp-adapter, script-migration]

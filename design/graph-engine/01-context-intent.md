@@ -4,6 +4,7 @@ title: Graph Engine — Context & Intent
 description: Why this exists — the original symptoms, the trustless-ACP flaw, and the "manifests are wiki" reframe that unifies the relation and knowledge planes.
 tags: [graph-engine, context, intent, rationale]
 timestamp: 2026-06-19
+edges: []
 ---
 
 # Context & Intent

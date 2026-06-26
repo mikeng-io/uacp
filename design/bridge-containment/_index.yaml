@@ -29,11 +29,15 @@ members:
   - 40-open-items.md
 
 edges:
+  - {src: 00-overview, dst: 10-containment-ladder, rel: relates_to, provenance: asserted}
   - {src: 10-containment-ladder, dst: 00-overview, rel: realizes, provenance: asserted}
+  - {src: 10-containment-ladder, dst: 40-open-items, rel: relates_to, provenance: asserted}
   - {src: 20-model-authorization, dst: 00-overview, rel: realizes, provenance: asserted}
+  - {src: 20-model-authorization, dst: 30-evidence-capture, rel: relates_to, provenance: asserted}
   - {src: 30-evidence-capture, dst: 00-overview, rel: extends, provenance: asserted}
+  - {src: 30-evidence-capture, dst: 40-open-items, rel: relates_to, provenance: asserted}
   - {src: 40-open-items, dst: 00-overview, rel: relates_to, provenance: asserted}
 
 scope:
-  in: [external-reviewer-containment, read-only-enforcement, model-authorization, review-evidence-capture, boundary-uacp-owns]
-  out: [implementation-task-sandboxing, guardian-kernel-changes, chat-broker-product]
+  v1: [external-reviewer-containment, read-only-enforcement, model-authorization, review-evidence-capture, boundary-uacp-owns]
+  deferred: [implementation-task-sandboxing, guardian-kernel-changes, chat-broker-product]

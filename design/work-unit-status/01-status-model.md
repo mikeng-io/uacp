@@ -1,9 +1,13 @@
 ---
-type: design-node
+type: design
 title: Derivable Work-Unit Status Model
-bundle: work-unit-status
+description: >-
+  Defines the five per-work_unit status states (planned/in_progress/executed/verified/blocked),
+  how each is derived on-demand from PIV + after_work_unit checkpoints, the resume procedure
+  for interrupted EXECUTE runs, goal-driven track boundary, and the optional required field.
 tags: [status, derivation, resume, work-unit]
 timestamp: 2026-06-26
+edges: []
 ---
 
 # Derivable Work-Unit Status Model

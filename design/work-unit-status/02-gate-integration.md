@@ -1,9 +1,13 @@
 ---
-type: design-node
+type: design
 title: Heartgate Gate Integration
-bundle: work-unit-status
+description: >-
+  How the work-unit status derivation extends forced_execute_evidence_blockers in Heartgate
+  to enforce per-work_unit completion at the EXECUTE→VERIFY gate (standard track only),
+  and the goal-driven track boundary where this derivation does not apply.
 tags: [heartgate, gate, execute, verify, goal-driven]
 timestamp: 2026-06-26
+edges: []
 ---
 
 # Heartgate EXECUTE→VERIFY Gate Integration

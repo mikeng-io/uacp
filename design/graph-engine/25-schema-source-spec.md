@@ -1,7 +1,12 @@
 ---
 type: analysis
 title: Graph Engine — Schema Source Spec (the real per-kind shapes schema.py must encode)
-description: The authoring reference for schema.py + uacp-lint, extracted (and spot-verified) from the real validators — validate_uacp_artifacts.py (27 fns) + artifact_schema.py. Per kind: the SHAPE half (→ declarative schema.py) vs the REFERENTIAL half (→ stays imperative in uacp-lint). Exhaustive field detail lives in the cited validate_* function; this maps the split + the authoring order so schema.py never re-invents shapes (the inc-3b failure).
+description: >-
+  The authoring reference for schema.py + uacp-lint, extracted (and spot-verified) from the
+  real validators — validate_uacp_artifacts.py (27 fns) + artifact_schema.py. Per kind: the
+  SHAPE half (→ declarative schema.py) vs the REFERENTIAL half (→ stays imperative in uacp-lint).
+  Exhaustive field detail lives in the cited validate_* function; this maps the split + the
+  authoring order so schema.py never re-invents shapes (the inc-3b failure).
 tags: [graph-engine, schema, uacp-lint, shape, referential, authoring-reference]
 timestamp: 2026-06-22
 edges:
