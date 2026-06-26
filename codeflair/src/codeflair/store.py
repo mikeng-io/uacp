@@ -14,6 +14,7 @@ clock via source-scoped delete-and-replace.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from dataclasses import dataclass
 
@@ -64,10 +65,33 @@ CREATE TABLE IF NOT EXISTS coupling(
 );
 CREATE INDEX IF NOT EXISTS i_coupling_a ON coupling(file_a);
 CREATE INDEX IF NOT EXISTS i_coupling_b ON coupling(file_b);
+CREATE TABLE IF NOT EXISTS watermark(
+    repo_commit TEXT, built_at TEXT       -- store-level snapshot id; single row (10-freshness)
+);
 """
 
 # File-level coupling kinds — inferred signals that reference-walking cannot reach.
 VALID_COUPLING = frozenset({"co_change", "shared_string"})
+
+# The per-worktree store cache dir (OD-4): keyed to the worktree/repo root, gitignored.
+STORE_DIR = ".codeflair"
+STORE_FILE = "index.db"
+
+
+def default_store_path(repo_root: str | os.PathLike[str], *, create: bool = False) -> str:
+    """Resolve the per-worktree store path under ``repo_root`` (OD-4).
+
+    git worktrees are N checkouts of one repo at different commits/dirty states; a store
+    built for one is wrong for another. Keying ``.codeflair/`` to the **worktree root**
+    gives each its own watermarked graph — clean isolation, no special logic beyond the
+    keying. The dir is gitignored (same hygiene as ``.worktrees/``). When ``create`` is
+    set the ``.codeflair/`` dir is made (the store file itself is created by SQLite).
+    """
+    root = os.fspath(repo_root)
+    cache = os.path.join(root, STORE_DIR)
+    if create:
+        os.makedirs(cache, exist_ok=True)
+    return os.path.join(cache, STORE_FILE)
 
 
 @dataclass(frozen=True)
@@ -172,6 +196,59 @@ class Store:
             params.append(kind)
         sql += " ORDER BY weight DESC, other"
         return [(r[0], r[1], r[2]) for r in self.con.execute(sql, params).fetchall()]
+
+    # -- freshness substrate (10-freshness / 11-substrate) -------------------
+    def set_watermark(self, repo_commit: str, built_at: str) -> None:
+        """Set the store-level watermark (single row): the commit this snapshot indexes
+        and *when* it was built. ``built_at`` is INJECTED by the caller — the store never
+        reads the wall clock (determinism belongs to the gate, not buried here)."""
+        self.con.execute("DELETE FROM watermark")
+        self.con.execute(
+            "INSERT INTO watermark(repo_commit, built_at) VALUES (?,?)", (repo_commit, built_at)
+        )
+        self.con.commit()
+
+    def watermark(self) -> tuple[str, str] | None:
+        """The store-level watermark as ``(repo_commit, built_at)``, or ``None`` if unset."""
+        row = self.con.execute("SELECT repo_commit, built_at FROM watermark LIMIT 1").fetchone()
+        return (row[0], row[1]) if row else None
+
+    def record_file(
+        self, path: str, content_hash: str, *, lang: str = "", commit_sha: str = ""
+    ) -> None:
+        """Record (or update) a file's content hash — the freshness anchor a dirty-tree
+        compare checks against (10-freshness). Re-recording the same path updates in place."""
+        self.con.execute(
+            "INSERT OR REPLACE INTO files(path,lang,content_hash,commit_sha) VALUES (?,?,?,?)",
+            (path, lang, content_hash, commit_sha),
+        )
+
+    def record_freshness(
+        self,
+        source: str,
+        file: str,
+        content_hash: str,
+        *,
+        commit_sha: str = "",
+        tool_version: str = "",
+    ) -> None:
+        """Record a PER-SOURCE freshness row (each source stales on its own clock). The
+        ``(source, file)`` pair is the key; re-ingesting one source's view of a file updates
+        in place without touching another source's row."""
+        if source not in VALID_SOURCES:
+            raise ValueError(
+                f"unknown freshness source {source!r}; expected one of {sorted(VALID_SOURCES)}"
+            )
+        self.con.execute(
+            "INSERT OR REPLACE INTO freshness(source,file,content_hash,commit_sha,tool_version) "
+            "VALUES (?,?,?,?,?)",
+            (source, file, content_hash, commit_sha, tool_version),
+        )
+
+    def file_hash(self, path: str) -> str | None:
+        """The content hash the index recorded for ``path``, or ``None`` if unindexed."""
+        row = self.con.execute("SELECT content_hash FROM files WHERE path=?", (path,)).fetchone()
+        return row[0] if row else None
 
     def commit(self) -> None:
         self.con.commit()

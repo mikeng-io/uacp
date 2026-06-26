@@ -19,7 +19,11 @@ from dataclasses import dataclass
 # without the dep fails fast. Callers that must degrade (scripts) guard the module import.
 from tree_sitter_languages import get_language, get_parser
 
+from codeflair.freshness import content_hash
 from codeflair.store import Edge, Store, Symbol
+
+# Per-source freshness stamp for tree-sitter-ingested files (11-substrate `tool_version`).
+TREE_SITTER_TOOL_VERSION = "codeflair-tree-sitter-ingest/1"
 
 
 @dataclass(frozen=True)
@@ -78,11 +82,17 @@ def synth_symbol(lang: str, relpath: str, name: str, line: int) -> str:
     return f"tree-sitter {lang} {relpath}:{name}#{line}"
 
 
-def ingest_tree_sitter(store: Store, files: dict[str, tuple[str, bytes]]) -> IngestStats:
+def ingest_tree_sitter(
+    store: Store, files: dict[str, tuple[str, bytes]], *, commit_sha: str = ""
+) -> IngestStats:
     """Ingest ``{relpath: (lang, source_bytes)}`` via tree-sitter. Adds a symbol per
     definition and a ``calls`` edge (source=tree_sitter, provenance=syntactic) from each
     call's enclosing definition to every same-named definition in the corpus (the
-    syntactic over-approximation — SCIP refines it)."""
+    syntactic over-approximation — SCIP refines it).
+
+    Each actually-ingested file (supported language) also gets a per-file content hash +
+    a per-source ``freshness`` row (source=tree_sitter) — the freshness substrate
+    (10-freshness). Unsupported-language files are skipped and recorded nowhere."""
     name_index: dict[str, list[str]] = {}  # ref name -> candidate callee symbols
     # per file: (defnode_id -> symbol), and the parsed call refs to resolve in pass 2
     pending: list[tuple[str, str, object, dict[int, str], list[tuple[str, object]]]] = []
@@ -92,6 +102,11 @@ def ingest_tree_sitter(store: Store, files: dict[str, tuple[str, bytes]]) -> Ing
         spec = _SPECS.get(lang)
         if spec is None:
             continue
+        h = content_hash(source)
+        store.record_file(relpath, h, lang=lang, commit_sha=commit_sha)
+        store.record_freshness(
+            "tree_sitter", relpath, h, commit_sha=commit_sha, tool_version=TREE_SITTER_TOOL_VERSION
+        )
         parser = get_parser(lang)
         root = parser.parse(source).root_node
 

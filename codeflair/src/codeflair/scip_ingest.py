@@ -20,10 +20,15 @@ import os
 import shutil
 import subprocess
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from codeflair.freshness import content_hash
 from codeflair.store import Edge, Store, Symbol
+
+# Per-source freshness stamp for SCIP-ingested files (11-substrate `tool_version`).
+SCIP_TOOL_VERSION = "codeflair-scip-ingest/1"
 
 # Repo-local indexer binaries (Python/TypeScript) live under the package's vendor/
 # node_modules/.bin — installed by scripts/bootstrap.py, never on the global PATH.
@@ -67,12 +72,20 @@ def ingest_scip_json(
     data: dict,
     *,
     provenance: str = "parsed",
+    file_contents: Mapping[str, bytes] | None = None,
+    commit_sha: str = "",
 ) -> IngestStats:
     """Ingest a parsed SCIP index (the JSON shape of ``scip print --json``) into ``store``.
 
     Adds a :class:`Symbol` per distinct non-local symbol (keyed by its SCIP descriptor)
     and a ``calls`` :class:`Edge` (source=``scip``) from each reference's enclosing
     definition to the referenced symbol. Returns counts.
+
+    When ``file_contents`` (``{relative_path: source_bytes}``) is supplied, a per-file
+    content hash + a per-source ``freshness`` row (source=``scip``) are recorded for each
+    **actually-ingested** repo document — the freshness substrate (10-freshness). Only
+    files SCIP actually ingested get rows (a path present in ``file_contents`` but skipped
+    as stdlib/dep is *not* recorded); absent bytes mean no row for that file.
     """
     documents = data.get("documents", [])
     # Per document: collect (symbol, line, is_def); remember a representative location
@@ -81,6 +94,7 @@ def ingest_scip_json(
     refs_by_doc: dict[str, list[tuple[int, str]]] = {}
     sym_def_loc: dict[str, tuple[str, int]] = {}
     all_syms: set[str] = set()
+    repo_paths: list[str] = []
 
     n_repo_docs = 0
     for d in documents:
@@ -88,6 +102,7 @@ def ingest_scip_json(
         if not _is_repo_path(path):
             continue  # skip stdlib / dep / go-build-cache documents
         n_repo_docs += 1
+        repo_paths.append(path)
         for o in d.get("occurrences", []):
             rng = o.get("range") or []
             if not rng:
@@ -138,8 +153,26 @@ def ingest_scip_json(
             )
             n_edges += 1
 
+    # freshness substrate: hash each actually-ingested repo file (10-freshness). Only
+    # files SCIP ingested AND for which bytes were supplied get a row.
+    if file_contents is not None:
+        for path in repo_paths:
+            data_bytes = file_contents.get(path)
+            if data_bytes is None:
+                continue
+            h = content_hash(data_bytes)
+            store.record_file(path, h, lang=_scheme_lang_for_file(path), commit_sha=commit_sha)
+            store.record_freshness(
+                "scip", path, h, commit_sha=commit_sha, tool_version=SCIP_TOOL_VERSION
+            )
+
     store.commit()
     return IngestStats(documents=n_repo_docs, symbols=len(all_syms), edges=n_edges)
+
+
+def _scheme_lang_for_file(path: str) -> str:
+    """Best-effort file language from suffix (the file table's ``lang`` is advisory)."""
+    return {".go": "go", ".py": "py", ".ts": "ts", ".tsx": "ts"}.get(os.path.splitext(path)[1], "")
 
 
 # -- real-tool wrapper (integration; not exercised by the hermetic unit suite) --------
@@ -177,10 +210,22 @@ def _indexer_cmd(lang: str, out: str, repo_path: str) -> list[str]:
     raise ValueError(f"unsupported SCIP language {lang!r}; expected one of {SCIP_LANGS}")
 
 
-def index_repo(store: Store, repo_path: str, lang: str, *, scip: str = "scip") -> IngestStats:
+def index_repo(
+    store: Store,
+    repo_path: str,
+    lang: str,
+    *,
+    scip: str = "scip",
+    commit_sha: str = "",
+    built_at: str | None = None,
+) -> IngestStats:
     """Index ``repo_path`` with the SCIP indexer for ``lang`` (go|python|typescript), convert
     to JSON, and ingest. Reads the repo READ-ONLY; the index is written to a temp dir OUTSIDE
-    the target, so the target's source is never mutated. Indexers resolve repo-local first."""
+    the target, so the target's source is never mutated. Indexers resolve repo-local first.
+
+    File bytes are read from the repo to populate the freshness substrate (per-file hash +
+    per-source ``freshness`` row). When ``built_at`` is given the store watermark is set —
+    ``built_at`` is injected (the store never reads the wall clock)."""
     tmp = tempfile.mkdtemp(prefix="cf-scip-")
     out = os.path.join(tmp, "index.scip")
     try:
@@ -190,6 +235,27 @@ def index_repo(store: Store, repo_path: str, lang: str, *, scip: str = "scip") -
         printed = subprocess.run(
             [_resolve_bin(scip), "print", "--json", out], check=True, capture_output=True
         )
-        return ingest_scip_json(store, json.loads(printed.stdout))
+        index = json.loads(printed.stdout)
+        file_contents = _read_repo_bytes(repo_path, index)
+        stats = ingest_scip_json(store, index, file_contents=file_contents, commit_sha=commit_sha)
+        if built_at is not None:
+            store.set_watermark(commit_sha, built_at)
+        return stats
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _read_repo_bytes(repo_path: str, index: dict) -> dict[str, bytes]:
+    """Read the on-disk bytes of each SCIP document that lives in the repo, for hashing."""
+    out: dict[str, bytes] = {}
+    for d in index.get("documents", []):
+        path = d.get("relative_path", "")
+        if not _is_repo_path(path):
+            continue
+        full = os.path.join(repo_path, path)
+        try:
+            with open(full, "rb") as fh:
+                out[path] = fh.read()
+        except OSError:
+            continue
+    return out

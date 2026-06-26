@@ -12,6 +12,7 @@ The core has ZERO dependency on UACP (CF-D9). UACP plugs in as an adapter.
 """
 
 from codeflair.expand import ExpandResult, Gap, expand, find_test_gaps
+from codeflair.freshness import FileStatus, compare_file, content_hash
 from codeflair.probes import (
     CouplingProjectionProbe,
     PreciseEdgeWalkProbe,
@@ -22,7 +23,15 @@ from codeflair.probes import (
     default_registry,
 )
 from codeflair.query import HeatmapEntry, blast_radius, heatmap
-from codeflair.store import VALID_COUPLING, VALID_PROVENANCE, VALID_SOURCES, Edge, Store, Symbol
+from codeflair.store import (
+    VALID_COUPLING,
+    VALID_PROVENANCE,
+    VALID_SOURCES,
+    Edge,
+    Store,
+    Symbol,
+    default_store_path,
+)
 
 __all__ = [
     "Store",
@@ -31,6 +40,10 @@ __all__ = [
     "VALID_SOURCES",
     "VALID_PROVENANCE",
     "VALID_COUPLING",
+    "default_store_path",
+    "content_hash",
+    "compare_file",
+    "FileStatus",
     "blast_radius",
     "heatmap",
     "HeatmapEntry",
