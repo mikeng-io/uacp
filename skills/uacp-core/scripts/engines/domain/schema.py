@@ -82,6 +82,12 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                 "description": "scope_item ids this work_unit covers (the projection coverage "
                 "edge); OPTIONAL at the shape layer — coverage is enforced by the projection.",
             },
+            "required": {
+                "type": "boolean",
+                "description": "Whether this work_unit must reach executed (have an "
+                "after_work_unit checkpoint) before EXECUTE->VERIFY. Absent = true "
+                "(required by default). Consumed by forced_execute_evidence_blockers.",
+            },
         },
     },
     "evidence_obligation": {

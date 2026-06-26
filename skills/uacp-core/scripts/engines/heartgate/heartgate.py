@@ -349,6 +349,33 @@ class Heartgate:
             return [f"{prefix} the PIV kind must be uacp.phase_intent_verification_contract"]
         if doc.get("run_id") != run_id:
             return [f"{prefix} the PIV run_id must match the run ({run_id})"]
+        # wu-coverage: derive per-work_unit completion from after_work_unit checkpoints.
+        # Only runs when the PIV declares work_units; a PIV without them (or predating
+        # the convention) skips this and returns []. Each required work_unit must have an
+        # after_work_unit checkpoint referencing its id before EXECUTE->VERIFY.
+        work_units = doc.get("work_units")
+        if isinstance(work_units, list) and work_units:
+            executed_ids: set[str] = set()
+            for cp_path in executions.glob(f"{run_id}-checkpoint-*.yaml"):
+                cp = self._load_yaml_under_root(
+                    f"executions/{cp_path.name}", [], "forced_execute_evidence"
+                )
+                if isinstance(cp, Mapping) and cp.get("checkpoint_type") == "after_work_unit":
+                    wu_id = cp.get("work_unit_id")
+                    if wu_id:
+                        executed_ids.add(wu_id)
+            missing = [
+                wu.get("id")
+                for wu in work_units
+                if isinstance(wu, Mapping)
+                and wu.get("required", True)
+                and wu.get("id")
+                and wu.get("id") not in executed_ids
+            ]
+            if missing:
+                return [
+                    f"{prefix} required work_units lack an after_work_unit checkpoint: {missing}"
+                ]
         return []
 
     def validate_transition_file(self, path: str | Path) -> HeartgateDecision:
