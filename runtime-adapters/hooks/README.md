@@ -4,23 +4,55 @@ This guide documents the UACP Guardian **PreToolUse hook companion** — a CLI s
 that lets Claude Code and Kimi Code enforce Guardian policy *before* a tool runs,
 without going through the Hermes runtime.
 
-The shim lives at `runtime-adapters/hooks/guardian_pretooluse.py`. It shares its
-decision logic with the Hermes adapter via the runtime-neutral kernel
-(`skills/uacp-core/scripts/hook_kernel.py` → `evaluate_pre_tool_call`), which is
-the same code path the Hermes `uacp_guardian` plugin uses.
+The shim lives at `runtime-adapters/hooks/guardian_pretooluse.py`. It is a thin,
+self-contained `.uacp/` guard — it does **not** share the broad Guardian category
+model with the Hermes adapter. (The shared kernel
+`skills/uacp-core/scripts/hook_kernel.py` → `evaluate_pre_tool_call` is unchanged
+and still drives the Hermes `uacp_guardian` plugin; the shim no longer calls it.)
 
-## Defense-in-depth, not the authority
+## Threat model: accidental corruption of governed state only
 
 > **The MCP server's governed handlers remain the authoritative containment.**
 
 The governed writers (`uacp_state_write`, `uacp_doc_write`, …) own the actual
 filesystem mutations and perform their own path-bounded containment inside the MCP
-server (`runtime-adapters/mcp/uacp_mcp_server.py`). This hook is an *additional*
-boundary: it adds pre-call enforcement for runtimes that drive UACP through the
-bare MCP tools, and it stops a raw host `Write`/`Bash` from scribbling into the
-governed `.uacp/` namespace before the call is even dispatched. Because the MCP
-handlers are authoritative, the hook can safely **fail open** (see D1) — a hook
-that crashes never opens a writer that the MCP server would have refused.
+server (`runtime-adapters/mcp/uacp_mcp_server.py`). This hook serves **one** narrow
+threat: *accidental corruption of governed state* — a raw host file write that
+lands inside the governed `.uacp/` namespace. It is defense-in-depth, **not** a
+sandbox against hostile commands, and container-grade isolation is explicitly out
+of scope. Because the MCP handlers are authoritative, the hook can safely **fail
+open** (see D1) — a hook that crashes never opens a writer that the MCP server
+would have refused.
+
+## The narrow predicate
+
+> DENY iff the tool is a raw host mutating file tool (`Write` / `Edit` /
+> `MultiEdit` / `NotebookEdit`) **and** its resolved target path is inside the
+> governed namespace `<root>/.uacp/`. Otherwise ALLOW (exit 0, no stdout).
+
+Consequences of the narrow scope (each is intentional — see ADR-0019):
+
+- **Bash is not gated.** Command-string inspection is insufficient to decide
+  what a shell command touches (see `docs/runtime/runtime-enforcement.md`), so
+  the hook does not try. A `bash echo > .uacp/x` redirect therefore bypasses the
+  hook — the honest residual, acceptable under the accidental-corruption threat
+  model (real containment needs process-level isolation, deferred; the MCP
+  writers stay authoritative).
+- **Raw project edits are not blocked.** Work-product writes (project code the
+  agent edits during EXECUTE) are contained by the worktree (Invariant #2) and
+  captured as evidence by checkpoint/diff coverage (EXECUTE→VERIFY) — see the
+  clarified AGENTS.md Key Invariant #3 and ADR-0019. A gate that blocked the
+  agent's own work-product would block the coding work itself.
+- **No root-touch block.** A file at the repo root (e.g. `.mcp.json`) is not
+  under `.uacp/`, so it is allowed. (Over-blocking root-level writes is what
+  bricked a real session.)
+- **Run-state-independent.** The decision is identical whether or not a run is
+  active — no governed-context fields are required of a host tool.
+- **MCP writers pass.** The governed `mcp__uacp__uacp_*` (→ `uacp_*`) tools are
+  not host file tools, so the predicate naturally allows them — they are the
+  sanctioned write path. Spoofed-MCP-server defense is a hostile-actor concern,
+  out of this hook's threat model; it remains the MCP server's and the kernel's
+  job.
 
 ## Install
 
@@ -69,90 +101,59 @@ timeout = 10
 Then start a new session (`/new`). There is no install script — this is a single
 documented paste, by design (the gate can't ride in the plugin).
 
-## Environment contract
+## Root resolution (DEFECT A)
 
-The shim resolves the UACP root and the active lifecycle phase from the
-environment, degrading gracefully when nothing is set:
+The shim resolves the **project being worked in** — where `.uacp/` actually
+lives — never the kernel default `~/.hermes/uacp`. Resolution order:
 
-| Variable | Role |
+| Source | Role |
 |---|---|
-| `UACP_ROOT` | The UACP root (repo). Falls back to `HERMES_HOME/uacp`, then `~/.hermes/uacp` (see `resolve_uacp_root`). |
-| `UACP_RUN_ID` | Active run id. Read **first** for phase resolution. |
-| `UACP_PHASE` | Active lifecycle phase. Read **first** for phase resolution. |
+| `UACP_ROOT` env | Explicit root, honored first. |
+| `CLAUDE_PROJECT_DIR` env | The project dir Claude Code sets per session. |
+| payload `cwd` | The runtime's working directory for the call. |
+| the hook's own repo root | Last resort (`Path(__file__).parents[2]`). |
 
-**Phase source (D4):** the shim reads `UACP_RUN_ID`/`UACP_PHASE` from the
-environment first. If neither is set, it falls back to reading
-`<root>/.uacp/state/current.yaml#active_run_id` and `#active_run_manifest`, then
-that manifest's `current_phase`. Every file read is defensive: a missing or
-unreadable `current.yaml`/manifest yields empty run/phase (no crash) and the run
-is treated as inactive.
+The governed base is then `config.base_dir(root)` (default `<root>/.uacp`, honoring
+a `[paths] base` override). The shim deliberately does **not** call the kernel's
+`resolve_uacp_root()`, because with `UACP_ROOT`/`HERMES_HOME` unset (the normal
+Claude Code case) that falls back to `~/.hermes/uacp` — a different install — and
+the hook would govern the wrong tree.
 
-## Tool-name normalization
+The shim reads **no** lifecycle phase and **no** governed-context fields: the
+narrow predicate is run-state-independent.
 
-A host runtime names its tools `Read`/`Bash`/`Edit`/… and namespaces MCP tools as
-`mcp__<server>__<tool>` (Claude Code) or `mcp_<server>_<tool>` (Hermes). The raw
-Guardian kernel knows none of those names — so, during an active run, they would
-fall through to `external.unknown_mutator` (a protected category) and be blocked,
-bricking the agent's read tools. The shim therefore **normalizes** the host tool
-name to a kernel tool name before classification (`hook_kernel.normalize_tool_name`),
-driven by `config/uacp.toml [guardian.host_tool_classification.<profile>]`:
+## Settled design decisions
 
-| Host tool | Kernel tool | Guardian category | Default decision |
-|---|---|---|---|
-| `Read`, `Grep`, `Glob`, `LS`, `NotebookRead` | `read_file` | `read.local` | allow |
-| `Bash`, `BashOutput`, `KillBash` | `terminal` | `exec.shell` | block_pending_heartgate |
-| `Edit`, `Write`, `MultiEdit`, `NotebookEdit` | `write_file` | `file.write` | require_approval |
-| `WebFetch` | `web_fetch` | `external.network_read` | allow_with_audit |
-| `WebSearch` | `web_search` | `external.network_read` | allow_with_audit |
+- **A — Resolve the project root.** As above: `UACP_ROOT` → `CLAUDE_PROJECT_DIR`
+  → payload `cwd` → the hook's own repo; never `~/.hermes/uacp`.
+- **D1 — Fail OPEN.** Malformed/unparseable stdin, an unresolvable governed base,
+  or any unexpected internal exception results in `exit 0` with **no stdout**
+  (allow) and a warning on stderr. Safe because the MCP governed handlers remain
+  authoritative — failing open in the hook never opens a writer.
+- **D5 — Deny holds under `bypassPermissions`.** A `deny` is emitted regardless of
+  the payload's `permission_mode`. The shim never short-circuits to allow on
+  `permission_mode == "bypassPermissions"`.
+- **D6 — Defense-in-depth.** The hook augments — it does not replace — the
+  authoritative MCP governed handlers.
 
-MCP namespacing is stripped: a recovered `uacp_*` tool known to the kernel (e.g.
-`mcp__uacp__uacp_state_write` → `uacp_state_write`) is classified as its real
-governed category; any other MCP tool is left namespaced so it classifies as
-`runtime.extension`. Unmapped host names pass through unchanged.
-
-## Security decisions
-
-These are the settled design decisions the shim implements.
-
-- **D1 — Fail OPEN.** Malformed/unparseable stdin, or any unexpected internal
-  exception, results in `exit 0` with **no stdout** (allow) and a warning on
-  stderr. Safe because the MCP governed handlers remain authoritative — failing
-  open in the hook never opens a writer.
-- **D2 — Raw edits DEFER.** Host `Edit`/`Write`/`MultiEdit`/`NotebookEdit` map to
-  the kernel `file.write` category, whose default is `require_approval` — *not* a
-  block — so ordinary project edits pass through to the runtime's normal approval
-  prompt and the EXECUTE phase keeps working. The kernel still **hard-blocks**
-  writes whose target path is under the governed `.uacp/` namespace via its
-  existing direct-write / root-touch rules. Raw edits are deliberately **not**
-  mapped to `external.unknown_mutator`. To avoid a host runtime's repo-root `cwd`
-  (which, for a UACP-governed repo, *is* the UACP root) making every ordinary edit
-  look UACP-bound, the shim binds `workspace` to the *parent directory of the
-  target path*, not the process cwd — so a `.uacp/` target still binds and blocks,
-  while a project-file edit outside `.uacp/` defers.
-- **D3 — Policy-load failure.** Mirrors Hermes `_block_for_policy_error`: bare
-  read tools (`Read`/`Grep`/`Glob`/`LS`/`NotebookRead`, kernel `read_file`/
-  `search_files`) are allowed; every other (governed-looking) call is denied.
-- **D4 — Phase source.** Environment first, `current.yaml` → manifest fallback,
-  graceful degradation (documented above).
-- **D5 — Deny holds under `bypassPermissions`.** A Guardian `deny` is emitted
-  regardless of the payload's `permission_mode`. The shim never short-circuits to
-  allow on `permission_mode == "bypassPermissions"`.
-- **D6 — Defense-in-depth.** As stated above, the hook augments — it does not
-  replace — the authoritative MCP governed handlers.
+> Historical note: earlier revisions ran the full Guardian category model with
+> tool-name normalization and per-phase admissibility (the old D2–D4). That
+> over-blocked ordinary edits, shell, and root-level writes and bricked sessions;
+> ADR-0019 narrowed the shim to the single `.uacp/` predicate above.
 
 ## Output contract
 
 | Decision | Behavior |
 |---|---|
-| block | `exit 0` + stdout `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"<reason>"}}` (+ stderr reason). If the stdout write fails, `exit 2` + stderr. |
-| allow / allow_with_audit / require_approval (defer) | `exit 0`, **no stdout**. |
+| block | `exit 0` + stdout `{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"<reason>"}}` (+ stderr reason). The reason is actionable — it names the blocked tool, the `.uacp/` target, and a governed writer to use instead. If the stdout write fails, `exit 2` + stderr. |
+| allow | `exit 0`, **no stdout**. |
 | malformed / crash | `exit 0`, **no stdout**, stderr warning (D1). |
 
 ## No new dependencies
 
-The shim and kernel use only the Python standard library plus the existing UACP
-kernel (`core`, `config`, `hook_kernel`, `engines.io`, and optionally PyYAML for
-the phase fallback). The shim does **not** import `mcp`.
+The shim uses only the Python standard library plus `config.base_dir` from the
+existing UACP kernel (for the `[paths] base`-aware governed namespace). It does
+**not** import `mcp`, and no longer imports `core` / `hook_kernel` / `engines.io`.
 
 ## Companion hook: SessionStart cognition injection
 

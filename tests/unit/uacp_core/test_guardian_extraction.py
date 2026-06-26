@@ -16,6 +16,8 @@ invariants that move introduces and that could silently regress:
 
 from __future__ import annotations
 
+import pytest
+
 import core
 from engines import guardian
 from engines.domain import paths as domain_paths
@@ -58,6 +60,22 @@ def test_resolve_uacp_root_moved_to_domain_leaf():
     # Phase A1 (option ii) pulled node-31 step 8 forward: the root helper lives in
     # the domain sink, and core imports the *same* object (no core->core lazy dep).
     assert core.resolve_uacp_root is domain_paths.resolve_uacp_root
+
+
+def test_resolve_uacp_root_fail_closed_when_unset(monkeypatch, tmp_path):
+    # Fail-closed contract: with no explicit arg and neither UACP_ROOT nor
+    # HERMES_HOME set, the resolver RAISES rather than guessing the removed
+    # legacy ~/.hermes/uacp default.
+    monkeypatch.delenv("UACP_ROOT", raising=False)
+    monkeypatch.delenv("HERMES_HOME", raising=False)
+    with pytest.raises(domain_paths.UacpRootUnresolved):
+        domain_paths.resolve_uacp_root()
+
+    # NON-VACUITY: the raise is specifically due to absence — setting UACP_ROOT
+    # makes the same call return that root (so the test fails for the right
+    # reason, not because the resolver always raises).
+    monkeypatch.setenv("UACP_ROOT", str(tmp_path))
+    assert domain_paths.resolve_uacp_root() == tmp_path.resolve()
 
 
 def test_symbols_live_in_their_node31_modules():

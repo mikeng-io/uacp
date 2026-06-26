@@ -151,11 +151,15 @@ def test_production_yaml_no_longer_carries_codified_bits():
 # ---------------------------------------------------------------------------
 
 
-def test_heartgate_required_fields_fire_when_block_absent():
+def test_heartgate_required_fields_fire_when_block_absent(tmp_path):
     """A config with NO artifact_schema block -> code-default required_fields ON."""
     # Minimal stages so the constructor does not need a loaded stages block; the
-    # point is artifact_schema is ABSENT.
-    hg = Heartgate({"stages": {"plan": {"exits_to": ["execute"]}, "execute": {"exits_to": []}}})
+    # point is artifact_schema is ABSENT. resolve_uacp_root is fail-closed -> pass
+    # an explicit root (this test validates a passed dict, not files under root).
+    hg = Heartgate(
+        {"stages": {"plan": {"exits_to": ["execute"]}, "execute": {"exits_to": []}}},
+        uacp_root=tmp_path,
+    )
     assert hg.required_fields == _PROD_PHASE_TRANSITION_REQUIRED_FIELDS
 
     decision = hg.validate_transition(
@@ -168,13 +172,15 @@ def test_heartgate_required_fields_fire_when_block_absent():
     assert any("invariant_summary" in b for b in missing)
 
 
-def test_heartgate_required_fields_off_when_block_present_empty():
+def test_heartgate_required_fields_off_when_block_present_empty(tmp_path):
     """A loaded artifact_schema block with empty required_fields opts OFF (test laxity)."""
+    # resolve_uacp_root is fail-closed -> explicit root.
     hg = Heartgate(
         {
             "stages": {"plan": {"exits_to": ["execute"]}, "execute": {"exits_to": []}},
             "artifact_schema": {"required_fields": []},
-        }
+        },
+        uacp_root=tmp_path,
     )
     assert hg.required_fields == []
 
@@ -183,6 +189,7 @@ def _load_validator():
     """Load the offline validator module fresh (mirrors Heartgate's in-process exec)."""
     validator_path = REPO_ROOT / "scripts" / "validate_uacp_artifacts.py"
     spec = importlib.util.spec_from_file_location("uacp_validate_pin", validator_path)
+    assert spec is not None and spec.loader is not None, f"cannot load {validator_path}"
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -209,8 +216,10 @@ def test_validator_phase_transition_fires_when_block_absent():
         issues,
     )
     text = "\n".join(issues)
-    assert "missing required" in text or "missing required field" in text.lower() or any(
-        "transition_id" in i for i in issues
+    assert (
+        "missing required" in text
+        or "missing required field" in text.lower()
+        or any("transition_id" in i for i in issues)
     ), f"expected missing-field issues, got: {issues}"
     # terminal_kind enum (codified) enforced: 'bogus_kind' not in the code default.
     assert any("terminal_kind" in i and "bogus_kind" in i for i in issues), (

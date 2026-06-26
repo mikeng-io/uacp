@@ -79,13 +79,15 @@ def test_private_helpers_moved_with_class_and_reexported_from_core():
     assert heartgate_mod._is_safe_run_id("../escape") is False
 
 
-def test_heartgate_still_wired_after_move():
+def test_heartgate_still_wired_after_move(tmp_path):
     # Smoke that the relocated class is fully wired: it constructs from a
     # stage-less config and the __init__ falls back to the codified defaults
     # (stages / required_fields / artifact_schemas) — i.e. the lazy imports the
     # constructor makes all resolve from the new module location. Full gate
     # behaviour is covered by the existing transition/closure suites.
-    gate = core.Heartgate({})
+    # resolve_uacp_root is fail-closed, so pass an explicit root (this is a
+    # structure smoke — any valid dir works as the root).
+    gate = core.Heartgate({}, uacp_root=tmp_path)
     assert gate.stages, "codified stages default did not populate after the move"
     assert isinstance(gate.required_fields, list)
     assert isinstance(gate.artifact_schemas, dict)
@@ -93,12 +95,13 @@ def test_heartgate_still_wired_after_move():
         assert callable(getattr(gate, method)), f"Heartgate.{method} missing after move"
 
 
-def test_heartgate_tool_path_capabilities_wrapper_present():
+def test_heartgate_tool_path_capabilities_wrapper_present(tmp_path):
     # C3a regression guard (Codex PR#5): _tool_path_capabilities() was carved to
     # engines.manifest.validators, but external callers remain — scripts/phase2_verify.py and
     # scripts/phase3_verify.py call ``hg._tool_path_capabilities()``. The delegating wrapper must
     # stay on Heartgate (deleting it raised AttributeError in those scripts; the pytest suite
     # missed it because the phase-verify scripts are not pytest-run).
-    gate = core.Heartgate({})
+    # resolve_uacp_root is fail-closed -> explicit root.
+    gate = core.Heartgate({}, uacp_root=tmp_path)
     assert callable(getattr(gate, "_tool_path_capabilities", None))
     assert isinstance(gate._tool_path_capabilities(), dict)
