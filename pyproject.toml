@@ -31,6 +31,9 @@ dev = [
     # float to a newer release that reformats files and reddens unrelated PRs.
     # Bump deliberately, reformatting in the same commit (also pinned in CI).
     "ruff==0.15.17",
+    # Pinned: same rationale as ruff — new pyright releases add type findings
+    # that can redden unrelated PRs. Bump deliberately. Also pinned in CI.
+    "pyright==1.1.410",
 ]
 # Optional MCP stdio server adapter (runtime-adapters/mcp/uacp_mcp_server.py).
 # Kept out of core `dependencies` so the kernel stays installable on its

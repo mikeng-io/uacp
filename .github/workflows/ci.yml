@@ -2,11 +2,17 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
+# Cancel in-progress runs for the same branch on new pushes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  lint:
-    name: ruff (engines + e2e)
+  quality:
+    name: quality (ruff + pyright)
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -16,38 +22,42 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
+          cache: 'pip'
 
-      # Pinned: an unpinned ruff floats to the latest release, whose formatter
-      # can disagree with the version files were last formatted under — silently
-      # reddening this job on unrelated PRs. Bump deliberately, reformatting in
-      # the same commit. Keep in sync with pyproject [project.optional-dependencies].dev.
-      - name: Install ruff
-        run: pip install ruff==0.15.17
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Install the package so pyright resolves real dependency types (e.g.
+          # pydantic's UacpConfig from config.py). ruff and pyright are pinned in
+          # [project.optional-dependencies].dev — both are version-sensitive and
+          # can redden unrelated PRs if unpinned. Bump deliberately.
+          pip install -e '.[dev]'
 
-      # Scoped to the paths kept clean under the full ruleset. The legacy
-      # modules predate ruff and are intentionally NOT linted here (they are
-      # relaxed to pyflakes-only via per-file-ignores in pyproject.toml).
+      # Scoped to the paths kept clean under the full ruleset. Legacy modules are
+      # intentionally NOT linted here (relaxed to pyflakes-only via per-file-ignores).
       - name: Ruff lint
         run: ruff check skills/uacp-core/scripts/engines/ tests/e2e/
 
       - name: Ruff format check
         run: ruff format --check skills/uacp-core/scripts/engines/ tests/e2e/
 
+      # Strict type-checking is scoped to the freshly-extracted, fully-typed engine
+      # packages. Grow this path list as each package is extracted and typed.
+      - name: Pyright (strict-scoped engines)
+        run: pyright skills/uacp-core/scripts/engines/guardian skills/uacp-core/scripts/engines/domain/paths.py skills/uacp-core/scripts/engines/heartgate/models.py skills/uacp-core/scripts/engines/heartgate/validators/helpers.py
+
   test:
-    name: pytest (Python ${{ matrix.python-version }})
+    name: pytest (3.13)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.13', '3.14']
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.13'
+          cache: 'pip'
 
       # uv is needed so the plugin MCP boot test (TestMcpServerBoots) actually
       # runs instead of skipping — it provisions the server via `uv run --with …`,
@@ -63,11 +73,14 @@ jobs:
           pip install -e '.[dev,mcp]'
 
       - name: Run tests
-        run: pytest tests/ -q
+        run: pytest tests/ -n auto -q
 
-  types:
-    name: pyright (strict engines)
+  # Forward-compatibility check — runs only after merge to main, not on PRs.
+  # A 3.14 breakage is a follow-up ticket, not a merge blocker.
+  test-compat:
+    name: pytest (3.14 compat)
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -75,18 +88,16 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.13'
+          python-version: '3.14'
+          cache: 'pip'
 
-      # Install the package so pyright resolves real dependency types (e.g.
-      # pydantic's UacpConfig from config.py), then pyright itself.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e '.[dev]'
-          pip install pyright
+          pip install -e '.[dev,mcp]'
 
-      # Strict type-checking is scoped (pyproject [tool.pyright].strict) to the
-      # freshly-extracted, fully-typed engine packages; the legacy tree stays
-      # basic. Grow this path list as each package is extracted and typed.
-      - name: Pyright (strict-scoped engines)
-        run: pyright skills/uacp-core/scripts/engines/guardian skills/uacp-core/scripts/engines/domain/paths.py skills/uacp-core/scripts/engines/heartgate/models.py skills/uacp-core/scripts/engines/heartgate/validators/helpers.py
+      - name: Run tests
+        run: pytest tests/ -n auto -q
