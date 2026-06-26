@@ -37,6 +37,11 @@ class HeatmapEntry:
     hop: int  # shortest distance from the seed (0 = the seed itself)
     score: float  # deterministic relevance, descending
     via: str  # the strongest (rel, source) that reached it, for explainability
+    # Query-time freshness tag from the 3-zone reconcile (overlay.py, P2). Default
+    # "trusted" so a node produced WITHOUT a reconcile (the store-authoritative path) reads
+    # as clean — additive, no break to callers that never run the overlay. The live overlay
+    # re-tags dirty-file nodes "live"/"unreconciled"/"stale"; it NEVER persists an lsp edge.
+    freshness: str = "trusted"
 
 
 def blast_radius(

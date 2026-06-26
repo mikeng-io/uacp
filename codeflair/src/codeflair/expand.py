@@ -13,8 +13,9 @@ output scored separately from the heatmap (CF-D6).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from codeflair.overlay import FileConflict, LspOverlay, reconcile_overlay
 from codeflair.probes import ProbeContext, ProbeParams, ProbeRegistry, default_registry
 from codeflair.query import HeatmapEntry
 from codeflair.store import Store
@@ -37,6 +38,11 @@ class ExpandResult:
     gaps: list[Gap]
     n_precise: int  # symbols reached by precise edge-walk
     n_inferred: int  # symbols added only by coupling projection
+    # P2 (additive) — the live-overlay reconcile outcome. Defaults describe the
+    # store-authoritative path (no reconcile requested): nothing degraded, no conflict.
+    lsp_degraded: bool = False  # a dirty file needed the live LSP overlay but it was absent/failed
+    warnings: list[str] = field(default_factory=list)  # agent-readable (lsp_degraded, unreconciled)
+    conflicts: list[FileConflict] = field(default_factory=list)  # SCIP↔LSP disagreements, surfaced
 
 
 def is_test_file(path: str) -> bool:
@@ -53,6 +59,8 @@ def expand(
     direction: str = "callers",
     include_coupling: bool = True,
     registry: ProbeRegistry | None = None,
+    working_files: dict[str, bytes] | None = None,
+    overlay: LspOverlay | None = None,
 ) -> ExpandResult:
     """Grow the relation subgraph from ``seed`` and rank it into a top-``k`` heatmap + gaps.
 
@@ -61,6 +69,13 @@ def expand(
     order; the FIRST probe to claim a symbol wins, so precise evidence outranks inferred
     couplings (and any later-registered probe). New sources (LSP, contracts, the UACP
     cross-plane join) plug in by registering a probe — no change to this function.
+
+    When ``working_files`` (a ``{path: current_bytes}`` snapshot of the dirty tree) is given,
+    the query becomes reconcile-aware (P2, OD-1): every dirty node is reconciled against the
+    live LSP ``overlay`` and tagged ``trusted``/``live``/``unreconciled``/``stale``. The
+    overlay is always attempted and fail-soft — absent or failing, the query still returns
+    and sets ``lsp_degraded``. With ``working_files=None`` the reconcile is skipped entirely
+    and behaviour is byte-identical to the store-authoritative path (every node ``trusted``).
     """
     if registry is None:
         registry = default_registry(include_coupling=include_coupling)
@@ -76,12 +91,26 @@ def expand(
             counts[probe.kind] = counts.get(probe.kind, 0) + 1
 
     ranked = sorted(ctx.entries.values(), key=lambda e: (-e.score, e.symbol))[:k]
+
+    lsp_degraded = False
+    warnings: list[str] = []
+    conflicts: list[FileConflict] = []
+    if working_files is not None:
+        rec = reconcile_overlay(store, ranked, working_files, overlay)
+        ranked = rec.entries
+        lsp_degraded = rec.lsp_degraded
+        warnings = rec.warnings
+        conflicts = rec.conflicts
+
     gaps = find_test_gaps(store, ranked)
     return ExpandResult(
         heatmap=ranked,
         gaps=gaps,
         n_precise=counts.get("precise", 0),
         n_inferred=counts.get("inferred", 0),
+        lsp_degraded=lsp_degraded,
+        warnings=warnings,
+        conflicts=conflicts,
     )
 
 

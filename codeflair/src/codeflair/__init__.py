@@ -13,6 +13,13 @@ The core has ZERO dependency on UACP (CF-D9). UACP plugs in as an adapter.
 
 from codeflair.expand import ExpandResult, Gap, expand, find_test_gaps
 from codeflair.freshness import FileStatus, compare_file, content_hash
+from codeflair.overlay import (
+    FileConflict,
+    FreshnessTag,
+    LspOverlay,
+    ReconcileResult,
+    reconcile_overlay,
+)
 from codeflair.probes import (
     CouplingProjectionProbe,
     PreciseEdgeWalkProbe,
@@ -23,6 +30,7 @@ from codeflair.probes import (
     default_registry,
 )
 from codeflair.query import HeatmapEntry, blast_radius, heatmap
+from codeflair.serena_overlay import SerenaOverlay, load_serena_overlay
 from codeflair.store import (
     VALID_COUPLING,
     VALID_PROVENANCE,
@@ -58,4 +66,11 @@ __all__ = [
     "PreciseEdgeWalkProbe",
     "CouplingProjectionProbe",
     "default_registry",
+    "LspOverlay",
+    "FreshnessTag",
+    "FileConflict",
+    "ReconcileResult",
+    "reconcile_overlay",
+    "SerenaOverlay",
+    "load_serena_overlay",
 ]
