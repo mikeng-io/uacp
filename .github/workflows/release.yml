@@ -37,7 +37,7 @@ jobs:
         run: |
           python3 - <<'PYEOF'
           import re, os, sys
-          tag_ver = os.environ['TAG_NAME'].lstrip('v')
+          tag_ver = os.environ['TAG_NAME'].removeprefix('v')
           text = open('pyproject.toml').read()
           m = re.search(r'^version = "([^"]+)"', text, re.MULTILINE)
           if not m:
@@ -58,7 +58,7 @@ jobs:
         run: |
           python3 - <<'PYEOF'
           import json, os, sys
-          tag_ver = os.environ['TAG_NAME'].lstrip('v')
+          tag_ver = os.environ['TAG_NAME'].removeprefix('v')
           errors = []
 
           try:
@@ -71,9 +71,13 @@ jobs:
 
           try:
               market = json.loads(open('.claude-plugin/marketplace.json').read())
-              v = market.get('plugins', [{}])[0].get('version', 'MISSING')
-              if v != tag_ver:
-                  errors.append(f".claude-plugin/marketplace.json plugins[0].version={v!r}, expected {tag_ver!r}")
+              plugins = market.get('plugins', [])
+              if not plugins:
+                  errors.append(".claude-plugin/marketplace.json: plugins array is empty or missing")
+              else:
+                  v = plugins[0].get('version', 'MISSING')
+                  if v != tag_ver:
+                      errors.append(f".claude-plugin/marketplace.json plugins[0].version={v!r}, expected {tag_ver!r}")
           except Exception as e:
               errors.append(f".claude-plugin/marketplace.json: {e}")
 

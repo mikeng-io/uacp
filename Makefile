@@ -1,4 +1,4 @@
-.PHONY: lint format fmt types quality test acceptance ci-pr ci-push act-pr-policy act-pr-policy-fail-assignee act-pr-policy-fail-title act-pr-policy-fail-branch release-dry release-prep help
+.PHONY: lint format fmt types quality test acceptance ci-pr ci-push act-pr-policy act-pr-policy-fail-assignee act-pr-policy-fail-title act-pr-policy-fail-branch release-dry release-prep act-release help
 .DEFAULT_GOAL := help
 
 ENGINES := skills/uacp-core/scripts/engines/
@@ -86,6 +86,15 @@ release-dry:
 # Usage: make release-prep TYPE=minor
 release-prep:
 	python3 scripts/bump_version.py $(TYPE)
+
+# Test release.yml verification steps locally (needs act + Docker).
+# The verification steps (main-ancestry, version match, manifest agreement) run in full.
+# The final 'gh release create' step will fail with the fake token — this is expected.
+# Proof-of-correctness: all earlier steps exit 0.
+act-release:
+	act push -W .github/workflows/release.yml \
+	    --eventpath .act/release-tag-event.json \
+	    -s GH_TOKEN=fake
 
 help:
 	@echo "Targets:"
