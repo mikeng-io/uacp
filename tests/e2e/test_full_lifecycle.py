@@ -44,6 +44,7 @@ def _register(root: Path, run_id: str, artifact_type: str, rel: str) -> None:
     )
     assert out.get("ok") is True, out
 
+
 # config files the in-process offline validator (validate_configs) hard-requires
 # beyond the fixture's minimal phase-transitions.yaml. Copied from the real repo
 # config so validate_configs/validate_evidence_registry resolve cleanly; the

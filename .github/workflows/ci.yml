@@ -17,8 +17,12 @@ jobs:
         with:
           python-version: '3.13'
 
+      # Pinned: an unpinned ruff floats to the latest release, whose formatter
+      # can disagree with the version files were last formatted under — silently
+      # reddening this job on unrelated PRs. Bump deliberately, reformatting in
+      # the same commit. Keep in sync with pyproject [project.optional-dependencies].dev.
       - name: Install ruff
-        run: pip install ruff
+        run: pip install ruff==0.15.17
 
       # Scoped to the paths kept clean under the full ruleset. The legacy
       # modules predate ruff and are intentionally NOT linted here (they are
@@ -45,10 +49,18 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # uv is needed so the plugin MCP boot test (TestMcpServerBoots) actually
+      # runs instead of skipping — it provisions the server via `uv run --with …`,
+      # exactly as the Claude Code plugin manifest does.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e '.[dev]'
+          # [mcp] pulls the mcp client SDK so the boot test can speak MCP to the
+          # server; without it that high-value runtime check skips silently.
+          pip install -e '.[dev,mcp]'
 
       - name: Run tests
         run: pytest tests/ -q

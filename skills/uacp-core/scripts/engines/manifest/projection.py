@@ -716,7 +716,9 @@ def _read_path(doc: dict, path: str) -> Any:
     for seg in str(path).split(".") if path else []:
         if isinstance(cur, dict) and seg in cur:
             cur = cur[seg]
-        elif isinstance(cur, list) and seg.lstrip("-").isdigit() and -len(cur) <= int(seg) < len(cur):  # noqa: E501
+        elif (
+            isinstance(cur, list) and seg.lstrip("-").isdigit() and -len(cur) <= int(seg) < len(cur)
+        ):  # noqa: E501
             cur = cur[int(seg)]
         else:
             return _MISSING
@@ -740,9 +742,7 @@ def _obligation_satisfied(oid: str, nodes: dict) -> tuple[str, str]:
         for n in nodes.values()
     )
     ev = [
-        n
-        for n in nodes.values()
-        if n.get("kind") == "evidence" and n.get("obligation_id") == oid
+        n for n in nodes.values() if n.get("kind") == "evidence" and n.get("obligation_id") == oid
     ]
     has_block = any(n.get("result") == "block" for n in ev)
     cleared = any(n.get("result") == "pass" and n.get("remediation") for n in ev)
@@ -976,9 +976,7 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
         # be hidden in a field the heuristic doesn't read. expected_outputs may be a str or a list.
         eo = tnode.get("expected_outputs")
         eo_text = " ".join(map(str, eo)) if isinstance(eo, list) else str(eo or "")
-        text = " ".join(
-            s for s in (tnode.get("intent"), eo_text, tnode.get("statement")) if s
-        )
+        text = " ".join(s for s in (tnode.get("intent"), eo_text, tnode.get("statement")) if s)
         cand, kw = candidate_class(text)
         if cand and class_rank(cand) > declared_rank:
             out.append(

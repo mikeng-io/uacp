@@ -75,10 +75,12 @@ def test_rebuild_is_fresh_not_appended(tmp_path: Path, monkeypatch):
 
     def _ingest(name):
         def _fn(store: Store, repo_path: str, **_):
-            store.add_symbol(Symbol(symbol=f"scip . . `{name}`().", lang="python",
-                                    file="a.py", name=name))
+            store.add_symbol(
+                Symbol(symbol=f"scip . . `{name}`().", lang="python", file="a.py", name=name)
+            )
             store.con.commit()
             return SimpleNamespace(files=1, symbols=1, edges=0)
+
         return _fn
 
     _install_fake_ingester(monkeypatch, _ingest("old_func"))

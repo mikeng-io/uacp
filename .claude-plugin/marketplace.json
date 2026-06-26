@@ -5,8 +5,7 @@
     "name": "mikeng-io"
   },
   "metadata": {
-    "description": "Universal Agent Control Plane — runtime-neutral governance with an optional-brainstorm seven-phase lifecycle, Guardian/Heartgate enforcement, and Agent Council orchestration.",
-    "homepage": "https://github.com/mikeng-io/uacp"
+    "description": "Universal Agent Control Plane — runtime-neutral governance with an optional-brainstorm seven-phase lifecycle, Guardian/Heartgate enforcement, and Agent Council orchestration."
   },
   "plugins": [
     {

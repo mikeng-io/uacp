@@ -40,8 +40,11 @@ def build_code_index(workspace: str | Path, repo_root: str | Path) -> dict:
         from codeflair.store import Store
         from codeflair.treesitter_ingest import index_repo_tree_sitter
     except ImportError as exc:  # optional dep / package absent -> no-op, fail-closed (no db made)
-        return {"ok": False, "reason": f"codeflair tree-sitter ingester unavailable: {exc}",
-                "index": str(out)}
+        return {
+            "ok": False,
+            "reason": f"codeflair tree-sitter ingester unavailable: {exc}",
+            "index": str(out),
+        }
     tmp = out.with_name(out.name + ".building")  # private build target; never read by the resolver
     try:
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -55,7 +58,15 @@ def build_code_index(workspace: str | Path, repo_root: str | Path) -> dict:
         os.replace(str(tmp), str(out))  # ATOMIC publish — the path only ever gets a COMPLETE index
     except Exception as exc:  # fail-closed: drop the partial temp, leave the canonical path alone
         tmp.unlink(missing_ok=True)
-        return {"ok": False, "reason": f"index build failed: {type(exc).__name__}: {exc}",
-                "index": str(out)}
-    return {"ok": True, "index": str(out), "files": stats.files, "symbols": stats.symbols,
-            "edges": stats.edges}
+        return {
+            "ok": False,
+            "reason": f"index build failed: {type(exc).__name__}: {exc}",
+            "index": str(out),
+        }
+    return {
+        "ok": True,
+        "index": str(out),
+        "files": stats.files,
+        "symbols": stats.symbols,
+        "edges": stats.edges,
+    }

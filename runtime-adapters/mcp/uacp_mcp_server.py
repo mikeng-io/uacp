@@ -2,7 +2,7 @@
 
 This adapter is the Model Context Protocol binding for the runtime-neutral
 governed-tool registry (`skills/uacp-core/scripts/tool_specs.py`). It exposes
-the same 11 governed tools the Hermes adapter registers, sourced from the
+the same governed tools the Hermes adapter registers, sourced from the
 single-source-of-truth `tool_specs()`, over an MCP stdio transport. Each tool's
 hand-written bare JSON `input_schema` is forwarded verbatim as the MCP
 `inputSchema`, and each tool's handler (which returns a JSON string) is invoked
@@ -18,7 +18,10 @@ calls beyond what each handler already guarantees. This server is a thin,
 faithful exposure of `tool_specs()` over MCP — nothing more.
 
 Run as a script: ``python runtime-adapters/mcp/uacp_mcp_server.py`` (blocks on
-stdio). Requires the optional ``mcp`` dependency (``pip install -e ".[mcp]"``).
+stdio). Requires ``mcp`` plus the kernel's core runtime deps (pydantic, pyyaml,
+jsonschema). When launched as a Claude Code plugin, ``.claude-plugin/plugin.json``
+self-provisions all of these via ``uv run --no-project --with ...`` (the one host
+prerequisite is ``uv`` on PATH); for a manual/dev run use ``pip install -e ".[mcp]"``.
 """
 
 from __future__ import annotations

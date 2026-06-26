@@ -168,9 +168,9 @@ def _try_plan_to_execute(root: Path, run_id: str) -> dict:
 
 
 def _phase(root: Path, run_id: str) -> str:
-    return yaml.safe_load(
-        (root / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text()
-    )["current_phase"]
+    return yaml.safe_load((root / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text())[
+        "current_phase"
+    ]
 
 
 # --- enforcement: the gate now COMPELS registration (RED before the gate change) ---
@@ -179,14 +179,18 @@ _REGISTER_MSG = "must be registered"
 
 
 def _propose_plan_blockers(root: Path, run_id: str) -> list[str]:
-    return Heartgate.load(str(root)).validate_transition(
-        {
-            "from_phase": "propose",
-            "to_phase": "plan",
-            "run_id": run_id,
-            "artifact_path": "plans/test.yaml",
-        }
-    ).blockers
+    return (
+        Heartgate.load(str(root))
+        .validate_transition(
+            {
+                "from_phase": "propose",
+                "to_phase": "plan",
+                "run_id": run_id,
+                "artifact_path": "plans/test.yaml",
+            }
+        )
+        .blockers
+    )
 
 
 def test_unregistered_keyed_scope_blocks_propose_to_plan(temp_uacp_root: Path):
