@@ -14,7 +14,9 @@ from __future__ import annotations
 
 # resolve_uacp_root lives in the domain sink (A1, node 31 step 8); re-exported
 # here because importers and the extraction-contract tests resolve it via core.
-from engines.domain.paths import resolve_uacp_root  # noqa: F401
+# UacpRootUnresolved (its fail-closed error) re-exported alongside so adapters
+# can catch it next to GuardianPolicyError without reaching into engines.domain.
+from engines.domain.paths import UacpRootUnresolved, resolve_uacp_root  # noqa: F401
 
 from engines.guardian import (  # noqa: F401
     DECISION_ALLOW,

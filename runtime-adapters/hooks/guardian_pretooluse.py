@@ -8,18 +8,29 @@ authority (they own the actual writers). This hook adds a single pre-call guard
 to runtimes that drive UACP through the bare host tools.
 
 Threat model (the ONLY thing this hook serves): *accidental corruption of
-governed state* — a raw host file write that lands inside the governed
-``.uacp/`` namespace. It is NOT a sandbox against hostile commands; container-
-grade isolation is out of scope. The MCP governed writers stay authoritative.
+governed state* — a raw host file write that lands inside a governed ``.uacp/``
+namespace. It is NOT a sandbox against hostile commands; container-grade
+isolation is out of scope. The MCP governed writers stay authoritative.
 
-The narrow predicate (host-tool path):
+The predicate (host-tool path) is TARGET-RELATIVE and worktree-robust:
   DENY iff the tool is a raw host mutating file tool (Write / Edit / MultiEdit /
-  NotebookEdit) AND its resolved target path is inside ``<root>/.uacp/``.
-  Otherwise ALLOW (exit 0, no stdout). Specifically:
-    * Bash is NOT gated (command-string inspection is insufficient — see
-      docs/runtime/runtime-enforcement.md; a redirect bypass is the honest
-      residual, acceptable under the accidental-corruption threat model).
-    * A file at the repo ROOT (e.g. ``.mcp.json``) is NOT under ``.uacp/`` -> allow.
+  NotebookEdit) AND any ANCESTOR directory of the resolved target path is named
+  ``.uacp`` (casefolded). A relative target is resolved against the payload
+  ``cwd`` (the tree the agent is in — the worktree when working inside one), not
+  the hook process cwd. Otherwise ALLOW (exit 0, no stdout). Specifically:
+    * The membership is by ``.uacp`` ancestor dir, so it guards ``<main>/.uacp/``,
+      ``<repo>/.worktrees/X/.uacp/`` (a worktree's OWN governed state), and ANY
+      ``.uacp/`` uniformly — no single-project-root resolution.
+    * Bash is ENTIRELY ungated. Command-string inspection is insufficient to know
+      what a shell command writes (see docs/runtime/runtime-enforcement.md), so
+      ANY shell-driven write bypasses this hook — a redirect (``> .uacp/x``), but
+      equally ``cp``/``mv``/``tee``, ``sed -i``, an interpreter ``open()``,
+      ``git checkout``, etc. This is the honest residual; it is acceptable under
+      the accidental-corruption threat model — the MCP governed writers and the
+      worktree are the real containment.
+    * A file at the repo ROOT (e.g. ``.mcp.json``) has no ``.uacp`` ancestor -> allow.
+      A file literally named ``.uacp`` (or ``*.uacp``) as the leaf is allowed too —
+      only writing INTO a ``.uacp/`` directory is blocked.
     * Ordinary project edits (work-product the agent writes during EXECUTE) are
       NOT raw-blocked — they are contained by the worktree (Invariant #2) and
       captured as evidence by checkpoint/diff coverage (see ADR-0019, which
@@ -29,10 +40,6 @@ The narrow predicate (host-tool path):
       file tools, so they are naturally allowed (the sanctioned write path).
 
 Design decisions:
-  A  Root resolution: resolve the PROJECT being worked in, where ``.uacp/`` lives.
-     Order: ``UACP_ROOT`` env -> ``CLAUDE_PROJECT_DIR`` env (Claude Code sets it)
-     -> the payload's ``cwd`` -> this hook's own repo root (last resort). The hook
-     never falls back to ``~/.hermes/uacp`` (a different install).
   D1 Fail-OPEN: malformed/unparseable stdin or an unexpected internal exception
      -> exit 0, NO stdout (allow), warn on stderr. The MCP governed handlers stay
      authoritative, so fail-open here never opens the writers.
@@ -51,7 +58,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -67,6 +73,10 @@ _RAW_WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 
 # Tool-arg keys that may carry the target path of a file mutation.
 _PATH_ARG_KEYS = ("file_path", "path", "target_path", "notebook_path")
+
+# The governed namespace directory name (the namespace convention). A target is
+# governed iff one of its ANCESTOR dirs is named this (casefolded).
+_GOVERNED_DIR_NAME = ".uacp"
 
 
 def _warn(msg: str) -> None:
@@ -100,69 +110,50 @@ def _extract_tool_args(payload: Mapping[str, Any]) -> dict[str, Any]:
     return dict(args) if isinstance(args, Mapping) else {}
 
 
-def _resolve_project_root(payload: Mapping[str, Any]) -> Path:
-    """DEFECT A: resolve the project being worked in, where ``.uacp/`` lives.
+def _resolve_target_path(value: str, payload_cwd: str) -> Path | None:
+    """Resolve a tool path arg to an absolute path.
 
-    Order: ``UACP_ROOT`` env -> ``CLAUDE_PROJECT_DIR`` env -> payload ``cwd`` ->
-    this hook's own repo root. Never ``~/.hermes/uacp`` (do NOT call the kernel's
-    ``resolve_uacp_root``, which would fall back to a different install when
-    ``UACP_ROOT``/``HERMES_HOME`` are unset — the normal Claude Code case).
-    """
-    for env_key in ("UACP_ROOT", "CLAUDE_PROJECT_DIR"):
-        value = os.getenv(env_key, "").strip()
-        if value:
-            try:
-                return Path(value).expanduser().resolve()
-            except Exception:
-                pass
-    cwd = payload.get("cwd")
-    if isinstance(cwd, str) and cwd.strip():
-        try:
-            return Path(cwd).expanduser().resolve()
-        except Exception:
-            pass
-    return _REPO_ROOT
-
-
-def _governed_base(root: Path) -> Path | None:
-    """The governed namespace root ``<root>/.uacp`` (config-controlled).
-
-    Prefers ``config.base_dir`` (honors a ``[paths] base`` override). Falls back
-    to ``<root>/.uacp`` if the config cannot be read, so a config blip never
-    silently disables the guard. Returns None only if even the fallback fails.
+    Absolute values are used as-is; a RELATIVE value is resolved against the
+    payload ``cwd`` (the tree the agent is actually in — this is the worktree
+    when working inside one), NOT the hook process cwd. ``.resolve()`` collapses
+    ``..`` so a traversal is normalized before the membership test.
     """
     try:
-        from config import base_dir
-
-        return base_dir(root).resolve()
+        p = Path(value).expanduser()
+        if not p.is_absolute() and payload_cwd:
+            p = Path(payload_cwd).expanduser() / p
+        return p.resolve()
     except Exception:
-        try:
-            return (root / ".uacp").resolve()
-        except Exception:
-            return None
+        return None
 
 
-def _target_under_governed(tool_args: Mapping[str, Any], base: Path) -> str | None:
-    """If any path arg resolves inside ``base``, return its path relative to
-    ``base`` (traversal-safe). Else None.
+def _target_under_governed(tool_args: Mapping[str, Any], payload_cwd: str) -> str | None:
+    """Return the path under the governed namespace if a path arg writes INTO a
+    ``.uacp/`` directory, else None.
 
-    Resolution collapses ``..`` before the containment test, so a traversal that
-    climbs out is correctly seen as outside; a path that lands on/under ``base``
-    is inside.
+    Membership is TARGET-RELATIVE and worktree-robust: DENY iff any ANCESTOR
+    directory of the resolved target is named ``.uacp`` (compared casefolded, so
+    a case-insensitive FS — macOS/NTFS — cannot dodge via ``.UACP``). This guards
+    ``<main>/.uacp/``, ``<repo>/.worktrees/X/.uacp/``, and ANY ``.uacp/`` uniformly,
+    with no single-project-root resolution.
+
+    Only ANCESTOR DIR components are checked — never the leaf name — so a file
+    literally named ``.uacp`` (or ``*.uacp``) is allowed; only writing *into* a
+    ``.uacp/`` directory is blocked.
     """
     for key in _PATH_ARG_KEYS:
         value = tool_args.get(key)
         if not isinstance(value, str) or not value:
             continue
-        try:
-            target = Path(value).expanduser().resolve()
-        except Exception:
+        target = _resolve_target_path(value, payload_cwd)
+        if target is None:
             continue
-        try:
-            rel = target.relative_to(base)
-        except ValueError:
-            continue
-        return str(rel)
+        for ancestor in target.parents:
+            if ancestor.name.casefold() == _GOVERNED_DIR_NAME:
+                try:
+                    return str(target.relative_to(ancestor))
+                except ValueError:
+                    return target.name
     return None
 
 
@@ -205,16 +196,13 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         tool_args = _extract_tool_args(payload)
-        root = _resolve_project_root(payload)
-        base = _governed_base(root)
-        if base is None:
-            # Could not determine the governed namespace -> fail open (D1).
-            _warn("could not resolve the governed base — failing open (allow)")
-            return 0
+        cwd = payload.get("cwd")
+        payload_cwd = cwd if isinstance(cwd, str) else ""
 
-        rel = _target_under_governed(tool_args, base)
+        rel = _target_under_governed(tool_args, payload_cwd)
         if rel is None:
-            # Target is outside .uacp/ (project work-product, or no path) -> allow.
+            # Target does not write into any .uacp/ dir (project work-product, or
+            # no path) -> allow.
             return 0
 
         reason = (

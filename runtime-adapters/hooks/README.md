@@ -18,34 +18,47 @@ The governed writers (`uacp_state_write`, `uacp_doc_write`, …) own the actual
 filesystem mutations and perform their own path-bounded containment inside the MCP
 server (`runtime-adapters/mcp/uacp_mcp_server.py`). This hook serves **one** narrow
 threat: *accidental corruption of governed state* — a raw host file write that
-lands inside the governed `.uacp/` namespace. It is defense-in-depth, **not** a
-sandbox against hostile commands, and container-grade isolation is explicitly out
-of scope. Because the MCP handlers are authoritative, the hook can safely **fail
-open** (see D1) — a hook that crashes never opens a writer that the MCP server
-would have refused.
+lands inside a governed `.uacp/` namespace (the main repo's **or** any worktree's).
+It is defense-in-depth, **not** a sandbox against hostile commands, and container-
+grade isolation is explicitly out of scope. Because the MCP handlers are
+authoritative, the hook can safely **fail open** (see D1) — a hook that crashes
+never opens a writer that the MCP server would have refused.
 
-## The narrow predicate
+## The predicate (target-relative, worktree-robust)
 
 > DENY iff the tool is a raw host mutating file tool (`Write` / `Edit` /
-> `MultiEdit` / `NotebookEdit`) **and** its resolved target path is inside the
-> governed namespace `<root>/.uacp/`. Otherwise ALLOW (exit 0, no stdout).
+> `MultiEdit` / `NotebookEdit`) **and** any **ancestor directory** of the resolved
+> target path is named `.uacp` (compared casefolded). Otherwise ALLOW (exit 0, no
+> stdout).
 
-Consequences of the narrow scope (each is intentional — see ADR-0019):
+The decision is **target-relative**: it inspects the path being written, not a
+single resolved "project root". This is what makes it worktree-safe — a write into
+`<repo>/.worktrees/X/.uacp/...` (that worktree's own governed state) is denied just
+like `<repo>/.uacp/...`, with no root resolution. A **relative** target path is
+resolved against the payload `cwd` (the tree the agent is in — the worktree when
+working inside one), never the hook process cwd.
 
-- **Bash is not gated.** Command-string inspection is insufficient to decide
-  what a shell command touches (see `docs/runtime/runtime-enforcement.md`), so
-  the hook does not try. A `bash echo > .uacp/x` redirect therefore bypasses the
-  hook — the honest residual, acceptable under the accidental-corruption threat
-  model (real containment needs process-level isolation, deferred; the MCP
-  writers stay authoritative).
+Consequences (each is intentional — see ADR-0019):
+
+- **Bash is ENTIRELY ungated.** Command-string inspection is insufficient to know
+  what a shell command writes (see `docs/runtime/runtime-enforcement.md`), so the
+  hook does not gate the shell at all. **Any** shell-driven write therefore
+  bypasses it — not only a redirect (`> .uacp/x`), but equally `cp`/`mv`/`tee`,
+  `sed -i`, an interpreter `open()`, `git checkout`, and so on. This is the honest
+  residual, acceptable under the accidental-corruption threat model: the MCP
+  governed writers and the worktree are the real containment (process-level
+  isolation is deferred).
 - **Raw project edits are not blocked.** Work-product writes (project code the
   agent edits during EXECUTE) are contained by the worktree (Invariant #2) and
   captured as evidence by checkpoint/diff coverage (EXECUTE→VERIFY) — see the
   clarified AGENTS.md Key Invariant #3 and ADR-0019. A gate that blocked the
   agent's own work-product would block the coding work itself.
-- **No root-touch block.** A file at the repo root (e.g. `.mcp.json`) is not
-  under `.uacp/`, so it is allowed. (Over-blocking root-level writes is what
-  bricked a real session.)
+- **No root-touch block.** A file at the repo root (e.g. `.mcp.json`) has no
+  `.uacp` ancestor, so it is allowed. (Over-blocking root-level writes is what
+  bricked a real session.) A file literally **named** `.uacp` (or `*.uacp`) as the
+  leaf is allowed too — only writing *into* a `.uacp/` directory is blocked.
+- **Case-insensitive FS safe.** The `.uacp` component is matched casefolded, so a
+  `.UACP/` write on macOS/NTFS (where it is the same directory) is still denied.
 - **Run-state-independent.** The decision is identical whether or not a run is
   active — no governed-context fields are required of a host tool.
 - **MCP writers pass.** The governed `mcp__uacp__uacp_*` (→ `uacp_*`) tools are
@@ -101,35 +114,26 @@ timeout = 10
 Then start a new session (`/new`). There is no install script — this is a single
 documented paste, by design (the gate can't ride in the plugin).
 
-## Root resolution (DEFECT A)
+## How membership is decided (no project-root resolution)
 
-The shim resolves the **project being worked in** — where `.uacp/` actually
-lives — never the kernel default `~/.hermes/uacp`. Resolution order:
+The membership decision needs **no** single "project root": it walks the resolved
+target's ancestor directories and denies iff one is named `.uacp` (casefolded).
+This deliberately drops the earlier root-resolution scheme (which resolved one
+project root and checked `target under <root>/.uacp/`) because that missed the
+**worktree** case — a write into `<repo>/.worktrees/X/.uacp/` resolves *outside*
+`<repo>/.uacp/` and would slip through, even though that worktree's `.uacp/` is the
+active run's governed state.
 
-| Source | Role |
-|---|---|
-| `UACP_ROOT` env | Explicit root, honored first. |
-| `CLAUDE_PROJECT_DIR` env | The project dir Claude Code sets per session. |
-| payload `cwd` | The runtime's working directory for the call. |
-| the hook's own repo root | Last resort (`Path(__file__).parents[2]`). |
-
-The governed base is then `config.base_dir(root)` (default `<root>/.uacp`, honoring
-a `[paths] base` override). The shim deliberately does **not** call the kernel's
-`resolve_uacp_root()`, because with `UACP_ROOT`/`HERMES_HOME` unset (the normal
-Claude Code case) that falls back to `~/.hermes/uacp` — a different install — and
-the hook would govern the wrong tree.
-
-The shim reads **no** lifecycle phase and **no** governed-context fields: the
-narrow predicate is run-state-independent.
+The only context used is the payload `cwd`, and only to resolve a **relative**
+target path (against the tree the agent is in). The shim reads **no** lifecycle
+phase and **no** governed-context fields: the predicate is run-state-independent.
 
 ## Settled design decisions
 
-- **A — Resolve the project root.** As above: `UACP_ROOT` → `CLAUDE_PROJECT_DIR`
-  → payload `cwd` → the hook's own repo; never `~/.hermes/uacp`.
-- **D1 — Fail OPEN.** Malformed/unparseable stdin, an unresolvable governed base,
-  or any unexpected internal exception results in `exit 0` with **no stdout**
-  (allow) and a warning on stderr. Safe because the MCP governed handlers remain
-  authoritative — failing open in the hook never opens a writer.
+- **D1 — Fail OPEN.** Malformed/unparseable stdin or any unexpected internal
+  exception results in `exit 0` with **no stdout** (allow) and a warning on
+  stderr. Safe because the MCP governed handlers remain authoritative — failing
+  open in the hook never opens a writer.
 - **D5 — Deny holds under `bypassPermissions`.** A `deny` is emitted regardless of
   the payload's `permission_mode`. The shim never short-circuits to allow on
   `permission_mode == "bypassPermissions"`.

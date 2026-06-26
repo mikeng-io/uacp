@@ -560,6 +560,74 @@ class TestShimNarrowPredicateFunctionLevel:
         assert rc == 0
         assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "deny", out
 
+    def test_worktree_uacp_denies(self, tmp_path, monkeypatch):
+        """WORKTREE case (the gap the refinement closes): a raw Write into a
+        worktree's OWN .uacp/ (<repo>/.worktrees/wt1/.uacp/...) must DENY even
+        though CLAUDE_PROJECT_DIR points at the MAIN repo. Membership is by
+        '.uacp ancestor dir', not 'under a single project root'."""
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))  # main repo
+        target = str(tmp_path / ".worktrees" / "wt1" / ".uacp" / "state" / "x.yaml")
+        rc, out = _call_shim_main(_cc_payload("Write", {"file_path": target}, cwd=str(tmp_path)))
+        assert rc == 0
+        assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "deny", out
+
+    def test_relative_target_resolves_against_payload_cwd_denies(self, tmp_path, monkeypatch):
+        """MAJOR 1 (codex PoC): a RELATIVE target (.uacp/state/x.yaml) resolves
+        against the payload cwd (the tree the agent is in), NOT the hook process
+        cwd. With the process cwd chdir'd elsewhere, this must still DENY."""
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)  # process cwd != payload cwd
+        project = tmp_path / "project"
+        project.mkdir()
+        payload = _cc_payload("Write", {"file_path": ".uacp/state/x.yaml"}, cwd=str(project))
+        rc, out = _call_shim_main(payload)
+        assert rc == 0
+        assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "deny", out
+
+    def test_relative_target_outside_uacp_allows(self, tmp_path, monkeypatch):
+        """NON-VACUITY for MAJOR 1: a relative target OUTSIDE .uacp/ (resolved
+        against the payload cwd) still allows — the fix is not a blanket deny."""
+        monkeypatch.chdir(tmp_path)
+        payload = _cc_payload("Write", {"file_path": "src/app.py"}, cwd=str(tmp_path))
+        rc, out = _call_shim_main(payload)
+        assert rc == 0
+        assert out.strip() == "", f"relative project-file write must allow: {out!r}"
+
+    def test_case_insensitive_namespace_denies(self, tmp_path):
+        """MINOR 4 (folded in): a Write to .UACP/... (mixed case) is treated as the
+        governed namespace. The '.uacp ancestor' check CASEFOLDS the component, so
+        it DENIES on every platform — on a case-insensitive FS (macOS/NTFS) this is
+        literally the same dir as .uacp/, and over-blocking a pathological '.UACP/'
+        dir on a case-sensitive FS is acceptable fail-closed defense-in-depth.
+        (os.path.normcase is a no-op on POSIX, so casefold — not normcase — is what
+        actually protects macOS.)"""
+        target = str(tmp_path / ".UACP" / "state" / "x.yaml")
+        rc, out = _call_shim_main(_cc_payload("Write", {"file_path": target}))
+        assert rc == 0
+        assert json.loads(out)["hookSpecificOutput"]["permissionDecision"] == "deny", out
+
+    def test_sibling_prefix_dir_allows(self, tmp_path):
+        """NEGATIVE: a '.uacp-evil/' dir shares a prefix but is not a '.uacp'
+        component -> ALLOW (no false positive on prefix match)."""
+        target = str(tmp_path / ".uacp-evil" / "x.yaml")
+        rc, out = _call_shim_main(_cc_payload("Write", {"file_path": target}))
+        assert rc == 0
+        assert out.strip() == "", f"sibling-prefix dir must allow: {out!r}"
+
+    def test_uacp_only_as_leaf_filename_allows(self, tmp_path):
+        """NEGATIVE: a file literally NAMED '.uacp' (or '*.uacp') as the leaf is not
+        writing INTO a .uacp/ dir -> ALLOW. The check is on ancestor DIR components."""
+        # A file named exactly '.uacp' at the repo root.
+        rc1, out1 = _call_shim_main(_cc_payload("Write", {"file_path": str(tmp_path / ".uacp")}))
+        # A file with a .uacp extension.
+        rc2, out2 = _call_shim_main(
+            _cc_payload("Write", {"file_path": str(tmp_path / "src" / "foo.uacp")})
+        )
+        assert rc1 == 0 and rc2 == 0
+        assert out1.strip() == "", f"leaf file named .uacp must allow: {out1!r}"
+        assert out2.strip() == "", f"*.uacp leaf file must allow: {out2!r}"
+
     def test_edit_project_file_allows_no_run(self, monkeypatch):
         # Root-independent: an edit outside .uacp/ allows regardless of the root.
         monkeypatch.delenv("UACP_RUN_ID", raising=False)
@@ -635,62 +703,11 @@ class TestShimNarrowPredicateFunctionLevel:
         def _raise_boom(*args, **kwargs):
             raise RuntimeError("boom")
 
-        monkeypatch.setattr(_shim, "_resolve_project_root", _raise_boom)
+        monkeypatch.setattr(_shim, "_target_under_governed", _raise_boom)
         target = str(temp_uacp_root / ".uacp" / "state" / "x.yaml")
         rc, out = _call_shim_main(_cc_payload("Write", {"file_path": target}))
         assert rc == 0
         assert out.strip() == "", f"internal error must fail open: {out!r}"
-
-
-class TestShimRootResolution:
-    """DEFECT A: resolve the PROJECT being worked in, never ~/.hermes/uacp."""
-
-    def test_resolves_uacp_root_env_first(self, temp_uacp_root: Path, monkeypatch):
-        monkeypatch.setenv("UACP_ROOT", str(temp_uacp_root))
-        monkeypatch.setenv("CLAUDE_PROJECT_DIR", "/somewhere/else")
-        root = _shim._resolve_project_root({"cwd": "/tmp/other"})
-        assert root == temp_uacp_root.resolve()
-
-    def test_falls_back_to_claude_project_dir(self, tmp_path: Path, monkeypatch):
-        monkeypatch.delenv("UACP_ROOT", raising=False)
-        monkeypatch.delenv("HERMES_HOME", raising=False)
-        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
-        root = _shim._resolve_project_root({"cwd": "/tmp/other"})
-        assert root == tmp_path.resolve()
-        # And NOT ~/.hermes/uacp.
-        assert root != (Path.home() / ".hermes" / "uacp").resolve()
-
-    def test_falls_back_to_payload_cwd(self, tmp_path: Path, monkeypatch):
-        monkeypatch.delenv("UACP_ROOT", raising=False)
-        monkeypatch.delenv("HERMES_HOME", raising=False)
-        monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
-        root = _shim._resolve_project_root({"cwd": str(tmp_path)})
-        assert root == tmp_path.resolve()
-
-    def test_wrong_root_regression_governs_the_project_not_hermes(
-        self, tmp_path: Path, monkeypatch
-    ):
-        """DEFECT A end-to-end: UACP_ROOT and HERMES_HOME unset, CLAUDE_PROJECT_DIR
-        points at a temp project. A raw Write into THAT project's .uacp/ is denied
-        (the hook governs the project), and a write under a sibling ~/.hermes-style
-        path is NOT governed (allowed) because it is not this project's root."""
-        monkeypatch.delenv("UACP_ROOT", raising=False)
-        monkeypatch.delenv("HERMES_HOME", raising=False)
-        monkeypatch.delenv("UACP_RUN_ID", raising=False)
-        monkeypatch.delenv("UACP_PHASE", raising=False)
-        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
-
-        in_project = str(tmp_path / ".uacp" / "state" / "x.yaml")
-        rc_d, out_d = _call_shim_main(_cc_payload("Write", {"file_path": in_project}, cwd="/tmp"))
-        assert rc_d == 0
-        assert json.loads(out_d)["hookSpecificOutput"]["permissionDecision"] == "deny", out_d
-
-        # A path under a DIFFERENT (hermes-like) tree is outside this project's
-        # base -> allowed. Proves the hook governs CLAUDE_PROJECT_DIR, not hermes.
-        elsewhere = str(tmp_path.parent / "hermes-home" / ".uacp" / "state" / "x.yaml")
-        rc_a, out_a = _call_shim_main(_cc_payload("Write", {"file_path": elsewhere}, cwd="/tmp"))
-        assert rc_a == 0
-        assert out_a.strip() == "", f"a write outside the project base must allow: {out_a!r}"
 
 
 class TestShimNarrowSubprocess:
@@ -725,3 +742,13 @@ class TestShimNarrowSubprocess:
         reason = json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecisionReason"]
         assert "governed namespace" in reason
         assert "uacp_state_write" in reason or "uacp_entity_write" in reason
+
+    def test_worktree_uacp_denies(self, temp_uacp_root: Path):
+        """WORKTREE case through the real shim: a Write into a worktree's own
+        .uacp/ denies even though it is nested under <repo>/.worktrees/."""
+        _seed_policy(temp_uacp_root)
+        target = str(temp_uacp_root / ".worktrees" / "wt1" / ".uacp" / "state" / "x.yaml")
+        payload = _cc_payload("Write", {"file_path": target}, cwd=str(temp_uacp_root))
+        proc = _run_shim(payload, temp_uacp_root, "claude")
+        assert proc.returncode == 0, proc.stderr
+        assert json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "deny"

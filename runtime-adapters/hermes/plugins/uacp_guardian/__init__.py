@@ -22,6 +22,7 @@ from .kernel import (
     GuardianEvent,
     GuardianPolicy,
     GuardianPolicyError,
+    UacpRootUnresolved,
     make_event,
     write_audit_record,
 )
@@ -84,6 +85,7 @@ def _phase_config() -> dict[str, Any]:
         return _PHASE_CONFIG
     try:
         from engines.io import load_phase_transitions
+
         loaded = load_phase_transitions(_policy().uacp_root)
         if loaded.error is not None or not isinstance(loaded.value, dict):
             _PHASE_CONFIG = {}
@@ -92,6 +94,7 @@ def _phase_config() -> dict[str, Any]:
     except Exception:
         _PHASE_CONFIG = {}
     return _PHASE_CONFIG
+
 
 # Self-attesting tools are declared in `config/uacp.toml [guardian]` under
 # `self_attesting_tools.names` (moved out of adapter code in Phase 1 / pc_1 to
@@ -103,7 +106,7 @@ def _phase_config() -> dict[str, Any]:
 def _self_attesting_tools() -> frozenset[str]:
     try:
         return _policy().self_attesting_tools
-    except GuardianPolicyError:
+    except (GuardianPolicyError, UacpRootUnresolved):
         return frozenset()
 
 
@@ -115,7 +118,11 @@ def _policy() -> GuardianPolicy:
         _POLICY = GuardianPolicy.load()
         _POLICY_ERROR = ""
         return _POLICY
-    except GuardianPolicyError as exc:
+    except (GuardianPolicyError, UacpRootUnresolved) as exc:
+        # UacpRootUnresolved is a sibling of GuardianPolicyError (both
+        # RuntimeError) raised by resolve_uacp_root OUTSIDE GuardianPolicy.load's
+        # own try when no UACP_ROOT/HERMES_HOME is set. Catch it here so the
+        # adapter fails closed (clean block) instead of propagating uncaught.
         _POLICY_ERROR = str(exc)
         raise
 
@@ -154,13 +161,15 @@ def _filesystem_guard_verified(tool_name: str, args: Mapping[str, Any] | None) -
         # attestation whenever the workspace root's schema_version differs from
         # the env root's — a fail-closed mint/validate mismatch. Match the mint.
         policy_version = str(GuardianPolicy.load(args.get("workspace")).version)
-    except GuardianPolicyError:
+    except (GuardianPolicyError, UacpRootUnresolved):
         return False
     ok, _ = _validate_contained_shell_attestation(attestation_id, policy_version)
     return ok
 
 
-def _block_for_policy_error(tool_name: str, args: Mapping[str, Any] | None) -> dict[str, str] | None:
+def _block_for_policy_error(
+    tool_name: str, args: Mapping[str, Any] | None
+) -> dict[str, str] | None:
     event = make_event(tool_name=tool_name, args=args or {})
     category = "external.unknown_mutator"
     if event.tool_name in {"read_file", "search_files"} and not event.uacp_run_id:
@@ -210,7 +219,7 @@ def on_pre_tool_call(
         if decision.blocks_execution:
             return decision.to_hook_result()
         return None
-    except GuardianPolicyError:
+    except (GuardianPolicyError, UacpRootUnresolved):
         return _block_for_policy_error(tool_name, args)
 
 
@@ -244,7 +253,7 @@ def on_post_tool_call(
         record["duration_ms"] = duration_ms
         record["result_preview"] = str(result)[:500]
         write_audit_record(record)
-    except GuardianPolicyError:
+    except (GuardianPolicyError, UacpRootUnresolved):
         return None
 
 
@@ -288,4 +297,3 @@ def register(ctx) -> None:
             handler=spec.handler,
             description=spec.description,
         )
-
