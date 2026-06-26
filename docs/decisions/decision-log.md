@@ -14,6 +14,34 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-06-27 — Design-bundle convention codified + gated (ADR-0020)
+
+Decision: Codified the "design = decomposed bundle" convention by splitting it per
+comprehend→measure→serialize: a `uacp-design` SKILL owns the **judgment** half (decomposition
+quality, anti-patterns, Status/Checkpoint discipline), and a **design-bundle lint**
+(`engines.domain.design_lint`) in `uacp-lint` owns the decidable **structure** half (7 checks:
+`_index` schema conformance, `members==files`, ≥2 nodes, placement under `design/<topic>/`,
+node frontmatter required keys + two-tier `type` check, edge mirroring, checkpoint shape-if-
+present). Staged rollout: REPORT → RECONCILE → ENFORCE. As of this PR the lint runs in report
+mode; `design/uacp-design/` (the dogfood) passes; 7 of 10 bundles are allowlisted for the
+reconcile pass.
+
+Rationale: The convention has been violated 100+ times — guidance-only has empirically failed.
+Determinism belongs to the gate, not the agent's judgment. Mirrors ADR-0017 (uacp-skills): a
+skill paired with hard lints, split by decidability.
+
+Status: accepted. See [ADR-0020](../architecture/0020-design-bundle-convention.md).
+
+Canonical targets:
+
+- `docs/architecture/0020-design-bundle-convention.md` (the ADR)
+- `design/uacp-design/` (the scoping design bundle)
+- `skills/uacp-core/scripts/engines/domain/design_lint.py` (the 7-check lint module)
+- `tests/unit/uacp_core/test_design_lint.py` (TDD test suite)
+
+Follow-up: RECONCILE pass (fix cheap violations in the 7 allowlisted bundles); then flip the
+lint fail-closed in CI (ENFORCE step).
+
 ### 2026-06-24 — CMS-principle branch developed pre-governance (UACP bootstrapping exception)
 
 Decision: The `cms-principle` branch — which ratifies the CMS core principle ([ADR-0018](../architecture/0018-cms-semantic-thinking-principle.md)), edits canonical docs (`AGENTS.md`, `UACP.md`) and adds runtime-adapter code (the `SessionStart` cognition-injection hook) — was developed **outside a formal UACP governed run**: no `.uacp/state/` run, no `PLAN_VALIDATION` ledger entry, no recorded council artifact. Per UACP's own Key Invariant #4, canonical/kernel changes require council review before PLAN exits. This entry records that gap **openly** and accepts it as a bounded **bootstrapping exception**.
