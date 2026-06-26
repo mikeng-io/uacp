@@ -24,5 +24,10 @@ COPY . /uacp
 RUN uv run --no-project --with "mcp>=1.0" --with anyio --with pyyaml --with "pydantic>=2.0" \
     --with "jsonschema>=4.0" python -c "import mcp, anyio, yaml, pydantic, jsonschema; print('deps ok')"
 
-# Exit non-zero if any expected capability is not actionable (fail-closed conformance gate).
-CMD ["python3", "acceptance/conformance.py", "/uacp", "--out", "/out/conformance.json"]
+# Run the prober via uv with its deps (pyyaml for skills, the mcp client, + tool_specs' pydantic/
+# jsonschema chain) — same self-provisioning pattern the plugin uses for the server. uv self-launches
+# the server as a nested `uv run` (deps cached at build, so the run is offline). Exit non-zero if any
+# expected capability is not actionable (fail-closed conformance gate).
+CMD ["uv", "run", "--no-project", "--with", "mcp>=1.0", "--with", "anyio", "--with", "pyyaml", \
+     "--with", "pydantic>=2.0", "--with", "jsonschema>=4.0", \
+     "python", "acceptance/conformance.py", "/uacp", "--out", "/out/conformance.json"]

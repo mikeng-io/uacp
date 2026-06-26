@@ -15,16 +15,25 @@ edges:
 
 The Claude Code adapter (the `runner:claude-code` install path + whatever lifecycle exposure it lands) is built in a **separate session**. The walking skeleton **consumes** it; if it is not ready, the skeleton stubs the runner with a scripted driver to prove the harness/topology halves first.
 
-## Increment 0 — PLUGIN CONFORMANCE (the first build; mike's Priority 1)
+## Increment 0 — PLUGIN CONFORMANCE (BUILT; mike's Priority 1)
 
-Prove the **installed plugin is actionable** — no lifecycle yet ([13](13-plugin-conformance.md)):
+Prove the **installed plugin is actionable** — no lifecycle yet ([13](13-plugin-conformance.md)).
+**As-built** (`acceptance/conformance.py` + `tests/acceptance/` + `acceptance/Dockerfile`/`compose.yml`):
 
-- `harness` brings up `model`(Ollama) + `proxy` + `runner:claude-code` and **installs UACP as a plugin** in the runner.
-- comprehend the plugin manifest → the declared capabilities; **probe each is actionable** (MCP `tools/list`==`tool_specs()` + a read-only `tools/call`; skills resolve + parse; hooks fire; commands dispatch); emit `conformance.json`.
-- assert: **every declared capability is actionable** (fail-closed — a probe that can't run is a FAIL).
-- run it by hand (a `make e2e-conformance` / CLI), NOT in CI yet.
+- comprehend the plugin manifest → expected capabilities; **probe each is actionable** — MCP launched
+  EXACTLY as `plugin.json:mcpServers.uacp` configures it (`uv run … uacp_mcp_server.py`), `tools/list`
+  asserted **== `tool_specs()`** (proven: all 12 governed tools); hooks resolve+parse; skills loadable
+  (frontmatter + `name`). Emits `conformance.json`, fail-closed.
+- the deterministic prober runs in CI (`tests/acceptance/`, gated on `mcp`+`uv`) WITH non-vacuity (a
+  missing tool FAILs; a no-name skill FAILs); the container wrapper drives the same prober in a clean
+  prereqs-only image.
+- the build's first run CAUGHT a real probe-precision bug (UACP `kind` convention wrongly imposed on
+  the vendored MIT `code-review` skill) → fixed to the real install bar.
 
-Done when: one command spins the stack, installs UACP into a real agent container, and the harness proves every plugin feature is live. This is the foundation — if the plugin doesn't function installed, nothing downstream is meaningful.
+Scope note (vs the original plan): conformance needs **neither a model nor the lifecycle**, so
+Increment 0 ships WITHOUT the ollama/proxy/runner stack — those arrive with the lifecycle increments.
+The "real `claude plugin install` round-trip" (vs probing the plugin source) is the runner-image
+refinement ([11](11-runner-adapter-seam.md)).
 
 ## Increment 1 — PRIORITY 2: the lifecycle should-block pipe
 
