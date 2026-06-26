@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the aggregate root of the E2E acceptance-harness design bundle.
+# WHAT IT DOES:  lists member nodes (reading order), declares the design's inter-node
+#                graph, and records status/governance/scope.
+# WHAT IT DOES NOT DO: it does not validate member nodes, performs no cross-node
+#                closure, and carries no node-level manifest data.
+# VALIDATED BY:  ../graph-engine/schema/design-index.schema.json (shared design_index shape).
+
+kind: design_index
+title: UACP E2E Acceptance Harness — Design Bundle
+description: >-
+  A fully containerized, multi-service ACCEPTANCE test that installs UACP as a coding-agent
+  plugin and drives ONE real governed run end to end (TRIAGE -> RESOLVE) against a real agent on a
+  pluggable model backend — to surface install / packaging / lifecycle inconsistencies nothing
+  in-process catches. Distinct from the in-process INTEGRATION tests (deterministic, CI-gating):
+  this is the top-of-pyramid black-box smoke test (real install, real agent, real model, real
+  lifecycle), NON-deterministic, run periodically/pre-release. Two pluggable seams (the AGENT
+  runtime-under-test; the MODEL backend) keep the harness core neutral, and two futures are designed
+  in from v1: a runtime BENCHMARK (scored results, not just pass/fail) and runtime breadth
+  (Claude Code now; Hermes / Codex / others later). Assertions are TIERED: governance-correctness is
+  the HARD gate (the kernel never let an invalid state through); agent-completion is a SOFT score.
+status: design                      # enum: design|proposed|accepted|building|built
+governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
+timestamp: '2026-06-26'             # ISO date (YYYY-MM-DD)
+origin: session 2026-06-26 (post verification-method completion; mike's "E2E acceptance test" spec — containerized real-agent full-lifecycle, Ollama-default but backend-neutral, benchmark + multi-runtime futures). The Claude Code adapter itself is built in a PARALLEL session; this bundle CONSUMES it, does not specify it.
+schema_dir: ../graph-engine/schema/ # reuses the graph-engine bundle's design_index schema
+
+# Numbered by NATURE, not phase:
+#   00 = the spine (what/why + the integration↔acceptance distinction);
+#   10-12 = the architecture (container topology + the two pluggable seams);
+#   20-22 = the test contract (the lifecycle scenario / tiered assertions / benchmark schema);
+#   30 = the build roadmap (walking skeleton first).
+members:
+  - 00-intent.md                 # ROOT: what the harness is, why, and integration-test vs acceptance-test
+  - 10-topology.md               # the multi-container compose topology (model / proxy / runner / harness)
+  - 11-runner-adapter-seam.md    # the AGENT-under-test seam — CC now (consumes the adapter), Hermes/Codex later
+  - 12-model-backend-seam.md     # the provider-NEUTRAL model backend (Ollama default / OpenAI-format / Anthropic URL)
+  - 13-plugin-conformance.md     # PRIORITY 1: is the installed plugin actionable? (the first measurement)
+  - 20-scenario.md               # PRIORITY 2: the golden-path governed run the agent must drive (TRIAGE -> RESOLVE)
+  - 21-assertions.md             # PRIORITY 2: TIERED lifecycle measurement — governance-correctness (hard) + completion (soft)
+  - 22-benchmark.md              # the structured scored-result artifact (the benchmark future)
+  - 30-roadmap.md                # walking skeleton first (plugin conformance) -> lifecycle -> scale
+
+# DERIVED: mirror of each node's `edges:` frontmatter (src = the node that owns the edge).
+# rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
+edges:
+  - {src: 10-topology, dst: 00-intent, rel: realizes, provenance: asserted}
+  - {src: 11-runner-adapter-seam, dst: 10-topology, rel: depends_on, provenance: derived}
+  - {src: 12-model-backend-seam, dst: 10-topology, rel: depends_on, provenance: derived}
+  - {src: 13-plugin-conformance, dst: 10-topology, rel: depends_on, provenance: derived}
+  - {src: 13-plugin-conformance, dst: 11-runner-adapter-seam, rel: depends_on, provenance: derived}
+  - {src: 20-scenario, dst: 00-intent, rel: depends_on, provenance: derived}
+  - {src: 21-assertions, dst: 20-scenario, rel: depends_on, provenance: derived}
+  - {src: 21-assertions, dst: 00-intent, rel: decides_on, provenance: asserted}
+  - {src: 22-benchmark, dst: 21-assertions, rel: extends, provenance: derived}
+  - {src: 30-roadmap, dst: 00-intent, rel: sequences, provenance: asserted}
+  - {src: 30-roadmap, dst: 11-runner-adapter-seam, rel: depends_on, provenance: derived}
