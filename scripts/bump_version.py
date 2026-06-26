@@ -5,7 +5,7 @@ Bump UACP version across all plugin manifests.
 Usage:
     python3 scripts/bump_version.py major|minor|patch [--dry-run]
 
-Files updated:
+Files updated (must all match, or no file is touched):
     pyproject.toml                      (source of truth)
     .claude-plugin/plugin.json          (Claude Code plugin)
     .claude-plugin/marketplace.json     (Claude Code marketplace)
@@ -33,26 +33,36 @@ def bump(version: str, part: str) -> str:
 
 
 def read_current_version() -> str:
-    text = (ROOT / "pyproject.toml").read_text()
+    text = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     m = re.search(r'^version = "([^"]+)"', text, re.MULTILINE)
     if not m:
         raise RuntimeError("version not found in pyproject.toml")
-    return m.group(1)
+    ver = m.group(1)
+    if not re.fullmatch(r"\d+\.\d+\.\d+", ver):
+        raise RuntimeError(
+            f"Current version '{ver}' is not X.Y.Z format. "
+            "Pre-release or custom versions cannot be bumped by this script — "
+            "edit pyproject.toml and the manifests manually, then push the tag."
+        )
+    return ver
 
 
-def update(path: Path, pattern: str, new_ver: str, dry_run: bool) -> None:
+def validate_update(path: Path, pattern: str, new_ver: str) -> tuple[str, str]:
+    """
+    Validate that `pattern` matches exactly once.
+    Returns (original_text, new_text).
+    Raises RuntimeError on miss or multiple matches — caller aborts all writes.
+    """
     rel = path.relative_to(ROOT)
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     new_text, n = re.subn(pattern, rf"\g<1>{new_ver}\g<2>", text, flags=re.MULTILINE)
     if n == 0:
-        print(f"  WARN  {rel}  — pattern not found, check manually")
-        return
-    if text == new_text:
-        print(f"  SKIP  {rel}  — already at {new_ver}")
-        return
-    if not dry_run:
-        path.write_text(new_text)
-    print(f"  {'[dry]' if dry_run else 'UPD  '}  {rel}")
+        raise RuntimeError(f"{rel}: version pattern not found — aborting, no files written")
+    if n > 1:
+        raise RuntimeError(
+            f"{rel}: pattern matched {n} times (expected 1) — aborting, no files written"
+        )
+    return text, new_text
 
 
 def main() -> None:
@@ -69,8 +79,25 @@ def main() -> None:
 
     print(f"{'[dry run] ' if dry_run else ''}Bumping {old_ver} → {new_ver}\n")
 
-    for path, pattern in TARGETS:
-        update(path, pattern, new_ver, dry_run)
+    # Pass 1: validate all targets before touching any file.
+    pending: list[tuple[Path, str, str]] = []
+    try:
+        for path, pattern in TARGETS:
+            orig, updated = validate_update(path, pattern, new_ver)
+            pending.append((path, orig, updated))
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}")
+        sys.exit(1)
+
+    # Pass 2: write (skipped in dry-run mode).
+    for path, orig, updated in pending:
+        rel = path.relative_to(ROOT)
+        if orig == updated:
+            print(f"  SKIP  {rel}  — already at {new_ver}")
+            continue
+        if not dry_run:
+            path.write_text(updated, encoding="utf-8")
+        print(f"  {'[dry]' if dry_run else 'UPD  '}  {rel}")
 
     print()
     if dry_run:
