@@ -11,6 +11,30 @@ edges:
 
 # Roadmap — walking skeleton first
 
+## Status / Checkpoint
+
+> **2026-06-26 — DEFERRED (paused).**
+>
+> - **This design bundle** merged to `main` via **PR #34**.
+> - **Increment 0 (plugin conformance): BUILT + MERGED** via **PR #36** (merge commit `552b8d8`) — but as a **FAITHFUL
+>   user-install reproduction**, not the original source-check. As-built lives at `acceptance/`
+>   (`Dockerfile` = a normal user's baseline of Claude Code + uv; `run.sh` = the published
+>   `claude plugin install` then observe Claude Code's OWN `plugin list` / `mcp list`; `make
+>   acceptance`). The harness is **allowed to fail** — a red run reproducing a real user bug is the win.
+> - **The initiative is now DEFERRED.** Decision (mike): stop hand-building a bespoke harness; once
+>   UACP is fully up, **dogfood the acceptance run through UACP's own lifecycle** (the governed
+>   TRIAGE→…→RESOLVE drives + verifies it). Increments 1+ below are NOT being built standalone.
+> - **Real product bug Increment 0 caught (open, in the Guardian-hook rework's lap):** a normal
+>   install reports *"failed to load: Duplicate hooks file detected"* — `plugin.json` declares
+>   `hooks: ./hooks/hooks.json`, which Claude Code auto-loads, so the manifest reference duplicates it.
+>   Proper fix = drop the manifest `hooks` key **and** fix `tests/unit/skills/test_hook_manifest.py::
+>   test_plugin_json_references_hooks`, which currently ENFORCES the broken declaration.
+> - **Lesson (load-bearing):** an e2e/acceptance test = a *faithful reproduction* of the user's real
+>   path that is allowed to fail; do NOT bypass the runtime, pre-provision the env to pass, warm
+>   caches, or wrap checks in a lookup function — that tests the construction, not the product.
+>
+> Resume note: the next pickup is the lifecycle-dogfood vehicle, not the increments below as written.
+
 ## Prerequisite (parallel track, not this bundle)
 
 The Claude Code adapter (the `runner:claude-code` install path + whatever lifecycle exposure it lands) is built in a **separate session**. The walking skeleton **consumes** it; if it is not ready, the skeleton stubs the runner with a scripted driver to prove the harness/topology halves first.
