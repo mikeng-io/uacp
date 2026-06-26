@@ -37,3 +37,4 @@ codeflair/.venv/
 codeflair/vendor/node_modules/
 
 *.egg-info/
+acceptance/out/
