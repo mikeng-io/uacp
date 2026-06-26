@@ -15,13 +15,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from codeflair.query import HeatmapEntry, heatmap
+from codeflair.probes import ProbeContext, ProbeParams, ProbeRegistry, default_registry
+from codeflair.query import HeatmapEntry
 from codeflair.store import Store
-
-# Inferred couplings are weak by construction — floor them well below any parsed edge.
-_INFERRED_TRUST = 0.3
-_COUPLING_KIND_WEIGHT = {"co_change": 0.4, "shared_string": 0.5}
-_HOP_DECAY = 0.5
 
 _TEST_FILE_RE = re.compile(
     r"(_test\.go$|_test\.py$|test_.*\.py$|\.test\.[jt]sx?$|\.spec\.[jt]sx?$|(^|/)tests?/)"
@@ -56,38 +52,37 @@ def expand(
     beam: int = 50,
     direction: str = "callers",
     include_coupling: bool = True,
+    registry: ProbeRegistry | None = None,
 ) -> ExpandResult:
-    """Grow the relation subgraph from ``seed`` and rank it into a top-``k`` heatmap + gaps."""
-    # 1. precise closure, fully scored (heatmap with no top-k cut)
-    precise = heatmap(store, seed, k=2_000_000_000, max_hops=max_hops, direction=direction)
-    entries: dict[str, HeatmapEntry] = {e.symbol: e for e in precise}
-    n_precise = len(entries)
+    """Grow the relation subgraph from ``seed`` and rank it into a top-``k`` heatmap + gaps.
 
-    # 2. inferred coupling projection from the seed + top-beam precise nodes
-    n_inferred = 0
-    if include_coupling:
-        bases: list[tuple[str, int]] = [(seed, 0)]
-        bases += [(e.symbol, e.hop) for e in precise[:beam]]
-        for base_sym, base_hop in bases:
-            sym_row = store.symbol(base_sym)
-            if sym_row is None or not sym_row.file:
-                continue
-            for other_file, kind, _weight in store.coupled_files(sym_row.file):
-                hop = base_hop + 1
-                score = round(
-                    _INFERRED_TRUST * _COUPLING_KIND_WEIGHT.get(kind, 0.3) * (_HOP_DECAY**hop), 6
-                )
-                for csym in store.symbols_in_file(other_file):
-                    if csym == seed or csym in entries:
-                        continue  # precise evidence always wins
-                    entries[csym] = HeatmapEntry(
-                        symbol=csym, hop=hop, score=score, via=f"{kind}/coupling"
-                    )
-                    n_inferred += 1
+    The probe sequence is NOT hardcoded: the loop consults ``registry`` (defaulting to the
+    core probe set — precise edge-walk then coupling projection). Probes run in registration
+    order; the FIRST probe to claim a symbol wins, so precise evidence outranks inferred
+    couplings (and any later-registered probe). New sources (LSP, contracts, the UACP
+    cross-plane join) plug in by registering a probe — no change to this function.
+    """
+    if registry is None:
+        registry = default_registry(include_coupling=include_coupling)
+    params = ProbeParams(k=k, max_hops=max_hops, beam=beam, direction=direction)
+    ctx = ProbeContext(store=store, seed=seed, params=params)
 
-    ranked = sorted(entries.values(), key=lambda e: (-e.score, e.symbol))[:k]
+    counts = {"precise": 0, "inferred": 0}
+    for probe in registry.probes:
+        for entry in probe.expand(ctx):
+            if entry.symbol == seed or entry.symbol in ctx.entries:
+                continue  # first claim wins — precise evidence (earlier probe) is never displaced
+            ctx.entries[entry.symbol] = entry
+            counts[probe.kind] = counts.get(probe.kind, 0) + 1
+
+    ranked = sorted(ctx.entries.values(), key=lambda e: (-e.score, e.symbol))[:k]
     gaps = find_test_gaps(store, ranked)
-    return ExpandResult(heatmap=ranked, gaps=gaps, n_precise=n_precise, n_inferred=n_inferred)
+    return ExpandResult(
+        heatmap=ranked,
+        gaps=gaps,
+        n_precise=counts.get("precise", 0),
+        n_inferred=counts.get("inferred", 0),
+    )
 
 
 def find_test_gaps(store: Store, entries: list[HeatmapEntry]) -> list[Gap]:

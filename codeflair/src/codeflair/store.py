@@ -17,10 +17,16 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-# Probe sources, in precision order (CF-D14 ladder): scip/lsp parsed > tree_sitter
-# syntactic > grep text > co_change inferred. The store does not rank — it tags;
-# query.py ranks by provenance trust.
-VALID_SOURCES = frozenset({"scip", "lsp", "tree_sitter", "grep", "co_change"})
+# EDGE sources — the only provenances that emit a PERSISTED ``edges`` row. Two real
+# edge producers: scip (parsed symbol edges) and tree_sitter (the syntactic breadth
+# floor, CF-D14). This is the EDGE axis; it is distinct from two other axes (see
+# 11-substrate.md):
+#   - COUPLING axis (VALID_COUPLING): grep -> shared_string, co_change -> co_change
+#     are file-level couplings, NOT edges.
+#   - LSP query-time overlay (OD-1): "lsp" is an always-live, never-persisted
+#     provenance/freshness tag added at query time, NOT a stored edge source.
+# The store does not rank — it tags; query.py ranks by provenance trust.
+VALID_SOURCES = frozenset({"scip", "tree_sitter"})
 VALID_PROVENANCE = frozenset({"parsed", "syntactic", "inferred"})
 
 _SCHEMA = """
@@ -88,10 +94,16 @@ class Store:
     or a per-worktree file path in production. Truth is the files; this is a
     rebuildable, watermarked projection."""
 
-    def __init__(self, path: str = ":memory:") -> None:
-        self.con = sqlite3.connect(path)
-        self.con.executescript(_SCHEMA)
-        self.con.commit()
+    def __init__(self, path: str = ":memory:", *, read_only: bool = False) -> None:
+        if read_only:
+            # Open an existing index as a READ-ONLY view: no schema creation, no writes —
+            # so a UACP consumer can attach against an index it must not mutate (CF-D9). The
+            # index must already exist and carry the schema; a ro view never creates it.
+            self.con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        else:
+            self.con = sqlite3.connect(path)
+            self.con.executescript(_SCHEMA)
+            self.con.commit()
 
     # -- writes --------------------------------------------------------------
     def add_symbol(self, sym: Symbol) -> None:

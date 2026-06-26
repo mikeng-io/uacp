@@ -62,8 +62,24 @@ class CrossPlaneAdapter:
 
     def __init__(self, store: Store) -> None:
         self.store = store
+        # NO schema creation here — constructing the adapter must NOT mutate the store, so a
+        # UACP consumer can attach it to a READ-ONLY index (D4). The code_anchor table is
+        # created lazily by the write path (``ensure_schema``/``anchor``); read methods
+        # tolerate its absence (no table == no anchors yet).
+
+    def ensure_schema(self) -> None:
+        """Create the ``code_anchor`` table if absent. Called by the anchor-WRITING path
+        only — never by construction or reads — so a read-only consumer triggers no write."""
         self.store.con.executescript(_SCHEMA)
         self.store.con.commit()
+
+    def _anchor_table_exists(self) -> bool:
+        return (
+            self.store.con.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='code_anchor'"
+            ).fetchone()
+            is not None
+        )
 
     # -- resolution ----------------------------------------------------------
     def resolve(self, code_ref: str) -> list[str]:
@@ -95,6 +111,7 @@ class CrossPlaneAdapter:
         (>1) anchors are still recorded but flagged for governance review."""
         if ref.rel not in _VALID_REL:
             raise ValueError(f"unknown rel {ref.rel!r}; expected one of {sorted(_VALID_REL)}")
+        self.ensure_schema()  # the write path creates code_anchor on first use
         resolved = self.resolve(ref.code_ref)
         for sym in resolved:
             self.store.con.execute(
@@ -114,6 +131,8 @@ class CrossPlaneAdapter:
     # -- cross-plane joins ---------------------------------------------------
     def governs(self, symbol: str) -> list[tuple[str, str, str]]:
         """Manifest entities anchored to ``symbol`` as ``(manifest_id, kind, rel)``."""
+        if not self._anchor_table_exists():
+            return []
         return [
             (r[0], r[1], r[2])
             for r in self.store.con.execute(
@@ -125,6 +144,8 @@ class CrossPlaneAdapter:
 
     def realizes(self, manifest_id: str) -> list[str]:
         """Code symbols anchored to ``manifest_id``."""
+        if not self._anchor_table_exists():
+            return []
         return [
             r[0]
             for r in self.store.con.execute(
@@ -137,10 +158,11 @@ class CrossPlaneAdapter:
     def orphan_code(self, *, kind: str | None = None) -> list[str]:
         """Repo symbols that NO manifest anchors — code without declared governance intent.
         ``kind`` optionally restricts to a symbol kind (e.g. a function/method)."""
-        sql = (
-            "SELECT s.symbol FROM symbols s "
-            "WHERE s.file != '' AND s.symbol NOT IN (SELECT symbol FROM code_anchor)"
-        )
+        # When code_anchor is absent (never-anchored / read-only index) every repo symbol is
+        # an orphan — drop the anti-join rather than reference a non-existent table.
+        sql = "SELECT s.symbol FROM symbols s WHERE s.file != ''"
+        if self._anchor_table_exists():
+            sql += " AND s.symbol NOT IN (SELECT symbol FROM code_anchor)"
         params: list[object] = []
         if kind is not None:
             sql += " AND s.kind = ?"
@@ -149,6 +171,8 @@ class CrossPlaneAdapter:
 
     def unrealized_manifests(self, manifest_ids: list[str]) -> list[str]:
         """Of ``manifest_ids``, those with no code anchor — intent with no realizing code."""
+        if not self._anchor_table_exists():
+            return list(manifest_ids)  # nothing anchored -> all are unrealized
         anchored = {
             r[0]
             for r in self.store.con.execute(

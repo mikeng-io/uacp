@@ -77,7 +77,7 @@ def main() -> None:
 
     print("\nSTORE")
     print(f"  symbols              {store.count_symbols():,}")
-    for src in ("scip", "lsp", "tree_sitter", "grep", "co_change"):
+    for src in ("scip", "tree_sitter"):  # the EDGE-emitting sources (grep/co_change are coupling)
         c = store.count_edges(source=src)
         if c:
             print(f"  edges[{src}]          {c:,}")
