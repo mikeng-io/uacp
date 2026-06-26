@@ -8,16 +8,21 @@ finding — rather than vacuously passing a near-empty manifest).
 
 This module is the deterministic CORE of the acceptance harness: it needs `uv` + the `mcp` SDK but
 NOT a model or a container, so it runs in CI. The container wrapper (acceptance/Dockerfile +
-compose.yml) drives this same prober against a real `claude plugin install`.
+compose.yml) runs this same prober against the plugin SOURCE in a clean, prereqs-only image — it
+does NOT yet do a `claude plugin install` round-trip (the runner-image refinement, node 11). Scope:
+this measures that capabilities are LOADABLE/LISTABLE, not that hooks FIRE or MCP tools DISPATCH.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import shlex
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
+
+_LAUNCH_TIMEOUT = 60  # seconds — a hung MCP server launch FAILs the probe rather than hanging it
 
 
 @dataclass
@@ -59,19 +64,24 @@ def _list_tools_over_stdio(command: str, args: list[str], plugin_root: Path) -> 
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 
+    # Minimal env + pass UV_* through (so UV_OFFLINE / UV_CACHE_DIR reach the NESTED `uv run` that
+    # launches the server — without this the container's offline run hits the registry, DNS-fails).
     env = {
         "PATH": os.environ.get("PATH", ""),
         "CLAUDE_PLUGIN_ROOT": str(plugin_root),
         "HOME": os.environ.get("HOME", str(plugin_root)),
+        **{k: v for k, v in os.environ.items() if k.startswith("UV_")},
     }
 
     async def _go() -> list[str]:
         params = StdioServerParameters(command=command, args=args, env=env)
-        async with stdio_client(params) as (read, write):
-            async with ClientSession(read, write) as session:
-                await session.initialize()
-                resp = await session.list_tools()
-                return [t.name for t in resp.tools]
+        # Bounded: a hung `uv run` / server start must FAIL, not hang the harness.
+        with anyio.fail_after(_LAUNCH_TIMEOUT):
+            async with stdio_client(params) as (read, write):
+                async with ClientSession(read, write) as session:
+                    await session.initialize()
+                    resp = await session.list_tools()
+                    return [t.name for t in resp.tools]
 
     return anyio.run(_go)
 
@@ -108,9 +118,27 @@ def probe_mcp(plugin_root: Path) -> CapResult:
     )
 
 
+def _missing_hook_scripts(command: str, plugin_root: Path) -> list[str]:
+    """The script files a hook command references that do NOT exist (a moved/deleted hook script —
+    the packaging regression node 13 promises to catch). Tokenize the command, bind
+    ${CLAUDE_PLUGIN_ROOT}, and check every .py/.sh path token resolves to a real file."""
+    missing: list[str] = []
+    try:
+        toks = shlex.split(command.replace("${CLAUDE_PLUGIN_ROOT}", str(plugin_root)))
+    except ValueError:
+        return [command]  # unparseable command string is itself a fault
+    for tok in toks:
+        if tok.endswith((".py", ".sh")):
+            p = Path(tok) if Path(tok).is_absolute() else plugin_root / tok
+            if not p.is_file():
+                missing.append(tok)
+    return missing
+
+
 def probe_hooks(plugin_root: Path) -> list[CapResult]:
-    """The plugin's declared hooks config resolves + parses, and each referenced hook command/script
-    exists. (Firing each hook is a deeper probe — design node 13 'to expand'.)"""
+    """The plugin's declared hooks config resolves + parses, and each referenced hook SCRIPT exists
+    on disk (a moved/deleted hook path FAILs). Firing each hook is a deeper probe — node 13 'to
+    expand'."""
     spec = json.loads((plugin_root / ".claude-plugin" / "plugin.json").read_text())
     rel = spec.get("hooks")
     if not rel:
@@ -128,16 +156,12 @@ def probe_hooks(plugin_root: Path) -> list[CapResult]:
     for event, groups in events.items():
         cmds = [h.get("command", "") for grp in (groups or []) for h in (grp.get("hooks") or [])]
         bad = [c for c in cmds if not c]
-        status = "fail" if (not cmds or bad) else "pass"
-        out.append(
-            CapResult(
-                f"hook:{event}",
-                "hooks",
-                status,
-                f"{event}: {len(cmds)} hook command(s) declared",
-                {"commands": cmds},
-            )
-        )
+        missing = [s for c in cmds if c for s in _missing_hook_scripts(c, plugin_root)]
+        status = "fail" if (not cmds or bad or missing) else "pass"
+        detail = f"{event}: {len(cmds)} hook command(s) declared"
+        if missing:
+            detail += f"; MISSING script(s): {missing}"
+        out.append(CapResult(f"hook:{event}", "hooks", status, detail, {"commands": cmds}))
     return out or [CapResult("hooks", "hooks", "fail", "hooks file declares no events")]
 
 

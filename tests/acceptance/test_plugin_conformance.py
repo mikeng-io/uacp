@@ -27,8 +27,8 @@ sys.path.insert(0, str(REPO / "acceptance"))
 import conformance  # noqa: E402
 
 
-def test_real_plugin_install_is_conformant():
-    # the shipped plugin exposes every expected capability, actionable, through the real launch.
+def test_plugin_source_is_conformant():
+    # the shipped plugin SOURCE exposes every expected capability, actionable, via the real launch.
     res = conformance.run(REPO)
     failed = [c for c in res["capabilities"] if c["status"] != "pass"]
     assert res["pass"] is True, failed
@@ -56,3 +56,17 @@ def test_probe_catches_a_broken_skill(tmp_path):
     (fake / "SKILL.md").write_text("---\ndescription: no name here\n---\nbody\n")
     results = conformance.probe_skills(tmp_path)
     assert any(c.status == "fail" and c.name == "skill:broken" for c in results)
+
+
+def test_probe_catches_a_missing_hook_script(tmp_path):
+    # NON-VACUITY for hooks (council): a hook command referencing a script that does NOT exist FAILs
+    # (the "hook declared but path moved/deleted" packaging regression).
+    (tmp_path / ".claude-plugin").mkdir(parents=True)
+    (tmp_path / ".claude-plugin" / "plugin.json").write_text('{"hooks": "./hooks/hooks.json"}')
+    (tmp_path / "hooks").mkdir()
+    (tmp_path / "hooks" / "hooks.json").write_text(
+        '{"hooks": {"PreToolUse": [{"hooks": ['
+        '{"command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/ghost.py"}]}]}}'
+    )
+    results = conformance.probe_hooks(tmp_path)
+    assert any(c.status == "fail" and "MISSING" in c.detail for c in results)

@@ -1,0 +1,10 @@
+# Build-context hygiene for the acceptance/Dockerfile (compose context is the repo root). The
+# conformance prober needs the plugin source (skills/, runtime-adapters/, .claude-plugin/, hooks/,
+# acceptance/, tests/) — NOT history, caches, worktrees, or local output.
+.git
+.worktrees
+**/__pycache__
+**/*.pyc
+.venv
+acceptance/out
+.uacp

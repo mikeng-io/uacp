@@ -29,10 +29,10 @@ quality: lint format types
 test:
 	pytest tests/ -n auto -q
 
-# E2E acceptance harness — plugin conformance (Increment 0) in a clean container: install the plugin,
-# launch the MCP server as plugin.json configures it, assert the surface == tool_specs() + hooks +
-# skills are actionable. The deterministic prober also runs in `make test` (tests/acceptance/); this
-# target is the containerized real-install smoke. Needs docker.
+# E2E acceptance harness — plugin conformance (Increment 0) in a clean container: launch the MCP
+# server as plugin.json configures it, assert the surface == tool_specs() + hooks/skills are loadable.
+# The deterministic prober also runs in `make test` (tests/acceptance/); this target is the
+# containerized plugin-source conformance smoke (not a `claude plugin install` round-trip). Needs docker.
 acceptance:
 	docker compose -f acceptance/compose.yml run --rm conformance
 

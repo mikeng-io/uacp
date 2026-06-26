@@ -24,6 +24,11 @@ COPY . /uacp
 RUN uv run --no-project --with "mcp>=1.0" --with anyio --with pyyaml --with "pydantic>=2.0" \
     --with "jsonschema>=4.0" python -c "import mcp, anyio, yaml, pydantic, jsonschema; print('deps ok')"
 
+# AFTER the warm build step: force uv to use its (now-populated) cache without touching the registry,
+# so the offline run (network_mode: none) does not DNS-fail on the nested `uv run` server launch.
+# The prober passes UV_* through to that nested launch, so this reaches the server too.
+ENV UV_OFFLINE=1
+
 # Run the prober via uv with its deps (pyyaml for skills, the mcp client, + tool_specs' pydantic/
 # jsonschema chain) — same self-provisioning pattern the plugin uses for the server. uv self-launches
 # the server as a nested `uv run` (deps cached at build, so the run is offline). Exit non-zero if any
