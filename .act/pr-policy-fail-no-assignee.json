@@ -1,0 +1,17 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 999,
+    "title": "feat: add oracle reranker",
+    "head": {
+      "ref": "feat/add-oracle-reranker"
+    },
+    "base": {
+      "ref": "main"
+    },
+    "assignees": [],
+    "labels": [
+      {"id": 1, "name": "type: feat", "color": "0075ca", "description": ""}
+    ]
+  }
+}

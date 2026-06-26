@@ -72,7 +72,10 @@ jobs:
           #   2. Standard: lowercase, hyphens/slashes, no underscores
           #      Each segment: starts [a-z0-9], continues [a-z0-9-], separated by [-/]
           DEPENDABOT = r'dependabot/[a-z0-9_-]+/.+'
-          STANDARD   = r'[a-z][a-z0-9]*(?:[/-][a-z0-9][a-z0-9-]*)*'
+          # [a-z0-9]+ (no hyphen) eliminates the double-membership ReDoS:
+          # hyphens between words are handled by the [/-] separator; segments
+          # themselves contain only alphanumerics.
+          STANDARD   = r'[a-z][a-z0-9]*(?:[/-][a-z0-9]+)*'
           pattern = rf'^(?:{DEPENDABOT}|{STANDARD})$'
           if not re.fullmatch(pattern, branch):
               print(f"::error title=Invalid branch name::Branch '{branch}' violates naming convention.")
