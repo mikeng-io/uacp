@@ -34,18 +34,16 @@ jobs:
           # can redden unrelated PRs if unpinned. Bump deliberately.
           pip install -e '.[dev]'
 
-      # Scoped to the paths kept clean under the full ruleset. Legacy modules are
-      # intentionally NOT linted here (relaxed to pyflakes-only via per-file-ignores).
+      # Paths and pyright scope are owned by the Makefile — CI just calls targets
+      # so there is one source of truth for both local dev and CI.
       - name: Ruff lint
-        run: ruff check skills/uacp-core/scripts/engines/ tests/e2e/
+        run: make lint
 
       - name: Ruff format check
-        run: ruff format --check skills/uacp-core/scripts/engines/ tests/e2e/
+        run: make format
 
-      # Strict type-checking is scoped to the freshly-extracted, fully-typed engine
-      # packages. Grow this path list as each package is extracted and typed.
       - name: Pyright (strict-scoped engines)
-        run: pyright skills/uacp-core/scripts/engines/guardian skills/uacp-core/scripts/engines/domain/paths.py skills/uacp-core/scripts/engines/heartgate/models.py skills/uacp-core/scripts/engines/heartgate/validators/helpers.py
+        run: make types
 
   test:
     name: pytest (3.13)
@@ -74,7 +72,7 @@ jobs:
           pip install -e '.[dev,mcp]'
 
       - name: Run tests
-        run: pytest tests/ -n auto -q
+        run: make test
 
   # Forward-compatibility check — runs only after merge to main, not on PRs.
   # A 3.14 breakage is a follow-up ticket, not a merge blocker.
@@ -101,4 +99,4 @@ jobs:
           pip install -e '.[dev,mcp]'
 
       - name: Run tests
-        run: pytest tests/ -n auto -q
+        run: make test
