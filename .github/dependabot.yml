@@ -1,11 +1,42 @@
 version: 2
 updates:
+  # ── Root Python package ──────────────────────────────────────────────────
   - package-ecosystem: pip
     directory: "/"
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
+    groups:
+      # ruff + pyright are deliberately PINNED — bumping them triggers
+      # reformatting / type-check churn. Isolated group signals "needs review".
+      lint-tools:
+        patterns:
+          - "ruff"
+          - "pyright"
+      test-deps:
+        patterns:
+          - "pytest*"
+      mcp-extras:
+        patterns:
+          - "mcp"
+          - "anyio"
+      oracle-extras:
+        patterns:
+          - "lancedb"
+          - "sentence-transformers"
+          - "httpx"
+      runtime-deps:
+        patterns:
+          - "pydantic*"
+          - "pyyaml"
+          - "jsonschema"
+      build-tools:
+        patterns:
+          - "setuptools"
+          - "build"
+          - "wheel"
+          - "pip"
     assignees:
       - mikeng-io
     labels:
@@ -14,12 +45,75 @@ updates:
     commit-message:
       prefix: "chore(deps)"
 
+  # ── Codeflair sub-package ────────────────────────────────────────────────
+  - package-ecosystem: pip
+    directory: "/codeflair"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      codeflair-deps:
+        patterns:
+          - "*"
+    assignees:
+      - mikeng-io
+    labels:
+      - "type: chore"
+      - "area: deps"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # ── Codeflair vendored SCIP indexers (npm) ───────────────────────────────
+  # Rarely changes; monthly cadence avoids noise.
+  - package-ecosystem: npm
+    directory: "/codeflair/vendor"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      vendor-indexers:
+        patterns:
+          - "*"
+    assignees:
+      - mikeng-io
+    labels:
+      - "type: chore"
+      - "area: deps"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # ── Pre-commit hook revs ─────────────────────────────────────────────────
+  # Keeps .pre-commit-config.yaml rev pins in sync with pyproject.toml.
+  - package-ecosystem: pre-commit
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      pre-commit-hooks:
+        patterns:
+          - "*"
+    assignees:
+      - mikeng-io
+    labels:
+      - "type: chore"
+      - "area: deps"
+    commit-message:
+      prefix: "chore(deps)"
+
+  # ── GitHub Actions ───────────────────────────────────────────────────────
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
     assignees:
       - mikeng-io
     labels:

@@ -1,0 +1,25 @@
+# Install both hook types with: pre-commit install --hook-type pre-commit --hook-type pre-push
+# Or set the default here so `pre-commit install` wires both automatically:
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  # ── Ruff: lint + format on every commit ─────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.17  # keep in sync with pyproject.toml [dev] ruff pin
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # ── Branch name convention: enforced at push time ────────────────────────
+  # Mirror of the server-side check in .github/workflows/pr-policy.yml.
+  # Catches violations before the push reaches GitHub.
+  - repo: local
+    hooks:
+      - id: branch-name-convention
+        name: Branch name convention
+        language: script
+        entry: .github/hooks/check-branch-name.sh
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
