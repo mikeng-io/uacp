@@ -30,7 +30,7 @@ dev = [
     # Pinned: ruff's formatter is version-sensitive; an unpinned range lets CI
     # float to a newer release that reformats files and reddens unrelated PRs.
     # Bump deliberately, reformatting in the same commit (also pinned in CI).
-    "ruff==0.15.17",
+    "ruff==0.15.20",
     # Pinned: same rationale as ruff — new pyright releases add type findings
     # that can redden unrelated PRs. Bump deliberately. Also pinned in CI.
     "pyright==1.1.410",
