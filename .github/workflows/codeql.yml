@@ -7,12 +7,11 @@ on:
       - "**.py"
       - ".github/workflows/codeql.yml"
       - ".github/codeql/codeql-config.yml"
+  # No paths filter on pull_request: the ruleset requires "Analyze (python)"
+  # as a status check. If paths filters silence the workflow, GitHub never
+  # creates the check run and the PR is permanently blocked.
   pull_request:
     branches: [main]
-    paths:
-      - "**.py"
-      - ".github/workflows/codeql.yml"
-      - ".github/codeql/codeql-config.yml"
   # Weekly sweep catches vulnerabilities introduced via dependencies,
   # not just code changes.
   schedule:

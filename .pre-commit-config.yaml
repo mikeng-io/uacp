@@ -1,3 +1,7 @@
+# Install both hook types with: pre-commit install --hook-type pre-commit --hook-type pre-push
+# Or set the default here so `pre-commit install` wires both automatically:
+default_install_hook_types: [pre-commit, pre-push]
+
 repos:
   # ── Ruff: lint + format on every commit ─────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
