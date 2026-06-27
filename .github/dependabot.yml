@@ -83,6 +83,26 @@ updates:
     commit-message:
       prefix: "chore(deps)"
 
+  # ── Pre-commit hook revs ─────────────────────────────────────────────────
+  # Keeps .pre-commit-config.yaml rev pins in sync with pyproject.toml.
+  - package-ecosystem: pre-commit
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      pre-commit-hooks:
+        patterns:
+          - "*"
+    assignees:
+      - mikeng-io
+    labels:
+      - "type: chore"
+      - "area: deps"
+    commit-message:
+      prefix: "chore(deps)"
+
   # ── GitHub Actions ───────────────────────────────────────────────────────
   - package-ecosystem: github-actions
     directory: "/"
