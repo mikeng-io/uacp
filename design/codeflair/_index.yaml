@@ -70,7 +70,10 @@ edges:
   - {src: 14-prior-art-and-adoption, dst: 00-overview, rel: relates_to, provenance: asserted}
   - {src: 15-completion-roadmap, dst: 00-overview, rel: realizes, provenance: asserted}
   - {src: 15-completion-roadmap, dst: 10-freshness, rel: depends_on, provenance: asserted}
+  - {src: 15-completion-roadmap, dst: 11-substrate, rel: depends_on, provenance: asserted}
   - {src: 15-completion-roadmap, dst: 12-delivery, rel: depends_on, provenance: asserted}
+  - {src: 15-completion-roadmap, dst: 04-outputs, rel: depends_on, provenance: asserted}
+  - {src: 15-completion-roadmap, dst: 09-abstraction, rel: depends_on, provenance: asserted}
 
 # v1 scope guard (see 00-overview): a code-plane ENGINE — build (SCIP indexing) + store + a read-only
 # query layer (heatmap). The build-side writes a rebuildable index (a derived cache, not governed state);

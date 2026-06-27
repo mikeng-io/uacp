@@ -13,7 +13,6 @@ tags: [uacp, entry-points, cli, mcp, command-registry, clean-architecture, tool-
 timestamp: 2026-06-23
 edges:
   - {dst: 01-command-map, rel: depends_on, provenance: asserted}
-  - {dst: ../graph-engine/02-decisions, rel: relates_to, provenance: asserted}   # D8 (uacp-lint/fmt) + node 33
 ---
 
 # Unified Entry Points — one registry, two thin adapters
@@ -99,6 +98,9 @@ agent *runtime* wraps it with the PreToolUse hook; nothing wraps a bare CLI.)
 - **D8 / node 33** (`uacp-lint` + `uacp-fmt` = one skill, two subcommands over `schema.py`) are the
   FIRST commands folded into this registry — `uacp lint` / `uacp fmt`. This bundle is the umbrella
   that the lint/fmt CLI plugs into, not a competing CLI.
+  See [graph-engine/02-decisions](../graph-engine/02-decisions.md) — D8 (uacp-lint/fmt) and node 33
+  (schema-reconciliation) are the load-bearing decisions from that bundle that ground this entry-point
+  design.
 - **node 34** (Manifest engine) + the governed writers are the governed-mutating class's home; the
   CLI/MCP adapters expose them, the engine owns them.
 

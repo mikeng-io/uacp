@@ -1,7 +1,12 @@
 ---
 type: design
 title: The Council Method — the generative gate run as a panel
-description: The council is the generative gate run as a panel. ENUMERATE / ASSIGN-one-verifier / DIVERSE-LENS already exist as uacp-council's finding-driven mode + tiers + cross-provider panel — so this node narrows to the genuine delta: the adversarial DEFAULT-TO-REFUTE + MAJORITY-CLEAR decision rule, and serializing the panel's verdicts into the investigation ledger.
+description: >-
+  The council is the generative gate run as a panel. ENUMERATE / ASSIGN-one-verifier /
+  DIVERSE-LENS already exist as uacp-council's finding-driven mode + tiers + cross-provider
+  panel — so this node narrows to the genuine delta: the adversarial DEFAULT-TO-REFUTE +
+  MAJORITY-CLEAR decision rule, and serializing the panel's verdicts into the investigation
+  ledger.
 tags: [verification, council, adversarial, default-to-refute, generative-gate]
 timestamp: 2026-06-24
 edges:

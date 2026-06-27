@@ -6,6 +6,7 @@ tags: [codeflair, probes, scip, lsp, grep, co-change, code-anchor, cross-plane]
 timestamp: 2026-06-24
 edges:
   - {dst: 01-contract, rel: depends_on, provenance: asserted}
+  - {dst: 01b-store, rel: consumes, provenance: asserted}
 ---
 
 # Codeflair — Probes & the Reconcile Job

@@ -4,6 +4,7 @@ title: Graph Engine — Glossary, Terminology & Topology (canonical)
 description: The single authoritative naming for planes, engines, gates, stores, modules, and core data-model terms — plus the topology and a deprecated-terms map — to prevent cognition drift. Reflects D1–D29.
 tags: [graph-engine, glossary, terminology, topology, reference]
 timestamp: 2026-06-20
+edges: []
 ---
 
 # Glossary, Terminology & Topology (canonical)
