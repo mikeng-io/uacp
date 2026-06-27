@@ -23,13 +23,23 @@ uvx --from git+https://github.com/oraios/serena serena start-mcp-server \
 | Flag | Why |
 |---|---|
 | `--context claude-code` (CC) / `--context ide` (Kimi) | Host-appropriate tool/prompt profile. `claude-code` is Serena's built-in context for Claude Code (per its client docs); Kimi has no dedicated context, so the generic `ide` profile is used. Verify names with `serena context list`. |
-| `--mode planning` | **Read-only.** Serena's `planning` mode excludes *every* mutator — `create_text_file`, `replace_symbol_body`, `insert_after_symbol`, `insert_before_symbol`, `delete_lines`, `replace_lines`, `insert_at_line`, `execute_shell_command`, `replace_content` — while keeping the query tools (`find_symbol`, `find_referencing_symbols`, `get_symbols_overview`). |
+| `--mode planning` | **Read-only.** Of all built-in modes, `planning` is the *only* one whose `excluded_tools` covers the **complete** mutator set — `create_text_file`, `replace_symbol_body`, `insert_after_symbol`, `insert_before_symbol`, `delete_lines`, `replace_lines`, `insert_at_line`, `execute_shell_command`, `replace_content` — while keeping the query tools (`find_symbol`, `find_referencing_symbols`, `get_symbols_overview`). (`onboarding` is close but leaves `replace_content`; `editing` keeps most editors.) Its own description is "Only read-only tools." |
 | `--project-from-cwd` | Auto-activates the current workspace so symbol lookups work without manual project activation. Serena documents this flag as "intended for CLI-based agents like Claude Code, Gemini and Codex." |
 | `--enable-web-dashboard false` | Serena's defaults are `web_dashboard: true` + `web_dashboard_open_on_launch: true`, i.e. it opens a **browser tab on every launch** and binds a dashboard port. For a plugin that starts Serena every session that is noise + port churn, so the bundled overlay runs headless. |
 
 The official Claude Code setup (`serena start-mcp-server --context claude-code
 --project-from-cwd`) is the baseline; `--mode planning` and
 `--enable-web-dashboard false` are UACP-specific hardening on top.
+
+**Mode choice.** Serena modes compose (`--mode` is repeatable). We use `planning`
+*alone* and deliberately do **not** add `one-shot` — its prompt makes Serena
+autonomous and tells it to "assume auto-approval for all tools," the opposite of a
+read-only query overlay. A *custom* mode (same exclusions, neutral prompt) would
+drop planning's "make a plan" framing, but shipping a mode **file** is awkward on
+Kimi: the relative `--mode` path needs `cwd`=plugin-dir, which collides with
+`--project-from-cwd` (needs `cwd`=user-project). `planning` is referenced by name,
+so it works uniformly on both runtimes — the prompt framing is a harmless cosmetic
+for tool-only use.
 
 ## Governance — why read-only
 
