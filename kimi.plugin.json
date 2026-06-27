@@ -16,7 +16,9 @@
         "serena",
         "start-mcp-server",
         "--context",
-        "agent",
+        "ide",
+        "--mode",
+        "planning",
         "--project-from-cwd"
       ],
       "env": {

@@ -39,6 +39,8 @@
         "start-mcp-server",
         "--context",
         "claude-code",
+        "--mode",
+        "planning",
         "--project-from-cwd"
       ],
       "env": {
