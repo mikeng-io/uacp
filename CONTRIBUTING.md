@@ -130,6 +130,11 @@ human/agent rule.
 - Co-author trailers are preserved.
 - Never amend a pushed commit; create a follow-up commit.
 
+## Pull request conventions
+
+- Title, `type:` label, assignee, and branch name (`<type>/description`) are **hard-gated** by the PR Policy workflow.
+- PR body: GitHub auto-loads `.github/pull_request_template.md` (a scaffold, not gated). Fill `## What` and `## Verified` on every PR; add `## Review` when the change touches kernel, policy YAML, or canonical docs (Invariant #4); add `## Links` / `## Deferred` when relevant. Delete the rest.
+
 ## What requires operator authorization (not contributor-self-authorized)
 
 The list below distinguishes **mechanically enforced** (kernel refuses; no operator override possible without explicit policy change) from **authoring contract** (no kernel enforcement today; the rule is documentation-only and depends on contributor discipline).
