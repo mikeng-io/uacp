@@ -16,9 +16,11 @@
         "serena",
         "start-mcp-server",
         "--context",
-        "ide",
+        "agent",
         "--mode",
         "planning",
+        "--mode",
+        "no-memories",
         "--project-from-cwd",
         "--enable-web-dashboard",
         "false"

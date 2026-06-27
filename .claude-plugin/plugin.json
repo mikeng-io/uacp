@@ -38,9 +38,9 @@
         "serena",
         "start-mcp-server",
         "--context",
-        "claude-code",
+        "agent",
         "--mode",
-        "planning",
+        "${CLAUDE_PLUGIN_ROOT}/runtime-adapters/serena-readonly.yml",
         "--project-from-cwd",
         "--enable-web-dashboard",
         "false"
