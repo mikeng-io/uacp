@@ -1,0 +1,19 @@
+{
+  "action": "opened",
+  "pull_request": {
+    "number": 999,
+    "title": "Adding oracle reranker without conventional commits prefix",
+    "head": {
+      "ref": "feat/add-oracle-reranker"
+    },
+    "base": {
+      "ref": "main"
+    },
+    "assignees": [
+      {"login": "mikeng-io", "id": 1}
+    ],
+    "labels": [
+      {"id": 1, "name": "type: feat", "color": "0075ca", "description": ""}
+    ]
+  }
+}

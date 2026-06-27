@@ -1,4 +1,4 @@
-.PHONY: lint format fmt types quality test acceptance ci-pr ci-push help
+.PHONY: lint format fmt types quality test acceptance ci-pr ci-push act-pr-policy act-pr-policy-fail-assignee act-pr-policy-fail-title act-pr-policy-fail-branch help
 .DEFAULT_GOAL := help
 
 ENGINES := skills/uacp-core/scripts/engines/
@@ -44,6 +44,38 @@ ci-pr:
 ci-push:
 	act push -W .github/workflows/ci.yml
 
+# Run PR Policy locally with a passing event (all 4 checks green).
+act-pr-policy:
+	act pull_request -W .github/workflows/pr-policy.yml \
+	    --eventpath .act/pr-policy-pass.json
+
+# Run PR Policy with a missing-assignee event — expect a failing exit.
+act-pr-policy-fail-assignee:
+	@act pull_request -W .github/workflows/pr-policy.yml \
+	    --eventpath .act/pr-policy-fail-no-assignee.json; \
+	  code=$$?; \
+	  [ $$code -ne 0 ] \
+	    && echo "PASS: workflow correctly rejected PR with no assignee (exit $$code)." \
+	    || echo "FAIL: expected non-zero exit, got 0."
+
+# Run PR Policy with a bad PR title — expect a failing exit.
+act-pr-policy-fail-title:
+	@act pull_request -W .github/workflows/pr-policy.yml \
+	    --eventpath .act/pr-policy-fail-bad-title.json; \
+	  code=$$?; \
+	  [ $$code -ne 0 ] \
+	    && echo "PASS: workflow correctly rejected bad PR title (exit $$code)." \
+	    || echo "FAIL: expected non-zero exit, got 0."
+
+# Run PR Policy with a bad branch name — expect a failing exit.
+act-pr-policy-fail-branch:
+	@act pull_request -W .github/workflows/pr-policy.yml \
+	    --eventpath .act/pr-policy-fail-bad-branch.json; \
+	  code=$$?; \
+	  [ $$code -ne 0 ] \
+	    && echo "PASS: workflow correctly rejected bad branch name (exit $$code)." \
+	    || echo "FAIL: expected non-zero exit, got 0."
+
 help:
 	@echo "Targets:"
 	@echo "  lint       ruff check (scoped to engines + e2e)"
@@ -53,5 +85,7 @@ help:
 	@echo "  quality    lint + format + types"
 	@echo "  test       pytest -n auto (all suites)"
 	@echo "  acceptance E2E plugin-conformance smoke in a container (needs docker)"
-	@echo "  ci-pr      act pull_request — simulate PR gate locally"
-	@echo "  ci-push    act push — simulate post-merge jobs locally"
+	@echo "  ci-pr                  act pull_request — simulate PR gate locally"
+	@echo "  ci-push                act push — simulate post-merge jobs locally"
+	@echo "  act-pr-policy          run PR Policy with a passing event"
+	@echo "  act-pr-policy-fail-*   run PR Policy with a failing event (assignee/title/branch)"
