@@ -62,12 +62,6 @@ import sys
 from pathlib import Path
 from typing import Any, Mapping
 
-# --- sys.path: make the runtime-neutral kernel importable -------------------
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-_CORE_SCRIPTS = _REPO_ROOT / "skills" / "uacp-core" / "scripts"
-if str(_CORE_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_CORE_SCRIPTS))
-
 # Host tools that perform a raw file mutation (Claude Code / Kimi Code names).
 _RAW_WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 

@@ -41,15 +41,28 @@ def test_add_edge_rejects_unknown_provenance():
 
 
 def test_edges_are_tagged_and_counted_by_source():
-    """Fused store, edges partitioned by source for independent freshness/counting."""
+    """Fused store, edges partitioned by EDGE source for independent freshness/counting.
+    The only edge-emitting sources are scip (parsed) and tree_sitter (syntactic floor)."""
     s = Store()
     s.add_edge(Edge("a", "b", "calls", "scip"))
-    s.add_edge(Edge("a", "b", "co_change", "co_change", provenance="inferred"))
     s.add_edge(Edge("c", "b", "references", "tree_sitter", provenance="syntactic"))
-    assert s.count_edges() == 3
+    assert s.count_edges() == 2
     assert s.count_edges(source="scip") == 1
-    assert s.count_edges(source="co_change") == 1
     assert s.count_edges(source="tree_sitter") == 1
+
+
+def test_add_edge_rejects_coupling_and_overlay_sources():
+    """D3: the persisted-edge enum is the EDGE axis only. grep/co_change are coupling-axis
+    signals (VALID_COUPLING), not edges; lsp is a query-time overlay tag (always-live,
+    never persisted — OD-1). None of them may be a stored edge source."""
+    s = Store()
+    for bad in ("grep", "co_change", "lsp"):
+        with pytest.raises(ValueError, match="unknown edge source"):
+            s.add_edge(Edge(src="a", dst="b", rel="calls", source=bad))
+    # the two real edge producers are still accepted
+    s.add_edge(Edge("a", "b", "calls", "scip"))
+    s.add_edge(Edge("c", "b", "references", "tree_sitter", provenance="syntactic"))
+    assert s.count_edges() == 2
 
 
 def test_replace_source_file_is_source_scoped():
@@ -59,15 +72,15 @@ def test_replace_source_file_is_source_scoped():
     s.add_symbol(Symbol(symbol="A", file="a.go"))
     s.add_symbol(Symbol(symbol="B", file="a.go"))
     s.add_edge(Edge("A", "B", "calls", "scip"))
-    s.add_edge(Edge("A", "B", "co_change", "co_change", provenance="inferred"))
+    s.add_edge(Edge("A", "B", "references", "tree_sitter", provenance="syntactic"))
     # re-ingest a.go's SCIP edges (now A no longer calls B)
     s.replace_source_file("scip", "a.go", edges=[])
     assert s.count_edges(source="scip") == 0  # scip edge replaced away
-    assert s.count_edges(source="co_change") == 1  # co_change edge untouched
+    assert s.count_edges(source="tree_sitter") == 1  # the other source untouched
 
 
 def test_replace_source_file_rejects_mismatched_edge_source():
     s = Store()
     s.add_symbol(Symbol(symbol="A", file="a.go"))
     with pytest.raises(ValueError, match="!= replace source"):
-        s.replace_source_file("scip", "a.go", edges=[Edge("A", "B", "calls", "lsp")])
+        s.replace_source_file("scip", "a.go", edges=[Edge("A", "B", "calls", "tree_sitter")])

@@ -79,7 +79,7 @@ UACP is designed to support multiple runtimes. The following runtimes are planne
 | Runtime | Source path | Binding status |
 |---|---|---|
 | Hermes | `runtime-adapters/hermes/` | Live (user-plugin symlinks) |
-| Claude Code | `runtime-adapters/claude-code/` | Planned |
+| Claude Code | `runtime-adapters/claude/` | Planned |
 | Codex | `runtime-adapters/codex/` | Planned |
 | OpenCode | `runtime-adapters/opencode/` | Planned |
 | Kimi | `runtime-adapters/kimi/` | Planned |

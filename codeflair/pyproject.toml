@@ -9,11 +9,18 @@ description = "Deterministic code-intelligence engine: index a codebase into a f
 requires-python = ">=3.10"
 dependencies = []
 
+# The CLI delivery face (P7, 12-delivery): `codeflair query` / `codeflair index` / `codeflair mcp`.
+[project.scripts]
+codeflair = "codeflair.cli:main"
+
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "ruff>=0.15"]
 # tree-sitter breadth floor (CF-D14): syntactic symbols for all languages, no external
 # SCIP indexer. Pinned to the stable classic-API combo (0.25/language-pack churn the API).
 treesitter = ["tree-sitter==0.21.3", "tree-sitter-languages==1.10.2"]
+# MCP delivery face (P7, 12-delivery face #3): the agent-facing query tool. Optional — the
+# server module imports it lazily/guarded so the package installs and runs without it.
+mcp = ["mcp>=1.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -14,13 +14,21 @@ clock via source-scoped delete-and-replace.
 
 from __future__ import annotations
 
+import math
+import os
 import sqlite3
 from dataclasses import dataclass
 
-# Probe sources, in precision order (CF-D14 ladder): scip/lsp parsed > tree_sitter
-# syntactic > grep text > co_change inferred. The store does not rank — it tags;
-# query.py ranks by provenance trust.
-VALID_SOURCES = frozenset({"scip", "lsp", "tree_sitter", "grep", "co_change"})
+# EDGE sources — the only provenances that emit a PERSISTED ``edges`` row. Two real
+# edge producers: scip (parsed symbol edges) and tree_sitter (the syntactic breadth
+# floor, CF-D14). This is the EDGE axis; it is distinct from two other axes (see
+# 11-substrate.md):
+#   - COUPLING axis (VALID_COUPLING): grep -> shared_string, co_change -> co_change
+#     are file-level couplings, NOT edges.
+#   - LSP query-time overlay (OD-1): "lsp" is an always-live, never-persisted
+#     provenance/freshness tag added at query time, NOT a stored edge source.
+# The store does not rank — it tags; query.py ranks by provenance trust.
+VALID_SOURCES = frozenset({"scip", "tree_sitter"})
 VALID_PROVENANCE = frozenset({"parsed", "syntactic", "inferred"})
 
 _SCHEMA = """
@@ -43,12 +51,20 @@ CREATE TABLE IF NOT EXISTS edges(
 CREATE INDEX IF NOT EXISTS i_edges_dst ON edges(dst);
 CREATE INDEX IF NOT EXISTS i_edges_src ON edges(src);
 CREATE TABLE IF NOT EXISTS files(
-    path TEXT PRIMARY KEY, lang TEXT, content_hash TEXT, commit_sha TEXT
+    path TEXT PRIMARY KEY, lang TEXT, content_hash TEXT, commit_sha TEXT,
+    changed_at INTEGER NOT NULL DEFAULT 0   -- INJECTED recency ordinal (commit index / epoch);
+                                            -- 0 = unrecorded -> recency is neutral (P6)
 );
 CREATE TABLE IF NOT EXISTS freshness(
     source TEXT, file TEXT, content_hash TEXT, commit_sha TEXT, tool_version TEXT,
     PRIMARY KEY (source, file)
 );
+CREATE TABLE IF NOT EXISTS symbol_source(
+    source TEXT NOT NULL,                 -- a VALID_SOURCES edge producer that DEFINES the symbol
+    symbol TEXT NOT NULL,                 -- symbols.symbol it owns (per-source ownership axis, F1)
+    PRIMARY KEY (source, symbol)
+);
+CREATE INDEX IF NOT EXISTS i_symsrc_sym ON symbol_source(symbol);
 CREATE TABLE IF NOT EXISTS coupling(
     file_a TEXT NOT NULL,                -- file_a < file_b (canonical unordered pair)
     file_b TEXT NOT NULL,
@@ -58,10 +74,33 @@ CREATE TABLE IF NOT EXISTS coupling(
 );
 CREATE INDEX IF NOT EXISTS i_coupling_a ON coupling(file_a);
 CREATE INDEX IF NOT EXISTS i_coupling_b ON coupling(file_b);
+CREATE TABLE IF NOT EXISTS watermark(
+    repo_commit TEXT, built_at TEXT       -- store-level snapshot id; single row (10-freshness)
+);
 """
 
 # File-level coupling kinds — inferred signals that reference-walking cannot reach.
 VALID_COUPLING = frozenset({"co_change", "shared_string"})
+
+# The per-worktree store cache dir (OD-4): keyed to the worktree/repo root, gitignored.
+STORE_DIR = ".codeflair"
+STORE_FILE = "index.db"
+
+
+def default_store_path(repo_root: str | os.PathLike[str], *, create: bool = False) -> str:
+    """Resolve the per-worktree store path under ``repo_root`` (OD-4).
+
+    git worktrees are N checkouts of one repo at different commits/dirty states; a store
+    built for one is wrong for another. Keying ``.codeflair/`` to the **worktree root**
+    gives each its own watermarked graph — clean isolation, no special logic beyond the
+    keying. The dir is gitignored (same hygiene as ``.worktrees/``). When ``create`` is
+    set the ``.codeflair/`` dir is made (the store file itself is created by SQLite).
+    """
+    root = os.fspath(repo_root)
+    cache = os.path.join(root, STORE_DIR)
+    if create:
+        os.makedirs(cache, exist_ok=True)
+    return os.path.join(cache, STORE_FILE)
 
 
 @dataclass(frozen=True)
@@ -88,10 +127,16 @@ class Store:
     or a per-worktree file path in production. Truth is the files; this is a
     rebuildable, watermarked projection."""
 
-    def __init__(self, path: str = ":memory:") -> None:
-        self.con = sqlite3.connect(path)
-        self.con.executescript(_SCHEMA)
-        self.con.commit()
+    def __init__(self, path: str = ":memory:", *, read_only: bool = False) -> None:
+        if read_only:
+            # Open an existing index as a READ-ONLY view: no schema creation, no writes —
+            # so a UACP consumer can attach against an index it must not mutate (CF-D9). The
+            # index must already exist and carry the schema; a ro view never creates it.
+            self.con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+        else:
+            self.con = sqlite3.connect(path)
+            self.con.executescript(_SCHEMA)
+            self.con.commit()
 
     # -- writes --------------------------------------------------------------
     def add_symbol(self, sym: Symbol) -> None:
@@ -161,6 +206,177 @@ class Store:
         sql += " ORDER BY weight DESC, other"
         return [(r[0], r[1], r[2]) for r in self.con.execute(sql, params).fetchall()]
 
+    # -- freshness substrate (10-freshness / 11-substrate) -------------------
+    def set_watermark(self, repo_commit: str, built_at: str) -> None:
+        """Set the store-level watermark (single row): the commit this snapshot indexes
+        and *when* it was built. ``built_at`` is INJECTED by the caller — the store never
+        reads the wall clock (determinism belongs to the gate, not buried here)."""
+        self.con.execute("DELETE FROM watermark")
+        self.con.execute(
+            "INSERT INTO watermark(repo_commit, built_at) VALUES (?,?)", (repo_commit, built_at)
+        )
+        self.con.commit()
+
+    def watermark(self) -> tuple[str, str] | None:
+        """The store-level watermark as ``(repo_commit, built_at)``, or ``None`` if unset."""
+        row = self.con.execute("SELECT repo_commit, built_at FROM watermark LIMIT 1").fetchone()
+        return (row[0], row[1]) if row else None
+
+    def record_file(
+        self,
+        path: str,
+        content_hash: str,
+        *,
+        lang: str = "",
+        commit_sha: str = "",
+        changed_at: int = 0,
+    ) -> None:
+        """Record (or update) a file's content hash — the freshness anchor a dirty-tree
+        compare checks against (10-freshness). Re-recording the same path updates in place.
+
+        ``changed_at`` is the INJECTED recency ordinal (a commit index / epoch day — the
+        caller's reference scale; the store never reads the wall clock). It feeds the P6
+        recency term; 0 (the default) means 'unrecorded' -> recency stays neutral."""
+        self.con.execute(
+            "INSERT OR REPLACE INTO files(path,lang,content_hash,commit_sha,changed_at) "
+            "VALUES (?,?,?,?,?)",
+            (path, lang, content_hash, commit_sha, changed_at),
+        )
+
+    def record_freshness(
+        self,
+        source: str,
+        file: str,
+        content_hash: str,
+        *,
+        commit_sha: str = "",
+        tool_version: str = "",
+    ) -> None:
+        """Record a PER-SOURCE freshness row (each source stales on its own clock). The
+        ``(source, file)`` pair is the key; re-ingesting one source's view of a file updates
+        in place without touching another source's row."""
+        if source not in VALID_SOURCES:
+            raise ValueError(
+                f"unknown freshness source {source!r}; expected one of {sorted(VALID_SOURCES)}"
+            )
+        self.con.execute(
+            "INSERT OR REPLACE INTO freshness(source,file,content_hash,commit_sha,tool_version) "
+            "VALUES (?,?,?,?,?)",
+            (source, file, content_hash, commit_sha, tool_version),
+        )
+
+    def file_hash(self, path: str) -> str | None:
+        """The content hash the global ``files`` row recorded for ``path``, or ``None``.
+
+        NOTE: this is the LAST-writer-wins global hash; ``record_file`` overwrites it on every
+        ingest, so it cannot tell WHICH source is stale (F1). The reconcile must NOT trust it
+        for serving — it uses the per-source ``freshness`` rows below. Kept for the P1
+        detection primitive (``compare_file`` with no source) and advisory lookups."""
+        row = self.con.execute("SELECT content_hash FROM files WHERE path=?", (path,)).fetchone()
+        return row[0] if row else None
+
+    def source_file_hash(self, source: str, path: str) -> str | None:
+        """The content hash recorded for ``path`` BY A SPECIFIC source (F1), or ``None`` if
+        that source never indexed the file. Each source stales on its own clock — a
+        tree-sitter re-ingest of a file does not refresh SCIP's view of it — so a node's
+        staleness must be judged against its OWN source's hash, not the global one."""
+        row = self.con.execute(
+            "SELECT content_hash FROM freshness WHERE source=? AND file=?", (source, path)
+        ).fetchone()
+        return row[0] if row else None
+
+    def source_files(self, source: str) -> set[str]:
+        """Every file ``source`` has a freshness row for — the set the delta re-index diffs
+        the working tree against to find what changed/was removed since the last index."""
+        return {
+            r[0]
+            for r in self.con.execute(
+                "SELECT file FROM freshness WHERE source=?", (source,)
+            ).fetchall()
+        }
+
+    def forget_file(self, source: str, path: str) -> None:
+        """Drop a file that no longer exists in the working tree: remove ``source``'s edges
+        for it, its per-source freshness row, the global ``files`` row, and the symbols it
+        defined. Edges are deleted BEFORE the symbols (the edge-delete keys off the symbols'
+        ``file`` column, so the order matters). Source-scoped — other sources are untouched."""
+        if source not in VALID_SOURCES:
+            raise ValueError(f"unknown source {source!r}")
+        owned = self.symbols_owned_in_file(source, path)
+        self.replace_source_file(source, path, [])  # delete this source's edges for the file
+        self.con.execute("DELETE FROM freshness WHERE source=? AND file=?", (source, path))
+        # release this source's ownership of the file's symbols, then GC each one that NO
+        # source still defines — dropping its (possibly cross-file) referencing edges too (F1).
+        for sym in owned:
+            self.drop_symbol_ownership(source, sym)
+            if not self.symbol_owners(sym):
+                self.gc_symbol(sym)
+        if not self.con.execute("SELECT 1 FROM freshness WHERE file=? LIMIT 1", (path,)).fetchone():
+            # no source still indexes this file -> drop the global file row + any residual
+            # (bare-added, unowned) symbols still attributed to it
+            self.con.execute("DELETE FROM symbols WHERE file=?", (path,))
+            self.con.execute("DELETE FROM files WHERE path=?", (path,))
+
+    def file_source_hashes(self, path: str) -> dict[str, str]:
+        """Every source's recorded hash for ``path`` as ``{source: content_hash}`` — for the
+        conservative reconcile of a node with no single source (transitive/coupling)."""
+        return {
+            src: ch
+            for src, ch in self.con.execute(
+                "SELECT source, content_hash FROM freshness WHERE file=?", (path,)
+            ).fetchall()
+        }
+
+    # -- per-source symbol ownership + GC (F1) -------------------------------
+    def record_symbol_source(self, source: str, symbol: str) -> None:
+        """Record that ``source`` OWNS (defines) ``symbol`` — the per-source ownership axis
+        (mirrors the per-source ``freshness`` rows). It lets a single source's delta safely
+        GC a symbol only when NO source still defines it (avoids phantom symbols + dangling
+        cross-file edges on intra-file deletion). Ownership is recorded by the ingest/delta
+        producers, not by a bare ``add_symbol``."""
+        if source not in VALID_SOURCES:
+            raise ValueError(f"unknown source {source!r}; expected one of {sorted(VALID_SOURCES)}")
+        self.con.execute(
+            "INSERT OR IGNORE INTO symbol_source(source, symbol) VALUES (?, ?)", (source, symbol)
+        )
+
+    def symbols_owned_in_file(self, source: str, file: str) -> set[str]:
+        """Symbols ``source`` owns whose definition currently lives in ``file`` — the set a
+        per-file delta diffs against the producer's fresh output to find intra-file deletions."""
+        return {
+            r[0]
+            for r in self.con.execute(
+                "SELECT ss.symbol FROM symbol_source ss JOIN symbols s ON s.symbol = ss.symbol "
+                "WHERE ss.source = ? AND s.file = ?",
+                (source, file),
+            ).fetchall()
+        }
+
+    def drop_symbol_ownership(self, source: str, symbol: str) -> None:
+        """Release ``source``'s ownership of ``symbol`` (it no longer defines it). The symbol
+        is GC'd separately, only once NO source still owns it (the multi-source guard)."""
+        self.con.execute(
+            "DELETE FROM symbol_source WHERE source=? AND symbol=?", (source, symbol)
+        )
+
+    def symbol_owners(self, symbol: str) -> set[str]:
+        """The sources that still own (define) ``symbol`` — empty means it is a phantom that
+        no source defines, so it (and every edge referencing it) may be GC'd."""
+        return {
+            r[0]
+            for r in self.con.execute(
+                "SELECT source FROM symbol_source WHERE symbol=?", (symbol,)
+            ).fetchall()
+        }
+
+    def gc_symbol(self, symbol: str) -> None:
+        """Delete an UNOWNED (phantom) symbol and EVERY edge referencing it (``src`` or
+        ``dst``) — including dangling cross-file edges from files this delta never re-indexed
+        (F1: a `Y -> B` reference in an untouched file must not survive B's deletion)."""
+        self.con.execute("DELETE FROM edges WHERE src=? OR dst=?", (symbol, symbol))
+        self.con.execute("DELETE FROM symbols WHERE symbol=?", (symbol,))
+        self.con.execute("DELETE FROM symbol_source WHERE symbol=?", (symbol,))
+
     def commit(self) -> None:
         self.con.commit()
 
@@ -178,6 +394,59 @@ class Store:
                 "SELECT symbol FROM symbols WHERE file=? ORDER BY line, symbol", (file,)
             ).fetchall()
         ]
+
+    def fan_in(self, symbol: str) -> int:
+        """How many edges land ON ``symbol`` (its incoming-edge count) — the P6 ubiquity
+        signal. A high fan-in marks a utility 'everything calls'; the heat formula divides by
+        ``1 + w·log(fan_in)`` so such a node does not dominate every blast radius."""
+        return self.con.execute(
+            "SELECT COUNT(*) FROM edges WHERE dst=?", (symbol,)
+        ).fetchone()[0]
+
+    def file_changed_at(self, path: str) -> int:
+        """The INJECTED recency ordinal recorded for ``path`` (``record_file``), or 0 if the
+        file is unknown / unrecorded. Feeds the P6 recency term against an injected ``now``."""
+        row = self.con.execute("SELECT changed_at FROM files WHERE path=?", (path,)).fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
+    def cochange_pmi(self, file_a: str, file_b: str) -> float:
+        """Positive pointwise mutual information of the co-change coupling between two files
+        (the P6 temporal term, replacing raw co-change weight).
+
+        ``PMI = log( (w_ab · T) / (s_a · s_b) )`` where ``w_ab`` is the pair's co-change
+        weight, ``s_a``/``s_b`` each file's total co-change mass, and ``T`` the corpus total.
+        Clamped at 0 — only *positive* temporal corroboration adds heat (anti-correlation
+        never penalises a parsed edge). 0 when the two files never co-change. Deterministic."""
+        if file_a == file_b:
+            return 0.0
+        a, b = (file_a, file_b) if file_a < file_b else (file_b, file_a)
+        row = self.con.execute(
+            "SELECT weight FROM coupling WHERE file_a=? AND file_b=? AND kind='co_change'",
+            (a, b),
+        ).fetchone()
+        if not row or not row[0]:
+            return 0.0
+        w_ab = float(row[0])
+        total = float(
+            self.con.execute(
+                "SELECT COALESCE(SUM(weight),0) FROM coupling WHERE kind='co_change'"
+            ).fetchone()[0]
+        )
+
+        def _marginal(f: str) -> float:
+            return float(
+                self.con.execute(
+                    "SELECT COALESCE(SUM(weight),0) FROM coupling "
+                    "WHERE kind='co_change' AND (file_a=? OR file_b=?)",
+                    (f, f),
+                ).fetchone()[0]
+            )
+
+        s_a, s_b = _marginal(file_a), _marginal(file_b)
+        if total <= 0 or s_a <= 0 or s_b <= 0:
+            return 0.0
+        pmi = math.log((w_ab * total) / (s_a * s_b))
+        return pmi if pmi > 0.0 else 0.0
 
     def count_symbols(self) -> int:
         return self.con.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]

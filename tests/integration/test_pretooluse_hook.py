@@ -10,7 +10,7 @@ Two layers:
    is missing, an unknown uacp namespace call denies, empty tool_name denies.
 
 2. SUBPROCESS-LEVEL — invoke the real CLI shim
-   (runtime-adapters/hooks/guardian_pretooluse.py) via python3 with a real CC /
+   (runtime-adapters/shared/guardian_pretooluse.py) via python3 with a real CC /
    Kimi PreToolUse JSON payload on stdin, asserting exit code + parsed stdout.
 """
 
@@ -31,7 +31,7 @@ if str(_CORE_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_CORE_SCRIPTS))
 
 _REAL_CONFIG = _REPO_ROOT / "config"
-_SHIM = _REPO_ROOT / "runtime-adapters" / "hooks" / "guardian_pretooluse.py"
+_SHIM = _REPO_ROOT / "runtime-adapters" / "shared" / "guardian_pretooluse.py"
 
 from config import clear_config_cache, get_config  # noqa: E402
 from core import (  # noqa: E402

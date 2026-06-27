@@ -1,5 +1,5 @@
 {
-  "//": "Claude Code PROJECT dev config for working IN the uacp repo. NOT part of UACP-the-framework (that lives in skills/ + .claude-plugin/ + hooks/hooks.json). Other runtimes (Codex/Kimi) ignore this file.",
+  "//": "Claude Code PROJECT dev config for working IN the uacp repo. NOT part of UACP-the-framework (that lives in skills/ + .claude-plugin/ + runtime-adapters/claude/hooks.json). Other runtimes (Codex/Kimi) ignore this file.",
   "hooks": {
     "PreToolUse": [
       {

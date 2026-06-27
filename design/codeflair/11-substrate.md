@@ -20,18 +20,43 @@ second source of truth. *(Corrects the earlier "SCIP's native SQLite" phrasing.)
 
 ## What it holds — ONE fused store, edges tagged by source
 
-The edges **fuse into one SQLite** — the recursive CTE must walk SCIP + tree-sitter + co-change + LSP
-edges *together*; you can't CTE across separate DBs. Each edge carries its **`source`** so reconcile,
-filtering, and per-source re-ingest work:
+The edges **fuse into one SQLite** — the recursive CTE must walk the SCIP + tree-sitter edge axis
+*together* (you can't CTE across separate DBs), with the coupling axis and the live LSP overlay fused in
+at query time (see "Three axes" below). Each edge carries its **`source`** so reconcile, filtering, and
+per-source re-ingest work:
 
 ```
 symbols(id, lang, file, name, kind, line, commit)            -- nodes
-edges(src_id, dst_id, rel, source, provenance)               -- the RELATIONS, tagged
-        -- source ∈ {scip, tree_sitter, lsp, grep, co_change};  provenance ∈ {parsed, syntactic, inferred, …}
+edges(src_id, dst_id, rel, source, provenance)               -- the RELATIONS, tagged (EDGE axis)
+        -- source ∈ {scip, tree_sitter};  provenance ∈ {parsed, syntactic, …}
+coupling(file_a, file_b, kind, weight)                        -- file-level COUPLING axis: kind ∈ {co_change, shared_string}
 files(path, lang, content_hash, commit)                      -- per-file hash+commit → freshness (10-freshness)
 freshness(source, file, content_hash, commit, tool_version)  -- PER-SOURCE freshness manifest (each source stales independently)
 watermark(repo_commit, built_at)
 ```
+
+### Three axes, not one `source` enum (D3, 15-completion-roadmap.md)
+
+A signal lands on **one of three axes**, and only the first is a persisted `edges.source`:
+
+1. **EDGE axis — `edges.source ∈ {scip, tree_sitter}`.** The two probes that emit *real,
+   persisted symbol→symbol edges*: `scip` (`parsed` — precise reference/call edges) and
+   `tree_sitter` (`syntactic` — the all-language breadth floor, CF-D14). These are the only
+   values `add_edge` accepts. The recursive-CTE blast walk traverses this axis.
+2. **COUPLING axis — `coupling.kind ∈ {co_change, shared_string}`.** `grep` (shared-string
+   tokens) and `co-change` (commit-history correlation) are **file-level couplings, not
+   symbol edges** — there is no `grep`/`co_change` `edges.source`. They project to symbols at
+   query time (`expand.py`, weak/`inferred`-grade), never as walkable edges. This is why
+   `grep`/`co_change` are **rejected** by `add_edge`.
+3. **LSP query-time overlay tier — never persisted (OD-1).** `lsp` is **not** a stored
+   source. The LSP/Serena probe runs *always-live at query time* over the working tree and
+   tags nodes with a freshness provenance (`live`); it writes no `source="lsp"` row. So `lsp`
+   left `VALID_SOURCES` and is a query-time overlay tag, reconciled against the watermark
+   (10-freshness's 3-zone `trusted`/`live`/`unreconciled`), not an ingest-time edge.
+
+The precision ladder (CF-D14) still ranks across all three at fuse time — SCIP/LSP (`parsed`)
+> tree-sitter (`syntactic`) > grep (text) > co-change (`inferred`) — but ranking at query
+time is distinct from *where each signal is stored*.
 
 **Fused for query, partitioned for ingest/freshness.** Each source ingests independently (different
 cadences: SCIP per-commit batch; tree-sitter per-file-save; co-change on git change) via **source-scoped

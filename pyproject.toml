@@ -98,6 +98,11 @@ extraPaths = [
     # bootstraps add this dir). Without it pyright false-flags every
     # `import uacp_guardian` as unresolved.
     "runtime-adapters/hermes/plugins",
+    # Codeflair (the code plane) is an src-layout package with its own venv; add
+    # its src so pyright resolves intra-package `codeflair.*` imports instead of
+    # false-flagging them (its optional tree-sitter dep stays unresolved, as in
+    # the dev venv — that single gated import is expected).
+    "codeflair/src",
 ]
 pythonVersion = "3.13"
 # Basic mode repo-wide (the legacy tree is largely untyped).
