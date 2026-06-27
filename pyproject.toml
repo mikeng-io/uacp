@@ -39,7 +39,7 @@ dev = [
 # Kept out of core `dependencies` so the kernel stays installable on its
 # minimal core (pydantic + pyyaml + jsonschema); install with `pip install -e ".[mcp]"`.
 mcp = [
-    "mcp>=1.0",
+    "mcp>=1.28.1",
     # anyio is imported directly by the server (uacp_mcp_server.py); the mcp SDK
     # also depends on it, but we declare it explicitly so it is never relied on as
     # a transitive-only dep (and so the plugin manifest's drift guard requires it).
