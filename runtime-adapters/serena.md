@@ -49,6 +49,15 @@ Removing the mutators at the source (read-only mode) closes that exposure;
 `memory`/`onboarding` are excluded for the same reason (they create ungoverned
 `.serena/memories/*`).
 
+**Known limitation (cosmetic).** Serena's `base_modes` default to `interactive` +
+`editing` and live in `~/.serena/serena_config.yml`; `--mode` overrides only
+`default_modes`, and there is no CLI flag for base modes. So the `editing` base
+mode's *prompt* still appears in Serena's MCP instructions ("use `replace_symbol_body`
+…"). This is **inert**: the `fixed_tools` allowlist removes those edit tools, so the
+agent cannot act on it — it's contradictory prompt text, not a capability. Clearing
+it would require relocating Serena's whole home via `SERENA_HOME` (which moves its
+runtime state too), not worth it for inert text.
+
 ## Prerequisite — `uv`
 
 Serena runs via `uvx`, so the user needs `uv`/`uvx` on PATH. It is **declared, not
