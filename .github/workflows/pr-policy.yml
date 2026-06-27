@@ -72,11 +72,14 @@ jobs:
           #   2. Typed: an approved TYPE prefix, then hyphen/slash-separated
           #      alphanumeric segments. Types mirror the PR-title / type-label taxonomy.
           DEPENDABOT = r'dependabot/[a-z0-9_-]+/.+'
+          # GitHub auto-revert branches: revert-<PR#>-<original-branch> (machine-generated).
+          # Mirrors the `Revert "..."` exception in the PR-title check above.
+          REVERT = r'revert-[0-9]+-.+'
           # [a-z0-9]+ (no hyphen) eliminates the double-membership ReDoS;
           # hyphens between words are handled by the [/-] separator.
           TYPES = 'feat|fix|chore|docs|design|test|refactor|verify|ci'
           TYPED = rf'(?:{TYPES})[/-][a-z0-9]+(?:[/-][a-z0-9]+)*'
-          pattern = rf'^(?:{DEPENDABOT}|{TYPED})$'
+          pattern = rf'^(?:{DEPENDABOT}|{REVERT}|{TYPED})$'
           if not re.fullmatch(pattern, branch):
               print(f"::error title=Invalid branch name::Branch '{branch}' violates naming convention.")
               print("::error title=Invalid branch name::Format: <type>/description or <type>-description (lowercase, hyphens/slashes, no underscores)")

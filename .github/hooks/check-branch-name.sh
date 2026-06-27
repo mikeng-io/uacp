@@ -9,9 +9,11 @@ branch=$(git rev-parse --abbrev-ref HEAD)
 #   2. Typed: an approved TYPE prefix, then hyphen/slash-separated alphanumeric
 #      segments. Types mirror the PR-title / type-label taxonomy.
 DEPENDABOT='^dependabot/[a-z0-9_-]+/.+'
+# GitHub auto-revert branches: revert-<PR#>-<original-branch> (mirrors the PR-title Revert exception)
+REVERT='^revert-[0-9]+-.+'
 TYPED='^(feat|fix|chore|docs|design|test|refactor|verify|ci)[/-][a-z0-9]+([/-][a-z0-9]+)*$'
 
-if [[ "$branch" =~ $DEPENDABOT ]] || [[ "$branch" =~ $TYPED ]]; then
+if [[ "$branch" =~ $DEPENDABOT ]] || [[ "$branch" =~ $REVERT ]] || [[ "$branch" =~ $TYPED ]]; then
   exit 0
 fi
 
