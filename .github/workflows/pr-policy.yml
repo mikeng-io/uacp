@@ -69,19 +69,23 @@ jobs:
           branch = os.environ['HEAD_REF']
           # Two disjoint alternatives to avoid overlapping quantifiers (ReDoS):
           #   1. dependabot/<ecosystem>/<rest>  (underscores OK inside dependabot paths)
-          #   2. Standard: lowercase, hyphens/slashes, no underscores
-          #      Each segment: starts [a-z0-9], continues [a-z0-9-], separated by [-/]
+          #   2. Typed: an approved TYPE prefix, then hyphen/slash-separated
+          #      alphanumeric segments. Types mirror the PR-title / type-label taxonomy.
           DEPENDABOT = r'dependabot/[a-z0-9_-]+/.+'
-          # [a-z0-9]+ (no hyphen) eliminates the double-membership ReDoS:
-          # hyphens between words are handled by the [/-] separator; segments
-          # themselves contain only alphanumerics.
-          STANDARD   = r'[a-z][a-z0-9]*(?:[/-][a-z0-9]+)*'
-          pattern = rf'^(?:{DEPENDABOT}|{STANDARD})$'
+          # GitHub auto-revert branches: revert-<PR#>-<original-branch> (machine-generated).
+          # Mirrors the `Revert "..."` exception in the PR-title check above.
+          REVERT = r'revert-[0-9]+-.+'
+          # [a-z0-9]+ (no hyphen) eliminates the double-membership ReDoS;
+          # hyphens between words are handled by the [/-] separator.
+          TYPES = 'feat|fix|chore|docs|design|test|refactor|verify|ci'
+          TYPED = rf'(?:{TYPES})[/-][a-z0-9]+(?:[/-][a-z0-9]+)*'
+          pattern = rf'^(?:{DEPENDABOT}|{REVERT}|{TYPED})$'
           if not re.fullmatch(pattern, branch):
               print(f"::error title=Invalid branch name::Branch '{branch}' violates naming convention.")
-              print("::error title=Invalid branch name::Format: type/description or type-description (lowercase, hyphens/slashes, no underscores)")
+              print("::error title=Invalid branch name::Format: <type>/description or <type>-description (lowercase, hyphens/slashes, no underscores)")
+              print("::error title=Invalid branch name::Valid types: feat, fix, chore, docs, design, test, refactor, verify, ci")
               print("::error title=Invalid branch name::Dependabot branches (underscores OK): dependabot/<ecosystem>/<package>")
-              print("::error title=Invalid branch name::Examples: feat/add-oracle, fix-kernel-timeout, gitops/release-strategy, design/graph-engine-v2")
+              print("::error title=Invalid branch name::Examples: feat/add-oracle, fix-kernel-timeout, ci/release-strategy, design/graph-engine-v2")
               sys.exit(1)
           print(f"OK: branch name '{branch}' is valid.")
           PYEOF

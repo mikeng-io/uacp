@@ -6,16 +6,20 @@ branch=$(git rev-parse --abbrev-ref HEAD)
 
 # Two disjoint alternatives (matches pr-policy.yml exactly):
 #   1. dependabot/<ecosystem>/<rest>  — underscores OK
-#   2. Standard: lowercase, alphanumeric segments separated by hyphens or slashes
+#   2. Typed: an approved TYPE prefix, then hyphen/slash-separated alphanumeric
+#      segments. Types mirror the PR-title / type-label taxonomy.
 DEPENDABOT='^dependabot/[a-z0-9_-]+/.+'
-STANDARD='^[a-z][a-z0-9]*([/-][a-z0-9]+)*$'
+# GitHub auto-revert branches: revert-<PR#>-<original-branch> (mirrors the PR-title Revert exception)
+REVERT='^revert-[0-9]+-.+'
+TYPED='^(feat|fix|chore|docs|design|test|refactor|verify|ci)[/-][a-z0-9]+([/-][a-z0-9]+)*$'
 
-if [[ "$branch" =~ $DEPENDABOT ]] || [[ "$branch" =~ $STANDARD ]]; then
+if [[ "$branch" =~ $DEPENDABOT ]] || [[ "$branch" =~ $REVERT ]] || [[ "$branch" =~ $TYPED ]]; then
   exit 0
 fi
 
 echo "pre-push: branch name '$branch' violates convention."
-echo "  Format : type/description  or  type-description"
-echo "  Examples: feat/add-oracle, fix-timeout, chore/update-deps"
+echo "  Format  : <type>/description  or  <type>-description"
+echo "  Types   : feat, fix, chore, docs, design, test, refactor, verify, ci"
+echo "  Examples: feat/add-oracle, fix-timeout, ci/release-strategy"
 echo "  (Underscores are only allowed in dependabot/ branches.)"
 exit 1
