@@ -1,13 +1,14 @@
 ---
-type: design-bundle-index
-title: Work-Unit Status Tracking (Re-derivable)
-description: >
-  Adds re-derivable per-work_unit execution status by extending
-  forced_execute_evidence_blockers in Heartgate to derive coverage from
-  existing PIV + after_work_unit checkpoints — no new artifact, no
-  synchronization obligation, always consistent after interruption.
+type: design
+title: Work-Unit Status Tracking — Overview and Decision Log
+description: >-
+  Why re-derivable per-work_unit status tracking is needed, the seven decisions that
+  define the approach (derivation from PIV + after_work_unit checkpoints, no stored
+  status artifact, optional required flag, goal-driven track boundary), and the
+  accepted-but-deferred backlog items (B1 no-checkpoint self-gate, B2 backward-compat).
 tags: [piv, heartgate, execute, verify, work-unit, status, goal-driven]
 timestamp: 2026-06-26
+edges: []
 ---
 
 # Work-Unit Status Tracking — Design Bundle (v2)
@@ -36,13 +37,6 @@ have been written. This rules out an explicit status index.
 | D5 | Add optional `required: boolean` to PIV `work_unit` schema | Allows PLAN to mark non-critical units as optional; gate only blocks on `required: true` units lacking completion |
 | D6 | Resume: an agent scans PIV + after_work_unit checkpoints to know what to continue | No new protocol — the artifacts already contain the answer; skill docs add the resume procedure |
 | D7 | Commit per-task when suite is green; batch constant-only tasks with first consuming task | Constant changes have no test signal; first task that exercises them is the natural commit boundary. Automated agents: commit on `keep` verdict only |
-
-## Facet Nodes
-
-- [01-status-model.md](01-status-model.md) — derivable status model, resume procedure
-- [02-gate-integration.md](02-gate-integration.md) — Heartgate extension + goal-driven boundary
-- [03-skill-contract.md](03-skill-contract.md) — changes to PLAN / EXECUTE / VERIFY + resume instructions
-- [04-impl-tasks.md](04-impl-tasks.md) — implementation task checklist (worktree + Codeflair required)
 
 ## Backlog (accepted, deferred — not in this change)
 

@@ -1,9 +1,13 @@
 ---
-type: design-node
+type: design
 title: Skill Contract Changes
-bundle: work-unit-status
+description: >-
+  The changes to uacp-plan, uacp-execute, and uacp-verify skill docs required to support
+  work-unit status derivation: PLAN declares work_units + optional required flag, EXECUTE
+  writes after_work_unit checkpoints, VERIFY surfaces the derived status per unit.
 tags: [skill, plan, execute, verify, resume]
 timestamp: 2026-06-26
+edges: []
 ---
 
 # Skill Contract Changes

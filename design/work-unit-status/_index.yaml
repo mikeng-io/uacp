@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the aggregate root of the work-unit-status design bundle.
+# WHAT IT DOES:  lists member nodes (reading order), declares the design's own
+#                inter-node graph, and records status/governance/scope.
+# WHAT IT DOES NOT DO: it does not validate the member nodes (each .md has its own
+#                shape), does not perform closure, carries no node-level data.
+
+kind: design_index
+title: Work-Unit Status Tracking (Re-derivable) — Design Bundle
+description: >-
+  Adds re-derivable per-work_unit execution status by extending
+  forced_execute_evidence_blockers in Heartgate to derive coverage from
+  existing PIV + after_work_unit checkpoints — no new artifact, no
+  synchronization obligation, always consistent after interruption.
+status: accepted                    # enum: design|proposed|accepted|building|built
+governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
+timestamp: '2026-06-26'             # ISO date (YYYY-MM-DD)
+origin: "reconstructed 2026-06-27 from the bundle's prior _index.md (which predated the design_index schema)"
+schema_dir: ../graph-engine/schema/
+
+members:
+  - 00-overview.md
+  - 01-status-model.md
+  - 02-gate-integration.md
+  - 03-skill-contract.md
+  - 04-impl-tasks.md
+
+# No inter-node edges declared by the facet nodes themselves (each is an independent facet).
+edges: []
+
+scope:
+  v1: [per-work_unit-status-derivation, heartgate-gate-extension, piv-work_units, after_work_unit-checkpoints]
+  deferred: [no-checkpoint-self-gate, backward-compat-migration-shim]

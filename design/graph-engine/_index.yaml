@@ -79,6 +79,45 @@ edges:
   - {src: 20-slices-readiness, dst: 02-decisions, rel: sequences, provenance: asserted}
   - {src: 21-council-review, dst: 02-decisions, rel: decides_on, provenance: asserted}
   - {src: 22-context-loop, dst: 11-node-taxonomy, rel: depends_on, provenance: derived}
+  - {src: 23-final-review, dst: 02-decisions, rel: decides_on, provenance: asserted}
+  - {src: 24-asbuilt-manifest-taxonomy, dst: 16a-control-plane-schema, rel: corrects, provenance: asserted}
+  - {src: 24-asbuilt-manifest-taxonomy, dst: 11-node-taxonomy, rel: grounds, provenance: asserted}
+  - {src: 24-asbuilt-manifest-taxonomy, dst: 16-schema-registry, rel: corrects, provenance: asserted}
+  - {src: 25-schema-source-spec, dst: 24-asbuilt-manifest-taxonomy, rel: depends_on, provenance: derived}
+  - {src: 25-schema-source-spec, dst: 16-schema-registry, rel: realizes, provenance: asserted}
+  - {src: 25-schema-source-spec, dst: 02-decisions, rel: realizes, provenance: asserted}
+  - {src: 26-nomenclature, dst: 24-asbuilt-manifest-taxonomy, rel: depends_on, provenance: derived}
+  - {src: 26-nomenclature, dst: 27-directory-taxonomy, rel: relates_to, provenance: asserted}
+  - {src: 27-directory-taxonomy, dst: 26-nomenclature, rel: relates_to, provenance: asserted}
+  - {src: 27-directory-taxonomy, dst: 24-asbuilt-manifest-taxonomy, rel: depends_on, provenance: derived}
+  - {src: 28-component-registry, dst: 26-nomenclature, rel: relates_to, provenance: asserted}
+  - {src: 28-component-registry, dst: 29-ddd-ca-reference, rel: relates_to, provenance: asserted}
+  - {src: 28-component-registry, dst: 18-glossary, rel: supersedes, provenance: asserted}
+  - {src: 29-ddd-ca-reference, dst: 28-component-registry, rel: depends_on, provenance: asserted}
+  - {src: 29-ddd-ca-reference, dst: 30-current-state-decomposition, rel: relates_to, provenance: asserted}
+  - {src: 29-ddd-ca-reference, dst: 31-target-module-graph, rel: relates_to, provenance: asserted}
+  - {src: 30-current-state-decomposition, dst: 29-ddd-ca-reference, rel: depends_on, provenance: asserted}
+  - {src: 30-current-state-decomposition, dst: 31-target-module-graph, rel: relates_to, provenance: asserted}
+  - {src: 31-target-module-graph, dst: 29-ddd-ca-reference, rel: depends_on, provenance: asserted}
+  - {src: 31-target-module-graph, dst: 30-current-state-decomposition, rel: depends_on, provenance: asserted}
+  - {src: 31-target-module-graph, dst: 28-component-registry, rel: realizes, provenance: asserted}
+  - {src: 32-code-naming-conventions, dst: 28-component-registry, rel: depends_on, provenance: asserted}
+  - {src: 32-code-naming-conventions, dst: 29-ddd-ca-reference, rel: depends_on, provenance: asserted}
+  - {src: 32-code-naming-conventions, dst: 31-target-module-graph, rel: depends_on, provenance: asserted}
+  - {src: 33-schema-reconciliation, dst: 02-decisions, rel: depends_on, provenance: asserted}
+  - {src: 33-schema-reconciliation, dst: 24-asbuilt-manifest-taxonomy, rel: depends_on, provenance: asserted}
+  - {src: 33-schema-reconciliation, dst: 25-schema-source-spec, rel: depends_on, provenance: asserted}
+  - {src: 33-schema-reconciliation, dst: 16-schema-registry, rel: relates_to, provenance: asserted}
+  - {src: 33-schema-reconciliation, dst: 34-manifest-engine, rel: relates_to, provenance: asserted}
+  - {src: 34-manifest-engine, dst: 02-decisions, rel: depends_on, provenance: asserted}
+  - {src: 34-manifest-engine, dst: 31-target-module-graph, rel: realizes, provenance: asserted}
+  - {src: 34-manifest-engine, dst: 28-component-registry, rel: depends_on, provenance: asserted}
+  - {src: 34-manifest-engine, dst: 33-schema-reconciliation, rel: depends_on, provenance: asserted}
+  - {src: 34-manifest-engine, dst: 35-entity-writer, rel: relates_to, provenance: asserted}
+  - {src: 35-entity-writer, dst: 02-decisions, rel: depends_on, provenance: asserted}
+  - {src: 35-entity-writer, dst: 34-manifest-engine, rel: depends_on, provenance: asserted}
+  - {src: 35-entity-writer, dst: 33-schema-reconciliation, rel: depends_on, provenance: asserted}
+  - {src: 35-entity-writer, dst: 13-writer-contract, rel: relates_to, provenance: asserted}
 
 # v1 scope guard (see 00-overview): lookup, not synthesis; governance+knowledge planes, code-plane deferred.
 scope:

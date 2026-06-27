@@ -1,6 +1,6 @@
 ---
 type: contract
-title: Graph Engine — Control-Plane Schema: scope, format, unification (extends 16-schema-registry)
+title: "Graph Engine — Control-Plane Schema: scope, format, unification (extends 16-schema-registry)"
 description: The 2026-06-21 brainstorm result — EVERY non-code control-plane artifact has a registered schema, validated on write, via ONE JSON-Schema registry; format-agnostic (YAML doc or OKF Markdown frontmatter); one YAML structural form, NO JSON, gradient-by-discipline; unify the two existing validators.
 tags: [graph-engine, schema, format, control-plane, uacp-schema, validation]
 timestamp: 2026-06-21

@@ -31,11 +31,13 @@ members:
 # DERIVED: a collected mirror of each node's `edges:` frontmatter (uacp-fmt regenerates).
 # rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences|relates_to|corrects|grounds|supersedes.
 edges:
+  - {src: 00-overview, dst: 02-decisions, rel: relates_to, provenance: asserted}
   - {src: 02-decisions, dst: 00-overview, rel: decides_on, provenance: asserted}
   - {src: 10-capsule-format, dst: 00-overview, rel: realizes, provenance: asserted}
   - {src: 20-skill-and-lifecycle, dst: 10-capsule-format, rel: depends_on, provenance: asserted}
+  - {src: 20-skill-and-lifecycle, dst: 02-decisions, rel: relates_to, provenance: asserted}
 
-# scope guard: capture non-reconstructable session context; everything else is out.
+# scope guard: capture non-reconstructable session context; everything else is deferred.
 scope:
-  in: [non-reconstructable-session-context, runtime-neutral, per-workstream, okf-graph-node]
-  out: [reconstructable-content, cc-specific-command, lifecycle-run-state]
+  v1: [non-reconstructable-session-context, runtime-neutral, per-workstream, okf-graph-node]
+  deferred: [reconstructable-content, cc-specific-command, lifecycle-run-state]
