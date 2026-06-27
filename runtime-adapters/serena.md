@@ -30,18 +30,12 @@ uvx --from git+https://github.com/oraios/serena@v1.5.3 serena start-mcp-server \
   --project-from-cwd --enable-web-dashboard false
 ```
 
-**Kimi** (`kimi.plugin.json`) — best-effort via built-in modes (see caveat):
-```
-uvx --from git+https://github.com/oraios/serena@v1.5.3 serena start-mcp-server \
-  --context agent --mode planning --mode no-memories \
-  --project-from-cwd --enable-web-dashboard false
-```
+Serena is **not** wired for Kimi or Hermes (see *Per-runtime status*).
 
 | Flag | Why |
 |---|---|
 | `--context agent` | The **minimal**, non-steering context (~36-char prompt). The "official" `claude-code` context injects a large prompt that *forbids* native Read/Edit and pushes Serena's editing tools — it hijacks the host agent and contradicts our read-only setup, so we do **not** use it. |
 | `--mode <serena-readonly.yml>` (CC) | A **custom read-only mode** shipped in the repo using **`fixed_tools` (an ALLOWLIST), not `excluded_tools`**. Only six tools are ever exposed — `find_symbol`, `find_declaration`, `find_implementations`, `find_referencing_symbols`, `get_symbols_overview`, `get_diagnostics_for_file`. This is **fail-closed**: every mutator, refactor (`rename_symbol`/`safe_delete_symbol`), shell, memory/onboarding, **`activate_project`**, and file-read/grep tool is excluded by *omission*, and a tool added in a future Serena release cannot slip in (the reason a denylist failed review). Referenced by **absolute** path via `${CLAUDE_PLUGIN_ROOT}` (committed files ship via git clone), so no provisioning and no cwd collision with `--project-from-cwd`. |
-| `--mode planning --mode no-memories` (Kimi) | Modes compose (`--mode` is repeatable). Built-in **denylist** fallback because Kimi has no plugin-root variable and a *relative* mode-file path collides with `--project-from-cwd`, so the `fixed_tools` mode file can't be referenced cleanly. **Caveat (weaker than CC):** built-ins do not exclude `rename_symbol`, `safe_delete_symbol`, `activate_project`, or the file-read/grep tools — these remain exposed on Kimi — and the Kimi entry is **unverified** (no Kimi install to test). |
 | `--project-from-cwd` | Auto-activates the current workspace; Serena documents it as "intended for CLI-based agents like Claude Code, Gemini and Codex." |
 | `--enable-web-dashboard false` | Serena defaults `web_dashboard` + `open_on_launch` both **true** → it opens a browser tab + binds a port on every launch. A plugin starts Serena every session, so it runs headless. |
 
@@ -66,12 +60,11 @@ agent loses the live LSP overlay, nothing else breaks).
 - **Claude Code** — full read-only lock-down via the `fixed_tools` allowlist (6
   tools), Serena pinned `@v1.5.3`, install-verified (`claude mcp list` →
   `plugin:uacp:serena … --mode …/serena-readonly.yml … ✔ Connected`).
-- **Kimi** — best-effort denylist (`planning` + `no-memories`); **weaker than CC** —
-  `rename_symbol`, `safe_delete_symbol`, `activate_project`, and file-read/grep tools
-  remain exposed, and the entry is **unverified** (no Kimi install). Tracked for a
-  follow-up once the `fixed_tools` mode can be delivered to Kimi (or the entry
-  deferred). Enable **both** servers in a new session: `/plugins mcp enable uacp
-  uacp` and `/plugins mcp enable uacp serena` (see `kimi/README.md`).
+- **Kimi** — **deferred.** Built-in modes can't exclude `rename_symbol` /
+  `safe_delete_symbol` / `activate_project`, and Kimi has no plugin-root variable to
+  reference the `fixed_tools` mode file cleanly (its relative path collides with
+  `--project-from-cwd`). Rather than ship a leaky, unverified overlay, Serena is not
+  wired for Kimi until the `fixed_tools` mode can be delivered fail-closed.
 - **Hermes** — **deferred.** `runtime-adapters/hermes/` uses native Python plugins,
   not MCP registration, so Serena is not wired there; it would need Hermes's own
   MCP-client mechanism. Out of scope for now.
