@@ -19,10 +19,12 @@
 
 ## Review
 
-<!-- Required when this PR touches kernel code, policy YAML, or canonical docs (Invariant #4):
+<!-- Required when this PR touches kernel code, policy YAML, or canonical docs under docs/
+     (Invariant #4) — note that a docs: change to canonical docs/ DOES require this:
      state who reviewed, material findings, and remediation. Council must include at least one
      cross-provider reviewer (kimi / codex / gemini) — same-provider-only is self-attestation by
-     proxy. Zero unresolved material findings to merge. Delete for docs/chore/ci/test-only PRs. -->
+     proxy. Zero unresolved material findings to merge. Delete ONLY if the PR touches none of those
+     (e.g. a chore/ci/test-only change, or a non-canonical README outside docs/). -->
 
 ## Links
 
