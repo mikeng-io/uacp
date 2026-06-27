@@ -7,6 +7,18 @@
       "command": "python3",
       "args": ["./runtime-adapters/mcp/uacp_mcp_server.py"],
       "cwd": "./"
+    },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena",
+        "serena",
+        "start-mcp-server"
+      ],
+      "env": {
+        "MCP_TIMEOUT": "60000"
+      }
     }
   }
 }
