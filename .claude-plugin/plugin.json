@@ -41,7 +41,9 @@
         "claude-code",
         "--mode",
         "planning",
-        "--project-from-cwd"
+        "--project-from-cwd",
+        "--enable-web-dashboard",
+        "false"
       ],
       "env": {
         "MCP_TIMEOUT": "60000"
