@@ -1,0 +1,12 @@
+name: "UACP CodeQL"
+
+queries:
+  - uses: security-and-quality
+
+# Focus on source code; exclude vendored, generated, and worktree paths.
+paths-ignore:
+  - "codeflair/vendor"
+  - ".worktrees"
+  - "**/__pycache__"
+  - "**/*.pyc"
+  - "acceptance/docker"
