@@ -10,7 +10,7 @@ across runtimes (see [ADR-0020](../docs/architecture/0020-runtime-adapters-regro
 |---|---|---|
 | `shared/` | shared logic | The cross-runtime PreToolUse Guardian shim (`guardian_pretooluse.py`) — identical across runtimes; per-runtime wiring lives in each runtime dir. |
 | `mcp/` | shared logic | The one MCP governed-tools server (`uacp_mcp_server.py`) — all runtimes register the same server. |
-| `claude/` | per-runtime wiring | Claude Code wiring: the SessionStart `UACP.md` injector + how CC registers the shared shim (auto-bundled via `hooks/hooks.json`). |
+| `claude/` | per-runtime wiring | Claude Code wiring: the SessionStart `UACP.md` injector + the `hooks.json` manifest registering both hooks (loaded via plugin.json's explicit `hooks` pointer). |
 | `kimi/` | per-runtime wiring | Kimi Code wiring: reuses `shared/` + `mcp/`; the PreToolUse shim is a manual `~/.kimi-code/config.toml` paste. |
 | `codex/` | per-runtime wiring | Codex wiring: reuses `shared/` + `mcp/`; MCP-governed-only if it has no PreToolUse hook surface (honest degrade). |
 | `hermes/` | per-runtime wiring | The existing Hermes plugins (`uacp_guardian`, `thread_title_sync`) — the native Hermes adapter path. |
@@ -106,13 +106,14 @@ Claude Code:
 | Layer | Mechanism | What it does |
 |---|---|---|
 | Guardian (primary) | MCP governed handlers (`uacp_state_write`, `uacp_doc_write`, …) | Path-bounded, authoritative containment for all governed writes |
-| PreToolUse hook (defense-in-depth) | `hooks/hooks.json` → `runtime-adapters/shared/guardian_pretooluse.py` | Stops raw host `Write`/`Edit` calls into `.uacp/` before dispatch |
+| PreToolUse hook (defense-in-depth) | `runtime-adapters/claude/hooks.json` → `runtime-adapters/shared/guardian_pretooluse.py` | Stops raw host `Write`/`Edit` calls into `.uacp/` before dispatch |
 
-The hook is registered by `plugin.json → "hooks": "./hooks/hooks.json"` and
+The hook is registered by `plugin.json → "hooks": "./runtime-adapters/claude/hooks.json"`
+(an explicit pointer; CC does not require hooks.json at the plugin root) and
 executes on every tool call (`matcher: "*"`). It fails open: if the hook crashes,
 the call proceeds, because the MCP governed handlers provide the authoritative
-containment. (That auto-bundling is Claude-Code-specific. On Kimi the hook is
-installed manually — see [`kimi/README.md`](kimi/README.md).)
+containment. (That pointer-based bundling is Claude-Code-specific. On Kimi the hook
+is installed manually — see [`kimi/README.md`](kimi/README.md).)
 
 ### Verifying the install
 

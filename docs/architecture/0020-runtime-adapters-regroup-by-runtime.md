@@ -14,7 +14,7 @@ status: proposed
 - **Status**: proposed
 - **Date**: 2026-06-27
 - **Decision Makers**: UACP maintainer
-- **Consulted**: as-built `runtime-adapters/` (the `hooks/` + `mcp/` + `hermes/` tree); the Claude Code plugin manifest convention (`.claude-plugin/plugin.json`, `hooks/hooks.json`); the Kimi plugin manifest convention (`kimi.plugin.json`); ADR-0019 (PreToolUse shim narrow scope); ADR-0015 (web backends separate from bridge adapters)
+- **Consulted**: as-built `runtime-adapters/` (the `hooks/` + `mcp/` + `hermes/` tree); the Claude Code plugin manifest convention (`.claude-plugin/plugin.json` must live under `.claude-plugin/`; hooks.json is referenced by an explicit `plugin.json` `hooks` pointer and need not sit at the plugin root); the Kimi plugin manifest convention (`kimi.plugin.json`); ADR-0019 (PreToolUse shim narrow scope); ADR-0015 (web backends separate from bridge adapters)
 - **Informed**: all agents; runtime-adapter / hook authors
 - **Related**: ADR-0019 (the shim this regroup relocates), AGENTS.md Key Invariant #3, `runtime-adapters/README.md`
 
@@ -80,6 +80,7 @@ Target layout:
 | `runtime-adapters/shared/guardian_pretooluse.py` | The cross-runtime PreToolUse Guardian shim (CC + Kimi via `--profile`). Moved from `hooks/`. |
 | `runtime-adapters/mcp/uacp_mcp_server.py` | The one MCP governed-tools server, all runtimes. Unchanged. |
 | `runtime-adapters/claude/inject_uacp_md.py` | Claude-Code-only SessionStart `UACP.md` injector. Moved from `hooks/`. |
+| `runtime-adapters/claude/hooks.json` | The CC hook-registration manifest (SessionStart + PreToolUse). Moved from the plugin root; CC loads it via plugin.json's explicit `hooks` pointer, not by auto-discovery. |
 | `runtime-adapters/claude/README.md` | Claude Code wiring (SessionStart injector + how CC registers the shared shim). |
 | `runtime-adapters/kimi/README.md` | Kimi reuses `shared/` + `mcp/`; the shim is a manual `~/.kimi-code/config.toml` paste. |
 | `runtime-adapters/codex/README.md` | Codex reuses `shared/` + `mcp/`; MCP-governed-only if it has no PreToolUse surface (honest degrade). |
@@ -93,17 +94,29 @@ The *wiring* — how a host discovers and invokes that behavior (a plugin manife
 `config.toml` paste, an MCP registration) — differs per host and lives in the
 runtime's own directory.
 
-**Manifests stay at the convention-mandated plugin root.** Only their internal
-paths change:
-- `.claude-plugin/plugin.json` — `"hooks": "./hooks/hooks.json"` stays; its
-  `mcpServers` arg `${CLAUDE_PLUGIN_ROOT}/runtime-adapters/mcp/uacp_mcp_server.py`
-  stays (the MCP server did not move).
-- `hooks/hooks.json` (plugin root) — stays at the plugin root, but its two command
-  paths move: `…/runtime-adapters/hooks/inject_uacp_md.py` →
-  `…/runtime-adapters/claude/inject_uacp_md.py`; `…/runtime-adapters/hooks/guardian_pretooluse.py`
-  → `…/runtime-adapters/shared/guardian_pretooluse.py`.
-- `kimi.plugin.json` — references only the MCP server (unmoved); it carries no
-  hooks path.
+**Convention-mandated manifests stay at their mandated roots; hooks.json moves
+by-runtime.** Host plugin managers require `plugin.json` to live under
+`.claude-plugin/`, and `kimi.plugin.json` at the plugin root — those do not move.
+But CC's hook-registration manifest, `hooks.json`, is loaded via the **explicit**
+`plugin.json` `hooks` pointer; CC has **no requirement** that it sit at the plugin
+root (the auto-discovery default of `./hooks/hooks.json` is one option, not a
+constraint). So `hooks.json` moves under `claude/` with the rest of CC's wiring,
+and the explicit pointer makes it work — **install-verified**: `claude plugin
+validate --strict` passes, a real `claude plugin install` registers both hooks, and
+`claude plugin details uacp` reports `Hooks (2) SessionStart, PreToolUse`.
+- `.claude-plugin/plugin.json` — stays at `.claude-plugin/` (convention-mandated).
+  Its `hooks` pointer is **repointed** `"./hooks/hooks.json"` →
+  `"./runtime-adapters/claude/hooks.json"`; its `mcpServers` arg
+  `${CLAUDE_PLUGIN_ROOT}/runtime-adapters/mcp/uacp_mcp_server.py` stays (the MCP
+  server did not move).
+- `runtime-adapters/claude/hooks.json` — **moved** from the plugin root into the
+  CC runtime directory. Its two command paths also move:
+  `…/runtime-adapters/hooks/inject_uacp_md.py` →
+  `…/runtime-adapters/claude/inject_uacp_md.py`;
+  `…/runtime-adapters/hooks/guardian_pretooluse.py` →
+  `…/runtime-adapters/shared/guardian_pretooluse.py`.
+- `kimi.plugin.json` — stays at the plugin root (convention-mandated); references
+  only the MCP server (unmoved); it carries no hooks path.
 
 The movers stay two directories deep under the repo
 (`runtime-adapters/<dir>/file.py`), so `guardian_pretooluse.py`'s
@@ -123,26 +136,33 @@ three-`dirname` plugin-root fallback remain correct.
 
 ### Negative Consequences
 
-- A one-time churn of references: `hooks/hooks.json` command paths, test path
-  constants, and doc/config string references all had to move in lockstep. The
-  regrep guard (`grep -rn "runtime-adapters/hooks"` → zero outside this ADR's own
-  migration notes) covers it.
+- A one-time churn of references: the relocation of `hooks.json` (plugin root →
+  `runtime-adapters/claude/`), its internal command paths, the `plugin.json` `hooks`
+  pointer, test path constants, and doc/config string references all had to move in
+  lockstep. The regrep guard (`grep -rn "hooks/hooks.json"` and
+  `grep -rn "runtime-adapters/hooks"` → zero outside this ADR's own migration notes)
+  covers it.
 - `shared/` is a slightly abstract bucket; if it ever grows beyond genuinely
   cross-runtime logic it could re-accrete the "mixed axis" smell. Kept disciplined
   by the rule: `shared/` holds only logic identical across runtimes.
 
 ## Validation
 
-- `tests/unit/skills/test_hook_manifest.py` — `hooks/hooks.json` PreToolUse command
-  resolves to `runtime-adapters/shared/guardian_pretooluse.py` (exists).
+- `tests/unit/skills/test_hook_manifest.py` — `runtime-adapters/claude/hooks.json`
+  PreToolUse command resolves to `runtime-adapters/shared/guardian_pretooluse.py`
+  (exists), and `plugin.json`'s `hooks` pointer equals
+  `./runtime-adapters/claude/hooks.json`.
 - `tests/integration/test_pretooluse_hook.py` — the shim's full narrow-predicate
   matrix runs from its new `shared/` path (function-level + subprocess).
 - `tests/integration/test_sessionstart_inject.py` — the injector runs from its new
   `claude/` path and still injects / fails open.
 - `tests/unit/skills/test_mcp_manifests.py` — the MCP server path is unchanged and
   still resolves.
-- `grep -rn "runtime-adapters/hooks"` returns zero operational references (only this
-  ADR's own old→new migration arrows remain).
+- `grep -rn "runtime-adapters/hooks"` and `grep -rn "hooks/hooks.json"` return zero
+  operational references (only this ADR's own old→new migration arrows remain).
+- `claude plugin validate <root> --strict` passes; a real `claude plugin install`
+  registers both hooks (`claude plugin details uacp` → `Hooks (2) SessionStart,
+  PreToolUse`).
 - The full suite stays green.
 
 ## Related ADRs
@@ -154,4 +174,4 @@ three-`dirname` plugin-root fallback remain correct.
 
 - Implementation: `runtime-adapters/shared/guardian_pretooluse.py`, `runtime-adapters/claude/inject_uacp_md.py`, `runtime-adapters/mcp/uacp_mcp_server.py`
 - Map + per-runtime docs: `runtime-adapters/README.md`; `runtime-adapters/{shared,claude,kimi,codex}/README.md`
-- Manifests: `.claude-plugin/plugin.json`, `hooks/hooks.json`, `kimi.plugin.json`
+- Manifests: `.claude-plugin/plugin.json`, `runtime-adapters/claude/hooks.json`, `kimi.plugin.json`

@@ -53,7 +53,7 @@ Status: accepted (as a bootstrapping exception, not a precedent).
 Canonical targets:
 
 - `AGENTS.md`, `UACP.md`, `docs/architecture/0018-cms-semantic-thinking-principle.md`
-- `runtime-adapters/claude/inject_uacp_md.py`, `hooks/hooks.json`
+- `runtime-adapters/claude/inject_uacp_md.py`, `runtime-adapters/claude/hooks.json`
 - `design/comprehend-measure-serialize/`
 
 Follow-up: once a governed run with mechanical Heartgate enforcement is reproducible, changes of this class MUST go through it — this exception does not generalize. Re-affirm invariant #4 for canonical/kernel changes thereafter.

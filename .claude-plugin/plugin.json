@@ -1,6 +1,6 @@
 {
   "name": "uacp",
-  "description": "Universal Agent Control Plane — runtime-neutral governance with an optional-brainstorm seven-phase lifecycle ((BRAINSTORM)→TRIAGE→PROPOSE→PLAN→EXECUTE→VERIFY→RESOLVE), Guardian/Heartgate enforcement, and Agent Council orchestration, as installable skills.",
+  "description": "Universal Agent Control Plane \u2014 runtime-neutral governance with an optional-brainstorm seven-phase lifecycle ((BRAINSTORM)\u2192TRIAGE\u2192PROPOSE\u2192PLAN\u2192EXECUTE\u2192VERIFY\u2192RESOLVE), Guardian/Heartgate enforcement, and Agent Council orchestration, as installable skills.",
   "version": "0.1.0",
   "author": {
     "name": "mikeng-io",
@@ -9,7 +9,7 @@
   "homepage": "https://github.com/mikeng-io/uacp",
   "repository": "https://github.com/mikeng-io/uacp",
   "license": "MIT",
-  "hooks": "./hooks/hooks.json",
+  "hooks": "./runtime-adapters/claude/hooks.json",
   "mcpServers": {
     "uacp": {
       "command": "uv",

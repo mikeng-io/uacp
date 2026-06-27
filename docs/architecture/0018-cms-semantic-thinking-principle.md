@@ -59,4 +59,4 @@ The three verbs map to three consistencies — comprehend→semantic, measure→
 - **The cognition surface is now real** — the SessionStart hook (`runtime-adapters/claude/inject_uacp_md.py`) injects the preamble; "decoration" was a build gap, now closed.
 - **Follow-up:** (1) cross-runtime injection for Kimi/opencode (their hook formats); (2) finish the `trustless`→`re-derivable` sweep across the bundle and re-ground node 31 against the merged graph engine; (3) a labeled evalset measuring the injection's actual behavioral effect on a host agent.
 
-Canonical targets: `AGENTS.md` (Core Principle section), `design/comprehend-measure-serialize/`, `UACP.md`, `hooks/hooks.json` + `runtime-adapters/claude/inject_uacp_md.py`.
+Canonical targets: `AGENTS.md` (Core Principle section), `design/comprehend-measure-serialize/`, `UACP.md`, `runtime-adapters/claude/hooks.json` + `runtime-adapters/claude/inject_uacp_md.py`.

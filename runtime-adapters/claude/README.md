@@ -1,8 +1,10 @@
 # Claude Code runtime adapter
 
 Claude-Code-specific wiring for the UACP plugin. Two hooks register here, both
-declared in the plugin-root manifest `hooks/hooks.json` (which the plugin manifest
-`.claude-plugin/plugin.json` references via `"hooks": "./hooks/hooks.json"`):
+declared in this directory's manifest `runtime-adapters/claude/hooks.json`, which
+the plugin manifest `.claude-plugin/plugin.json` loads via its explicit pointer
+`"hooks": "./runtime-adapters/claude/hooks.json"` (CC honors the explicit pointer —
+it does not require hooks.json at the plugin root):
 
 | Hook | Surface | File |
 |---|---|---|
@@ -33,10 +35,13 @@ wires the PreToolUse shim on Kimi — see [`../kimi/README.md`](../kimi/README.m
 
 ## Install
 
-Claude Code auto-discovers `hooks/hooks.json` at the plugin root, and the plugin
-manifest (`.claude-plugin/plugin.json`) also references it explicitly via
-`"hooks": "./hooks/hooks.json"`. No manual step is required once the plugin is
-installed. The two wired hooks are:
+Claude Code loads `runtime-adapters/claude/hooks.json` via the plugin manifest's
+explicit pointer (`.claude-plugin/plugin.json` →
+`"hooks": "./runtime-adapters/claude/hooks.json"`). CC's auto-discovery default is
+`./hooks/hooks.json`, which we deliberately do not use — the explicit pointer makes
+the by-runtime placement work (install-verified: `claude plugin validate --strict`
+passes and a real install reports `Hooks (2) SessionStart, PreToolUse`). No manual
+step is required once the plugin is installed. The two wired hooks are:
 
 ```json
 {

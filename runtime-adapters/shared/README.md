@@ -94,7 +94,8 @@ phase and **no** governed-context fields: the predicate is run-state-independent
 The shim is shared; *how a runtime invokes it* is per-runtime and lives in the
 runtime's own directory:
 
-- **Claude Code** — auto-bundled via `hooks/hooks.json` (plugin root). See
+- **Claude Code** — registered via `runtime-adapters/claude/hooks.json`, loaded by
+  plugin.json's explicit `hooks` pointer (not auto-discovery). See
   [`../claude/README.md`](../claude/README.md).
 - **Kimi Code** — one-time manual `~/.kimi-code/config.toml` paste (Kimi's plugin
   manifest ignores a `hooks` field). See [`../kimi/README.md`](../kimi/README.md).
