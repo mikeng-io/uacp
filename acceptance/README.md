@@ -21,8 +21,10 @@ warms a cache:
    if it failed to load or the MCP server didn't connect.
 
 It caught a real ship-to-users bug on its first faithful run: the plugin **failed to load** because
-`plugin.json` declared `hooks: ./hooks/hooks.json` which Claude Code already auto-loads (duplicate).
-That was fixed in the *product* (drop the manifest key) → the plugin loads and the e2e goes green.
+`plugin.json` declared `hooks: ./hooks/hooks.json` — the same path Claude Code auto-discovers by
+default — so it loaded twice (duplicate). Resolution (ADR-0020): the manifest moved to
+`runtime-adapters/claude/hooks.json` (off the auto-discovery default) and the explicit pointer
+`hooks: ./runtime-adapters/claude/hooks.json` loads it once → the plugin loads and the e2e goes green.
 
 ### Run it
 

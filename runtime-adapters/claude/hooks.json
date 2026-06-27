@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/runtime-adapters/hooks/inject_uacp_md.py\"",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/runtime-adapters/claude/inject_uacp_md.py\"",
             "timeout": 10
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/runtime-adapters/hooks/guardian_pretooluse.py\" --profile claude",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/runtime-adapters/shared/guardian_pretooluse.py\" --profile claude",
             "timeout": 10
           }
         ]

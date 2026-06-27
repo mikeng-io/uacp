@@ -35,14 +35,14 @@ pairs:
       type: symbol
       value: resolve_uacp_root
       anchor: skills/uacp-core/scripts/engines/domain/paths.py:16
-    derivation: "LSP findReferences @ paths.py:16:5 = 11 refs / 6 files; reconciled with grep (grep scoped to skills/ MISSED runtime-adapters/hooks/guardian_pretooluse.py — the reconcile value Codeflair mechanizes)"
+    derivation: "LSP findReferences @ paths.py:16:5 = 11 refs / 6 files; reconciled with grep (grep scoped to skills/ MISSED runtime-adapters/shared/guardian_pretooluse.py — the reconcile value Codeflair mechanizes)"
     requires: []
     k: 5
     ground_truth:
       must_find:
         - { node: skills/uacp-core/scripts/engines/heartgate/heartgate.py, via: scip_refs, provenance: parsed }
         - { node: skills/uacp-core/scripts/engines/guardian/policy.py,     via: scip_refs, provenance: parsed }
-        - { node: runtime-adapters/hooks/guardian_pretooluse.py,           via: scip_refs, provenance: parsed,
+        - { node: runtime-adapters/shared/guardian_pretooluse.py,           via: scip_refs, provenance: parsed,
             note: "grep-scoped misses this cross-dir caller; SCIP/LSP catches it — must count toward recall" }
       should_find:
         - { node: skills/uacp-core/scripts/core.py, via: scip_refs, provenance: parsed, note: "re-export hub" }

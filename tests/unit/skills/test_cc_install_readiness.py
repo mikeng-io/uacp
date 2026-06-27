@@ -191,7 +191,7 @@ class TestPluginJson:
         assert "name" in data and data["name"], "plugin.json must have a non-empty 'name' field"
 
     def test_hooks_pointer_resolves(self) -> None:
-        """plugin.json 'hooks' pointer (./hooks/hooks.json) must exist."""
+        """plugin.json 'hooks' pointer (./runtime-adapters/claude/hooks.json) must exist."""
         data = _load_json(PLUGIN_JSON)
         if "hooks" not in data:
             return  # optional field
@@ -457,9 +457,9 @@ class TestBundledComponents:
                 )
 
     def test_hooks_json_exists_and_hook_script_present(self) -> None:
-        """'hooks/hooks.json' must exist and each hook command script must be on disk."""
-        hooks_json_path = REPO_ROOT / "hooks" / "hooks.json"
-        assert hooks_json_path.is_file(), "hooks/hooks.json missing"
+        """'runtime-adapters/claude/hooks.json' must exist and each hook command script must be on disk."""
+        hooks_json_path = REPO_ROOT / "runtime-adapters" / "claude" / "hooks.json"
+        assert hooks_json_path.is_file(), "runtime-adapters/claude/hooks.json missing"
         data = _load_json(hooks_json_path)
 
         hooks_section = data.get("hooks", {})
@@ -477,7 +477,7 @@ class TestBundledComponents:
                             )
                             script_path = REPO_ROOT / rel
                             assert script_path.is_file(), (
-                                f"hooks/hooks.json references '{rel}' in {event_name} hook, "
+                                f"runtime-adapters/claude/hooks.json references '{rel}' in {event_name} hook, "
                                 f"but the script was not found at {script_path}"
                             )
 

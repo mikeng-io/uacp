@@ -26,7 +26,7 @@ install actually exposes, so the EXPECTED ∪ DISCOVERED model below has concret
   `uv run --no-project --with mcp>=1.0 … python ${CLAUDE_PLUGIN_ROOT}/runtime-adapters/mcp/uacp_mcp_server.py`
   (uv self-provisions the server's deps; the **one host prereq is `uv`** in the runner image). The
   probe starts THIS command and asserts `tools/list` == `tool_specs()`.
-- **Hooks** → `plugin.json:hooks` → `./hooks/hooks.json`.
+- **Hooks** → `plugin.json:hooks` → `./runtime-adapters/claude/hooks.json` (explicit pointer; not auto-discovery).
 - **Skills** → convention-discovered from the shipped `skills/<dir>/SKILL.md` tree (ADR-0017).
 
 The conformance harness still operates **expected-vs-actual** (a regression that un-ships any of these
@@ -37,7 +37,7 @@ must FAIL, not vacuously pass) — but the discovery recipe for Claude Code is n
 The capability inventory is **NOT** "what the manifest enumerates." It is the per-runtime UNION of:
 
 - **EXPECTED** — what a UACP install *should* provide, from UACP's own capability spec (the governed
-  `tool_specs()` for MCP; the `skills/` tree it ships; the hooks in `hooks/hooks.json`). This is the
+  `tool_specs()` for MCP; the `skills/` tree it ships; the hooks in `runtime-adapters/claude/hooks.json`). This is the
   contract, independent of any one runtime's manifest format.
 - **DISCOVERED** — what the install *actually* exposes, found the way the runtime loads it (a **per-
   runtime discovery recipe** owned by the runner-adapter seam [11](11-runner-adapter-seam.md): for

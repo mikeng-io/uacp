@@ -34,6 +34,7 @@ The template is at [0000-template.md](0000-template.md). Numbering is sequential
 | [0017](0017-skill-authoring-convention.md) | UACP skill-authoring convention | accepted |
 | [0018](0018-cms-semantic-thinking-principle.md) | CMS — comprehend → measure → serialize as the principle for semantic thinking | accepted |
 | [0019](0019-pretooluse-hook-narrow-scope-and-invariant-3-clarification.md) | PreToolUse hook narrow scope and Invariant #3 clarification | proposed |
+| [0020](0020-runtime-adapters-regroup-by-runtime.md) | Regroup runtime-adapters by runtime with a shared layer | proposed |
 
 ## Related
 

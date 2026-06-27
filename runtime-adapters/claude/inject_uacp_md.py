@@ -23,7 +23,7 @@ def _plugin_root() -> str:
     env = os.environ.get("CLAUDE_PLUGIN_ROOT")
     if env:
         return env
-    # fallback: <root>/runtime-adapters/hooks/inject_uacp_md.py -> <root>
+    # fallback: <root>/runtime-adapters/claude/inject_uacp_md.py -> <root>
     return os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 

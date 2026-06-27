@@ -1,7 +1,7 @@
 """Runtime-neutral PreToolUse hook kernel.
 
 Shared, framework-free logic behind the Claude Code / Kimi Code Guardian
-PreToolUse companion (``runtime-adapters/hooks/guardian_pretooluse.py``) and the
+PreToolUse companion (``runtime-adapters/shared/guardian_pretooluse.py``) and the
 Hermes ``uacp_guardian`` adapter. Imports only from ``core``/``config`` — never a
 host runtime — exactly like ``governed_handlers.py``.
 

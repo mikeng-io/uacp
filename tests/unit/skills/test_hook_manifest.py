@@ -2,14 +2,16 @@
 and points at the real Guardian shim.
 
 Pure JSON + path checks (no Claude Code runtime needed). Parses
-``hooks/hooks.json`` and ``.claude-plugin/plugin.json`` at the repo root and
+``runtime-adapters/claude/hooks.json`` and ``.claude-plugin/plugin.json`` and
 asserts:
   * hooks.json declares a PreToolUse hook with a ``*`` matcher and a command
     entry that invokes the shim via the ``${CLAUDE_PLUGIN_ROOT}`` token with a
     sane timeout;
   * the referenced shim path resolves to
-    ``runtime-adapters/hooks/guardian_pretooluse.py`` and exists;
-  * plugin.json references ``./hooks/hooks.json`` so Claude Code discovers it.
+    ``runtime-adapters/shared/guardian_pretooluse.py`` and exists;
+  * plugin.json references ``./runtime-adapters/claude/hooks.json`` via its
+    explicit ``hooks`` pointer (CC does NOT auto-discover hooks.json at this
+    by-runtime location — the explicit pointer is what loads it).
 """
 
 from __future__ import annotations
@@ -18,7 +20,7 @@ import json
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_SHIM_REL = "runtime-adapters/hooks/guardian_pretooluse.py"
+_SHIM_REL = "runtime-adapters/shared/guardian_pretooluse.py"
 
 
 def test_shim_file_exists() -> None:
@@ -26,7 +28,9 @@ def test_shim_file_exists() -> None:
 
 
 def test_hooks_json_well_formed_and_points_at_shim() -> None:
-    manifest = json.loads((_REPO_ROOT / "hooks" / "hooks.json").read_text())
+    manifest = json.loads(
+        (_REPO_ROOT / "runtime-adapters" / "claude" / "hooks.json").read_text()
+    )
     pre = manifest["hooks"]["PreToolUse"]
     assert isinstance(pre, list) and pre, "PreToolUse must be a non-empty list"
     entry = pre[0]
@@ -55,6 +59,7 @@ def test_hooks_json_well_formed_and_points_at_shim() -> None:
 
 def test_plugin_json_references_hooks() -> None:
     plugin = json.loads((_REPO_ROOT / ".claude-plugin" / "plugin.json").read_text())
-    assert plugin.get("hooks") == "./hooks/hooks.json", (
-        f"plugin.json must reference ./hooks/hooks.json, got {plugin.get('hooks')!r}"
+    assert plugin.get("hooks") == "./runtime-adapters/claude/hooks.json", (
+        "plugin.json must reference ./runtime-adapters/claude/hooks.json "
+        f"(the explicit pointer CC honors), got {plugin.get('hooks')!r}"
     )

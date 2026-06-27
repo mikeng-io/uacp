@@ -24,11 +24,15 @@ edges:
 > - **The initiative is now DEFERRED.** Decision (mike): stop hand-building a bespoke harness; once
 >   UACP is fully up, **dogfood the acceptance run through UACP's own lifecycle** (the governed
 >   TRIAGE→…→RESOLVE drives + verifies it). Increments 1+ below are NOT being built standalone.
-> - **Real product bug Increment 0 caught (open, in the Guardian-hook rework's lap):** a normal
->   install reports *"failed to load: Duplicate hooks file detected"* — `plugin.json` declares
->   `hooks: ./hooks/hooks.json`, which Claude Code auto-loads, so the manifest reference duplicates it.
->   Proper fix = drop the manifest `hooks` key **and** fix `tests/unit/skills/test_hook_manifest.py::
->   test_plugin_json_references_hooks`, which currently ENFORCES the broken declaration.
+> - **Real product bug Increment 0 caught (RESOLVED):** a normal install reported *"failed to load:
+>   Duplicate hooks file detected"* — `plugin.json` declared `hooks: ./hooks/hooks.json`, the same
+>   path Claude Code auto-discovers by default, so the explicit pointer and auto-discovery loaded the
+>   same file twice. Resolution (ADR-0020): move the manifest to `runtime-adapters/claude/hooks.json`
+>   (off the auto-discovery default) and keep the explicit pointer
+>   `hooks: ./runtime-adapters/claude/hooks.json` — one load, no duplicate. Install-verified:
+>   `claude plugin validate --strict` passes and `claude plugin details uacp` reports
+>   `Hooks (2) SessionStart, PreToolUse`. `test_hook_manifest.py::test_plugin_json_references_hooks`
+>   now enforces the explicit pointer to the new path.
 > - **Lesson (load-bearing):** an e2e/acceptance test = a *faithful reproduction* of the user's real
 >   path that is allowed to fail; do NOT bypass the runtime, pre-provision the env to pass, warm
 >   caches, or wrap checks in a lookup function — that tests the construction, not the product.
