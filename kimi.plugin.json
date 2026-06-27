@@ -1,18 +1,20 @@
 {
   "name": "uacp",
-  "description": "Universal Agent Control Plane — runtime-neutral governance with an optional-brainstorm seven-phase lifecycle ((BRAINSTORM)→TRIAGE→PROPOSE→PLAN→EXECUTE→VERIFY→RESOLVE), Guardian/Heartgate enforcement, and Agent Council orchestration, as installable skills.",
+  "description": "Universal Agent Control Plane \u2014 runtime-neutral governance with an optional-brainstorm seven-phase lifecycle ((BRAINSTORM)\u2192TRIAGE\u2192PROPOSE\u2192PLAN\u2192EXECUTE\u2192VERIFY\u2192RESOLVE), Guardian/Heartgate enforcement, and Agent Council orchestration, as installable skills.",
   "skills": "./skills/",
   "mcpServers": {
     "uacp": {
       "command": "python3",
-      "args": ["./runtime-adapters/mcp/uacp_mcp_server.py"],
+      "args": [
+        "./runtime-adapters/mcp/uacp_mcp_server.py"
+      ],
       "cwd": "./"
     },
     "serena": {
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/oraios/serena",
+        "git+https://github.com/oraios/serena@v1.5.3",
         "serena",
         "start-mcp-server",
         "--context",

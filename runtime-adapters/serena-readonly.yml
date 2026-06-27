@@ -1,37 +1,28 @@
-# UACP read-only Serena mode — symbol/diagnostic queries ONLY.
+# UACP read-only Serena mode — symbol/diagnostic queries ONLY (fail-closed allowlist).
 #
 # Serena is wired as a read-only LSP overlay (see runtime-adapters/serena.md).
-# This custom mode is referenced by absolute path from .claude-plugin/plugin.json
-# (--mode ${CLAUDE_PLUGIN_ROOT}/runtime-adapters/serena-readonly.yml). It excludes
-# EVERY mutator — including rename_symbol / safe_delete_symbol, which no built-in
-# mode excludes — plus Serena's project-memory + onboarding tools (which would
-# create ungoverned .serena/memories/* outside UACP's governed state). The prompt
-# is empty so Serena injects no behavioral framing into the host agent.
+# Referenced by absolute path from .claude-plugin/plugin.json
+# (--mode ${CLAUDE_PLUGIN_ROOT}/runtime-adapters/serena-readonly.yml).
 #
-# Keeps the read-only LSP set: find_symbol, find_declaration, find_implementations,
-# find_referencing_symbols, get_symbols_overview, get_diagnostics_for_file.
-description: UACP read-only LSP overlay — symbol/diagnostic queries only; all editing, refactoring, shell, and memory/onboarding tools disabled.
+# This uses fixed_tools (an ALLOWLIST that REPLACES Serena's default tool set), not
+# excluded_tools. Rationale: a denylist is fail-OPEN — any tool added in a future
+# Serena release (or one simply missed, e.g. activate_project) ships enabled. An
+# allowlist is fail-CLOSED: ONLY these tools are ever exposed, so no editing,
+# refactoring (rename_symbol/safe_delete_symbol), shell, memory/onboarding,
+# project-activation, or file-read/grep tool can reach the agent — none of which
+# UACP wants (it edits via its governed path; the Guardian shim does not intercept
+# MCP tool calls). fixed_tools cannot be combined with excluded_tools.
+#
+# NOTE: prompt:"" zeroes only THIS mode's prompt. The --context agent prompt
+# (~36 chars) and Serena's base system-prompt template are still assembled into the
+# MCP instructions; we use the `agent` context precisely because it is the minimal,
+# non-hijacking one (unlike `claude-code`, which forbids native Read/Edit).
+description: UACP read-only LSP overlay — exposes ONLY read-only symbol/diagnostic tools.
 prompt: ""
-excluded_tools:
-  # editing / file mutators (the planning-mode set)
-  - create_text_file
-  - replace_symbol_body
-  - insert_after_symbol
-  - insert_before_symbol
-  - delete_lines
-  - replace_lines
-  - insert_at_line
-  - replace_content
-  - execute_shell_command
-  # refactoring mutators NOT covered by any built-in mode (Codex P1)
-  - rename_symbol
-  - safe_delete_symbol
-  # project-memory + onboarding — would write ungoverned .serena/memories/* (Codex P2)
-  - write_memory
-  - read_memory
-  - list_memories
-  - edit_memory
-  - delete_memory
-  - rename_memory
-  - onboarding
-included_optional_tools: []
+fixed_tools:
+  - find_symbol
+  - find_declaration
+  - find_implementations
+  - find_referencing_symbols
+  - get_symbols_overview
+  - get_diagnostics_for_file
