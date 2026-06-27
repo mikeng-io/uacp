@@ -41,3 +41,6 @@ codeflair/vendor/node_modules/
 
 *.egg-info/
 acceptance/out/
+
+# Serena auto-generated per-project config (not shipped)
+.serena/

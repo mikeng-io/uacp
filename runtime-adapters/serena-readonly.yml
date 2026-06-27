@@ -1,0 +1,28 @@
+# UACP read-only Serena mode — symbol/diagnostic queries ONLY (fail-closed allowlist).
+#
+# Serena is wired as a read-only LSP overlay (see runtime-adapters/serena.md).
+# Referenced by absolute path from .claude-plugin/plugin.json
+# (--mode ${CLAUDE_PLUGIN_ROOT}/runtime-adapters/serena-readonly.yml).
+#
+# This uses fixed_tools (an ALLOWLIST that REPLACES Serena's default tool set), not
+# excluded_tools. Rationale: a denylist is fail-OPEN — any tool added in a future
+# Serena release (or one simply missed, e.g. activate_project) ships enabled. An
+# allowlist is fail-CLOSED: ONLY these tools are ever exposed, so no editing,
+# refactoring (rename_symbol/safe_delete_symbol), shell, memory/onboarding,
+# project-activation, or file-read/grep tool can reach the agent — none of which
+# UACP wants (it edits via its governed path; the Guardian shim does not intercept
+# MCP tool calls). fixed_tools cannot be combined with excluded_tools.
+#
+# NOTE: prompt:"" zeroes only THIS mode's prompt. The --context agent prompt
+# (~36 chars) and Serena's base system-prompt template are still assembled into the
+# MCP instructions; we use the `agent` context precisely because it is the minimal,
+# non-hijacking one (unlike `claude-code`, which forbids native Read/Edit).
+description: UACP read-only LSP overlay — exposes ONLY read-only symbol/diagnostic tools.
+prompt: ""
+fixed_tools:
+  - find_symbol
+  - find_declaration
+  - find_implementations
+  - find_referencing_symbols
+  - get_symbols_overview
+  - get_diagnostics_for_file

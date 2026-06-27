@@ -29,6 +29,9 @@ Per-runtime install + enforcement detail lives in each runtime's README:
 [`claude/`](claude/README.md) · [`kimi/`](kimi/README.md) ·
 [`codex/`](codex/README.md) · [`shared/`](shared/README.md) (the shim).
 
+The bundled **Serena** read-only LSP overlay (registered in each plugin manifest's
+`mcpServers`) is documented in [`serena.md`](serena.md).
+
 ## Installing the UACP plugin
 
 UACP ships as a plugin for both **Claude Code** and **Kimi Code** — skills + an

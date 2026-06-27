@@ -29,6 +29,25 @@
         "python",
         "${CLAUDE_PLUGIN_ROOT}/runtime-adapters/mcp/uacp_mcp_server.py"
       ]
+    },
+    "serena": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/oraios/serena@v1.5.3",
+        "serena",
+        "start-mcp-server",
+        "--context",
+        "agent",
+        "--mode",
+        "${CLAUDE_PLUGIN_ROOT}/runtime-adapters/serena-readonly.yml",
+        "--project-from-cwd",
+        "--enable-web-dashboard",
+        "false"
+      ],
+      "env": {
+        "MCP_TIMEOUT": "60000"
+      }
     }
   }
 }

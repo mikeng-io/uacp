@@ -22,7 +22,7 @@ Guard: always fall back to Agent Teams or Task tool if workflows are unavailable
 
 ### Code intelligence — unified lookup/edit flow (grep · LSP · SCIP)
 
-> **HARD RULE (a recurring miss — nudged by `.claude/hooks/lsp-nudge.py`): for a symbol (function / class / variable / method), LEAD WITH the `LSP` tool — never grep ALONE.** It is a **hybrid**, not a replacement: LSP is precise (resolves imports, no string/comment false-positives); grep is the complement that catches what LSP misses (strings, comments, dynamic/reflective refs, cross-language, stale-index gaps). Use BOTH for symbol work and **reconcile — the suite decides**. (Grep alone is fine for literal text / config keys / file discovery.)
+> **HARD RULE (a recurring miss): for a symbol (function / class / variable / method), LEAD WITH the `LSP` tool — never grep ALONE.** It is a **hybrid**, not a replacement: LSP is precise (resolves imports, no string/comment false-positives); grep is the complement that catches what LSP misses (strings, comments, dynamic/reflective refs, cross-language, stale-index gaps). Use BOTH for symbol work and **reconcile — the suite decides**. (Grep alone is fine for literal text / config keys / file discovery.)
 
 Route by the **question**, not the language. The repo's LSP servers cover its languages; the flow is identical per language (and for SCIP later). Three tools, three jobs:
 
