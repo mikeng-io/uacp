@@ -22,8 +22,10 @@ not accepted):
 # Install the plugin from GitHub (latest release, else default branch):
 /plugins install https://github.com/mikeng-io/uacp
 
-# A plugin's MCP servers start only in a NEW session — enable + restart:
+# A plugin's MCP servers start only in a NEW session — enable + restart.
+# Enable BOTH the governance server (uacp) and the Serena LSP server (serena):
 /plugins mcp enable uacp uacp
+/plugins mcp enable uacp serena
 /new
 ```
 
