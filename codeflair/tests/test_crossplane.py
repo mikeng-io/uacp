@@ -110,6 +110,46 @@ def test_unrealized_manifests():
     assert unrealized == ["PROP-8", "PLAN-3"]  # PROP-7 has an anchor; the rest don't
 
 
+def _anchor_table_present(store) -> bool:
+    return (
+        store.con.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='code_anchor'"
+        ).fetchone()
+        is not None
+    )
+
+
+def test_construct_does_not_create_table_until_write():
+    """D4: constructing the adapter must NOT mutate the store — the code_anchor table is
+    created lazily by the write path, not by __init__."""
+    s = _store()
+    a = CrossPlaneAdapter(s)
+    assert not _anchor_table_present(s)  # construction created nothing
+    a.anchor(ManifestRef("P-1", "proposal", "NewCancelOrderUseCase"))  # the write path creates it
+    assert _anchor_table_present(s)
+
+
+def test_construct_on_readonly_index_performs_no_mutation(tmp_path):
+    """D4: a UACP consumer must be able to open the adapter against a READ-ONLY index.
+    Construction must perform no write (a CREATE TABLE would fail on a ro db), and the
+    read queries must answer against a never-anchored index without erroring."""
+    db = tmp_path / "index.db"
+    with Store(str(db)) as s:  # writable: build the core code graph only (NO anchors)
+        s.add_symbol(Symbol(symbol="scip `m`/Foo#", file="foo.go", name="Foo", kind="func"))
+        s.commit()
+
+    ro = Store(str(db), read_only=True)
+    try:
+        a = CrossPlaneAdapter(ro)  # MUST NOT mutate / raise on the ro db
+        # reads against the never-anchored index: Foo is an orphan; no governance anchors
+        assert a.orphan_code() == ["scip `m`/Foo#"]
+        assert a.governs("scip `m`/Foo#") == []
+        assert a.realizes("P-1") == []
+        assert a.unrealized_manifests(["P-1", "P-2"]) == ["P-1", "P-2"]
+    finally:
+        ro.close()
+
+
 def test_anchor_table_does_not_touch_core_store():
     # the adapter owns code_anchor; the core symbol/edge counts are untouched by anchoring
     s = _store()

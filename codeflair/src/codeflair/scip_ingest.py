@@ -20,10 +20,16 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from codeflair.freshness import content_hash
 from codeflair.store import Edge, Store, Symbol
+
+# Per-source freshness stamp for SCIP-ingested files (11-substrate `tool_version`).
+SCIP_TOOL_VERSION = "codeflair-scip-ingest/1"
 
 # Repo-local indexer binaries (Python/TypeScript) live under the package's vendor/
 # node_modules/.bin — installed by scripts/bootstrap.py, never on the global PATH.
@@ -43,6 +49,26 @@ def _scheme_lang(symbol: str) -> str:
     """SCIP symbol scheme is the first whitespace token: ``scip-go`` / ``scip-typescript``."""
     head = symbol.split(" ", 1)[0]
     return {"scip-go": "go", "scip-typescript": "ts", "scip-python": "py"}.get(head, head or "?")
+
+
+def _descriptor(symbol: str) -> str:
+    """The trailing descriptor token of a SCIP symbol (the last whitespace-separated field).
+    SCIP descriptor suffixes encode the kind: ``).`` method, ``.`` term, ``#`` type,
+    ``/`` namespace. Mirrors ``_display_name``'s convention (descriptor = last space token)."""
+    return symbol.split(" ")[-1]
+
+
+def _is_callable(symbol: str) -> bool:
+    """True for a SCIP **method** descriptor (ends ``).``) — a call TARGET. A reference to a
+    callable is a ``calls`` edge; a reference to a non-callable (term/type) is ``references``."""
+    return _descriptor(symbol).endswith(").")
+
+
+def _is_container(symbol: str) -> bool:
+    """True for a SCIP **type** (``#``) or **namespace** (``/``) descriptor — a scope that can
+    DEFINE members. ``defines`` edges run container -> member; siblings never define siblings."""
+    desc = _descriptor(symbol)
+    return desc.endswith("#") or desc.endswith("/")
 
 
 def _display_name(symbol: str) -> str:
@@ -67,12 +93,31 @@ def ingest_scip_json(
     data: dict,
     *,
     provenance: str = "parsed",
+    file_contents: Mapping[str, bytes] | None = None,
+    commit_sha: str = "",
 ) -> IngestStats:
     """Ingest a parsed SCIP index (the JSON shape of ``scip print --json``) into ``store``.
 
-    Adds a :class:`Symbol` per distinct non-local symbol (keyed by its SCIP descriptor)
-    and a ``calls`` :class:`Edge` (source=``scip``) from each reference's enclosing
-    definition to the referenced symbol. Returns counts.
+    Adds a :class:`Symbol` per distinct non-local symbol (keyed by its SCIP descriptor) and
+    THREE distinct SCIP-sourced :class:`Edge` relations (source=``scip``) per 01b-store (D2):
+
+    - ``defines`` — a container definition (type/namespace) -> each member it defines (the
+      nearest enclosing **container** def, so sibling methods never "define" one another);
+    - ``calls`` — a reference whose target is a **callable** (a SCIP method descriptor, ``).``)
+      attributed to its enclosing definition (caller -> callee);
+    - ``references`` — a reference whose target is **not** callable (a term/type use)
+      attributed to its enclosing definition.
+
+    SCIP occurrences carry only symbol + role (no explicit call graph), so call/reference
+    edges are attributed to the nearest preceding ``Definition`` in the same document, and
+    the call/reference split is decided by the *callee*'s descriptor kind. Returns counts
+    (``edges`` totals all three relations).
+
+    When ``file_contents`` (``{relative_path: source_bytes}``) is supplied, a per-file
+    content hash + a per-source ``freshness`` row (source=``scip``) are recorded for each
+    **actually-ingested** repo document — the freshness substrate (10-freshness). Only
+    files SCIP actually ingested get rows (a path present in ``file_contents`` but skipped
+    as stdlib/dep is *not* recorded); absent bytes mean no row for that file.
     """
     documents = data.get("documents", [])
     # Per document: collect (symbol, line, is_def); remember a representative location
@@ -81,6 +126,7 @@ def ingest_scip_json(
     refs_by_doc: dict[str, list[tuple[int, str]]] = {}
     sym_def_loc: dict[str, tuple[str, int]] = {}
     all_syms: set[str] = set()
+    repo_paths: list[str] = []
 
     n_repo_docs = 0
     for d in documents:
@@ -88,6 +134,7 @@ def ingest_scip_json(
         if not _is_repo_path(path):
             continue  # skip stdlib / dep / go-build-cache documents
         n_repo_docs += 1
+        repo_paths.append(path)
         for o in d.get("occurrences", []):
             rng = o.get("range") or []
             if not rng:
@@ -115,9 +162,46 @@ def ingest_scip_json(
             )
         )
 
-    # edges: each reference -> its enclosing (nearest preceding) definition in the same doc
+    # per-source ownership (F1): scip OWNS the symbols it DEFINES here (those with a definition
+    # occurrence in a repo doc) — not the merely-referenced external symbols. This lets a later
+    # per-file delta GC a symbol scip stops defining, but only when no other source defines it.
+    for sym in sym_def_loc:
+        store.record_symbol_source("scip", sym)
+
+    # edges (D2): three distinct relations, deduped by (src, dst, rel).
     n_edges = 0
-    seen: set[tuple[str, str]] = set()
+    seen: set[tuple[str, str, str]] = set()
+
+    def _emit(src: str, dst: str, rel: str) -> None:
+        nonlocal n_edges
+        if src == dst:
+            return
+        key = (src, dst, rel)
+        if key in seen:
+            return
+        seen.add(key)
+        store.add_edge(Edge(src=src, dst=dst, rel=rel, source="scip", provenance=provenance))
+        n_edges += 1
+
+    # `defines`: each member definition -> its nearest enclosing CONTAINER definition
+    # (type/namespace). Container -> member, never sibling -> sibling (a sibling method is
+    # not a container, so it is never picked as an enclosing scope).
+    for defs in defs_by_doc.values():
+        containers = [(ln, sym) for ln, sym in defs if _is_container(sym)]
+        if not containers:
+            continue
+        for ln, sym in defs:
+            enclosing: str | None = None
+            for cln, csym in containers:  # ascending; keep the last container at/above `ln`
+                if cln > ln:
+                    break
+                if csym != sym:
+                    enclosing = csym
+            if enclosing is not None:
+                _emit(enclosing, sym, "defines")
+
+    # `calls` / `references`: each reference -> its nearest preceding definition in the same
+    # doc; the relation is `calls` iff the referenced symbol is callable, else `references`.
     for path, refs in refs_by_doc.items():
         defs = defs_by_doc.get(path)
         if not defs:
@@ -127,19 +211,28 @@ def ingest_scip_json(
             if i < 0:
                 continue
             caller = defs[i][1]
-            if caller == ref_sym:
+            _emit(caller, ref_sym, "calls" if _is_callable(ref_sym) else "references")
+
+    # freshness substrate: hash each actually-ingested repo file (10-freshness). Only
+    # files SCIP ingested AND for which bytes were supplied get a row.
+    if file_contents is not None:
+        for path in repo_paths:
+            data_bytes = file_contents.get(path)
+            if data_bytes is None:
                 continue
-            key = (caller, ref_sym)
-            if key in seen:
-                continue
-            seen.add(key)
-            store.add_edge(
-                Edge(src=caller, dst=ref_sym, rel="calls", source="scip", provenance=provenance)
+            h = content_hash(data_bytes)
+            store.record_file(path, h, lang=_scheme_lang_for_file(path), commit_sha=commit_sha)
+            store.record_freshness(
+                "scip", path, h, commit_sha=commit_sha, tool_version=SCIP_TOOL_VERSION
             )
-            n_edges += 1
 
     store.commit()
     return IngestStats(documents=n_repo_docs, symbols=len(all_syms), edges=n_edges)
+
+
+def _scheme_lang_for_file(path: str) -> str:
+    """Best-effort file language from suffix (the file table's ``lang`` is advisory)."""
+    return {".go": "go", ".py": "py", ".ts": "ts", ".tsx": "ts"}.get(os.path.splitext(path)[1], "")
 
 
 # -- real-tool wrapper (integration; not exercised by the hermetic unit suite) --------
@@ -177,19 +270,89 @@ def _indexer_cmd(lang: str, out: str, repo_path: str) -> list[str]:
     raise ValueError(f"unsupported SCIP language {lang!r}; expected one of {SCIP_LANGS}")
 
 
-def index_repo(store: Store, repo_path: str, lang: str, *, scip: str = "scip") -> IngestStats:
+def index_repo(
+    store: Store,
+    repo_path: str,
+    lang: str,
+    *,
+    scip: str = "scip",
+    commit_sha: str = "",
+    built_at: str | None = None,
+    index_started: float | None = None,
+) -> IngestStats:
     """Index ``repo_path`` with the SCIP indexer for ``lang`` (go|python|typescript), convert
     to JSON, and ingest. Reads the repo READ-ONLY; the index is written to a temp dir OUTSIDE
-    the target, so the target's source is never mutated. Indexers resolve repo-local first."""
+    the target, so the target's source is never mutated. Indexers resolve repo-local first.
+
+    File bytes are read from the repo to populate the freshness substrate (per-file hash +
+    per-source ``freshness`` row). When ``built_at`` is given the store watermark is set —
+    ``built_at`` is injected (the store never reads the wall clock).
+
+    ``index_started`` is the TOCTOU mtime-withhold threshold (a repo file modified at/after it
+    is treated as edited-during-index, F5). It is INJECTED so freshness population is
+    deterministic by construction; this outermost integration boundary defaults it to
+    ``time.time()`` ONLY when the caller passes ``None`` (the one sanctioned clock read)."""
     tmp = tempfile.mkdtemp(prefix="cf-scip-")
     out = os.path.join(tmp, "index.scip")
     try:
+        # Capture the instant indexing begins. A repo file modified at/after this instant was
+        # edited DURING (or after) the index run, so the SCIP edges may reflect older content
+        # than the bytes we are about to read (the ingest-time TOCTOU, F5). Such files have
+        # their freshness WITHHELD below — the index still gets their symbols/edges, but no
+        # "this is fresh" stamp, so a later query treats them 'unverified', never trusted.
+        if index_started is None:
+            index_started = time.time()
         subprocess.run(
             _indexer_cmd(lang, out, repo_path), cwd=repo_path, check=True, capture_output=True
         )
         printed = subprocess.run(
             [_resolve_bin(scip), "print", "--json", out], check=True, capture_output=True
         )
-        return ingest_scip_json(store, json.loads(printed.stdout))
+        index = json.loads(printed.stdout)
+        file_contents = _read_repo_bytes(repo_path, index, index_started=index_started)
+        stats = ingest_scip_json(store, index, file_contents=file_contents, commit_sha=commit_sha)
+        if built_at is not None:
+            store.set_watermark(commit_sha, built_at)
+        return stats
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _modified_during_index(mtimes: dict[str, float], index_started: float) -> set[str]:
+    """Files whose mtime is at/after ``index_started`` — edited during (or after) the index
+    run, so their SCIP edges and the bytes we read may disagree (F5). Pure + deterministic
+    (mtimes + threshold injected) so it is unit-testable without a real indexer."""
+    return {p for p, mt in mtimes.items() if mt >= index_started}
+
+
+def _read_repo_bytes(
+    repo_path: str, index: dict, *, index_started: float | None = None
+) -> dict[str, bytes]:
+    """Read the on-disk bytes of each SCIP document that lives in the repo, for hashing.
+
+    When ``index_started`` is given, files modified at/after that instant are EXCLUDED from
+    the returned bytes (F5): their freshness is withheld so a later query cannot mistake their
+    possibly-stale SCIP edges for fresh. The residual — a sub-second edit the filesystem mtime
+    cannot resolve, or an edit AFTER this read — is not closeable without an atomic
+    snapshot-with-indexer; the coarse guard for it is the watermark ``repo_commit`` (a query
+    against a different commit reads the whole store as stale). Documented, not silently
+    swallowed.
+    """
+    out: dict[str, bytes] = {}
+    mtimes: dict[str, float] = {}
+    for d in index.get("documents", []):
+        path = d.get("relative_path", "")
+        if not _is_repo_path(path):
+            continue
+        full = os.path.join(repo_path, path)
+        try:
+            with open(full, "rb") as fh:
+                out[path] = fh.read()
+            mtimes[path] = os.stat(full).st_mtime
+        except OSError:
+            out.pop(path, None)
+            continue
+    if index_started is not None:
+        for suspect in _modified_during_index(mtimes, index_started):
+            out.pop(suspect, None)  # withhold freshness for TOCTOU-suspect files
+    return out

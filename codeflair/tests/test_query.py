@@ -71,12 +71,13 @@ def test_heatmap_excludes_seed_and_ranks_closer_higher():
 
 
 def test_heatmap_provenance_trust_outranks_at_equal_distance():
-    # B reached via a parsed SCIP call; C via an inferred co_change — both 1 hop.
-    # Parsed must outrank inferred (the CF-D14 precision ladder, as a score).
+    # B reached via a parsed SCIP call; C via a syntactic tree-sitter call — same relation,
+    # both 1 hop, so provenance is the SOLE differentiator: parsed must outrank syntactic
+    # (the CF-D14 precision ladder, as a score).
     s = _graph(
         [
             Edge("B", "A", "calls", "scip", provenance="parsed"),
-            Edge("C", "A", "co_change", "co_change", provenance="inferred"),
+            Edge("C", "A", "calls", "tree_sitter", provenance="syntactic"),
         ]
     )
     hm = heatmap(s, "A", k=10)

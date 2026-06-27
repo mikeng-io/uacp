@@ -1,138 +1,574 @@
-# Codeflair eval seed-set — the CF-D5 build-gating prerequisite (starter)
+# Codeflair eval seed-set — the CF-D5 build-gating prerequisite
 #
 # WHAT THIS IS: labeled (seed -> ground-truth subgraph) pairs the benchmark
 #   (05-benchmark.md) ranks Policy D / A / B / C against. recall@K of the
 #   ground-truth nodes is the primary metric, REPORTED SPLIT BY PROVENANCE
 #   (parsed vs inferred) so it tests whether the LLM is actually needed.
+#   The runnable harness is codeflair/src/codeflair/eval.py (Policy-D baseline).
 #
 # HONESTY / NON-FICTION RULE: ground truth is DERIVED FROM THIS REPO at a pinned
 #   commit, never invented (the spike-fictional trap). Each pair's `derivation:`
 #   shows how the node set was obtained (LSP findReferences, git co-change, grep,
-#   registry-walk). `adjudication: needs-human` = mechanically derived, awaiting a
-#   human label + the inter-labeler-agreement check that gates the build
-#   (CF-D5 wants >=20 agreed pairs on THIS repo).
+#   registry-walk) OR — for an exercised fixture — how the known-by-construction
+#   blast radius mirrors a real relationship.
 #
-# layer:  core         = runs STANDALONE on any git repo, ZERO UACP (the abstraction:
-#                        SCIP/LSP/grep/co-change + store + loop + heatmap).
-#         uacp-adapter = needs the UACP manifest/`code_anchor` cross-plane join
-#                        (a pluggable adapter, not a core dependency).
+# adjudication:
+#   needs-human    = mechanically derived; awaiting a human label + the
+#                    inter-labeler-agreement check that gates the build (CF-D5
+#                    wants >=20 AGREED pairs on THIS repo — STILL OUTSTANDING).
+#   by-construction = the fixture's blast radius is exact by construction (no human
+#                    boundary judgment needed); used to verify the metric mechanics.
 #
-# CAVEAT: SCIP + code_anchor come from the (unbuilt) indexer (01a-indexer.md);
-#   pairs needing them carry `requires:`. Today LSP findReferences is the live
-#   stand-in for SCIP refs.
+# basis:
+#   real-repo            = ground truth = real repo nodes; needs a built SCIP/
+#                          tree-sitter index to exercise -> GATED in the dev venv.
+#   real-derived-fixture = an in-store fixture whose shape mirrors a REAL derivation
+#                          (verified caller set / co-change neighbor) -> EXERCISED.
+#   constructed          = a synthetic, known-by-construction blast radius that
+#                          exercises the metric (truncation / hop-limit / demotion).
+#
+# layer:  core         = runs STANDALONE on any git repo, ZERO UACP.
+#         uacp-adapter = needs the UACP manifest/`code_anchor` cross-plane join.
+#
+# An EXERCISED pair carries a `fixture:` block (symbols/edges/couplings + seed/k);
+# the harness builds that in-memory Store and measures recall. A pair WITHOUT a
+# fixture is GATED (reported, never scored) until a real index exists.
 
-schema_version: 0.2
+schema_version: 0.3
 repo: uacp
-repo_commit: f3b136e        # watermark; re-derive ground truth if this moves
+repo_commit: a7ef907
 default_k: 5
 
 pairs:
-  # ---- A. core, fully grounded (LSP findReferences ⊕ grep, reconciled) -------
+  # ====================================================================================
+  # GATED — real-repo ground truth (needs a built index). Kept for the seed-set's
+  # integrity; the harness reports them gated until SCIP/tree-sitter index the repo.
+  # ====================================================================================
+
   - id: blast-radius--resolve_uacp_root
     capability: symbol-blast-radius
     layer: core
-    seed:
-      type: symbol
-      value: resolve_uacp_root
-      anchor: skills/uacp-core/scripts/engines/domain/paths.py:16
+    basis: real-repo
     derivation: "LSP findReferences @ paths.py:16:5 = 11 refs / 6 files; reconciled with grep (grep scoped to skills/ MISSED runtime-adapters/shared/guardian_pretooluse.py — the reconcile value Codeflair mechanizes)"
     requires: []
     k: 5
     ground_truth:
       must_find:
-        - { node: skills/uacp-core/scripts/engines/heartgate/heartgate.py, via: scip_refs, provenance: parsed }
-        - { node: skills/uacp-core/scripts/engines/guardian/policy.py,     via: scip_refs, provenance: parsed }
-        - { node: runtime-adapters/shared/guardian_pretooluse.py,           via: scip_refs, provenance: parsed,
-            note: "grep-scoped misses this cross-dir caller; SCIP/LSP catches it — must count toward recall" }
+        - node: skills/uacp-core/scripts/engines/heartgate/heartgate.py
+          via: scip_refs
+          provenance: parsed
+        - node: skills/uacp-core/scripts/engines/guardian/policy.py
+          via: scip_refs
+          provenance: parsed
+        - node: runtime-adapters/shared/guardian_pretooluse.py
+          via: scip_refs
+          provenance: parsed
+          note: "grep-scoped misses this cross-dir caller; SCIP/LSP catches it"
       should_find:
-        - { node: skills/uacp-core/scripts/core.py, via: scip_refs, provenance: parsed, note: "re-export hub" }
-        - { node: tests/unit/uacp_core/test_guardian_extraction.py, via: scip_refs, provenance: parsed }
-      expected_gaps: []   # covered by test_guardian_extraction.py -> no missing-test gap
-    exercises: [reconcile-job, parsed-recall, cross-dir-caller]
-    adjudication: grounded-mechanical
+        - node: skills/uacp-core/scripts/core.py
+          via: scip_refs
+          provenance: parsed
+        - node: tests/unit/uacp_core/test_guardian_extraction.py
+          via: scip_refs
+          provenance: parsed
+    adjudication: needs-human
 
-  # ---- B. core, fully grounded (git co-change) — the cheap-model test --------
   - id: co-change--graph_projection
     capability: temporal-relation
     layer: core
-    seed:
-      type: symbol
-      value: graph_projection
-      anchor: skills/uacp-core/scripts/engines/graph_projection.py
+    basis: real-repo
     derivation: "git log co-change over 5 commits touching graph_projection.py; files most-frequently co-committed"
     requires: []
     k: 5
     ground_truth:
       must_find:
-        - { node: tests/unit/uacp_core/test_graph_projection.py,           via: co_change, provenance: inferred }
-        - { node: skills/uacp-core/scripts/engines/manifest/projection.py, via: co_change, provenance: inferred }
+        - node: tests/unit/uacp_core/test_graph_projection.py
+          via: co_change
+          provenance: inferred
+        - node: skills/uacp-core/scripts/engines/manifest/projection.py
+          via: co_change
+          provenance: inferred
       should_find:
-        - { node: skills/uacp-core/scripts/engines/artifact_integrity.py,  via: co_change, provenance: inferred }
-      expected_gaps: []
-    exercises: [co-change-probe, inferred-recall]
-    adjudication: grounded-mechanical
-    note: "PRIMARY test of the cheap-model premise: inferred-subset recall, cheap-vs-big (05-benchmark)."
+        - node: skills/uacp-core/scripts/engines/artifact_integrity.py
+          via: co_change
+          provenance: inferred
+    adjudication: needs-human
+    note: "PRIMARY real-repo test of the cheap-model premise: inferred-subset recall."
 
-  # ---- C. uacp-adapter: cross-plane governance orphan (requires indexer) -----
   - id: governance-orphan--code-without-anchor
     capability: cross-plane-gap
     layer: uacp-adapter
-    seed: { type: symbol, value: "<a code_symbol with no governing manifest node>", anchor: "<fill once indexer exists>" }
+    basis: real-repo
     derivation: "RECIPE: once 01a-indexer emits code_anchor, join code_symbol -> manifest; a symbol with no code_anchor to any checkpoint/work_unit is the orphan. Cannot be grounded today (code_anchor unbuilt)."
     requires: [uacp, code-plane-built]
     k: 5
     ground_truth:
       must_find: []
       expected_gaps:
-        - { kind: cross-plane-orphan, detail: "code owned/touched with NO code_anchor to any manifest node" }
-    exercises: [code_anchor-join, gap-flags]
+        - kind: cross-plane-orphan
+          detail: "code owned/touched with NO code_anchor to any manifest node"
     adjudication: needs-human
 
-  # ---- D. core: NL incident -> subsystem (grounded expansion target) ---------
   - id: nl-incident--heartgate-blocks-valid-transition
     capability: nl-seed-bootstrap
     layer: core
-    seed: { type: nl_incident, value: "Heartgate is blocking a transition that should pass" }
-    derivation: "bootstrap grep 'heartgate'/'transition' -> Heartgate (heartgate.py:95,130); expand to the validators it runs (real dir listing below)"
+    basis: real-repo
+    derivation: "bootstrap grep 'heartgate'/'transition' -> Heartgate (heartgate.py:95,130); expand to the validators it runs (real dir listing engines/heartgate/validators/)"
     requires: []
     k: 8
     ground_truth:
       must_find:
-        - { node: skills/uacp-core/scripts/engines/heartgate/heartgate.py, via: bootstrap, provenance: parsed }
-      should_find:   # the validators the gate runs (real: engines/heartgate/validators/)
-        - { node: skills/uacp-core/scripts/engines/heartgate/validators/phase_exit.py,      via: scip_calls, provenance: parsed }
-        - { node: skills/uacp-core/scripts/engines/heartgate/validators/plan_validation.py, via: scip_calls, provenance: parsed }
-        - { node: skills/uacp-core/scripts/engines/heartgate/validators/ppv.py,             via: scip_calls, provenance: parsed }
-        - { node: skills/uacp-core/scripts/engines/heartgate/validators/coherence.py,       via: scip_calls, provenance: parsed }
-      expected_gaps: []
-    exercises: [nl-bootstrap, expansion-loop]
+        - node: skills/uacp-core/scripts/engines/heartgate/heartgate.py
+          via: bootstrap
+          provenance: parsed
+      should_find:
+        - node: skills/uacp-core/scripts/engines/heartgate/validators/phase_exit.py
+          via: scip_calls
+          provenance: parsed
+        - node: skills/uacp-core/scripts/engines/heartgate/validators/plan_validation.py
+          via: scip_calls
+          provenance: parsed
     adjudication: needs-human
 
-  # ---- E. core: pre-PR gap sweep — and a DYNAMIC-DISPATCH reconcile case ------
   - id: pre-pr--entity-writer-diff
     capability: gap-sweep
     layer: core
-    seed: { type: diff, value: "208f506", anchor: "skills/uacp-core/scripts/governed_handlers.py:479" }
-    derivation: "git show 208f506 changed _handle_uacp_artifact_write (def @479). Pyright reports it 'not accessed' => it is DYNAMICALLY DISPATCHED (registered, not directly called) — LSP findReferences is THIN here; the grep/registry-walk probe is what finds the dispatch site. Inverse of pair A (where LSP wins)."
+    basis: real-repo
+    derivation: "git show 208f506 changed _handle_uacp_artifact_write (def @479). Pyright reports it 'not accessed' => DYNAMICALLY DISPATCHED (registered, not directly called) — LSP findReferences is THIN here; grep/registry-walk finds the dispatch site. Inverse of pair A."
     requires: []
     k: 5
     ground_truth:
       must_find:
-        - { node: skills/uacp-core/scripts/governed_handlers.py, via: seed-diff, provenance: parsed }
-      should_find:
-        - { node: skills/uacp-core/scripts/governed_handlers.py, via: grep-registry, provenance: parsed, note: "the HANDLERS dispatch registration — found by grep, NOT by LSP refs (dynamic dispatch)" }
-      expected_gaps: []   # the diff ADDED its reject-test -> good NEGATIVE example (no missing-test gap)
-    exercises: [gap-flags, reconcile-job, dynamic-dispatch]
+        - node: skills/uacp-core/scripts/governed_handlers.py
+          via: seed-diff
+          provenance: parsed
     adjudication: needs-human
 
-  # ---- F. core, but UNGROUNDABLE ON UACP: scale / context-compression --------
   - id: scale--high-fanout-symbol
     capability: context-compression
     layer: core
-    seed: { type: symbol, value: "get_config", anchor: "<fill>", note: "highest fan-out on UACP at 13 files — still far too small to test compression" }
-    derivation: "CANNOT be grounded on UACP (too small: top symbol get_config = 13 files; compression only matters at 100k+ nodes). REQUIRES a large external repo in STANDALONE mode (no UACP) — which is exactly why the core must be UACP-independent."
+    basis: real-repo
+    derivation: "CANNOT be grounded on UACP (too small: top symbol get_config = 13 files; compression only matters at 100k+ nodes). REQUIRES a large external repo in STANDALONE mode (no UACP)."
     requires: [large-external-repo]
     k: 10
-    ground_truth: { must_find: [], should_find: [], expected_gaps: [] }
-    exercises: [beam-prune, stop-conditions, trace]
+    ground_truth:
+      must_find: []
     adjudication: needs-human
+
+  - id: blast-radius--validate_graph_invariants
+    capability: symbol-blast-radius
+    layer: core
+    basis: real-repo
+    derivation: "grep 'validate_graph_invariants(' across skills/ @HEAD = the verify-exit gate entry; callers in state_machine + transition graph gate. Needs a built index to resolve to symbols -> gated."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: skills/uacp-core/scripts/engines/heartgate/heartgate.py
+          via: scip_refs
+          provenance: parsed
+    adjudication: needs-human
+
+  # ====================================================================================
+  # EXERCISED — real-derived fixtures (PARSED). Shape mirrors a grep-verified caller set
+  # in the codeflair package @HEAD a7ef907. LSP findReferences was thin cross-root (def
+  # only) so grep is authoritative here — itself the reconcile Codeflair mechanizes.
+  # ====================================================================================
+
+  - id: fixture-parsed--heatmap-callers
+    capability: symbol-blast-radius
+    layer: core
+    basis: real-derived-fixture
+    derivation: "grep 'heatmap(' across codeflair/src @a7ef907 -> sole non-def caller PreciseEdgeWalkProbe.expand (probes.py:72). Fixture encodes that one parsed call edge."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: probes.PreciseEdgeWalkProbe.expand
+          via: scip_calls
+          provenance: parsed
+    fixture:
+      seed: query.heatmap
+      k: 5
+      direction: callers
+      symbols:
+        query.heatmap: src/codeflair/query.py
+        probes.PreciseEdgeWalkProbe.expand: src/codeflair/probes.py
+      edges:
+        - [probes.PreciseEdgeWalkProbe.expand, query.heatmap, calls, scip, parsed]
+    adjudication: needs-human
+
+  - id: fixture-parsed--blast_radius-chain
+    capability: symbol-blast-radius
+    layer: core
+    basis: real-derived-fixture
+    derivation: "grep 'blast_radius(' -> heatmap (query.py:106) calls it; heatmap is in turn called by PreciseEdgeWalkProbe.expand (probes.py:72). A real 2-hop caller chain; both within max_hops=3."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: query.heatmap
+          via: scip_calls
+          provenance: parsed
+        - node: probes.PreciseEdgeWalkProbe.expand
+          via: scip_calls
+          provenance: parsed
+    fixture:
+      seed: query.blast_radius
+      k: 5
+      max_hops: 3
+      direction: callers
+      symbols:
+        query.blast_radius: src/codeflair/query.py
+        query.heatmap: src/codeflair/query.py
+        probes.PreciseEdgeWalkProbe.expand: src/codeflair/probes.py
+      edges:
+        - [query.heatmap, query.blast_radius, calls, scip, parsed]
+        - [probes.PreciseEdgeWalkProbe.expand, query.heatmap, calls, scip, parsed]
+    adjudication: needs-human
+
+  - id: fixture-parsed--add_coupling-callers
+    capability: symbol-blast-radius
+    layer: core
+    basis: real-derived-fixture
+    derivation: "grep 'add_coupling(' across codeflair/src @a7ef907 -> two non-def callers: grep_probe.py:94 (shared_string) and cochange.py:61 (co_change). Fixture encodes both parsed call edges."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: grep_probe.scan
+          via: scip_calls
+          provenance: parsed
+        - node: cochange.compute
+          via: scip_calls
+          provenance: parsed
+    fixture:
+      seed: store.add_coupling
+      k: 5
+      direction: callers
+      symbols:
+        store.add_coupling: src/codeflair/store.py
+        grep_probe.scan: src/codeflair/grep_probe.py
+        cochange.compute: src/codeflair/cochange.py
+      edges:
+        - [grep_probe.scan, store.add_coupling, calls, scip, parsed]
+        - [cochange.compute, store.add_coupling, calls, scip, parsed]
+    adjudication: needs-human
+
+  - id: fixture-parsed--is_test_file-callers
+    capability: symbol-blast-radius
+    layer: core
+    basis: real-derived-fixture
+    derivation: "grep 'is_test_file(' across codeflair/src @a7ef907 -> sole caller find_test_gaps (expand.py:189,196). One parsed call edge."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: expand.find_test_gaps
+          via: scip_calls
+          provenance: parsed
+    fixture:
+      seed: expand.is_test_file
+      k: 5
+      direction: callers
+      symbols:
+        expand.is_test_file: src/codeflair/expand.py
+        expand.find_test_gaps: src/codeflair/expand.py
+      edges:
+        - [expand.find_test_gaps, expand.is_test_file, calls, scip, parsed]
+    adjudication: needs-human
+
+  # ====================================================================================
+  # EXERCISED — real-derived fixtures (INFERRED). Couplings are REAL git co-change
+  # neighbors of the seed's file in the codeflair history @a7ef907 (per-commit file
+  # co-occurrence counts). The inferred-subset recall is the cheap-model premise test.
+  # ====================================================================================
+
+  - id: fixture-inferred--query-cochange-store
+    capability: temporal-relation
+    layer: core
+    basis: real-derived-fixture
+    derivation: "git co-change of src/codeflair/query.py @a7ef907: store.py is a top co-committed neighbor (3 commits). Fixture encodes that co_change coupling; GT = a symbol in the coupled file."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: store.Store
+          via: co_change
+          provenance: inferred
+    fixture:
+      seed: query.heatmap
+      k: 5
+      direction: callers
+      symbols:
+        query.heatmap: src/codeflair/query.py
+        store.Store: src/codeflair/store.py
+      couplings:
+        - [src/codeflair/query.py, src/codeflair/store.py, co_change, 3]
+    adjudication: needs-human
+
+  - id: fixture-inferred--query-cochange-expand
+    capability: temporal-relation
+    layer: core
+    basis: real-derived-fixture
+    derivation: "git co-change of src/codeflair/query.py @a7ef907: expand.py co-committed in 3 commits (tied-top neighbor). co_change coupling -> inferred symbol in expand.py."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: expand.expand
+          via: co_change
+          provenance: inferred
+    fixture:
+      seed: query.heatmap
+      k: 5
+      direction: callers
+      symbols:
+        query.heatmap: src/codeflair/query.py
+        expand.expand: src/codeflair/expand.py
+      couplings:
+        - [src/codeflair/expand.py, src/codeflair/query.py, co_change, 3]
+    adjudication: needs-human
+
+  - id: fixture-inferred--store-cochange-scip_ingest
+    capability: temporal-relation
+    layer: core
+    basis: real-derived-fixture
+    derivation: "git co-change of src/codeflair/store.py @a7ef907: scip_ingest.py co-committed in 5 commits (top non-__init__ neighbor). co_change coupling -> inferred symbol in scip_ingest.py."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: scip_ingest.ingest_scip_json
+          via: co_change
+          provenance: inferred
+    fixture:
+      seed: store.Store
+      k: 5
+      direction: callers
+      symbols:
+        store.Store: src/codeflair/store.py
+        scip_ingest.ingest_scip_json: src/codeflair/scip_ingest.py
+      couplings:
+        - [src/codeflair/scip_ingest.py, src/codeflair/store.py, co_change, 5]
+    adjudication: needs-human
+
+  # ====================================================================================
+  # EXERCISED — constructed, known-by-construction blast radii that VERIFY the metric
+  # discriminates (truncation / hop-limit / inferred-demotion / direction / absence).
+  # These are NOT real-repo claims; they exercise the harness so the baseline is a real
+  # fraction, not a vacuous 1.0.
+  # ====================================================================================
+
+  - id: construct--full-recall-parsed
+    capability: metric-mechanics
+    layer: core
+    basis: constructed
+    derivation: "By construction: two direct callers B,C of seed A within k=5 -> both must be in the top-K (recall 1.0)."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: B
+          provenance: parsed
+        - node: C
+          provenance: parsed
+    fixture:
+      seed: A
+      k: 5
+      direction: callers
+      symbols:
+        A: a.py
+        B: b.py
+        C: c.py
+      edges:
+        - [B, A, calls, scip, parsed]
+        - [C, A, calls, scip, parsed]
+    adjudication: by-construction
+
+  - id: construct--topk-truncation
+    capability: metric-mechanics
+    layer: core
+    basis: constructed
+    derivation: "By construction: B is a hop-1 caller (score 0.5), C a hop-2 caller (score 0.25). With k=1 only B survives the top-K cut -> recall of {B,C} = 0.5. Proves K-truncation lowers recall."
+    requires: []
+    k: 1
+    ground_truth:
+      must_find:
+        - node: B
+          provenance: parsed
+        - node: C
+          provenance: parsed
+    fixture:
+      seed: A
+      k: 1
+      max_hops: 3
+      direction: callers
+      symbols:
+        A: a.py
+        B: b.py
+        C: c.py
+      edges:
+        - [B, A, calls, scip, parsed]
+        - [C, B, calls, scip, parsed]
+    adjudication: by-construction
+
+  - id: construct--hop-limit-miss
+    capability: metric-mechanics
+    layer: core
+    basis: constructed
+    derivation: "By construction: chain C -> B -> A. With max_hops=1 the blast radius reaches B but not C -> recall of {B,C} = 0.5. Proves a hop-limited walk misses distant ground truth."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: B
+          provenance: parsed
+        - node: C
+          provenance: parsed
+    fixture:
+      seed: A
+      k: 5
+      max_hops: 1
+      direction: callers
+      symbols:
+        A: a.py
+        B: b.py
+        C: c.py
+      edges:
+        - [B, A, calls, scip, parsed]
+        - [C, B, calls, scip, parsed]
+    adjudication: by-construction
+
+  - id: construct--inferred-demoted-below-k
+    capability: metric-mechanics
+    layer: core
+    basis: constructed
+    derivation: "By construction: precise callers B,C (score 0.5) fill k=2; the co-change-coupled symbol X (inferred, score ~0.06) is floored below the cut -> recall of {X} = 0.0. Proves the inferred floor can cost recall under tight K (the cheap-model tension)."
+    requires: []
+    k: 2
+    ground_truth:
+      must_find:
+        - node: X
+          provenance: inferred
+    fixture:
+      seed: A
+      k: 2
+      direction: callers
+      symbols:
+        A: a.py
+        B: b.py
+        C: c.py
+        X: x.py
+      edges:
+        - [B, A, calls, scip, parsed]
+        - [C, A, calls, scip, parsed]
+      couplings:
+        - [a.py, x.py, co_change, 5]
+    adjudication: by-construction
+
+  - id: construct--callees-direction
+    capability: metric-mechanics
+    layer: core
+    basis: constructed
+    derivation: "By construction: seed A calls B and C (outgoing edges). direction=callees walks dependencies; both within k=5 -> recall 1.0. Proves the callee direction is exercised."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: B
+          provenance: parsed
+        - node: C
+          provenance: parsed
+    fixture:
+      seed: A
+      k: 5
+      direction: callees
+      symbols:
+        A: a.py
+        B: b.py
+        C: c.py
+      edges:
+        - [A, B, calls, scip, parsed]
+        - [A, C, calls, scip, parsed]
+    adjudication: by-construction
+
+  - id: construct--mixed-parsed-inferred-full
+    capability: metric-mechanics
+    layer: core
+    basis: constructed
+    derivation: "By construction: precise caller B (parsed) and co-change-coupled X (inferred) both fit in k=5 -> both subsets recall 1.0. Gives the split a clean both-hit datapoint."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: B
+          provenance: parsed
+        - node: X
+          provenance: inferred
+    fixture:
+      seed: A
+      k: 5
+      direction: callers
+      symbols:
+        A: a.py
+        B: b.py
+        X: x.py
+      edges:
+        - [B, A, calls, scip, parsed]
+      couplings:
+        - [a.py, x.py, co_change, 2]
+    adjudication: by-construction
+
+  - id: construct--deep-chain-within-hops
+    capability: metric-mechanics
+    layer: core
+    basis: constructed
+    derivation: "By construction: chain D -> C -> B -> A, max_hops=3, k=5 -> the whole transitive caller set {B,C,D} is recovered (recall 1.0). Proves multi-hop transitive closure."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: B
+          provenance: parsed
+        - node: C
+          provenance: parsed
+        - node: D
+          provenance: parsed
+    fixture:
+      seed: A
+      k: 5
+      max_hops: 3
+      direction: callers
+      symbols:
+        A: a.py
+        B: b.py
+        C: c.py
+        D: d.py
+      edges:
+        - [B, A, calls, scip, parsed]
+        - [C, B, calls, scip, parsed]
+        - [D, C, calls, scip, parsed]
+    adjudication: by-construction
+
+  - id: construct--absent-ground-truth-zero
+    capability: metric-mechanics
+    layer: core
+    basis: constructed
+    derivation: "By construction: seed A has one caller B, but the ground truth names Z (a symbol absent from the graph) -> recall 0.0. Proves absent ground truth scores zero, not a false pass."
+    requires: []
+    k: 5
+    ground_truth:
+      must_find:
+        - node: Z
+          provenance: parsed
+    fixture:
+      seed: A
+      k: 5
+      direction: callers
+      symbols:
+        A: a.py
+        B: b.py
+      edges:
+        - [B, A, calls, scip, parsed]
+    adjudication: by-construction

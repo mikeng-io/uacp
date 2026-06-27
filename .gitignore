@@ -36,5 +36,8 @@ codeflair/.venv/
 # Codeflair vendored SCIP indexers (npm) — manifest tracked, installed tree not
 codeflair/vendor/node_modules/
 
+# Codeflair per-worktree store cache (OD-4) — keyed to the worktree root, rebuildable
+.codeflair/
+
 *.egg-info/
 acceptance/out/

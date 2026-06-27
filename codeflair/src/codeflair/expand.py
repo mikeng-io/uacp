@@ -13,15 +13,19 @@ output scored separately from the heatmap (CF-D6).
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 
-from codeflair.query import HeatmapEntry, heatmap
+from codeflair.overlay import FileConflict, LspOverlay, reconcile_overlay
+from codeflair.policy import ScorePolicy, default_policy
+from codeflair.probes import ProbeContext, ProbeParams, ProbeRegistry, default_registry
+from codeflair.query import HeatmapEntry
 from codeflair.store import Store
-
-# Inferred couplings are weak by construction — floor them well below any parsed edge.
-_INFERRED_TRUST = 0.3
-_COUPLING_KIND_WEIGHT = {"co_change": 0.4, "shared_string": 0.5}
-_HOP_DECAY = 0.5
+from codeflair.trace import (
+    HopRecord,
+    SearchTrace,
+    TraceCandidate,
+    compute_basis_hash,
+)
 
 _TEST_FILE_RE = re.compile(
     r"(_test\.go$|_test\.py$|test_.*\.py$|\.test\.[jt]sx?$|\.spec\.[jt]sx?$|(^|/)tests?/)"
@@ -41,6 +45,15 @@ class ExpandResult:
     gaps: list[Gap]
     n_precise: int  # symbols reached by precise edge-walk
     n_inferred: int  # symbols added only by coupling projection
+    # P2 (additive) — the live-overlay reconcile outcome. Defaults describe the
+    # store-authoritative path (no reconcile requested): nothing degraded, no conflict.
+    lsp_degraded: bool = False  # a dirty file needed the live LSP overlay but it was absent/failed
+    warnings: list[str] = field(default_factory=list)  # agent-readable (lsp_degraded, unreconciled)
+    conflicts: list[FileConflict] = field(default_factory=list)  # SCIP↔LSP disagreements, surfaced
+    overlay_only: list[str] = field(default_factory=list)  # F4: live symbols the store lacks
+    # P4 (additive) — the replayable, watermarked search trace. ``None`` unless ``expand`` was
+    # called with ``capture_trace=True``; the result is otherwise byte-identical to before.
+    trace: SearchTrace | None = None
 
 
 def is_test_file(path: str) -> bool:
@@ -56,38 +69,155 @@ def expand(
     beam: int = 50,
     direction: str = "callers",
     include_coupling: bool = True,
+    registry: ProbeRegistry | None = None,
+    working_files: dict[str, bytes] | None = None,
+    overlay: LspOverlay | None = None,
+    capture_trace: bool = False,
+    policy: ScorePolicy | None = None,
+    now: int | None = None,
 ) -> ExpandResult:
-    """Grow the relation subgraph from ``seed`` and rank it into a top-``k`` heatmap + gaps."""
-    # 1. precise closure, fully scored (heatmap with no top-k cut)
-    precise = heatmap(store, seed, k=2_000_000_000, max_hops=max_hops, direction=direction)
-    entries: dict[str, HeatmapEntry] = {e.symbol: e for e in precise}
-    n_precise = len(entries)
+    """Grow the relation subgraph from ``seed`` and rank it into a top-``k`` heatmap + gaps.
 
-    # 2. inferred coupling projection from the seed + top-beam precise nodes
-    n_inferred = 0
-    if include_coupling:
-        bases: list[tuple[str, int]] = [(seed, 0)]
-        bases += [(e.symbol, e.hop) for e in precise[:beam]]
-        for base_sym, base_hop in bases:
-            sym_row = store.symbol(base_sym)
-            if sym_row is None or not sym_row.file:
-                continue
-            for other_file, kind, _weight in store.coupled_files(sym_row.file):
-                hop = base_hop + 1
-                score = round(
-                    _INFERRED_TRUST * _COUPLING_KIND_WEIGHT.get(kind, 0.3) * (_HOP_DECAY**hop), 6
-                )
-                for csym in store.symbols_in_file(other_file):
-                    if csym == seed or csym in entries:
-                        continue  # precise evidence always wins
-                    entries[csym] = HeatmapEntry(
-                        symbol=csym, hop=hop, score=score, via=f"{kind}/coupling"
+    The probe sequence is NOT hardcoded: the loop consults ``registry`` (defaulting to the
+    core probe set — precise edge-walk then coupling projection). Probes run in registration
+    order; the FIRST probe to claim a symbol wins, so precise evidence outranks inferred
+    couplings (and any later-registered probe). New sources (LSP, contracts, the UACP
+    cross-plane join) plug in by registering a probe — no change to this function.
+
+    When ``working_files`` (a ``{path: current_bytes}`` snapshot of the dirty tree) is given,
+    the query becomes reconcile-aware (P2, OD-1): every dirty node is reconciled against the
+    live LSP ``overlay`` and tagged ``trusted``/``live``/``unreconciled``/``stale``. The
+    overlay is always attempted and fail-soft — absent or failing, the query still returns
+    and sets ``lsp_degraded``. With ``working_files=None`` the reconcile is skipped entirely
+    and behaviour is byte-identical to the store-authoritative path (every node ``trusted``).
+    """
+    if registry is None:
+        registry = default_registry(include_coupling=include_coupling)
+    if policy is None:
+        policy = default_policy()
+    params = ProbeParams(k=k, max_hops=max_hops, beam=beam, direction=direction)
+    ctx = ProbeContext(store=store, seed=seed, params=params, policy=policy, now=now)
+
+    counts = {"precise": 0, "inferred": 0}
+    hops: list[HopRecord] = []
+    # P6: which distinct probes corroborated each symbol (admitted-or-not — a second probe
+    # finding a node IS corroboration even when first-claim-wins drops its duplicate).
+    found_by: dict[str, set[str]] = {}
+    for probe in registry.probes:
+        candidates: list[TraceCandidate] = []
+        for entry in probe.expand(ctx):
+            found_by.setdefault(entry.symbol, set()).add(probe.name)
+            admitted = not (entry.symbol == seed or entry.symbol in ctx.entries)
+            if capture_trace:
+                candidates.append(
+                    TraceCandidate(
+                        symbol=entry.symbol,
+                        score=entry.score,
+                        hop=entry.hop,
+                        via=entry.via,
+                        source=entry.source,
+                        admitted=admitted,
                     )
-                    n_inferred += 1
+                )
+            if not admitted:
+                continue  # first claim wins — precise evidence (earlier probe) is never displaced
+            ctx.entries[entry.symbol] = entry
+            counts[probe.kind] = counts.get(probe.kind, 0) + 1
+        if capture_trace:
+            hops.append(HopRecord(probe=probe.name, kind=probe.kind, candidates=tuple(candidates)))
 
-    ranked = sorted(entries.values(), key=lambda e: (-e.score, e.symbol))[:k]
+    # P6 multi-probe corroboration: add the policy's agreement bonus to each node BEFORE the
+    # top-k cut (so corroboration can affect selection). Applied with conflicting=False here;
+    # the reconcile below strips it from any node it later tags 'unreconciled'. ``core_scores``
+    # keeps the pre-bonus score so that strip is exact.
+    core_scores: dict[str, float] = {sym: e.score for sym, e in ctx.entries.items()}
+    for sym, e in list(ctx.entries.items()):
+        bonus = policy.agreement_bonus(len(found_by.get(sym, ())), False)
+        if bonus:
+            ctx.entries[sym] = replace(e, score=round(e.score + bonus, 6))
+
+    ordered = sorted(ctx.entries.values(), key=lambda e: (-e.score, e.symbol))
+    ranked = ordered[:k]
+
+    lsp_degraded = False
+    warnings: list[str] = []
+    conflicts: list[FileConflict] = []
+    overlay_only: list[str] = []
+    unreconciled_syms: tuple[str, ...] = ()
+    if working_files is not None:
+        # Reconcile the FULL candidate set BEFORE the top-k cut (F5): the unreconciled
+        # bonus-strip can drop a node below one at ordered[k:], so the strip must precede
+        # selection — else a bonus-promoted-then-stripped node keeps a slot the rightful
+        # node should take.
+        rec = reconcile_overlay(store, ordered, working_files, overlay)
+        lsp_degraded = rec.lsp_degraded
+        warnings = rec.warnings
+        conflicts = rec.conflicts
+        overlay_only = rec.overlay_only
+        # Never boost an unreconciled node: strip the corroboration bonus from any node the
+        # reconcile flagged 'unreconciled' (a SCIP↔overlay conflict is surfaced, not blended).
+        stripped: list[HeatmapEntry] = []
+        for e in rec.entries:
+            if e.freshness == "unreconciled" and len(found_by.get(e.symbol, ())) > 1:
+                stripped.append(replace(e, score=core_scores.get(e.symbol, e.score)))
+            else:
+                stripped.append(e)
+        ordered = sorted(stripped, key=lambda e: (-e.score, e.symbol))  # re-sort, THEN cut
+        ranked = ordered[:k]
+        # F3: record the unreconciled symbols so replay reproduces the post-reconcile ranking
+        # exactly — it must NOT re-add the corroboration bonus to a conflicting node.
+        unreconciled_syms = tuple(
+            sorted(e.symbol for e in rec.entries if e.freshness == "unreconciled")
+        )
+
     gaps = find_test_gaps(store, ranked)
-    return ExpandResult(heatmap=ranked, gaps=gaps, n_precise=n_precise, n_inferred=n_inferred)
+
+    trace: SearchTrace | None = None
+    if capture_trace:
+        repo_commit, built_at = store.watermark() or ("", "")
+        trace = SearchTrace(
+            seed=seed,
+            query={
+                "seed": seed,
+                "k": k,
+                "max_hops": max_hops,
+                "beam": beam,
+                "direction": direction,
+                "include_coupling": include_coupling,
+            },
+            repo_commit=repo_commit,
+            built_at=built_at,
+            basis_hash=compute_basis_hash(store),
+            hops=tuple(hops),
+            # ``ranked`` is reconcile-tagged but order/scores are preserved, so the kept beam
+            # is exactly the final heatmap order; the pruned beam is what the top-k cut dropped
+            # (from the post-reconcile, post-strip ``ordered`` so it matches the kept beam).
+            result_order=tuple(e.symbol for e in ranked),
+            pruned=tuple(
+                TraceCandidate(
+                    symbol=e.symbol,
+                    score=e.score,
+                    hop=e.hop,
+                    via=e.via,
+                    source=e.source,
+                    admitted=True,
+                )
+                for e in ordered[k:]
+            ),
+            unreconciled=unreconciled_syms,
+        )
+
+    return ExpandResult(
+        heatmap=ranked,
+        gaps=gaps,
+        n_precise=counts.get("precise", 0),
+        n_inferred=counts.get("inferred", 0),
+        lsp_degraded=lsp_degraded,
+        warnings=warnings,
+        conflicts=conflicts,
+        overlay_only=overlay_only,
+        trace=trace,
+    )
 
 
 def find_test_gaps(store: Store, entries: list[HeatmapEntry]) -> list[Gap]:
