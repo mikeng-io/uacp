@@ -150,9 +150,11 @@ def _entity_write_schema() -> dict[str, Any]:
                 "type": "object",
                 "description": (
                     "Per-kind path placeholders. Required for multi-instance kinds: "
-                    "uacp.check.* requires {\"seq\": \"N\"} (1-based counter per check); "
-                    "uacp.execution_checkpoint and uacp.investigation_entry likewise require {\"seq\": \"N\"}. "
-                    "Omitting a required placeholder is an error."
+                    "uacp.check.* (all sub-kinds), uacp.execution_checkpoint, and uacp.investigation_entry "
+                    "each require {\"seq\": \"N\"} (1-based counter); "
+                    "uacp.evidence_disposition requires {\"cluster\": \"<id>\", \"half\": \"<left|right>\"} "
+                    "(template verification/{run_id}-{cluster}-{half}.md). "
+                    "Omitting a required placeholder is an error that names the missing key."
                 ),
             },
             "reason": {"type": "string"},
