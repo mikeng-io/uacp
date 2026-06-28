@@ -359,14 +359,28 @@ def tool_specs() -> list[ToolSpec]:
                             "filesystem is read-only. PATH is scrubbed to /usr/bin:/bin."
                         ),
                     },
-                    "workspace": {"type": "string"},
+                    "workspace": {
+                        "type": "string",
+                        "description": (
+                            "The execution workspace — bind-mounted writable and used as the command's "
+                            "working directory (the container --chdir's here). Required (or supply it via "
+                            "the workdir/cwd aliases below)."
+                        ),
+                    },
                     "workdir": {
                         "type": "string",
-                        "description": "Workspace root path (alias for workspace; one of the two is required).",
+                        "description": (
+                            "Alias for workspace, used only when workspace is absent (precedence: "
+                            "workspace > workdir > cwd). It does NOT select a subdirectory."
+                        ),
                     },
                     "cwd": {
                         "type": "string",
-                        "description": "Working directory inside the container (defaults to workspace).",
+                        "description": (
+                            "Alias for workspace, used only when workspace and workdir are both absent. "
+                            "It does NOT change the directory to a workspace subdirectory — the command "
+                            "always runs at the workspace root."
+                        ),
                     },
                     "timeout": {
                         "type": "integer",
