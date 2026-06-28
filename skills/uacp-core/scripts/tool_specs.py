@@ -129,9 +129,34 @@ def _entity_write_schema() -> dict[str, Any]:
     return {
         "type": "object",
         "properties": {
-            "kind": {"type": "string"},
+            "kind": {
+                "type": "string",
+                "description": (
+                    "The entity kind to write. Must be a RELATION-plane kind from the layout registry. "
+                    "Lifecycle YAML kinds: uacp.triage, uacp.proposal, uacp.proposal_package_selection, "
+                    "uacp.intent (Markdown), uacp.convergence_budget, uacp.plan_package_selection, "
+                    "uacp.scope, uacp.phase_intent_verification_contract, uacp.execution_checkpoint, "
+                    "uacp.investigation_entry, uacp.verification_package, uacp.verify_resolve_readiness, "
+                    "uacp.evidence_disposition (Markdown), uacp.piv_assessment, uacp.resolve_package, "
+                    "uacp.resolve_closure, uacp.lessons. "
+                    "Generative-gate check kinds (frozen per run): uacp.check.field_present, "
+                    "uacp.check.field_equals, uacp.check.edge_exists, uacp.check.artifact_integrity, "
+                    "uacp.check.obligation_satisfied, uacp.check.symbol_resolves, uacp.check.behavioral. "
+                    "STATE-plane kinds (run_manifest, run_registry, current_state) are rejected — use the state writers."
+                ),
+            },
             "fields": {"type": "object"},
-            "ctx": {"type": "object"},
+            "ctx": {
+                "type": "object",
+                "description": (
+                    "Per-kind path placeholders. Required for multi-instance kinds: "
+                    "uacp.check.* (all sub-kinds), uacp.execution_checkpoint, and uacp.investigation_entry "
+                    "each require {\"seq\": \"N\"} (1-based counter); "
+                    "uacp.evidence_disposition requires {\"cluster\": \"<id>\", \"half\": \"<left|right>\"} "
+                    "(template verification/{run_id}-{cluster}-{half}.md). "
+                    "Omitting a required placeholder is an error that names the missing key."
+                ),
+            },
             "reason": {"type": "string"},
             "authority_artifact": {"type": "string"},
             "workspace": {"type": "string"},
@@ -172,8 +197,20 @@ def tool_specs() -> list[ToolSpec]:
             input_schema={
                 "type": "object",
                 "properties": {
-                    "op": {"type": "string", "enum": ["register", "deregister"]},
-                    "entry": {"type": "object"},
+                    "op": {
+                        "type": "string",
+                        "enum": ["register", "deregister"],
+                        "description": "'register' adds an active_runs[] entry; 'deregister' removes it by run_id.",
+                    },
+                    "entry": {
+                        "type": "object",
+                        "description": (
+                            "For register: must include run_id (string, must equal caller uacp_run_id), "
+                            "phase (string), write_paths (list of UACP-root-relative strings the run may write), "
+                            "scope_artifact_path (string), started_at (ISO timestamp). "
+                            "For deregister: only run_id is required."
+                        ),
+                    },
                     "reason": {"type": "string"},
                     "authority_artifact": {"type": "string"},
                     "workspace": {"type": "string"},
@@ -316,12 +353,48 @@ def tool_specs() -> list[ToolSpec]:
             input_schema={
                 "type": "object",
                 "properties": {
-                    "command": {"type": "string"},
-                    "workspace": {"type": "string"},
-                    "workdir": {"type": "string"},
-                    "cwd": {"type": "string"},
-                    "timeout": {"type": "integer"},
-                    "attestation_id": {"type": "string"},
+                    "command": {
+                        "type": "string",
+                        "description": (
+                            "Shell string (passed to 'sh -lc') executed inside bwrap read-only-root "
+                            "containment. The workspace dir is the only writable bind-mount; the root "
+                            "filesystem is read-only. PATH is scrubbed to /usr/bin:/bin."
+                        ),
+                    },
+                    "workspace": {
+                        "type": "string",
+                        "description": (
+                            "The execution workspace — bind-mounted writable and used as the command's "
+                            "working directory (the container --chdir's here). Required (or supply it via "
+                            "the workdir/cwd aliases below)."
+                        ),
+                    },
+                    "workdir": {
+                        "type": "string",
+                        "description": (
+                            "Alias for workspace, used only when workspace is absent (precedence: "
+                            "workspace > workdir > cwd). It does NOT select a subdirectory."
+                        ),
+                    },
+                    "cwd": {
+                        "type": "string",
+                        "description": (
+                            "Alias for workspace, used only when workspace and workdir are both absent. "
+                            "It does NOT change the directory to a workspace subdirectory — the command "
+                            "always runs at the workspace root."
+                        ),
+                    },
+                    "timeout": {
+                        "type": "integer",
+                        "description": "Execution timeout in seconds (default 60; bwrap probe capped at 20s).",
+                    },
+                    "attestation_id": {
+                        "type": "string",
+                        "description": (
+                            "Optional prior uacp_sandbox_check attestation ID to reuse. "
+                            "If absent a fresh containment probe is run. Expires with policy_version."
+                        ),
+                    },
                     "authority_artifact": {"type": "string"},
                     "uacp_run_id": {"type": "string"},
                     "uacp_phase": {"type": "string"},
@@ -348,8 +421,23 @@ def tool_specs() -> list[ToolSpec]:
             input_schema={
                 "type": "object",
                 "properties": {
-                    "gate": {"type": "string"},
-                    "record": {"type": "object"},
+                    "gate": {
+                        "type": "string",
+                        "description": (
+                            "The gate name this record belongs to (e.g. 'PLAN_VALIDATION', "
+                            "'VERIFY_EVIDENCE', 'TRIAGE_COMPLETE'). Free-form string stamped onto "
+                            "each record; the Heartgate validator matches against this name."
+                        ),
+                    },
+                    "record": {
+                        "type": "object",
+                        "description": (
+                            "A JSON-serializable dict to append as one JSONL line. "
+                            "The writer auto-stamps 'gate', 'run_id', and 'ts' if absent. "
+                            "Must not contain embedded newlines; must be ≤3584 bytes UTF-8 "
+                            "(PIPE_BUF atomicity bound)."
+                        ),
+                    },
                     "authority_artifact": {"type": "string"},
                     "workspace": {"type": "string"},
                     "uacp_run_id": {"type": "string"},
@@ -378,7 +466,15 @@ def tool_specs() -> list[ToolSpec]:
             input_schema={
                 "type": "object",
                 "properties": {
-                    "transition_path": {"type": "string"},
+                    "transition_path": {
+                        "type": "string",
+                        "description": (
+                            "UACP-root-relative path to the phase-transition YAML artifact to validate. "
+                            "Must be a .yaml/.yml file under one of: state/, verification/, executions/, "
+                            "plans/, proposals/, resolutions/, or knowledge/. "
+                            "Example: 'state/runs/r-20260628.yaml'."
+                        ),
+                    },
                     "authority_artifact": {"type": "string"},
                     "workspace": {"type": "string"},
                     "uacp_run_id": {"type": "string"},

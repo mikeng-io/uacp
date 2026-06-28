@@ -101,10 +101,13 @@ def create_entity(
             f"unexpected context key(s) for {kind}: {unexpected} "
             f"(template placeholders: {sorted(placeholders)})"
         )
-    try:
-        rel = layout.relpath(kind, run_id=run_id, **ctx)
-    except KeyError as exc:
-        return _err(str(exc))
+    missing = sorted(placeholders - set(ctx))
+    if missing:
+        return _err(
+            f"missing required ctx placeholder(s) for {kind}: {missing} "
+            f"(pass them via ctx={{...}} e.g. ctx={{'seq': '1'}})"
+        )
+    rel = layout.relpath(kind, run_id=run_id, **ctx)
 
     # 2. SERIALIZE + 3. VALIDATE (shape) — branched by layout format (node 35 §2.4).
     if fmt == layout.YAML:
