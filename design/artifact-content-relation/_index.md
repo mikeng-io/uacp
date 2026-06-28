@@ -1,6 +1,6 @@
 # Design bundle — Artifact content/relation model
 
-**Status:** draft (design-track; build is a later run)
+**Status:** REWORK — parked pending B1/B2 operator decision (see [08-review-findings](08-review-findings.md)). Lifecycle-executability fixes split out as a separate higher-priority initiative.
 **Origin:** brainstorm run `acrs-20260628` (vault: `.uacp/brainstorm/acrs-20260628/`)
 **Branch:** `design/artifact-content-relation-split`
 
