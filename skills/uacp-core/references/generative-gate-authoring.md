@@ -33,6 +33,10 @@ For each target the phase owns:
    - `from.class` = the class you comprehended; `from.basis` = its textual basis;
    - `bind` = what the check evaluates against (an artifact `ref`, a graph triple, or an
      `obligation_id`); `expect.value` for `field_equals`; `severity: block`.
+   - **`ctx: {"seq": "N"}`** — **required** for every `uacp.check.*` call. The filename template
+     is `{run_id}-check-{seq}-<kind>.yaml`; the entity-writer needs `seq` to resolve the path.
+     Use a 1-based counter per check within the run (e.g. `"1"`, `"2"`, …). Omitting `ctx` (or
+     passing it without `seq`) is an error — the writer will tell you which placeholder is missing.
 3. **serialize** — the entity-writer validates against the schema, watermarks, and auto-registers
    it, so it projects as a `check` node and the replay engine + coverage gate see it. Same trust
    path as every other manifest entity.

@@ -131,7 +131,15 @@ def _entity_write_schema() -> dict[str, Any]:
         "properties": {
             "kind": {"type": "string"},
             "fields": {"type": "object"},
-            "ctx": {"type": "object"},
+            "ctx": {
+                "type": "object",
+                "description": (
+                    "Per-kind path placeholders. Required for multi-instance kinds: "
+                    "uacp.check.* requires {\"seq\": \"N\"} (1-based counter per check); "
+                    "uacp.execution_checkpoint and uacp.investigation_entry likewise require {\"seq\": \"N\"}. "
+                    "Omitting a required placeholder is an error."
+                ),
+            },
             "reason": {"type": "string"},
             "authority_artifact": {"type": "string"},
             "workspace": {"type": "string"},
