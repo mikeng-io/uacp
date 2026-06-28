@@ -95,6 +95,12 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_artifact_write",
         "uacp_entity_write",
         "uacp_heartgate_check",
+        # Run-lifecycle ops: brainstorm is an entry phase where a run can be
+        # created (uacp_run_init); transitions/artifact-registration occur at
+        # every phase boundary.
+        "uacp_run_init",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "triage": [
         "uacp_artifact_write",
@@ -106,6 +112,11 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_heartgate_check",
         "uacp_doc_write",
         "uacp_config_write",
+        # Run-lifecycle ops: triage is the canonical entry phase where the run
+        # is created (uacp_run_init).
+        "uacp_run_init",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "propose": [
         "uacp_artifact_write",
@@ -116,6 +127,8 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_gate_ledger_append",
         "uacp_heartgate_check",
         "uacp_doc_write",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "plan": [
         "uacp_artifact_write",
@@ -125,6 +138,8 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_escalation_event",
         "uacp_gate_ledger_append",
         "uacp_heartgate_check",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "execute": [
         "uacp_doc_write",
@@ -140,6 +155,8 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_heartgate_check",
         "terminal",
         "execute_code",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "verify": [
         "uacp_artifact_write",
@@ -151,6 +168,8 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_heartgate_check",
         "uacp_sandbox_check",
         "uacp_contained_shell",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "resolve": [
         "uacp_artifact_write",
@@ -160,6 +179,12 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_escalation_event",
         "uacp_gate_ledger_append",
         "uacp_heartgate_check",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
+        # Finalize is admissible only in resolve: handle_finalize refuses unless
+        # the manifest is already in a terminal phase (resolved/aborted), which
+        # is reached by the verify->resolve transition.
+        "uacp_run_finalize",
     ],
 }
 
