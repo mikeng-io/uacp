@@ -67,11 +67,14 @@ who authorized it, what changes are in scope, and what side effects are declared
   boundary is provenanced and re-derivable, not just asserted by having an artifact on disk.
 
 ## Typical outputs
-- proposal artifact in `proposals/`
-- gate-selection artifact in `proposals/`
+- proposal artifact in `proposals/` — write with `uacp_entity_write` (`kind: uacp.proposal`)
+- gate-selection artifact in `proposals/` — write with `uacp_entity_write` (`kind: uacp.proposal_package_selection`)
   (name: `<proposal-id>-gate-selection.yaml`)
 - reference to originating triage artifact
-- for medium/high consequence work: adaptive proposal package under `proposals/{run_id}/`
+- for medium/high consequence work: adaptive proposal package Markdown files under `proposals/{run_id}/` —
+  write each with **`uacp_artifact_write`** (`target_path: proposals/{run_id}/NN-name.md`, `content: <body>`).
+  Do NOT use raw `Write` — Guardian blocks it. `uacp_artifact_write` is the correct governed path for
+  non-manifest Markdown artifacts in `proposals/`.
 
 ## Author the frozen verification checks (generative gate)
 PROPOSE owns the **scope_items** (the keyed intents written above). For each one, `uacp_entity_write`
