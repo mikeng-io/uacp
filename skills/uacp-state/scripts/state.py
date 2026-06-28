@@ -32,6 +32,10 @@ __all__ = [
     "_handle_uacp_state_write",
     "_handle_uacp_run_registry_update",
     "_handle_uacp_escalation_event",
+    "_handle_uacp_run_init",
+    "_handle_uacp_run_transition",
+    "_handle_uacp_run_register_artifact",
+    "_handle_uacp_run_finalize",
 ]
 
 
@@ -463,3 +467,172 @@ def _handle_uacp_escalation_event(args: dict, **_: Any) -> str:
         return json.dumps({"ok": True, "path": str(out_path.relative_to(base)), "trigger": trigger, "severity": severity, "run_id": run_id, "authority_artifact": authority}, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"error": f"uacp_escalation_event failed: {type(exc).__name__}: {exc}"})
+
+
+# ---------------------------------------------------------------------------
+# Run lifecycle tools — governed wrappers for state_machine.handle_* functions.
+# Each handler enforces the standard UACP context fields (via
+# _required_uacp_context_missing) and requires reason + authority_artifact
+# before delegating to the neutral state machine.  The state machine itself
+# carries no governed-context contract; these thin wrappers are the seam.
+# ---------------------------------------------------------------------------
+
+
+def _handle_uacp_run_init(args: dict, **_: Any) -> str:
+    """Governed wrapper for state_machine.handle_init.
+
+    Creates a new run manifest at state/runs/{run_id}.yaml with governed-context
+    enforcement: validates UACP context fields and requires reason +
+    authority_artifact before delegating.  Maps the tool-level ``uacp_run_id``
+    field to the state machine's ``run_id`` parameter.
+    """
+    try:
+        missing = _required_uacp_context_missing(args)
+        if missing:
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing)}"})
+        workspace = args.get("workspace")
+        policy = GuardianPolicy.load(workspace)
+        reason = (args.get("reason") or "").strip()
+        authority = (args.get("authority_artifact") or "").strip()
+        if not reason:
+            return json.dumps({"error": "reason is required"})
+        if not authority:
+            return json.dumps({"error": "authority_artifact is required"})
+        run_id = str(args.get("uacp_run_id") or "").strip()
+        params: dict[str, Any] = {
+            "workspace": str(policy.uacp_root),
+            "run_id": run_id,
+            "source": str(args.get("source") or "").strip(),
+        }
+        for key in (
+            "initial_phase",
+            "track",
+            "workspace_kind",
+            "workspace_path",
+            "workspace_branch",
+            "goal_id",
+            "inherits_from",
+            "scope",
+            "granularity",
+            "risk",
+            "domains",
+        ):
+            if key in args:
+                params[key] = args[key]
+        from state_machine import handle_init  # lazy: avoids any future import cycles
+
+        return handle_init(params)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_run_init failed: {type(exc).__name__}: {exc}"})
+
+
+def _handle_uacp_run_transition(args: dict, **_: Any) -> str:
+    """Governed wrapper for state_machine.handle_transition.
+
+    Executes a locked phase transition with governed-context enforcement.
+    Validates UACP context fields, requires reason + authority_artifact, and
+    validates from_phase / to_phase before delegating to the state machine,
+    which enforces the canonical phase graph and phase-exit structural gates.
+    """
+    try:
+        missing = _required_uacp_context_missing(args)
+        if missing:
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing)}"})
+        workspace = args.get("workspace")
+        policy = GuardianPolicy.load(workspace)
+        reason = (args.get("reason") or "").strip()
+        authority = (args.get("authority_artifact") or "").strip()
+        if not reason:
+            return json.dumps({"error": "reason is required"})
+        if not authority:
+            return json.dumps({"error": "authority_artifact is required"})
+        run_id = str(args.get("uacp_run_id") or "").strip()
+        from_phase = str(args.get("from_phase") or "").strip()
+        to_phase = str(args.get("to_phase") or "").strip()
+        if not from_phase:
+            return json.dumps({"error": "from_phase is required"})
+        if not to_phase:
+            return json.dumps({"error": "to_phase is required"})
+        params: dict[str, Any] = {
+            "workspace": str(policy.uacp_root),
+            "run_id": run_id,
+            "from_phase": from_phase,
+            "to_phase": to_phase,
+        }
+        from state_machine import handle_transition  # lazy: avoids any future import cycles
+
+        return handle_transition(params)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_run_transition failed: {type(exc).__name__}: {exc}"})
+
+
+def _handle_uacp_run_register_artifact(args: dict, **_: Any) -> str:
+    """Governed wrapper for state_machine.handle_register_artifact.
+
+    Links a phase artifact path into manifest.artifacts[artifact_type] with
+    governed-context enforcement.  Validates UACP context fields, requires
+    reason + authority_artifact + artifact_type + path before delegating.
+    """
+    try:
+        missing = _required_uacp_context_missing(args)
+        if missing:
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing)}"})
+        workspace = args.get("workspace")
+        policy = GuardianPolicy.load(workspace)
+        reason = (args.get("reason") or "").strip()
+        authority = (args.get("authority_artifact") or "").strip()
+        if not reason:
+            return json.dumps({"error": "reason is required"})
+        if not authority:
+            return json.dumps({"error": "authority_artifact is required"})
+        run_id = str(args.get("uacp_run_id") or "").strip()
+        artifact_type = str(args.get("artifact_type") or "").strip()
+        path = str(args.get("path") or "").strip()
+        if not artifact_type:
+            return json.dumps({"error": "artifact_type is required"})
+        if not path:
+            return json.dumps({"error": "path is required"})
+        params: dict[str, Any] = {
+            "workspace": str(policy.uacp_root),
+            "run_id": run_id,
+            "artifact_type": artifact_type,
+            "path": path,
+        }
+        from state_machine import handle_register_artifact  # lazy: avoids any future import cycles
+
+        return handle_register_artifact(params)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_run_register_artifact failed: {type(exc).__name__}: {exc}"})
+
+
+def _handle_uacp_run_finalize(args: dict, **_: Any) -> str:
+    """Governed wrapper for state_machine.handle_finalize.
+
+    Finalizes a run from verify to resolved, gated by the Heartgate closure
+    sweep.  Validates UACP context fields and requires reason +
+    authority_artifact before delegating.  The state machine tentatively
+    stamps the run resolved/finalized, runs the closure gate, and reverts on
+    block — this wrapper does NOT bypass that gate.
+    """
+    try:
+        missing = _required_uacp_context_missing(args)
+        if missing:
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing)}"})
+        workspace = args.get("workspace")
+        policy = GuardianPolicy.load(workspace)
+        reason = (args.get("reason") or "").strip()
+        authority = (args.get("authority_artifact") or "").strip()
+        if not reason:
+            return json.dumps({"error": "reason is required"})
+        if not authority:
+            return json.dumps({"error": "authority_artifact is required"})
+        run_id = str(args.get("uacp_run_id") or "").strip()
+        params: dict[str, Any] = {
+            "workspace": str(policy.uacp_root),
+            "run_id": run_id,
+        }
+        from state_machine import handle_finalize  # lazy: avoids any future import cycles
+
+        return handle_finalize(params)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_run_finalize failed: {type(exc).__name__}: {exc}"})
