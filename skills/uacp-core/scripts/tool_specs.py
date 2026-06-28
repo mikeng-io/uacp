@@ -1,6 +1,6 @@
 """Runtime-neutral registry of UACP governed tools.
 
-Single source of truth for the 12 governed tools. Both the Hermes adapter
+Single source of truth for the 16 governed tools. Both the Hermes adapter
 (today) and a future MCP server consume ``tool_specs()`` rather than each
 re-declaring tool names, schemas, and handler bindings — true DRY.
 
@@ -17,8 +17,8 @@ Each :class:`ToolSpec` carries:
   * ``read_only`` — True for read-only tools (oracle/heartgate/sandbox checks),
     False for writers (including uacp_contained_shell, which mints state).
 
-The 4 state handlers are pulled from ``state`` (uacp-state); the 8 others from
-``governed_handlers`` (uacp-core). The 12 input schemas below are the canonical
+The 8 state handlers are pulled from ``state`` (uacp-state); the 8 others from
+``governed_handlers`` (uacp-core). The 16 input schemas below are the canonical
 copies — the Hermes ``register()`` reproduces its exact wire form via
 ``hermes_schema()``.
 """
@@ -51,7 +51,11 @@ from governed_handlers import (  # noqa: E402  (import follows sys.path setup)
 from state import (  # noqa: E402  (import follows sys.path setup)
     _handle_uacp_escalation_event,
     _handle_uacp_gate_ledger_append,
+    _handle_uacp_run_finalize,
+    _handle_uacp_run_init,
+    _handle_uacp_run_register_artifact,
     _handle_uacp_run_registry_update,
+    _handle_uacp_run_transition,
     _handle_uacp_state_write,
 )
 
@@ -502,5 +506,236 @@ def tool_specs() -> list[ToolSpec]:
             input_schema=_oracle_query_schema()["parameters"],
             handler=_handle_uacp_oracle_query,
             read_only=True,
+        ),
+        # -------------------------------------------------------------------
+        # Run lifecycle tools (Phase 8): governed wrappers for the state
+        # machine's handle_init / handle_transition / handle_register_artifact
+        # / handle_finalize functions.  Each adds UACP context enforcement
+        # (reason + authority_artifact + standard context fields) before
+        # delegating to the neutral state machine.
+        # -------------------------------------------------------------------
+        ToolSpec(
+            name="uacp_run_init",
+            description="Governed run lifecycle: init",
+            schema_description=(
+                "Initialize a new run manifest under state/runs/{run_id}.yaml. "
+                "Enforces UACP context fields and requires reason + authority_artifact. "
+                "Optionally sets initial_phase (triage|brainstorm), track, workspace metadata, "
+                "and goal-chaining fields (goal_id, inherits_from)."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "source": {
+                        "type": "string",
+                        "description": (
+                            "Authority source for the run (e.g. 'operator-request', 'proposal-artifact'). "
+                            "Stored verbatim in the manifest's authority.source field."
+                        ),
+                    },
+                    "initial_phase": {
+                        "type": "string",
+                        "enum": ["triage", "brainstorm"],
+                        "description": (
+                            "Starting phase for the run (default: 'triage'). "
+                            "A run starting at 'brainstorm' must exit to 'triage' before any further work; "
+                            "brainstorm → triage is its only valid transition."
+                        ),
+                    },
+                    "track": {
+                        "type": "string",
+                        "enum": ["standard", "goal-driven"],
+                        "description": (
+                            "Lifecycle track (default: 'standard'). "
+                            "Goal-driven runs carry a persistent goal_id and support "
+                            "goal-chaining via inherits_from."
+                        ),
+                    },
+                    "goal_id": {
+                        "type": "string",
+                        "description": (
+                            "Persistent goal identifier for goal-driven runs. "
+                            "When provided, must be registered in the run registry with the "
+                            "matching manifest goal_id (the manifest is authoritative)."
+                        ),
+                    },
+                    "inherits_from": {
+                        "type": "string",
+                        "description": (
+                            "Parent run_id to inherit prior-phase artifacts from (goal-chaining). "
+                            "The parent manifest's triage/proposal/plan artifacts are copied into "
+                            "inherited_artifacts. The parent manifest must exist; fail-closed on missing parent."
+                        ),
+                    },
+                    "workspace_kind": {
+                        "type": "string",
+                        "description": "Workspace kind (default: 'worktree').",
+                    },
+                    "workspace_path": {
+                        "type": "string",
+                        "description": "Path of the workspace (branch or worktree root).",
+                    },
+                    "workspace_branch": {
+                        "type": "string",
+                        "description": "Branch name for the workspace.",
+                    },
+                    "reason": {"type": "string"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "source",
+                    "reason",
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+            handler=_handle_uacp_run_init,
+            read_only=False,
+        ),
+        ToolSpec(
+            name="uacp_run_transition",
+            description="Governed run lifecycle: phase transition",
+            schema_description=(
+                "Execute a locked phase transition for the active run. "
+                "Enforces UACP context fields and requires reason + authority_artifact + from_phase + to_phase. "
+                "The state machine validates the canonical phase graph, checks manifest.current_phase matches "
+                "from_phase, and runs phase-exit structural gates (graph invariants, proposal coverage, "
+                "execute evidence preconditions) before advancing."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "from_phase": {
+                        "type": "string",
+                        "description": (
+                            "Current phase the run must be in. "
+                            "Validated against manifest.current_phase — fails if they do not match."
+                        ),
+                    },
+                    "to_phase": {
+                        "type": "string",
+                        "description": (
+                            "Target phase. Must be an allowed transition from from_phase "
+                            "per the canonical phase graph (config/phase-transitions.yaml). "
+                            "Phase-exit structural gates (graph invariants, forced execute evidence, "
+                            "forced proposal coverage) run BEFORE the transition is committed."
+                        ),
+                    },
+                    "reason": {"type": "string"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "from_phase",
+                    "to_phase",
+                    "reason",
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+            handler=_handle_uacp_run_transition,
+            read_only=False,
+        ),
+        ToolSpec(
+            name="uacp_run_register_artifact",
+            description="Governed run lifecycle: register artifact",
+            schema_description=(
+                "Link a phase artifact path into the run manifest's artifacts map "
+                "(manifest.artifacts[artifact_type] = path). "
+                "Enforces UACP context fields and requires reason + authority_artifact + artifact_type + path. "
+                "The path must resolve inside the governed workspace (.uacp/)."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "artifact_type": {
+                        "type": "string",
+                        "description": (
+                            "The artifact map key (e.g. 'triage', 'proposal', 'plan', "
+                            "'execution_checkpoint', 'verification'). "
+                            "Stored verbatim as the key in manifest.artifacts."
+                        ),
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": (
+                            "UACP-root-relative path to the artifact file (e.g. 'proposals/r-001-proposal.yaml'). "
+                            "Must resolve inside the governed workspace (.uacp/); "
+                            "paths escaping the workspace are rejected."
+                        ),
+                    },
+                    "reason": {"type": "string"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "artifact_type",
+                    "path",
+                    "reason",
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+            handler=_handle_uacp_run_register_artifact,
+            read_only=False,
+        ),
+        ToolSpec(
+            name="uacp_run_finalize",
+            description="Governed run lifecycle: finalize",
+            schema_description=(
+                "Finalize a run from verify to resolved, gated by the Heartgate closure sweep. "
+                "Enforces UACP context fields and requires reason + authority_artifact. "
+                "The state machine tentatively stamps the run resolved/finalized, runs the full "
+                "Heartgate closure sweep (all computed engines), and reverts on block — "
+                "the governing gate is not bypassed."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "reason": {"type": "string"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "reason",
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+            handler=_handle_uacp_run_finalize,
+            read_only=False,
         ),
     ]

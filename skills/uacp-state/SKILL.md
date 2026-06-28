@@ -113,7 +113,7 @@ Known Guardian bypass gaps must be recorded as HIGH accepted risk or blocker in 
 - **How it does it:** load canonical state/path policy, verify the authority artifact, validate any transition with Heartgate before pointer movement, write bounded state records, and preserve provenance.
 - **Constraints:** do not write docs/config/artifacts through the state boundary; do not move phase pointers when transition evidence is missing; do not repair artifacts by silently editing state. The knowledge/lesson corpus (`.uacp/lessons/`, `.uacp/knowledge/`) is owned exclusively by the Oracle engine and is NOT a uacp-state surface; never write it via `uacp_state_write`.
 - **Reason / rational intent / decisions:** intent is truthful lifecycle bookkeeping; decisions are whether state mutation is authorized, whether transition evidence is sufficient, and whether current pointers may move.
-- **Tools to use / not use:** use `uacp_state_write`, `uacp_heartgate_check`, read/validator tools; avoid generic file mutation for protected state, docs/config writers, production tools, and external messaging.
+- **Tools to use / not use:** use `uacp_run_init` (create run manifest), `uacp_run_transition` (advance lifecycle phase), `uacp_run_register_artifact` (link phase artifact into manifest), `uacp_run_finalize` (resolve run via closure gate), `uacp_state_write` (generic state mutations), `uacp_heartgate_check`, read/validator tools; avoid generic file mutation for protected state, docs/config writers, production tools, and external messaging.
 
 This state-specific contract complements `../uacp-core/references/agent-council-followthrough.md` when state movement consumes council or Heartgate findings.
 
@@ -148,7 +148,7 @@ require operator confirmation per the active `state.current.uacp_mode`.
 | supervised_auto | autonomous through the lifecycle until a registered escalation trigger fires | only on escalation triggers (see below) |
 | full_auto | as supervised_auto, plus auto-confirming non-irreversible decisions | only on `trigger_irreversible_write` or `escalation_triggered` |
 
-In `supervised_auto` (and `full_auto`) this skill performs its state work autonomously: it mutates the current pointer, appends to the gate-ledger via `uacp_gate_ledger_append`, and registers/deregisters the run via `uacp_run_registry_update`. Those writers each carry full UACP context; only the listed triggers pause for the operator.
+In `supervised_auto` (and `full_auto`) this skill performs its state work autonomously: it initializes runs via `uacp_run_init`, advances phases via `uacp_run_transition`, registers phase artifacts via `uacp_run_register_artifact`, finalizes runs via `uacp_run_finalize`, mutates the current pointer, appends to the gate-ledger via `uacp_gate_ledger_append`, and registers/deregisters the run via `uacp_run_registry_update`. Those writers each carry full UACP context; only the listed triggers pause for the operator.
 
 **Escalates when**: any attempt to mutate state outside the run's declared write surface.
 

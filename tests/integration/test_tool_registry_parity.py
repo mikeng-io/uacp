@@ -81,7 +81,7 @@ class TestToolRegistryParity:
         assert set(hermes) == mcp_names, (
             f"tool-name divergence between Hermes and MCP: {set(hermes) ^ mcp_names}"
         )
-        assert len(mcp_names) == 12, f"expected 12 governed tools, got {len(mcp_names)}"
+        assert len(mcp_names) == 16, f"expected 16 governed tools, got {len(mcp_names)}"
 
     def test_bare_input_schemas_match(self, temp_uacp_root: Path) -> None:
         """Each spec's bare input_schema equals the Hermes wrapped 'parameters'."""

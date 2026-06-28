@@ -44,6 +44,9 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_artifact_write",
         "uacp_entity_write",
         "uacp_heartgate_check",
+        "uacp_run_init",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "triage": [
         "uacp_artifact_write",
@@ -55,6 +58,9 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_heartgate_check",
         "uacp_doc_write",
         "uacp_config_write",
+        "uacp_run_init",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "propose": [
         "uacp_artifact_write",
@@ -65,6 +71,8 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_gate_ledger_append",
         "uacp_heartgate_check",
         "uacp_doc_write",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "plan": [
         "uacp_artifact_write",
@@ -74,6 +82,8 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_escalation_event",
         "uacp_gate_ledger_append",
         "uacp_heartgate_check",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "execute": [
         "uacp_doc_write",
@@ -89,6 +99,8 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_heartgate_check",
         "terminal",
         "execute_code",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "verify": [
         "uacp_artifact_write",
@@ -100,6 +112,8 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_heartgate_check",
         "uacp_sandbox_check",
         "uacp_contained_shell",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
     ],
     "resolve": [
         "uacp_artifact_write",
@@ -109,6 +123,9 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_escalation_event",
         "uacp_gate_ledger_append",
         "uacp_heartgate_check",
+        "uacp_run_transition",
+        "uacp_run_register_artifact",
+        "uacp_run_finalize",
     ],
 }
 
