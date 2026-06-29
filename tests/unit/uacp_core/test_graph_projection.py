@@ -1233,3 +1233,29 @@ def test_anchor_mismatched_fence_marker_stays_fenced(tmp_path):
     assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))  # #fake is code
     ws2 = _ws_anchor(tmp_path / "b", "proposals/a.md#si-1", "proposals/a.md", body)
     assert validate_anchor_resolution(ws2, "r") == []  # #si-1 still resolves (non-empty body)
+
+
+def test_malformed_entailed_class_fails_closed(tmp_path):
+    # codex P2 #70: a present-but-UNKNOWN entailed_class (typo) must fail closed, not silently
+    # degrade to "no oracle" and let a weak declared class pass.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_wu(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "entailed_class": "wire_symbol"},
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_ENTAILED_CLASS_INVALID" in _codes_set(validate_class_underclaim(ws, "r"))
+
+
+def test_anchor_undecodable_markdown_is_error_not_crash(tmp_path):
+    # codex P2 #70: invalid UTF-8 in an anchor target raises UnicodeDecodeError (a ValueError, NOT
+    # an OSError) — it must be caught and returned as a violation, never escape as an exception.
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1")  # anchor declared, write the file ourselves
+    p = tmp_path / ".uacp" / "proposals" / "a.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(b"## si-1\n\xff\xfe not valid utf-8\n")
+    codes = _codes_set(validate_anchor_resolution(ws, "r"))  # must NOT raise
+    assert "GP_ANCHOR_UNRESOLVED" in codes

@@ -56,7 +56,7 @@ from config import base_dir
 from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
 from engines.domain.layout import CATALOG_VERSION
-from engines.domain.verification_floor import candidate_class, class_rank, load_floor
+from engines.domain.verification_floor import CLASSES, candidate_class, class_rank, load_floor
 from engines.io import load_artifact, load_manifest, resolve_in_workspace
 
 
@@ -1039,6 +1039,21 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
         text = " ".join(s for s in (tnode.get("intent"), eo_text, tnode.get("statement")) if s)
         cand, kw = candidate_class(text)
         entailed = tnode.get("entailed_class")
+        # FAIL-CLOSED on a malformed oracle (codex P2 #70): `entailed_class` is the INDEPENDENT
+        # grounding signal, so a present-but-unknown value (e.g. a typo `wire_symbol`) must NOT
+        # silently degrade to "no oracle" (class_rank → 0) and let a weak declared class pass — it
+        # blocks instead. A truly absent (None) oracle is fine (prose / no-witness path).
+        if entailed is not None and entailed not in CLASSES:
+            out.append(
+                _v(
+                    "CHK_ENTAILED_CLASS_INVALID",
+                    f"target '{tnode['id']}' declares unknown entailed_class {entailed!r} "
+                    f"(not one of {sorted(CLASSES)}) — the grounding oracle must fail closed",
+                    target=tnode["id"],
+                    entailed_class=str(entailed),
+                )
+            )
+            continue
         # Pick the strongest oracle that fires, preferring the grounded `entailed_class`.
         if class_rank(entailed) >= class_rank(cand) and class_rank(entailed) > 0:
             oracle_cls, oracle_src, oracle_basis = entailed, "entailed_class", "independent oracle"
@@ -1093,7 +1108,7 @@ def _resolve_anchor_section(root: Path, anchor: str) -> tuple[str, str]:
         return ("FAIL", f"anchor target file missing: {relpath}")
     try:
         raw = resolved.read_text(encoding="utf-8")
-    except OSError as exc:  # defensive — unreadable file is ERROR, distinct from FAIL
+    except (OSError, UnicodeDecodeError) as exc:  # unreadable/undecodable is ERROR, never a raise
         return ("ERROR", f"anchor target unreadable: {relpath}: {exc}")
 
     fence_char = ""  # "" when not in a fence; "`" or "~" = the OPENING fence's marker char
