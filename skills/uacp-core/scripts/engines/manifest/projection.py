@@ -1121,7 +1121,10 @@ def _anchor_violations(nodes: dict, root: Path) -> list[Violation]:
     out: list[Violation] = []
     for n in nodes.values():
         anchor = n.get("anchor")
-        if not anchor:
+        # ABSENT (key not declared) is inert; PRESENT-but-empty ("" / whitespace) is a DECLARED but
+        # broken anchor and must FAIL (codex re-review) — `_resolve_anchor_section("")` already
+        # returns FAIL, so we only skip the truly-absent case here.
+        if anchor is None:
             continue
         status, msg = _resolve_anchor_section(root, str(anchor))
         if status != "PASS":

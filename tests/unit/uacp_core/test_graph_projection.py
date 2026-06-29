@@ -1190,3 +1190,14 @@ def test_field_equals_anchor_errors(tmp_path):
 
     vs = validate_check_replay(ws, "r")
     assert any(v.code == "CHK_FIELD_EQUALS" and v.detail.get("status") == "ERROR" for v in vs), vs
+
+
+def test_anchor_empty_string_is_broken_not_absent(tmp_path):
+    # codex re-review (major): an EXPLICITLY declared but empty anchor ("") must FAIL, not silently
+    # degrade to "no anchor". Only a truly ABSENT anchor key is inert.
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "")  # anchor: "" declared on si-1, no MD
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+    # and it surfaces through the wired closure gate too
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_graph_projection(ws, "r"))

@@ -379,7 +379,9 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                                 # SLICE 1 (anchor primitive): optional YAML→MD section pointer.
                                 # Additive — `statement` stays required until a later per-kind
                                 # ratchet (node 05 stage 4); declaring an anchor is opt-in.
-                                "anchor": {"type": "string"},
+                                # minLength 1: a present-but-empty anchor is rejected at write
+                                # (fail-closed — codex), matching projection's empty=broken rule.
+                                "anchor": {"type": "string", "minLength": 1},
                             },
                         },
                     },
