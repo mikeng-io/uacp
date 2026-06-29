@@ -833,16 +833,22 @@ def _evaluate_check(
         # `expect.value` that a presence read cannot honor (it would silently degrade to presence),
         # so field_equals+anchor is a fail-closed ERROR. artifact_integrity verifies a watermark,
         # not a section, so it has no anchor semantic either (falls through to the artifact path).
-        anchor = ref.get("anchor")
-        if anchor:
+        # Detect a DECLARED anchor by key presence, not truthiness (codex bot P2 on #70): a
+        # present-but-empty `anchor: ""` is a broken anchor and must FAIL, never silently fall back
+        # to the legacy artifact/path binding. Anchor mode is presence-only → valid ONLY for
+        # field_present; any other kind (field_equals, artifact_integrity) with a declared anchor is
+        # a fail-closed ERROR.
+        if "anchor" in ref:
+            anchor = ref.get("anchor")
+            if not isinstance(anchor, str) or not anchor.strip():
+                return ("ERROR", "bind.ref.anchor is declared but empty/invalid")
             if kind == "uacp.check.field_present":
-                return _resolve_anchor_section(root, str(anchor))
-            if kind == "uacp.check.field_equals":
-                return (
-                    "ERROR",
-                    "field_equals does not support anchor binding (anchor mode is presence-only); "
-                    "use field_present for an anchored section",
-                )
+                return _resolve_anchor_section(root, anchor)
+            return (
+                "ERROR",
+                f"{kind} does not support anchor binding (anchor mode is presence-only); "
+                "use field_present for an anchored section",
+            )
         art = ref.get("artifact")
         if not art:
             return ("ERROR", "bind.ref.artifact missing")

@@ -1201,3 +1201,23 @@ def test_anchor_empty_string_is_broken_not_absent(tmp_path):
     assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
     # and it surfaces through the wired closure gate too
     assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_graph_projection(ws, "r"))
+
+
+def test_check_empty_anchor_is_declared_not_legacy_fallback(tmp_path):
+    # codex bot P2 (#70): a check with bind.ref.anchor="" + a valid legacy artifact/path must NOT
+    # silently fall back to the legacy binding — a declared-but-empty anchor is broken -> ERROR.
+    from engines.graph_projection import validate_check_replay
+
+    check_doc = {
+        "kind": "uacp.check.field_present",
+        "id": "chk-a",
+        "from": {"target": "si-1", "basis": "x"},
+        # empty anchor declared ALONGSIDE a legacy artifact/path that would otherwise PASS
+        "bind": {"plane": "artifact", "ref": {"anchor": "", "artifact": "plans/p.yaml", "path": "kind"}},
+        "expect": {},
+        "severity": "block",
+    }
+    ws = _ws(tmp_path, "r", _prop([{"id": "si-1"}]), _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+             extra_docs=[check_doc])
+    vs = validate_check_replay(ws, "r")
+    assert any(v.code == "CHK_FIELD_PRESENT" and v.detail.get("status") == "ERROR" for v in vs), vs
