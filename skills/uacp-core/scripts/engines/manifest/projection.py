@@ -48,6 +48,7 @@ Architecture: read-only; all disk reads go through :mod:`engines.io`; never rais
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -55,8 +56,8 @@ from config import base_dir
 from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
 from engines.domain.layout import CATALOG_VERSION
-from engines.domain.verification_floor import candidate_class, class_rank, load_floor
-from engines.io import load_artifact, load_manifest
+from engines.domain.verification_floor import CLASSES, candidate_class, class_rank, load_floor
+from engines.io import load_artifact, load_manifest, resolve_in_workspace
 
 
 def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Violation:
@@ -142,7 +143,24 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
     scope = scope if isinstance(scope, dict) else {}
     for item in _aslist(scope.get("in_scope")):
         if isinstance(item, dict) and item.get("id"):  # new canonical form
-            add_node(item["id"], "scope_item", statement=item.get("statement", ""))
+            anchor = item.get("anchor")
+            add_node(
+                item["id"],
+                "scope_item",
+                statement=item.get("statement", ""),
+                # PROTOTYPE (grounding retarget): `entailed_class` is the class attributed to this
+                # target by an INDEPENDENT oracle (code-plane entailment from the real symbol, or an
+                # independent judge reading the MD) — NOT the agent's self-declared check class and
+                # NOT prose the gate greps. It is the B1-era grounding the underclaim gate measures.
+                entailed_class=item.get("entailed_class"),
+                # SLICE 1 (anchor primitive): YAML node → MD section pointer. Carried so the
+                # resolution validator can check it; recorded as an `anchored_to` edge below.
+                anchor=anchor,
+            )
+            # One-directional: YAML names the anchor, MD holds the content. An anchor-at-nothing is
+            # caught by validate_anchor_resolution (a FAIL, not a silent pass).
+            if anchor:
+                add_edge(item["id"], str(anchor), "anchored_to")
         elif isinstance(item, str):  # legacy bare string
             add_node(_synth_id("si", item, run), "scope_item", statement=item)
 
@@ -155,6 +173,8 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
                 "work_unit",
                 intent=wu.get("intent", ""),
                 expected_outputs=wu.get("expected_outputs"),
+                # PROTOTYPE (grounding retarget): independent-oracle class — see scope_item above.
+                entailed_class=wu.get("entailed_class"),
             )
             # derives_from = the PROPOSE->PLAN coverage edge. NOTE (D42 producer gap): the real PIV
             # validator does NOT require it on work_units (only id/intent/expected_outputs), so the
@@ -281,7 +301,11 @@ def _check_phantom(nodes: dict, edges: list) -> list[Violation]:
             rel=e["rel"],
         )
         for e in edges
-        if e["dst"] not in nodes
+        # `anchored_to` (SLICE 1) is the ONE edge whose dst is intentionally NOT a graph node — it
+        # is a YAML→MD section pointer (e.g. "proposals/x.md#si-1"). Its integrity is enforced by
+        # validate_anchor_resolution (file/heading/non-empty), NOT by node membership, so it must be
+        # excluded here or every anchored node would falsely trip GP_PHANTOM_EDGE.
+        if e["dst"] not in nodes and e["rel"] != "anchored_to"
     ]
 
 
@@ -580,6 +604,9 @@ def validate_graph_projection(workspace: str | Path, run_id: str) -> list[Violat
     out: list[Violation] = []
     for check in _TERMINAL_CHECKS:
         out.extend(check(nodes, edges))
+    # SLICE 1 wiring: a declared anchor that does not resolve FAILs at closure (inert without
+    # anchors). The closure sweep runs on EVERY close, so the "never a silent pass" guarantee holds.
+    out.extend(_anchor_violations(nodes, Path(str(workspace)).resolve()))
     return out
 
 
@@ -607,6 +634,9 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
     out: list[Violation] = []
     for check in checks:
         out.extend(check(nodes, edges))
+    # SLICE 1 wiring: a declared anchor that does not resolve FAILs at the phase exit too (inert
+    # without anchors) — so the guarantee is enforced at the transition, not only at closure.
+    out.extend(_anchor_violations(nodes, Path(str(workspace)).resolve()))
     # The REPLAY half of "prove each task" on the FORCED path: coverage (above) proves a check
     # EXISTS per target; replay proves the checks that exist PASS. Enforcing coverage at
     # verify_exit but replay only at closure would let a run exit VERIFY with FAILING checks
@@ -796,6 +826,29 @@ def _evaluate_check(
     ):
         ref = bind.get("ref")
         ref = ref if isinstance(ref, dict) else {}
+        # SLICE 2 — anchor binding mode (opt-in): when bind.ref.anchor is set, resolve the anchored
+        # MD section and assert ONLY its presence (section resolves + non-empty). No artifact key is
+        # required. Content adequacy is NEVER judged here — that stays council's. Anchor mode is
+        # PRESENCE-ONLY, so it is valid ONLY for field_present; a field_equals carries an
+        # `expect.value` that a presence read cannot honor (it would silently degrade to presence),
+        # so field_equals+anchor is a fail-closed ERROR. artifact_integrity verifies a watermark,
+        # not a section, so it has no anchor semantic either (falls through to the artifact path).
+        # Detect a DECLARED anchor by key presence, not truthiness (codex bot P2 on #70): a
+        # present-but-empty `anchor: ""` is a broken anchor and must FAIL, never silently fall back
+        # to the legacy artifact/path binding. Anchor mode is presence-only → valid ONLY for
+        # field_present; any other kind (field_equals, artifact_integrity) with a declared anchor is
+        # a fail-closed ERROR.
+        if "anchor" in ref:
+            anchor = ref.get("anchor")
+            if not isinstance(anchor, str) or not anchor.strip():
+                return ("ERROR", "bind.ref.anchor is declared but empty/invalid")
+            if kind == "uacp.check.field_present":
+                return _resolve_anchor_section(root, anchor)
+            return (
+                "ERROR",
+                f"{kind} does not support anchor binding (anchor mode is presence-only); "
+                "use field_present for an anchored section",
+            )
         art = ref.get("artifact")
         if not art:
             return ("ERROR", "bind.ref.artifact missing")
@@ -965,32 +1018,175 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
     for tnode in nodes.values():
         if tnode["kind"] not in ("scope_item", "work_unit"):
             continue
+        # FAIL-CLOSED on a malformed oracle BEFORE the no-checks early-exit (codex P2 #70):
+        # `entailed_class` is the INDEPENDENT grounding signal, so a present-but-unknown value
+        # (e.g. a typo `wire_symbol`) must block even on a zero-check / pre-adoption target — never
+        # silently degrade to "no oracle". A truly absent (None) oracle is fine.
+        entailed = tnode.get("entailed_class")
+        if entailed is not None and entailed not in CLASSES:
+            out.append(
+                _v(
+                    "CHK_ENTAILED_CLASS_INVALID",
+                    f"target '{tnode['id']}' declares unknown entailed_class {entailed!r} "
+                    f"(not one of {sorted(CLASSES)}) — the grounding oracle must fail closed",
+                    target=tnode["id"],
+                    entailed_class=str(entailed),
+                )
+            )
+            continue
         cids = [cid for cid in inbound.get(tnode["id"], []) if cid in check_nodes]
         if not cids:
             continue
         declared_rank = max(
             (class_rank(check_nodes[cid].get("target_class")) for cid in cids), default=0
         )
-        # Candidate is derived from ALL the target's own content — intent + expected_outputs (node
-        # 34 L2b names both) for a work_unit, statement for a scope_item — so strong content can't
-        # be hidden in a field the heuristic doesn't read. expected_outputs may be a str or a list.
+        # The ORACLE: an independent derivation of the target's true class, to cross-check the
+        # agent's (weaker) declared class. This gate is fundamentally an INDEPENDENCE check, not a
+        # prose check — the prose keyword-match was only a cheap independent oracle that happened
+        # to live in the YAML the gate could read. Two sources, strongest wins (ADDITIVE ratchet):
+        #   1. `entailed_class` (PROTOTYPE / B1): the class an INDEPENDENT source attributes to the
+        #      target — code-plane entailment from the real symbol (deterministic, the docstring's
+        #      "only the code plane" owner) or an independent judge reading the MD. Survives B1
+        #      because it does NOT depend on prose being in the YAML.
+        #   2. `candidate_class(prose)` (LEGACY): the intent/expected_outputs/statement keyword
+        #      match. Kept so pre-B1 runs (prose in YAML) stay caught; dark once prose moves to MD.
         eo = tnode.get("expected_outputs")
         eo_text = " ".join(map(str, eo)) if isinstance(eo, list) else str(eo or "")
         text = " ".join(s for s in (tnode.get("intent"), eo_text, tnode.get("statement")) if s)
         cand, kw = candidate_class(text)
-        if cand and class_rank(cand) > declared_rank:
+        # `entailed` was fetched + validated above (before the no-checks early-exit).
+        # Pick the strongest oracle that fires, preferring the grounded `entailed_class`.
+        if class_rank(entailed) >= class_rank(cand) and class_rank(entailed) > 0:
+            oracle_cls, oracle_src, oracle_basis = entailed, "entailed_class", "independent oracle"
+        else:
+            oracle_cls, oracle_src, oracle_basis = cand, "prose", f"matched «{kw}»"
+        if oracle_cls and class_rank(oracle_cls) > declared_rank:
             out.append(
                 _v(
                     "CHK_CLASS_UNDERCLAIM",
-                    f"target '{tnode['id']}' content implies class '{cand}' (matched «{kw}») but "
-                    f"its checks declare a weaker class — mis-classification under the floor",
+                    f"target '{tnode['id']}' implies class '{oracle_cls}' ({oracle_basis}, via "
+                    f"{oracle_src}) but its checks declare a weaker class — mis-classification "
+                    f"under the floor",
                     target=tnode["id"],
-                    candidate=cand,
+                    candidate=oracle_cls,
                     keyword=kw,
+                    oracle_source=oracle_src,
                     declared_rank=declared_rank,
                 )
             )
     return out
+
+
+_ANCHOR_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
+_ANCHOR_FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
+
+
+def _resolve_anchor_section(root: Path, anchor: str) -> tuple[str, str]:
+    """Deterministic read for a YAML→MD anchor ``"relpath#section"`` (SLICE 1). PASS iff:
+    the file resolves UNDER the governed root (containment via ``resolve_in_workspace`` — parity
+    with the artifact loaders, so an anchor cannot read outside ``.uacp/``); a heading whose text
+    EXACTLY equals ``section`` exists; and that section's body — everything down to the next heading
+    of the SAME-OR-SHALLOWER level (deeper sub-headings' content is INCLUDED), with fenced code
+    blocks treated as opaque body and their ``#`` lines NOT counted as headings — has
+    non-whitespace. Duplicate headings: PASS if ANY matching section is non-empty. Asserts ONLY
+    presence; adequacy stays council's. Returns ``(PASS|FAIL|ERROR, message)``; never raises.
+
+    CONTRACT (deliberate scope): this is a pragmatic PRESENCE FLOOR with simple structural
+    fence/heading handling, NOT a CommonMark parser — full CommonMark conformance is a NON-GOAL.
+    Adversarial fence/heading micro-edges (mismatched-length nested fences, info strings, indented
+    fences, setext headings, …) are ACCEPTED, not chased: the check makes no adequacy claim (council
+    owns that), the MD is an author-controlled governed artifact (this is a drift/anti-fabrication
+    floor, not a boundary against the author), and the checks are opt-in/inert — so fooling the
+    section boundary gains nothing. If a real CommonMark guarantee is ever needed, swap this scan
+    for a parser library wholesale rather than accreting per-edge fixes."""
+    relpath, sep, frag = str(anchor).partition("#")
+    if not relpath or not sep or not frag:
+        return ("FAIL", f"anchor {anchor!r} is not 'relpath#section'")
+    resolved = resolve_in_workspace(root, relpath)
+    if resolved is None:  # escapes the governed root (../, absolute, …) — never read outside .uacp
+        return ("FAIL", f"anchor path escapes the governed root: {relpath}")
+    if not resolved.is_file():
+        return ("FAIL", f"anchor target file missing: {relpath}")
+    try:
+        raw = resolved.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:  # unreadable/undecodable is ERROR, never a raise
+        return ("ERROR", f"anchor target unreadable: {relpath}: {exc}")
+
+    fence_char = ""  # "" when not in a fence; "`" or "~" = the OPENING fence's marker char
+    in_section = False
+    section_level = 0
+    found_match = False
+    body: list[str] = []
+    for line in raw.splitlines():
+        fm = _ANCHOR_FENCE_RE.match(line)
+        if fm is not None:
+            marker = fm.group(1)[0]
+            if not fence_char:
+                fence_char = marker  # open a fence
+            elif marker == fence_char:
+                fence_char = ""  # CommonMark: a fence closes only with its OWN marker char
+            # a non-matching fence marker inside an open fence is literal code content
+            if in_section:
+                body.append(line)
+            continue
+        m = None if fence_char else _ANCHOR_HEADING_RE.match(line)
+        if m is not None:
+            this_level = len(m.group(1))
+            if in_section and this_level <= section_level:
+                if any(s.strip() for s in body):
+                    return ("PASS", "")  # a matching section had content — done
+                in_section = False  # this match was empty; keep scanning for a later duplicate
+                body = []
+            if not in_section and m.group(2) == frag:
+                in_section, found_match, section_level = True, True, this_level
+            continue
+        if in_section:
+            body.append(line)
+    if in_section and any(s.strip() for s in body):
+        return ("PASS", "")
+    if found_match:
+        return ("FAIL", f"anchor section #{frag} in {relpath} is empty")
+    return ("FAIL", f"anchor section #{frag} not found in {relpath}")
+
+
+def _anchor_violations(nodes: dict, root: Path) -> list[Violation]:
+    """SLICE 1 core: a ``GP_ANCHOR_UNRESOLVED`` for every node whose declared ``anchor`` does not
+    resolve. Pure over already-projected nodes so the wired gates can call it without re-projecting.
+    INERT: nodes without an ``anchor`` contribute nothing, so existing (anchor-free) runs are
+    unaffected. Currently only ``scope_item`` nodes carry an ``anchor`` (the schema field added in
+    Slice 1); other node kinds simply never match."""
+    out: list[Violation] = []
+    for n in nodes.values():
+        anchor = n.get("anchor")
+        # ABSENT (key not declared) is inert; PRESENT-but-empty ("" / whitespace) is a DECLARED but
+        # broken anchor and must FAIL (codex re-review) — `_resolve_anchor_section("")` already
+        # returns FAIL, so we only skip the truly-absent case here.
+        if anchor is None:
+            continue
+        status, msg = _resolve_anchor_section(root, str(anchor))
+        if status != "PASS":
+            out.append(
+                _v(
+                    "GP_ANCHOR_UNRESOLVED",
+                    f"node {n['id']}: {msg}",
+                    target=n["id"],
+                    anchor=str(anchor),
+                )
+            )
+    return out
+
+
+def validate_anchor_resolution(workspace: str | Path, run_id: str) -> list[Violation]:
+    """SLICE 1 — anchor primitive (public entry: projects then checks). An anchor pointing at
+    nothing is a FAIL, not a silent pass — this stops the model re-introducing a NEW drift. Wired
+    into ``validate_graph_projection`` (closure) and ``validate_graph_invariants`` (phase exits) so
+    the guarantee holds in real runs, not only when called directly. Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    return _anchor_violations(graph[0], Path(str(workspace)).resolve())
 
 
 # Register this engine (guard against double-registration under alias imports).

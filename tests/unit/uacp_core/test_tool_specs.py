@@ -1,8 +1,8 @@
 """Unit tests for the runtime-neutral governed-tool registry (tool_specs).
 
 The ``tool_specs()`` registry in skills/uacp-core/scripts/tool_specs.py is the
-single source of truth for the 11 governed tools consumed by both the Hermes
-adapter and (next) an MCP server. These tests pin the contract: all 11 names
+single source of truth for the governed tools consumed by both the Hermes
+adapter and (next) an MCP server. These tests pin the contract: all names
 present, each input_schema is a well-formed JSON-schema object, the read_only
 flags are correct (oracle/heartgate/sandbox read-only; the rest writers —
 including uacp_contained_shell which is a WRITER), and each handler is callable.
@@ -25,15 +25,20 @@ _EXPECTED_NAMES = {
     "uacp_gate_ledger_append",
     "uacp_heartgate_check",
     "uacp_oracle_query",
+    # Run lifecycle tools (Phase 8)
+    "uacp_run_init",
+    "uacp_run_transition",
+    "uacp_run_register_artifact",
+    "uacp_run_finalize",
 }
 
-# read_only=True only for the read-only tools; all 9 others are writers.
+# read_only=True only for the read-only tools; all 13 others are writers.
 _READ_ONLY = {"uacp_oracle_query", "uacp_heartgate_check", "uacp_sandbox_check"}
 
 
-def test_tool_specs_has_all_twelve_names():
+def test_tool_specs_has_all_sixteen_names():
     specs = tool_specs()
-    assert len(specs) == 12
+    assert len(specs) == 16
     assert {s.name for s in specs} == _EXPECTED_NAMES
 
 
