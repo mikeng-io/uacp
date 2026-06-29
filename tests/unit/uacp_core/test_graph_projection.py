@@ -1221,3 +1221,15 @@ def test_check_empty_anchor_is_declared_not_legacy_fallback(tmp_path):
              extra_docs=[check_doc])
     vs = validate_check_replay(ws, "r")
     assert any(v.code == "CHK_FIELD_PRESENT" and v.detail.get("status") == "ERROR" for v in vs), vs
+
+
+def test_anchor_mismatched_fence_marker_stays_fenced(tmp_path):
+    # codex P2 #70: a ~~~ line inside a ``` block must NOT close the ``` fence; a heading after it
+    # is still inside the code block, not a real section.
+    from engines.graph_projection import validate_anchor_resolution
+
+    body = "## si-1\n```\n~~~\n## fake\n```\nreal\n"
+    ws = _ws_anchor(tmp_path, "proposals/a.md#fake", "proposals/a.md", body)
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))  # #fake is code
+    ws2 = _ws_anchor(tmp_path / "b", "proposals/a.md#si-1", "proposals/a.md", body)
+    assert validate_anchor_resolution(ws2, "r") == []  # #si-1 still resolves (non-empty body)

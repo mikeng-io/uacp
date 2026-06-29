@@ -1062,7 +1062,7 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
 
 
 _ANCHOR_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
-_ANCHOR_FENCE_RE = re.compile(r"^\s*(?:```|~~~)")
+_ANCHOR_FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})")
 
 
 def _resolve_anchor_section(root: Path, anchor: str) -> tuple[str, str]:
@@ -1087,18 +1087,24 @@ def _resolve_anchor_section(root: Path, anchor: str) -> tuple[str, str]:
     except OSError as exc:  # defensive — unreadable file is ERROR, distinct from FAIL
         return ("ERROR", f"anchor target unreadable: {relpath}: {exc}")
 
-    in_fence = False
+    fence_char = ""  # "" when not in a fence; "`" or "~" = the OPENING fence's marker char
     in_section = False
     section_level = 0
     found_match = False
     body: list[str] = []
     for line in raw.splitlines():
-        if _ANCHOR_FENCE_RE.match(line):
-            in_fence = not in_fence
+        fm = _ANCHOR_FENCE_RE.match(line)
+        if fm is not None:
+            marker = fm.group(1)[0]
+            if not fence_char:
+                fence_char = marker  # open a fence
+            elif marker == fence_char:
+                fence_char = ""  # CommonMark: a fence closes only with its OWN marker char
+            # a non-matching fence marker inside an open fence is literal code content
             if in_section:
                 body.append(line)
             continue
-        m = None if in_fence else _ANCHOR_HEADING_RE.match(line)
+        m = None if fence_char else _ANCHOR_HEADING_RE.match(line)
         if m is not None:
             this_level = len(m.group(1))
             if in_section and this_level <= section_level:
