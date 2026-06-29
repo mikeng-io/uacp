@@ -142,7 +142,16 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
     scope = scope if isinstance(scope, dict) else {}
     for item in _aslist(scope.get("in_scope")):
         if isinstance(item, dict) and item.get("id"):  # new canonical form
-            add_node(item["id"], "scope_item", statement=item.get("statement", ""))
+            add_node(
+                item["id"],
+                "scope_item",
+                statement=item.get("statement", ""),
+                # PROTOTYPE (grounding retarget): `entailed_class` is the class attributed to this
+                # target by an INDEPENDENT oracle (code-plane entailment from the real symbol, or an
+                # independent judge reading the MD) — NOT the agent's self-declared check class and
+                # NOT prose the gate greps. It is the B1-era grounding the underclaim gate measures.
+                entailed_class=item.get("entailed_class") if isinstance(item, dict) else None,
+            )
         elif isinstance(item, str):  # legacy bare string
             add_node(_synth_id("si", item, run), "scope_item", statement=item)
 
@@ -155,6 +164,8 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
                 "work_unit",
                 intent=wu.get("intent", ""),
                 expected_outputs=wu.get("expected_outputs"),
+                # PROTOTYPE (grounding retarget): independent-oracle class — see scope_item above.
+                entailed_class=wu.get("entailed_class"),
             )
             # derives_from = the PROPOSE->PLAN coverage edge. NOTE (D42 producer gap): the real PIV
             # validator does NOT require it on work_units (only id/intent/expected_outputs), so the
@@ -971,22 +982,37 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
         declared_rank = max(
             (class_rank(check_nodes[cid].get("target_class")) for cid in cids), default=0
         )
-        # Candidate is derived from ALL the target's own content — intent + expected_outputs (node
-        # 34 L2b names both) for a work_unit, statement for a scope_item — so strong content can't
-        # be hidden in a field the heuristic doesn't read. expected_outputs may be a str or a list.
+        # The ORACLE: an independent derivation of the target's true class, to cross-check the
+        # agent's (weaker) declared class. This gate is fundamentally an INDEPENDENCE check, not a
+        # prose check — the prose keyword-match was only a cheap independent oracle that happened
+        # to live in the YAML the gate could read. Two sources, strongest wins (ADDITIVE ratchet):
+        #   1. `entailed_class` (PROTOTYPE / B1): the class an INDEPENDENT source attributes to the
+        #      target — code-plane entailment from the real symbol (deterministic, the docstring's
+        #      "only the code plane" owner) or an independent judge reading the MD. Survives B1
+        #      because it does NOT depend on prose being in the YAML.
+        #   2. `candidate_class(prose)` (LEGACY): the intent/expected_outputs/statement keyword
+        #      match. Kept so pre-B1 runs (prose in YAML) stay caught; dark once prose moves to MD.
         eo = tnode.get("expected_outputs")
         eo_text = " ".join(map(str, eo)) if isinstance(eo, list) else str(eo or "")
         text = " ".join(s for s in (tnode.get("intent"), eo_text, tnode.get("statement")) if s)
         cand, kw = candidate_class(text)
-        if cand and class_rank(cand) > declared_rank:
+        entailed = tnode.get("entailed_class")
+        # Pick the strongest oracle that fires, preferring the grounded `entailed_class`.
+        if class_rank(entailed) >= class_rank(cand) and class_rank(entailed) > 0:
+            oracle_cls, oracle_src, oracle_basis = entailed, "entailed_class", "independent oracle"
+        else:
+            oracle_cls, oracle_src, oracle_basis = cand, "prose", f"matched «{kw}»"
+        if oracle_cls and class_rank(oracle_cls) > declared_rank:
             out.append(
                 _v(
                     "CHK_CLASS_UNDERCLAIM",
-                    f"target '{tnode['id']}' content implies class '{cand}' (matched «{kw}») but "
-                    f"its checks declare a weaker class — mis-classification under the floor",
+                    f"target '{tnode['id']}' implies class '{oracle_cls}' ({oracle_basis}, via "
+                    f"{oracle_src}) but its checks declare a weaker class — mis-classification "
+                    f"under the floor",
                     target=tnode["id"],
-                    candidate=cand,
+                    candidate=oracle_cls,
                     keyword=kw,
+                    oracle_source=oracle_src,
                     declared_rank=declared_rank,
                 )
             )

@@ -818,3 +818,106 @@ def test_terminal_projection_unchanged_by_new_checks(tmp_path):
     assert "GP_WORK_UNIT_NO_CHECKPOINT" not in codes
     assert "GP_UNVERIFIED" not in codes
     assert "GP_UNCHECKED_TARGET" not in codes
+
+
+# ============================================================================================
+# PROTOTYPE (class-underclaim grounding retarget) — DARK-REGRESSION DEMONSTRATION
+# --------------------------------------------------------------------------------------------
+# Decision experiment for the artifact content/relation B1 redesign (MD = semantic content the
+# agent comprehends; YAML = relations the code measures). validate_class_underclaim today
+# COMPREHENDS in code: it keyword-greps the target's own prose (intent / expected_outputs /
+# statement, projection.py:979) to derive a candidate class, then blocks if the declared class is
+# weaker. Under B1, that prose relocates to Markdown and leaves the projected node — so the gate
+# silently stops firing on a still-genuine underclaim. The council flagged this "dark regression"
+# (no test fires) abstractly; this test makes it concrete and runnable. It is the BEFORE half of
+# the experiment: it should PASS now (documenting the break) and is the regression the retarget
+# (measure a DECLARED relation, not prose) must close.
+# ============================================================================================
+
+
+def test_PROTO_underclaim_dark_regression_when_prose_relocates_to_md(tmp_path):
+    from engines.graph_projection import validate_class_underclaim
+
+    # A — TODAY: strong content "wire up the /settle route" lives in YAML intent, but the check
+    # declares the weak class sets_value. The gate reads the prose, derives wires_symbol, and FIRES.
+    today = _run_with_intent(
+        tmp_path / "today",
+        "wire up the /settle route handler",
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" in _codes_set(validate_class_underclaim(today, "r"))
+
+    # B — B1: the SAME genuine underclaim, but the strong content has moved to Markdown and is no
+    # longer in the projected node (simulated by an empty intent). Same weak declared class.
+    # The gate has no prose to grep -> candidate_class("") is None -> it SILENTLY PASSES.
+    relocated = _run_with_intent(
+        tmp_path / "relocated",
+        "",  # prose now lives in MD, invisible to the YAML projection
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(relocated, "r"))
+
+    # The contrast IS the dark regression: identical mis-classification, teeth in A, none in B —
+    # and nothing errors. This is exactly the failure the grounding retarget must eliminate.
+
+
+def _run_with_wu(tmp_path, wu: dict, checks: list) -> Path:
+    # Like _run_with_intent, but the caller supplies the whole work_unit dict (so it can set the
+    # PROTOTYPE `entailed_class` independent-oracle field alongside / instead of intent prose).
+    return _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([wu]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": wu["id"]}]),
+            _exec("cp-1", wu["id"], "pass"),
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+            *checks,
+        ],
+    )
+
+
+def test_PROTO_retarget_restores_teeth_via_entailed_class_without_prose(tmp_path):
+    # STEP 3 — the retarget. B1 world: the prose lives in Markdown (intent=""), so the keyword
+    # oracle is blind. But an INDEPENDENT oracle (code-plane entailment from the real symbol, or an
+    # independent judge reading the MD) entails wires_symbol, carried as the declared relation
+    # `entailed_class`. The checks still declare the weak sets_value. The gate fires by MEASURING
+    # declared(1) < entailed(3) — with NO prose read. Teeth restored under B1.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_wu(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "entailed_class": "wires_symbol"},
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    under = [v for v in validate_class_underclaim(ws, "r") if v.code == "CHK_CLASS_UNDERCLAIM"]
+    assert [v.detail.get("target") for v in under] == ["wu-1"]
+    # ...and it fired on the GROUNDED relation, not on prose:
+    assert under[0].detail.get("oracle_source") == "entailed_class"
+
+    # non-vacuity: declare wires_symbol to match the entailed class -> honest -> no underclaim.
+    ok = _run_with_wu(
+        tmp_path / "ok",
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "entailed_class": "wires_symbol"},
+        [_class_check("chk-1", "wu-1", "wires_symbol", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ok, "r"))
+
+
+def test_PROTO_independence_is_the_crux_no_oracle_no_catch(tmp_path):
+    # STEP 4 — the residual / the load-bearing finding. B1 world with NEITHER prose (it's in MD)
+    # NOR an independent `entailed_class`: the gate degrades to the floor and the underclaim catch
+    # is GONE. This proves the catch is fundamentally an INDEPENDENCE check — a field the AGENT
+    # controls preserves nothing (it would just be declared weak too). So B1 viability for this gate
+    # REQUIRES sourcing `entailed_class` independently: code-plane entailment (deterministic,
+    # preferred) or an independent judge (semantic). The gate mechanics retarget cleanly; the real
+    # dependency is the oracle source.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_wu(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": ""},  # no prose, no independent oracle
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ws, "r"))
