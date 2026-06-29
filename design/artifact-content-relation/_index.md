@@ -1,6 +1,6 @@
 # Design bundle — Artifact content/relation model
 
-**Status:** REWORK — parked pending B1/B2 operator decision (see [08-review-findings](08-review-findings.md)). Lifecycle-executability fixes split out as a separate higher-priority initiative.
+**Status:** B1 CHOSEN + retarget PROVEN (2026-06-29). Council returned REWORK and deferred B1/B2 to the operator ([08-review-findings](08-review-findings.md)); operator chose **B1** and the central blocker (does moving prose break the gates?) was settled by experiment on the hardest gate ([09-grounding-retarget-experiment](09-grounding-retarget-experiment.md), commit `da86643`, 2202 suite green). **Pending:** wire codeflair as the real oracle ([10-implementation-roadmap](10-implementation-roadmap.md) Phase 1). Lifecycle-executability fixes remain a separate sibling initiative.
 **Origin:** brainstorm run `acrs-20260628` (vault: `.uacp/brainstorm/acrs-20260628/`)
 **Branch:** `design/artifact-content-relation-split`
 
@@ -25,6 +25,9 @@ remediation lands in gate-invisible Markdown. See [01-problem](01-problem.md).
 | [05-migration](05-migration.md) | additive ratchet (not cutover); legacy YAML prose stays optional |
 | [06-evidence-disposition-case](06-evidence-disposition-case.md) | the concrete first instance (the live unwriteable-file bug) |
 | [07-blast-radius-open-questions](07-blast-radius-open-questions.md) | measured surface + the must-resolve-early questions |
+| [08-review-findings](08-review-findings.md) | council verdict (REWORK) + the B1/B2 fork deferred to the operator |
+| [09-grounding-retarget-experiment](09-grounding-retarget-experiment.md) | the B1 viability proof — plan / outcome / measurement (claim-vs-witness; independence finding) |
+| [10-implementation-roadmap](10-implementation-roadmap.md) | the forward build — codeflair oracle (P1) → prevention (P2) → semantic witness + generalise (deferred) |
 
 ## Authority / scope boundary
 - This bundle is DESIGN only — no kernel/schema/skill code changes here; build is a later run.
