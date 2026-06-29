@@ -27,7 +27,8 @@ remediation lands in gate-invisible Markdown. See [01-problem](01-problem.md).
 | [07-blast-radius-open-questions](07-blast-radius-open-questions.md) | measured surface + the must-resolve-early questions |
 | [08-review-findings](08-review-findings.md) | council verdict (REWORK) + the B1/B2 fork deferred to the operator |
 | [09-grounding-retarget-experiment](09-grounding-retarget-experiment.md) | the B1 viability proof — plan / outcome / measurement (claim-vs-witness; independence finding) |
-| [10-implementation-roadmap](10-implementation-roadmap.md) | the forward build — codeflair oracle (P1) → prevention (P2) → semantic witness + generalise (deferred) |
+| [10-implementation-roadmap](10-implementation-roadmap.md) | the gate-side (meaning-witness) build — codeflair oracle (P1) → prevention (P2) → semantic witness + generalise (deferred) |
+| [11-full-scope-build-plan](11-full-scope-build-plan.md) | the WHOLE-bundle sliced ratchet (slices 0–5), each with measurement · verify · invariant · constraint |
 
 ## Authority / scope boundary
 - This bundle is DESIGN only — no kernel/schema/skill code changes here; build is a later run.
