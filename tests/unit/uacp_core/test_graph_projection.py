@@ -948,7 +948,9 @@ def test_anchor_records_anchored_to_edge(tmp_path):
     from engines.manifest.projection import _load_and_project
 
     ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\nreal content\n")
-    nodes, edges = _load_and_project(ws, "r")
+    graph = _load_and_project(ws, "r")
+    assert graph is not None
+    _, edges = graph
     assert any(
         e["src"] == "si-1" and e["rel"] == "anchored_to" and e["dst"] == "proposals/a.md#si-1"
         for e in edges
@@ -995,7 +997,9 @@ def test_anchor_inert_when_absent(tmp_path):
         _prop([{"id": "si-1", "statement": "A"}]),
         _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
     )
-    _nodes, edges = _load_and_project(ws, "r")
+    graph = _load_and_project(ws, "r")
+    assert graph is not None
+    _, edges = graph
     assert not any(e["rel"] == "anchored_to" for e in edges)
     assert validate_anchor_resolution(ws, "r") == []
 
