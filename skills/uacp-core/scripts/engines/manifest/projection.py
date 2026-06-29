@@ -57,7 +57,7 @@ from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
 from engines.domain.layout import CATALOG_VERSION
 from engines.domain.verification_floor import candidate_class, class_rank, load_floor
-from engines.io import load_artifact, load_manifest
+from engines.io import load_artifact, load_manifest, resolve_in_workspace
 
 
 def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Violation:
@@ -301,7 +301,11 @@ def _check_phantom(nodes: dict, edges: list) -> list[Violation]:
             rel=e["rel"],
         )
         for e in edges
-        if e["dst"] not in nodes
+        # `anchored_to` (SLICE 1) is the ONE edge whose dst is intentionally NOT a graph node — it
+        # is a YAML→MD section pointer (e.g. "proposals/x.md#si-1"). Its integrity is enforced by
+        # validate_anchor_resolution (file/heading/non-empty), NOT by node membership, so it must be
+        # excluded here or every anchored node would falsely trip GP_PHANTOM_EDGE.
+        if e["dst"] not in nodes and e["rel"] != "anchored_to"
     ]
 
 
@@ -600,6 +604,9 @@ def validate_graph_projection(workspace: str | Path, run_id: str) -> list[Violat
     out: list[Violation] = []
     for check in _TERMINAL_CHECKS:
         out.extend(check(nodes, edges))
+    # SLICE 1 wiring: a declared anchor that does not resolve FAILs at closure (inert without
+    # anchors). The closure sweep runs on EVERY close, so the "never a silent pass" guarantee holds.
+    out.extend(_anchor_violations(nodes, Path(str(workspace)).resolve()))
     return out
 
 
@@ -627,6 +634,9 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
     out: list[Violation] = []
     for check in checks:
         out.extend(check(nodes, edges))
+    # SLICE 1 wiring: a declared anchor that does not resolve FAILs at the phase exit too (inert
+    # without anchors) — so the guarantee is enforced at the transition, not only at closure.
+    out.extend(_anchor_violations(nodes, Path(str(workspace)).resolve()))
     # The REPLAY half of "prove each task" on the FORCED path: coverage (above) proves a check
     # EXISTS per target; replay proves the checks that exist PASS. Enforcing coverage at
     # verify_exit but replay only at closure would let a run exit VERIFY with FAILING checks
@@ -816,14 +826,23 @@ def _evaluate_check(
     ):
         ref = bind.get("ref")
         ref = ref if isinstance(ref, dict) else {}
-        # SLICE 2 — anchor binding mode (opt-in): when bind.ref.anchor is set AND the kind is
-        # field_present or field_equals, resolve the anchored MD section and assert ONLY its
-        # presence (section resolves + non-empty).  No artifact key is required.  Content
-        # adequacy is NEVER judged here — that remains council's responsibility.  artifact_integrity
-        # does NOT support anchor mode (no such semantic — it verifies a watermark, not a section).
+        # SLICE 2 — anchor binding mode (opt-in): when bind.ref.anchor is set, resolve the anchored
+        # MD section and assert ONLY its presence (section resolves + non-empty). No artifact key is
+        # required. Content adequacy is NEVER judged here — that stays council's. Anchor mode is
+        # PRESENCE-ONLY, so it is valid ONLY for field_present; a field_equals carries an
+        # `expect.value` that a presence read cannot honor (it would silently degrade to presence),
+        # so field_equals+anchor is a fail-closed ERROR. artifact_integrity verifies a watermark,
+        # not a section, so it has no anchor semantic either (falls through to the artifact path).
         anchor = ref.get("anchor")
-        if anchor and kind in ("uacp.check.field_present", "uacp.check.field_equals"):
-            return _resolve_anchor_section(root, str(anchor))
+        if anchor:
+            if kind == "uacp.check.field_present":
+                return _resolve_anchor_section(root, str(anchor))
+            if kind == "uacp.check.field_equals":
+                return (
+                    "ERROR",
+                    "field_equals does not support anchor binding (anchor mode is presence-only); "
+                    "use field_present for an anchored section",
+                )
         art = ref.get("artifact")
         if not art:
             return ("ERROR", "bind.ref.artifact missing")
@@ -1036,56 +1055,69 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
     return out
 
 
-_ANCHOR_HEADING_RE = re.compile(r"^#{1,6}\s+(.*?)\s*$")
+_ANCHOR_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$")
+_ANCHOR_FENCE_RE = re.compile(r"^\s*(?:```|~~~)")
 
 
 def _resolve_anchor_section(root: Path, anchor: str) -> tuple[str, str]:
-    """Deterministic read for a YAML→MD anchor ``"relpath#section"`` (SLICE 1). PASS iff the file
-    exists, a heading whose text equals ``section`` is present, and that section's body (until the
-    next heading or EOF) has non-whitespace. Same trust class as the ``artifact_integrity``
-    watermark read. Returns ``(PASS|FAIL|ERROR, message)``; never raises."""
+    """Deterministic read for a YAML→MD anchor ``"relpath#section"`` (SLICE 1). PASS iff:
+    the file resolves UNDER the governed root (containment via ``resolve_in_workspace`` — parity
+    with the artifact loaders, so an anchor cannot read outside ``.uacp/``); a heading whose text
+    EXACTLY equals ``section`` exists; and that section's body — everything down to the next heading
+    of the SAME-OR-SHALLOWER level (deeper sub-headings' content is INCLUDED), with fenced code
+    blocks treated as opaque body and their ``#`` lines NOT counted as headings — has
+    non-whitespace. Duplicate headings: PASS if ANY matching section is non-empty. Asserts ONLY
+    presence; adequacy stays council's. Returns ``(PASS|FAIL|ERROR, message)``; never raises."""
     relpath, sep, frag = str(anchor).partition("#")
     if not relpath or not sep or not frag:
         return ("FAIL", f"anchor {anchor!r} is not 'relpath#section'")
-    path = base_dir(root) / relpath
-    if not path.is_file():
+    resolved = resolve_in_workspace(root, relpath)
+    if resolved is None:  # escapes the governed root (../, absolute, …) — never read outside .uacp
+        return ("FAIL", f"anchor path escapes the governed root: {relpath}")
+    if not resolved.is_file():
         return ("FAIL", f"anchor target file missing: {relpath}")
     try:
-        raw = path.read_text(encoding="utf-8")
+        raw = resolved.read_text(encoding="utf-8")
     except OSError as exc:  # defensive — unreadable file is ERROR, distinct from FAIL
         return ("ERROR", f"anchor target unreadable: {relpath}: {exc}")
+
+    in_fence = False
     in_section = False
+    section_level = 0
+    found_match = False
     body: list[str] = []
     for line in raw.splitlines():
-        m = _ANCHOR_HEADING_RE.match(line)
-        if m is not None:
+        if _ANCHOR_FENCE_RE.match(line):
+            in_fence = not in_fence
             if in_section:
-                break  # the next heading ends the section
-            if m.group(1) == frag:
-                in_section = True
+                body.append(line)
+            continue
+        m = None if in_fence else _ANCHOR_HEADING_RE.match(line)
+        if m is not None:
+            this_level = len(m.group(1))
+            if in_section and this_level <= section_level:
+                if any(s.strip() for s in body):
+                    return ("PASS", "")  # a matching section had content — done
+                in_section = False  # this match was empty; keep scanning for a later duplicate
+                body = []
+            if not in_section and m.group(2) == frag:
+                in_section, found_match, section_level = True, True, this_level
             continue
         if in_section:
             body.append(line)
-    if not in_section:
-        return ("FAIL", f"anchor section #{frag} not found in {relpath}")
-    if not any(s.strip() for s in body):
+    if in_section and any(s.strip() for s in body):
+        return ("PASS", "")
+    if found_match:
         return ("FAIL", f"anchor section #{frag} in {relpath} is empty")
-    return ("PASS", "")
+    return ("FAIL", f"anchor section #{frag} not found in {relpath}")
 
 
-def validate_anchor_resolution(workspace: str | Path, run_id: str) -> list[Violation]:
-    """SLICE 1 — anchor primitive. For every node that DECLARES an ``anchor``, the target MD section
-    must resolve (file exists, heading present, body non-empty). An anchor pointing at nothing is a
-    FAIL, not a silent pass — this is what stops the model re-introducing a NEW drift
-    (anchor-points-at-nothing). INERT: nodes without an ``anchor`` are untouched, so existing runs
-    are unaffected. Never raises."""
-    if (bad := _validate_inputs(workspace, run_id)) is not None:
-        return bad
-    graph = _load_and_project(workspace, run_id)
-    if graph is None:
-        return []
-    nodes = graph[0]
-    root = Path(str(workspace)).resolve()
+def _anchor_violations(nodes: dict, root: Path) -> list[Violation]:
+    """SLICE 1 core: a ``GP_ANCHOR_UNRESOLVED`` for every node whose declared ``anchor`` does not
+    resolve. Pure over already-projected nodes so the wired gates can call it without re-projecting.
+    INERT: nodes without an ``anchor`` contribute nothing, so existing (anchor-free) runs are
+    unaffected. Currently only ``scope_item`` nodes carry an ``anchor`` (the schema field added in
+    Slice 1); other node kinds simply never match."""
     out: list[Violation] = []
     for n in nodes.values():
         anchor = n.get("anchor")
@@ -1102,6 +1134,19 @@ def validate_anchor_resolution(workspace: str | Path, run_id: str) -> list[Viola
                 )
             )
     return out
+
+
+def validate_anchor_resolution(workspace: str | Path, run_id: str) -> list[Violation]:
+    """SLICE 1 — anchor primitive (public entry: projects then checks). An anchor pointing at
+    nothing is a FAIL, not a silent pass — this stops the model re-introducing a NEW drift. Wired
+    into ``validate_graph_projection`` (closure) and ``validate_graph_invariants`` (phase exits) so
+    the guarantee holds in real runs, not only when called directly. Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    return _anchor_violations(graph[0], Path(str(workspace)).resolve())
 
 
 # Register this engine (guard against double-registration under alias imports).

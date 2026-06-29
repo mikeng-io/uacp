@@ -1096,3 +1096,97 @@ def test_anchor_check_additive_legacy_artifact_path_fail(tmp_path):
     ws = _checked_run(tmp_path, checks=[_failing_field_equals("chk-bad", "wu-1")])
     violations = validate_check_replay(ws, "r")
     assert "CHK_FIELD_EQUALS" in _codes_set(violations), violations
+
+
+# ============================================================================================
+# SLICE 1+2 — REVIEW FIXES (council + codex black-box). Reproductions of the findings:
+# B1 validate_anchor_resolution unwired; B2 anchored_to trips GP_PHANTOM_EDGE; M3 path traversal;
+# M4 subsection-content false-empty; m5 field_equals+anchor degrades; m6 fenced headings; m8 dup.
+# These run the FULL wired sweep on an anchored manifest — the coverage the isolated tests missed.
+# ============================================================================================
+
+
+def test_anchor_full_sweep_valid_no_phantom_no_unresolved(tmp_path):
+    # B1+B2: a VALID anchored scope_item must NOT trip GP_PHANTOM_EDGE and must pass resolution
+    # under the real wired gate (validate_graph_projection), not just the direct validator.
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\nreal content\n")
+    codes = _codes_set(validate_graph_projection(ws, "r"))
+    assert "GP_PHANTOM_EDGE" not in codes, codes
+    assert "GP_ANCHOR_UNRESOLVED" not in codes, codes
+
+
+def test_anchor_full_sweep_broken_caught_not_phantom(tmp_path):
+    # B1: a broken anchor FAILs via the wired closure gate; B2: NOT via a phantom-edge false block.
+    ws = _ws_anchor(tmp_path, "proposals/missing.md#si-1")  # no MD written
+    codes = _codes_set(validate_graph_projection(ws, "r"))
+    assert "GP_ANCHOR_UNRESOLVED" in codes, codes
+    assert "GP_PHANTOM_EDGE" not in codes, codes
+
+
+def test_anchor_wired_at_phase_gate(tmp_path):
+    # B1: a broken anchor is also caught at a phase-exit gate, not only at closure.
+    ws = _ws_anchor(tmp_path, "proposals/missing.md#si-1")
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_graph_invariants(ws, "r", "plan_exit"))
+
+
+def test_anchor_rejects_path_traversal(tmp_path):
+    # M3: an anchor escaping the governed root FAILs even if the outside file exists.
+    from engines.graph_projection import validate_anchor_resolution
+
+    (tmp_path / "SECRET.md").write_text("## si-1\nsecret\n", encoding="utf-8")  # OUTSIDE .uacp
+    ws = _ws_anchor(tmp_path, "../SECRET.md#si-1")  # no in-namespace md
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+
+
+def test_anchor_section_with_subsection_content(tmp_path):
+    # M4: content under a deeper subheading counts — the parent section is NOT falsely empty.
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(
+        tmp_path,
+        "proposals/a.md#si-1",
+        "proposals/a.md",
+        "## si-1\n### detail\nreal content under a subsection\n",
+    )
+    assert validate_anchor_resolution(ws, "r") == []
+
+
+def test_anchor_ignores_heading_in_fenced_code(tmp_path):
+    # m6: a heading inside a ``` fence is not a real section.
+    from engines.graph_projection import validate_anchor_resolution
+
+    body = "## si-1\n```\n## not-real\n```\nreal content\n"
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", body)
+    assert validate_anchor_resolution(ws, "r") == []
+    # anchoring AT the fenced fake heading must FAIL (it is not a section).
+    ws2 = _ws_anchor(tmp_path / "b", "proposals/a.md#not-real", "proposals/a.md", body)
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws2, "r"))
+
+
+def test_anchor_duplicate_heading_first_empty_second_content(tmp_path):
+    # m8: first matching heading empty, second has content -> PASS (any matching section non-empty).
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\n\n## si-1\nbody\n")
+    assert validate_anchor_resolution(ws, "r") == []
+
+
+def test_field_equals_anchor_errors(tmp_path):
+    # m5: field_equals + anchor has no presence-only semantics -> ERROR (replay surfaces CHK_FIELD_EQUALS).
+    check_doc = {
+        "kind": "uacp.check.field_equals",
+        "id": "chk-a",
+        "from": {"target": "si-1", "basis": "x"},
+        "bind": {"plane": "artifact", "ref": {"anchor": "proposals/a.md#si-1"}},
+        "expect": {"value": "whatever"},
+        "severity": "block",
+    }
+    ws = _ws(tmp_path, "r", _prop([{"id": "si-1"}]), _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+             extra_docs=[check_doc])
+    p = tmp_path / ".uacp" / "proposals" / "a.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("## si-1\nbody\n", encoding="utf-8")
+    from engines.graph_projection import validate_check_replay
+
+    vs = validate_check_replay(ws, "r")
+    assert any(v.code == "CHK_FIELD_EQUALS" and v.detail.get("status") == "ERROR" for v in vs), vs
