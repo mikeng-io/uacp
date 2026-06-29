@@ -2,17 +2,17 @@
 
 Decision experiment that un-parks this bundle. It tests the council's central blocker
 ([08-review-findings](08-review-findings.md)): *does moving prose to Markdown silently break the
-gates that read it?* — on the hardest such gate, `validate_class_underclaim`. Code lives on
-branch `feat/class-underclaim-grounding-proto`, commit `da86643` (kernel + test only; this bundle
-stays design-only). Suite green, additive.
+gates that read it?* — on the hardest such gate, `validate_class_underclaim`. Commit `da86643`
+(the P0 experiment) and Slices 1–2 are now MERGED to main (PR #70 / `c7bd737` / 2026-06-29).
+Suite green, additive.
 
 ## 1. What was the plan
 
 Prove or kill **B1** (MD = semantic content; YAML = relations) on the single hardest case before
 committing the bundle, rather than re-litigating the design in prose. `validate_class_underclaim`
-(`projection.py:945`) is the worst case because it **comprehends in code**: it keyword-greps the
-target's own prose (`intent` / `expected_outputs` / `statement`, `projection.py:979`) via
-`candidate_class()` to derive a class, then blocks if the agent's declared class is weaker. If
+(in `manifest/projection.py`) is the worst case because it **comprehends in code**: it keyword-greps
+the target's own prose (`intent` / `expected_outputs` / `statement`) via `candidate_class()` to
+derive a class, then blocks if the agent's declared class is weaker. If
 *this* gate can be converted from "read prose" to "measure a relation" without losing teeth, the
 pattern generalises to every prose-reading gate (D43, `scope.statement`). Four steps:
 
@@ -47,7 +47,7 @@ pattern generalises to every prose-reading gate (D43, `scope.statement`). Four s
 
 ## 3. What was the measurement
 
-Evidence, not assertion. All on commit `da86643`:
+Evidence, not assertion. Commit `da86643`, now MERGED (PR #70 / `c7bd737` / 2026-06-29):
 
 | signal | result |
 |---|---|

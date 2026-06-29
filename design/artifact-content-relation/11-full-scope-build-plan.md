@@ -21,10 +21,11 @@ Getting this split right is what keeps the heavy witness machinery scoped to the
 actually needs it, instead of every gate.
 
 > **Slice 0 result (2026-06-30, grounded):** of the prose-reading gates the council named, **only
-> `class-underclaim` reads meaning** (`projection.py:979`, `candidate_class(text)`). D43
-> `_scope_concern_is_keyed` checks `i.get("statement") is not None` (`adaptive_gates.py:49-51`) —
-> **presence, not meaning**; `schema.py` requires `["id","statement"]` as a typed field
-> (`schema.py:375`) — **presence**; `heartgate.py:282/289` only consume D43's boolean — structure.
+> `class-underclaim` reads meaning** (`candidate_class` in `manifest/projection.py`). D43
+> `_scope_concern_is_keyed` (in `heartgate/validators/adaptive_gates.py`) checks
+> `statement is not None` — **presence, not meaning**; `domain/schema.py` `uacp.proposal` scope
+> requires `["id","statement"]` — **presence**; `heartgate.py` gate handlers only consume D43's
+> boolean — structure.
 > ⇒ D43 + schema-required move to **Slice 2** (anchor-bound presence, no witness); the codeflair
 > witness (Slice 3) narrows to a **single gate**. The risky surface shrank. *(Slice 0's remaining
 > question — do `heartgate.py`/`adaptive_gates.py` read scope content elsewhere — answered: no, only
@@ -32,7 +33,7 @@ actually needs it, instead of every gate.
 
 ---
 
-## Slice 0 — Blast-radius confirmation (precondition, read-only)
+## Slice 0 — Blast-radius confirmation (precondition, read-only) ✅ SHIPPED — PR #70 / `c7bd737` / 2026-06-29
 
 Resolve open question #1 ([07](07-blast-radius-open-questions.md)): do `heartgate.py` /
 `adaptive_gates.py` read scope **content** or only **structure**? This sizes everything.
@@ -44,7 +45,7 @@ Resolve open question #1 ([07](07-blast-radius-open-questions.md)): do `heartgat
 - **Invariant:** no later slice proceeds on an *assumed* radius — the map is grounded first.
 - **Constraint:** read-only; zero code change; output is a finding, not an edit.
 
-## Slice 1 — Anchor primitive, inert (migration stage 1)
+## Slice 1 — Anchor primitive, inert (migration stage 1) ✅ SHIPPED — PR #70 / `c7bd737` / 2026-06-29
 
 Schema accepts optional `anchor`; projection records an `anchored_to` edge; section-resolution is
 a deterministic read. Nothing requires it yet. ([03-anchor-primitive](03-anchor-primitive.md))
@@ -58,11 +59,14 @@ a deterministic read. Nothing requires it yet. ([03-anchor-primitive](03-anchor-
 - **Constraint:** optional/inert — zero behavior change for existing runs; no prose removed; same
   trust class as the existing `artifact_integrity` watermark read.
 
-## Slice 2 — Presence retarget: `field_present` → anchored MD (migration stage 2)
+## Slice 2 — Presence retarget: `field_present` → anchored MD (migration stage 2) ✅ SHIPPED (gate-side substrate) — PR #70 / `c7bd737` / 2026-06-29
 
-`field_present` (and where apt `field_equals`) gains an anchor binding mode, opt-in per check.
-Covers the **presence** gates — now incl. D43 `_scope_concern_is_keyed` and schema
-`statement`-required, reclassified here by Slice 0. ([04-check-retarget](04-check-retarget.md))
+`field_present` gains an anchor binding mode, opt-in per check. (`field_equals` combined with an
+anchor is a fail-closed ERROR in the as-built implementation — anchor mode is `field_present`-only.)
+**What shipped:** the anchor-binding substrate for `field_present` checks. **Pending (not delivered
+by Slice 2):** the D43 `_scope_concern_is_keyed` and schema `statement`-required opt-in wiring is
+still forward plan — the shipped slice provides the substrate; per-gate opt-in flip is the next
+step within Slice 2. ([04-check-retarget](04-check-retarget.md))
 
 - **Measurement:** an anchor-bound check passes iff the section resolves + is non-empty; bound to a
   missing/empty section → FAIL; relational checks (`measured_by`, no-orphan, no-dropped-intent)
@@ -83,7 +87,8 @@ The claim-vs-witness pattern for `class-underclaim` (the sole meaning gate, per 
 
 - **Measurement:** the gate catches under-claim / under-scope via an **independent witness**
   (codeflair `entailed_class`), not prose; `oracle_source` is the grounded relation; floor/escalate
-  synthesis behaves.
+  synthesis behaves. *(As-built from P0: synthesis is `entailed_class` vs the legacy prose
+  keyword-match; the semantic-witness CEILING is deferred within Slice 3.)*
 - **Verify/validate:** the P0 experiment (2202 green) + codeflair-wired tests at the new boundary;
   **Invariant #4 council + cross-provider** (kernel change).
 - **Invariant:** deterministic floor cannot be overridden; synthesis is `max(floor, ceiling)` **in

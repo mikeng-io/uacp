@@ -41,3 +41,9 @@ breaks, the YAML-only gate surface). The MODEL under-resolved its central fork.
 PARKED. Not build-ready. B1/B2 is an operator architecture decision, deferred deliberately.
 The lifecycle-executability fixes (node 07 meta-finding) are split out as a separate, higher
 -priority initiative and proceed first.
+
+*(Historical: B1 chosen by operator; blocker #1 "gates read content" resolved by Slice 0 (only
+`validate_class_underclaim` / `candidate_class` reads meaning; D43 `_scope_concern_is_keyed` and
+`schema.py` `statement`-required are presence-only); the B1/B2 fork resolved by operator decision
+(B1) + node 09 experiment. Slices 0–2 have since shipped — PR #70 / `c7bd737` / 2026-06-29. The
+PARKED/REWORK status above reflects the pre-build state at time of council review.)*

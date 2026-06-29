@@ -17,6 +17,9 @@ The skill/transition side (lifecycle-executability breaks #2/#3) is a sibling in
 Commit `da86643`. Gate retargeted to consume an `entailed_class` oracle; dark regression + restored
 teeth + independence all proven; 2202 suite green. Oracle is test-injected. See node 09.
 
+**Slices 0–2 of the full-scope build plan (node 11) SHIPPED + MERGED — PR #70 / `c7bd737` / 2026-06-29.**
+Anchor primitive (Slice 1) and anchor-bound `field_present` substrate (Slice 2 gate-side) are now in main.
+
 ## Phase 1 — codeflair as the real oracle (MVP, detection-mode)
 
 The smallest step that makes Phase 0 real and high-value. Three pieces:

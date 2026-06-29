@@ -16,6 +16,10 @@ Precedent: `uacp.intent`, `evidence_disposition` are already MARKDOWN kinds — 
 1. **Do `heartgate.py` / `adaptive_gates.py` read scope CONTENT or only STRUCTURE?**
    If structure-only, they are untouched and the radius shrinks. This gates the whole sizing.
    *(First task of any follow-on: grep + read those two against `in_scope`/`objective`.)*
+   *(RESOLVED by Slice 0, node 11: only `validate_class_underclaim` / `candidate_class` in
+   `manifest/projection.py` reads meaning; `_scope_concern_is_keyed` in
+   `heartgate/validators/adaptive_gates.py` and `domain/schema.py` `statement`-required are
+   presence-only. Slices 0–2 shipped — PR #70 / `c7bd737` / 2026-06-29.)*
 2. **Anchor serialization** — inline-per-node vs sidecar map; `path#fragment` vs structured.
    Build decision; tests arbitrate. Contract is fixed in [03](03-anchor-primitive.md).
 3. **Section-resolution semantics** — exact "non-empty / header present" definition for MD

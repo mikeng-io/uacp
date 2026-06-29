@@ -1,6 +1,6 @@
 # Design bundle — Artifact content/relation model
 
-**Status:** B1 CHOSEN + retarget PROVEN (2026-06-29). Council returned REWORK and deferred B1/B2 to the operator ([08-review-findings](08-review-findings.md)); operator chose **B1** and the central blocker (does moving prose break the gates?) was settled by experiment on the hardest gate ([09-grounding-retarget-experiment](09-grounding-retarget-experiment.md), commit `da86643`, 2202 suite green). **Pending:** wire codeflair as the real oracle ([10-implementation-roadmap](10-implementation-roadmap.md) Phase 1). Lifecycle-executability fixes remain a separate sibling initiative.
+**Status:** Slices 0–2 BUILT + MERGED — PR #70 / `c7bd737` / 2026-06-29. Council returned REWORK and deferred B1/B2 to the operator ([08-review-findings](08-review-findings.md)); operator chose **B1**; the central blocker was settled by experiment on the hardest gate ([09-grounding-retarget-experiment](09-grounding-retarget-experiment.md), commit `da86643`); gate-side substrate (blast-radius confirmation, anchor primitive, anchor-bound `field_present`) shipped. **Pending:** wire codeflair as the real oracle ([10-implementation-roadmap](10-implementation-roadmap.md) Phase 1 / [11-full-scope-build-plan](11-full-scope-build-plan.md) Slice 3). Lifecycle-executability fixes remain a separate sibling initiative.
 **Origin:** brainstorm run `acrs-20260628` (vault: `.uacp/brainstorm/acrs-20260628/`)
 **Branch:** `design/artifact-content-relation-split`
 
@@ -12,8 +12,10 @@ This is `comprehend → measure` (the CMS core principle) applied to the artifac
 ## Why
 Today an artifact's substance is split three ways, and the surface council *reviews*
 (Markdown) barely overlaps the surface the gate *measures* (YAML). `field_present` checks
-a YAML prose field is non-empty — a weak proxy the principle warns against. After council,
-remediation lands in gate-invisible Markdown. See [01-problem](01-problem.md).
+a YAML prose field is non-empty — a proxy the principle warns against as the sole review surface.
+After council, remediation lands in gate-invisible Markdown. The shipped design **relocates** this
+presence check to an anchored MD section (same presence semantics, aligned surface); it does not
+remove presence-checking. See [01-problem](01-problem.md).
 
 ## Nodes
 | node | covers |
@@ -31,7 +33,7 @@ remediation lands in gate-invisible Markdown. See [01-problem](01-problem.md).
 | [11-full-scope-build-plan](11-full-scope-build-plan.md) | the WHOLE-bundle sliced ratchet (slices 0–5), each with measurement · verify · invariant · constraint |
 
 ## Authority / scope boundary
-- This bundle is DESIGN only — no kernel/schema/skill code changes here; build is a later run.
+- Gate-side build for Slices 0–2 has shipped (PR #70 / `c7bd737`); remaining slices (3–5) are future runs. This bundle stays design-only for content not yet built.
 - Council-required (Invariant #4, kernel + schema + all lifecycle skills), cross-provider reviewer.
 - The authority model is UNCHANGED: semantics judged by council, relations by the gate.
 
