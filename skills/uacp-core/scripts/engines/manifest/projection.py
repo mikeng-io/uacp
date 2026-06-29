@@ -816,6 +816,14 @@ def _evaluate_check(
     ):
         ref = bind.get("ref")
         ref = ref if isinstance(ref, dict) else {}
+        # SLICE 2 — anchor binding mode (opt-in): when bind.ref.anchor is set AND the kind is
+        # field_present or field_equals, resolve the anchored MD section and assert ONLY its
+        # presence (section resolves + non-empty).  No artifact key is required.  Content
+        # adequacy is NEVER judged here — that remains council's responsibility.  artifact_integrity
+        # does NOT support anchor mode (no such semantic — it verifies a watermark, not a section).
+        anchor = ref.get("anchor")
+        if anchor and kind in ("uacp.check.field_present", "uacp.check.field_equals"):
+            return _resolve_anchor_section(root, str(anchor))
         art = ref.get("artifact")
         if not art:
             return ("ERROR", "bind.ref.artifact missing")

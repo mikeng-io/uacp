@@ -998,3 +998,97 @@ def test_anchor_inert_when_absent(tmp_path):
     _nodes, edges = _load_and_project(ws, "r")
     assert not any(e["rel"] == "anchored_to" for e in edges)
     assert validate_anchor_resolution(ws, "r") == []
+
+
+# ============================================================================================
+# SLICE 2 — anchor binding mode for checks (field_present / field_equals).
+# A frozen check with `bind.ref.anchor` resolves the anchored MD section and asserts ONLY
+# that the section is present and non-empty.  The existing YAML field-path binding is
+# untouched when no anchor is present (additive opt-in).
+# Violation code for a failing field_present replay: CHK_FIELD_PRESENT.
+# ============================================================================================
+
+
+def _ws_check_anchor(tmp_path, anchor, md_relpath=None, md_body=None):
+    """Workspace with a field_present check whose bind uses anchor mode (no artifact key)."""
+    check_doc = {
+        "kind": "uacp.check.field_present",
+        "id": "chk-a",
+        "from": {"target": "si-1", "basis": "si-1 present"},
+        "bind": {"plane": "artifact", "ref": {"anchor": anchor}},
+        "expect": {},
+        "severity": "block",
+    }
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[check_doc],
+    )
+    if md_relpath is not None:
+        p = tmp_path / ".uacp" / md_relpath
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(md_body, encoding="utf-8")
+    return ws
+
+
+def test_anchor_check_field_present_pass_on_resolvable_section(tmp_path):
+    # Case 1: anchor points at a real, non-empty section -> replay PASS (no violation).
+    from engines.manifest.projection import validate_check_replay
+
+    ws = _ws_check_anchor(
+        tmp_path,
+        "proposals/a.md#intro",
+        "proposals/a.md",
+        "## intro\nreal content here\n",
+    )
+    violations = validate_check_replay(ws, "r")
+    chk_violations = [v for v in violations if v.detail.get("check") == "chk-a"]
+    assert chk_violations == [], chk_violations
+
+
+def test_anchor_check_field_present_fail_on_missing_file(tmp_path):
+    # Case 2a: anchor target file absent -> replay FAIL -> CHK_FIELD_PRESENT emitted.
+    from engines.manifest.projection import validate_check_replay
+
+    ws = _ws_check_anchor(tmp_path, "proposals/missing.md#intro")  # no MD written
+    violations = validate_check_replay(ws, "r")
+    assert "CHK_FIELD_PRESENT" in _codes_set(violations), violations
+    # non-vacuity: contrast with case 1 above (no violation when section resolves).
+
+
+def test_anchor_check_field_present_fail_on_empty_section(tmp_path):
+    # Case 2b: section heading present but body empty -> replay FAIL -> CHK_FIELD_PRESENT.
+    from engines.manifest.projection import validate_check_replay
+
+    ws = _ws_check_anchor(
+        tmp_path,
+        "proposals/a.md#intro",
+        "proposals/a.md",
+        "## intro\n\n## next\ncontent\n",  # intro body is empty
+    )
+    violations = validate_check_replay(ws, "r")
+    assert "CHK_FIELD_PRESENT" in _codes_set(violations), violations
+
+
+def test_anchor_check_additive_legacy_artifact_path_pass(tmp_path):
+    # Case 3a (additive): a check with the legacy bind.ref.artifact+path (no anchor) still
+    # resolves via the YAML field path — anchor mode did not break the existing path.
+    from engines.manifest.projection import validate_check_replay
+
+    # _check() produces a field_present binding plans/p.yaml#kind which exists -> PASS.
+    ws = _checked_run(tmp_path, checks=[_check("chk-legacy", "si-1")])
+    violations = validate_check_replay(ws, "r")
+    legacy_v = [v for v in violations if v.detail.get("check") == "chk-legacy"]
+    assert legacy_v == [], legacy_v
+
+
+def test_anchor_check_additive_legacy_artifact_path_fail(tmp_path):
+    # Case 3b (additive): a failing legacy field_equals (wrong expected value) still fires
+    # CHK_FIELD_EQUALS — anchor mode did not swallow the existing YAML path failure.
+    from engines.manifest.projection import validate_check_replay
+
+    ws = _checked_run(tmp_path, checks=[_failing_field_equals("chk-bad", "wu-1")])
+    violations = validate_check_replay(ws, "r")
+    assert "CHK_FIELD_EQUALS" in _codes_set(violations), violations
