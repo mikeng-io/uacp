@@ -818,3 +818,457 @@ def test_terminal_projection_unchanged_by_new_checks(tmp_path):
     assert "GP_WORK_UNIT_NO_CHECKPOINT" not in codes
     assert "GP_UNVERIFIED" not in codes
     assert "GP_UNCHECKED_TARGET" not in codes
+
+
+# ============================================================================================
+# PROTOTYPE (class-underclaim grounding retarget) — DARK-REGRESSION DEMONSTRATION
+# --------------------------------------------------------------------------------------------
+# Decision experiment for the artifact content/relation B1 redesign (MD = semantic content the
+# agent comprehends; YAML = relations the code measures). validate_class_underclaim today
+# COMPREHENDS in code: it keyword-greps the target's own prose (intent / expected_outputs /
+# statement, projection.py:979) to derive a candidate class, then blocks if the declared class is
+# weaker. Under B1, that prose relocates to Markdown and leaves the projected node — so the gate
+# silently stops firing on a still-genuine underclaim. The council flagged this "dark regression"
+# (no test fires) abstractly; this test makes it concrete and runnable. It is the BEFORE half of
+# the experiment: it should PASS now (documenting the break) and is the regression the retarget
+# (measure a DECLARED relation, not prose) must close.
+# ============================================================================================
+
+
+def test_PROTO_underclaim_dark_regression_when_prose_relocates_to_md(tmp_path):
+    from engines.graph_projection import validate_class_underclaim
+
+    # A — TODAY: strong content "wire up the /settle route" lives in YAML intent, but the check
+    # declares the weak class sets_value. The gate reads the prose, derives wires_symbol, and FIRES.
+    today = _run_with_intent(
+        tmp_path / "today",
+        "wire up the /settle route handler",
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" in _codes_set(validate_class_underclaim(today, "r"))
+
+    # B — B1: the SAME genuine underclaim, but the strong content has moved to Markdown and is no
+    # longer in the projected node (simulated by an empty intent). Same weak declared class.
+    # The gate has no prose to grep -> candidate_class("") is None -> it SILENTLY PASSES.
+    relocated = _run_with_intent(
+        tmp_path / "relocated",
+        "",  # prose now lives in MD, invisible to the YAML projection
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(relocated, "r"))
+
+    # The contrast IS the dark regression: identical mis-classification, teeth in A, none in B —
+    # and nothing errors. This is exactly the failure the grounding retarget must eliminate.
+
+
+def _run_with_wu(tmp_path, wu: dict, checks: list) -> Path:
+    # Like _run_with_intent, but the caller supplies the whole work_unit dict (so it can set the
+    # PROTOTYPE `entailed_class` independent-oracle field alongside / instead of intent prose).
+    return _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([wu]),
+        extra_docs=[
+            _piv([{"id": "ev-1", "work_unit_id": wu["id"]}]),
+            _exec("cp-1", wu["id"], "pass"),
+            _verif([{"id": "as-1", "obligation_id": "ev-1", "state": "pass"}]),
+            *checks,
+        ],
+    )
+
+
+def test_PROTO_retarget_restores_teeth_via_entailed_class_without_prose(tmp_path):
+    # STEP 3 — the retarget. B1 world: the prose lives in Markdown (intent=""), so the keyword
+    # oracle is blind. But an INDEPENDENT oracle (code-plane entailment from the real symbol, or an
+    # independent judge reading the MD) entails wires_symbol, carried as the declared relation
+    # `entailed_class`. The checks still declare the weak sets_value. The gate fires by MEASURING
+    # declared(1) < entailed(3) — with NO prose read. Teeth restored under B1.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_wu(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "entailed_class": "wires_symbol"},
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    under = [v for v in validate_class_underclaim(ws, "r") if v.code == "CHK_CLASS_UNDERCLAIM"]
+    assert [v.detail.get("target") for v in under] == ["wu-1"]
+    # ...and it fired on the GROUNDED relation, not on prose:
+    assert under[0].detail.get("oracle_source") == "entailed_class"
+
+    # non-vacuity: declare wires_symbol to match the entailed class -> honest -> no underclaim.
+    ok = _run_with_wu(
+        tmp_path / "ok",
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "entailed_class": "wires_symbol"},
+        [_class_check("chk-1", "wu-1", "wires_symbol", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ok, "r"))
+
+
+def test_PROTO_independence_is_the_crux_no_oracle_no_catch(tmp_path):
+    # STEP 4 — the residual / the load-bearing finding. B1 world with NEITHER prose (it's in MD)
+    # NOR an independent `entailed_class`: the gate degrades to the floor and the underclaim catch
+    # is GONE. This proves the catch is fundamentally an INDEPENDENCE check — a field the AGENT
+    # controls preserves nothing (it would just be declared weak too). So B1 viability for this gate
+    # REQUIRES sourcing `entailed_class` independently: code-plane entailment (deterministic,
+    # preferred) or an independent judge (semantic). The gate mechanics retarget cleanly; the real
+    # dependency is the oracle source.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_wu(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": ""},  # no prose, no independent oracle
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ws, "r"))
+
+
+# ============================================================================================
+# SLICE 1 — anchor primitive (INERT). YAML relation-node carries `anchor: "file.md#id"`; the
+# projection records an `anchored_to` edge; an anchor that points at a missing/empty MD section
+# is a FAIL (not a silent pass). Nodes WITHOUT an anchor are untouched (zero behavior change).
+# ============================================================================================
+
+
+def _ws_anchor(tmp_path, anchor, md_relpath=None, md_body=None):
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1", "statement": "A", "anchor": anchor}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+    )
+    if md_relpath is not None:
+        p = tmp_path / ".uacp" / md_relpath
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(md_body, encoding="utf-8")
+    return ws
+
+
+def test_anchor_records_anchored_to_edge(tmp_path):
+    from engines.manifest.projection import _load_and_project
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\nreal content\n")
+    graph = _load_and_project(ws, "r")
+    assert graph is not None
+    _, edges = graph
+    assert any(
+        e["src"] == "si-1" and e["rel"] == "anchored_to" and e["dst"] == "proposals/a.md#si-1"
+        for e in edges
+    ), edges
+
+
+def test_anchor_resolution_pass(tmp_path):
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\nreal content\n")
+    assert validate_anchor_resolution(ws, "r") == []
+
+
+def test_anchor_resolution_fail_missing_file(tmp_path):
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/missing.md#si-1")  # no MD written
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+
+
+def test_anchor_resolution_fail_missing_section(tmp_path):
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## other\nx\n")
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+
+
+def test_anchor_resolution_fail_empty_section(tmp_path):
+    from engines.graph_projection import validate_anchor_resolution
+
+    # heading present but body empty (next heading immediately follows) -> FAIL, not silent pass.
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\n\n## next\nx\n")
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+
+
+def test_anchor_inert_when_absent(tmp_path):
+    # No anchor declared -> no anchored_to edge, no anchor violation. Zero behavior change.
+    from engines.graph_projection import validate_anchor_resolution
+    from engines.manifest.projection import _load_and_project
+
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1", "statement": "A"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+    )
+    graph = _load_and_project(ws, "r")
+    assert graph is not None
+    _, edges = graph
+    assert not any(e["rel"] == "anchored_to" for e in edges)
+    assert validate_anchor_resolution(ws, "r") == []
+
+
+# ============================================================================================
+# SLICE 2 — anchor binding mode for checks (field_present / field_equals).
+# A frozen check with `bind.ref.anchor` resolves the anchored MD section and asserts ONLY
+# that the section is present and non-empty.  The existing YAML field-path binding is
+# untouched when no anchor is present (additive opt-in).
+# Violation code for a failing field_present replay: CHK_FIELD_PRESENT.
+# ============================================================================================
+
+
+def _ws_check_anchor(tmp_path, anchor, md_relpath=None, md_body=None):
+    """Workspace with a field_present check whose bind uses anchor mode (no artifact key)."""
+    check_doc = {
+        "kind": "uacp.check.field_present",
+        "id": "chk-a",
+        "from": {"target": "si-1", "basis": "si-1 present"},
+        "bind": {"plane": "artifact", "ref": {"anchor": anchor}},
+        "expect": {},
+        "severity": "block",
+    }
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[check_doc],
+    )
+    if md_relpath is not None:
+        p = tmp_path / ".uacp" / md_relpath
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(md_body, encoding="utf-8")
+    return ws
+
+
+def test_anchor_check_field_present_pass_on_resolvable_section(tmp_path):
+    # Case 1: anchor points at a real, non-empty section -> replay PASS (no violation).
+    from engines.manifest.projection import validate_check_replay
+
+    ws = _ws_check_anchor(
+        tmp_path,
+        "proposals/a.md#intro",
+        "proposals/a.md",
+        "## intro\nreal content here\n",
+    )
+    violations = validate_check_replay(ws, "r")
+    chk_violations = [v for v in violations if v.detail.get("check") == "chk-a"]
+    assert chk_violations == [], chk_violations
+
+
+def test_anchor_check_field_present_fail_on_missing_file(tmp_path):
+    # Case 2a: anchor target file absent -> replay FAIL -> CHK_FIELD_PRESENT emitted.
+    from engines.manifest.projection import validate_check_replay
+
+    ws = _ws_check_anchor(tmp_path, "proposals/missing.md#intro")  # no MD written
+    violations = validate_check_replay(ws, "r")
+    assert "CHK_FIELD_PRESENT" in _codes_set(violations), violations
+    # non-vacuity: contrast with case 1 above (no violation when section resolves).
+
+
+def test_anchor_check_field_present_fail_on_empty_section(tmp_path):
+    # Case 2b: section heading present but body empty -> replay FAIL -> CHK_FIELD_PRESENT.
+    from engines.manifest.projection import validate_check_replay
+
+    ws = _ws_check_anchor(
+        tmp_path,
+        "proposals/a.md#intro",
+        "proposals/a.md",
+        "## intro\n\n## next\ncontent\n",  # intro body is empty
+    )
+    violations = validate_check_replay(ws, "r")
+    assert "CHK_FIELD_PRESENT" in _codes_set(violations), violations
+
+
+def test_anchor_check_additive_legacy_artifact_path_pass(tmp_path):
+    # Case 3a (additive): a check with the legacy bind.ref.artifact+path (no anchor) still
+    # resolves via the YAML field path — anchor mode did not break the existing path.
+    from engines.manifest.projection import validate_check_replay
+
+    # _check() produces a field_present binding plans/p.yaml#kind which exists -> PASS.
+    ws = _checked_run(tmp_path, checks=[_check("chk-legacy", "si-1")])
+    violations = validate_check_replay(ws, "r")
+    legacy_v = [v for v in violations if v.detail.get("check") == "chk-legacy"]
+    assert legacy_v == [], legacy_v
+
+
+def test_anchor_check_additive_legacy_artifact_path_fail(tmp_path):
+    # Case 3b (additive): a failing legacy field_equals (wrong expected value) still fires
+    # CHK_FIELD_EQUALS — anchor mode did not swallow the existing YAML path failure.
+    from engines.manifest.projection import validate_check_replay
+
+    ws = _checked_run(tmp_path, checks=[_failing_field_equals("chk-bad", "wu-1")])
+    violations = validate_check_replay(ws, "r")
+    assert "CHK_FIELD_EQUALS" in _codes_set(violations), violations
+
+
+# ============================================================================================
+# SLICE 1+2 — REVIEW FIXES (council + codex black-box). Reproductions of the findings:
+# B1 validate_anchor_resolution unwired; B2 anchored_to trips GP_PHANTOM_EDGE; M3 path traversal;
+# M4 subsection-content false-empty; m5 field_equals+anchor degrades; m6 fenced headings; m8 dup.
+# These run the FULL wired sweep on an anchored manifest — the coverage the isolated tests missed.
+# ============================================================================================
+
+
+def test_anchor_full_sweep_valid_no_phantom_no_unresolved(tmp_path):
+    # B1+B2: a VALID anchored scope_item must NOT trip GP_PHANTOM_EDGE and must pass resolution
+    # under the real wired gate (validate_graph_projection), not just the direct validator.
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\nreal content\n")
+    codes = _codes_set(validate_graph_projection(ws, "r"))
+    assert "GP_PHANTOM_EDGE" not in codes, codes
+    assert "GP_ANCHOR_UNRESOLVED" not in codes, codes
+
+
+def test_anchor_full_sweep_broken_caught_not_phantom(tmp_path):
+    # B1: a broken anchor FAILs via the wired closure gate; B2: NOT via a phantom-edge false block.
+    ws = _ws_anchor(tmp_path, "proposals/missing.md#si-1")  # no MD written
+    codes = _codes_set(validate_graph_projection(ws, "r"))
+    assert "GP_ANCHOR_UNRESOLVED" in codes, codes
+    assert "GP_PHANTOM_EDGE" not in codes, codes
+
+
+def test_anchor_wired_at_phase_gate(tmp_path):
+    # B1: a broken anchor is also caught at a phase-exit gate, not only at closure.
+    ws = _ws_anchor(tmp_path, "proposals/missing.md#si-1")
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_graph_invariants(ws, "r", "plan_exit"))
+
+
+def test_anchor_rejects_path_traversal(tmp_path):
+    # M3: an anchor escaping the governed root FAILs even if the outside file exists.
+    from engines.graph_projection import validate_anchor_resolution
+
+    (tmp_path / "SECRET.md").write_text("## si-1\nsecret\n", encoding="utf-8")  # OUTSIDE .uacp
+    ws = _ws_anchor(tmp_path, "../SECRET.md#si-1")  # no in-namespace md
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+
+
+def test_anchor_section_with_subsection_content(tmp_path):
+    # M4: content under a deeper subheading counts — the parent section is NOT falsely empty.
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(
+        tmp_path,
+        "proposals/a.md#si-1",
+        "proposals/a.md",
+        "## si-1\n### detail\nreal content under a subsection\n",
+    )
+    assert validate_anchor_resolution(ws, "r") == []
+
+
+def test_anchor_ignores_heading_in_fenced_code(tmp_path):
+    # m6: a heading inside a ``` fence is not a real section.
+    from engines.graph_projection import validate_anchor_resolution
+
+    body = "## si-1\n```\n## not-real\n```\nreal content\n"
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", body)
+    assert validate_anchor_resolution(ws, "r") == []
+    # anchoring AT the fenced fake heading must FAIL (it is not a section).
+    ws2 = _ws_anchor(tmp_path / "b", "proposals/a.md#not-real", "proposals/a.md", body)
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws2, "r"))
+
+
+def test_anchor_duplicate_heading_first_empty_second_content(tmp_path):
+    # m8: first matching heading empty, second has content -> PASS (any matching section non-empty).
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\n\n## si-1\nbody\n")
+    assert validate_anchor_resolution(ws, "r") == []
+
+
+def test_field_equals_anchor_errors(tmp_path):
+    # m5: field_equals + anchor has no presence-only semantics -> ERROR (replay surfaces CHK_FIELD_EQUALS).
+    check_doc = {
+        "kind": "uacp.check.field_equals",
+        "id": "chk-a",
+        "from": {"target": "si-1", "basis": "x"},
+        "bind": {"plane": "artifact", "ref": {"anchor": "proposals/a.md#si-1"}},
+        "expect": {"value": "whatever"},
+        "severity": "block",
+    }
+    ws = _ws(tmp_path, "r", _prop([{"id": "si-1"}]), _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+             extra_docs=[check_doc])
+    p = tmp_path / ".uacp" / "proposals" / "a.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("## si-1\nbody\n", encoding="utf-8")
+    from engines.graph_projection import validate_check_replay
+
+    vs = validate_check_replay(ws, "r")
+    assert any(v.code == "CHK_FIELD_EQUALS" and v.detail.get("status") == "ERROR" for v in vs), vs
+
+
+def test_anchor_empty_string_is_broken_not_absent(tmp_path):
+    # codex re-review (major): an EXPLICITLY declared but empty anchor ("") must FAIL, not silently
+    # degrade to "no anchor". Only a truly ABSENT anchor key is inert.
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "")  # anchor: "" declared on si-1, no MD
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+    # and it surfaces through the wired closure gate too
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_graph_projection(ws, "r"))
+
+
+def test_check_empty_anchor_is_declared_not_legacy_fallback(tmp_path):
+    # codex bot P2 (#70): a check with bind.ref.anchor="" + a valid legacy artifact/path must NOT
+    # silently fall back to the legacy binding — a declared-but-empty anchor is broken -> ERROR.
+    from engines.graph_projection import validate_check_replay
+
+    check_doc = {
+        "kind": "uacp.check.field_present",
+        "id": "chk-a",
+        "from": {"target": "si-1", "basis": "x"},
+        # empty anchor declared ALONGSIDE a legacy artifact/path that would otherwise PASS
+        "bind": {"plane": "artifact", "ref": {"anchor": "", "artifact": "plans/p.yaml", "path": "kind"}},
+        "expect": {},
+        "severity": "block",
+    }
+    ws = _ws(tmp_path, "r", _prop([{"id": "si-1"}]), _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+             extra_docs=[check_doc])
+    vs = validate_check_replay(ws, "r")
+    assert any(v.code == "CHK_FIELD_PRESENT" and v.detail.get("status") == "ERROR" for v in vs), vs
+
+
+def test_anchor_mismatched_fence_marker_stays_fenced(tmp_path):
+    # codex P2 #70: a ~~~ line inside a ``` block must NOT close the ``` fence; a heading after it
+    # is still inside the code block, not a real section.
+    from engines.graph_projection import validate_anchor_resolution
+
+    body = "## si-1\n```\n~~~\n## fake\n```\nreal\n"
+    ws = _ws_anchor(tmp_path, "proposals/a.md#fake", "proposals/a.md", body)
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))  # #fake is code
+    ws2 = _ws_anchor(tmp_path / "b", "proposals/a.md#si-1", "proposals/a.md", body)
+    assert validate_anchor_resolution(ws2, "r") == []  # #si-1 still resolves (non-empty body)
+
+
+def test_malformed_entailed_class_fails_closed(tmp_path):
+    # codex P2 #70: a present-but-UNKNOWN entailed_class (typo) must fail closed, not silently
+    # degrade to "no oracle" and let a weak declared class pass.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_wu(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "entailed_class": "wire_symbol"},
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    assert "CHK_ENTAILED_CLASS_INVALID" in _codes_set(validate_class_underclaim(ws, "r"))
+
+
+def test_anchor_undecodable_markdown_is_error_not_crash(tmp_path):
+    # codex P2 #70: invalid UTF-8 in an anchor target raises UnicodeDecodeError (a ValueError, NOT
+    # an OSError) — it must be caught and returned as a violation, never escape as an exception.
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1")  # anchor declared, write the file ourselves
+    p = tmp_path / ".uacp" / "proposals" / "a.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_bytes(b"## si-1\n\xff\xfe not valid utf-8\n")
+    codes = _codes_set(validate_anchor_resolution(ws, "r"))  # must NOT raise
+    assert "GP_ANCHOR_UNRESOLVED" in codes
+
+
+def test_malformed_entailed_class_blocks_with_no_checks(tmp_path):
+    # codex P2 #70 follow-on: a malformed entailed_class must block even when the target has NO
+    # inbound checks yet (pre-adoption / zero-check) — i.e. BEFORE the no-checks early-exit.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_wu(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "entailed_class": "wire_symbol"},
+        [],  # no checks at all
+    )
+    assert "CHK_ENTAILED_CLASS_INVALID" in _codes_set(validate_class_underclaim(ws, "r"))
