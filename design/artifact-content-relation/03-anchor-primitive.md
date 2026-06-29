@@ -1,3 +1,12 @@
+---
+type: design
+title: "The Anchor Primitive — YAML relation-node to Markdown section"
+description: "Specifies the anchor as the join between a YAML relation-node and its Markdown content section: resolvable, stable, one-directional. Covers projection support, prior art in-repo, and the deferred serialization details."
+tags: [anchor, primitive, yaml, markdown, projection, design, join]
+timestamp: 2026-06-30
+edges:
+  - {dst: 02-model, rel: realizes, provenance: asserted}
+---
 # 03 — The anchor primitive
 
 The anchor is the join that makes the model work: a stable pointer from a YAML

@@ -1,3 +1,12 @@
+---
+type: analysis
+title: "Blast radius measurement and open questions"
+description: "Quantifies the measured surface (engines, schema, lifecycle skills, tests) and lists must-resolve-early open questions before PLAN. Records the meta-finding of three lifecycle-executability breaks surfaced during the brainstorm."
+tags: [blast-radius, open-questions, surface, analysis, measurement, pre-plan]
+timestamp: 2026-06-30
+edges:
+  - {dst: 01-problem, rel: relates_to, provenance: asserted}
+---
 # 07 — Blast radius & open questions
 
 ## Measured surface (from the brainstorm)

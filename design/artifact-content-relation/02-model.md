@@ -1,3 +1,12 @@
+---
+type: design
+title: "The Canonical Model — content in Markdown, relations in YAML"
+description: "Defines the principled rule: Markdown holds semantic content (what agents comprehend), YAML holds relations and deterministic facts (what gates measure). Corrects the three-category split identified in node 01."
+tags: [artifact, content-relation, design, model, markdown, yaml, gate, cms]
+timestamp: 2026-06-30
+edges:
+  - {dst: 01-problem, rel: motivated_by, provenance: asserted}
+---
 # 02 — The canonical model
 
 ## The rule

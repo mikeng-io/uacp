@@ -1,3 +1,11 @@
+---
+type: analysis
+title: "The Problem — as-built split and boundary violation"
+description: "Grounds the content/relation misalignment in code: why the gate measures only YAML while the review surface is split across YAML and Markdown, and the consequence of that boundary violation."
+tags: [artifact, content-relation, gate, field_present, analysis, grounded]
+timestamp: 2026-06-30
+edges: []
+---
 # 01 — The problem (as-built, grounded)
 
 ## The gate never opens the Markdown

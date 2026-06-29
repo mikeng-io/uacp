@@ -1,3 +1,12 @@
+---
+type: analysis
+title: "Concrete first instance — evidence_disposition"
+description: "The evidence_disposition bug as a live exhibit of the boundary violation: relation data encoded in hyphenated filenames makes the verified-facts half unwriteable through any governed writer. Natural first kind to convert under the ratchet."
+tags: [evidence-disposition, bug, concrete-case, analysis, unwriteable, hyphen-filename, ratchet]
+timestamp: 2026-06-30
+edges:
+  - {dst: 01-problem, rel: grounds, provenance: asserted}
+---
 # 06 — Concrete first instance: evidence_disposition
 
 A live bug (Codex finding #4 on PR #68) that is the boundary violation in miniature — and

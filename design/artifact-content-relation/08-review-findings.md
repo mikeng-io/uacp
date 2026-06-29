@@ -1,3 +1,12 @@
+---
+type: evidence
+title: "Council review findings — verdict REWORK, B1/B2 fork"
+description: "Records the three-reviewer council verdict (REWORK), unanimous blockers, the B1/B2 operator fork that was parked, and the subsequent resolution when the operator chose B1 and Slices 0-2 shipped."
+tags: [council, review, rework, evidence, blockers, b1, b2, verdict]
+timestamp: 2026-06-30
+edges:
+  - {dst: 02-model, rel: relates_to, provenance: asserted}
+---
 # 08 — Council review findings (verdict: REWORK)
 
 Reviewed by two independent Claude subagents (adversarial + as-built grounding) and

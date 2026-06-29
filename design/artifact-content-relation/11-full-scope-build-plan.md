@@ -1,3 +1,15 @@
+---
+type: design
+title: "Full-scope build plan — B1 sliced ratchet"
+description: "The master build sequence across the full blast radius as an additive ratchet: Slices 0-5, each with measurement, verify/validate, invariant, and constraint axes. Distinguishes presence gates (Slices 1-2) from meaning gates (Slice 3). Slices 0-2 shipped PR #70."
+tags: [build-plan, slices, ratchet, additive, master-sequence, design, presence-gates, meaning-gates]
+timestamp: 2026-06-30
+edges:
+  - {dst: 02-model, rel: realizes, provenance: asserted}
+  - {dst: 05-migration, rel: relates_to, provenance: asserted}
+  - {dst: 07-blast-radius-open-questions, rel: depends_on, provenance: asserted}
+  - {dst: 10-implementation-roadmap, rel: relates_to, provenance: asserted}
+---
 # 11 — Full-scope build plan (B1, sliced)
 
 The whole-bundle build trail. Realises the model ([02-model](02-model.md)) across every surface

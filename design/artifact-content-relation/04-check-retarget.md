@@ -1,3 +1,13 @@
+---
+type: design
+title: "Retargeting field_present to anchored Markdown"
+description: "Specifies how field_present gains an anchor-binding mode so the gate measures the surface council actually reviews, closing the review/measure gap. Adequacy judgment stays with council; the gate asserts only deterministic presence."
+tags: [field_present, anchor, gate, check, retarget, design, measure]
+timestamp: 2026-06-30
+edges:
+  - {dst: 02-model, rel: realizes, provenance: asserted}
+  - {dst: 03-anchor-primitive, rel: depends_on, provenance: asserted}
+---
 # 04 — Retargeting field_present to Markdown
 
 ## Today

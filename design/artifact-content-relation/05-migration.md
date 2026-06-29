@@ -1,3 +1,12 @@
+---
+type: design
+title: "Migration — additive ratchet, not cutover"
+description: "Describes the staged additive migration strategy: anchor is added as optional, YAML prose fields stay valid as legacy, each ratchet stage is independently shippable and reversible. Hard cutover is rejected."
+tags: [migration, ratchet, additive, backward-compatible, design, staged]
+timestamp: 2026-06-30
+edges:
+  - {dst: 03-anchor-primitive, rel: depends_on, provenance: asserted}
+---
 # 05 — Migration: additive ratchet, not cutover
 
 ## The lever

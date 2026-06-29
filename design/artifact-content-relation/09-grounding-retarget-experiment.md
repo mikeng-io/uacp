@@ -1,3 +1,12 @@
+---
+type: evidence
+title: "Grounding-retarget experiment — B1 viability proof"
+description: "Decision experiment proving B1 viability on the hardest prose-reading gate (validate_class_underclaim): baseline fires, dark regression reproduced, retarget restores teeth, independence proven. Commit da86643 merged PR #70."
+tags: [experiment, evidence, b1, class-underclaim, viability, grounding, retarget, independence]
+timestamp: 2026-06-30
+edges:
+  - {dst: 08-review-findings, rel: motivated_by, provenance: asserted}
+---
 # 09 — Grounding-retarget experiment (B1 viability proof)
 
 Decision experiment that un-parks this bundle. It tests the council's central blocker

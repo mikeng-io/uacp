@@ -1,3 +1,12 @@
+---
+type: roadmap
+title: "Implementation roadmap — gate-side B1"
+description: "The forward plan (Phases 0-4) converting prose-reading gates to claim-vs-witness. Phase 0 done (da86643); Phase 1 wires codeflair as the real oracle; Phases 2-4 deferred. Cross-cutting invariant: agent claims vs independent witness vs code comparison."
+tags: [roadmap, implementation, gate, codeflair, claim-vs-witness, b1, phases]
+timestamp: 2026-06-30
+edges:
+  - {dst: 09-grounding-retarget-experiment, rel: depends_on, provenance: asserted}
+---
 # 10 — Implementation roadmap (gate-side B1)
 
 The forward plan that turns [09-grounding-retarget-experiment](09-grounding-retarget-experiment.md)
