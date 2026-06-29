@@ -13,12 +13,22 @@ Gates that touch prose are **not one problem**. Two kinds, two treatments:
 - **Presence gates** — assert "content exists here" (`field_present` on a prose field; `schema`
   `statement`-required). Retarget = bind to an **anchored MD section** (resolves + non-empty).
   Deterministic, no witness. Slices 1–2.
-- **Meaning gates** — derive *meaning* from the prose (`class-underclaim`, D43
-  `_scope_concern_is_keyed`). Presence is not enough; they need an **independent witness**
-  (codeflair / semantic). Retarget = claim-vs-witness. Slice 3 (= node 10).
+- **Meaning gates** — derive *meaning* from the prose (`class-underclaim` only). Presence is not
+  enough; they need an **independent witness** (codeflair / semantic). Retarget = claim-vs-witness.
+  Slice 3 (= node 10).
 
-Getting this split right is what keeps the heavy witness machinery scoped to the two gates that
-actually need it, instead of every gate.
+Getting this split right is what keeps the heavy witness machinery scoped to the one gate that
+actually needs it, instead of every gate.
+
+> **Slice 0 result (2026-06-30, grounded):** of the prose-reading gates the council named, **only
+> `class-underclaim` reads meaning** (`projection.py:979`, `candidate_class(text)`). D43
+> `_scope_concern_is_keyed` checks `i.get("statement") is not None` (`adaptive_gates.py:49-51`) —
+> **presence, not meaning**; `schema.py` requires `["id","statement"]` as a typed field
+> (`schema.py:375`) — **presence**; `heartgate.py:282/289` only consume D43's boolean — structure.
+> ⇒ D43 + schema-required move to **Slice 2** (anchor-bound presence, no witness); the codeflair
+> witness (Slice 3) narrows to a **single gate**. The risky surface shrank. *(Slice 0's remaining
+> question — do `heartgate.py`/`adaptive_gates.py` read scope content elsewhere — answered: no, only
+> the structural `is not None` / boolean reads above.)*
 
 ---
 
@@ -51,7 +61,8 @@ a deterministic read. Nothing requires it yet. ([03-anchor-primitive](03-anchor-
 ## Slice 2 — Presence retarget: `field_present` → anchored MD (migration stage 2)
 
 `field_present` (and where apt `field_equals`) gains an anchor binding mode, opt-in per check.
-Covers the **presence** gates. ([04-check-retarget](04-check-retarget.md))
+Covers the **presence** gates — now incl. D43 `_scope_concern_is_keyed` and schema
+`statement`-required, reclassified here by Slice 0. ([04-check-retarget](04-check-retarget.md))
 
 - **Measurement:** an anchor-bound check passes iff the section resolves + is non-empty; bound to a
   missing/empty section → FAIL; relational checks (`measured_by`, no-orphan, no-dropped-intent)
@@ -65,7 +76,7 @@ Covers the **presence** gates. ([04-check-retarget](04-check-retarget.md))
 
 ## Slice 3 — Meaning-gate witness retarget (= node 10)
 
-The claim-vs-witness pattern for `class-underclaim` + D43. Proven viable in
+The claim-vs-witness pattern for `class-underclaim` (the sole meaning gate, per Slice 0). Proven viable in
 [09-grounding-retarget-experiment](09-grounding-retarget-experiment.md); full build sequence
 (codeflair oracle → prevention → semantic witness → generalise) in
 [10-implementation-roadmap](10-implementation-roadmap.md). Axes summarised here:
