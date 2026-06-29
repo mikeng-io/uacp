@@ -1018,6 +1018,22 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
     for tnode in nodes.values():
         if tnode["kind"] not in ("scope_item", "work_unit"):
             continue
+        # FAIL-CLOSED on a malformed oracle BEFORE the no-checks early-exit (codex P2 #70):
+        # `entailed_class` is the INDEPENDENT grounding signal, so a present-but-unknown value
+        # (e.g. a typo `wire_symbol`) must block even on a zero-check / pre-adoption target — never
+        # silently degrade to "no oracle". A truly absent (None) oracle is fine.
+        entailed = tnode.get("entailed_class")
+        if entailed is not None and entailed not in CLASSES:
+            out.append(
+                _v(
+                    "CHK_ENTAILED_CLASS_INVALID",
+                    f"target '{tnode['id']}' declares unknown entailed_class {entailed!r} "
+                    f"(not one of {sorted(CLASSES)}) — the grounding oracle must fail closed",
+                    target=tnode["id"],
+                    entailed_class=str(entailed),
+                )
+            )
+            continue
         cids = [cid for cid in inbound.get(tnode["id"], []) if cid in check_nodes]
         if not cids:
             continue
@@ -1038,22 +1054,7 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
         eo_text = " ".join(map(str, eo)) if isinstance(eo, list) else str(eo or "")
         text = " ".join(s for s in (tnode.get("intent"), eo_text, tnode.get("statement")) if s)
         cand, kw = candidate_class(text)
-        entailed = tnode.get("entailed_class")
-        # FAIL-CLOSED on a malformed oracle (codex P2 #70): `entailed_class` is the INDEPENDENT
-        # grounding signal, so a present-but-unknown value (e.g. a typo `wire_symbol`) must NOT
-        # silently degrade to "no oracle" (class_rank → 0) and let a weak declared class pass — it
-        # blocks instead. A truly absent (None) oracle is fine (prose / no-witness path).
-        if entailed is not None and entailed not in CLASSES:
-            out.append(
-                _v(
-                    "CHK_ENTAILED_CLASS_INVALID",
-                    f"target '{tnode['id']}' declares unknown entailed_class {entailed!r} "
-                    f"(not one of {sorted(CLASSES)}) — the grounding oracle must fail closed",
-                    target=tnode["id"],
-                    entailed_class=str(entailed),
-                )
-            )
-            continue
+        # `entailed` was fetched + validated above (before the no-checks early-exit).
         # Pick the strongest oracle that fires, preferring the grounded `entailed_class`.
         if class_rank(entailed) >= class_rank(cand) and class_rank(entailed) > 0:
             oracle_cls, oracle_src, oracle_basis = entailed, "entailed_class", "independent oracle"

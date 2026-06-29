@@ -1259,3 +1259,16 @@ def test_anchor_undecodable_markdown_is_error_not_crash(tmp_path):
     p.write_bytes(b"## si-1\n\xff\xfe not valid utf-8\n")
     codes = _codes_set(validate_anchor_resolution(ws, "r"))  # must NOT raise
     assert "GP_ANCHOR_UNRESOLVED" in codes
+
+
+def test_malformed_entailed_class_blocks_with_no_checks(tmp_path):
+    # codex P2 #70 follow-on: a malformed entailed_class must block even when the target has NO
+    # inbound checks yet (pre-adoption / zero-check) — i.e. BEFORE the no-checks early-exit.
+    from engines.graph_projection import validate_class_underclaim
+
+    ws = _run_with_wu(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "entailed_class": "wire_symbol"},
+        [],  # no checks at all
+    )
+    assert "CHK_ENTAILED_CLASS_INVALID" in _codes_set(validate_class_underclaim(ws, "r"))
