@@ -1073,7 +1073,16 @@ def _resolve_anchor_section(root: Path, anchor: str) -> tuple[str, str]:
     of the SAME-OR-SHALLOWER level (deeper sub-headings' content is INCLUDED), with fenced code
     blocks treated as opaque body and their ``#`` lines NOT counted as headings — has
     non-whitespace. Duplicate headings: PASS if ANY matching section is non-empty. Asserts ONLY
-    presence; adequacy stays council's. Returns ``(PASS|FAIL|ERROR, message)``; never raises."""
+    presence; adequacy stays council's. Returns ``(PASS|FAIL|ERROR, message)``; never raises.
+
+    CONTRACT (deliberate scope): this is a pragmatic PRESENCE FLOOR with simple structural
+    fence/heading handling, NOT a CommonMark parser — full CommonMark conformance is a NON-GOAL.
+    Adversarial fence/heading micro-edges (mismatched-length nested fences, info strings, indented
+    fences, setext headings, …) are ACCEPTED, not chased: the check makes no adequacy claim (council
+    owns that), the MD is an author-controlled governed artifact (this is a drift/anti-fabrication
+    floor, not a boundary against the author), and the checks are opt-in/inert — so fooling the
+    section boundary gains nothing. If a real CommonMark guarantee is ever needed, swap this scan
+    for a parser library wholesale rather than accreting per-edge fixes."""
     relpath, sep, frag = str(anchor).partition("#")
     if not relpath or not sep or not frag:
         return ("FAIL", f"anchor {anchor!r} is not 'relpath#section'")
