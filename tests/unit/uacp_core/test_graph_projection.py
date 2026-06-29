@@ -921,3 +921,80 @@ def test_PROTO_independence_is_the_crux_no_oracle_no_catch(tmp_path):
         [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
     )
     assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ws, "r"))
+
+
+# ============================================================================================
+# SLICE 1 — anchor primitive (INERT). YAML relation-node carries `anchor: "file.md#id"`; the
+# projection records an `anchored_to` edge; an anchor that points at a missing/empty MD section
+# is a FAIL (not a silent pass). Nodes WITHOUT an anchor are untouched (zero behavior change).
+# ============================================================================================
+
+
+def _ws_anchor(tmp_path, anchor, md_relpath=None, md_body=None):
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1", "statement": "A", "anchor": anchor}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+    )
+    if md_relpath is not None:
+        p = tmp_path / ".uacp" / md_relpath
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(md_body, encoding="utf-8")
+    return ws
+
+
+def test_anchor_records_anchored_to_edge(tmp_path):
+    from engines.manifest.projection import _load_and_project
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\nreal content\n")
+    nodes, edges = _load_and_project(ws, "r")
+    assert any(
+        e["src"] == "si-1" and e["rel"] == "anchored_to" and e["dst"] == "proposals/a.md#si-1"
+        for e in edges
+    ), edges
+
+
+def test_anchor_resolution_pass(tmp_path):
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\nreal content\n")
+    assert validate_anchor_resolution(ws, "r") == []
+
+
+def test_anchor_resolution_fail_missing_file(tmp_path):
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/missing.md#si-1")  # no MD written
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+
+
+def test_anchor_resolution_fail_missing_section(tmp_path):
+    from engines.graph_projection import validate_anchor_resolution
+
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## other\nx\n")
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+
+
+def test_anchor_resolution_fail_empty_section(tmp_path):
+    from engines.graph_projection import validate_anchor_resolution
+
+    # heading present but body empty (next heading immediately follows) -> FAIL, not silent pass.
+    ws = _ws_anchor(tmp_path, "proposals/a.md#si-1", "proposals/a.md", "## si-1\n\n## next\nx\n")
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))
+
+
+def test_anchor_inert_when_absent(tmp_path):
+    # No anchor declared -> no anchored_to edge, no anchor violation. Zero behavior change.
+    from engines.graph_projection import validate_anchor_resolution
+    from engines.manifest.projection import _load_and_project
+
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1", "statement": "A"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+    )
+    _nodes, edges = _load_and_project(ws, "r")
+    assert not any(e["rel"] == "anchored_to" for e in edges)
+    assert validate_anchor_resolution(ws, "r") == []

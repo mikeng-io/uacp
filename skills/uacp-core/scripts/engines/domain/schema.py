@@ -376,6 +376,10 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
                             "properties": {
                                 "id": {"type": "string", "minLength": 1},
                                 "statement": {"type": "string"},
+                                # SLICE 1 (anchor primitive): optional YAML→MD section pointer.
+                                # Additive — `statement` stays required until a later per-kind
+                                # ratchet (node 05 stage 4); declaring an anchor is opt-in.
+                                "anchor": {"type": "string"},
                             },
                         },
                     },

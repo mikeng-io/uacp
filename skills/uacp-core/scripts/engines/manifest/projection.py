@@ -48,6 +48,7 @@ Architecture: read-only; all disk reads go through :mod:`engines.io`; never rais
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -142,6 +143,7 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
     scope = scope if isinstance(scope, dict) else {}
     for item in _aslist(scope.get("in_scope")):
         if isinstance(item, dict) and item.get("id"):  # new canonical form
+            anchor = item.get("anchor")
             add_node(
                 item["id"],
                 "scope_item",
@@ -150,8 +152,15 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
                 # target by an INDEPENDENT oracle (code-plane entailment from the real symbol, or an
                 # independent judge reading the MD) — NOT the agent's self-declared check class and
                 # NOT prose the gate greps. It is the B1-era grounding the underclaim gate measures.
-                entailed_class=item.get("entailed_class") if isinstance(item, dict) else None,
+                entailed_class=item.get("entailed_class"),
+                # SLICE 1 (anchor primitive): YAML node → MD section pointer. Carried so the
+                # resolution validator can check it; recorded as an `anchored_to` edge below.
+                anchor=anchor,
             )
+            # One-directional: YAML names the anchor, MD holds the content. An anchor-at-nothing is
+            # caught by validate_anchor_resolution (a FAIL, not a silent pass).
+            if anchor:
+                add_edge(item["id"], str(anchor), "anchored_to")
         elif isinstance(item, str):  # legacy bare string
             add_node(_synth_id("si", item, run), "scope_item", statement=item)
 
@@ -1014,6 +1023,74 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
                     keyword=kw,
                     oracle_source=oracle_src,
                     declared_rank=declared_rank,
+                )
+            )
+    return out
+
+
+_ANCHOR_HEADING_RE = re.compile(r"^#{1,6}\s+(.*?)\s*$")
+
+
+def _resolve_anchor_section(root: Path, anchor: str) -> tuple[str, str]:
+    """Deterministic read for a YAML→MD anchor ``"relpath#section"`` (SLICE 1). PASS iff the file
+    exists, a heading whose text equals ``section`` is present, and that section's body (until the
+    next heading or EOF) has non-whitespace. Same trust class as the ``artifact_integrity``
+    watermark read. Returns ``(PASS|FAIL|ERROR, message)``; never raises."""
+    relpath, sep, frag = str(anchor).partition("#")
+    if not relpath or not sep or not frag:
+        return ("FAIL", f"anchor {anchor!r} is not 'relpath#section'")
+    path = base_dir(root) / relpath
+    if not path.is_file():
+        return ("FAIL", f"anchor target file missing: {relpath}")
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except OSError as exc:  # defensive — unreadable file is ERROR, distinct from FAIL
+        return ("ERROR", f"anchor target unreadable: {relpath}: {exc}")
+    in_section = False
+    body: list[str] = []
+    for line in raw.splitlines():
+        m = _ANCHOR_HEADING_RE.match(line)
+        if m is not None:
+            if in_section:
+                break  # the next heading ends the section
+            if m.group(1) == frag:
+                in_section = True
+            continue
+        if in_section:
+            body.append(line)
+    if not in_section:
+        return ("FAIL", f"anchor section #{frag} not found in {relpath}")
+    if not any(s.strip() for s in body):
+        return ("FAIL", f"anchor section #{frag} in {relpath} is empty")
+    return ("PASS", "")
+
+
+def validate_anchor_resolution(workspace: str | Path, run_id: str) -> list[Violation]:
+    """SLICE 1 — anchor primitive. For every node that DECLARES an ``anchor``, the target MD section
+    must resolve (file exists, heading present, body non-empty). An anchor pointing at nothing is a
+    FAIL, not a silent pass — this is what stops the model re-introducing a NEW drift
+    (anchor-points-at-nothing). INERT: nodes without an ``anchor`` are untouched, so existing runs
+    are unaffected. Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    graph = _load_and_project(workspace, run_id)
+    if graph is None:
+        return []
+    nodes = graph[0]
+    root = Path(str(workspace)).resolve()
+    out: list[Violation] = []
+    for n in nodes.values():
+        anchor = n.get("anchor")
+        if not anchor:
+            continue
+        status, msg = _resolve_anchor_section(root, str(anchor))
+        if status != "PASS":
+            out.append(
+                _v(
+                    "GP_ANCHOR_UNRESOLVED",
+                    f"node {n['id']}: {msg}",
+                    target=n["id"],
+                    anchor=str(anchor),
                 )
             )
     return out
