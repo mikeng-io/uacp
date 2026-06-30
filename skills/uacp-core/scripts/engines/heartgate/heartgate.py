@@ -232,6 +232,103 @@ class Heartgate:
             )
         return HeartgateDecision("pass", "transition passes", [], [])
 
+    # routing_advisory enum — the four governance DEPTHS the scope package may carry
+    # (mirrors schema.py uacp.brainstorm_scope_package; NOT the 5-value routing_outcome
+    # set: block_or_clarify cannot apply because the package is only written when admitting).
+    _BRAINSTORM_ROUTING_ADVISORIES = frozenset(
+        {"direct", "lightweight", "standard", "full_governance"}
+    )
+
+    def forced_brainstorm_exit_blockers(self, run_id: str) -> list[str]:
+        """The brainstorm admission contract, FORCED onto the live transition path
+        (``state_machine.handle_transition`` BRAINSTORM->TRIAGE), not only the
+        agent-invoked ``validate_transition`` — the same "force the exit precondition"
+        pattern as :meth:`forced_proposal_coverage_blockers` /
+        :meth:`forced_execute_evidence_blockers`, applied to brainstorm.
+
+        Why this matters: brainstorm's ONLY exit is triage, and the scope package IS
+        that exit's deliverable, so unlike the propose/execute gates there is no
+        "bare / ungoverned" brainstorm->triage to self-gate around — every crossing
+        must satisfy the contract. Before this, ``handle_transition`` advanced
+        brainstorm->triage with NO scope package, because the exit invariant was only
+        checked on the agent-invoked ``validate_transition`` path (which the governed
+        ``uacp_run_transition`` tool does not route through). An agent could therefore
+        request the transition and have it effected with the admission contract never
+        measured — the "seam in the wrong place" this fix closes by moving the measure
+        into the code that owns the boundary.
+
+        Run-bound (not a loose glob): the package is measured at THIS run's governed
+        path, ``brainstorm/{run_id}/07-scope-package.yaml`` — the exact location the
+        governed entity-writer emits it (layout.py: kind ``uacp.brainstorm_scope_package``
+        → ``brainstorm/{run_id}/07-scope-package.yaml``). Binding to the run is what makes
+        this an independent measure of THE run's exit contract; a glob over
+        ``brainstorm/*/...`` would let one run be admitted by another run's (or a stale)
+        package — a fail-open the intent forbids. (The legacy agent-invoked
+        ``_validate_phase_exit_invariants`` still globs for existence; this forced live-path
+        gate is deliberately stricter.)
+
+        Real-field (not existence): this gate measures the admission CONTRACT — ``kind``
+        == ``uacp.brainstorm_scope_package``, non-empty ``title`` / ``description`` /
+        ``in_scope``, ``declared_side_effects`` present, documented ``authority.source``,
+        and a valid ``routing_advisory`` (the shape phase-7 produces and schema.py
+        validates at write time, re-measured here independent of the writer).
+
+        Fail-closed: a missing, unparseable/non-mapping, wrong-``kind``, or
+        field-incomplete package BLOCKS.
+        """
+        rel = f"brainstorm/{run_id}/07-scope-package.yaml"
+        if not (self.governed_root / rel).exists():
+            return [
+                f"forced_brainstorm_exit[{run_id}]: the brainstorm->triage admission contract "
+                f"requires a scope-package artifact at {rel} (written via uacp_entity_write); "
+                "none found for this run"
+            ]
+        load_errors: list[str] = []
+        doc = self._load_yaml_under_root(rel, load_errors, "forced_brainstorm_exit")
+        if load_errors:
+            return [f"forced_brainstorm_exit[{run_id}]: {e}" for e in load_errors]
+        return self._brainstorm_scope_package_field_errors(doc, rel)
+
+    def _brainstorm_scope_package_field_errors(
+        self, doc: Mapping[str, Any] | None, rel: str
+    ) -> list[str]:
+        """Measure the brainstorm admission contract against one scope package. Returns
+        the list of contract violations (empty == the package is admissible). Fail-closed:
+        a non-mapping document is itself a violation."""
+        if not isinstance(doc, Mapping):
+            return [f"{rel}: scope package must parse as a mapping"]
+        errors: list[str] = []
+        # kind binds the artifact to the contract (the write-time schema requires it);
+        # measuring it here keeps the boundary gate from admitting a differently-typed
+        # file that merely happens to carry the other fields.
+        if doc.get("kind") != "uacp.brainstorm_scope_package":
+            errors.append(f"{rel}: kind must be uacp.brainstorm_scope_package")
+        title = doc.get("title")
+        if not (isinstance(title, str) and title.strip()):
+            errors.append(f"{rel}: title must be a non-empty string")
+        description = doc.get("description")
+        if not (isinstance(description, str) and description.strip()):
+            errors.append(f"{rel}: description must be a non-empty string")
+        in_scope = doc.get("in_scope")
+        if not (isinstance(in_scope, list) and in_scope):
+            errors.append(f"{rel}: in_scope must be a non-empty list")
+        # declared_side_effects must be present AND a list (may be empty, per the contract).
+        # Requiring the list type closes the degenerate `declared_side_effects: null` that a
+        # bare presence check would admit.
+        if not isinstance(doc.get("declared_side_effects"), list):
+            errors.append(f"{rel}: declared_side_effects must be a list (may be empty)")
+        authority = doc.get("authority")
+        source = authority.get("source") if isinstance(authority, Mapping) else None
+        if not (isinstance(source, str) and source.strip()):
+            errors.append(f"{rel}: authority.source must be documented (non-empty string)")
+        advisory = doc.get("routing_advisory")
+        if advisory not in self._BRAINSTORM_ROUTING_ADVISORIES:
+            errors.append(
+                f"{rel}: routing_advisory must be one of "
+                f"{sorted(self._BRAINSTORM_ROUTING_ADVISORIES)} (got {advisory!r})"
+            )
+        return errors
+
     def forced_proposal_coverage_blockers(self, run_id: str) -> list[str]:
         """The ONE proposal-gate check that must hold on the FORCED transition path
         (``state_machine.handle_transition``), not only the agent-invoked

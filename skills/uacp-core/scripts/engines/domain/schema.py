@@ -273,10 +273,22 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         ],
         "properties": {
             "kind": {"const": "uacp.brainstorm_scope_package"},
-            "title": {"type": "string", "minLength": 1},
-            "description": {"type": "string", "minLength": 1},
+            # pattern \S requires a non-whitespace char, matching the forced gate's str.strip()
+            # check so a whitespace-only title/description cannot write clean then block.
+            "title": {"type": "string", "minLength": 1, "pattern": r"\S"},
+            "description": {"type": "string", "minLength": 1, "pattern": r"\S"},
             "in_scope": {"type": "array", "minItems": 1},
-            "authority": {"type": "object", "properties": {"source": {"type": "string"}}},
+            # declared_side_effects must be a list (may be empty) — the admission contract the
+            # forced brainstorm-exit gate measures at the transition. Constraining it here keeps
+            # the write-time schema from accepting a package the gate would then block.
+            "declared_side_effects": {"type": "array"},
+            # authority.source must be documented (non-empty), matching the gate; an object with a
+            # blank/absent source would otherwise write clean but fail the brainstorm->triage gate.
+            "authority": {
+                "type": "object",
+                "required": ["source"],
+                "properties": {"source": {"type": "string", "minLength": 1, "pattern": r"\S"}},
+            },
             "routing_advisory": {
                 "enum": ["direct", "lightweight", "standard", "full_governance"],
             },

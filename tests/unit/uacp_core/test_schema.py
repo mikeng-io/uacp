@@ -497,3 +497,30 @@ def test_brainstorm_scope_package_flat_required_open():
     # OPEN-world: advisory / provenance extras pass
     extra = {**_valid_brainstorm(), "approach_id": "A1", "signals": {}, "risks": []}
     assert validate("uacp.brainstorm_scope_package", extra) == []
+    # authority.source must be documented (non-empty) — write-time schema now matches the
+    # forced brainstorm-exit gate so the writer cannot accept a package the gate would block.
+    assert any(
+        "source" in e or "authority" in e
+        for e in validate("uacp.brainstorm_scope_package", {**_valid_brainstorm(), "authority": {}})
+    ), "authority without a source must fail at write time"
+    assert any(
+        "source" in e or "authority" in e
+        for e in validate(
+            "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "authority": {"source": ""}}
+        )
+    ), "empty authority.source must fail at write time"
+    # declared_side_effects must be a list (the contract) — a non-list fails write-time.
+    assert any(
+        "declared_side_effects" in e
+        for e in validate(
+            "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "declared_side_effects": "nope"}
+        )
+    ), "non-list declared_side_effects must fail at write time"
+    # whitespace-only title / authority.source must fail at write time too — the schema's \S
+    # pattern matches the gate's str.strip() check (no write-clean-then-block drift).
+    assert validate("uacp.brainstorm_scope_package", {**_valid_brainstorm(), "title": "   "}), (
+        "whitespace-only title must fail at write time"
+    )
+    assert validate(
+        "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "authority": {"source": "   "}}
+    ), "whitespace-only authority.source must fail at write time"
