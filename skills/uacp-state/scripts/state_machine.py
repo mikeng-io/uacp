@@ -336,6 +336,26 @@ def _run_transition_graph_gate(workspace: Path, run_id: str, from_phase: str) ->
         return [f"TRANSITION_GRAPH_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
 
 
+def _run_forced_brainstorm_exit_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
+    """Force the brainstorm admission contract onto BRAINSTORM->TRIAGE on the live path
+    (the same "force the exit precondition" pattern as the propose/execute forced gates).
+    Without this, ``handle_transition`` advanced brainstorm->triage with NO scope package,
+    because the exit invariant was only enforced on the agent-invoked ``validate_transition``
+    path that the governed ``uacp_run_transition`` tool bypasses — letting an agent request a
+    transition that is effected with the admission contract never measured. Self-gating: only
+    fires at brainstorm exit (brainstorm's only exit is triage; the scope package IS that
+    exit's deliverable, so there is no bare/ungoverned crossing to skip). Fail-closed: an
+    unrunnable gate blocks. Lazy import (engines<->state cycle)."""
+    if from_phase != "brainstorm":
+        return []
+    try:
+        from core import Heartgate
+
+        return Heartgate.load(str(workspace)).forced_brainstorm_exit_blockers(run_id)
+    except Exception as exc:  # fail-closed
+        return [f"FORCED_BRAINSTORM_EXIT_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+
+
 def _run_forced_proposal_coverage_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
     """Force the proposal-gate REGISTRATION precondition onto PROPOSE->PLAN on the
     live path (node-15 residual #1, coverage half). Without this, a package-selection
@@ -413,8 +433,11 @@ def handle_transition(args: dict[str, Any]) -> str:
         # graph just because the agent skipped uacp_heartgate_check. Fail-closed.
         # Plus the forced PROPOSE->PLAN registration precondition (residual #1) so a
         # package-selection run cannot leave its keyed scope module unregistered and
-        # thereby starve the plan_exit coverage gate.
+        # thereby starve the plan_exit coverage gate. Plus the forced BRAINSTORM->TRIAGE
+        # admission contract so the scope package's real fields are measured here (not only
+        # on the agent-invoked validate_transition path the governed transition tool bypasses).
         gate_blockers = _run_transition_graph_gate(workspace, run_id, from_phase)
+        gate_blockers += _run_forced_brainstorm_exit_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_proposal_coverage_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_execute_evidence_gate(workspace, run_id, from_phase)
         if gate_blockers:
