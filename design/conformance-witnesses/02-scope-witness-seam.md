@@ -110,7 +110,11 @@ crash, never a silent pass.
   declared:                          # the claim echoed back with resolution facts
     - {file, name, resolved: <bool>} # resolved via store (file,name) lookup
   unresolved_touched:                # touched but unresolvable (new/unparseable code)
-    - {file, name}                   # file always known (it came from the diff)
+    - {file, name}                   # file always known (it came from the diff);
+                                     # name is NULLABLE — an unparseable/unsupported
+                                     # changed file may yield zero symbol rows, and it
+                                     # must still be serializable at file level rather
+                                     # than dropped (silent fail-open forbidden)
   ```
 
 - **Coverage, defined here** (not in codeflair): a touched symbol is
@@ -131,10 +135,14 @@ crash, never a silent pass.
 - **Cost / reuse / availability envelope (pinned)**: the io wrapper's
   timeout is **120s** (gitio's 10s doctrine would kill a legitimate ~18s
   index build at 590 files; 120s gives headroom for larger repos while still
-  bounding the sweep). Derivations are **reused keyed on `tree_token`**: an
-  unchanged token means an unchanged tree, so a retried finalize does not pay
-  N×index for nothing; any token mismatch re-derives. A timeout or failure is
-  retried **once** before reporting unavailable.
+  bounding the sweep). Derivations are **reused keyed on (`tree_token`,
+  normalized `code_refs`)** — NOT the token alone: the stdout is a function of
+  both the tree and the claim (the `declared` echo), so a retry that changed
+  only `code_refs` on an unchanged tree MUST re-derive or the gate would
+  compute coverage against a stale declaration. An unchanged (token, claim)
+  pair means an unchanged answer, so a retried finalize does not pay N×index
+  for nothing. A timeout or failure is retried **once** before reporting
+  unavailable.
 - **Declared mutation exemption**: unlike git observation, `codeflair
   witness` WRITES its index cache (`.codeflair/index.db` — per-worktree,
   gitignored, so it never appears in `changed_files`). This is a gate-owned

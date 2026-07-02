@@ -64,6 +64,7 @@ Two honest subtleties the columns force into the open:
 Next conversion: **Scope / boundedness** (epic #80, issue #82) — chosen
 because ground truth is cheap and unambiguous (git knows the diff; the symbol
 graph knows the cascade), the payoff is Invariant-#2-adjacent, and it forces
-the witness seam (CF-D9-clean artifact handoff) that Verification strength
-(#87) then reuses. Prevention-at-PLAN (#86) follows only after the
+the witness seam — gate-invoked derivation, decided and locked in node 02
+(the produced-artifact handoff was rejected there as agent-forgeable) — that
+Verification strength (#87) then reuses. Prevention-at-PLAN (#86) follows only after the
 detection-at-VERIFY witness has proven the seam on real runs.
