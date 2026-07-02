@@ -1,0 +1,430 @@
+"""Codeflair witness — the scope-conformance FACTS face (UACP issue #85).
+
+``codeflair witness --repo <root> [--code-ref file:name ...]`` (re)indexes the run's
+CURRENT working tree, then reports **facts** about the change for a scope gate to grade.
+It computes **no verdicts** — no coverage / undeclared / over-declared sets. That is the
+kernel gate's job (design/conformance-witnesses/02-scope-witness-seam.md: "the witness
+*derives*, the code *compares*"). A CLI that returned verdicts would move the comparison
+into the witness, making a codeflair coverage bug invisible and unrecomputable kernel-side.
+
+The emitted document (compact JSON, ``sort_keys``, deterministic — no wall-clock reads):
+
+- ``graph_stamp`` — ``{commit, tree_token}``. ``commit`` is the repo HEAD; ``tree_token``
+  is a content token of the CURRENT working tree (see :func:`tree_token`).
+- ``ingestion`` — the honest provenance floor derived from the store (``scip`` when SCIP
+  edges are present, else ``treesitter``), never hardcoded.
+- ``symbols_touched`` — ``[{file, name}]``. v1 is FILE-LEVEL: every symbol the store
+  records in each changed file (deliberately coarse; hunk-level is a pre-promotion item).
+- ``neighborhood`` — ``[{src, dst, reason}]``. The hop-1 edges (both directions) touching
+  any touched symbol; ``reason`` mapped onto ``{calls, references, defines}``.
+- ``declared`` — ``[{file, name, resolved}]``. Each ``--code-ref`` echoed with a resolution
+  fact: ``resolved`` iff the store has a symbol in that file whose derived human name
+  matches ``name`` (class-qualified). Never bare-substring matching across the whole store.
+- ``unresolved_touched`` — ``[{file, name}]``. Changed indexed-language files the ingester
+  produced no symbols for (empty, unparseable, or skipped). ``name`` is NULLABLE (``null``):
+  the file is known from the diff, the symbol is not — serialized file-level, never dropped
+  (best-effort; empty list when none detected).
+
+On failure (not a git repo, index produced nothing) it returns ``{"error": ...}`` and the
+CLI exits nonzero.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import re
+import subprocess
+from collections.abc import Callable, Iterable, Sequence
+
+from codeflair.freshness import content_hash
+from codeflair.store import Store, Symbol, default_store_path
+
+# The edge relations the witness reports. The store's SCIP/tree-sitter edges carry exactly
+# these ``rel`` values for real code edges; coupling kinds (co_change / shared_string) live
+# in a separate table and are NOT edges, so they never appear in ``neighborhood``.
+_REASONS = frozenset({"calls", "references", "defines"})
+
+# Per-language file suffixes the index covers (mirrors cli._SUFFIX; kept local to avoid a
+# cli<->witness import cycle). A changed file is the witness's concern only if it is one of
+# these — a changed .md/.toml is not something the code graph indexes.
+_SUFFIX: dict[str, tuple[str, ...]] = {
+    "go": (".go",),
+    "python": (".py",),
+    "typescript": (".ts", ".tsx"),
+}
+
+# Store edge/ownership source -> reported ingestion floor. The store tags tree-sitter rows
+# ``tree_sitter``; the witness reports the design's floor spelling ``treesitter``.
+_INGESTION_NAME = {"scip": "scip", "tree_sitter": "treesitter"}
+
+
+# -- git observation (read-only; never raises to the caller) ------------------------------
+
+
+def _run_git(repo: str, args: Sequence[str]) -> subprocess.CompletedProcess[str]:
+    """Run ``git -C <repo> <args>`` capturing text output. Never checks — the caller decides
+    what a non-zero return means (git parity: absence/failure is data, not a crash)."""
+    return subprocess.run(
+        ["git", "-C", repo, *args], capture_output=True, text=True, check=False
+    )
+
+
+def is_git_repo(repo: str) -> bool:
+    """True iff ``repo`` is inside a git work tree."""
+    try:
+        out = _run_git(repo, ["rev-parse", "--is-inside-work-tree"])
+    except OSError:
+        return False
+    return out.returncode == 0 and out.stdout.strip() == "true"
+
+
+def head_commit(repo: str) -> str:
+    """The repo's ``HEAD`` commit sha, or ``""`` if unresolvable (empty repo / no commits)."""
+    out = _run_git(repo, ["rev-parse", "HEAD"])
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
+def porcelain_lines(repo: str) -> list[str]:
+    """The raw ``git status --porcelain`` lines (untracked included, ignored excluded — the
+    default). Order-unstable across git versions, so callers SORT before hashing."""
+    out = _run_git(repo, ["status", "--porcelain"])
+    if out.returncode != 0:
+        return []
+    return [ln for ln in out.stdout.splitlines() if ln]
+
+
+def _porcelain_path(line: str) -> str:
+    """The path out of a porcelain v1 line (columns 0-1 status, path from column 3). For a
+    rename (``R  old -> new``) the NEW path is taken. Best-effort: git-quoted exotic paths
+    (core.quotepath) are left verbatim."""
+    path = line[3:] if len(line) > 3 else line
+    if " -> " in path:
+        path = path.split(" -> ", 1)[1]
+    return path
+
+
+def uncommitted_paths(repo: str) -> set[str]:
+    """Repo-root-relative paths with uncommitted changes (modified, added, deleted, renamed,
+    untracked). Ignored files are excluded by ``git status --porcelain``'s default."""
+    return {_porcelain_path(ln) for ln in porcelain_lines(repo)}
+
+
+def default_branch(repo: str) -> str | None:
+    """The first of ``main`` / ``master`` that resolves as a local branch, else ``None`` — the
+    committed-diff baseline. When neither exists that half of the changed-set is skipped."""
+    for name in ("main", "master"):
+        out = _run_git(repo, ["rev-parse", "--verify", "--quiet", f"refs/heads/{name}"])
+        if out.returncode == 0 and out.stdout.strip():
+            return name
+    return None
+
+
+def committed_paths(repo: str) -> set[str]:
+    """Repo-root-relative paths changed on this branch since it forked from the default
+    branch: ``git diff --name-only $(git merge-base <default> HEAD) HEAD``. Empty (skipped
+    gracefully) when no default branch resolves or the merge-base cannot be computed."""
+    default = default_branch(repo)
+    if default is None:
+        return set()
+    mb = _run_git(repo, ["merge-base", default, "HEAD"])
+    if mb.returncode != 0 or not mb.stdout.strip():
+        return set()
+    base = mb.stdout.strip()
+    diff = _run_git(repo, ["diff", "--name-only", base, "HEAD"])
+    if diff.returncode != 0:
+        return set()
+    return {ln for ln in diff.stdout.splitlines() if ln}
+
+
+def changed_files(repo: str) -> set[str]:
+    """The full changed-set: uncommitted ∪ committed-on-branch (same baseline as the git
+    half of the scope gate). A run that commits during EXECUTE is still fully observed."""
+    return uncommitted_paths(repo) | committed_paths(repo)
+
+
+def tree_token(repo: str, changed: Iterable[str]) -> str:
+    """A deterministic content token of the CURRENT working tree.
+
+    Construction: ``sha256`` over, in order,
+
+      1. the HEAD sha,
+      2. the SORTED ``git status --porcelain`` lines (status + path of every dirty/untracked
+         non-ignored entry), and
+      3. for each changed file that exists on disk, ``"<path>:<sha256(content)>"`` in sorted
+         path order.
+
+    The porcelain lines make the token change on any add/delete/rename/untrack; the per-file
+    content hashes make it change on any *content* edit that keeps a file's status the same
+    (an untracked file re-saved, a tracked file re-edited). A deleted / unreadable file is
+    skipped in step 3 — its disappearance is already recorded in the porcelain line, so the
+    token still moves. Stable whenever every tracked/untracked non-ignored byte is unchanged;
+    no wall-clock or ordering nondeterminism enters."""
+    h = hashlib.sha256()
+    h.update(head_commit(repo).encode("utf-8"))
+    h.update(b"\n")
+    for line in sorted(porcelain_lines(repo)):
+        h.update(line.encode("utf-8"))
+        h.update(b"\n")
+    for rel in sorted(changed):
+        abspath = os.path.join(repo, rel)
+        try:
+            with open(abspath, "rb") as fh:
+                data = fh.read()
+        except OSError:
+            continue  # deleted/unreadable — the porcelain line already moved the token
+        h.update(f"{rel}:{content_hash(data)}\n".encode())
+    return h.hexdigest()
+
+
+# -- symbol identity (deriving a human name from a stored symbol) --------------------------
+
+# SCIP method disambiguator parens: ``method(+1).`` / ``method().`` -> drop the ``(...)``.
+_PARENS_RE = re.compile(r"\([^)]*\)")
+
+
+def _descriptor_section(scip_id: str) -> str:
+    """The descriptor section of a SCIP symbol id — everything after the 4th space (scheme,
+    manager, package-name, version, then descriptors). Names containing spaces are backtick-
+    escaped inside this section, so a naive ``split(" ")[-1]`` can truncate them; capping the
+    split at 4 keeps the whole descriptor chain."""
+    return scip_id.split(" ", 4)[-1]
+
+
+def _tokenize_descriptors(desc: str) -> list[tuple[str, str]]:
+    """Split a SCIP descriptor chain into ``(name, kind)`` components, honoring backtick
+    escapes. Terminators: ``/`` namespace, ``#`` type, ``.`` term. A trailing name with no
+    terminator is treated as a term."""
+    tokens: list[tuple[str, str]] = []
+    buf: list[str] = []
+    i, n = 0, len(desc)
+    kinds = {"/": "namespace", "#": "type", ".": "term"}
+    while i < n:
+        c = desc[i]
+        if c == "`":  # backtick-escaped name: copy verbatim until the closing backtick
+            j = desc.find("`", i + 1)
+            if j == -1:
+                buf.append(desc[i + 1 :])
+                i = n
+                break
+            buf.append(desc[i + 1 : j])
+            i = j + 1
+            continue
+        if c in kinds:
+            name = "".join(buf)
+            buf = []
+            if name:
+                tokens.append((name, kinds[c]))
+            i += 1
+            continue
+        buf.append(c)
+        i += 1
+    if buf:
+        name = "".join(buf)
+        if name:
+            tokens.append((name, "term"))
+    return tokens
+
+
+def _scip_human_name(scip_id: str) -> str:
+    """A deterministic, class-qualified human name from a SCIP symbol id.
+
+    Drops the descriptor suffixes (``#`` type, ``().`` method, ``.`` term) and the
+    namespace/package components (``/``), then joins the remaining identifiers with ``.``:
+
+      - ``…/Violation#``                      -> ``Violation``
+      - ``…/Heartgate#validate_closure().``   -> ``Heartgate.validate_closure``
+      - ``… `pkg`/CancelOrder#``              -> ``CancelOrder``
+
+    Consecutive duplicate components collapse, taming the spike's doubled module-const
+    descriptors (``X.X.`` -> ``X``). Never a bare substring of the raw id."""
+    desc = _PARENS_RE.sub("", _descriptor_section(scip_id))
+    parts = [name for name, kind in _tokenize_descriptors(desc) if kind != "namespace"]
+    collapsed: list[str] = []
+    for p in parts:
+        if not collapsed or collapsed[-1] != p:
+            collapsed.append(p)
+    return ".".join(collapsed) or desc
+
+
+def human_name(sym: Symbol) -> str:
+    """The human name of a stored symbol. For a SCIP-descriptor id the name is normalized off
+    the id (:func:`_scip_human_name`); for a tree-sitter synthesized id (``tree-sitter <lang>
+    <path>:<name>#<line>``, the syntactic floor) the store's ``name`` column already holds the
+    bare identifier (no descriptor decoration, no container qualification available), so it is
+    used directly."""
+    if sym.symbol.startswith("tree-sitter "):
+        return sym.name or sym.symbol
+    return _scip_human_name(sym.symbol)
+
+
+def _names_match(derived: str, declared: str) -> bool:
+    """Match a declared ``--code-ref`` name against a symbol's derived human name. Exact match
+    always; additionally an UNQUALIFIED declared name (no ``.``) matches the last component of
+    a class-qualified derived name (``validate_closure`` matches ``Heartgate.validate_closure``).
+    A qualified declared name must match in full. Never a bare substring."""
+    if derived == declared:
+        return True
+    if "." not in declared and "." in derived:
+        return derived.rsplit(".", 1)[-1] == declared
+    return False
+
+
+# -- fact derivation over an open store ---------------------------------------------------
+
+
+def ingestion_floor(store: Store) -> str:
+    """The honest provenance floor, derived from the store — ``scip`` if any SCIP edges (or
+    SCIP-owned symbols) exist, else ``treesitter`` if the tree-sitter floor produced anything,
+    else ``none``. Never hardcoded: it reflects what the reindex actually managed to build."""
+    edge_sources = {
+        r[0] for r in store.con.execute("SELECT DISTINCT source FROM edges").fetchall()
+    }
+    for src in ("scip", "tree_sitter"):
+        if src in edge_sources:
+            return _INGESTION_NAME[src]
+    own_sources = {
+        r[0] for r in store.con.execute("SELECT DISTINCT source FROM symbol_source").fetchall()
+    }
+    for src in ("scip", "tree_sitter"):
+        if src in own_sources:
+            return _INGESTION_NAME[src]
+    return "none"
+
+
+def _node(store: Store, symbol_id: str) -> dict[str, str]:
+    """Resolve a symbol id to a ``{file, name}`` neighborhood/touched node."""
+    sym = store.symbol(symbol_id)
+    if sym is None:
+        return {"file": "", "name": symbol_id}
+    return {"file": sym.file, "name": human_name(sym)}
+
+
+def _neighborhood(store: Store, touched_ids: set[str]) -> list[dict[str, object]]:
+    """Hop-1 edges (both directions) touching any id in ``touched_ids``, each as
+    ``{src, dst, reason}`` with ``reason`` restricted to ``{calls, references, defines}``."""
+    if not touched_ids:
+        return []
+    ids = list(touched_ids)
+    ph = ",".join("?" * len(ids))
+    rows = store.con.execute(
+        f"SELECT src, dst, rel FROM edges WHERE src IN ({ph}) OR dst IN ({ph})",
+        ids + ids,
+    ).fetchall()
+    seen: set[tuple[str, str, str, str, str]] = set()
+    out: list[dict[str, object]] = []
+    for src, dst, rel in rows:
+        if rel not in _REASONS:
+            continue
+        sn, dn = _node(store, src), _node(store, dst)
+        key = (sn["file"], sn["name"], dn["file"], dn["name"], rel)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append({"src": sn, "dst": dn, "reason": rel})
+    out.sort(
+        key=lambda e: (
+            e["src"]["file"],
+            e["src"]["name"],
+            e["dst"]["file"],
+            e["dst"]["name"],
+            e["reason"],
+        )
+    )
+    return out
+
+
+def _symbol_facts(
+    store: Store, changed: set[str], code_refs: Sequence[tuple[str, str]], lang: str
+) -> dict[str, object]:
+    """The store-derived facts (everything but ``graph_stamp`` / ``ingestion``): file-level
+    ``symbols_touched``, hop-1 ``neighborhood``, ``declared`` resolution, ``unresolved_touched``.
+    Pure over an open store + a precomputed changed-set (so it is unit-testable with a seeded
+    store, no git, no reindex)."""
+    suffixes = _SUFFIX.get(lang, ())
+    lang_files = sorted(f for f in changed if suffixes and f.endswith(suffixes))
+
+    touched: set[tuple[str, str]] = set()
+    touched_ids: set[str] = set()
+    unresolved: list[dict[str, object]] = []
+    for f in lang_files:
+        ids = store.symbols_in_file(f)
+        if not ids:
+            # A changed indexed-language file the ingester produced no symbols for (an empty,
+            # unparseable, or ingester-skipped file). It is KNOWN from the diff but yielded no
+            # symbol, so it is serialized file-level with a NULLABLE name (never dropped —
+            # silent fail-open is forbidden; the gate must see it).
+            unresolved.append({"file": f, "name": None})
+            continue
+        for sid in ids:
+            sym = store.symbol(sid)
+            if sym is None:
+                continue
+            touched.add((f, human_name(sym)))
+            touched_ids.add(sid)
+
+    symbols_touched = [{"file": f, "name": n} for f, n in sorted(touched)]
+
+    declared: list[dict[str, object]] = []
+    for file, name in code_refs:
+        resolved = any(
+            _names_match(human_name(sym), name)
+            for sid in store.symbols_in_file(file)
+            if (sym := store.symbol(sid)) is not None
+        )
+        declared.append({"file": file, "name": name, "resolved": resolved})
+    declared.sort(key=lambda d: (d["file"], d["name"]))
+
+    return {
+        "symbols_touched": symbols_touched,
+        "neighborhood": _neighborhood(store, touched_ids),
+        "declared": declared,
+        "unresolved_touched": sorted(unresolved, key=lambda d: d["file"]),
+    }
+
+
+# -- orchestration ------------------------------------------------------------------------
+
+# The reindex dependency: ``build_index(repo, *, lang=...) -> summary`` (injected so the fact
+# derivation is testable against a controlled index; the CLI passes cli.build_index).
+Reindex = Callable[..., dict[str, object]]
+
+
+def build_witness(
+    repo: str,
+    reindex: Reindex,
+    *,
+    code_refs: Sequence[tuple[str, str]] = (),
+    lang: str = "python",
+) -> dict[str, object]:
+    """Reindex the current working tree, then derive the witness facts. Returns the facts
+    document, or ``{"error": ...}`` on failure (not a git repo, or the reindex produced no
+    index content). The run is against the DIRTY tree as it exists on disk — that is the
+    point: freshness is by construction (the newly-indexed tree), not by stamp comparison."""
+    if not is_git_repo(repo):
+        return {"error": "not a git repository", "repo": repo}
+    summary = reindex(repo, lang=lang)
+    if not summary.get("indexed"):
+        return {"error": "index produced nothing", "repo": repo}
+
+    changed = changed_files(repo)
+    store = Store(default_store_path(repo), read_only=True)
+    try:
+        facts = _symbol_facts(store, changed, code_refs, lang)
+        ingestion = ingestion_floor(store)
+    finally:
+        store.close()
+
+    return {
+        "graph_stamp": {"commit": head_commit(repo), "tree_token": tree_token(repo, changed)},
+        "ingestion": ingestion,
+        **facts,
+    }
+
+
+def parse_code_ref(ref: str) -> tuple[str, str]:
+    """Parse a ``--code-ref`` argument into ``(file, name)``, splitting on the FIRST colon only
+    (``name`` may contain dots: ``skills/x.py:Heartgate.validate_closure``). A ref with no colon
+    yields ``(ref, "")`` — echoed in ``declared`` as unresolved, never silently dropped."""
+    file, _, name = ref.partition(":")
+    return file, name
