@@ -243,3 +243,132 @@ def test_never_raises_on_garbled_scope(temp_uacp_root: Path, valid_run_id: str):
     _scope_path(temp_uacp_root, valid_run_id).write_text("this: : : not valid yaml: [")
     out = validate(temp_uacp_root, valid_run_id)
     assert isinstance(out, list)  # garbled scope -> no-op, not an exception
+
+
+# ------------------------------------------------------------- SC diff containment
+# C1 (issue #85): the module docstring's documented "future mode", now implemented —
+# compare the ACTUAL git-observed change set against the DECLARED write_paths.
+# Advisory-first: every SC_DIFF_* violation is severity "warn" (correct-but-out-of-
+# scope is a governance flag, remedy = re-declare — never a silent allow, never yet
+# a block). Absent git repo at the workspace root is a documented no-op (mirrors
+# the absent-scope precedent) so the synthetic temp-root fixtures above stay quiet.
+
+import subprocess  # noqa: E402
+
+
+def _git(root: Path, *args: str) -> None:
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.email=t@test",
+            "-c",
+            "user.name=t",
+            "-c",
+            "commit.gpgsign=false",
+            *args,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _init_git_repo(root: Path) -> None:
+    """Turn the seeded temp workspace into a git repo whose baseline commit is the
+    post-seed state — so anything written AFTER this call is 'the run's changes'."""
+    _git(root, "init", "-q", "-b", "main")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "seed", "--no-verify")
+
+
+def _declare_write_paths(root: Path, run_id: str, wps: list[str]) -> None:
+    """Set write_paths identically on scope + registry so the ONLY divergence a
+    diff test exercises is the diff itself, never scope/registry disagreement."""
+    body = _load_scope(root, run_id)
+    body["write_paths"] = wps
+    _write_scope(root, run_id, body)
+    reg = _load_registry(root)
+    reg["active_runs"][0]["write_paths"] = wps
+    _write_registry(root, reg)
+
+
+def _diff_codes(violations: list[Violation]) -> set[str]:
+    return {v.code for v in violations if v.code.startswith("SC_DIFF_")}
+
+
+def test_diff_out_of_scope_uncommitted_fires(temp_uacp_root: Path, valid_run_id: str):
+    """An uncommitted write OUTSIDE every declared write_path fires
+    SC_DIFF_OUT_OF_SCOPE (advisory), naming the offending file."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue.py").write_text("# out-of-scope write\n")
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_DIFF_OUT_OF_SCOPE"]
+    assert hits, f"expected SC_DIFF_OUT_OF_SCOPE, got {_codes(violations)}"
+    assert any("rogue.py" in v.message for v in hits), [v.message for v in hits]
+    assert all(v.severity == "warn" for v in hits), "advisory-first: must be warn"
+
+
+def test_diff_in_scope_changes_quiet(temp_uacp_root: Path, valid_run_id: str):
+    """Writes under a declared write_path produce NO SC_DIFF_* violations."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "src").mkdir()
+    (temp_uacp_root / "src" / "ok.py").write_text("# in-scope write\n")
+
+    assert _diff_codes(validate(temp_uacp_root, valid_run_id)) == set()
+
+
+def test_diff_committed_on_branch_fires(temp_uacp_root: Path, valid_run_id: str):
+    """An out-of-scope change COMMITTED on the run's branch (not just uncommitted)
+    is still caught — the changed set is uncommitted ∪ committed-since-merge-base."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    _git(temp_uacp_root, "checkout", "-q", "-b", "run-branch")
+    (temp_uacp_root / "rogue.py").write_text("# committed out-of-scope\n")
+    _git(temp_uacp_root, "add", "rogue.py")
+    _git(temp_uacp_root, "commit", "-q", "-m", "rogue", "--no-verify")
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_DIFF_OUT_OF_SCOPE"]
+    assert hits, f"expected SC_DIFF_OUT_OF_SCOPE, got {_codes(violations)}"
+    assert any("rogue.py" in v.message for v in hits), [v.message for v in hits]
+
+
+def test_diff_no_git_repo_is_noop(temp_uacp_root: Path, valid_run_id: str):
+    """No .git at the workspace root -> the diff check self-disables (documented
+    no-op, same doctrine as absent scope). This is what keeps every synthetic
+    fixture in this file quiet."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    assert _diff_codes(validate(temp_uacp_root, valid_run_id)) == set()
+
+
+def test_diff_broken_git_repo_fires_unavailable(temp_uacp_root: Path, valid_run_id: str):
+    """A .git entry EXISTS but git cannot read it -> the witness is expected but
+    unavailable. Fail-closed distinction: that is SC_DIFF_UNAVAILABLE (advisory),
+    never a silent pass."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    (temp_uacp_root / ".git").mkdir()  # empty dir = present but not a valid repo
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_DIFF_UNAVAILABLE"]
+    assert hits, f"expected SC_DIFF_UNAVAILABLE, got {_codes(violations)}"
+    assert all(v.severity == "warn" for v in hits)
+
+
+def test_diff_governed_namespace_changes_quiet(temp_uacp_root: Path, valid_run_id: str):
+    """Writes under the governed namespace (.uacp/) are governed-writer territory
+    (Guardian-protected), not free-form EXECUTE writes -> never SC_DIFF-flagged."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _init_git_repo(temp_uacp_root)
+    note = temp_uacp_root / ".uacp" / "state" / "post-seed-note.yaml"
+    note.write_text("note: governed-namespace write\n")
+
+    assert _diff_codes(validate(temp_uacp_root, valid_run_id)) == set()

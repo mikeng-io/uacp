@@ -9,6 +9,7 @@ than crashing. Domain and engine layers do no raw file I/O.
 
 from __future__ import annotations
 
+from .gitio import GitDiffResult, changed_files
 from .loaders import (
     Loaded,
     glob_in_workspace,
@@ -27,7 +28,9 @@ from .loaders import (
 )
 
 __all__ = [
+    "GitDiffResult",
     "Loaded",
+    "changed_files",
     "glob_in_workspace",
     "load_artifact",
     "load_checkpoint_manifest",

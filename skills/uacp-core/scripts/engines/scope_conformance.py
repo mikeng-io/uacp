@@ -35,10 +35,19 @@ NOT attempted here. What IS computable, and is what this engine checks:
   escape, blast_radius in the schema enum).
 
 A true "actual change stayed in scope" check requires diffing the real git
-working tree of a real run (``git diff --name-only`` ∩ ``write_paths``). That is
-a documented **future mode** — it cannot run against the synthetic temp-root
-test fixtures (no git history, no real EXECUTE writes), so it is intentionally
-unimplemented here rather than faked.
+working tree of a real run. The formerly-documented future mode is now
+IMPLEMENTED as the diff-containment check (``SC_DIFF_*`` codes, issue #85):
+when the workspace root is itself a git repo, the ACTUAL change set observed
+by git (uncommitted ∪ committed-since-merge-base, via :mod:`engines.io.gitio`)
+is compared against the declared ``write_paths``. This is the first
+independently-witnessed input to this engine — git's account of what changed,
+not the run's account of itself. It is **advisory-first**: every ``SC_DIFF_*``
+violation is severity ``warn`` (correct-but-out-of-scope is a governance flag
+whose remedy is re-declaration, and promotion to blocking is a later, explicit
+decision). A workspace with no ``.git`` at its root is a documented NO-OP
+(mirroring the absent-scope precedent) — which is exactly why the synthetic
+temp-root fixtures remain quiet; a repo that exists but cannot be observed is
+``SC_DIFF_UNAVAILABLE``, never a silent pass (fail-closed).
 
 RELATIONSHIP TO COHERENCE C6
 ----------------------------
@@ -75,6 +84,7 @@ from engines.domain import layout
 
 # All filesystem access is delegated to the io layer (no raw reads here).
 from engines.io import (
+    changed_files,
     load_artifact,
     load_manifest,
     load_registry,
@@ -192,6 +202,7 @@ def validate(workspace: str | Path, run_id: str) -> list[Violation]:
     violations.extend(_check_blast_radius(root, scope_rel, scope))
     violations.extend(_check_scope_registry(root, run_id, scope_rel, scope_wps, scope.write_paths))
     violations.extend(_check_artifact_containment(root, scope_rel, scope_wps, artifacts))
+    violations.extend(_check_diff_containment(root, scope_rel, scope_wps))
 
     return violations
 
@@ -429,6 +440,110 @@ def _check_artifact_containment(
                 f"artifact '{key}' ({rel}) is outside every declared write_path "
                 f"{sorted(scope_wps)} and every permitted output surface "
                 f"{list(_ALLOWED_OUTPUT_PREFIXES)} — out-of-scope write",
+            )
+        )
+    return out
+
+
+def _resolve_under_root(root: Path, rel: str) -> Path | None:
+    """Resolve a WORKSPACE-relative path defensively; None if it escapes the
+    workspace or is unresolvable. Never raises. (Counterpart of the io layer's
+    ``resolve_in_workspace``, which roots at ``base_dir`` — the governed
+    namespace — and is therefore wrong for git-reported workspace paths.)"""
+    try:
+        resolved = (root / rel).resolve()
+        resolved.relative_to(root)
+        return resolved
+    except Exception:
+        return None
+
+
+# ----------------------------------------------------------- SC diff containment
+def _check_diff_containment(
+    root: Path, scope_rel: str, scope_wps: list[str] | None
+) -> list[Violation]:
+    """SC_DIFF_OUT_OF_SCOPE / SC_DIFF_UNAVAILABLE — the ACTUAL change set git
+    observes must fall under a declared write_path or the governed namespace.
+
+    This is the implemented "future mode" (module docstring): the first input
+    to this engine that is NOT the run's own account of itself. Ground truth
+    comes from :func:`engines.io.gitio.changed_files`; this function only
+    compares (the witness derives, the gate compares — never the reverse).
+
+    Doctrine, in order:
+    * malformed write_paths -> no-op here (already reported by the escape check);
+    * workspace root not a git repo -> no-op (documented: nothing to observe —
+      also what keeps the synthetic test fixtures quiet);
+    * repo present but unobservable -> ``SC_DIFF_UNAVAILABLE`` (fail-closed:
+      an expected witness that cannot testify is surfaced, never a silent pass);
+    * changes under the governed namespace (``.uacp/``) are exempt — those are
+      governed-writer territory, watched by Guardian + the containment check
+      above, not free-form EXECUTE writes;
+    * everything else must sit under a declared write_path, or it is flagged.
+
+    Advisory-first: both codes are severity ``warn``. Correct-but-out-of-scope
+    is STILL flagged ("ungoverned", not "wrong"); the remedy is re-declaring
+    the boundary, never silently widening it.
+    """
+    out: list[Violation] = []
+    if scope_wps is None:
+        return out
+
+    result = changed_files(root)
+    if not result.is_repo:
+        return out
+    if result.error is not None:
+        out.append(
+            _v(
+                "SC_DIFF_UNAVAILABLE",
+                f"workspace is a git repo but its change set could not be observed "
+                f"({result.error}); diff-containment for scope {scope_rel} not verifiable",
+                severity="warn",
+                error=result.error,
+            )
+        )
+        return out
+
+    # Allowed containment roots: each declared write_path's static prefix plus
+    # the ENTIRE governed namespace (.uacp/ — which subsumes the permitted
+    # output surfaces used by the artifact-containment check above).
+    #
+    # NOTE on resolution: git reports paths relative to the WORKSPACE root, and
+    # write_paths declare workspace-relative boundaries — so both sides resolve
+    # under ``root`` here, NOT via resolve_in_workspace (which is for the
+    # base-relative artifact refs writers store under .uacp/).
+    allowed_roots: list[Path] = []
+    for wp in scope_wps:
+        probe = wp.split("*", 1)[0] or "."
+        resolved = _resolve_under_root(root, probe)
+        if resolved is not None:
+            allowed_roots.append(resolved)
+    try:
+        allowed_roots.append(base_dir(root).resolve())
+    except Exception:
+        pass  # no governed namespace resolvable — write_paths remain the boundary
+
+    offenders: list[str] = []
+    for rel in result.files:
+        apath = _resolve_under_root(root, rel)
+        if apath is None:
+            continue  # escaping/undecodable path — traversal is the escape check's turf
+        if any(_is_contained(apath, base) for base in allowed_roots):
+            continue
+        offenders.append(rel)
+
+    if offenders:
+        shown = offenders[:20]
+        out.append(
+            _v(
+                "SC_DIFF_OUT_OF_SCOPE",
+                f"{len(offenders)} actual change(s) observed by git fall outside every "
+                f"declared write_path {sorted(scope_wps)}: {shown}"
+                f"{' (truncated)' if len(offenders) > len(shown) else ''} — "
+                f"out-of-scope work; remedy is to re-declare the boundary (scope {scope_rel})",
+                severity="warn",
+                files=shown,
+                total=len(offenders),
             )
         )
     return out
