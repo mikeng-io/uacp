@@ -715,3 +715,20 @@ def test_witness_unresolved_touched_null_name_tolerated(
     assert any("src/new.py" in v.detail.get("unresolved_touched", []) for v in cascade), [
         v.detail for v in cascade
     ]
+
+
+def test_diff_out_of_scope_inside_new_directory_fires(temp_uacp_root: Path, valid_run_id: str):
+    """Files inside an entirely-NEW untracked directory must be observed
+    individually (-uall): without it, porcelain collapses the dir to one
+    '?? dir/' entry and every file inside is invisible — found by the #85
+    end-to-end proof, invisible to the root-level-file fixtures above."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "newpkg").mkdir()
+    (temp_uacp_root / "newpkg" / "rogue.py").write_text("# nested out-of-scope\n")
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_DIFF_OUT_OF_SCOPE"]
+    assert hits, f"expected SC_DIFF_OUT_OF_SCOPE, got {_codes(violations)}"
+    assert any("newpkg/rogue.py" in v.message for v in hits), [v.message for v in hits]

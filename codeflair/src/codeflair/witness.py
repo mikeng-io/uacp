@@ -86,9 +86,12 @@ def head_commit(repo: str) -> str:
 
 
 def porcelain_lines(repo: str) -> list[str]:
-    """The raw ``git status --porcelain`` lines (untracked included, ignored excluded — the
-    default). Order-unstable across git versions, so callers SORT before hashing."""
-    out = _run_git(repo, ["status", "--porcelain"])
+    """The raw ``git status --porcelain -uall`` lines (untracked included, ignored excluded
+    — the default). ``-uall`` is load-bearing: without it an entirely-new directory collapses
+    to a single ``?? dir/`` entry and every file inside it becomes invisible to the witness
+    (found by the #85 end-to-end proof). Order-unstable across git versions, so callers SORT
+    before hashing."""
+    out = _run_git(repo, ["status", "--porcelain", "-uall"])
     if out.returncode != 0:
         return []
     return [ln for ln in out.stdout.splitlines() if ln]

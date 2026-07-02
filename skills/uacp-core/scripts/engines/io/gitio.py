@@ -88,7 +88,10 @@ def changed_files(root: Path) -> GitDiffResult:
     try:
         files: set[str] = set()
 
-        rc, out, err = _run_git(root, "status", "--porcelain")
+        # -uall: without it, an entirely-new directory collapses to one
+        # "?? dir/" entry and every file inside it is invisible to the
+        # witness — found by the #85 end-to-end proof, not by unit fixtures.
+        rc, out, err = _run_git(root, "status", "--porcelain", "-uall")
         if rc != 0:
             return GitDiffResult(
                 is_repo=True,

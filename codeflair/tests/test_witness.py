@@ -348,3 +348,16 @@ def test_witness_real_reindex_end_to_end(tmp_path):
     assert {"helper", "service"} <= names
     triples = {(e["src"]["name"], e["dst"]["name"], e["reason"]) for e in result["neighborhood"]}
     assert ("service", "helper", "calls") in triples
+
+
+def test_changed_paths_sees_files_inside_new_untracked_directory(tmp_path):
+    """-uall regression (#85 e2e proof): a brand-new directory must yield its
+    individual files, not one collapsed '?? dir/' entry the suffix filter drops."""
+    _init_repo(tmp_path)
+    pkg = tmp_path / "newpkg"
+    pkg.mkdir()
+    (pkg / "mod.py").write_text("def f():\n    return 1\n")
+
+    paths = changed_files(str(tmp_path))
+    assert "newpkg/mod.py" in paths, paths
+    assert "newpkg/" not in paths, paths
