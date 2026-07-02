@@ -50,7 +50,7 @@ def _git(root: Path, *args: str) -> None:
     )
 
 
-def test_e2e_real_codeflair_witness_advisory(temp_uacp_root: Path, valid_run_id: str):
+def test_e2e_real_codeflair_witness_advisory(temp_uacp_root: Path, valid_run_id: str, monkeypatch):
     root = temp_uacp_root
     seed_coherent_run(root, valid_run_id)
 
@@ -64,12 +64,18 @@ def test_e2e_real_codeflair_witness_advisory(temp_uacp_root: Path, valid_run_id:
     reg["active_runs"][0]["write_paths"] = ["src/**"]
     reg_path.write_text(yaml.safe_dump(reg, sort_keys=False))
 
+    # A shim outside the run workspace that execs the REAL codeflair CLI.
     shim = Path(tempfile.mkdtemp(prefix="witness-cli-")) / "codeflair-shim"
     shim.write_text(f'#!/bin/sh\nexec uv run --project "{REPO_ROOT}/codeflair" codeflair "$@"\n')
     shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
-    cfg = root / ".uacp" / "config.toml"
-    existing = cfg.read_text() if cfg.exists() else ""
-    cfg.write_text(existing + f'\n[witness]\ncodeflair_cli = "{shim}"\n')
+    # K1: the trust root is the KERNEL-DEFAULT config, resolved via the operator-config seam
+    # (NOT the workspace .uacp/config.toml, which is now ignored for [witness]). Point the
+    # seam at a temp operator toml naming the shim.
+    import engines.io.witnessio as witnessio
+
+    op = Path(tempfile.mkdtemp(prefix="witness-op-")) / "operator-uacp.toml"
+    op.write_text(f'[witness]\ncodeflair_cli = "{shim}"\n')
+    monkeypatch.setattr(witnessio, "_operator_config_path", lambda: op)
 
     _git(root, "init", "-q", "-b", "main")
     _git(root, "add", "-A")

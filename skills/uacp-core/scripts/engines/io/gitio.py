@@ -24,12 +24,36 @@ Scope of the observation (v1, advisory):
 
 from __future__ import annotations
 
+import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
 _GIT_TIMEOUT_SECONDS = 10.0
-_DEFAULT_BRANCH_CANDIDATES = ("main", "master")
+# Default-branch baseline candidates for the committed-on-branch half, in priority
+# order (design node 02 / K4): a linked worktree cut from a remote may carry only
+# ``origin/*`` refs and NO local ``main``/``master`` — resolving those first stops the
+# committed half from silently self-disabling and dropping committed changes. Each is
+# tried with ``rev-parse --verify --quiet``; ``origin/HEAD`` resolves to its symbolic
+# target automatically. (The same list is mirrored codeflair-side, fixed separately.)
+_DEFAULT_BRANCH_CANDIDATES = (
+    "origin/HEAD",
+    "origin/main",
+    "origin/master",
+    "main",
+    "master",
+)
+
+
+def _scrubbed_env() -> dict[str, str]:
+    """A child environment with ``GIT_*`` and ``PYTHON*`` keys removed (``PATH`` kept).
+
+    The engines' subprocess observations must not be steerable through inherited env
+    (``GIT_DIR`` / ``GIT_CONFIG_*`` redirecting git; ``PYTHONPATH`` injection into a
+    Python child). ``PATH`` is preserved so bare-name executables still resolve."""
+    return {
+        k: v for k, v in os.environ.items() if not (k.startswith("GIT_") or k.startswith("PYTHON"))
+    }
 
 
 @dataclass(frozen=True)
@@ -55,6 +79,7 @@ def _run_git(root: Path, *args: str) -> tuple[int, str, str]:
         capture_output=True,
         text=True,
         timeout=_GIT_TIMEOUT_SECONDS,
+        env=_scrubbed_env(),
     )
     return proc.returncode, proc.stdout, proc.stderr
 

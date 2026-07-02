@@ -45,9 +45,12 @@ from codeflair.store import Store, Symbol, default_store_path
 # in a separate table and are NOT edges, so they never appear in ``neighborhood``.
 _REASONS = frozenset({"calls", "references", "defines"})
 
-# Per-language file suffixes the index covers (mirrors cli._SUFFIX; kept local to avoid a
-# cli<->witness import cycle). A changed file is the witness's concern only if it is one of
-# these — a changed .md/.toml is not something the code graph indexes.
+# Per-language file suffixes considered "indexed-language" for touched-symbol derivation.
+# These MIRROR cli._SUFFIX exactly (kept local to avoid a cli<->witness import cycle). NOTE
+# (C6): the tree-sitter breadth floor only ingests cli._TS_EXT per language (typescript ->
+# .ts), so a changed .tsx resolves symbols only via SCIP. A changed file OUTSIDE these
+# suffixes is NOT silently dropped — it surfaces file-level in unresolved_touched (C4):
+# "changed code the witness cannot reason about" must stay visible to the gate.
 _SUFFIX: dict[str, tuple[str, ...]] = {
     "go": (".go",),
     "python": (".py",),
@@ -114,10 +117,14 @@ def uncommitted_paths(repo: str) -> set[str]:
 
 
 def default_branch(repo: str) -> str | None:
-    """The first of ``main`` / ``master`` that resolves as a local branch, else ``None`` — the
-    committed-diff baseline. When neither exists that half of the changed-set is skipped."""
-    for name in ("main", "master"):
-        out = _run_git(repo, ["rev-parse", "--verify", "--quiet", f"refs/heads/{name}"])
+    """The committed-diff baseline ref, or ``None`` (that half then skips gracefully).
+
+    Candidate order mirrors the kernel git half (gitio K4): ``origin/HEAD`` (resolves to
+    its symbolic target), ``origin/main``, ``origin/master``, then local ``main``/``master``
+    — a linked worktree cut from a remote may carry only ``origin/*`` refs, and probing
+    local heads alone would silently drop the committed half of the changed-set."""
+    for name in ("origin/HEAD", "origin/main", "origin/master", "main", "master"):
+        out = _run_git(repo, ["rev-parse", "--verify", "--quiet", name])
         if out.returncode == 0 and out.stdout.strip():
             return name
     return None
@@ -295,6 +302,25 @@ def ingestion_floor(store: Store) -> str:
     return "none"
 
 
+def touched_ingestion_floor(store: Store, touched_ids: set[str]) -> str:
+    """The provenance floor of the TOUCHED symbols specifically (design node 02 / C5).
+
+    The WEAKEST source owning any touched symbol wins: any ``tree_sitter`` -> ``treesitter``;
+    all ``scip`` -> ``scip``. A store-GLOBAL floor is a laundering vector — SCIP edges
+    ELSEWHERE in the store would launder a tree-sitter-derived touched symbol past the gate's
+    ``scip`` requirement (scip on this change != scip elsewhere). With NO touched symbol owned
+    by any source (e.g. couplings-only, or no symbols at all) fall back to the store-wide
+    floor as before."""
+    owners: set[str] = set()
+    for sid in touched_ids:
+        owners |= store.symbol_owners(sid)
+    if "tree_sitter" in owners:
+        return _INGESTION_NAME["tree_sitter"]
+    if "scip" in owners:
+        return _INGESTION_NAME["scip"]
+    return ingestion_floor(store)
+
+
 def _node(store: Store, symbol_id: str) -> dict[str, str]:
     """Resolve a symbol id to a ``{file, name}`` neighborhood/touched node."""
     sym = store.symbol(symbol_id)
@@ -339,13 +365,17 @@ def _neighborhood(store: Store, touched_ids: set[str]) -> list[dict[str, object]
 
 def _symbol_facts(
     store: Store, changed: set[str], code_refs: Sequence[tuple[str, str]], lang: str
-) -> dict[str, object]:
+) -> tuple[dict[str, object], set[str]]:
     """The store-derived facts (everything but ``graph_stamp`` / ``ingestion``): file-level
     ``symbols_touched``, hop-1 ``neighborhood``, ``declared`` resolution, ``unresolved_touched``.
-    Pure over an open store + a precomputed changed-set (so it is unit-testable with a seeded
-    store, no git, no reindex)."""
+    Returns ``(facts, touched_ids)`` — the touched symbol ids drive the touched-scoped
+    ingestion floor (C5). Pure over an open store + a precomputed changed-set (so it is
+    unit-testable with a seeded store, no git, no reindex)."""
     suffixes = _SUFFIX.get(lang, ())
     lang_files = sorted(f for f in changed if suffixes and f.endswith(suffixes))
+    # C4: changed files OUTSIDE the indexed language (e.g. a .rs when lang=python) are not
+    # dropped — they surface file-level in unresolved_touched with a NULL name.
+    other_files = sorted(f for f in changed if not (suffixes and f.endswith(suffixes)))
 
     touched: set[tuple[str, str]] = set()
     touched_ids: set[str] = set()
@@ -365,25 +395,40 @@ def _symbol_facts(
                 continue
             touched.add((f, human_name(sym)))
             touched_ids.add(sid)
+    for f in other_files:
+        # Non-indexed-language changed file: visible file-level, name null (C4).
+        unresolved.append({"file": f, "name": None})
 
     symbols_touched = [{"file": f, "name": n} for f, n in sorted(touched)]
 
     declared: list[dict[str, object]] = []
     for file, name in code_refs:
-        resolved = any(
-            _names_match(human_name(sym), name)
-            for sid in store.symbols_in_file(file)
-            if (sym := store.symbol(sid)) is not None
-        )
-        declared.append({"file": file, "name": name, "resolved": resolved})
+        # Match the authored name against each symbol's CANONICAL human name; collect the
+        # DISTINCT canonical names that match. Exactly one match -> echo THAT canonical name
+        # (C1: coverage compares canonical-to-canonical kernel-side, so an unqualified authored
+        # name must be echoed back class-qualified, e.g. "validate" -> "Heartgate.validate").
+        # More than one distinct match = AMBIGUOUS (C2: bare "foo" matching both A.foo and
+        # B.foo) -> resolved:false, because an arbitrary pick would count a claim the author
+        # never disambiguated as coverage. Zero matches -> resolved:false. Either non-single
+        # case echoes the AUTHORED name (never dropped) so the gate surfaces the exact claim.
+        matches: set[str] = set()
+        for sid in store.symbols_in_file(file):
+            sym = store.symbol(sid)
+            if sym is not None and _names_match(human_name(sym), name):
+                matches.add(human_name(sym))
+        if len(matches) == 1:
+            declared.append({"file": file, "name": next(iter(matches)), "resolved": True})
+        else:
+            declared.append({"file": file, "name": name, "resolved": False})
     declared.sort(key=lambda d: (d["file"], d["name"]))
 
-    return {
+    facts = {
         "symbols_touched": symbols_touched,
         "neighborhood": _neighborhood(store, touched_ids),
         "declared": declared,
         "unresolved_touched": sorted(unresolved, key=lambda d: d["file"]),
     }
+    return facts, touched_ids
 
 
 # -- orchestration ------------------------------------------------------------------------
@@ -403,9 +448,23 @@ def build_witness(
     """Reindex the current working tree, then derive the witness facts. Returns the facts
     document, or ``{"error": ...}`` on failure (not a git repo, or the reindex produced no
     index content). The run is against the DIRTY tree as it exists on disk — that is the
-    point: freshness is by construction (the newly-indexed tree), not by stamp comparison."""
+    point: freshness is by construction (the newly-indexed tree), not by stamp comparison.
+
+    C3: the witness derives from a FRESH store — the existing ``.codeflair/index.db`` is
+    DELETED before reindex. The ingest ladder APPENDS rows without clearing a prior build, so
+    a reused store retains deleted symbols/edges and can manufacture false hop-1 coverage
+    (cross-provider council finding). Witness path only; best-effort (a first run has none)."""
     if not is_git_repo(repo):
         return {"error": "not a git repository", "repo": repo}
+
+    # Delete-and-rebuild: never derive from an incrementally-reused store (C3).
+    store_path = default_store_path(repo)
+    try:
+        if os.path.exists(store_path):
+            os.remove(store_path)
+    except OSError:
+        pass  # best-effort; a fresh reindex overwrites in place if the unlink races
+
     summary = reindex(repo, lang=lang)
     if not summary.get("indexed"):
         return {"error": "index produced nothing", "repo": repo}
@@ -413,8 +472,8 @@ def build_witness(
     changed = changed_files(repo)
     store = Store(default_store_path(repo), read_only=True)
     try:
-        facts = _symbol_facts(store, changed, code_refs, lang)
-        ingestion = ingestion_floor(store)
+        facts, touched_ids = _symbol_facts(store, changed, code_refs, lang)
+        ingestion = touched_ingestion_floor(store, touched_ids)
     finally:
         store.close()
 

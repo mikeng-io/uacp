@@ -261,6 +261,36 @@ def test_scope_code_refs_extra_key_fails():
     assert errs and any("line" in e or "additional" in e.lower() for e in errs), errs
 
 
+def test_scope_code_refs_empty_list_fails():
+    # K8 / design node 02: code_refs requires minItems 1 — an empty list is a schema error
+    # at write time, so "declared empty" cannot masquerade as a claim (absence is the ONLY
+    # no-claim state, keeping the promotion-time absence-escalation unambiguous).
+    doc = {
+        "kind": "uacp.scope",
+        "run_id": "r1",
+        "write_paths": ["src/"],
+        "blast_radius": "low",
+        "rollback_path": "none",
+        "code_refs": [],  # empty list rejected
+    }
+    errs = validate("uacp.scope", doc)
+    assert errs and any(
+        "code_refs" in e or "short" in e.lower() or "minitems" in e.lower() for e in errs
+    ), errs
+
+
+def test_scope_no_code_refs_key_is_valid():
+    # Absence (the key omitted entirely) is the legitimate no-claim state — NOT rejected.
+    doc = {
+        "kind": "uacp.scope",
+        "run_id": "r1",
+        "write_paths": ["src/"],
+        "blast_radius": "low",
+        "rollback_path": "none",
+    }
+    assert validate("uacp.scope", doc) == []
+
+
 def test_scope_code_refs_empty_name_fails():
     doc = {
         "kind": "uacp.scope",

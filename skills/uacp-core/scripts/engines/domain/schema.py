@@ -210,6 +210,10 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             # is a bogus claim, rejected at write, matching the projection's empty=broken rule).
             "code_refs": {
                 "type": "array",
+                # minItems 1 (design node 02 / K8): an empty list writes as a schema error,
+                # so "declared empty" cannot masquerade as a claim — absence is the ONLY
+                # no-claim state, which makes the promotion-time absence-escalation unambiguous.
+                "minItems": 1,
                 "items": {
                     "type": "object",
                     "additionalProperties": False,

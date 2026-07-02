@@ -350,6 +350,150 @@ def test_witness_real_reindex_end_to_end(tmp_path):
     assert ("service", "helper", "calls") in triples
 
 
+# -- C1/C2: declared echo — canonical name + ambiguity ------------------------------------
+
+
+def test_witness_declared_echoes_canonical_qualified_name(tmp_path):
+    """C1: an UNQUALIFIED authored declared name resolves to (and echoes) the class-qualified
+    CANONICAL derived name, resolved true — so kernel-side coverage compares
+    canonical-to-canonical (an unqualified declared method no longer false-positives as an
+    undeclared cascade AND over-declared)."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+    (repo / "svc.py").write_text("# changed\n")
+
+    symbols = [("scip py `svc`/Heartgate#validate_closure().", "svc.py", "validate_closure#")]
+    refs = [parse_code_ref("svc.py:validate_closure")]  # UNQUALIFIED authored name
+    doc = build_witness(repo, _seeder(symbols, []), code_refs=refs, lang="python")
+
+    expected = {"file": "svc.py", "name": "Heartgate.validate_closure", "resolved": True}
+    assert doc["declared"] == [expected], doc["declared"]
+
+
+def test_witness_ambiguous_unqualified_declared_is_unresolved(tmp_path):
+    """C2: a bare declared name matching MORE THAN ONE canonical symbol in the file is
+    AMBIGUOUS -> resolved:false (an ambiguous claim must never count as coverage). The
+    authored name is echoed back (never dropped)."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+    (repo / "svc.py").write_text("# changed\n")
+
+    symbols = [
+        ("scip py `svc`/A#foo().", "svc.py", "foo#"),  # A.foo
+        ("scip py `svc`/B#foo().", "svc.py", "foo#"),  # B.foo
+    ]
+    refs = [parse_code_ref("svc.py:foo")]  # bare, matches BOTH A.foo and B.foo
+    doc = build_witness(repo, _seeder(symbols, []), code_refs=refs, lang="python")
+
+    decl = doc["declared"]
+    assert decl == [{"file": "svc.py", "name": "foo", "resolved": False}], decl
+
+
+# -- C3: fresh store per witness -----------------------------------------------------------
+
+
+def test_witness_fresh_store_drops_stale_symbols(tmp_path):
+    """C3: build_witness deletes the store before reindex, so a symbol/edge seeded into a
+    PRIOR store does not survive to manufacture false hop-1 coverage — the ingest ladder
+    appends without clearing."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+    (repo / "svc.py").write_text("# changed\n")
+
+    # Pre-seed a STALE symbol + edge in the changed file.
+    db = default_store_path(repo, create=True)
+    with Store(db) as s:
+        s.add_symbol(Symbol(symbol="scip py `svc`/Stale#", file="svc.py", name="Stale#", line=1))
+        s.record_symbol_source("scip", "scip py `svc`/Stale#")
+        s.add_symbol(Symbol(symbol="scip py `svc`/StaleDep#", file="svc.py", name="StaleDep#"))
+        s.record_symbol_source("scip", "scip py `svc`/StaleDep#")
+        s.add_edge(
+            Edge(
+                src="scip py `svc`/Stale#",
+                dst="scip py `svc`/StaleDep#",
+                rel="calls",
+                source="scip",
+            )
+        )
+        s.set_watermark("stale", "stale")
+        s.commit()
+
+    # A fresh reindex seeds DIFFERENT content (Fresh, no Stale).
+    fresh = _seeder([("scip py `svc`/Fresh#", "svc.py", "Fresh#")], [])
+    doc = build_witness(repo, fresh, lang="python")
+
+    names = {(e["file"], e["name"]) for e in doc["symbols_touched"]}
+    assert ("svc.py", "Fresh") in names, names
+    assert ("svc.py", "Stale") not in names, "stale symbol must not survive a fresh witness store"
+    edges = {(e["src"]["name"], e["dst"]["name"]) for e in doc["neighborhood"]}
+    assert ("Stale", "StaleDep") not in edges, "stale edge must not survive to fake coverage"
+
+
+# -- C4: non-indexed-language changed files stay visible -----------------------------------
+
+
+def test_witness_non_indexed_language_file_is_unresolved_touched(tmp_path):
+    """C4: a changed file OUTSIDE the indexed language (a .rs when lang=python) surfaces
+    file-level in unresolved_touched ({file, name: null}), never silently dropped."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    (repo / "lib.rs").write_text("fn main() {}\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+    (repo / "svc.py").write_text("# changed\n")
+    (repo / "lib.rs").write_text("fn main() { let x = 1; }\n")  # changed .rs (non-python)
+
+    symbols = [("scip py `svc`/Service#", "svc.py", "Service#")]
+    doc = build_witness(repo, _seeder(symbols, []), lang="python")
+
+    assert {"file": "lib.rs", "name": None} in doc["unresolved_touched"], doc["unresolved_touched"]
+    assert {e["name"] for e in doc["symbols_touched"]} == {"Service"}
+
+
+# -- C5: touched-scoped ingestion floor ----------------------------------------------------
+
+
+def test_witness_touched_ingestion_floor_ignores_scip_elsewhere(tmp_path):
+    """C5: the floor reflects the TOUCHED symbols' OWN sources — a tree-sitter-owned touched
+    symbol yields 'treesitter' even when SCIP symbols exist ELSEWHERE (unchanged files). A
+    store-global floor would launder the tree-sitter touched symbol up to 'scip'."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    (repo / "other.py").write_text("# other\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+    (repo / "svc.py").write_text("# changed\n")  # ONLY svc.py changed
+
+    def reindex(repo, *, lang="python"):
+        db = default_store_path(repo, create=True)
+        with Store(db) as s:
+            # touched symbol (in the changed file) owned by TREE-SITTER
+            ts_id = "tree-sitter python svc.py:S#1"
+            s.add_symbol(Symbol(symbol=ts_id, file="svc.py", name="S", line=1))
+            s.record_symbol_source("tree_sitter", ts_id)
+            # a SCIP symbol ELSEWHERE (unchanged file) — the would-be laundering vector
+            s.add_symbol(Symbol(symbol="scip py `other`/O#", file="other.py", name="O#", line=1))
+            s.record_symbol_source("scip", "scip py `other`/O#")
+            s.set_watermark("x", "x")
+            s.commit()
+        return {"indexed": True}
+
+    doc = build_witness(repo, reindex, lang="python")
+    assert {e["name"] for e in doc["symbols_touched"]} == {"S"}, doc["symbols_touched"]
+    assert doc["ingestion"] == "treesitter", doc["ingestion"]
+
+
 def test_changed_paths_sees_files_inside_new_untracked_directory(tmp_path):
     """-uall regression (#85 e2e proof): a brand-new directory must yield its
     individual files, not one collapsed '?? dir/' entry the suffix filter drops."""

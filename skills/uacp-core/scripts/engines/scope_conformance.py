@@ -596,8 +596,8 @@ def _normalize_code_refs(raw: Any) -> list[dict[str, str]] | None:
 
 def _check_cascade_witness(root: Path, scope_rel: str, scope: Any) -> list[Violation]:
     """SC_UNDECLARED_CASCADE / SC_SCOPE_OVERDECLARED / SC_WITNESS_UNRESOLVED_CLAIM /
-    SC_WITNESS_UNAVAILABLE — compare the scope's DECLARED ``code_refs`` against the
-    independent codeflair account of the actual change.
+    SC_WITNESS_UNRESOLVED_TOUCHED / SC_WITNESS_UNAVAILABLE — compare the scope's DECLARED
+    ``code_refs`` against the independent codeflair account of the actual change.
 
     The witness reports FACTS ONLY; this gate computes every verdict (design node 02):
     the witness derives, the code compares — a codeflair coverage bug must stay
@@ -748,6 +748,30 @@ def _check_cascade_witness(root: Path, scope_rel: str, scope: Any) -> list[Viola
                 severity="warn",
                 symbols=[f"{f}:{n}" for f, n in shown],
                 total=len(over_declared),
+            )
+        )
+
+    # Unresolved-touched surfacing (K3 / design node 02): fired UNCONDITIONALLY whenever
+    # the witness reports touched-but-unresolvable files, regardless of any other finding.
+    # A diff whose ONLY changed files are unparseable produces no cascade and would
+    # otherwise vanish entirely (silent fail-open forbidden); it is visible-but-not-
+    # blocking. This code OWNS the surfacing — the copy in the cascade advisory's detail
+    # above is informational context only.
+    unresolved_touched_fmt = [
+        x for x in (_fmt_unresolved(e) for e in facts.unresolved_touched) if x is not None
+    ]
+    if unresolved_touched_fmt:
+        shown = unresolved_touched_fmt[:20]
+        out.append(
+            _v(
+                "SC_WITNESS_UNRESOLVED_TOUCHED",
+                f"{len(unresolved_touched_fmt)} changed file(s)/symbol(s) the witness could not "
+                f"resolve in the code graph (new/unparseable/unsupported-language code): {shown}"
+                f"{' (truncated)' if len(unresolved_touched_fmt) > len(shown) else ''} — "
+                f"changed code the witness cannot reason about, surfaced (scope {scope_rel})",
+                severity="warn",
+                unresolved_touched=shown,
+                total=len(unresolved_touched_fmt),
             )
         )
 
