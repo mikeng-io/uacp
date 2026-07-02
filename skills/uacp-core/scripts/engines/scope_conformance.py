@@ -540,9 +540,19 @@ def _check_diff_containment(
 
     offenders: list[str] = []
     for rel in result.files:
+        if rel.startswith(".codeflair/"):
+            # Gate-owned witness index cache. The 02 contract exempts it as a
+            # declared mutation; on a repo that does not gitignore it, the gate
+            # must not flag its OWN cache as an out-of-scope write (post-merge P2).
+            continue
         apath = _resolve_under_root(root, rel)
         if apath is None:
-            continue  # escaping/undecodable path — traversal is the escape check's turf
+            # A git-REPORTED change that does not resolve INSIDE the workspace is
+            # an ESCAPE (a symlink pointing out, e.g. rogue -> /tmp/x), not noise:
+            # these paths come from ground-truth observation, never from an
+            # authored traversal field — fail-visible, not skip (post-merge P2).
+            offenders.append(rel)
+            continue
         if any(_is_contained(apath, base) for base in allowed_roots):
             continue
         rel_norm = apath.relative_to(Path(str(root)).resolve()).as_posix()

@@ -1021,3 +1021,56 @@ def test_witness_cli_workspace_resident_argument_rejected(
     hits = [v for v in violations if v.code == "SC_WITNESS_UNAVAILABLE"]
     assert hits, f"expected SC_WITNESS_UNAVAILABLE, got {_codes(violations)}"
     assert any("run workspace" in v.message for v in hits), [v.message for v in hits]
+
+
+def test_diff_gate_owned_cache_dir_exempt(temp_uacp_root: Path, valid_run_id: str):
+    """Post-merge P2: on a repo that does NOT gitignore .codeflair/, the gate must
+    not flag its own witness index cache as an out-of-scope write."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    cache = temp_uacp_root / ".codeflair"
+    cache.mkdir()
+    (cache / "index.db").write_text("sqlite-bytes-stand-in")
+
+    assert _diff_codes(validate(temp_uacp_root, valid_run_id)) == set()
+
+
+def test_diff_symlink_escaping_workspace_is_flagged(temp_uacp_root: Path, valid_run_id: str):
+    """Post-merge P2: a git-reported change that resolves OUTSIDE the workspace
+    (symlink out) is an escape and must be flagged, never silently skipped."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue-link").symlink_to("/tmp")
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_DIFF_OUT_OF_SCOPE"]
+    assert hits, f"expected SC_DIFF_OUT_OF_SCOPE for the escaping symlink, got {_codes(violations)}"
+    assert any("rogue-link" in v.message for v in hits), [v.message for v in hits]
+
+
+def test_witness_subprocess_cwd_is_not_the_workspace(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    """Post-merge P1: launcher witnesses resolve modules/projects from cwd; the
+    exec must pin a neutral cwd, never inherit one inside the run workspace."""
+    import os as _os
+
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    _init_git_repo(temp_uacp_root)
+    cwd_probe = tmp_path / "cwd.txt"
+    probe = tmp_path / "cwd_probe.py"
+    probe.write_text(
+        "import os, sys, pathlib\n"
+        f"pathlib.Path({str(cwd_probe)!r}).write_text(os.getcwd())\n"
+        "print('not json')\n"
+    )
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(probe))
+    clear_witness_memo()
+
+    monkeypatch.chdir(temp_uacp_root)  # simulate a validator running inside the workspace
+    validate(temp_uacp_root, valid_run_id)
+    recorded = cwd_probe.read_text().strip()
+    assert _os.path.realpath(recorded) != _os.path.realpath(str(temp_uacp_root)), recorded
