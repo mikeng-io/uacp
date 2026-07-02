@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS: aggregate root of the conformance-witnesses design bundle.
+# WHAT IT DOES: lists member nodes (reading order), declares the inter-node graph,
+#               records status/governance/scope.
+
+kind: design_index
+title: Conformance Architecture — Witness Model & Scoreboard
+description: >-
+  Defines UACP as a conformance architecture: every gate decides "does layer N conform to
+  layer N-1", never "is N correct" (correctness = conformance-to-intent, an asymptote with no
+  independent witness). Progress is a one-directional ratchet converting layers from
+  self-attested to independently witnessed (LLM-independent or deterministic). Node 00 owns
+  the model and the witness independence classes; node 01 owns the scoreboard row schema and
+  the seeded as-built inventory (live state lives on the program board's Scoreboard view, not
+  here). Names Scope/boundedness as the next conversion (epic #80, issues #82-#86); the seam
+  decision node arrives with issue #84.
+status: design
+governance: pre-governance-input
+timestamp: '2026-07-03'
+origin: >-
+  epic #80 (Conformance Architecture) + issue #81 (witness scoreboard model); authored
+  2026-07-03 outside a governed run (lifecycle unavailable), grounded in the as-built engines
+  sweep and the codeflair design bundle (CF-D9).
+schema_dir: ../graph-engine/schema/
+
+members:
+  - 00-conformance-model.md
+  - 01-witness-scoreboard.md
+  - 02-scope-witness-seam.md
+
+edges:
+  - {src: 01-witness-scoreboard, dst: 00-conformance-model, rel: realizes, provenance: asserted}
+  - {src: 02-scope-witness-seam, dst: 01-witness-scoreboard, rel: depends_on, provenance: asserted}
+
+scope:
+  v1:
+    - witness independence-class model (self-attested / LLM-independent / deterministic)
+    - scoreboard row schema + seeded as-built inventory (single-repo, Python kernel)
+    - scope/boundedness named as the next conversion (detection-at-VERIFY first)
+  deferred:
+    - prevention-at-PLAN (issue #86 — only after the VERIFY-side witness proves the seam)
+    - class-underclaim second witness (issue #87 — reuses the Scope seam)
+    - multi-repo / multi-language witnessing (Trustless bench not yet run)
