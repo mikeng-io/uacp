@@ -1,7 +1,7 @@
 ---
 type: decision
 title: "Class witness — per-target symbol claim, kernel-mapped connectivity heuristic (witness #2)"
-description: "Extends the scope-witness seam to the Verification-strength layer (issue #87): a scope_item/work_unit optionally claims its code symbol; the gate reuses the gate-invoked codeflair derivation for per-symbol connectivity FACTS; the kernel maps facts to an entailed class via the LOCKED heuristic and feeds validate_class_underclaim. The agent-writable entailed_class manifest field is superseded wherever the witness is active."
+description: "Extends the scope-witness seam to the Verification-strength layer (issue #87): a scope_item/work_unit optionally claims its code symbol; the gate reuses the gate-invoked codeflair derivation for per-symbol connectivity FACTS; the kernel maps facts to an entailed class via the LOCKED heuristic and feeds validate_class_underclaim. The agent-writable entailed_class field becomes one source in a raise-only max-rank oracle — it can never again be the lone, forgeable word."
 tags: [conformance, witness, class-underclaim, codeflair, decision, verification]
 timestamp: 2026-07-03
 edges:
@@ -80,9 +80,13 @@ facts surface:
   unchanged; only the oracle's provenance and rank floor upgrade. Promotion
   rides 02's criteria PLUS two class-specific blockers: (a) the
   statically-invisible-wiring false-`sets_value` rate must be measured on
-  real targets before any blocking, and (b) `CHK_CLASS_REF_UNTOUCHED` must
+  real targets before any blocking, (b) `CHK_CLASS_REF_UNTOUCHED` must
   stay a flag (the diff-grounding is the anti-laundering premise — it never
-  becomes waivable).
+  becomes waivable), and (c) claim COMPLETENESS needs a measure before any
+  blocking: raise-only means partial claiming (naming only a target's weakest
+  touched symbols) cannot regress today's catch, but at promotion — when
+  absence escalates — partial claims become the evasion of that escalation;
+  code_refs-vs-touched-set completeness is the sibling of 02's criterion 7.
 
 ## Why this is the whole design
 
