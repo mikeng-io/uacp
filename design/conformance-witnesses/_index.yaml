@@ -27,6 +27,18 @@ schema_dir: ../graph-engine/schema/
 members:
   - 00-conformance-model.md
   - 01-witness-scoreboard.md
+  - 02-scope-witness-seam.md
 
 edges:
   - {src: 01-witness-scoreboard, dst: 00-conformance-model, rel: realizes, provenance: asserted}
+  - {src: 02-scope-witness-seam, dst: 01-witness-scoreboard, rel: depends_on, provenance: asserted}
+
+scope:
+  v1:
+    - witness independence-class model (self-attested / LLM-independent / deterministic)
+    - scoreboard row schema + seeded as-built inventory (single-repo, Python kernel)
+    - scope/boundedness named as the next conversion (detection-at-VERIFY first)
+  deferred:
+    - prevention-at-PLAN (issue #86 — only after the VERIFY-side witness proves the seam)
+    - class-underclaim second witness (issue #87 — reuses the Scope seam)
+    - multi-repo / multi-language witnessing (Trustless bench not yet run)

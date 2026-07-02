@@ -32,7 +32,7 @@ increasing trust:
 
 | Class | Definition | Example |
 |---|---|---|
-| **self-attested** | The agent that did the work also produced the only record the gate reads. The gate measures a claim against a claim. | `entailed_class` on a check manifest — agent-written, agent-graded (`manifest/projection.py::validate_class_underclaim`) |
+| **self-attested** | The agent that did the work also produced the only record the gate reads. The gate measures a claim against a claim. | `entailed_class` on a check manifest — the code already treats it as an independent-oracle seam (`manifest/projection.py::validate_class_underclaim`), but nothing feeds it yet: today it is test-injected/forgeable, so in practice the layer self-attests |
 | **LLM-independent** | A *different* model/provider derives its own account; the gate compares provenance-checked accounts. Semantic, non-deterministic, but no longer self-grading. | cross-provider council review; the generative gate's independent lens |
 | **deterministic** | Code derives the account from ground truth with no model in the loop; the gate compares claim vs derived fact. | git diff vs declared `write_paths`; codeflair symbol graph vs declared touch-set |
 
