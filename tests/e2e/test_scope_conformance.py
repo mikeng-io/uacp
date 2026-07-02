@@ -372,3 +372,346 @@ def test_diff_governed_namespace_changes_quiet(temp_uacp_root: Path, valid_run_i
     note.write_text("note: governed-namespace write\n")
 
     assert _diff_codes(validate(temp_uacp_root, valid_run_id)) == set()
+
+
+# ---------------------------------------------------------- SC cascade witness (#85)
+# The scope-witness half of #85: the agent AUTHORS code_refs (the falsifiable claim);
+# the GATE derives an INDEPENDENT account by exec'ing the codeflair CLI (design node 02).
+# These teeth tests drive the engine through a STUB CLI resolved from operator config
+# (config/uacp.toml [witness].codeflair_cli via a per-root .uacp/config.toml override —
+# the FAITHFUL resolution path, no monkeypatch: it also proves the trust root reads from
+# operator config, never the workspace). The stub prints a fixture JSON (parameterized by
+# writing it to a file the stub cats) and appends to an invocations log, so tests both
+# assert verdicts and count CLI invocations for the memo test. All witness codes are
+# advisory severity "warn".
+
+import json  # noqa: E402
+import sys  # noqa: E402
+
+from engines.io import clear_witness_memo, derive_witness  # noqa: E402
+
+from config import clear_config_cache  # noqa: E402
+
+_WITNESS_CODES = {
+    "SC_UNDECLARED_CASCADE",
+    "SC_SCOPE_OVERDECLARED",
+    "SC_WITNESS_UNRESOLVED_CLAIM",
+    "SC_WITNESS_UNAVAILABLE",
+}
+
+# The stub CLI: append one byte to calls.log, print fixture.json to stdout, exit 0.
+_STUB_SRC = (
+    "import pathlib, sys\n"
+    "here = pathlib.Path(__file__).resolve().parent\n"
+    "with (here / 'calls.log').open('a') as _f:\n"
+    "    _f.write('x')\n"
+    "sys.stdout.write((here / 'fixture.json').read_text())\n"
+)
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _isolate_witness_memo():
+    """The witness derivation memo is process-global — reset it around each test."""
+    clear_witness_memo()
+    yield
+    clear_witness_memo()
+
+
+def _install_stub(stub_dir: Path, fixture: object) -> tuple[Path, Path]:
+    """Write the stub CLI + its fixture under ``stub_dir``. ``fixture`` is dumped as
+    JSON when a dict/list, else written verbatim (for the garbled-stdout case).
+    Returns (stub_py, calls_log)."""
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    stub_py = stub_dir / "stub.py"
+    stub_py.write_text(_STUB_SRC)
+    fixture_path = stub_dir / "fixture.json"
+    if isinstance(fixture, (dict, list)):
+        fixture_path.write_text(json.dumps(fixture))
+    else:
+        fixture_path.write_text(str(fixture))
+    calls_log = stub_dir / "calls.log"
+    return stub_py, calls_log
+
+
+def _configure_witness_cli(root: Path, cli: str) -> None:
+    """Point [witness].codeflair_cli (operator config) at ``cli`` via a per-root
+    .uacp/config.toml override — the real resolution path the kernel uses."""
+    cfg = root / ".uacp" / "config.toml"
+    cfg.write_text(f"[witness]\ncodeflair_cli = {json.dumps(cli)}\n")
+    clear_config_cache()
+
+
+def _stub_cli(stub_py: Path) -> str:
+    return f"{json.dumps(sys.executable)[1:-1]} {stub_py}"
+
+
+def _set_code_refs(root: Path, run_id: str, refs: list[dict[str, str]]) -> None:
+    body = _load_scope(root, run_id)
+    body["code_refs"] = refs
+    _write_scope(root, run_id, body)
+
+
+def _sym_json(file: str, name: str) -> dict:
+    return {"file": file, "name": name}
+
+
+def _decl(file: str, name: str, resolved: bool) -> dict:
+    return {"file": file, "name": name, "resolved": resolved}
+
+
+def _edge(src: tuple[str, str], dst: tuple[str, str], reason: str = "calls") -> dict:
+    return {"src": _sym_json(*src), "dst": _sym_json(*dst), "reason": reason}
+
+
+def _witness_fixture(
+    *,
+    ingestion: str = "scip",
+    declared: list[dict] | None = None,
+    symbols_touched: list[tuple[str, str]] | None = None,
+    neighborhood: list[dict] | None = None,
+    unresolved_touched: list[tuple[str, str]] | None = None,
+) -> dict:
+    return {
+        "graph_stamp": {"commit": "deadbeef", "tree_token": "t1"},
+        "ingestion": ingestion,
+        "symbols_touched": [_sym_json(f, n) for f, n in (symbols_touched or [])],
+        "neighborhood": neighborhood or [],
+        "declared": declared or [],
+        "unresolved_touched": [_sym_json(f, n) for f, n in (unresolved_touched or [])],
+    }
+
+
+def _witness_codes(violations: list[Violation]) -> set[str]:
+    return {v.code for v in violations if v.code in _WITNESS_CODES}
+
+
+# (a) undeclared cascade fires, naming the symbol, severity warn.
+def test_witness_undeclared_cascade_fires(temp_uacp_root: Path, valid_run_id: str, tmp_path: Path):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    fixture = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        symbols_touched=[("src/a.py", "Alpha"), ("src/b.py", "Beta")],  # Beta not adjacent
+        neighborhood=[],
+    )
+    stub_py, _ = _install_stub(tmp_path / "cf", fixture)
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_UNDECLARED_CASCADE"]
+    assert hits, f"expected SC_UNDECLARED_CASCADE, got {_codes(violations)}"
+    assert any("Beta" in v.message for v in hits), [v.message for v in hits]
+    assert all(v.severity == "warn" for v in hits)
+    assert "SC_SCOPE_OVERDECLARED" not in _codes(violations)
+
+
+# (b) touched symbol hop-1-connected to a declared ref -> quiet.
+def test_witness_hop1_connected_is_quiet(temp_uacp_root: Path, valid_run_id: str, tmp_path: Path):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    fixture = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        symbols_touched=[("src/a.py", "Alpha"), ("src/b.py", "Beta")],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("src/b.py", "Beta"))],  # Beta hop-1 of Alpha
+    )
+    stub_py, _ = _install_stub(tmp_path / "cf", fixture)
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+
+    assert _witness_codes(validate(temp_uacp_root, valid_run_id)) == set()
+
+
+# (c) over-declaration fires.
+def test_witness_over_declaration_fires(temp_uacp_root: Path, valid_run_id: str, tmp_path: Path):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(
+        temp_uacp_root,
+        valid_run_id,
+        [{"file": "src/a.py", "name": "Alpha"}, {"file": "src/z.py", "name": "Zeta"}],
+    )
+    fixture = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True), _decl("src/z.py", "Zeta", True)],
+        symbols_touched=[("src/a.py", "Alpha")],  # Zeta neither touched nor adjacent
+        neighborhood=[],
+    )
+    stub_py, _ = _install_stub(tmp_path / "cf", fixture)
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_SCOPE_OVERDECLARED"]
+    assert hits, f"expected SC_SCOPE_OVERDECLARED, got {_codes(violations)}"
+    assert any("Zeta" in v.message for v in hits), [v.message for v in hits]
+    assert all(v.severity == "warn" for v in hits)
+    assert "SC_UNDECLARED_CASCADE" not in _codes(violations)
+
+
+# (d) unresolved declared ref fires SC_WITNESS_UNRESOLVED_CLAIM and does NOT count as coverage.
+def test_witness_unresolved_declared_does_not_cover(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(
+        temp_uacp_root,
+        valid_run_id,
+        [{"file": "src/a.py", "name": "Alpha"}, {"file": "src/ghost.py", "name": "Ghost"}],
+    )
+    # Alpha resolves; Ghost does NOT. G2 is touched and hop-1-adjacent ONLY to the
+    # UNRESOLVED Ghost -> Ghost must not cover it, so G2 is an undeclared cascade.
+    fixture = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True), _decl("src/ghost.py", "Ghost", False)],
+        symbols_touched=[("src/a.py", "Alpha"), ("src/g2.py", "G2")],
+        neighborhood=[_edge(("src/ghost.py", "Ghost"), ("src/g2.py", "G2"))],
+    )
+    stub_py, _ = _install_stub(tmp_path / "cf", fixture)
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    codes = _codes(violations)
+    assert "SC_WITNESS_UNRESOLVED_CLAIM" in codes, codes
+    assert any("Ghost" in v.message for v in violations if v.code == "SC_WITNESS_UNRESOLVED_CLAIM")
+    # Proof the unresolved ref did not count as coverage: G2 shows up as a cascade.
+    cascade = [v for v in violations if v.code == "SC_UNDECLARED_CASCADE"]
+    assert cascade and any("G2" in v.message for v in cascade), (
+        "unresolved declared ref must not cover its neighbor"
+    )
+
+
+# (e) no code_refs -> no witness codes and the CLI is never invoked.
+def test_witness_no_code_refs_is_noop_and_never_invokes_cli(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)  # no code_refs on the scope
+    fixture = _witness_fixture(declared=[], symbols_touched=[])
+    stub_py, calls_log = _install_stub(tmp_path / "cf", fixture)
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    assert _witness_codes(violations) == set()
+    assert not calls_log.exists(), "CLI must not be invoked when no code_refs are declared"
+
+
+# (f) unconfigured / absent CLI -> SC_WITNESS_UNAVAILABLE.
+def test_witness_unconfigured_cli_is_unavailable(temp_uacp_root: Path, valid_run_id: str):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    # No [witness] config written -> codeflair_cli is None -> unconfigured.
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_WITNESS_UNAVAILABLE"]
+    assert hits, f"expected SC_WITNESS_UNAVAILABLE, got {_codes(violations)}"
+    assert all(v.severity == "warn" for v in hits)
+    assert any("not configured" in (v.detail.get("error") or "") for v in hits)
+
+
+# (g) garbled stdout -> SC_WITNESS_UNAVAILABLE.
+def test_witness_garbled_stdout_is_unavailable(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    stub_py, calls_log = _install_stub(tmp_path / "cf", "this is not json {[")
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_WITNESS_UNAVAILABLE"]
+    assert hits, f"expected SC_WITNESS_UNAVAILABLE, got {_codes(violations)}"
+    assert all(v.severity == "warn" for v in hits)
+    # Garbled output is retried ONCE before reporting unavailable (2 invocations).
+    assert calls_log.read_text() == "xx", "garbled derivation must retry exactly once"
+
+
+# (h) ingestion "treesitter" -> SC_WITNESS_UNAVAILABLE (weaker provenance floor rejected).
+def test_witness_weaker_provenance_floor_is_unavailable(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    fixture = _witness_fixture(
+        ingestion="treesitter",
+        declared=[_decl("src/a.py", "Alpha", True)],
+        symbols_touched=[("src/a.py", "Alpha")],
+    )
+    stub_py, _ = _install_stub(tmp_path / "cf", fixture)
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_WITNESS_UNAVAILABLE"]
+    assert hits, f"expected SC_WITNESS_UNAVAILABLE, got {_codes(violations)}"
+    assert any("scip" in v.message or "provenance" in v.message for v in hits), [
+        v.message for v in hits
+    ]
+
+
+# (i) memo reuse: two validate() calls with an unchanged tree invoke the CLI exactly once.
+def test_witness_memo_reuse_invokes_cli_once(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    fixture = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        symbols_touched=[("src/a.py", "Alpha")],
+    )
+    stub_py, calls_log = _install_stub(tmp_path / "cf", fixture)
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+    # A git repo is required for the tree-token approximation the memo keys on.
+    _init_git_repo(temp_uacp_root)
+
+    first = validate(temp_uacp_root, valid_run_id)
+    second = validate(temp_uacp_root, valid_run_id)
+    assert _witness_codes(first) == set()
+    assert _witness_codes(second) == set()
+    assert calls_log.read_text() == "x", "unchanged tree must reuse the memoized derivation"
+
+
+# (i-bis) memo key includes the claim: same tree, CHANGED code_refs -> CLI re-invoked.
+# Driven at the io seam directly so the tree token is held CONSTANT while only the
+# claim changes (changing code_refs via the scope file would also change the tree).
+def test_witness_memo_rederives_on_changed_code_refs(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    fixture = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        symbols_touched=[("src/a.py", "Alpha")],
+    )
+    stub_py, calls_log = _install_stub(tmp_path / "cf", fixture)
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+    _init_git_repo(temp_uacp_root)  # tree token stays constant across the calls below
+
+    refs_a = [{"file": "src/a.py", "name": "Alpha"}]
+    refs_b = [{"file": "src/b.py", "name": "Beta"}]
+    derive_witness(temp_uacp_root, refs_a)  # exec (1)
+    derive_witness(temp_uacp_root, refs_a)  # memo hit (unchanged tree + claim)
+    derive_witness(temp_uacp_root, refs_b)  # changed claim -> re-derive (2)
+    assert calls_log.read_text() == "xx", (
+        "same tree but changed code_refs must re-derive (stdout depends on the claim)"
+    )
+
+
+# (j) unresolved_touched tolerates a NULL name (file-level entry for an unparseable file):
+# it must parse cleanly and surface the bare file path in the cascade advisory detail.
+def test_witness_unresolved_touched_null_name_tolerated(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    fixture = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        symbols_touched=[("src/a.py", "Alpha"), ("src/b.py", "Beta")],  # Beta -> cascade
+        neighborhood=[],
+    )
+    # A file-level unresolved entry with a NULL name (unparseable new file).
+    fixture["unresolved_touched"] = [{"file": "src/new.py", "name": None}]
+    stub_py, _ = _install_stub(tmp_path / "cf", fixture)
+    _configure_witness_cli(temp_uacp_root, _stub_cli(stub_py))
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    cascade = [v for v in violations if v.code == "SC_UNDECLARED_CASCADE"]
+    assert cascade, f"expected SC_UNDECLARED_CASCADE, got {_codes(violations)}"
+    # The null-name file surfaces as the bare path in the advisory detail, not dropped.
+    assert any("src/new.py" in v.detail.get("unresolved_touched", []) for v in cascade), [
+        v.detail for v in cascade
+    ]

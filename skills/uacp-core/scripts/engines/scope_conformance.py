@@ -85,6 +85,7 @@ from engines.domain import layout
 # All filesystem access is delegated to the io layer (no raw reads here).
 from engines.io import (
     changed_files,
+    derive_witness,
     load_artifact,
     load_manifest,
     load_registry,
@@ -203,6 +204,7 @@ def validate(workspace: str | Path, run_id: str) -> list[Violation]:
     violations.extend(_check_scope_registry(root, run_id, scope_rel, scope_wps, scope.write_paths))
     violations.extend(_check_artifact_containment(root, scope_rel, scope_wps, artifacts))
     violations.extend(_check_diff_containment(root, scope_rel, scope_wps))
+    violations.extend(_check_cascade_witness(root, scope_rel, scope))
 
     return violations
 
@@ -546,6 +548,209 @@ def _check_diff_containment(
                 total=len(offenders),
             )
         )
+    return out
+
+
+# --------------------------------------------------------- SC cascade witness
+def _sym(entry: Any) -> tuple[str, str] | None:
+    """Coerce a {file, name} dict into a comparable (file, name) tuple, or None if
+    the shape is not a pair of non-empty strings. Symbols compare as (file, name)."""
+    if not isinstance(entry, dict):
+        return None
+    f = entry.get("file")
+    n = entry.get("name")
+    if isinstance(f, str) and f and isinstance(n, str) and n:
+        return (f, n)
+    return None
+
+
+def _fmt_unresolved(entry: Any) -> str | None:
+    """Render an ``unresolved_touched`` entry for display. Tolerates a NULL name —
+    the contract allows file-level entries {file, name: null} for unparseable files,
+    which surface as the bare file path (visible-not-blocking)."""
+    if not isinstance(entry, dict):
+        return None
+    f = entry.get("file")
+    if not isinstance(f, str) or not f:
+        return None
+    n = entry.get("name")
+    return f"{f}:{n}" if isinstance(n, str) and n else f
+
+
+def _normalize_code_refs(raw: Any) -> list[dict[str, str]] | None:
+    """Return code_refs as a list of {file, name} str dicts, or None if malformed.
+
+    Absent/None/empty is handled by the caller (a no-op). This is a DEFENSIVE read:
+    the write-time schema constrains code_refs, but the engine reads possibly
+    hand-tampered state, so a malformed shape is surfaced (never silently dropped)."""
+    if not isinstance(raw, list):
+        return None
+    out: list[dict[str, str]] = []
+    for item in raw:
+        sym = _sym(item)
+        if sym is None:
+            return None
+        out.append({"file": sym[0], "name": sym[1]})
+    return out
+
+
+def _check_cascade_witness(root: Path, scope_rel: str, scope: Any) -> list[Violation]:
+    """SC_UNDECLARED_CASCADE / SC_SCOPE_OVERDECLARED / SC_WITNESS_UNRESOLVED_CLAIM /
+    SC_WITNESS_UNAVAILABLE — compare the scope's DECLARED ``code_refs`` against the
+    independent codeflair account of the actual change.
+
+    The witness reports FACTS ONLY; this gate computes every verdict (design node 02):
+    the witness derives, the code compares — a codeflair coverage bug must stay
+    recomputable kernel-side. All codes are advisory ``severity: warn`` in v1.
+
+    Doctrine, in order:
+    * no ``code_refs`` (absent/None/empty) -> no-op (the claim is opt-in until promotion);
+    * malformed ``code_refs`` -> ``SC_WITNESS_UNRESOLVED_CLAIM`` (defensive read of
+      possibly-tampered state; the CLI is NOT invoked);
+    * witness unavailable (unconfigured/absent CLI, non-zero, garbled, timed out after
+      the one retry) -> ``SC_WITNESS_UNAVAILABLE`` (fail-closed visibility, gitio parity);
+    * weaker provenance floor (``ingestion != "scip"``) -> ``SC_WITNESS_UNAVAILABLE``;
+    * else compute coverage: a touched symbol is COVERED iff it is a resolved declared
+      ref OR hop-1-adjacent (either endpoint, any reason) to one. Undeclared cascade,
+      over-declaration, and unresolved declared refs each get their own advisory.
+    """
+    raw = getattr(scope, "code_refs", None)
+    if raw is None or raw == []:
+        return []  # opt-in claim absent -> no-op (CLI never invoked)
+
+    refs = _normalize_code_refs(raw)
+    if refs is None:
+        return [
+            _v(
+                "SC_WITNESS_UNRESOLVED_CLAIM",
+                f"scope.code_refs is malformed (not a list of {{file, name}} string pairs) "
+                f"({scope_rel}); cannot derive the cascade witness",
+                severity="warn",
+            )
+        ]
+
+    result = derive_witness(root, refs)
+    if not result.available:
+        return [
+            _v(
+                "SC_WITNESS_UNAVAILABLE",
+                f"scope declares code_refs but the cascade witness could not testify "
+                f"({result.error}); cascade-containment for scope {scope_rel} not verifiable",
+                severity="warn",
+                error=result.error,
+                command=list(result.command),
+            )
+        ]
+
+    facts = result.facts
+    if facts is None or facts.ingestion != "scip":
+        return [
+            _v(
+                "SC_WITNESS_UNAVAILABLE",
+                f"cascade witness reported a weaker provenance floor "
+                f"(ingestion={facts.ingestion if facts else None!r}, expected 'scip') "
+                f"for scope {scope_rel}; account rejected",
+                severity="warn",
+                ingestion=(facts.ingestion if facts else None),
+                command=list(result.command),
+            )
+        ]
+
+    out: list[Violation] = []
+
+    # Declared echo: resolved refs count as coverage anchors; unresolved refs never do.
+    declared_resolved: set[tuple[str, str]] = set()
+    unresolved_declared: list[tuple[str, str]] = []
+    for entry in facts.declared:
+        sym = _sym(entry)
+        if sym is None:
+            continue
+        if entry.get("resolved") is True:
+            declared_resolved.add(sym)
+        else:
+            unresolved_declared.append(sym)
+
+    if unresolved_declared:
+        shown = sorted(unresolved_declared)[:20]
+        out.append(
+            _v(
+                "SC_WITNESS_UNRESOLVED_CLAIM",
+                f"{len(unresolved_declared)} declared code_ref(s) did not resolve in the "
+                f"code graph and DO NOT count as coverage: "
+                f"{[f'{f}:{n}' for f, n in shown]} (scope {scope_rel})",
+                severity="warn",
+                unresolved=[f"{f}:{n}" for f, n in shown],
+                total=len(unresolved_declared),
+            )
+        )
+
+    touched: set[tuple[str, str]] = set()
+    for entry in facts.symbols_touched:
+        sym = _sym(entry)
+        if sym is not None:
+            touched.add(sym)
+
+    # Hop-1 adjacency from the neighborhood edges: for each edge, record both
+    # directed endpoint->endpoint links so "either endpoint, any reason" holds.
+    neighbors: dict[tuple[str, str], set[tuple[str, str]]] = {}
+    for edge in facts.neighborhood:
+        if not isinstance(edge, dict):
+            continue
+        src = _sym(edge.get("src"))
+        dst = _sym(edge.get("dst"))
+        if src is None or dst is None or src == dst:
+            continue
+        neighbors.setdefault(src, set()).add(dst)
+        neighbors.setdefault(dst, set()).add(src)
+
+    def _covered(sym: tuple[str, str]) -> bool:
+        if sym in declared_resolved:
+            return True
+        return bool(neighbors.get(sym, set()) & declared_resolved)
+
+    undeclared_cascade = sorted(t for t in touched if not _covered(t))
+    if undeclared_cascade:
+        shown = undeclared_cascade[:20]
+        unresolved_touched = [
+            x for x in (_fmt_unresolved(e) for e in facts.unresolved_touched) if x is not None
+        ]
+        out.append(
+            _v(
+                "SC_UNDECLARED_CASCADE",
+                f"{len(undeclared_cascade)} touched symbol(s) are neither declared nor hop-1 "
+                f"connected to a declared code_ref (undeclared cascade): "
+                f"{[f'{f}:{n}' for f, n in shown]}"
+                f"{' (truncated)' if len(undeclared_cascade) > len(shown) else ''} — "
+                f"ungoverned reach; remedy is to re-declare code_refs (scope {scope_rel})",
+                severity="warn",
+                symbols=[f"{f}:{n}" for f, n in shown],
+                total=len(undeclared_cascade),
+                unresolved_touched=unresolved_touched,
+            )
+        )
+
+    # Over-declaration: a resolved declared ref that is neither touched nor hop-1
+    # adjacent to any touched symbol (a claim >= the graph makes every cascade
+    # "covered" — write_paths:["**"] in symbol clothing; the claim must be near-minimal).
+    hop1_of_touched: set[tuple[str, str]] = set()
+    for t in touched:
+        hop1_of_touched |= neighbors.get(t, set())
+    over_declared = sorted(declared_resolved - (touched | hop1_of_touched))
+    if over_declared:
+        shown = over_declared[:20]
+        out.append(
+            _v(
+                "SC_SCOPE_OVERDECLARED",
+                f"{len(over_declared)} declared code_ref(s) are neither touched nor hop-1 "
+                f"adjacent to any touched symbol (over-declaration): "
+                f"{[f'{f}:{n}' for f, n in shown]} — the claim must be near-minimal, "
+                f"not a superset that makes every cascade 'covered' (scope {scope_rel})",
+                severity="warn",
+                symbols=[f"{f}:{n}" for f, n in shown],
+                total=len(over_declared),
+            )
+        )
+
     return out
 
 

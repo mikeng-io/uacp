@@ -219,6 +219,63 @@ def test_scope_no_writes_intended_and_self_patch_authority_ok():
     assert validate("uacp.scope", doc) == []
 
 
+# --- uacp.scope code_refs (#85 scope-witness claim): optional, CLOSED {file,name} item shape -----
+def test_scope_valid_code_refs_validates():
+    doc = {
+        "kind": "uacp.scope",
+        "run_id": "r1",
+        "write_paths": ["src/"],
+        "blast_radius": "low",
+        "rollback_path": "none",
+        "code_refs": [
+            {"file": "src/a.py", "name": "Alpha"},
+            {"file": "src/b.py", "name": "Beta.method"},
+        ],
+    }
+    assert validate("uacp.scope", doc) == []
+
+
+def test_scope_code_refs_missing_name_fails():
+    doc = {
+        "kind": "uacp.scope",
+        "run_id": "r1",
+        "write_paths": ["src/"],
+        "blast_radius": "low",
+        "rollback_path": "none",
+        "code_refs": [{"file": "src/a.py"}],  # `name` required
+    }
+    errs = validate("uacp.scope", doc)
+    assert errs and any("name" in e or "required" in e.lower() for e in errs), errs
+
+
+def test_scope_code_refs_extra_key_fails():
+    doc = {
+        "kind": "uacp.scope",
+        "run_id": "r1",
+        "write_paths": ["src/"],
+        "blast_radius": "low",
+        "rollback_path": "none",
+        "code_refs": [{"file": "src/a.py", "name": "Alpha", "line": 12}],  # extra key
+    }
+    errs = validate("uacp.scope", doc)
+    assert errs and any("line" in e or "additional" in e.lower() for e in errs), errs
+
+
+def test_scope_code_refs_empty_name_fails():
+    doc = {
+        "kind": "uacp.scope",
+        "run_id": "r1",
+        "write_paths": ["src/"],
+        "blast_radius": "low",
+        "rollback_path": "none",
+        "code_refs": [{"file": "src/a.py", "name": ""}],  # empty string rejected
+    }
+    errs = validate("uacp.scope", doc)
+    assert errs and any(
+        "name" in e or "short" in e.lower() or "minlength" in e.lower() for e in errs
+    ), errs
+
+
 def test_golden_run_registry_fixture_validates():
     assert validate("uacp.run_registry", _load("run_registry.yaml")) == []
 
@@ -321,7 +378,9 @@ def test_piv_contract_valid_and_required_and_phase_and_open():
     # only by the offline validator -> coverage can't slip a self-gated plan-exit.
     nocov = _valid_piv()
     nocov["work_units"] = [{"id": "wu-1", "intent": "x", "expected_outputs": ["o"]}]
-    assert validate("uacp.phase_intent_verification_contract", nocov), "PIV w/o derives_from must fail"
+    assert validate("uacp.phase_intent_verification_contract", nocov), (
+        "PIV w/o derives_from must fail"
+    )
     # wrong phase const -> fails
     badp = _valid_piv()
     badp["phase"] = "execute"
@@ -486,7 +545,8 @@ def test_brainstorm_scope_package_flat_required_open():
         )
     ), "retired 'standard_uacp' value must now fail the enum"
     assert validate(
-        "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "routing_advisory": "block_or_clarify"}
+        "uacp.brainstorm_scope_package",
+        {**_valid_brainstorm(), "routing_advisory": "block_or_clarify"},
     ), "block_or_clarify is not a valid brainstorm routing_advisory"
     # wrong kind const -> fails (mis-dispatch guard)
     bad4 = {**_valid_brainstorm(), "kind": "uacp.WRONG"}
@@ -513,7 +573,8 @@ def test_brainstorm_scope_package_flat_required_open():
     assert any(
         "declared_side_effects" in e
         for e in validate(
-            "uacp.brainstorm_scope_package", {**_valid_brainstorm(), "declared_side_effects": "nope"}
+            "uacp.brainstorm_scope_package",
+            {**_valid_brainstorm(), "declared_side_effects": "nope"},
         )
     ), "non-list declared_side_effects must fail at write time"
     # whitespace-only title / authority.source must fail at write time too — the schema's \S

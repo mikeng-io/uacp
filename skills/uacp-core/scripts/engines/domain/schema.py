@@ -204,6 +204,31 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "runtime_surfaces": {"description": "Optional; type unconstrained until grounded."},
             "migrations": {"description": "Optional; type unconstrained until grounded."},
             "side_effects": {"description": "Optional; type unconstrained until grounded."},
+            # Scope-witness claim (#85): the optional, falsifiable {file, name} touch-set the
+            # cascade-witness gate derives an independent account against. CLOSED item shape —
+            # each ref is exactly {file, name}, both non-empty strings (a present-but-empty ref
+            # is a bogus claim, rejected at write, matching the projection's empty=broken rule).
+            "code_refs": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["file", "name"],
+                    "properties": {
+                        "file": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Repo-root-relative POSIX path (code store form).",
+                        },
+                        "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Class-qualified symbol name (e.g. Heartgate.validate).",
+                        },
+                    },
+                },
+                "description": "Optional scope-witness claim: symbols the run declares it touches.",
+            },
         },
     },
     # uacp.triage — the admission verdict (TRIAGE serialize). OPEN-world: the producer
