@@ -26,61 +26,84 @@ slot from the code plane.
 **Reuse the 02 seam wholesale** — same trust root, same doctrine, one new
 facts surface:
 
-- **Claim (per-target)**: a `scope_item` / `work_unit` may declare
-  `code_ref: {file, name}` — the same ref format as the scope artifact's
-  `code_refs` (store `file` column path + class-qualified name). This is the
-  falsifiable binding Shim-B lacked (Shim-B governed `code_anchor` INSIDE the
-  kernel — wrong seam; here the kernel only carries the claim and compares).
-  Absent `code_ref` → the class witness no-ops for that target while
-  advisory, and the legacy oracle path (agent `entailed_class` / prose)
-  continues unchanged — strictly additive.
-- **Derivation (facts only)**: the gate execs the SAME configured codeflair
-  CLI (02's kernel-default trust root, argv screening, 120s/retry/memo
-  envelope, env scrub, fresh store) with a new facts surface for the claimed
-  symbols — per symbol: resolution fact, inbound reference count (hop-1
-  fan-in, the spike-validated signal), hop-1 edge list with reason enum, and
-  the wiring facts the heuristic needs. No classes cross the wire — classes
-  are verdicts, and the witness reports facts (02's inversion lesson).
-- **Mapping (kernel-side, the LOCKED heuristic from #87)**: the kernel maps
-  facts → entailed class:
-  - **no inbound references** → `sets_value` (nothing consumes it; the
-    weakest wiring class);
-  - **wired-in** (inbound references exist — something resolves/calls it) →
-    `wires_symbol`;
-  - **broad blast radius** (hop-1 fan-in at/above a bound derived from the
-    spike's separation data, NOT closure magnitude — 02's signal discipline
-    holds here verbatim) → `changes_behavior`.
-  This is a connectivity heuristic, NOT a per-framework wiring catalog
-  (locked in #87); thresholds live in kernel code next to the mapping, cited
-  to the spike table.
-- **Feed + supersession**: when the witness derives a class for a target,
-  `validate_class_underclaim` uses IT as the oracle, and the agent-written
-  `entailed_class` for that target is IGNORED with a visible advisory when it
-  disagrees (`CHK_ENTAILED_CLASS_SUPERSEDED`, warn) — the forgeable field is
-  never silently trusted alongside a live witness. Where the witness is
-  absent/unavailable, today's behavior is byte-identical (fail-closed
-  `CHK_ENTAILED_CLASS_INVALID` and the prose fallback stay as-is).
-- **Dial**: advisory-first exactly as 02 — new codes are `warn`;
-  `sets_value`-vs-declared mismatches surface through the existing
-  `CHK_CLASS_UNDERCLAIM` machinery only when the witness-derived rank
-  exceeds the declared rank (the gate's comparison is unchanged; only the
-  oracle's provenance upgrades). Promotion rides 02's criteria — this
-  witness adds NO new promotion track; it is the "proving ground more than
-  payoff" gate #87 names.
+- **Claim (per-target, plural, diff-grounded)**: a `scope_item` / `work_unit`
+  may declare `code_refs: [{file, name}, ...]` (plural — a single ref would
+  let a multi-symbol target cherry-pick its weakest symbol; review M3). Same
+  ref format as the scope artifact's `code_refs`. **The binding is falsified
+  against the diff**: a target's `code_refs` are honored only for symbols
+  that appear in the witness's `symbols_touched` — the same independent
+  ground truth 02's coverage rides on. A claimed-but-untouched symbol is NOT
+  class-derived; it surfaces as `CHK_CLASS_REF_UNTOUCHED` (warn). This kills
+  the review's B2 laundering vector: naming a deliberately weakly-connected
+  or untouched symbol cannot manufacture a weak oracle, because untouched
+  claims derive nothing and weak derivations cannot lower the oracle (below).
+  Absent `code_refs` → no-op for that target while advisory; the legacy
+  oracle path continues unchanged.
+- **Derivation (facts only, mostly the EXISTING wire)**: the gate execs the
+  SAME configured codeflair CLI under 02's full envelope. For touched claimed
+  symbols, hop-1 fan-in and wiring edges are already computable from 02's
+  `neighborhood` (both directions, reason enum) — the only surface addition
+  is per-symbol inbound counts where the hop-1 edge list is capped. No
+  classes cross the wire — classes are verdicts (02's inversion lesson).
+- **Mapping (kernel-side heuristic — held to #87's LOCKED shape, with its
+  range stated honestly)**: the kernel maps facts → a witness class:
+  - **no inbound references** → `sets_value`;
+  - **wired-in** (inbound references exist) → `wires_symbol`;
+  - **broad hop-1 fan-in** (bound cited to the spike table; NEVER closure
+    magnitude) → `changes_behavior`.
+  The heuristic's range deliberately EXCLUDES `ensures_obligation` (rank 2 of
+  the four-value `CLASSES` vocabulary — review B3): obligation semantics are
+  not derivable from connectivity. Because the oracle can only be raised
+  (next bullet), a rank-2 target is never down-ranked by a witness that
+  cannot say rank 2. **Open soundness risks, recorded not hidden (review
+  M2)**: statically-invisible wiring (route/decorator/string registration —
+  the floor's own canonical case) derives `sets_value` for genuinely
+  wired symbols, and fan-in magnitude is a connectivity proxy for
+  `changes_behavior`, not a semantics proof. Both are contained by the
+  raise-only rule + advisory dial, and both are named promotion blockers
+  below.
+- **Oracle combination (review B1 — the rule that was missing): the witness
+  may only ever RAISE the effective oracle, never lower it.** The gate
+  computes `oracle = max_rank(witness_class, entailed_class, prose
+  candidate_class)` — the as-built strongest-wins ratchet
+  (`projection.py:1059-1063`) gains a third source; the prose backstop
+  SURVIVES. A witness deriving weaker than the agent's own `entailed_class`
+  does not supersede it silently: the disagreement surfaces as
+  `CHK_ENTAILED_CLASS_SUPERSEDED` (warn) while max-rank governs. Catch-power
+  is therefore monotonically non-decreasing versus today.
+- **Availability (review M1)**: when a target declares `code_refs` but the
+  witness cannot testify (CLI unavailable per 02's doctrine), the gate emits
+  `CHK_CLASS_WITNESS_UNAVAILABLE` (warn) and falls back to today's oracles
+  VISIBLY — never a silent revert to the self-attested field.
+- **Dial**: advisory-first exactly as 02 — all new codes `warn`; the gate's
+  comparison (`oracle_rank > declared_rank` → `CHK_CLASS_UNDERCLAIM`) is
+  unchanged; only the oracle's provenance and rank floor upgrade. Promotion
+  rides 02's criteria PLUS two class-specific blockers: (a) the
+  statically-invisible-wiring false-`sets_value` rate must be measured on
+  real targets before any blocking, and (b) `CHK_CLASS_REF_UNTOUCHED` must
+  stay a flag (the diff-grounding is the anti-laundering premise — it never
+  becomes waivable).
 
 ## Why this is the whole design
 
 Everything hard was decided in 02 and survives unchanged: trust root,
 facts-only wire, freshness-by-construction, envelope, availability doctrine,
-signal discipline (hop-1 only). The only new decisions here are (a) the
-per-target claim field, (b) the facts surface for single symbols, and (c) the
-supersession rule for the legacy field — each stated above. The build is
-scoped to: schema (`code_ref` on scope_item/work_unit write-time shapes),
-projection carry, one codeflair facts extension, the kernel mapping fn +
-threshold, the oracle feed in `validate_class_underclaim`, teeth tests per
-heuristic branch, and an e2e proof reusing the 02 harness.
+signal discipline (hop-1 only). The decisions added here: (a) the per-target
+plural claim, grounded in the diff exactly like 02's coverage; (b) the
+raise-only max-rank oracle combination (prose backstop survives; no
+regression path); (c) the heuristic's honest range (no `ensures_obligation`)
+and named soundness risks; (d) visible availability fallback. The build is
+scoped to: schema (`code_refs` on scope_item/work_unit write-time shapes),
+projection carry, per-symbol inbound counts on the witness wire, the kernel
+mapping fn + threshold, the max-rank feed in `validate_class_underclaim`,
+teeth tests per heuristic branch AND per review-blocker (untouched claim,
+raise-only, ensures_obligation preservation, unavailable visibility), and an
+e2e proof reusing the 02 harness.
 
 ## Status / Checkpoint
 
-> **2026-07-03 — DESIGN.** Node authored from the E1 recon (as-built oracle
-> slot + projection carry points confirmed by LSP); awaiting review round.
+> **2026-07-03 — DESIGN (R2).** Node authored from the E1 recon; review round
+> R1 returned DO-NOT-LOCK (oracle-combination unspecified; symbol-choice
+> laundering; class-range mismatch) — all findings folded: diff-grounded
+> plural claims, raise-only max-rank combination, honest heuristic range +
+> named soundness risks, visible unavailable fallback. Awaiting LOCK.
