@@ -37,12 +37,24 @@ can target (`uacp_artifact_write` accepts arbitrary non-manifest YAML under
 codeflair` is a plaintext string, not provenance. EXECUTE could hand-author a
 friendly witness and the "deterministic witness" would still be
 self-attested. Instead the gate **derives** the account itself: at sweep time
-it execs the codeflair CLI (subprocess, stdout) exactly as the landed
-`SC_DIFF_*` half execs git via `engines/io/gitio.py`. The working tree and
+it execs the codeflair CLI (subprocess, stdout) exactly as the `SC_DIFF_*`
+half execs git via `engines/io/gitio.py` (built on `feat/scope-verify-witness`,
+PR pending — the two halves land together in #85). The working tree and
 the symbol graph are the ground truth; no agent-writable file sits between
 witness and gate. (If the gate chooses to serialize the result under
 `verification/` as an evidence record, that is a gate-written convenience
 copy — never the input.)
+
+**Executable trust root** (cross-provider review finding): codeflair source
+lives inside the very repo the witnessed agent edits, so "exec the CLI" must
+not mean "exec whatever the run's worktree contains" — a tampered witness
+would be one work-product edit away, and ADR-0019 deliberately does not
+raw-block work-product writes. The wrapper resolves the executable from
+**operator-owned kernel config** (`config/uacp.toml` key, e.g.
+`[witness].codeflair_cli`), never from the run workspace and never from a
+PATH entry under it; the resolved command is recorded in the violation
+detail. Advisory-phase residual (an operator pointing config at a mutable
+checkout) is documented; promotion criterion 5 below pins it.
 
 **CF-D9, stated precisely**: the kernel must never *import or link* the code
 plane (that was Shim-B's sin — codeflair types and calls inside kernel code).
@@ -59,6 +71,22 @@ crash, never a silent pass.
   class-qualified symbol name (`Violation`, `Heartgate.validate_closure`).
   Resolution is by (file, name) lookup — never bare-substring seeding (spike
   pitfall 1: `validate` → 508 silent candidates).
+  **Schema prerequisite** (cross-provider review): the `uacp.scope`
+  write-time schema is CLOSED — unknown keys hard-fail at `uacp_entity_write`
+  (`engines/domain/schema.py`; asserted by `test_schema.py`). The #85 build
+  MUST add optional `code_refs` to that canonical schema + the `Scope` read
+  model + write-path tests, or the claim is literally unwritable.
+- **Touched-set derivation (pinned)**: the changed-file set uses the SAME
+  baseline as the git half — uncommitted changes (`git status --porcelain`,
+  untracked included, ignored excluded) ∪ committed-on-branch changes
+  (`merge-base(default branch, HEAD)..HEAD`) — so a run that commits during
+  EXECUTE (permitted by the worktree protocol) is still fully observed.
+  v1 granularity is **file-level**: `symbols_touched` = all symbols the store
+  records in the changed files. This is explicitly coarse (an edit to one
+  function flags its file-siblings' cascade too) and is acceptable only while
+  advisory; hunk/span-level touch derivation is a **pre-promotion
+  requirement**, and the false-positive target below is measured against the
+  hunk-level witness, not this v1.
 - **Derivation — the witness reports FACTS ONLY; the gate computes every
   verdict** (the locked pattern from 00: witness *derives*, **code
   compares** — a CLI that returned "undeclared"/"over-declared" sets would
@@ -66,7 +94,10 @@ crash, never a silent pass.
   invisible and unrecomputable kernel-side). The engine calls a new io
   capability (`engines/io/` subprocess wrapper, gitio doctrine: never raises,
   typed result) that execs `codeflair witness --repo <workspace>
-  [--code-ref file:name ...]` and parses **stdout JSON** of facts:
+  [--code-ref file:name ...]` — a NEW subcommand the #85 build adds to the
+  codeflair CLI (today it ships only `index`/`query`/`mcp`), composing
+  existing primitives (`Store.symbols_in_file`, `expand` at hop 1, the index
+  ladder) — and parses **stdout JSON** of facts:
 
   ```yaml
   graph_stamp:
@@ -78,7 +109,8 @@ crash, never a silent pass.
     - {src: {file, name}, dst: {file, name}, reason}   # reason ∈ {calls, references, defines}
   declared:                          # the claim echoed back with resolution facts
     - {file, name, resolved: <bool>} # resolved via store (file,name) lookup
-  unresolved_touched: [<name>, ...]  # touched symbols the graph cannot resolve (new/unparseable)
+  unresolved_touched:                # touched but unresolvable (new/unparseable code)
+    - {file, name}                   # file always known (it came from the diff)
   ```
 
 - **Coverage, defined here** (not in codeflair): a touched symbol is
@@ -155,7 +187,13 @@ Promotion to blocking is a separate, explicit decision gated on ALL of:
    it (the advisory-phase no-op is explicitly temporary). Blocking applies to
    *unavailable after the retried derivation* (the envelope above), never to
    a single timeout — a repo slow to index must degrade to a retry, not to a
-   run that can never close.
+   run that can never close;
+5. the executable trust root is pinned before any blocking: the configured
+   CLI must resolve outside every run workspace (installed artifact or pinned
+   checkout), with its resolution recorded in evidence — never a
+   worktree-relative or run-mutable path;
+6. hunk/span-level touch derivation replaces the v1 file-level coarseness
+   (the FP target in criterion 2 is measured against the hunk-level witness).
 
 ## Where the check runs (honest as-built note)
 
