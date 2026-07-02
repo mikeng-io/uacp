@@ -206,6 +206,40 @@ def _resolve_executable(
     return str(resolved), ""
 
 
+def _screen_configured_tail(tail: list[str], root: Path) -> str | None:
+    """Reject a CONFIGURED argv tail that smuggles a run-mutable path (P1 review).
+
+    ``_resolve_executable`` screens argv[0], but a launcher-style configuration —
+    ``python <workspace>/cli.py`` or ``uv --project <workspace> run codeflair`` —
+    carries the workspace-resident script/project in the TAIL, and the launcher
+    itself resolves safely outside the workspace. Every configured token (after
+    stripping a ``--key=`` prefix) that contains a path separator is resolved and
+    must not land under the run workspace. Only the OPERATOR-CONFIGURED tokens are
+    screened — the kernel-appended ``--repo <root>`` legitimately names the
+    workspace. Returns a rejection reason, or None. Never raises."""
+    try:
+        root_r = Path(root).resolve()
+    except Exception:
+        return None  # unresolvable root is defended elsewhere
+    for token in tail:
+        probe = token.split("=", 1)[1] if token.startswith("--") and "=" in token else token
+        if "/" not in probe and "\\" not in probe:
+            continue
+        try:
+            candidate = Path(probe)
+            if not candidate.is_absolute():
+                candidate = Path.cwd() / candidate
+            resolved = candidate.resolve()
+            if resolved == root_r or root_r in resolved.parents:
+                return (
+                    f"witness CLI argument '{token}' resolves under the run workspace "
+                    f"({resolved}); refusing a run-mutable prober component"
+                )
+        except Exception:
+            continue  # non-path token; screening is best-effort, never raises
+    return None
+
+
 def _run_git(root: Path, *args: str) -> tuple[int, str]:
     proc = subprocess.run(  # noqa: S603 — fixed argv, no shell
         ["git", "-C", str(root), *args],
@@ -440,6 +474,9 @@ def derive_witness(root: Path, code_refs: list[dict[str, Any]]) -> WitnessResult
     resolved0, reason = _resolve_executable(parts[0], child_env, root)
     if resolved0 is None:
         return WitnessResult(available=False, error=reason, command=tuple(parts))
+    tail_reason = _screen_configured_tail(parts[1:], root)
+    if tail_reason is not None:
+        return WitnessResult(available=False, error=tail_reason, command=tuple(parts))
 
     argv: list[str] = [resolved0, *parts[1:], "witness", "--repo", str(root)]
     for ref in code_refs:

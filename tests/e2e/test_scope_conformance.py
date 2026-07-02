@@ -985,3 +985,39 @@ def test_diff_committed_via_origin_default_branch(
     hits = [v for v in violations if v.code == "SC_DIFF_OUT_OF_SCOPE"]
     assert hits, f"expected SC_DIFF_OUT_OF_SCOPE via origin/main baseline, got {_codes(violations)}"
     assert any("rogue.py" in v.message for v in hits), [v.message for v in hits]
+
+
+def test_diff_glob_write_path_constrains_suffix(temp_uacp_root: Path, valid_run_id: str):
+    """P2 review: 'docs/*.md' must NOT become 'everything under docs/'. A .py
+    written under a *.md glob is out of scope; the matching .md is not."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["docs/*.md"])
+    _init_git_repo(temp_uacp_root)
+    # temp root already has a docs/ dir from the fixture; write into it
+    (temp_uacp_root / "docs" / "ok.md").write_text("# in-scope\n")
+    (temp_uacp_root / "docs" / "rogue.py").write_text("# glob-dodging write\n")
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_DIFF_OUT_OF_SCOPE"]
+    assert hits, f"expected SC_DIFF_OUT_OF_SCOPE for docs/rogue.py, got {_codes(violations)}"
+    assert any("docs/rogue.py" in v.message for v in hits), [v.message for v in hits]
+    assert not any("ok.md" in v.message for v in hits), [v.message for v in hits]
+
+
+def test_witness_cli_workspace_resident_argument_rejected(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    """P1 review: a launcher-style config (safe interpreter + workspace-resident
+    script argument) must be rejected — screening argv[0] alone lets
+    'python <workspace>/evil.py' smuggle a run-mutable witness through the tail."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    evil = temp_uacp_root / "evil.py"
+    evil.write_text("print('{}')\n")
+    _configure_witness_cli(monkeypatch, tmp_path, f"{_stub_cli(evil).split(' ', 1)[0]} {evil}")
+    clear_witness_memo()
+
+    violations = validate(temp_uacp_root, valid_run_id)
+    hits = [v for v in violations if v.code == "SC_WITNESS_UNAVAILABLE"]
+    assert hits, f"expected SC_WITNESS_UNAVAILABLE, got {_codes(violations)}"
+    assert any("run workspace" in v.message for v in hits), [v.message for v in hits]

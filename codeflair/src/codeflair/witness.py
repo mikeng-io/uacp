@@ -215,7 +215,6 @@ def _tokenize_descriptors(desc: str) -> list[tuple[str, str]]:
             j = desc.find("`", i + 1)
             if j == -1:
                 buf.append(desc[i + 1 :])
-                i = n
                 break
             buf.append(desc[i + 1 : j])
             i = j + 1
@@ -470,12 +469,9 @@ def build_witness(
         return {"error": "index produced nothing", "repo": repo}
 
     changed = changed_files(repo)
-    store = Store(default_store_path(repo), read_only=True)
-    try:
+    with Store(default_store_path(repo), read_only=True) as store:
         facts, touched_ids = _symbol_facts(store, changed, code_refs, lang)
         ingestion = touched_ingestion_floor(store, touched_ids)
-    finally:
-        store.close()
 
     return {
         "graph_stamp": {"commit": head_commit(repo), "tree_token": tree_token(repo, changed)},

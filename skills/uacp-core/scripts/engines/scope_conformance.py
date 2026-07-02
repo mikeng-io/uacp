@@ -71,6 +71,7 @@ self-disable (mirroring coherence C6 and ledger_integrity's absent-ledger no-op)
 
 from __future__ import annotations
 
+import fnmatch
 from pathlib import Path
 from typing import Any
 from typing import get_args as _get_args
@@ -506,7 +507,7 @@ def _check_diff_containment(
         )
         return out
 
-    # Allowed containment roots: each declared write_path's static prefix plus
+    # Allowed boundaries: each declared write_path (GLOB-AWARE — see below) plus
     # the ENTIRE governed namespace (.uacp/ — which subsumes the permitted
     # output surfaces used by the artifact-containment check above).
     #
@@ -514,10 +515,22 @@ def _check_diff_containment(
     # write_paths declare workspace-relative boundaries — so both sides resolve
     # under ``root`` here, NOT via resolve_in_workspace (which is for the
     # base-relative artifact refs writers store under .uacp/).
+    #
+    # Glob semantics (P2 review): a write_path CONTAINING a glob is matched with
+    # fnmatch against the git-reported relative path — the old static-prefix
+    # shortcut turned ``docs/*.md`` into "everything under docs/", silently
+    # allowing ``docs/rogue.py``. fnmatch's ``*`` crosses ``/`` so ``src/**``
+    # keeps matching arbitrarily deep paths; over-breadth ACROSS subdirs for a
+    # single ``*`` is accepted (conservative direction: the suffix/extension
+    # constraint is what must never be dropped). A glob-free write_path keeps
+    # directory-prefix containment (a dir allows its whole subtree).
     allowed_roots: list[Path] = []
+    glob_paths: list[str] = []
     for wp in scope_wps:
-        probe = wp.split("*", 1)[0] or "."
-        resolved = _resolve_under_root(root, probe)
+        if "*" in wp:
+            glob_paths.append(wp)
+            continue
+        resolved = _resolve_under_root(root, wp or ".")
         if resolved is not None:
             allowed_roots.append(resolved)
     try:
@@ -531,6 +544,9 @@ def _check_diff_containment(
         if apath is None:
             continue  # escaping/undecodable path — traversal is the escape check's turf
         if any(_is_contained(apath, base) for base in allowed_roots):
+            continue
+        rel_norm = apath.relative_to(Path(str(root)).resolve()).as_posix()
+        if any(fnmatch.fnmatch(rel_norm, g) for g in glob_paths):
             continue
         offenders.append(rel)
 
