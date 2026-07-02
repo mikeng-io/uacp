@@ -35,10 +35,19 @@ NOT attempted here. What IS computable, and is what this engine checks:
   escape, blast_radius in the schema enum).
 
 A true "actual change stayed in scope" check requires diffing the real git
-working tree of a real run (``git diff --name-only`` ∩ ``write_paths``). That is
-a documented **future mode** — it cannot run against the synthetic temp-root
-test fixtures (no git history, no real EXECUTE writes), so it is intentionally
-unimplemented here rather than faked.
+working tree of a real run. The formerly-documented future mode is now
+IMPLEMENTED as the diff-containment check (``SC_DIFF_*`` codes, issue #85):
+when the workspace root is itself a git repo, the ACTUAL change set observed
+by git (uncommitted ∪ committed-since-merge-base, via :mod:`engines.io.gitio`)
+is compared against the declared ``write_paths``. This is the first
+independently-witnessed input to this engine — git's account of what changed,
+not the run's account of itself. It is **advisory-first**: every ``SC_DIFF_*``
+violation is severity ``warn`` (correct-but-out-of-scope is a governance flag
+whose remedy is re-declaration, and promotion to blocking is a later, explicit
+decision). A workspace with no ``.git`` at its root is a documented NO-OP
+(mirroring the absent-scope precedent) — which is exactly why the synthetic
+temp-root fixtures remain quiet; a repo that exists but cannot be observed is
+``SC_DIFF_UNAVAILABLE``, never a silent pass (fail-closed).
 
 RELATIONSHIP TO COHERENCE C6
 ----------------------------
@@ -62,6 +71,7 @@ self-disable (mirroring coherence C6 and ledger_integrity's absent-ledger no-op)
 
 from __future__ import annotations
 
+import fnmatch
 from pathlib import Path
 from typing import Any
 from typing import get_args as _get_args
@@ -75,6 +85,8 @@ from engines.domain import layout
 
 # All filesystem access is delegated to the io layer (no raw reads here).
 from engines.io import (
+    changed_files,
+    derive_witness,
     load_artifact,
     load_manifest,
     load_registry,
@@ -192,6 +204,8 @@ def validate(workspace: str | Path, run_id: str) -> list[Violation]:
     violations.extend(_check_blast_radius(root, scope_rel, scope))
     violations.extend(_check_scope_registry(root, run_id, scope_rel, scope_wps, scope.write_paths))
     violations.extend(_check_artifact_containment(root, scope_rel, scope_wps, artifacts))
+    violations.extend(_check_diff_containment(root, scope_rel, scope_wps))
+    violations.extend(_check_cascade_witness(root, scope_rel, scope))
 
     return violations
 
@@ -431,6 +445,352 @@ def _check_artifact_containment(
                 f"{list(_ALLOWED_OUTPUT_PREFIXES)} — out-of-scope write",
             )
         )
+    return out
+
+
+def _resolve_under_root(root: Path, rel: str) -> Path | None:
+    """Resolve a WORKSPACE-relative path defensively; None if it escapes the
+    workspace or is unresolvable. Never raises. (Counterpart of the io layer's
+    ``resolve_in_workspace``, which roots at ``base_dir`` — the governed
+    namespace — and is therefore wrong for git-reported workspace paths.)"""
+    try:
+        resolved = (root / rel).resolve()
+        resolved.relative_to(root)
+        return resolved
+    except Exception:
+        return None
+
+
+# ----------------------------------------------------------- SC diff containment
+def _check_diff_containment(
+    root: Path, scope_rel: str, scope_wps: list[str] | None
+) -> list[Violation]:
+    """SC_DIFF_OUT_OF_SCOPE / SC_DIFF_UNAVAILABLE — the ACTUAL change set git
+    observes must fall under a declared write_path or the governed namespace.
+
+    This is the implemented "future mode" (module docstring): the first input
+    to this engine that is NOT the run's own account of itself. Ground truth
+    comes from :func:`engines.io.gitio.changed_files`; this function only
+    compares (the witness derives, the gate compares — never the reverse).
+
+    Doctrine, in order:
+    * malformed write_paths -> no-op here (already reported by the escape check);
+    * workspace root not a git repo -> no-op (documented: nothing to observe —
+      also what keeps the synthetic test fixtures quiet);
+    * repo present but unobservable -> ``SC_DIFF_UNAVAILABLE`` (fail-closed:
+      an expected witness that cannot testify is surfaced, never a silent pass);
+    * changes under the governed namespace (``.uacp/``) are exempt — those are
+      governed-writer territory, watched by Guardian + the containment check
+      above, not free-form EXECUTE writes;
+    * everything else must sit under a declared write_path, or it is flagged.
+
+    Advisory-first: both codes are severity ``warn``. Correct-but-out-of-scope
+    is STILL flagged ("ungoverned", not "wrong"); the remedy is re-declaring
+    the boundary, never silently widening it.
+    """
+    out: list[Violation] = []
+    if scope_wps is None:
+        return out
+
+    result = changed_files(root)
+    if not result.is_repo:
+        return out
+    if result.error is not None:
+        out.append(
+            _v(
+                "SC_DIFF_UNAVAILABLE",
+                f"workspace is a git repo but its change set could not be observed "
+                f"({result.error}); diff-containment for scope {scope_rel} not verifiable",
+                severity="warn",
+                error=result.error,
+            )
+        )
+        return out
+
+    # Allowed boundaries: each declared write_path (GLOB-AWARE — see below) plus
+    # the ENTIRE governed namespace (.uacp/ — which subsumes the permitted
+    # output surfaces used by the artifact-containment check above).
+    #
+    # NOTE on resolution: git reports paths relative to the WORKSPACE root, and
+    # write_paths declare workspace-relative boundaries — so both sides resolve
+    # under ``root`` here, NOT via resolve_in_workspace (which is for the
+    # base-relative artifact refs writers store under .uacp/).
+    #
+    # Glob semantics (P2 review): a write_path CONTAINING a glob is matched with
+    # fnmatch against the git-reported relative path — the old static-prefix
+    # shortcut turned ``docs/*.md`` into "everything under docs/", silently
+    # allowing ``docs/rogue.py``. fnmatch's ``*`` crosses ``/`` so ``src/**``
+    # keeps matching arbitrarily deep paths; over-breadth ACROSS subdirs for a
+    # single ``*`` is accepted (conservative direction: the suffix/extension
+    # constraint is what must never be dropped). A glob-free write_path keeps
+    # directory-prefix containment (a dir allows its whole subtree).
+    allowed_roots: list[Path] = []
+    glob_paths: list[str] = []
+    for wp in scope_wps:
+        if "*" in wp:
+            glob_paths.append(wp)
+            continue
+        resolved = _resolve_under_root(root, wp or ".")
+        if resolved is not None:
+            allowed_roots.append(resolved)
+    try:
+        allowed_roots.append(base_dir(root).resolve())
+    except Exception:
+        pass  # no governed namespace resolvable — write_paths remain the boundary
+
+    offenders: list[str] = []
+    for rel in result.files:
+        apath = _resolve_under_root(root, rel)
+        if apath is None:
+            continue  # escaping/undecodable path — traversal is the escape check's turf
+        if any(_is_contained(apath, base) for base in allowed_roots):
+            continue
+        rel_norm = apath.relative_to(Path(str(root)).resolve()).as_posix()
+        if any(fnmatch.fnmatch(rel_norm, g) for g in glob_paths):
+            continue
+        offenders.append(rel)
+
+    if offenders:
+        shown = offenders[:20]
+        out.append(
+            _v(
+                "SC_DIFF_OUT_OF_SCOPE",
+                f"{len(offenders)} actual change(s) observed by git fall outside every "
+                f"declared write_path {sorted(scope_wps)}: {shown}"
+                f"{' (truncated)' if len(offenders) > len(shown) else ''} — "
+                f"out-of-scope work; remedy is to re-declare the boundary (scope {scope_rel})",
+                severity="warn",
+                files=shown,
+                total=len(offenders),
+            )
+        )
+    return out
+
+
+# --------------------------------------------------------- SC cascade witness
+def _sym(entry: Any) -> tuple[str, str] | None:
+    """Coerce a {file, name} dict into a comparable (file, name) tuple, or None if
+    the shape is not a pair of non-empty strings. Symbols compare as (file, name)."""
+    if not isinstance(entry, dict):
+        return None
+    f = entry.get("file")
+    n = entry.get("name")
+    if isinstance(f, str) and f and isinstance(n, str) and n:
+        return (f, n)
+    return None
+
+
+def _fmt_unresolved(entry: Any) -> str | None:
+    """Render an ``unresolved_touched`` entry for display. Tolerates a NULL name —
+    the contract allows file-level entries {file, name: null} for unparseable files,
+    which surface as the bare file path (visible-not-blocking)."""
+    if not isinstance(entry, dict):
+        return None
+    f = entry.get("file")
+    if not isinstance(f, str) or not f:
+        return None
+    n = entry.get("name")
+    return f"{f}:{n}" if isinstance(n, str) and n else f
+
+
+def _normalize_code_refs(raw: Any) -> list[dict[str, str]] | None:
+    """Return code_refs as a list of {file, name} str dicts, or None if malformed.
+
+    Absent/None/empty is handled by the caller (a no-op). This is a DEFENSIVE read:
+    the write-time schema constrains code_refs, but the engine reads possibly
+    hand-tampered state, so a malformed shape is surfaced (never silently dropped)."""
+    if not isinstance(raw, list):
+        return None
+    out: list[dict[str, str]] = []
+    for item in raw:
+        sym = _sym(item)
+        if sym is None:
+            return None
+        out.append({"file": sym[0], "name": sym[1]})
+    return out
+
+
+def _check_cascade_witness(root: Path, scope_rel: str, scope: Any) -> list[Violation]:
+    """SC_UNDECLARED_CASCADE / SC_SCOPE_OVERDECLARED / SC_WITNESS_UNRESOLVED_CLAIM /
+    SC_WITNESS_UNRESOLVED_TOUCHED / SC_WITNESS_UNAVAILABLE — compare the scope's DECLARED
+    ``code_refs`` against the independent codeflair account of the actual change.
+
+    The witness reports FACTS ONLY; this gate computes every verdict (design node 02):
+    the witness derives, the code compares — a codeflair coverage bug must stay
+    recomputable kernel-side. All codes are advisory ``severity: warn`` in v1.
+
+    Doctrine, in order:
+    * no ``code_refs`` (absent/None/empty) -> no-op (the claim is opt-in until promotion);
+    * malformed ``code_refs`` -> ``SC_WITNESS_UNRESOLVED_CLAIM`` (defensive read of
+      possibly-tampered state; the CLI is NOT invoked);
+    * witness unavailable (unconfigured/absent CLI, non-zero, garbled, timed out after
+      the one retry) -> ``SC_WITNESS_UNAVAILABLE`` (fail-closed visibility, gitio parity);
+    * weaker provenance floor (``ingestion != "scip"``) -> ``SC_WITNESS_UNAVAILABLE``;
+    * else compute coverage: a touched symbol is COVERED iff it is a resolved declared
+      ref OR hop-1-adjacent (either endpoint, any reason) to one. Undeclared cascade,
+      over-declaration, and unresolved declared refs each get their own advisory.
+    """
+    raw = getattr(scope, "code_refs", None)
+    if raw is None or raw == []:
+        return []  # opt-in claim absent -> no-op (CLI never invoked)
+
+    refs = _normalize_code_refs(raw)
+    if refs is None:
+        return [
+            _v(
+                "SC_WITNESS_UNRESOLVED_CLAIM",
+                f"scope.code_refs is malformed (not a list of {{file, name}} string pairs) "
+                f"({scope_rel}); cannot derive the cascade witness",
+                severity="warn",
+            )
+        ]
+
+    result = derive_witness(root, refs)
+    if not result.available:
+        return [
+            _v(
+                "SC_WITNESS_UNAVAILABLE",
+                f"scope declares code_refs but the cascade witness could not testify "
+                f"({result.error}); cascade-containment for scope {scope_rel} not verifiable",
+                severity="warn",
+                error=result.error,
+                command=list(result.command),
+            )
+        ]
+
+    facts = result.facts
+    if facts is None or facts.ingestion != "scip":
+        return [
+            _v(
+                "SC_WITNESS_UNAVAILABLE",
+                f"cascade witness reported a weaker provenance floor "
+                f"(ingestion={facts.ingestion if facts else None!r}, expected 'scip') "
+                f"for scope {scope_rel}; account rejected",
+                severity="warn",
+                ingestion=(facts.ingestion if facts else None),
+                command=list(result.command),
+            )
+        ]
+
+    out: list[Violation] = []
+
+    # Declared echo: resolved refs count as coverage anchors; unresolved refs never do.
+    declared_resolved: set[tuple[str, str]] = set()
+    unresolved_declared: list[tuple[str, str]] = []
+    for entry in facts.declared:
+        sym = _sym(entry)
+        if sym is None:
+            continue
+        if entry.get("resolved") is True:
+            declared_resolved.add(sym)
+        else:
+            unresolved_declared.append(sym)
+
+    if unresolved_declared:
+        shown = sorted(unresolved_declared)[:20]
+        out.append(
+            _v(
+                "SC_WITNESS_UNRESOLVED_CLAIM",
+                f"{len(unresolved_declared)} declared code_ref(s) did not resolve in the "
+                f"code graph and DO NOT count as coverage: "
+                f"{[f'{f}:{n}' for f, n in shown]} (scope {scope_rel})",
+                severity="warn",
+                unresolved=[f"{f}:{n}" for f, n in shown],
+                total=len(unresolved_declared),
+            )
+        )
+
+    touched: set[tuple[str, str]] = set()
+    for entry in facts.symbols_touched:
+        sym = _sym(entry)
+        if sym is not None:
+            touched.add(sym)
+
+    # Hop-1 adjacency from the neighborhood edges: for each edge, record both
+    # directed endpoint->endpoint links so "either endpoint, any reason" holds.
+    neighbors: dict[tuple[str, str], set[tuple[str, str]]] = {}
+    for edge in facts.neighborhood:
+        if not isinstance(edge, dict):
+            continue
+        src = _sym(edge.get("src"))
+        dst = _sym(edge.get("dst"))
+        if src is None or dst is None or src == dst:
+            continue
+        neighbors.setdefault(src, set()).add(dst)
+        neighbors.setdefault(dst, set()).add(src)
+
+    def _covered(sym: tuple[str, str]) -> bool:
+        if sym in declared_resolved:
+            return True
+        return bool(neighbors.get(sym, set()) & declared_resolved)
+
+    undeclared_cascade = sorted(t for t in touched if not _covered(t))
+    if undeclared_cascade:
+        shown = undeclared_cascade[:20]
+        unresolved_touched = [
+            x for x in (_fmt_unresolved(e) for e in facts.unresolved_touched) if x is not None
+        ]
+        out.append(
+            _v(
+                "SC_UNDECLARED_CASCADE",
+                f"{len(undeclared_cascade)} touched symbol(s) are neither declared nor hop-1 "
+                f"connected to a declared code_ref (undeclared cascade): "
+                f"{[f'{f}:{n}' for f, n in shown]}"
+                f"{' (truncated)' if len(undeclared_cascade) > len(shown) else ''} — "
+                f"ungoverned reach; remedy is to re-declare code_refs (scope {scope_rel})",
+                severity="warn",
+                symbols=[f"{f}:{n}" for f, n in shown],
+                total=len(undeclared_cascade),
+                unresolved_touched=unresolved_touched,
+            )
+        )
+
+    # Over-declaration: a resolved declared ref that is neither touched nor hop-1
+    # adjacent to any touched symbol (a claim >= the graph makes every cascade
+    # "covered" — write_paths:["**"] in symbol clothing; the claim must be near-minimal).
+    hop1_of_touched: set[tuple[str, str]] = set()
+    for t in touched:
+        hop1_of_touched |= neighbors.get(t, set())
+    over_declared = sorted(declared_resolved - (touched | hop1_of_touched))
+    if over_declared:
+        shown = over_declared[:20]
+        out.append(
+            _v(
+                "SC_SCOPE_OVERDECLARED",
+                f"{len(over_declared)} declared code_ref(s) are neither touched nor hop-1 "
+                f"adjacent to any touched symbol (over-declaration): "
+                f"{[f'{f}:{n}' for f, n in shown]} — the claim must be near-minimal, "
+                f"not a superset that makes every cascade 'covered' (scope {scope_rel})",
+                severity="warn",
+                symbols=[f"{f}:{n}" for f, n in shown],
+                total=len(over_declared),
+            )
+        )
+
+    # Unresolved-touched surfacing (K3 / design node 02): fired UNCONDITIONALLY whenever
+    # the witness reports touched-but-unresolvable files, regardless of any other finding.
+    # A diff whose ONLY changed files are unparseable produces no cascade and would
+    # otherwise vanish entirely (silent fail-open forbidden); it is visible-but-not-
+    # blocking. This code OWNS the surfacing — the copy in the cascade advisory's detail
+    # above is informational context only.
+    unresolved_touched_fmt = [
+        x for x in (_fmt_unresolved(e) for e in facts.unresolved_touched) if x is not None
+    ]
+    if unresolved_touched_fmt:
+        shown = unresolved_touched_fmt[:20]
+        out.append(
+            _v(
+                "SC_WITNESS_UNRESOLVED_TOUCHED",
+                f"{len(unresolved_touched_fmt)} changed file(s)/symbol(s) the witness could not "
+                f"resolve in the code graph (new/unparseable/unsupported-language code): {shown}"
+                f"{' (truncated)' if len(unresolved_touched_fmt) > len(shown) else ''} — "
+                f"changed code the witness cannot reason about, surfaced (scope {scope_rel})",
+                severity="warn",
+                unresolved_touched=shown,
+                total=len(unresolved_touched_fmt),
+            )
+        )
+
     return out
 
 

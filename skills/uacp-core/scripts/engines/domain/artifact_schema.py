@@ -77,6 +77,9 @@ class ScopeSchema(BaseModel):
         "runtime_surfaces",
         "migrations",
         "side_effects",
+        # Optional scope-witness claim (#85): the {file, name} touch-set the
+        # cascade-witness gate derives an independent account against.
+        "code_refs",
     ]
 
 
