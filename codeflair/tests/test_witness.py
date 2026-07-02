@@ -505,3 +505,24 @@ def test_changed_paths_sees_files_inside_new_untracked_directory(tmp_path):
     paths = changed_files(str(tmp_path))
     assert "newpkg/mod.py" in paths, paths
     assert "newpkg/" not in paths, paths
+
+
+def test_witness_never_observes_its_own_cache(tmp_path):
+    """Post-merge P2: on a repo that does NOT gitignore .codeflair/, the witness's
+    own index cache must not appear in the facts or move the tree_token."""
+    _git(tmp_path, "init", "-q", "-b", "main")
+    _git(tmp_path, "config", "user.email", "t@t")
+    _git(tmp_path, "config", "user.name", "t")
+    (tmp_path / "a.py").write_text("def f():\n    return 1\n")
+    _git(tmp_path, "add", "a.py")
+    _git(tmp_path, "commit", "-q", "-m", "init")
+    # NO .gitignore — the cache dir is visible to porcelain on purpose.
+    cache = tmp_path / ".codeflair"
+    cache.mkdir()
+    (cache / "index.db").write_text("stand-in")
+
+    assert not any(p.startswith(".codeflair/") for p in changed_files(str(tmp_path)))
+    tok_a = tree_token(str(tmp_path), changed_files(str(tmp_path)))
+    (cache / "index.db").write_text("stand-in CHANGED")
+    tok_b = tree_token(str(tmp_path), changed_files(str(tmp_path)))
+    assert tok_a == tok_b, "gate-owned cache content must never move the tree token"
