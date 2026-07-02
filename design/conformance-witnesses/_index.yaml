@@ -29,11 +29,14 @@ members:
   - 01-witness-scoreboard.md
   - 02-scope-witness-seam.md
   - 03-class-witness.md
+  - 04-prevention-redesign.md
 
 edges:
   - {src: 01-witness-scoreboard, dst: 00-conformance-model, rel: realizes, provenance: asserted}
   - {src: 02-scope-witness-seam, dst: 01-witness-scoreboard, rel: depends_on, provenance: asserted}
   - {src: 03-class-witness, dst: 02-scope-witness-seam, rel: extends, provenance: asserted}
+  - {src: 04-prevention-redesign, dst: 02-scope-witness-seam, rel: extends, provenance: asserted}
+  - {src: 04-prevention-redesign, dst: 03-class-witness, rel: relates_to, provenance: asserted}
 
 scope:
   v1:
