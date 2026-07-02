@@ -67,9 +67,14 @@ probabilistic posture with a measurable path to teeth:
   - *outcome* = the ACTUAL out-of-boundary changed files at closure — the
     offender set the landed diff-containment check already computes
     (glob-aware, governed-namespace-exempt), NOT the symbol-coverage set.
-  Precision = |forecast ∩ outcome| / |forecast|; recall over |outcome|. The
-  two sides differ in time (pre-change graph vs actual diff) — that is what
-  makes it a forecast — but never in universe or boundary definition. The
+  Precision = |forecast ∩ outcome| / |forecast|; recall over |outcome|.
+  **One boundary predicate, applied verbatim to both sides** (the write_paths
+  globs + governed/gate-cache exemptions as landed), with a single stated
+  asymmetry: the declared refs' OWN files are carved out forecast-side only —
+  a changed ref-file outside write_paths lands in the outcome but was never
+  forecastable, a structural recall hit recorded here, not hidden. The two
+  sides differ in time (pre-change graph vs actual diff) — that is what
+  makes it a forecast — never in universe. The
   earlier claim of "zero extra machinery" is RETRACTED: the pairing needs the
   forecast persisted at PLAN and joined at closure (next clause).
 - **Serialization home (review M2)**: the plan_exit gate WRITES its forecast
@@ -81,7 +86,12 @@ probabilistic posture with a measurable path to teeth:
   doctored record games only the promotion corpus, which the promotion
   decision must audit — and the forecast is deterministically re-derivable
   from the recorded `graph_stamp`, so doctoring is detectable, not merely
-  forbidden.
+  forbidden. **Forecast of record** = the record as written at the
+  SUCCESSFUL plan_exit (last-write-wins across retried attempts); a heeded
+  warning — agent re-declares, boundary widens, final forecast empty —
+  yields no pair by design, and pairs exist only for runs that declared BOTH
+  `code_refs` and `write_paths` (the outcome side no-ops without a declared
+  file boundary).
 - **Where it runs (review MINOR made explicit)**: a **new, phase-bound
   check** joins the existing D35 `plan_exit` forced-gate invocation point —
   it is NOT `scope_conformance.validate()` re-invoked earlier (that computes
@@ -103,9 +113,11 @@ probabilistic posture with a measurable path to teeth:
      the measurement it is validated against);
   2. measured forecast precision over the accumulated (forecast, outcome)
      pairs clears a pre-registered bar — proposed: ≥0.8 precision over ≥20
-     witnessed runs, with the bar itself recorded in the promotion decision
-     (post-hoc bar-moving is the self-attestation this initiative exists to
-     kill);
+     witnessed runs — with the bar AND the aggregation form (per-run mean vs
+     pooled-over-pairs; per-run mean proposed, since pooling lets one
+     hub-heavy run dominate) recorded in the promotion decision (post-hoc
+     bar-moving OR formula-picking is the self-attestation this initiative
+     exists to kill);
   3. the block, when it comes, is on **membership** ("this hop-1 neighbor's
      file is outside your boundary"), never on any magnitude;
   4. **hub fan-out is bounded first (02 criterion 7, which hits the forecast
