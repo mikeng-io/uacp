@@ -59,33 +59,57 @@ crash, never a silent pass.
   class-qualified symbol name (`Violation`, `Heartgate.validate_closure`).
   Resolution is by (file, name) lookup — never bare-substring seeding (spike
   pitfall 1: `validate` → 508 silent candidates).
-- **Derivation**: the engine calls a new io capability (`engines/io/`
-  subprocess wrapper, gitio doctrine: never raises, typed result, timeout)
-  that execs `codeflair witness --repo <workspace> --run-id <id>
-  [--code-ref file:name ...]` and parses **stdout JSON**:
+- **Derivation — the witness reports FACTS ONLY; the gate computes every
+  verdict** (the locked pattern from 00: witness *derives*, **code
+  compares** — a CLI that returned "undeclared"/"over-declared" sets would
+  move the comparison into the witness, making a codeflair coverage bug
+  invisible and unrecomputable kernel-side). The engine calls a new io
+  capability (`engines/io/` subprocess wrapper, gitio doctrine: never raises,
+  typed result) that execs `codeflair witness --repo <workspace>
+  [--code-ref file:name ...]` and parses **stdout JSON** of facts:
 
   ```yaml
-  run_id: <run id>
   graph_stamp:
     commit: <HEAD the index was built at>
     tree_token: <content token of the working tree at witness time>
   ingestion: scip                    # gate rejects weaker provenance floors
-  symbols_touched: [{file, name}, ...]      # derived from the ACTUAL diff
-  undeclared_cascade:                # touched/hop-1-connected, not covered by code_refs
-    - {file, name, reason}           # reason ∈ {calls, references, defines}
-  over_declared: [{file, name}, ...] # declared refs outside touched ∪ hop-1(touched)
-  unresolved_declared: [{file, name}, ...]  # declared refs the graph cannot resolve
-  unresolved_touched: [<name>, ...]  # touched symbols the graph cannot resolve (new code)
+  symbols_touched: [{file, name}, ...]      # symbols in the ACTUAL diff's files
+  neighborhood:                      # hop-1 edges from every touched symbol
+    - {src: {file, name}, dst: {file, name}, reason}   # reason ∈ {calls, references, defines}
+  declared:                          # the claim echoed back with resolution facts
+    - {file, name, resolved: <bool>} # resolved via store (file,name) lookup
+  unresolved_touched: [<name>, ...]  # touched symbols the graph cannot resolve (new/unparseable)
   ```
 
+- **Coverage, defined here** (not in codeflair): a touched symbol is
+  *covered* ⇔ it is an exact declared ref ∨ it is hop-1-connected (any
+  `reason`) to a resolved declared ref. The gate computes:
+  `undeclared_cascade = symbols_touched ∖ covered`;
+  `over_declared = resolved declared ∖ (symbols_touched ∪
+  hop1(symbols_touched))`; `unresolved_declared = declared where resolved ==
+  false`. Both sides of the wire are testable against this paragraph alone.
 - **Freshness is by construction, not by stamp comparison**: `witness`
   (re)indexes the run's **current working tree** — dirty state included —
-  immediately before deriving (~18s/590 files: cheap enough per sweep). A
-  bare `graph_stamp.commit == HEAD` check is explicitly WRONG (it passes
-  precisely when the index is most stale relative to the uncommitted diff);
-  `tree_token` is what records what was actually indexed. Newly-added symbols
-  therefore resolve (they are in the tree that was indexed); only symbols the
-  ingester cannot parse land in `unresolved_touched`.
+  immediately before deriving. A bare `graph_stamp.commit == HEAD` check is
+  explicitly WRONG (it passes precisely when the index is most stale relative
+  to the uncommitted diff); `tree_token` is what records what was actually
+  indexed. Newly-added symbols therefore resolve (they are in the tree that
+  was indexed); only symbols the ingester cannot parse land in
+  `unresolved_touched`.
+- **Cost / reuse / availability envelope (pinned)**: the io wrapper's
+  timeout is **120s** (gitio's 10s doctrine would kill a legitimate ~18s
+  index build at 590 files; 120s gives headroom for larger repos while still
+  bounding the sweep). Derivations are **reused keyed on `tree_token`**: an
+  unchanged token means an unchanged tree, so a retried finalize does not pay
+  N×index for nothing; any token mismatch re-derives. A timeout or failure is
+  retried **once** before reporting unavailable.
+- **Declared mutation exemption**: unlike git observation, `codeflair
+  witness` WRITES its index cache (`.codeflair/index.db` — per-worktree,
+  gitignored, so it never appears in `changed_files`). This is a gate-owned
+  cache, exempted here explicitly from the engine's "never mutates anything"
+  contract (the engine still never mutates *governed or work-product state*).
+  Concurrent sweeps in one worktree serialize on SQLite (busy-timeout); a
+  lost race degrades to re-derivation, never to a wrong answer.
 - **Gate side** (extends `engines/scope_conformance.py`; all advisory
   `severity: warn` in v1):
   - `undeclared_cascade` non-empty → `SC_UNDECLARED_CASCADE` (under-declaration:
@@ -98,7 +122,7 @@ crash, never a silent pass.
   - `unresolved_touched` non-empty → surfaced inside the cascade advisory's
     detail (visible-but-not-blocking; silent fail-open forbidden, hard
     fail-closed would flag every unparseable artifact);
-  - CLI absent / non-zero / garbled stdout / timeout →
+  - CLI absent / non-zero / garbled stdout / timed out after the one retry →
     `SC_WITNESS_UNAVAILABLE` (fail-closed visibility, gitio parity);
   - no `code_refs` declared → no-op while advisory (the claim is opt-in until
     promotion).
@@ -128,7 +152,10 @@ Promotion to blocking is a separate, explicit decision gated on ALL of:
 4. at promotion, absence itself escalates: missing `code_refs`, missing
    codeflair, or `SC_WITNESS_UNAVAILABLE` become blocking for runs whose
    scope declares code — a run must not escape the witness by never feeding
-   it (the advisory-phase no-op is explicitly temporary).
+   it (the advisory-phase no-op is explicitly temporary). Blocking applies to
+   *unavailable after the retried derivation* (the envelope above), never to
+   a single timeout — a repo slow to index must degrade to a retry, not to a
+   run that can never close.
 
 ## Where the check runs (honest as-built note)
 
