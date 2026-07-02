@@ -169,8 +169,12 @@ crash, never a silent pass.
   failures (malformed output, non-zero exit) fail immediately — retrying
   them buys latency, not signal.
 - **Declared mutation exemption**: unlike git observation, `codeflair
-  witness` WRITES its index cache (`.codeflair/index.db` — per-worktree,
-  gitignored, so it never appears in `changed_files`). This is a gate-owned
+  witness` WRITES its index cache (`.codeflair/index.db` — per-worktree). The
+  exemption is ENFORCED, never assumed-from-gitignore (post-merge review): the
+  witness's git observation filters `.codeflair/` at the porcelain source and
+  observes the change set BEFORE reindexing, and the kernel diff check exempts
+  the path explicitly — a repo that does not gitignore the cache must neither
+  pollute the facts/tree_token nor be flagged for the gate's own writes. This is a gate-owned
   cache, exempted here explicitly from the engine's "never mutates anything"
   contract (the engine still never mutates *governed or work-product state*).
   A witness run derives from a **fresh store** (delete-and-rebuild), never an
@@ -182,7 +186,17 @@ crash, never a silent pass.
 - **Environment discipline**: the wrapper execs both git and the witness with
   `GIT_*` and `PYTHON*` variables stripped from the child environment — the
   "independent" derivation must not be steerable through inherited env
-  (`GIT_DIR`, `GIT_CONFIG_*`, `PYTHONPATH` injection).
+  (`GIT_DIR`, `GIT_CONFIG_*`, `PYTHONPATH` injection). The witness subprocess
+  also runs with its **cwd pinned to a neutral directory** (post-merge P1):
+  launcher-style configurations (`python -m codeflair`, `uv run codeflair`)
+  resolve their module/project from the current directory, so inheriting a
+  cwd inside the run workspace would let agent-editable files supply the
+  witness implementation even after argv screening; the observed repo is
+  always named explicitly via `--repo`.
+- **Escapes are findings**: a git-REPORTED change that does not resolve
+  inside the workspace (a symlink pointing out, `rogue -> /tmp/x`) is an
+  out-of-scope finding, never a silent skip — these paths come from ground
+  truth, not from an authored traversal field (post-merge review).
 - **Gate side** (extends `engines/scope_conformance.py`; all advisory
   `severity: warn` in v1):
   - `undeclared_cascade` non-empty → `SC_UNDECLARED_CASCADE` (under-declaration:

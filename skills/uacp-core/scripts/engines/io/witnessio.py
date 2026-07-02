@@ -49,6 +49,7 @@ import json
 import shlex
 import shutil
 import subprocess
+import tempfile
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -410,7 +411,14 @@ def _exec_and_parse(
     Returns ``(result, transient)`` where ``transient`` is True ONLY for a subprocess
     TIMEOUT (K6): a timeout may be a slow-index race worth ONE retry, but a non-zero
     exit or malformed/garbled JSON is DETERMINISTIC — retrying it buys latency, not
-    signal, so those fail immediately."""
+    signal, so those fail immediately.
+
+    ``cwd`` is pinned to a NEUTRAL directory (post-merge P1): launcher-style
+    witnesses (``python -m codeflair``, ``uv run codeflair``) resolve their
+    module/project from the current directory, so inheriting the validator's cwd
+    — which may be the run workspace — would let agent-editable files supply the
+    witness implementation even though argv screening passed. The repo the
+    witness observes is always named explicitly via ``--repo``."""
     try:
         proc = subprocess.run(  # noqa: S603 — resolved absolute argv from operator config, no shell
             list(command),
@@ -418,6 +426,7 @@ def _exec_and_parse(
             text=True,
             timeout=_WITNESS_TIMEOUT_SECONDS,
             env=child_env,
+            cwd=tempfile.gettempdir(),
         )
     except FileNotFoundError:
         nf = WitnessResult(available=False, error="witness CLI binary not found", command=command)

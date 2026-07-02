@@ -97,7 +97,14 @@ def porcelain_lines(repo: str) -> list[str]:
     out = _run_git(repo, ["status", "--porcelain", "-uall"])
     if out.returncode != 0:
         return []
-    return [ln for ln in out.stdout.splitlines() if ln]
+    # The witness's own index cache is never an observation: on a repo that does
+    # not gitignore .codeflair/, the reindex would otherwise pollute the porcelain
+    # view (changed-set AND tree_token) with gate-owned state (post-merge P2).
+    return [
+        ln
+        for ln in out.stdout.splitlines()
+        if ln and not _porcelain_path(ln).startswith(".codeflair/")
+    ]
 
 
 def _porcelain_path(line: str) -> str:
@@ -464,11 +471,16 @@ def build_witness(
     except OSError:
         pass  # best-effort; a fresh reindex overwrites in place if the unlink races
 
+    # Observe the change set BEFORE reindexing (post-merge P2): the reindex itself
+    # creates .codeflair/index.db, and on a repo that does not gitignore .codeflair/
+    # a post-reindex observation would fold the witness's OWN cache into the facts
+    # and the tree_token. The cache dir is also filtered defensively for the case
+    # where it pre-exists as dirty state — the gate-owned cache is never a fact.
+    changed = {f for f in changed_files(repo) if not f.startswith(".codeflair/")}
+
     summary = reindex(repo, lang=lang)
     if not summary.get("indexed"):
         return {"error": "index produced nothing", "repo": repo}
-
-    changed = changed_files(repo)
     with Store(default_store_path(repo), read_only=True) as store:
         facts, touched_ids = _symbol_facts(store, changed, code_refs, lang)
         ingestion = touched_ingestion_floor(store, touched_ids)
