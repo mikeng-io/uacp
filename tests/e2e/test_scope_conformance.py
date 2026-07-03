@@ -1200,7 +1200,12 @@ def test_forecast_wired_into_plan_exit_forced_gate(
 def test_forecast_noop_without_write_paths_never_invokes_cli(
     temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
 ):
-    seed_coherent_run(temp_uacp_root, valid_run_id)  # write_paths == []
+    # UNDECLARED write_paths (key absent) -> no boundary declared -> no-op. Distinct from
+    # declared-EMPTY ([], the strictest valid boundary) — see the test below (codex P2).
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    body = _load_scope(temp_uacp_root, valid_run_id)
+    body.pop("write_paths", None)
+    _write_scope(temp_uacp_root, valid_run_id, body)
     _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
     baseline = _baseline_fixture(declared=[_decl("src/a.py", "Alpha", True)])
     stub_py, calls_log = _install_baseline_stub(tmp_path / "cf", baseline)
@@ -1208,8 +1213,33 @@ def test_forecast_noop_without_write_paths_never_invokes_cli(
 
     out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
     assert out == [], out
-    assert not calls_log.exists(), "no write_paths -> witness must not be invoked"
+    assert not calls_log.exists(), "undeclared write_paths -> witness must not be invoked"
     assert _forecast_record(temp_uacp_root, valid_run_id) is None
+
+
+def test_forecast_runs_against_declared_empty_boundary(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    # codex P2: write_paths: [] is a VALID declaration (the strictest boundary — the run
+    # writes nothing outside the permitted surfaces), exactly as diff-containment treats
+    # it. The forecast must RUN against it: every out-of-carve-out hop-1 neighbor file is
+    # out-of-boundary.
+    seed_coherent_run(temp_uacp_root, valid_run_id)  # write_paths == [] (declared empty)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("elsewhere.py", "Beta"))],
+    )
+    stub_py, calls_log = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert calls_log.exists(), "declared-empty boundary must still derive the forecast"
+    hits = [v for v in out if v.code == "SC_PLAN_CASCADE_FORECAST"]
+    assert hits, f"expected SC_PLAN_CASCADE_FORECAST, got {_codes(out)}"
+    assert any("elsewhere.py" in v.message for v in hits)
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None and rec["predicted"] == ["elsewhere.py"]
 
 
 def test_forecast_noop_without_code_refs_never_invokes_cli(
@@ -1313,10 +1343,15 @@ def test_forecast_closure_join_non_empty_pair(
     validate_cascade_forecast(temp_uacp_root, valid_run_id)
     assert _forecast_record(temp_uacp_root, valid_run_id)["predicted"] == ["rogue.py"]
 
-    # 2) the ACTUAL out-of-scope change lands, then the closure sweep joins the outcome.
+    # 2) the ACTUAL out-of-scope change lands. The registered ENGINE stays read-only
+    # (codex P2): validate() must NOT touch the record; the CLOSURE GATE joins.
     _init_git_repo(temp_uacp_root)
     (temp_uacp_root / "rogue.py").write_text("# out of scope, exactly as forecast\n")
     validate(temp_uacp_root, valid_run_id)
+    assert _forecast_record(temp_uacp_root, valid_run_id).get("joined") is None
+    from engines.scope_conformance import join_forecast_record
+
+    assert join_forecast_record(temp_uacp_root, valid_run_id) == []
 
     rec = _forecast_record(temp_uacp_root, valid_run_id)
     assert rec is not None and rec.get("joined") is True
@@ -1349,7 +1384,9 @@ def test_forecast_closure_join_empty_forecast_precision_null(
 
     _init_git_repo(temp_uacp_root)
     (temp_uacp_root / "rogue.py").write_text("# an actual out-of-scope change\n")
-    validate(temp_uacp_root, valid_run_id)
+    from engines.scope_conformance import join_forecast_record
+
+    assert join_forecast_record(temp_uacp_root, valid_run_id) == []
 
     rec = _forecast_record(temp_uacp_root, valid_run_id)
     assert rec is not None and rec.get("joined") is True
@@ -1404,7 +1441,9 @@ def test_forecast_join_malformed_record_is_flagged(temp_uacp_root: Path, valid_r
     rec_path.parent.mkdir(parents=True, exist_ok=True)
     rec_path.write_text(yaml.safe_dump({"run_id": valid_run_id, "predicted": "not-a-list"}))
 
-    out = validate(temp_uacp_root, valid_run_id)
+    from engines.scope_conformance import join_forecast_record
+
+    out = join_forecast_record(temp_uacp_root, valid_run_id)
     hits = [v for v in out if v.code == "SC_FORECAST_JOIN_FAILED"]
     assert hits, f"expected SC_FORECAST_JOIN_FAILED, got {_codes(out)}"
     assert all(v.severity == "warn" for v in hits)
@@ -1418,7 +1457,9 @@ def test_forecast_join_unreadable_record_is_flagged(temp_uacp_root: Path, valid_
     rec_path.parent.mkdir(parents=True, exist_ok=True)
     rec_path.write_text("this: : : not valid yaml: [")
 
-    out = validate(temp_uacp_root, valid_run_id)
+    from engines.scope_conformance import join_forecast_record
+
+    out = join_forecast_record(temp_uacp_root, valid_run_id)
     assert "SC_FORECAST_JOIN_FAILED" in {v.code for v in out}
 
 
@@ -1558,7 +1599,7 @@ def test_forecast_write_failure_is_visible(
     stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
     _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
 
-    import engines.scope_conformance as sc
+    from engines import scope_conformance as sc
 
     monkeypatch.setattr(sc, "write_forecast_record", lambda *a, **k: False)
     out = validate_cascade_forecast(temp_uacp_root, valid_run_id)

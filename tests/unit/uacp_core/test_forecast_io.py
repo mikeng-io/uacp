@@ -8,23 +8,17 @@ Neither ever raises."""
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import engines.io.forecastio as forecastio
 from engines.io import default_branch_merge_base
-from engines.io.forecastio import (
-    forecast_record_path,
-    load_forecast_record,
-    write_forecast_record,
-)
 
 _RUN = "run-forecast-io"
 
 
 def test_write_then_load_roundtrips(tmp_path: Path):
-    assert write_forecast_record(tmp_path, _RUN, {"predicted": ["a.py"], "n": 1}) is True
-    rec, err = load_forecast_record(tmp_path, _RUN)
+    assert forecastio.write_forecast_record(tmp_path, _RUN, {"predicted": ["a.py"], "n": 1}) is True
+    rec, err = forecastio.load_forecast_record(tmp_path, _RUN)
     assert err is None
     assert rec == {"predicted": ["a.py"], "n": 1}
 
@@ -37,9 +31,9 @@ def test_replace_failure_returns_false_and_leaves_no_partial(tmp_path: Path, mon
         raise OSError("disk full")
 
     monkeypatch.setattr(forecastio.os, "replace", _boom)
-    assert write_forecast_record(tmp_path, _RUN, {"predicted": ["a.py"]}) is False
+    assert forecastio.write_forecast_record(tmp_path, _RUN, {"predicted": ["a.py"]}) is False
 
-    path = forecast_record_path(tmp_path, _RUN)
+    path = forecastio.forecast_record_path(tmp_path, _RUN)
     assert path is not None and not path.exists(), "no partial target file"
     # No leftover temp files in the verification dir.
     leftovers = [p for p in path.parent.iterdir() if p.name.startswith(f".{path.name}.")]
@@ -49,12 +43,12 @@ def test_replace_failure_returns_false_and_leaves_no_partial(tmp_path: Path, mon
 def test_replace_failure_does_not_corrupt_an_existing_record(tmp_path: Path, monkeypatch):
     """A failed rewrite leaves the PRIOR record intact (the old file is never truncated —
     the write goes to a temp and only an atomic replace would swap it in)."""
-    assert write_forecast_record(tmp_path, _RUN, {"predicted": ["first"]}) is True
+    assert forecastio.write_forecast_record(tmp_path, _RUN, {"predicted": ["first"]}) is True
 
     monkeypatch.setattr(forecastio.os, "replace", lambda _s, _d: (_ for _ in ()).throw(OSError()))
-    assert write_forecast_record(tmp_path, _RUN, {"predicted": ["second"]}) is False
+    assert forecastio.write_forecast_record(tmp_path, _RUN, {"predicted": ["second"]}) is False
 
-    rec, err = load_forecast_record(tmp_path, _RUN)
+    rec, err = forecastio.load_forecast_record(tmp_path, _RUN)
     assert err is None
     assert rec == {"predicted": ["first"]}, "the prior record survives a failed rewrite"
 

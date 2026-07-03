@@ -209,7 +209,6 @@ def validate(workspace: str | Path, run_id: str) -> list[Violation]:
     # CLOSURE JOIN (design node 04): if a plan_exit forecast of record exists for this run,
     # measure it against the actual diff-containment offender set (the outcome side) and
     # append the joined (outcome, precision, recall) — promotion evidence, never a gate input.
-    violations.extend(_check_forecast_join(root, run_id, scope_wps))
 
     return violations
 
@@ -827,11 +826,13 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
 
     refs = _normalize_code_refs(getattr(scope, "code_refs", None))
     scope_wps = _normalize_write_paths(scope.write_paths)
-    # The pair needs BOTH a code_refs claim AND a declared file boundary (an empty/None
-    # write_paths is no file boundary — the outcome side would no-op, so there is nothing
-    # to forecast against). A malformed code_refs (refs is None) is likewise no-op here —
-    # the diff-mode cascade witness in validate() owns SC_WITNESS_UNRESOLVED_CLAIM.
-    if not refs or not scope_wps:
+    # The pair needs BOTH a code_refs claim AND a DECLARED file boundary. Declared-EMPTY
+    # (write_paths: []) IS a boundary — the strictest one ("I write nothing outside the
+    # permitted surfaces"), evaluated by diff-containment like any other — so the forecast
+    # runs against it (codex P2: [] must not read as undeclared). Only an UNDECLARED
+    # (absent/None) or malformed write_paths no-ops, as does a missing/malformed
+    # code_refs claim (the diff-mode cascade witness owns SC_WITNESS_UNRESOLVED_CLAIM).
+    if not refs or scope.write_paths is None or scope_wps is None:
         return []
 
     result = derive_baseline_neighborhood(root, refs)
@@ -974,15 +975,30 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
     return out
 
 
-def _check_forecast_join(root: Path, run_id: str, scope_wps: list[str] | None) -> list[Violation]:
+def join_forecast_record(workspace: str | Path, run_id: str) -> list[Violation]:
     """CLOSURE JOIN (design node 04): if a plan_exit forecast of record exists for this
     run, compute the OUTCOME side (the actual diff-containment offender set) and append the
     joined ``(outcome, intersection, precision, recall, joined)`` to the SAME record.
 
-    Idempotent — re-joining OVERWRITES the join fields, never duplicates. Promotion
-    evidence, never a runtime gate input. A malformed record -> ``SC_FORECAST_JOIN_FAILED``
-    (warn), never a crash. Absent record / unobservable diff -> no-op (nothing to join).
-    Never raises."""
+    NOT part of the registered engine: engines are READ-ONLY validators under the
+    ``engines.base`` contract (codex P2), and this function WRITES the record — so it is
+    invoked by the CLOSURE GATE (``Heartgate.validate_closure``), where evidence mutation
+    is legitimate, after the read-only engine sweep. Idempotent — re-joining OVERWRITES
+    the join fields, never duplicates. Promotion evidence, never a runtime gate input.
+    A malformed record -> ``SC_FORECAST_JOIN_FAILED`` (warn), never a crash. Absent
+    record / unobservable diff / no declared boundary -> no-op. Never raises."""
+    try:
+        root = Path(str(workspace)).resolve()
+    except Exception:
+        return []
+    if not run_id or not isinstance(run_id, str):
+        return []
+    loaded_scope = _load_scope_for_run(root, run_id)
+    scope_wps: list[str] | None = None
+    if loaded_scope is not None:
+        scope_wps = _normalize_write_paths(loaded_scope[0].write_paths)
+        if loaded_scope[0].write_paths is None:
+            scope_wps = None
     record, err = load_forecast_record(root, run_id)
     if record is None and err is None:
         return []  # no forecast of record for this run — nothing to join

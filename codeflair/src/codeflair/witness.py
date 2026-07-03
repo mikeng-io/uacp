@@ -642,6 +642,10 @@ def _strip_symlinks(dest: str) -> None:
                 if os.path.islink(path):
                     os.unlink(path)
             except OSError:
+                # Best-effort: an unremovable symlink is left in place; the indexer's
+                # open() would follow it, but the materialized tree is gate-owned temp
+                # state and unlink failures there are OS-level anomalies, not attacker
+                # levers (the archive itself contained the link).
                 pass
 
 
@@ -690,6 +694,9 @@ def build_baseline_witness(
             if os.path.exists(store_path):
                 os.remove(store_path)
         except OSError:
+            # Fresh-store doctrine is best-effort here: the temp dir was just created,
+            # so a pre-existing store is only possible via a racing writer; reindex
+            # overwrites in place if the unlink lost that race.
             pass
         summary = reindex(tmp, lang=lang)
         if not summary.get("indexed"):
