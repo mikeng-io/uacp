@@ -1718,9 +1718,7 @@ def test_heartgate_closure_gate_performs_the_join(
     assert decision.decision in ("pass", "warn", "block")  # gate never crashes
 
     # Failure surfacing: corrupt the record, re-run the gate, the warning is visible.
-    rec_path = (
-        temp_uacp_root / ".uacp" / "verification" / f"{valid_run_id}-cascade-forecast.yaml"
-    )
+    rec_path = temp_uacp_root / ".uacp" / "verification" / f"{valid_run_id}-cascade-forecast.yaml"
     rec_path.write_text("this: : : not valid yaml: [")
     decision2 = Heartgate.load(str(temp_uacp_root)).validate_closure(valid_run_id)
     all_lines = list(decision2.blockers) + list(decision2.warnings)
