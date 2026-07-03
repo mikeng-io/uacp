@@ -80,6 +80,20 @@ _REQUIRED_KEYS = (
     "unresolved_touched",
 )
 
+# The BASELINE facts mode (design node 04 — prevention forecast). A diff-independent
+# derivation on the committed baseline (HEAD): it echoes the declared refs, resolves
+# them, and reports their hop-1 neighborhood — but NO symbols_touched / unresolved_touched
+# (at PLAN there is no diff). ``mode`` is a REQUIRED key AND must equal this literal, so a
+# diff-mode ("witness") response can never be mistaken for a baseline one (and vice versa).
+_BASELINE_MODE = "baseline_refs"
+_BASELINE_REQUIRED_KEYS = (
+    "mode",
+    "graph_stamp",
+    "ingestion",
+    "declared",
+    "neighborhood",
+)
+
 
 @dataclass(frozen=True)
 class WitnessFacts:
@@ -111,11 +125,37 @@ class WitnessFacts:
 
 
 @dataclass(frozen=True)
+class BaselineFacts:
+    """The codeflair BASELINE facts (design node 04) — mirrors the ``baseline_refs`` wire.
+
+    graph_stamp    — {commit, tree_token}: HEAD the baseline index was built at.
+    ingestion      — the provenance floor (the gate rejects anything weaker than ``scip``).
+    declared       — the claim echoed back and resolved: {file, name, resolved: bool},
+                     carrying the witness's CANONICAL names.
+    neighborhood   — hop-1 edges {src:{file,name}, dst:{file,name}, reason} of the RESOLVED
+                     refs on the committed baseline. There is no diff, so ``symbols_touched``
+                     / ``unresolved_touched`` do NOT appear (and are not read).
+    inbound_counts — per-symbol inbound fan-in (OPTIONAL on the wire; absent -> {}).
+    workspace_dirty— whether the working tree was dirty when the baseline was derived
+                     (the forecast is then a prediction from the last clean state).
+    """
+
+    graph_stamp: dict
+    ingestion: str | None
+    declared: tuple[dict, ...]
+    neighborhood: tuple[dict, ...]
+    inbound_counts: dict[str, int] = field(default_factory=dict)
+    workspace_dirty: bool = False
+
+
+@dataclass(frozen=True)
 class WitnessResult:
     """Outcome of deriving the codeflair account. Never carries an exception.
 
     available — the account was derived and parsed cleanly.
-    facts     — the parsed facts (only meaningful when ``available``).
+    facts     — the parsed facts (only meaningful when ``available``). Either the
+                diff-mode :class:`WitnessFacts` or the baseline :class:`BaselineFacts`,
+                depending on which derivation produced this result.
     error     — human-readable failure when the witness could not testify; the
                 engine surfaces this (fail-closed), never treats it as "no cascade".
     command   — the resolved argv (recorded in the violation detail — the trust
@@ -123,7 +163,7 @@ class WitnessResult:
     """
 
     available: bool
-    facts: WitnessFacts | None = None
+    facts: WitnessFacts | BaselineFacts | None = None
     error: str | None = None
     command: tuple[str, ...] = ()
 
@@ -136,10 +176,18 @@ class WitnessResult:
 # (GitHub Codex P2). A token mismatch OR a refs mismatch re-derives.
 _MEMO: dict[tuple[str, str, tuple[tuple[str, str], ...]], WitnessResult] = {}
 
+# The BASELINE derivation memo (design node 04). Keyed on (resolved-root, HEAD sha,
+# normalized refs, mode) — NOT the content-sensitive tree token, because the baseline is
+# derived on the committed HEAD, so a dirty tree with an unchanged HEAD legitimately reuses
+# the same account (``workspace_dirty`` still reports the dirtiness). The ``mode`` element
+# and the distinct dict guarantee this key never collides with the diff-mode ``_MEMO``.
+_BASELINE_MEMO: dict[tuple[str, str, tuple[tuple[str, str], ...], str], WitnessResult] = {}
+
 
 def clear_witness_memo() -> None:
-    """Drop the in-process derivation memo (test isolation)."""
+    """Drop BOTH in-process derivation memos (test isolation)."""
     _MEMO.clear()
+    _BASELINE_MEMO.clear()
 
 
 def _operator_config_path() -> Path:
@@ -318,6 +366,19 @@ def _compute_tree_token(root: Path) -> str | None:
     return h.hexdigest()
 
 
+def _head_sha(root: Path) -> str | None:
+    """The committed HEAD sha, or None when the tree is not a readable git repo (design
+    node 04: the baseline memo keys on HEAD, not the content-sensitive tree token, because
+    the forecast derives on the committed baseline). Never raises."""
+    try:
+        rc, head = _run_git(root, "rev-parse", "HEAD")
+        if rc != 0:
+            return None
+    except Exception:
+        return None
+    return head.strip() or None
+
+
 # The edge relations the witness may report (mirrors codeflair.witness._REASONS).
 _WIRE_REASONS = frozenset({"calls", "references", "defines"})
 
@@ -423,8 +484,94 @@ def _parse_facts(stdout: str) -> tuple[WitnessFacts | None, str | None]:
     return facts, None
 
 
+def _parse_neighborhood_endpoints(raw: list) -> str | None:
+    """Shape-validate a neighborhood edge list's ENDPOINTS. Returns an error string, or
+    None when every edge has ``src``/``dst`` {file, name} nodes. ``reason`` is validated
+    LENIENTLY here (must be a str if present) — the diff-mode parser restricts it to the
+    edge-reason enum, but the baseline forecast reasons over hop-1 MEMBERSHIP regardless of
+    edge kind, so an over-strict reason check would needlessly reject the sibling wire."""
+    for entry in raw:
+        if not isinstance(entry, dict):
+            return f"neighborhood has a non-object entry: {entry!r}"
+        if not _is_sym(entry.get("src")) or not _is_sym(entry.get("dst")):
+            return f"neighborhood has a malformed endpoint: {entry!r}"
+        reason = entry.get("reason")
+        if reason is not None and not isinstance(reason, str):
+            return f"neighborhood has a non-string reason: {entry!r}"
+    return None
+
+
+def _parse_inbound_counts(raw: Any) -> dict[str, int]:
+    """Lenient str->int parse of ``inbound_counts`` (bool excluded — bool is an int
+    subclass). A non-dict degrades to {}. Mirrors :func:`_parse_facts`."""
+    out: dict[str, int] = {}
+    if isinstance(raw, dict):
+        for k, v in raw.items():
+            if isinstance(k, str) and isinstance(v, int) and not isinstance(v, bool):
+                out[k] = v
+    return out
+
+
+def _parse_baseline_facts(stdout: str) -> tuple[BaselineFacts | None, str | None]:
+    """Strictly parse AND SHAPE-VALIDATE the BASELINE facts JSON (design node 04). Returns
+    (facts, None) or (None, error). Strict on the structural keys (``mode`` present AND ==
+    ``baseline_refs``; ``graph_stamp`` an object; ``declared`` entries {file, name,
+    resolved:bool}; ``neighborhood`` endpoints valid) so a garbled or diff-mode response
+    fails closed → SC_WITNESS_UNAVAILABLE. ``workspace_dirty`` / ``inbound_counts`` are
+    OPTIONAL (a bool flag / an advisory count is not worth failing an otherwise-valid
+    account over)."""
+    try:
+        data = json.loads(stdout)
+    except Exception as exc:
+        return None, f"baseline witness stdout is not valid JSON ({type(exc).__name__})"
+    if not isinstance(data, dict):
+        return None, "baseline witness stdout JSON is not an object"
+    missing = [k for k in _BASELINE_REQUIRED_KEYS if k not in data]
+    if missing:
+        return None, f"baseline witness JSON missing required keys: {missing}"
+    if data["mode"] != _BASELINE_MODE:
+        return None, (
+            f"baseline witness reported mode {data['mode']!r}, expected {_BASELINE_MODE!r} "
+            "(a diff-mode account cannot be read as a baseline one)"
+        )
+
+    graph_stamp = data["graph_stamp"]
+    if not isinstance(graph_stamp, dict):
+        return None, "baseline witness graph_stamp is not an object"
+
+    ingestion = data["ingestion"]
+    ingestion_val = ingestion if isinstance(ingestion, str) else None
+
+    declared_raw = data["declared"]
+    if not isinstance(declared_raw, list):
+        return None, "baseline witness declared is not a list"
+    for entry in declared_raw:
+        if not _is_sym(entry) or not isinstance(entry.get("resolved"), bool):
+            return None, f"baseline witness declared has a malformed entry: {entry!r}"
+
+    neighborhood_raw = data["neighborhood"]
+    if not isinstance(neighborhood_raw, list):
+        return None, "baseline witness neighborhood is not a list"
+    err = _parse_neighborhood_endpoints(neighborhood_raw)
+    if err is not None:
+        return None, f"baseline witness {err}"
+
+    wd = data.get("workspace_dirty")
+    facts = BaselineFacts(
+        graph_stamp=graph_stamp,
+        ingestion=ingestion_val,
+        declared=tuple(declared_raw),
+        neighborhood=tuple(neighborhood_raw),
+        inbound_counts=_parse_inbound_counts(data.get("inbound_counts")),
+        workspace_dirty=wd if isinstance(wd, bool) else False,
+    )
+    return facts, None
+
+
 def _exec_and_parse(
-    command: tuple[str, ...], child_env: dict[str, str]
+    command: tuple[str, ...],
+    child_env: dict[str, str],
+    parse: Any = _parse_facts,
 ) -> tuple[WitnessResult, bool]:
     """One exec attempt. Never raises — every failure is a typed unavailable result.
 
@@ -475,10 +622,47 @@ def _exec_and_parse(
             False,  # deterministic — no retry
         )
 
-    facts, err = _parse_facts(proc.stdout)
+    facts, err = parse(proc.stdout)
     if err is not None:
         return WitnessResult(available=False, error=err, command=command), False  # deterministic
     return WitnessResult(available=True, facts=facts, command=command), False
+
+
+def _prepare_command(
+    root: Path,
+    code_refs: list[dict[str, Any]],
+    child_env: dict[str, str],
+    extra_flags: tuple[str, ...],
+) -> tuple[tuple[str, ...] | None, WitnessResult | None]:
+    """The SHARED 02 envelope (design node 02 / K1): resolve the CLI from the
+    KERNEL-DEFAULT config only, resolve ``argv[0]`` to an absolute path and REJECT one
+    under the run workspace, screen the configured tail, then build ``<cli> witness --repo
+    <root> [extra_flags…] [--code-ref file:name …]``. Returns ``(command, None)`` on
+    success, or ``(None, unavailable_result)`` recording the SAME command context the
+    diff-mode path recorded (unconfigured → command=(); a rejected argv → the raw parts).
+    Never raises. Both :func:`derive_witness` and :func:`derive_baseline_neighborhood`
+    build on this so the trust root / screening / neutral env are byte-identical."""
+    cli = _read_operator_cli()
+    if cli is None:
+        return None, WitnessResult(available=False, error="witness CLI not configured", command=())
+    parts = shlex.split(cli)
+    if not parts:
+        return None, WitnessResult(available=False, error="witness CLI not configured", command=())
+    resolved0, reason = _resolve_executable(parts[0], child_env, root)
+    if resolved0 is None:
+        return None, WitnessResult(available=False, error=reason, command=tuple(parts))
+    tail_reason = _screen_configured_tail(parts[1:], root)
+    if tail_reason is not None:
+        return None, WitnessResult(available=False, error=tail_reason, command=tuple(parts))
+    argv: list[str] = [resolved0, *parts[1:], "witness", "--repo", str(root), *extra_flags]
+    for ref in code_refs:
+        argv += ["--code-ref", f"{ref.get('file', '')}:{ref.get('name', '')}"]
+    return tuple(argv), None
+
+
+def _normalized_refs_key(code_refs: list[dict[str, Any]]) -> tuple[tuple[str, str], ...]:
+    """The claim normalized (sorted, deduped) for a memo key."""
+    return tuple(sorted({(str(r.get("file", "")), str(r.get("name", ""))) for r in code_refs}))
 
 
 def derive_witness(root: Path, code_refs: list[dict[str, Any]]) -> WitnessResult:
@@ -491,31 +675,15 @@ def derive_witness(root: Path, code_refs: list[dict[str, Any]]) -> WitnessResult
     [--code-ref file:name ...]`` (120s) with a scrubbed env, parsing stdout JSON
     strictly. A TIMEOUT retries ONCE; deterministic failures report unavailable
     immediately (K6)."""
-    cli = _read_operator_cli()
-    if cli is None:
-        return WitnessResult(available=False, error="witness CLI not configured", command=())
-
-    parts = shlex.split(cli)
-    if not parts:
-        return WitnessResult(available=False, error="witness CLI not configured", command=())
-
     child_env = _scrubbed_env()
-    resolved0, reason = _resolve_executable(parts[0], child_env, root)
-    if resolved0 is None:
-        return WitnessResult(available=False, error=reason, command=tuple(parts))
-    tail_reason = _screen_configured_tail(parts[1:], root)
-    if tail_reason is not None:
-        return WitnessResult(available=False, error=tail_reason, command=tuple(parts))
-
-    argv: list[str] = [resolved0, *parts[1:], "witness", "--repo", str(root)]
-    for ref in code_refs:
-        argv += ["--code-ref", f"{ref.get('file', '')}:{ref.get('name', '')}"]
-    command = tuple(argv)
+    command, unavailable = _prepare_command(root, code_refs, child_env, ())
+    if unavailable is not None or command is None:
+        return unavailable  # type: ignore[return-value]
 
     token = _compute_tree_token(root)
     # Normalize the claim (sorted, deduped) into the memo key — the stdout depends on
     # BOTH tree and claim, so same-tree/different-refs must re-derive.
-    refs_key = tuple(sorted({(str(r.get("file", "")), str(r.get("name", ""))) for r in code_refs}))
+    refs_key = _normalized_refs_key(code_refs)
     key = (str(Path(root).resolve()), token, refs_key) if token is not None else None
     if key is not None and key in _MEMO:
         return _MEMO[key]
@@ -527,4 +695,35 @@ def derive_witness(root: Path, code_refs: list[dict[str, Any]]) -> WitnessResult
 
     if key is not None:
         _MEMO[key] = result
+    return result
+
+
+def derive_baseline_neighborhood(root: Path, code_refs: list[dict[str, Any]]) -> WitnessResult:
+    """Derive the codeflair BASELINE neighborhood of ``code_refs`` (design node 04 — the
+    prevention forecast). NEVER raises.
+
+    Same FULL 02 envelope as :func:`derive_witness` (kernel-default trust root, argv[0] +
+    tail screening, scrubbed env, neutral cwd, 120s, retry-on-timeout-only) but adds the
+    ``--baseline-refs`` mode flag and parses the ``baseline_refs`` wire STRICTLY (incl. the
+    ``mode`` key check). The memo keys on the committed HEAD sha (not the content-sensitive
+    tree token) + the normalized claim + the mode literal, in a SEPARATE dict — so it never
+    collides with the diff-mode memo, and a dirty tree with an unchanged HEAD reuses the
+    baseline account (``workspace_dirty`` still testifies to the dirtiness)."""
+    child_env = _scrubbed_env()
+    command, unavailable = _prepare_command(root, code_refs, child_env, ("--baseline-refs",))
+    if unavailable is not None or command is None:
+        return unavailable  # type: ignore[return-value]
+
+    head = _head_sha(root)
+    refs_key = _normalized_refs_key(code_refs)
+    key = (str(Path(root).resolve()), head, refs_key, _BASELINE_MODE) if head is not None else None
+    if key is not None and key in _BASELINE_MEMO:
+        return _BASELINE_MEMO[key]
+
+    result, transient = _exec_and_parse(command, child_env, _parse_baseline_facts)
+    if not result.available and transient:
+        result, _ = _exec_and_parse(command, child_env, _parse_baseline_facts)
+
+    if key is not None:
+        _BASELINE_MEMO[key] = result
     return result
