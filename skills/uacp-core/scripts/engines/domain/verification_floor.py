@@ -68,6 +68,54 @@ def class_rank(cls: str | None) -> int:
     return _CLASS_RANK.get(cls or "", 0)
 
 
+# --- The CLASS WITNESS heuristic (design node 03 — witness #2) ---------------------------------
+# Maps a symbol's INBOUND connectivity (fan-in) to a witness class. This is the kernel-side
+# MAPPING of the facts the codeflair witness derives (design node 02: the witness reports FACTS —
+# per-symbol inbound counts — the kernel maps them to a verdict; no class ever crosses the wire).
+#
+# INBOUND COUNT SEMANTICS (must match the codeflair witness's `inbound_counts`): the count is the
+# number of DISTINCT (src, dst, rel) inbound edges whose rel is `calls` OR `references` — `defines`
+# edges are DELIBERATELY EXCLUDED. A `defines` edge (container -> member) lands inbound on EVERY
+# contained method, so counting it would mark every method "wired-in" and destroy the
+# no-inbound -> sets_value vs wired-in -> wires_symbol distinction. This exclusion is part of the
+# HEURISTIC's meaning, not a codeflair implementation detail: a symbol with only a `defines` inbound
+# edge (a freshly-added method nothing calls yet) is `sets_value`, not `wires_symbol`.
+#
+# The broad bound is cited to the #83 spike's magnitude table (leaf=1, const=4, helper=16,
+# core=65 direct callers): 32 sits between helper and core, the smallest fan-in this heuristic
+# treats as "broad enough that a change likely alters behavior". It is ADVISORY-phase and
+# provisional — a pre-promotion re-derivation on real, multi-repo targets is expected (node 03's
+# named promotion blocker: fan-in magnitude is a connectivity PROXY for changes_behavior, not a
+# semantics proof).
+_WITNESS_BROAD_BOUND = 32
+
+
+def witness_class(inbound_count: int, *, broad_bound: int = _WITNESS_BROAD_BOUND) -> str:
+    """Map a symbol's inbound fan-in to a witness class (design node 03 LOCKED shape):
+
+        0 inbound            -> ``sets_value``     (no references: a leaf / freshly-set value)
+        >= 1 inbound         -> ``wires_symbol``   (wired-in: something references it)
+        >= ``broad_bound``   -> ``changes_behavior`` (broad hop-1 fan-in)
+
+    ``inbound_count`` counts ONLY ``calls``/``references`` inbound edges — ``defines`` is excluded
+    (module note): a member with only its container's ``defines`` inbound edge is ``sets_value``.
+
+    The range DELIBERATELY EXCLUDES ``ensures_obligation`` (rank 2 of the four-value ``CLASSES``
+    vocabulary — node 03 review B3): obligation semantics ("this guarantees an invariant") are NOT
+    derivable from connectivity. Because the oracle this feeds can only be RAISED (never lowered),
+    a genuine ``ensures_obligation`` target is never down-ranked by a witness that cannot say
+    rank 2. Never raises (a negative/garbled count degrades to ``sets_value``)."""
+    try:
+        n = int(inbound_count)
+    except (TypeError, ValueError):
+        return "sets_value"
+    if n >= broad_bound:
+        return "changes_behavior"
+    if n >= 1:
+        return "wires_symbol"
+    return "sets_value"
+
+
 def candidate_class(text: str | None) -> tuple[str | None, str]:
     """The STRONGEST class whose keyword appears in ``text`` as a WHOLE WORD (case-insensitive),
     with the matched keyword; ``(None, "")`` if none matches. Strongest-first so the most demanding

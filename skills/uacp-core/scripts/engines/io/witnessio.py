@@ -51,7 +51,7 @@ import shutil
 import subprocess
 import tempfile
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -93,6 +93,12 @@ class WitnessFacts:
     neighborhood       — hop-1 edges {src:{file,name}, dst:{file,name}, reason}.
     declared           — the claim echoed back: {file, name, resolved: bool}.
     unresolved_touched — touched but unresolvable {file, name} (new/unparseable code).
+    inbound_counts     — per-touched-symbol inbound fan-in (class witness, node 03):
+                         ``{"<file>:<name>": <int>}``. Counts DISTINCT (src, dst, rel) inbound
+                         edges whose rel is ``calls``/``references`` only — ``defines`` excluded
+                         (see engines.domain.verification_floor.witness_class). Zero is present for
+                         every touched symbol. OPTIONAL on the wire (absent -> ``{}``); the scope
+                         witness (02) does not read it, so it is never a required key.
     """
 
     graph_stamp: dict
@@ -101,6 +107,7 @@ class WitnessFacts:
     neighborhood: tuple[dict, ...]
     declared: tuple[dict, ...]
     unresolved_touched: tuple[dict, ...]
+    inbound_counts: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -392,6 +399,18 @@ def _parse_facts(stdout: str) -> tuple[WitnessFacts | None, str | None]:
         if not _is_sym(entry, allow_null_name=True):
             return None, f"witness unresolved_touched has a malformed entry: {entry!r}"
 
+    # inbound_counts (class witness, node 03): OPTIONAL — NOT in _REQUIRED_KEYS, so a witness
+    # that predates it (or the 02 scope-only path) parses byte-identically. Read LENIENTLY: only
+    # well-formed str->int entries are kept (bool excluded — bool is an int subclass); a malformed
+    # entry is dropped, not fatal, because the class-witness fallback recomputes a missing count
+    # from the neighborhood. A non-dict value degrades to {} (fallback everywhere).
+    inbound_counts: dict[str, int] = {}
+    ic_raw = data.get("inbound_counts")
+    if isinstance(ic_raw, dict):
+        for k, v in ic_raw.items():
+            if isinstance(k, str) and isinstance(v, int) and not isinstance(v, bool):
+                inbound_counts[k] = v
+
     facts = WitnessFacts(
         graph_stamp=graph_stamp,
         ingestion=ingestion_val,
@@ -399,6 +418,7 @@ def _parse_facts(stdout: str) -> tuple[WitnessFacts | None, str | None]:
         neighborhood=tuple(neighborhood_raw),
         declared=tuple(declared_raw),
         unresolved_touched=tuple(unresolved_raw),
+        inbound_counts=inbound_counts,
     )
     return facts, None
 
