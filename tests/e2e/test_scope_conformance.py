@@ -1653,3 +1653,75 @@ def test_forecast_record_carries_base_commit_and_declared_echo(
     echo = {(d["file"], d["name"]): d["resolved"] for d in rec["declared"]}
     assert echo[("src/a.py", "Alpha")] is True
     assert echo[("src/a.py", "Ghost")] is False, "phantom ref is echoed, not swallowed"
+
+
+def test_forecast_join_absent_write_paths_matches_engine_boundary(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    """Post-merge review P2: the join's boundary loading mirrors the engine path —
+    ABSENT write_paths normalizes to [] (the strict empty boundary diff-containment
+    evaluates), so an existing record is still joined, never silently skipped."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(declared=[_decl("src/a.py", "Alpha", True)], neighborhood=[])
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert _forecast_record(temp_uacp_root, valid_run_id) is not None
+
+    # The final scope loses its write_paths key entirely (absent, not []).
+    body = _load_scope(temp_uacp_root, valid_run_id)
+    body.pop("write_paths", None)
+    _write_scope(temp_uacp_root, valid_run_id, body)
+    reg = _load_registry(temp_uacp_root)
+    reg["active_runs"][0]["write_paths"] = []
+    _write_registry(temp_uacp_root, reg)
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue.py").write_text("# out of the empty boundary\n")
+
+    from engines.scope_conformance import join_forecast_record
+
+    assert join_forecast_record(temp_uacp_root, valid_run_id) == []
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None and rec.get("joined") is True, "absent boundary must still join"
+    assert "rogue.py" in rec["outcome"]
+
+
+def test_heartgate_closure_gate_performs_the_join(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    """Post-merge review coverage gap: prove validate_closure ITSELF joins (and
+    surfaces join failures) — not just the helper called directly."""
+    from engines.heartgate.heartgate import Heartgate
+
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+    )
+    witness = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        symbols_touched=[("src/a.py", "Alpha")],
+    )
+    stub_py, _ = _install_dual_stub(tmp_path / "cf", baseline, witness)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue.py").write_text("# actual out-of-scope\n")
+
+    decision = Heartgate.load(str(temp_uacp_root)).validate_closure(valid_run_id)
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None and rec.get("joined") is True, "the closure GATE must join"
+    assert rec["precision"] == 1.0
+    assert decision.decision in ("pass", "warn", "block")  # gate never crashes
+
+    # Failure surfacing: corrupt the record, re-run the gate, the warning is visible.
+    rec_path = (
+        temp_uacp_root / ".uacp" / "verification" / f"{valid_run_id}-cascade-forecast.yaml"
+    )
+    rec_path.write_text("this: : : not valid yaml: [")
+    decision2 = Heartgate.load(str(temp_uacp_root)).validate_closure(valid_run_id)
+    all_lines = list(decision2.blockers) + list(decision2.warnings)
+    assert any("SC_FORECAST_JOIN_FAILED" in ln for ln in all_lines), all_lines
