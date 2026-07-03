@@ -56,8 +56,14 @@ from config import base_dir
 from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
 from engines.domain.layout import CATALOG_VERSION
-from engines.domain.verification_floor import CLASSES, candidate_class, class_rank, load_floor
-from engines.io import load_artifact, load_manifest, resolve_in_workspace
+from engines.domain.verification_floor import (
+    CLASSES,
+    candidate_class,
+    class_rank,
+    load_floor,
+    witness_class,
+)
+from engines.io import derive_witness, load_artifact, load_manifest, resolve_in_workspace
 
 
 def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Violation:
@@ -66,6 +72,29 @@ def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Viola
 
 def _aslist(v: Any) -> list:
     return v if isinstance(v, list) else []
+
+
+def _carry_code_refs(raw: Any) -> list[dict[str, str]] | None:
+    """Carry a target's declared ``code_refs`` onto its projected node (class witness, node 03).
+
+    Returns a list of ``{file, name}`` string dicts, or ``None`` when the field is absent,
+    empty, or MALFORMED (not a list, or any entry not a ``{file, name}`` pair of non-empty
+    strings). Defensive by design: the write-time schema for the package docs is OPEN-world, so
+    the projection reads possibly hand-authored/tampered state — a malformed shape carries as
+    ``None`` (no witness feed for that target — byte-identical to no claim), never a partial/
+    silently-dropped list. An empty list is a no-claim, so it also carries as ``None``."""
+    if not isinstance(raw, list):
+        return None
+    out: list[dict[str, str]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            return None
+        f = item.get("file")
+        n = item.get("name")
+        if not (isinstance(f, str) and f and isinstance(n, str) and n):
+            return None
+        out.append({"file": f, "name": n})
+    return out or None
 
 
 def _synth_id(prefix: str, text: str, run: str) -> str:
@@ -153,6 +182,10 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
                 # independent judge reading the MD) — NOT the agent's self-declared check class and
                 # NOT prose the gate greps. It is the B1-era grounding the underclaim gate measures.
                 entailed_class=item.get("entailed_class"),
+                # CLASS WITNESS (node 03): the target's declared code symbol(s). Carried so
+                # validate_class_underclaim can feed the codeflair connectivity witness. Malformed
+                # -> None (defensive; the package docs are open-world at write time).
+                code_refs=_carry_code_refs(item.get("code_refs")),
                 # SLICE 1 (anchor primitive): YAML node → MD section pointer. Carried so the
                 # resolution validator can check it; recorded as an `anchored_to` edge below.
                 anchor=anchor,
@@ -175,6 +208,9 @@ def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
                 expected_outputs=wu.get("expected_outputs"),
                 # PROTOTYPE (grounding retarget): independent-oracle class — see scope_item above.
                 entailed_class=wu.get("entailed_class"),
+                # CLASS WITNESS (node 03): the work_unit's declared code symbol(s) — mirror of the
+                # scope_item carry above. Malformed -> None (defensive).
+                code_refs=_carry_code_refs(wu.get("code_refs")),
             )
             # derives_from = the PROPOSE->PLAN coverage edge. NOTE (D42 producer gap): the real PIV
             # validator does NOT require it on work_units (only id/intent/expected_outputs), so the
@@ -995,16 +1031,102 @@ def validate_check_floor(workspace: str | Path, run_id: str) -> list[Violation]:
     return out
 
 
+# The inbound-edge relations the CLASS WITNESS counts (design node 03): calls/references only.
+# `defines` (container -> member) is EXCLUDED — it lands inbound on every method and would mark
+# every member "wired-in", destroying the sets_value/wires_symbol distinction. This mirrors the
+# codeflair witness's inbound_counts semantics (kept here for the defensive fallback path).
+_WITNESS_COUNT_REASONS = frozenset({"calls", "references"})
+
+
+def _canonical_touched(
+    ref: tuple[str, str], touched_set: set[tuple[str, str]]
+) -> tuple[str, str] | None:
+    """Resolve an AUTHORED target ref against the CANONICAL touched set.
+
+    Exact ``(file, name)`` membership wins. Otherwise an unqualified authored name
+    matches a touched symbol in the same file whose canonical name ends with
+    ``.<name>`` (component boundary, mirroring codeflair's resolution) — but only
+    when the match is UNIQUE: an ambiguous shorthand resolves to ``None`` (an
+    ambiguous claim must never count as coverage). Returns the canonical touched
+    ref used for inbound-count lookup, or ``None``. Never raises."""
+    if ref in touched_set:
+        return ref
+    file, name = ref
+    if "." in name:
+        return None  # qualified names match exactly or not at all
+    suffix = "." + name
+    candidates = [t for t in touched_set if t[0] == file and t[1].endswith(suffix)]
+    return candidates[0] if len(candidates) == 1 else None
+
+
+def _target_code_refs(tnode: dict) -> list[tuple[str, str]]:
+    """The carried, validated ``code_refs`` on a target node as ``(file, name)`` tuples (empty when
+    absent/malformed — ``_carry_code_refs`` already reduced a bad shape to ``None``)."""
+    crefs = tnode.get("code_refs")
+    if not isinstance(crefs, list):
+        return []
+    return [
+        (r["file"], r["name"]) for r in crefs if isinstance(r, dict) and "file" in r and "name" in r
+    ]
+
+
+def _inbound_count(facts: Any, ref: tuple[str, str]) -> int:
+    """Inbound fan-in for a touched symbol (class witness, node 03).
+
+    Prefer the witness's authoritative ``inbound_counts`` (which now carries EVERY touched symbol,
+    zero included). Fall back — defensively, should never fire — to counting DISTINCT (src, rel)
+    ``calls``/``references`` neighborhood edges whose ``dst`` is ``ref``; ``defines`` is NEVER
+    counted (see :func:`witness_class`). Never raises.
+
+    NOTE (council review): this fallback is LOSSY BY CONSTRUCTION — it dedups on
+    (src.file, src.name, rel) over the possibly-CAPPED neighborhood list, so it can
+    undercount vs the authoritative inbound_counts. A version-skewed witness (no
+    inbound_counts key) routes EVERY ref through it; undercount degrades to a weaker
+    class, which raise-only turns into less catch, never a false block.
+    """
+    key = f"{ref[0]}:{ref[1]}"
+    ic = getattr(facts, "inbound_counts", None)
+    if isinstance(ic, dict):
+        val = ic.get(key)
+        if isinstance(val, int) and not isinstance(val, bool):
+            return val
+    seen: set[tuple[Any, Any, Any]] = set()
+    for edge in getattr(facts, "neighborhood", ()):  # type: ignore[union-attr]
+        if not isinstance(edge, dict) or edge.get("reason") not in _WITNESS_COUNT_REASONS:
+            continue
+        dst, src = edge.get("dst"), edge.get("src")
+        if not isinstance(dst, dict) or not isinstance(src, dict):
+            continue
+        if (dst.get("file"), dst.get("name")) == ref:
+            seen.add((src.get("file"), src.get("name"), edge.get("reason")))
+    return len(seen)
+
+
 def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violation]:
-    """Layer 2b — class ENTAILMENT (design node 34): derive a CANDIDATE class from a target's own
-    intent/statement text; if the strongest class its checks DECLARE is weaker than the content
-    implies, the agent under-classified to satisfy the floor with a weak kind -> a block violation
-    (block). Catches the omitted-class dodge too (undeclared = rank 0). Heuristic + PARTIAL: it
-    raises the cost of mis-classification (the intent text must also be corrupted), it does not
-    make class honesty deterministic — only the code plane does; Layer 3 owns the residual. Never
-    raises."""
+    """Layer 2b — class ENTAILMENT (design node 34) + the CLASS WITNESS (design node 03): the gate
+    grades the strongest class a target's checks DECLARE against an independent ORACLE. The oracle
+    is a RAISE-ONLY, max-rank pick over three sources (node 03 review B1):
+
+      1. ``code_witness`` — the codeflair CONNECTIVITY witness (node 03): for each target that
+         declares ``code_refs``, the gate derives the code account ONCE (``derive_witness``), honors
+         only refs the diff actually TOUCHED (falsified against ``symbols_touched`` — an untouched
+         claim derives nothing and fires ``CHK_CLASS_REF_UNTOUCHED``), and maps each honored ref's
+         inbound fan-in to a class (:func:`witness_class`). The per-target witness class is the MAX
+         over honored refs. It can only RAISE the oracle, never lower it.
+      2. ``entailed_class`` — an independent oracle field (code-plane entailment or a judge).
+      3. ``prose`` — the legacy intent/expected_outputs/statement keyword match.
+
+    If the strongest oracle out-ranks the declared class -> ``CHK_CLASS_UNDERCLAIM`` (block, as
+    before — only the oracle's provenance/floor upgraded). When the witness and ``entailed_class``
+    both testify and DISAGREE, ``CHK_ENTAILED_CLASS_SUPERSEDED`` (warn) records which governs
+    (max-rank) regardless of which side wins. When a target declares ``code_refs`` but the witness
+    cannot testify (CLI unavailable / weak provenance floor), ``CHK_CLASS_WITNESS_UNAVAILABLE``
+    (warn, once) fires and the gate falls back VISIBLY to the two-source oracle — never a silent
+    revert. A run with NO ``code_refs`` anywhere is byte-identical to the pre-witness gate: the CLI
+    is never invoked. All new codes are advisory ``warn``. Never raises."""
     if (bad := _validate_inputs(workspace, run_id)) is not None:
         return bad
+    root = Path(str(workspace)).resolve()
     graph = _load_and_project(workspace, run_id)
     if graph is None:
         return []
@@ -1014,10 +1136,55 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
     for e in edges:
         if e["rel"] == "measured_by":
             inbound.setdefault(e["dst"], []).append(e["src"])
+
+    targets = [n for n in nodes.values() if n.get("kind") in ("scope_item", "work_unit")]
+
+    # --- CLASS WITNESS: derive ONCE over the UNION of every target's declared code_refs (node 03).
+    # The claim is opt-in: with no code_refs anywhere, derive_witness is NOT called (byte-identical
+    # to the pre-witness gate). derive_witness memoizes, but we still gather + call once here.
+    union_refs: list[dict[str, str]] = []
+    seen_refs: set[tuple[str, str]] = set()
+    for tnode in targets:
+        for ref in _target_code_refs(tnode):
+            if ref not in seen_refs:
+                seen_refs.add(ref)
+                union_refs.append({"file": ref[0], "name": ref[1]})
+
     out: list[Violation] = []
-    for tnode in nodes.values():
-        if tnode["kind"] not in ("scope_item", "work_unit"):
-            continue
+    witness_facts: Any | None = None
+    touched_set: set[tuple[str, str]] = set()
+    if union_refs:
+        result = derive_witness(root, union_refs)
+        facts = result.facts
+        if result.available and facts is not None and facts.ingestion == "scip":
+            witness_facts = facts
+            for entry in facts.symbols_touched:
+                if isinstance(entry, dict):
+                    f, n = entry.get("file"), entry.get("name")
+                    if isinstance(f, str) and f and isinstance(n, str) and n:
+                        touched_set.add((f, n))
+        else:
+            # Fail-closed visibility, ONCE: the witness was expected (code_refs declared) but could
+            # not testify. Fall back to the two-source oracle below — never a silent revert.
+            if not result.available:
+                reason = result.error or "witness unavailable"
+            else:
+                reason = (
+                    f"weak provenance floor (ingestion="
+                    f"{facts.ingestion if facts else None!r}, expected 'scip')"
+                )
+            out.append(
+                _v(
+                    "CHK_CLASS_WITNESS_UNAVAILABLE",
+                    f"targets declare code_refs but the class witness could not testify "
+                    f"({reason}); falling back to the entailed_class/prose oracle",
+                    severity="warn",
+                    error=reason,
+                    command=list(result.command),
+                )
+            )
+
+    for tnode in targets:
         # FAIL-CLOSED on a malformed oracle BEFORE the no-checks early-exit (codex P2 #70):
         # `entailed_class` is the INDEPENDENT grounding signal, so a present-but-unknown value
         # (e.g. a typo `wire_symbol`) must block even on a zero-check / pre-adoption target — never
@@ -1034,6 +1201,66 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
                 )
             )
             continue
+
+        # --- CLASS WITNESS per-target: diff-grounding + heuristic mapping (independent of checks,
+        # so CHK_CLASS_REF_UNTOUCHED / CHK_ENTAILED_CLASS_SUPERSEDED fire even on a zero-check
+        # target). `witness_cls` becomes the third, raise-only oracle source below.
+        witness_cls: str | None = None
+        refs = _target_code_refs(tnode)
+        if witness_facts is not None and refs:
+            # Canonicalize AUTHORED refs against the CANONICAL touched set (codex review
+            # MATERIAL): symbols_touched carries derived class-qualified names, so an
+            # authored shorthand ("validate_closure" for "Heartgate.validate_closure")
+            # would falsely read as untouched under exact matching. Mirror codeflair's
+            # documented resolution: exact (file, name) match first; else a UNIQUE
+            # component-boundary match (canonical name ends with ".<authored>"); an
+            # AMBIGUOUS shorthand (two touched candidates) resolves to nothing — an
+            # ambiguous claim must never manufacture coverage (node 03 / C2 doctrine).
+            honored: list[tuple[str, str]] = []
+            untouched: list[tuple[str, str]] = []
+            for ref in refs:
+                match = _canonical_touched(ref, touched_set)
+                (honored if match is not None else untouched).append(
+                    match if match is not None else ref
+                )
+            if untouched:
+                shown = sorted(untouched)
+                out.append(
+                    _v(
+                        "CHK_CLASS_REF_UNTOUCHED",
+                        f"target '{tnode['id']}' declares {len(untouched)} code_ref(s) the diff "
+                        f"did not touch: {[f'{f}:{n}' for f, n in shown]} — they DERIVE NO CLASS "
+                        f"(diff-grounded: an untouched claim cannot manufacture a weak oracle)",
+                        severity="warn",
+                        target=tnode["id"],
+                        refs=[f"{f}:{n}" for f, n in shown],
+                    )
+                )
+            if honored:
+                # Per-target witness class = MAX over honored refs (a multi-symbol target cannot
+                # cherry-pick its weakest symbol — node 03 review M3).
+                witness_cls = max(
+                    (witness_class(_inbound_count(witness_facts, r)) for r in honored),
+                    key=class_rank,
+                )
+            # Disagreement surfacing: fire regardless of which side wins (max-rank governs).
+            if witness_cls is not None and entailed is not None and witness_cls != entailed:
+                governs = (
+                    witness_cls if class_rank(witness_cls) >= class_rank(entailed) else entailed
+                )
+                out.append(
+                    _v(
+                        "CHK_ENTAILED_CLASS_SUPERSEDED",
+                        f"target '{tnode['id']}' witness class '{witness_cls}' disagrees with the "
+                        f"declared entailed_class '{entailed}' — '{governs}' governs (max-rank)",
+                        severity="warn",
+                        target=tnode["id"],
+                        witness_class=witness_cls,
+                        entailed_class=entailed,
+                        governs=governs,
+                    )
+                )
+
         cids = [cid for cid in inbound.get(tnode["id"], []) if cid in check_nodes]
         if not cids:
             continue
@@ -1041,25 +1268,35 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
             (class_rank(check_nodes[cid].get("target_class")) for cid in cids), default=0
         )
         # The ORACLE: an independent derivation of the target's true class, to cross-check the
-        # agent's (weaker) declared class. This gate is fundamentally an INDEPENDENCE check, not a
-        # prose check — the prose keyword-match was only a cheap independent oracle that happened
-        # to live in the YAML the gate could read. Two sources, strongest wins (ADDITIVE ratchet):
-        #   1. `entailed_class` (PROTOTYPE / B1): the class an INDEPENDENT source attributes to the
-        #      target — code-plane entailment from the real symbol (deterministic, the docstring's
-        #      "only the code plane" owner) or an independent judge reading the MD. Survives B1
-        #      because it does NOT depend on prose being in the YAML.
-        #   2. `candidate_class(prose)` (LEGACY): the intent/expected_outputs/statement keyword
-        #      match. Kept so pre-B1 runs (prose in YAML) stay caught; dark once prose moves to MD.
+        # agent's (weaker) declared class. Fundamentally an INDEPENDENCE check. RAISE-ONLY, max-rank
+        # over THREE sources (node 03 B1 — strongest wins; ties prefer the more grounded source):
+        #   3. `code_witness` — codeflair connectivity (node 03), the most grounded; can only raise.
+        #   2. `entailed_class` — independent oracle field (code-plane entailment / a judge).
+        #   1. `candidate_class(prose)` — legacy intent/expected_outputs/statement keyword match.
         eo = tnode.get("expected_outputs")
         eo_text = " ".join(map(str, eo)) if isinstance(eo, list) else str(eo or "")
         text = " ".join(s for s in (tnode.get("intent"), eo_text, tnode.get("statement")) if s)
         cand, kw = candidate_class(text)
-        # `entailed` was fetched + validated above (before the no-checks early-exit).
-        # Pick the strongest oracle that fires, preferring the grounded `entailed_class`.
-        if class_rank(entailed) >= class_rank(cand) and class_rank(entailed) > 0:
-            oracle_cls, oracle_src, oracle_basis = entailed, "entailed_class", "independent oracle"
+        # (rank, priority, class, source, basis) — max by (rank, priority) is the raise-only pick;
+        # priority breaks a rank tie toward the more grounded source, preserving the legacy
+        # entailed-over-prose preference exactly (witness > entailed > prose).
+        oracle_candidates: list[tuple[int, int, str, str, str]] = []
+        if witness_cls is not None:
+            oracle_candidates.append(
+                (class_rank(witness_cls), 3, witness_cls, "code_witness", "codeflair connectivity")
+            )
+        if entailed is not None:
+            oracle_candidates.append(
+                (class_rank(entailed), 2, entailed, "entailed_class", "independent oracle")
+            )
+        if cand is not None:
+            oracle_candidates.append((class_rank(cand), 1, cand, "prose", f"matched «{kw}»"))
+        if oracle_candidates:
+            _, _, oracle_cls, oracle_src, oracle_basis = max(
+                oracle_candidates, key=lambda c: (c[0], c[1])
+            )
         else:
-            oracle_cls, oracle_src, oracle_basis = cand, "prose", f"matched «{kw}»"
+            oracle_cls = oracle_src = oracle_basis = None
         if oracle_cls and class_rank(oracle_cls) > declared_rank:
             out.append(
                 _v(

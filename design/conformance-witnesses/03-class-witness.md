@@ -45,6 +45,14 @@ facts surface:
   `neighborhood` (both directions, reason enum) — the only surface addition
   is per-symbol inbound counts where the hop-1 edge list is capped. No
   classes cross the wire — classes are verdicts (02's inversion lesson).
+  **Inbound counts exclude `defines` edges** (build finding, contract-level):
+  a container→member `defines` edge lands inbound on every contained method,
+  so counting it would mark every method "wired-in" and erase the
+  `sets_value`/`wires_symbol` distinction — the count is over distinct
+  `calls`/`references` edges only, on both sides of the wire. And 02's
+  provenance-floor doctrine applies verbatim: a weaker-than-`scip` ingestion
+  floor is `CHK_CLASS_WITNESS_UNAVAILABLE` (visible fallback), never a
+  weak-floor oracle raise.
 - **Mapping (kernel-side heuristic — held to #87's LOCKED shape, with its
   range stated honestly)**: the kernel maps facts → a witness class:
   - **no inbound references** → `sets_value`;

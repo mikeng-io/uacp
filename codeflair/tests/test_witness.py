@@ -507,6 +507,114 @@ def test_changed_paths_sees_files_inside_new_untracked_directory(tmp_path):
     assert "newpkg/" not in paths, paths
 
 
+# -- inbound_counts: per-symbol inbound fan-in for touched symbols (issue #87) ------------
+
+
+def _inbound_repo(tmp_path):
+    """A repo where svc.py (the changed file) holds two symbols: Target (two inbound
+    callers) and Lonely (no inbound). Callers live in unchanged files."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    (repo / "a.py").write_text("# a\n")
+    (repo / "b.py").write_text("# b\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+    (repo / "svc.py").write_text("# changed\n")  # only svc.py is touched
+    return repo
+
+
+def test_inbound_counts_two_distinct_callers(tmp_path):
+    """(1) A touched symbol with two DISTINCT inbound callers -> count 2, keyed
+    '<file>:<name>' exactly as symbols_touched serializes it."""
+    repo = _inbound_repo(tmp_path)
+    symbols = [
+        ("scip py `svc`/Target#", "svc.py", "Target#"),
+        ("scip py `svc`/Lonely#", "svc.py", "Lonely#"),
+        ("scip py `a`/callerA().", "a.py", "callerA#"),
+        ("scip py `b`/callerB().", "b.py", "callerB#"),
+    ]
+    edges = [
+        ("scip py `a`/callerA().", "scip py `svc`/Target#", "calls"),
+        ("scip py `b`/callerB().", "scip py `svc`/Target#", "references"),
+    ]
+    doc = build_witness(repo, _seeder(symbols, edges), lang="python")
+    assert doc["inbound_counts"]["svc.py:Target"] == 2
+
+
+def test_inbound_counts_zero_is_present_not_omitted(tmp_path):
+    """(2) A touched symbol with NO inbound edges is present with count 0 (never omitted)."""
+    repo = _inbound_repo(tmp_path)
+    symbols = [
+        ("scip py `svc`/Target#", "svc.py", "Target#"),
+        ("scip py `svc`/Lonely#", "svc.py", "Lonely#"),
+        ("scip py `a`/callerA().", "a.py", "callerA#"),
+    ]
+    edges = [("scip py `a`/callerA().", "scip py `svc`/Target#", "calls")]
+    doc = build_witness(repo, _seeder(symbols, edges), lang="python")
+    assert "svc.py:Lonely" in doc["inbound_counts"]
+    assert doc["inbound_counts"]["svc.py:Lonely"] == 0
+    # every touched symbol has an entry (no omissions)
+    keys = {f"{e['file']}:{e['name']}" for e in doc["symbols_touched"]}
+    assert set(doc["inbound_counts"]) == keys
+
+
+def test_inbound_counts_counts_from_edges_not_capped_neighborhood(tmp_path):
+    """The count derives from the store's edges table directly, independent of the
+    (possibly capped) neighborhood list — a self-loop / defines edge is NOT an inbound
+    reference/call, and outbound edges never count."""
+    repo = _inbound_repo(tmp_path)
+    symbols = [
+        ("scip py `svc`/Target#", "svc.py", "Target#"),
+        ("scip py `svc`/Target#run().", "svc.py", "run#"),
+        ("scip py `a`/callerA().", "a.py", "callerA#"),
+    ]
+    edges = [
+        ("scip py `a`/callerA().", "scip py `svc`/Target#", "calls"),  # inbound (counts)
+        ("scip py `svc`/Target#", "scip py `svc`/Target#run().", "defines"),  # outbound+defines
+        ("scip py `svc`/Target#", "scip py `a`/callerA().", "references"),  # outbound
+    ]
+    doc = build_witness(repo, _seeder(symbols, edges), lang="python")
+    assert doc["inbound_counts"]["svc.py:Target"] == 1  # only the inbound calls edge
+
+
+def test_inbound_counts_is_byte_deterministic(tmp_path):
+    """(3) Two runs are byte-identical (sorted keys via sort_keys)."""
+    repo = _inbound_repo(tmp_path)
+    symbols = [
+        ("scip py `svc`/Target#", "svc.py", "Target#"),
+        ("scip py `svc`/Lonely#", "svc.py", "Lonely#"),
+        ("scip py `a`/callerA().", "a.py", "callerA#"),
+        ("scip py `b`/callerB().", "b.py", "callerB#"),
+    ]
+    edges = [
+        ("scip py `a`/callerA().", "scip py `svc`/Target#", "calls"),
+        ("scip py `b`/callerB().", "scip py `svc`/Target#", "references"),
+    ]
+    reindex = _seeder(symbols, edges)
+    a = json.dumps(build_witness(repo, reindex), sort_keys=True)
+    b = json.dumps(build_witness(repo, reindex), sort_keys=True)
+    assert a == b
+
+
+def test_inbound_counts_key_matches_symbols_touched_serialization(tmp_path):
+    """(4) The inbound_counts key format is EXACTLY symbols_touched's file/name joined by a
+    single colon — constructed both ways and compared, so the two never drift."""
+    repo = _inbound_repo(tmp_path)
+    symbols = [
+        ("scip py `svc`/Heartgate#validate_closure().", "svc.py", "validate_closure#"),
+        ("scip py `a`/callerA().", "a.py", "callerA#"),
+    ]
+    edges = [("scip py `a`/callerA().", "scip py `svc`/Heartgate#validate_closure().", "calls")]
+    doc = build_witness(repo, _seeder(symbols, edges), lang="python")
+
+    # the derived-human-name key: class-qualified, colon-joined with file
+    keys_from_touched = {f"{e['file']}:{e['name']}" for e in doc["symbols_touched"]}
+    assert set(doc["inbound_counts"]) == keys_from_touched
+    assert "svc.py:Heartgate.validate_closure" in doc["inbound_counts"]
+    assert doc["inbound_counts"]["svc.py:Heartgate.validate_closure"] == 1
+
+
 def test_witness_never_observes_its_own_cache(tmp_path):
     """Post-merge P2: on a repo that does NOT gitignore .codeflair/, the witness's
     own index cache must not appear in the facts or move the tree_token."""

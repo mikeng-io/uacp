@@ -15,6 +15,12 @@ The emitted document (compact JSON, ``sort_keys``, deterministic — no wall-clo
   edges are present, else ``treesitter``), never hardcoded.
 - ``symbols_touched`` — ``[{file, name}]``. v1 is FILE-LEVEL: every symbol the store
   records in each changed file (deliberately coarse; hunk-level is a pre-promotion item).
+- ``inbound_counts`` — ``{"<file>:<name>": int}``. For EVERY symbol in ``symbols_touched``
+  (key = its ``file`` and canonical derived ``name`` joined by a single colon), the count of
+  DISTINCT inbound reference/call edges (``rel`` in ``calls``/``references``, ``dst`` = the
+  touched symbol) in the store. Counted straight off the ``edges`` table — the class witness
+  (issue #87) needs exact fan-in because the hop-1 ``neighborhood`` may be capped. Zero is a
+  meaningful value (no inbound refs) and is always present, never omitted.
 - ``neighborhood`` — ``[{src, dst, reason}]``. The hop-1 edges (both directions) touching
   any touched symbol; ``reason`` mapped onto ``{calls, references, defines}``.
 - ``declared`` — ``[{file, name, resolved}]``. Each ``--code-ref`` echoed with a resolution
@@ -369,6 +375,31 @@ def _neighborhood(store: Store, touched_ids: set[str]) -> list[dict[str, object]
     return out
 
 
+# Inbound edge relations that count as a symbol being REFERENCED/CALLED (wired-in). The
+# structural ``defines`` edge (container -> member) is deliberately EXCLUDED: it is present
+# for every contained member and would trivially mark every method "wired-in", defeating the
+# no-inbound-references distinction the class witness derives from these counts.
+_INBOUND_REASONS = ("calls", "references")
+
+
+def _inbound_count(store: Store, symbol_ids: set[str]) -> int:
+    """The number of DISTINCT inbound reference/call edges whose ``dst`` is any id in
+    ``symbol_ids`` (the ids a touched ``{file, name}`` symbol collapses to). Counted straight
+    off the ``edges`` table — never the hop-1 ``neighborhood`` list, which may be capped —
+    so the fan-in is exact. Distinctness collapses the store's source axis (the same
+    ``src -> dst`` edge reported by both scip and tree_sitter is one edge): a ``(src, dst, rel)``
+    tuple counted once. Deterministic (a set cardinality, no ordering)."""
+    ph = ",".join("?" * len(_INBOUND_REASONS))
+    distinct: set[tuple[str, str, str]] = set()
+    for sid in symbol_ids:
+        for src, rel in store.con.execute(
+            f"SELECT DISTINCT src, rel FROM edges WHERE dst=? AND rel IN ({ph})",
+            (sid, *_INBOUND_REASONS),
+        ).fetchall():
+            distinct.add((src, sid, rel))
+    return len(distinct)
+
+
 def _symbol_facts(
     store: Store, changed: set[str], code_refs: Sequence[tuple[str, str]], lang: str
 ) -> tuple[dict[str, object], set[str]]:
@@ -385,6 +416,9 @@ def _symbol_facts(
 
     touched: set[tuple[str, str]] = set()
     touched_ids: set[str] = set()
+    # (file, human_name) -> the store symbol ids that collapse to it. A touched symbol may map
+    # to >1 id (two ids in a file sharing a derived name); inbound counts sum over the group.
+    touched_ids_by_key: dict[tuple[str, str], set[str]] = {}
     unresolved: list[dict[str, object]] = []
     for f in lang_files:
         ids = store.symbols_in_file(f)
@@ -399,13 +433,23 @@ def _symbol_facts(
             sym = store.symbol(sid)
             if sym is None:
                 continue
-            touched.add((f, human_name(sym)))
+            key = (f, human_name(sym))
+            touched.add(key)
             touched_ids.add(sid)
+            touched_ids_by_key.setdefault(key, set()).add(sid)
     for f in other_files:
         # Non-indexed-language changed file: visible file-level, name null (C4).
         unresolved.append({"file": f, "name": None})
 
     symbols_touched = [{"file": f, "name": n} for f, n in sorted(touched)]
+
+    # Per-symbol inbound fan-in for EVERY touched symbol, keyed exactly as symbols_touched
+    # serializes it: "<file>:<name>" (the canonical derived human name). Zero is meaningful
+    # (no inbound refs) and always present — never omitted (issue #87 class witness).
+    inbound_counts = {
+        f"{f}:{n}": _inbound_count(store, touched_ids_by_key[(f, n)])
+        for f, n in sorted(touched)
+    }
 
     declared: list[dict[str, object]] = []
     for file, name in code_refs:
@@ -430,6 +474,7 @@ def _symbol_facts(
 
     facts = {
         "symbols_touched": symbols_touched,
+        "inbound_counts": inbound_counts,
         "neighborhood": _neighborhood(store, touched_ids),
         "declared": declared,
         "unresolved_touched": sorted(unresolved, key=lambda d: d["file"]),
