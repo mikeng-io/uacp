@@ -92,6 +92,7 @@ from engines.domain.boundary import is_contained as _is_contained
 # All filesystem access is delegated to the io layer (no raw reads here).
 from engines.io import (
     changed_files,
+    default_branch_merge_base,
     derive_baseline_neighborhood,
     derive_witness,
     load_artifact,
@@ -773,8 +774,11 @@ _FORECAST_ADVISORY = (
 def _load_scope_for_run(root: Path, run_id: str) -> tuple[Any, str] | None:
     """Load the run's declared SCOPE artifact via the manifest, returning ``(scope,
     scope_rel)``, or None when the run has not declared one (pre-EXECUTE) / it is absent /
-    garbled. Mirrors :func:`validate`'s prologue exactly, so the forecast reads the SAME
-    boundary the diff check does. Never raises."""
+    garbled. Reads the SAME boundary :func:`validate`'s prologue does, and is functionally
+    equivalent to it (K5): it SKIPS the ``resolve_in_workspace`` + ``.exists()`` precheck
+    that ``validate`` runs before ``load_scope`` — an escaping/absent scope_rel simply makes
+    ``load_scope`` return an absent value, which is the same None no-op — so the two are NOT
+    byte-identical, only outcome-equivalent. Never raises."""
     loaded = load_manifest(root, run_id)
     if loaded.error is not None or loaded.value is None:
         return None
@@ -832,9 +836,12 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
 
     result = derive_baseline_neighborhood(root, refs)
     if not result.available or result.facts is None:
+        # K4: the FORECAST (plan-time) unavailability carries a DISTINCT code from the
+        # verify-time SC_WITNESS_UNAVAILABLE so a scoreboard consumer can tell the two
+        # layers apart by code.
         return [
             _v(
-                "SC_WITNESS_UNAVAILABLE",
+                "SC_FORECAST_WITNESS_UNAVAILABLE",
                 f"scope declares code_refs but the baseline cascade witness could not testify "
                 f"({result.error}); prevention forecast for scope {scope_rel_repr} not derived",
                 severity="warn",
@@ -847,7 +854,7 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
     if ingestion != "scip":
         return [
             _v(
-                "SC_WITNESS_UNAVAILABLE",
+                "SC_FORECAST_WITNESS_UNAVAILABLE",
                 f"baseline cascade witness reported a weaker provenance floor "
                 f"(ingestion={ingestion!r}, expected 'scip') for scope {scope_rel_repr}; "
                 f"forecast not derived",
@@ -891,25 +898,59 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
     )
 
     workspace_dirty = bool(getattr(facts, "workspace_dirty", False))
-    # Gate-owned FORECAST OF RECORD (written on EVERY successful derivation, predicted set
-    # possibly empty — a heeded-warning run legitimately records an empty forecast).
-    # Last-write-wins across retried plan_exit attempts.
-    write_forecast_record(
+
+    # K3 audit fields: base_commit = merge-base(default branch, HEAD) at derivation time
+    # (commit-early hindsight signature — a record whose graph_stamp.commit != base_commit
+    # means HEAD advanced past the branch point before plan_exit, so the forecast may be
+    # hindsight; promotion audit down-weights such pairs); declared = the refs echoed with
+    # the witness's resolution flags (also closes the phantom-ref silence — a never-resolving
+    # ref is now visible in the record, not swallowed).
+    base_commit = default_branch_merge_base(root)
+    declared_echo = [
+        {
+            "file": entry.get("file"),
+            "name": entry.get("name"),
+            "resolved": bool(entry.get("resolved")),
+        }
+        for entry in getattr(facts, "declared", ())  # type: ignore[union-attr]
+        if isinstance(entry, dict)
+    ]
+
+    # Gate-owned FORECAST OF RECORD — written per SUCCESSFUL DERIVATION at the plan_exit gate
+    # invocation (NOT gated on the transition itself succeeding; a retried/failed transition
+    # still writes). Last-write-wins across retried attempts makes the final write the
+    # de-facto record of the successful attempt. Predicted set may be empty — a heeded-warning
+    # run legitimately records an empty forecast. Written ATOMICALLY (K2): a persistence
+    # failure surfaces as SC_FORECAST_WRITE_FAILED, never a silent drop.
+    out: list[Violation] = []
+    wrote = write_forecast_record(
         root,
         run_id,
         {
             "run_id": run_id,
             "graph_stamp": getattr(facts, "graph_stamp", {}),
+            "base_commit": base_commit,
             "boundary": scope_wps,
             "refs": [f"{r['file']}:{r['name']}" for r in refs],
+            "declared": declared_echo,
             "predicted": predicted,
             "workspace_dirty": workspace_dirty,
             "forecast_of_record": True,
         },
     )
+    if not wrote:
+        out.append(
+            _v(
+                "SC_FORECAST_WRITE_FAILED",
+                f"the plan_exit forecast of record for scope {scope_rel_repr} could not be "
+                f"persisted (atomic write failed); the (forecast, outcome) pair will be "
+                f"missing from the promotion corpus for this run",
+                severity="warn",
+            )
+        )
 
     if not predicted:
-        return []
+        return out
 
     shown = predicted[:20]
     dirty_note = (
@@ -918,7 +959,7 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
         if workspace_dirty
         else ""
     )
-    return [
+    out.append(
         _v(
             "SC_PLAN_CASCADE_FORECAST",
             f"{len(predicted)} file(s) {_FORECAST_ADVISORY}: {shown}"
@@ -929,7 +970,8 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
             total=len(predicted),
             workspace_dirty=workspace_dirty,
         )
-    ]
+    )
+    return out
 
 
 def _check_forecast_join(root: Path, run_id: str, scope_wps: list[str] | None) -> list[Violation]:

@@ -14,7 +14,7 @@ from .forecastio import (
     load_forecast_record,
     write_forecast_record,
 )
-from .gitio import GitDiffResult, changed_files
+from .gitio import GitDiffResult, changed_files, default_branch_merge_base
 from .loaders import (
     Loaded,
     glob_in_workspace,
@@ -47,6 +47,7 @@ __all__ = [
     "WitnessFacts",
     "WitnessResult",
     "changed_files",
+    "default_branch_merge_base",
     "clear_witness_memo",
     "derive_baseline_neighborhood",
     "derive_witness",

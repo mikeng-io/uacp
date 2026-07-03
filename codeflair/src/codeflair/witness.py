@@ -46,8 +46,19 @@ construction. This is an EXTENSION of the 02 seam, not a reuse of its wire.
 
 The baseline is materialized read-only (``git archive HEAD | tar -x`` into a private temp dir),
 a FRESH index is built over that materialized tree, facts are derived, and the temp dir is
-removed — so the run workspace's dirty state is provably irrelevant to the output. The document
-(compact JSON, ``sort_keys``, deterministic, no wall-clock reads):
+removed — so the run workspace's dirty state is provably irrelevant to the output. Two
+materialization guards keep that independence honest (design node 04):
+
+- **Symlinks are stripped** (C1): every symlink in the materialized tree is unlinked before
+  indexing. A committed symlink is not indexable source, and one whose target is an absolute
+  or live-workspace path would let the indexer follow it OUT of the committed baseline into
+  live/dirty state — breaking dirt-independence and re-derivability.
+- **Submodules are unsupported, visibly** (C2): ``git archive`` skips submodule CONTENTS, so
+  a committed ``.gitmodules`` would silently under-report. Its presence in the HEAD tree
+  yields ``{"error": "submodules are not supported in baseline_refs mode"}`` (nonzero) rather
+  than a silent partial account.
+
+The document (compact JSON, ``sort_keys``, deterministic, no wall-clock reads):
 
 - ``mode`` — ``"baseline_refs"`` (the mode-1 diff wire carries no ``mode`` key; its presence is
   how a consumer tells the two apart).
@@ -616,6 +627,24 @@ def _materialize_head(repo: str, dest: str) -> bool:
         return False
 
 
+def _strip_symlinks(dest: str) -> None:
+    """Remove every symlink from the materialized baseline tree ``dest`` before indexing (C1 /
+    design node 04). A committed symlink is not indexable source, and one whose target is an
+    absolute/live path would make the indexer follow it OUT of the materialized baseline into
+    live workspace state — breaking the baseline's dirt-independence and re-derivability (the
+    forecast must be a function of the committed tree alone). ``os.walk`` does not descend
+    symlinked directories (``followlinks=False``), so unlinking them here severs the follow
+    entirely. Best-effort; never raises."""
+    for cur_root, dirs, files in os.walk(dest):
+        for name in (*dirs, *files):
+            path = os.path.join(cur_root, name)
+            try:
+                if os.path.islink(path):
+                    os.unlink(path)
+            except OSError:
+                pass
+
+
 def build_baseline_witness(
     repo: str,
     reindex: Reindex,
@@ -646,6 +675,14 @@ def build_baseline_witness(
     try:
         if not _materialize_head(repo, tmp):
             return {"error": "git archive failed", "repo": repo}
+        # C2: git archive skips submodule CONTENTS (they are separate repos), so a repo with a
+        # committed .gitmodules would silently UNDER-report the baseline neighborhood. Detect
+        # the config in the materialized HEAD tree and error VISIBLY rather than under-report.
+        if os.path.exists(os.path.join(tmp, ".gitmodules")):
+            return {"error": "submodules are not supported in baseline_refs mode", "repo": repo}
+        # C1: strip committed symlinks before indexing — they are not indexable source, and a
+        # symlink into an absolute/live path would break dirt-independence + re-derivability.
+        _strip_symlinks(tmp)
         # Delete-and-rebuild doctrine (mirrors build_witness): never derive from a reused store.
         # A fresh mkdtemp holds none, but the unlink keeps the invariant explicit + defensive.
         store_path = default_store_path(tmp)

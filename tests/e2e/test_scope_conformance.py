@@ -1368,9 +1368,11 @@ def test_forecast_unavailable_is_visible_and_writes_no_record(
     # No [witness] configured -> unconfigured -> unavailable.
 
     out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
-    hits = [v for v in out if v.code == "SC_WITNESS_UNAVAILABLE"]
-    assert hits, f"expected SC_WITNESS_UNAVAILABLE, got {_codes(out)}"
+    hits = [v for v in out if v.code == "SC_FORECAST_WITNESS_UNAVAILABLE"]
+    assert hits, f"expected SC_FORECAST_WITNESS_UNAVAILABLE, got {_codes(out)}"
     assert all(v.severity == "warn" for v in hits)
+    # K4: the forecast layer's own code, DISTINCT from the verify-time SC_WITNESS_UNAVAILABLE.
+    assert "SC_WITNESS_UNAVAILABLE" not in _codes(out)
     assert _forecast_record(temp_uacp_root, valid_run_id) is None, "no record on unavailable"
 
 
@@ -1388,7 +1390,7 @@ def test_forecast_weak_provenance_floor_is_unavailable_no_record(
     _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
 
     out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
-    assert "SC_WITNESS_UNAVAILABLE" in {v.code for v in out}
+    assert "SC_FORECAST_WITNESS_UNAVAILABLE" in {v.code for v in out}
     assert _forecast_record(temp_uacp_root, valid_run_id) is None
 
 
@@ -1461,3 +1463,152 @@ def test_baseline_memo_reuse_and_reclaim(
     assert calls_log.read_text() == "xxx", (
         "diff-mode derivation must not collide with the baseline memo"
     )
+
+
+def _git_head(root: Path) -> str:
+    out = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return out.stdout.strip()
+
+
+# (K1) stale-dirty flag: a memo HIT recomputes workspace_dirty kernel-side, so a
+# clean->dirty transition at the same HEAD is reflected even though the cached account said
+# clean (the stub always reports workspace_dirty=False).
+def test_forecast_memo_hit_recomputes_workspace_dirty(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+        workspace_dirty=False,  # the stub ALWAYS reports clean
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    clear_witness_memo()
+    _init_git_repo(temp_uacp_root)  # clean tree, HEAD stable across the two calls below
+
+    # (1) derive on a CLEAN tree -> record clean, memo populated on HEAD.
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert _forecast_record(temp_uacp_root, valid_run_id)["workspace_dirty"] is False
+
+    # (2) dirty the tree (new untracked file), derive again -> MEMO HIT, but the kernel
+    # recomputes workspace_dirty fresh -> True in BOTH the record and the advisory.
+    (temp_uacp_root / "rogue.py").write_text("# now the tree is dirty\n")
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits, "forecast still fires (rogue.py neighbor is out of boundary)"
+    assert hits[0].detail["workspace_dirty"] is True, "memo-hit must serve FRESH dirtiness"
+    assert "dirty" in hits[0].message
+    assert _forecast_record(temp_uacp_root, valid_run_id)["workspace_dirty"] is True
+
+
+# (K1b) the kernel-side dirty recompute FILTERS the witness's own .codeflair/ index cache —
+# churn confined to .codeflair/ is NOT run dirtiness.
+def test_forecast_workspace_dirty_filters_codeflair_cache(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+        workspace_dirty=True,  # stub claims dirty; the kernel recompute overrides it
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    clear_witness_memo()
+    _init_git_repo(temp_uacp_root)  # clean tree
+    # ONLY .codeflair/ churn -> must be filtered out -> tree reads CLEAN kernel-side.
+    (temp_uacp_root / ".codeflair").mkdir()
+    (temp_uacp_root / ".codeflair" / "index.db").write_text("cache\n")
+
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits
+    assert hits[0].detail["workspace_dirty"] is False, ".codeflair/ churn is not dirtiness"
+    assert "dirty" not in hits[0].message
+
+
+# (K2) an atomic-write FAILURE surfaces as SC_FORECAST_WRITE_FAILED (warn), never a silent
+# drop — and does not suppress the forecast advisory itself.
+def test_forecast_write_failure_is_visible(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    import engines.scope_conformance as sc
+
+    monkeypatch.setattr(sc, "write_forecast_record", lambda *a, **k: False)
+    out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    codes = {v.code for v in out}
+    assert "SC_FORECAST_WRITE_FAILED" in codes, codes
+    assert "SC_PLAN_CASCADE_FORECAST" in codes, "the forecast advisory still fires"
+    assert all(v.severity == "warn" for v in out if v.code == "SC_FORECAST_WRITE_FAILED")
+
+
+# (K3) the record carries base_commit = merge-base(default branch, HEAD) AND the declared-ref
+# resolution echo; when HEAD advanced past the branch point, base_commit != graph_stamp.commit
+# (the commit-early hindsight audit signature).
+def test_forecast_record_carries_base_commit_and_declared_echo(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+
+    # main holds the fork point; HEAD advances onto a feature branch beyond it.
+    _init_git_repo(temp_uacp_root)  # commit C0 on main
+    fork_point = _git_head(temp_uacp_root)
+    _git(temp_uacp_root, "checkout", "-q", "-b", "feature")
+    (temp_uacp_root / "advance.txt").write_text("beyond the fork\n")
+    _git(temp_uacp_root, "add", "-A")
+    _git(temp_uacp_root, "commit", "-q", "-m", "advance", "--no-verify")
+    head = _git_head(temp_uacp_root)
+    assert head != fork_point
+
+    # Pin the stub's graph_stamp.commit to the REAL HEAD so the audit compare is meaningful
+    # (base_commit is the fork point, graph_stamp.commit is the advanced HEAD).
+    baseline = _baseline_fixture(
+        declared=[
+            _decl("src/a.py", "Alpha", True),
+            _decl("src/a.py", "Ghost", False),  # phantom ref -> resolved False, now VISIBLE
+        ],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+    )
+    baseline["graph_stamp"] = {"commit": head, "tree_token": head}
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    clear_witness_memo()
+
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None
+    assert rec["base_commit"] == fork_point, "base_commit is merge-base(main, HEAD)"
+    assert rec["base_commit"] != rec["graph_stamp"]["commit"], (
+        "HEAD advanced past the fork -> the commit-early hindsight signature"
+    )
+    echo = {(d["file"], d["name"]): d["resolved"] for d in rec["declared"]}
+    assert echo[("src/a.py", "Alpha")] is True
+    assert echo[("src/a.py", "Ghost")] is False, "phantom ref is echoed, not swallowed"

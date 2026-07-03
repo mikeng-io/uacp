@@ -44,6 +44,7 @@ it (tests).
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import shlex
@@ -377,6 +378,43 @@ def _head_sha(root: Path) -> str | None:
     except Exception:
         return None
     return head.strip() or None
+
+
+def _workspace_dirty(root: Path) -> bool | None:
+    """Recompute — kernel-side, FRESH — whether the working tree is dirty (design node 04 /
+    K1). ``git status --porcelain -uall`` (scrubbed env) filtered of the witness's own
+    ``.codeflair/`` index cache (the gate-owned store must never read as run dirtiness,
+    mirroring the codeflair-side ``porcelain_lines`` filter). Returns the fresh bool, or
+    None when the tree is not a readable git repo (the caller then keeps the witness's
+    reported value). Never raises.
+
+    The baseline account is memoized on HEAD, so a memo hit serves the dirtiness observed at
+    the ORIGINAL derivation — stale across a clean->dirty transition at the same HEAD. The
+    caller replaces the memoized flag with this fresh value on EVERY call."""
+    try:
+        rc, status = _run_git(root, "status", "--porcelain", "-uall")
+        if rc != 0:
+            return None
+    except Exception:
+        return None
+    lines = [ln for ln in status.splitlines() if ln]
+    for path in _porcelain_paths(lines):
+        if not path.startswith(".codeflair/"):
+            return True
+    return False
+
+
+def _with_fresh_workspace_dirty(root: Path, result: WitnessResult) -> WitnessResult:
+    """Return ``result`` with its :class:`BaselineFacts` ``workspace_dirty`` recomputed
+    kernel-side (K1). A no-op when the result is unavailable, is not a baseline account, or
+    the tree is unreadable (fresh value None). Never raises."""
+    facts = result.facts
+    if not result.available or not isinstance(facts, BaselineFacts):
+        return result
+    fresh = _workspace_dirty(root)
+    if fresh is None or fresh == facts.workspace_dirty:
+        return result
+    return dataclasses.replace(result, facts=dataclasses.replace(facts, workspace_dirty=fresh))
 
 
 # The edge relations the witness may report (mirrors codeflair.witness._REASONS).
@@ -718,7 +756,10 @@ def derive_baseline_neighborhood(root: Path, code_refs: list[dict[str, Any]]) ->
     refs_key = _normalized_refs_key(code_refs)
     key = (str(Path(root).resolve()), head, refs_key, _BASELINE_MODE) if head is not None else None
     if key is not None and key in _BASELINE_MEMO:
-        return _BASELINE_MEMO[key]
+        # Memo hit still recomputes workspace_dirty (K1): the cached account carries the
+        # dirtiness observed at its ORIGINAL derivation, which goes stale on a
+        # clean->dirty transition at the same HEAD.
+        return _with_fresh_workspace_dirty(root, _BASELINE_MEMO[key])
 
     result, transient = _exec_and_parse(command, child_env, _parse_baseline_facts)
     if not result.available and transient:
@@ -726,4 +767,6 @@ def derive_baseline_neighborhood(root: Path, code_refs: list[dict[str, Any]]) ->
 
     if key is not None:
         _BASELINE_MEMO[key] = result
-    return result
+    # Recompute on the fresh derivation too — the witness observes dirtiness at exec time,
+    # but the kernel re-observes at RETURN time so both paths behave identically (K1).
+    return _with_fresh_workspace_dirty(root, result)

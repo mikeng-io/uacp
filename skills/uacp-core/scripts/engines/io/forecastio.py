@@ -13,6 +13,8 @@ right advisory rather than crashing the sweep.
 
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -32,17 +34,44 @@ def forecast_record_path(root: Path, run_id: str) -> Path | None:
 
 
 def write_forecast_record(root: Path, run_id: str, record: dict[str, Any]) -> bool:
-    """Write the gate-owned forecast record (LAST-WRITE-WINS across retried plan_exit
-    attempts — the forecast of record is the successful transition's write). Creates the
-    verification dir if needed. Returns True on success. Never raises."""
+    """Write the gate-owned forecast record ATOMICALLY (design node 04 / K2).
+
+    Serializes to a temp file IN THE SAME DIRECTORY, ``fsync``s it, then ``os.replace``s it
+    over the target — an atomic rename on POSIX, so a reader never observes a half-written
+    record and a crash mid-write cannot leave a partial file (last-write-wins across retried
+    plan_exit attempts is preserved: the replace is the write). On ANY persistence failure
+    the temp file is cleaned up and ``False`` is returned (the caller emits
+    SC_FORECAST_WRITE_FAILED rather than silently dropping the record). Creates the
+    verification dir if needed. Never raises."""
     path = forecast_record_path(root, run_id)
     if path is None:
         return False
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(yaml.safe_dump(record, sort_keys=False), encoding="utf-8")
+        data = yaml.safe_dump(record, sort_keys=False)
+    except Exception:
+        return False
+
+    tmp_path: Path | None = None
+    try:
+        fd, tmp_name = tempfile.mkstemp(
+            dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp"
+        )
+        tmp_path = Path(tmp_name)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp_path, path)  # atomic within the same directory
         return True
     except Exception:
+        # Clean the temp so a partial file never lingers (K2: partial-file impossible by
+        # construction — the target is only ever swapped in by an atomic rename).
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
         return False
 
 

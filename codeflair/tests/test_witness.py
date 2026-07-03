@@ -12,6 +12,7 @@ Two test layers:
 """
 
 import json
+import os
 import subprocess
 
 import pytest
@@ -817,6 +818,59 @@ def test_baseline_refs_cli_flag_end_to_end(tmp_path, capsys):
     assert [d["name"] for d in doc["declared"]] == ["service"]
     triples = {(e["src"]["name"], e["dst"]["name"], e["reason"]) for e in doc["neighborhood"]}
     assert ("service", "helper", "calls") in triples
+
+
+def test_baseline_refs_strips_committed_symlinks(tmp_path):
+    """(C1) A COMMITTED symlink pointing at a LIVE workspace file is stripped from the
+    materialized baseline before indexing, so the facts are provably independent of that live
+    target (exists / changes / deleted) — byte-identical modulo ``workspace_dirty``. Without
+    stripping, the indexer would follow the symlink into live/dirty workspace state, breaking
+    the baseline's dirt-independence and re-derivability."""
+    pytest.importorskip("tree_sitter_languages")
+    repo = tmp_path
+    _init_repo(repo)
+    # A real committed source file so the baseline index is never empty after the strip.
+    (repo / "keep.py").write_text("def keep():\n    return 0\n")
+    live = repo / "real_svc.py"
+    live.write_text("def service():\n    return 1\n")
+    os.symlink(str(live), str(repo / "svc.py"))  # absolute symlink -> a LIVE workspace file
+    _git(repo, "add", "keep.py", "svc.py")  # commit the SYMLINK; real_svc.py stays untracked/live
+    _git(repo, "commit", "-q", "-m", "symlink")
+
+    refs = [parse_code_ref("svc.py:service")]
+
+    def graph(d):
+        return json.dumps({k: v for k, v in d.items() if k != "workspace_dirty"}, sort_keys=True)
+
+    exists = build_baseline_witness(repo, cli.build_index, code_refs=refs, lang="python")
+    assert "error" not in exists, exists
+    live.write_text("def service():\n    return 999\n")  # change the live target
+    changed = build_baseline_witness(repo, cli.build_index, code_refs=refs, lang="python")
+    live.unlink()  # delete the live target -> the committed symlink now dangles
+    deleted = build_baseline_witness(repo, cli.build_index, code_refs=refs, lang="python")
+
+    assert graph(exists) == graph(changed) == graph(deleted), (
+        "baseline must not follow a committed symlink into live workspace state"
+    )
+    # The symlinked file is not indexable source -> its symbol never resolves.
+    assert all(d["resolved"] is False for d in exists["declared"])
+
+
+def test_baseline_refs_rejects_submodules(tmp_path):
+    """(C2) A committed ``.gitmodules`` -> ``git archive`` cannot materialize submodule
+    contents, so the baseline would silently UNDER-report the neighborhood. Detect the
+    submodule config in the HEAD tree and error VISIBLY (nonzero, kernel-visible) instead of
+    a silent partial account."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / ".gitmodules").write_text(
+        '[submodule "vendor/x"]\n\tpath = vendor/x\n\turl = https://example.com/x.git\n'
+    )
+    _git(repo, "add", ".gitmodules")
+    _git(repo, "commit", "-q", "-m", "add submodule config")
+
+    doc = build_baseline_witness(repo, _seeder([], []), lang="python")
+    assert doc["error"] == "submodules are not supported in baseline_refs mode"
 
 
 def test_witness_never_observes_its_own_cache(tmp_path):

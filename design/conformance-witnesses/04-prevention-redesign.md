@@ -49,7 +49,16 @@ probabilistic posture with a measurable path to teeth:
   no diff, so that wire is EMPTY by construction. The forecast requires a new
   diff-independent facts mode on the witness CLI (hop-1 neighborhood of
   given refs, same envelope, same facts-only discipline). This is an
-  extension of the 02 seam, not a reuse of its wire.
+  extension of the 02 seam, not a reuse of its wire. The mode materializes the
+  committed HEAD read-only and derives on THAT tree, so two materialization
+  guards keep the baseline's dirt-independence honest: **symlinks are stripped**
+  from the materialized tree before indexing (a committed symlink is not
+  indexable source, and one whose target is an absolute/live path would let the
+  indexer follow it out of the committed baseline into live state — breaking
+  re-derivability), and **submodule repos are unsupported-visible** (a committed
+  `.gitmodules` yields a nonzero `submodules are not supported in baseline_refs
+  mode` error rather than a silently under-reported neighborhood, since
+  `git archive` skips submodule contents).
 - **What is honestly NOT computable**: symbols the work will CREATE (they
   exist in no graph yet — the same ceiling 02 records for
   `unresolved_touched`, one phase earlier), dynamically-wired effects (03's
@@ -91,7 +100,13 @@ probabilistic posture with a measurable path to teeth:
   warning — agent re-declares, boundary widens, final forecast empty —
   yields no pair by design, and pairs exist only for runs that declared BOTH
   `code_refs` and `write_paths` (the outcome side no-ops without a declared
-  file boundary).
+  file boundary). The record is **written ATOMICALLY** (a same-directory temp
+  file swapped in by `os.replace`, so a reader never sees a half-written record
+  and a crash mid-write leaves no partial file); a persistence failure surfaces
+  as `SC_FORECAST_WRITE_FAILED` (warn, visible) rather than a silent drop. Each
+  record also carries **`base_commit`** (merge-base with the default branch — see
+  the timing clause) and the **declared-refs resolution echo** (each ref with its
+  resolved flag, so a never-resolving phantom ref is recorded, not swallowed).
 - **Where it runs (review MINOR made explicit)**: a **new, phase-bound
   check** joins the existing D35 `plan_exit` forced-gate invocation point —
   it is NOT `scope_conformance.validate()` re-invoked earlier (that computes
@@ -107,6 +122,18 @@ probabilistic posture with a measurable path to teeth:
   (HEAD)**, never the dirty tree, and a dirty tree at plan_exit is flagged
   in the advisory detail (the forecast is then a prediction about declared
   work from the last clean state, and says so).
+- **Commit-early hindsight audit (council M1)**: deriving on HEAD is only
+  honest if HEAD *is* the branch point. An agent that commits its work before
+  plan_exit would have the forecast derive on a graph that already contains the
+  change — a forecast wearing hindsight. The record makes this self-auditable:
+  `base_commit` = merge-base(default branch, HEAD) at derivation time, so a
+  record whose `graph_stamp.commit` is **not equal to** `base_commit` signals
+  HEAD advanced past the branch point before plan_exit. The forecast may then be
+  hindsight, and **promotion audit MUST exclude or down-weight such pairs**. This
+  is a self-auditable signal, not an auto-exclude: legitimate pre-work setup
+  commits are exactly the false positive the audit reviews (the record surfaces
+  the condition; the human promotion decision judges it), never silently
+  dropped.
 - **Enforce dial — blocking must be EARNED, and the bar is stated now**:
   `SC_PLAN_CASCADE_FORECAST` stays advisory until ALL of:
   1. 02's detection witness is itself promoted (a forecast may not outrank
