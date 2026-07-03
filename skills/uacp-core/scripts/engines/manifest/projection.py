@@ -681,6 +681,15 @@ def validate_graph_invariants(workspace: str | Path, run_id: str, scope: str) ->
         out.extend(validate_check_replay(workspace, run_id))
         out.extend(validate_check_floor(workspace, run_id))
         out.extend(validate_class_underclaim(workspace, run_id))
+    # PREVENTION-at-PLAN forecast (design node 04): a NEW phase-bound check joins the
+    # plan_exit forced-gate invocation point (its first subprocess prober). It reads the
+    # run's SCOPE (code_refs + write_paths) — a concern the scope-conformance engine owns —
+    # so it is imported locally to keep the projection<->scope_conformance dependency one-
+    # directional. Advisory (warn) + it writes its own forecast of record; it never blocks.
+    if scope == "plan_exit":
+        from engines.scope_conformance import validate_cascade_forecast
+
+        out.extend(validate_cascade_forecast(workspace, run_id))
     return out
 
 

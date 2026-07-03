@@ -84,6 +84,30 @@ def _run_git(root: Path, *args: str) -> tuple[int, str, str]:
     return proc.returncode, proc.stdout, proc.stderr
 
 
+def default_branch_merge_base(root: Path) -> str | None:
+    """``merge-base(<default branch>, HEAD)`` using the SAME default-branch candidates as
+    :func:`changed_files` (``origin/HEAD``, ``origin/main``, ``origin/master``, ``main``,
+    ``master``, in order — the first that resolves).
+
+    Returns the merge-base sha, or None when no default branch resolves / there is no
+    merge-base (orphan branch) / the workspace is not a readable git repo. Design node 04
+    (K3): this is the forecast record's ``base_commit`` — an AUDIT field (a record whose
+    ``graph_stamp.commit`` differs from ``base_commit`` means HEAD advanced past the branch
+    point before plan_exit, so the forecast may be hindsight). It is never a gate input.
+    Never raises."""
+    try:
+        for candidate in _DEFAULT_BRANCH_CANDIDATES:
+            rc, _, _ = _run_git(root, "rev-parse", "--verify", "--quiet", candidate)
+            if rc != 0:
+                continue
+            rc, mb_out, _ = _run_git(root, "merge-base", candidate, "HEAD")
+            mb = mb_out.strip()
+            return mb if (rc == 0 and mb) else None
+        return None
+    except Exception:
+        return None
+
+
 def _porcelain_path(line: str) -> str | None:
     """Extract the path from one ``git status --porcelain`` line.
 

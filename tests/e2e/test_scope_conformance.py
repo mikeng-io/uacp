@@ -1074,3 +1074,582 @@ def test_witness_subprocess_cwd_is_not_the_workspace(
     validate(temp_uacp_root, valid_run_id)
     recorded = cwd_probe.read_text().strip()
     assert _os.path.realpath(recorded) != _os.path.realpath(str(temp_uacp_root)), recorded
+
+
+# ============================================================================
+# PREVENTION-at-PLAN forecast (design node 04) — the plan_exit hop-1 forecast vs the
+# declared boundary, its gate-owned record, and the closure join. Driven through the SAME
+# stub-CLI harness (a stub selecting a baseline vs diff account by the --baseline-refs flag)
+# so the FAITHFUL trust-root / envelope path is exercised end to end.
+# ============================================================================
+
+from engines.graph_projection import validate_graph_invariants  # noqa: E402
+from engines.io import load_forecast_record  # noqa: E402
+from engines.scope_conformance import validate_cascade_forecast  # noqa: E402
+
+# A stub that returns baseline.json when invoked with --baseline-refs, else witness.json —
+# so ONE configured CLI answers both the forecast (plan_exit) and the diff-mode witness.
+_DUAL_STUB_SRC = (
+    "import pathlib, sys\n"
+    "here = pathlib.Path(__file__).resolve().parent\n"
+    "with (here / 'calls.log').open('a') as _f:\n"
+    "    _f.write('x')\n"
+    "name = 'baseline.json' if '--baseline-refs' in sys.argv else 'witness.json'\n"
+    "sys.stdout.write((here / name).read_text())\n"
+)
+
+
+def _baseline_fixture(
+    *,
+    ingestion: str = "scip",
+    declared: list[dict] | None = None,
+    neighborhood: list[dict] | None = None,
+    workspace_dirty: bool = False,
+) -> dict:
+    return {
+        "mode": "baseline_refs",
+        "graph_stamp": {"commit": "deadbeef", "tree_token": "deadbeef"},
+        "ingestion": ingestion,
+        "declared": declared or [],
+        "neighborhood": neighborhood or [],
+        "inbound_counts": {},
+        "workspace_dirty": workspace_dirty,
+    }
+
+
+def _install_baseline_stub(stub_dir: Path, baseline: dict) -> tuple[Path, Path]:
+    """A stub whose single fixture.json is the BASELINE account (the --baseline-refs flag is
+    ignored — the forecast is the only caller). Returns (stub_py, calls_log)."""
+    return _install_stub(stub_dir, baseline)
+
+
+def _install_dual_stub(stub_dir: Path, baseline: dict, witness: dict) -> tuple[Path, Path]:
+    """A stub that answers baseline vs diff-mode by argv. Returns (stub_py, calls_log)."""
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    stub_py = stub_dir / "stub.py"
+    stub_py.write_text(_DUAL_STUB_SRC)
+    (stub_dir / "baseline.json").write_text(json.dumps(baseline))
+    (stub_dir / "witness.json").write_text(json.dumps(witness))
+    return stub_py, stub_dir / "calls.log"
+
+
+def _forecast_record(root: Path, run_id: str) -> dict | None:
+    rec, err = load_forecast_record(root, run_id)
+    assert err is None, err
+    return rec
+
+
+# (a) forecast fires listing the out-of-boundary neighbor file; the declared refs' OWN
+#     files are carved out (even when that file is itself outside the boundary).
+def test_forecast_fires_on_out_of_boundary_neighbor(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "pkg/core.py", "name": "Core"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("pkg/core.py", "Core", True)],
+        neighborhood=[
+            # Beta lives in rogue.py -> OUTSIDE src/** -> predicted.
+            _edge(("pkg/core.py", "Core"), ("rogue.py", "Beta")),
+            # Self2 lives in the DECLARED ref's own file -> carved out (even though pkg/ is
+            # itself outside the src/** boundary).
+            _edge(("pkg/core.py", "Core"), ("pkg/core.py", "Self2")),
+        ],
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits, "expected SC_PLAN_CASCADE_FORECAST"
+    assert all(v.severity == "warn" for v in hits)
+    files = hits[0].detail["files"]
+    assert "rogue.py" in files, files
+    assert "pkg/core.py" not in files, ("declared ref's own file must be carved out", files)
+
+    # The forecast of record is written with predicted == the fired set.
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None and rec["forecast_of_record"] is True
+    assert rec["predicted"] == ["rogue.py"]
+    assert rec["boundary"] == ["src/**"]
+
+
+# (a2) the plan_exit forced-gate branch actually invokes the forecast (wiring proof).
+def test_forecast_wired_into_plan_exit_forced_gate(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    codes = {v.code for v in validate_graph_invariants(temp_uacp_root, valid_run_id, "plan_exit")}
+    assert "SC_PLAN_CASCADE_FORECAST" in codes, codes
+
+
+# (b) missing EITHER declaration -> no-op, and the CLI is NEVER invoked.
+def test_forecast_noop_without_write_paths_never_invokes_cli(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    # UNDECLARED write_paths (key absent) -> no boundary declared -> no-op. Distinct from
+    # declared-EMPTY ([], the strictest valid boundary) — see the test below (codex P2).
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    body = _load_scope(temp_uacp_root, valid_run_id)
+    body.pop("write_paths", None)
+    _write_scope(temp_uacp_root, valid_run_id, body)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(declared=[_decl("src/a.py", "Alpha", True)])
+    stub_py, calls_log = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert out == [], out
+    assert not calls_log.exists(), "undeclared write_paths -> witness must not be invoked"
+    assert _forecast_record(temp_uacp_root, valid_run_id) is None
+
+
+def test_forecast_runs_against_declared_empty_boundary(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    # codex P2: write_paths: [] is a VALID declaration (the strictest boundary — the run
+    # writes nothing outside the permitted surfaces), exactly as diff-containment treats
+    # it. The forecast must RUN against it: every out-of-carve-out hop-1 neighbor file is
+    # out-of-boundary.
+    seed_coherent_run(temp_uacp_root, valid_run_id)  # write_paths == [] (declared empty)
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("elsewhere.py", "Beta"))],
+    )
+    stub_py, calls_log = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert calls_log.exists(), "declared-empty boundary must still derive the forecast"
+    hits = [v for v in out if v.code == "SC_PLAN_CASCADE_FORECAST"]
+    assert hits, f"expected SC_PLAN_CASCADE_FORECAST, got {_codes(out)}"
+    assert any("elsewhere.py" in v.message for v in hits)
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None and rec["predicted"] == ["elsewhere.py"]
+
+
+def test_forecast_noop_without_code_refs_never_invokes_cli(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])  # but no code_refs
+    baseline = _baseline_fixture()
+    stub_py, calls_log = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert out == [], out
+    assert not calls_log.exists(), "no code_refs -> witness must not be invoked"
+
+
+# (c) a dirty tree is flagged in the advisory detail AND the record.
+def test_forecast_workspace_dirty_flagged(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+        workspace_dirty=True,
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits
+    assert hits[0].detail["workspace_dirty"] is True
+    assert "dirty" in hits[0].message
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None and rec["workspace_dirty"] is True
+
+
+# (d) a retried plan_exit attempt OVERWRITES the record (last-write-wins = forecast of
+#     record is the successful transition's write). No git -> no memo -> each call derives.
+def test_forecast_record_last_write_wins_on_retry(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    stub_dir = tmp_path / "cf"
+
+    # First attempt predicts rogue1.py.
+    _install_baseline_stub(
+        stub_dir,
+        _baseline_fixture(
+            declared=[_decl("src/a.py", "Alpha", True)],
+            neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue1.py", "B1"))],
+        ),
+    )
+    stub_py = stub_dir / "stub.py"
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert _forecast_record(temp_uacp_root, valid_run_id)["predicted"] == ["rogue1.py"]
+
+    # Retried attempt now predicts rogue2.py — the record is OVERWRITTEN (last-write-wins).
+    (stub_dir / "fixture.json").write_text(
+        json.dumps(
+            _baseline_fixture(
+                declared=[_decl("src/a.py", "Alpha", True)],
+                neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue2.py", "B2"))],
+            )
+        )
+    )
+    clear_witness_memo()
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert _forecast_record(temp_uacp_root, valid_run_id)["predicted"] == ["rogue2.py"]
+
+
+# (e) closure join: a non-empty predicted ∩ actual appends outcome/precision/recall.
+def test_forecast_closure_join_non_empty_pair(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],  # predicts rogue.py
+    )
+    # A clean diff-mode account so validate()'s cascade witness stays quiet.
+    witness = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        symbols_touched=[("src/a.py", "Alpha")],
+    )
+    stub_py, _ = _install_dual_stub(tmp_path / "cf", baseline, witness)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    # 1) plan_exit forecast writes predicted == [rogue.py].
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert _forecast_record(temp_uacp_root, valid_run_id)["predicted"] == ["rogue.py"]
+
+    # 2) the ACTUAL out-of-scope change lands. The registered ENGINE stays read-only
+    # (codex P2): validate() must NOT touch the record; the CLOSURE GATE joins.
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue.py").write_text("# out of scope, exactly as forecast\n")
+    validate(temp_uacp_root, valid_run_id)
+    assert _forecast_record(temp_uacp_root, valid_run_id).get("joined") is None
+    from engines.scope_conformance import join_forecast_record
+
+    assert join_forecast_record(temp_uacp_root, valid_run_id) == []
+
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None and rec.get("joined") is True
+    assert rec["outcome"] == ["rogue.py"]
+    assert rec["intersection"] == ["rogue.py"]
+    assert rec["precision"] == 1.0
+    assert rec["recall"] == 1.0
+
+
+# (e2) an EMPTY forecast -> precision null and NO false pair (recall over the outcome).
+def test_forecast_closure_join_empty_forecast_precision_null(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[],  # no neighbors -> empty forecast
+    )
+    witness = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        symbols_touched=[("src/a.py", "Alpha")],
+    )
+    stub_py, _ = _install_dual_stub(tmp_path / "cf", baseline, witness)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert _forecast_record(temp_uacp_root, valid_run_id)["predicted"] == []
+
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue.py").write_text("# an actual out-of-scope change\n")
+    from engines.scope_conformance import join_forecast_record
+
+    assert join_forecast_record(temp_uacp_root, valid_run_id) == []
+
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None and rec.get("joined") is True
+    assert rec["precision"] is None, "empty forecast -> precision null (no false pair)"
+    assert rec["recall"] == 0.0  # forecast caught none of the one real offender
+    assert rec["intersection"] == []
+
+
+# (f) witness unavailable -> visible warn, and NO record is written.
+def test_forecast_unavailable_is_visible_and_writes_no_record(
+    temp_uacp_root: Path, valid_run_id: str
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    # No [witness] configured -> unconfigured -> unavailable.
+
+    out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    hits = [v for v in out if v.code == "SC_FORECAST_WITNESS_UNAVAILABLE"]
+    assert hits, f"expected SC_FORECAST_WITNESS_UNAVAILABLE, got {_codes(out)}"
+    assert all(v.severity == "warn" for v in hits)
+    # K4: the forecast layer's own code, DISTINCT from the verify-time SC_WITNESS_UNAVAILABLE.
+    assert "SC_WITNESS_UNAVAILABLE" not in _codes(out)
+    assert _forecast_record(temp_uacp_root, valid_run_id) is None, "no record on unavailable"
+
+
+def test_forecast_weak_provenance_floor_is_unavailable_no_record(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        ingestion="treesitter",  # weaker than scip
+        declared=[_decl("src/a.py", "Alpha", True)],
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert "SC_FORECAST_WITNESS_UNAVAILABLE" in {v.code for v in out}
+    assert _forecast_record(temp_uacp_root, valid_run_id) is None
+
+
+# (h) a malformed forecast record -> SC_FORECAST_JOIN_FAILED at closure, never a crash.
+def test_forecast_join_malformed_record_is_flagged(temp_uacp_root: Path, valid_run_id: str):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    # Plant a malformed forecast record (predicted is not a list).
+    rec_path = temp_uacp_root / ".uacp" / "verification" / f"{valid_run_id}-cascade-forecast.yaml"
+    rec_path.parent.mkdir(parents=True, exist_ok=True)
+    rec_path.write_text(yaml.safe_dump({"run_id": valid_run_id, "predicted": "not-a-list"}))
+
+    from engines.scope_conformance import join_forecast_record
+
+    out = join_forecast_record(temp_uacp_root, valid_run_id)
+    hits = [v for v in out if v.code == "SC_FORECAST_JOIN_FAILED"]
+    assert hits, f"expected SC_FORECAST_JOIN_FAILED, got {_codes(out)}"
+    assert all(v.severity == "warn" for v in hits)
+
+
+def test_forecast_join_unreadable_record_is_flagged(temp_uacp_root: Path, valid_run_id: str):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    rec_path = temp_uacp_root / ".uacp" / "verification" / f"{valid_run_id}-cascade-forecast.yaml"
+    rec_path.parent.mkdir(parents=True, exist_ok=True)
+    rec_path.write_text("this: : : not valid yaml: [")
+
+    from engines.scope_conformance import join_forecast_record
+
+    out = join_forecast_record(temp_uacp_root, valid_run_id)
+    assert "SC_FORECAST_JOIN_FAILED" in {v.code for v in out}
+
+
+# (g-lock) no forecast record -> the closure join is a silent no-op (no SC_FORECAST_* noise).
+def test_forecast_join_noop_without_record(temp_uacp_root: Path, valid_run_id: str):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    out = validate(temp_uacp_root, valid_run_id)
+    assert not any(v.code.startswith("SC_FORECAST") for v in out)
+
+
+# (memo) the baseline memo keys on HEAD sha — an unchanged HEAD reuses the derivation, and
+# a changed claim re-derives; the key never collides with the diff-mode memo.
+def test_baseline_memo_reuse_and_reclaim(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    from engines.io import BaselineFacts, derive_baseline_neighborhood, derive_witness
+
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    baseline = _baseline_fixture(declared=[_decl("src/a.py", "Alpha", True)])
+    witness = _witness_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)], symbols_touched=[("src/a.py", "Alpha")]
+    )
+    stub_py, calls_log = _install_dual_stub(tmp_path / "cf", baseline, witness)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    _init_git_repo(temp_uacp_root)  # HEAD sha stable across the calls below
+
+    refs_a = [{"file": "src/a.py", "name": "Alpha"}]
+    refs_b = [{"file": "src/b.py", "name": "Beta"}]
+    r1 = derive_baseline_neighborhood(temp_uacp_root, refs_a)  # exec (1)
+    derive_baseline_neighborhood(temp_uacp_root, refs_a)  # memo hit
+    derive_baseline_neighborhood(temp_uacp_root, refs_b)  # changed claim -> exec (2)
+    assert r1.available and isinstance(r1.facts, BaselineFacts)
+    assert calls_log.read_text() == "xx", (
+        "baseline memo: reuse on same HEAD+claim, re-derive on new claim"
+    )
+
+    # The diff-mode memo is SEPARATE — a diff derivation for the same refs execs again (3),
+    # proving no cross-mode collision.
+    derive_witness(temp_uacp_root, refs_a)
+    assert calls_log.read_text() == "xxx", (
+        "diff-mode derivation must not collide with the baseline memo"
+    )
+
+
+def _git_head(root: Path) -> str:
+    out = subprocess.run(
+        ["git", "-C", str(root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return out.stdout.strip()
+
+
+# (K1) stale-dirty flag: a memo HIT recomputes workspace_dirty kernel-side, so a
+# clean->dirty transition at the same HEAD is reflected even though the cached account said
+# clean (the stub always reports workspace_dirty=False).
+def test_forecast_memo_hit_recomputes_workspace_dirty(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+        workspace_dirty=False,  # the stub ALWAYS reports clean
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    clear_witness_memo()
+    _init_git_repo(temp_uacp_root)  # clean tree, HEAD stable across the two calls below
+
+    # (1) derive on a CLEAN tree -> record clean, memo populated on HEAD.
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    assert _forecast_record(temp_uacp_root, valid_run_id)["workspace_dirty"] is False
+
+    # (2) dirty the tree (new untracked file), derive again -> MEMO HIT, but the kernel
+    # recomputes workspace_dirty fresh -> True in BOTH the record and the advisory.
+    (temp_uacp_root / "rogue.py").write_text("# now the tree is dirty\n")
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits, "forecast still fires (rogue.py neighbor is out of boundary)"
+    assert hits[0].detail["workspace_dirty"] is True, "memo-hit must serve FRESH dirtiness"
+    assert "dirty" in hits[0].message
+    assert _forecast_record(temp_uacp_root, valid_run_id)["workspace_dirty"] is True
+
+
+# (K1b) the kernel-side dirty recompute FILTERS the witness's own .codeflair/ index cache —
+# churn confined to .codeflair/ is NOT run dirtiness.
+def test_forecast_workspace_dirty_filters_codeflair_cache(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+        workspace_dirty=True,  # stub claims dirty; the kernel recompute overrides it
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    clear_witness_memo()
+    _init_git_repo(temp_uacp_root)  # clean tree
+    # ONLY .codeflair/ churn -> must be filtered out -> tree reads CLEAN kernel-side.
+    (temp_uacp_root / ".codeflair").mkdir()
+    (temp_uacp_root / ".codeflair" / "index.db").write_text("cache\n")
+
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits
+    assert hits[0].detail["workspace_dirty"] is False, ".codeflair/ churn is not dirtiness"
+    assert "dirty" not in hits[0].message
+
+
+# (K2) an atomic-write FAILURE surfaces as SC_FORECAST_WRITE_FAILED (warn), never a silent
+# drop — and does not suppress the forecast advisory itself.
+def test_forecast_write_failure_is_visible(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    from engines import scope_conformance as sc
+
+    monkeypatch.setattr(sc, "write_forecast_record", lambda *a, **k: False)
+    out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    codes = {v.code for v in out}
+    assert "SC_FORECAST_WRITE_FAILED" in codes, codes
+    assert "SC_PLAN_CASCADE_FORECAST" in codes, "the forecast advisory still fires"
+    assert all(v.severity == "warn" for v in out if v.code == "SC_FORECAST_WRITE_FAILED")
+
+
+# (K3) the record carries base_commit = merge-base(default branch, HEAD) AND the declared-ref
+# resolution echo; when HEAD advanced past the branch point, base_commit != graph_stamp.commit
+# (the commit-early hindsight audit signature).
+def test_forecast_record_carries_base_commit_and_declared_echo(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+
+    # main holds the fork point; HEAD advances onto a feature branch beyond it.
+    _init_git_repo(temp_uacp_root)  # commit C0 on main
+    fork_point = _git_head(temp_uacp_root)
+    _git(temp_uacp_root, "checkout", "-q", "-b", "feature")
+    (temp_uacp_root / "advance.txt").write_text("beyond the fork\n")
+    _git(temp_uacp_root, "add", "-A")
+    _git(temp_uacp_root, "commit", "-q", "-m", "advance", "--no-verify")
+    head = _git_head(temp_uacp_root)
+    assert head != fork_point
+
+    # Pin the stub's graph_stamp.commit to the REAL HEAD so the audit compare is meaningful
+    # (base_commit is the fork point, graph_stamp.commit is the advanced HEAD).
+    baseline = _baseline_fixture(
+        declared=[
+            _decl("src/a.py", "Alpha", True),
+            _decl("src/a.py", "Ghost", False),  # phantom ref -> resolved False, now VISIBLE
+        ],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+    )
+    baseline["graph_stamp"] = {"commit": head, "tree_token": head}
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    clear_witness_memo()
+
+    validate_cascade_forecast(temp_uacp_root, valid_run_id)
+    rec = _forecast_record(temp_uacp_root, valid_run_id)
+    assert rec is not None
+    assert rec["base_commit"] == fork_point, "base_commit is merge-base(main, HEAD)"
+    assert rec["base_commit"] != rec["graph_stamp"]["commit"], (
+        "HEAD advanced past the fork -> the commit-early hindsight signature"
+    )
+    echo = {(d["file"], d["name"]): d["resolved"] for d in rec["declared"]}
+    assert echo[("src/a.py", "Alpha")] is True
+    assert echo[("src/a.py", "Ghost")] is False, "phantom ref is echoed, not swallowed"

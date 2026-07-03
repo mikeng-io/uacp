@@ -9,7 +9,12 @@ than crashing. Domain and engine layers do no raw file I/O.
 
 from __future__ import annotations
 
-from .gitio import GitDiffResult, changed_files
+from .forecastio import (
+    forecast_record_path,
+    load_forecast_record,
+    write_forecast_record,
+)
+from .gitio import GitDiffResult, changed_files, default_branch_merge_base
 from .loaders import (
     Loaded,
     glob_in_workspace,
@@ -27,21 +32,29 @@ from .loaders import (
     resolve_in_workspace,
 )
 from .witnessio import (
+    BaselineFacts,
     WitnessFacts,
     WitnessResult,
     clear_witness_memo,
+    derive_baseline_neighborhood,
     derive_witness,
 )
 
 __all__ = [
+    "BaselineFacts",
     "GitDiffResult",
     "Loaded",
     "WitnessFacts",
     "WitnessResult",
     "changed_files",
+    "default_branch_merge_base",
     "clear_witness_memo",
+    "derive_baseline_neighborhood",
     "derive_witness",
+    "forecast_record_path",
     "glob_in_workspace",
+    "load_forecast_record",
+    "write_forecast_record",
     "load_artifact",
     "load_checkpoint_manifest",
     "load_convergence_budget",

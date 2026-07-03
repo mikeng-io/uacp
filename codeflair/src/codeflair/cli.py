@@ -28,7 +28,7 @@ from codeflair.grep_probe import index_repo_strings
 from codeflair.scip_ingest import index_repo
 from codeflair.store import Store, default_store_path
 from codeflair.trace import to_json
-from codeflair.witness import build_witness, parse_code_ref
+from codeflair.witness import build_baseline_witness, build_witness, parse_code_ref
 
 try:  # the tree-sitter floor is optional (codeflair[treesitter]); degrade if absent
     from codeflair.treesitter_ingest import index_repo_tree_sitter
@@ -182,12 +182,17 @@ def _cmd_query(args: argparse.Namespace) -> int:
 
 
 def _cmd_witness(args: argparse.Namespace) -> int:
-    # The witness REINDEXES the current working tree first (build_index, injected), then
-    # derives FACTS ONLY — no coverage/undeclared/over-declared verdicts (the gate compares).
+    # The witness derives FACTS ONLY — no coverage/undeclared/over-declared verdicts (the gate
+    # compares). Two modes: the default reindexes the CURRENT working tree (diff-grounded, 02);
+    # --baseline-refs derives the hop-1 forecast on the committed baseline HEAD (diff-independent,
+    # #86). build_index is injected as the reindex in both.
     refs = [parse_code_ref(r) for r in (args.code_ref or [])]
-    result = build_witness(args.repo, build_index, code_refs=refs, lang=args.lang)
+    if args.baseline_refs:
+        result = build_baseline_witness(args.repo, build_index, code_refs=refs, lang=args.lang)
+    else:
+        result = build_witness(args.repo, build_index, code_refs=refs, lang=args.lang)
     print(json.dumps(result, sort_keys=True, indent=args.indent))
-    # exit nonzero with {"error": ...} on failure (not a git repo / index produced nothing)
+    # exit nonzero with {"error": ...} on failure (not a git repo / no HEAD / index empty)
     return 0 if "error" not in result else 1
 
 
@@ -246,6 +251,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="append",
         metavar="FILE:NAME",
         help="a declared code ref (repeatable); NAME may contain dots (split on first colon)",
+    )
+    p_witness.add_argument(
+        "--baseline-refs",
+        action="store_true",
+        help="diff-independent forecast mode (#86): derive the hop-1 neighborhood of the "
+        "--code-refs on the committed baseline (HEAD), not the dirty working tree",
     )
     p_witness.set_defaults(func=_cmd_witness)
 

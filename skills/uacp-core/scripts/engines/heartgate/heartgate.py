@@ -544,6 +544,15 @@ class Heartgate:
             violations = run_all_engines(self.uacp_root, run_id)
             violations = self._dedupe_scope_registry_disagreement(violations)
 
+            # CLOSURE JOIN (design node 04): pair the plan_exit cascade forecast with the
+            # actual outcome and append precision/recall to the gate-owned record. Lives
+            # HERE, not in the engine sweep — engines are READ-ONLY validators (codex P2);
+            # the closure gate is where evidence mutation is legitimate. Lazy import for
+            # the same reason run_all_engines is (module-load hygiene for adapters).
+            from engines.scope_conformance import join_forecast_record  # noqa: PLC0415
+
+            violations = [*violations, *join_forecast_record(self.uacp_root, run_id)]
+
             blockers: list[str] = []
             warnings: list[str] = []
             for v in violations:
