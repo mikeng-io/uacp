@@ -104,3 +104,39 @@ def test_e2e_real_codeflair_witness_advisory(temp_uacp_root: Path, valid_run_id:
     assert "SC_WITNESS_UNAVAILABLE" not in codes, codes
     assert "SC_DIFF_OUT_OF_SCOPE" not in codes, codes
     assert all(v.severity == "warn" for v in cascade)
+
+
+def test_e2e_witness_wire_carries_inbound_counts(
+    temp_uacp_root: Path, valid_run_id: str, monkeypatch, tmp_path
+):
+    """#87 wire increment, real CLI: inbound_counts flows end-to-end with canonical
+    keys, zero-present semantics, and the defines-exclusion (helper has 1 caller;
+    caller has 0)."""
+    from engines.io import clear_witness_memo as _clear
+    from engines.io.witnessio import derive_witness
+
+    root = temp_uacp_root
+    seed_coherent_run(root, valid_run_id)
+    shim = tmp_path / "codeflair-shim"
+    shim.write_text(f'#!/bin/sh\nexec uv run --project "{REPO_ROOT}/codeflair" codeflair "$@"\n')
+    shim.chmod(shim.stat().st_mode | stat.S_IEXEC)
+    op = tmp_path / "operator-uacp.toml"
+    op.write_text(f'[witness]\ncodeflair_cli = "{shim}"\n')
+    from engines.io import witnessio as _wio
+
+    monkeypatch.setattr(_wio, "_operator_config_path", lambda: op)
+
+    _git(root, "init", "-q", "-b", "main")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-q", "-m", "seed", "--no-verify")
+    (root / "src").mkdir()
+    (root / "src" / "calc.py").write_text(
+        "def helper():\n    return 1\n\n\ndef caller():\n    return helper()\n"
+    )
+
+    _clear()
+    result = derive_witness(root, [{"file": "src/calc.py", "name": "helper"}])
+    assert result.available, result.error
+    counts = result.facts.inbound_counts
+    assert counts.get("src/calc.py:helper", 0) >= 1, counts  # caller references helper
+    assert "src/calc.py:caller" in counts and counts["src/calc.py:caller"] == 0, counts
