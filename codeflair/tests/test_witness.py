@@ -19,6 +19,7 @@ import pytest
 from codeflair import cli
 from codeflair.store import Edge, Store, Symbol, default_store_path
 from codeflair.witness import (
+    build_baseline_witness,
     build_witness,
     changed_files,
     committed_paths,
@@ -613,6 +614,209 @@ def test_inbound_counts_key_matches_symbols_touched_serialization(tmp_path):
     assert set(doc["inbound_counts"]) == keys_from_touched
     assert "svc.py:Heartgate.validate_closure" in doc["inbound_counts"]
     assert doc["inbound_counts"]["svc.py:Heartgate.validate_closure"] == 1
+
+
+# == baseline_refs forecast mode (issue #86) =============================================
+
+
+def test_baseline_refs_ignores_dirty_workspace(tmp_path):
+    """(1) Baseline isolation via the REAL reindex: a dirty edit (and a brand-new untracked
+    file) in the workspace does NOT change the graph-derived facts — they derive on HEAD only.
+    Byte-compared modulo ``workspace_dirty`` (the one key that is intentionally ABOUT dirtiness,
+    so it flips false->true; everything else is byte-identical)."""
+    pytest.importorskip("tree_sitter_languages")
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text(
+        "def helper():\n    return 1\n\n\ndef service():\n    return helper()\n"
+    )
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "code")
+
+    refs = [parse_code_ref("svc.py:service")]
+    clean = build_baseline_witness(repo, cli.build_index, code_refs=refs, lang="python")
+    assert "error" not in clean, clean
+    assert clean["workspace_dirty"] is False
+
+    # A dirty edit that WOULD change a diff-grounded (mode-1) witness: svc.py body edited, a new
+    # symbol added, plus a brand-new untracked file. None of it is committed.
+    (repo / "svc.py").write_text(
+        "def helper():\n    return 99\n\n\ndef service():\n"
+        "    return helper()\n\n\ndef sneaky():\n    return 0\n"
+    )
+    (repo / "extra.py").write_text("def brand_new():\n    return 1\n")
+
+    dirty = build_baseline_witness(repo, cli.build_index, code_refs=refs, lang="python")
+    assert dirty["workspace_dirty"] is True
+
+    def graph(d):
+        return json.dumps({k: v for k, v in d.items() if k != "workspace_dirty"}, sort_keys=True)
+
+    assert graph(clean) == graph(dirty), "baseline facts must not depend on the dirty tree"
+
+
+def test_baseline_refs_declared_resolution_and_ambiguity(tmp_path):
+    """(2) Declared resolution on the BASELINE tree: an unqualified shorthand resolves to the
+    class-qualified canonical name; a bare name matching two symbols is AMBIGUOUS -> resolved
+    false; a missing name -> resolved false. Same semantics as mode-1 (shared _match_ref)."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+
+    symbols = [
+        ("scip py `svc`/Heartgate#validate_closure().", "svc.py", "validate_closure#"),
+        ("scip py `svc`/A#foo().", "svc.py", "foo#"),  # A.foo
+        ("scip py `svc`/B#foo().", "svc.py", "foo#"),  # B.foo -> foo is ambiguous
+    ]
+    refs = [
+        parse_code_ref("svc.py:validate_closure"),  # shorthand -> canonical, resolves
+        parse_code_ref("svc.py:foo"),  # ambiguous -> false
+        parse_code_ref("svc.py:Nope"),  # missing -> false
+    ]
+    doc = build_baseline_witness(repo, _seeder(symbols, []), code_refs=refs, lang="python")
+
+    assert doc["mode"] == "baseline_refs"
+    by = {(d["file"], d["name"]): d["resolved"] for d in doc["declared"]}
+    assert by[("svc.py", "Heartgate.validate_closure")] is True
+    assert by[("svc.py", "foo")] is False  # authored name echoed, never dropped
+    assert by[("svc.py", "Nope")] is False
+    head = cli._git_head(str(repo))
+    assert doc["graph_stamp"]["commit"] == head
+    assert doc["graph_stamp"]["tree_token"] == head  # the baseline IS the commit
+
+
+def test_baseline_refs_neighborhood_and_inbound_counts(tmp_path):
+    """(3) Hop-1 neighborhood + inbound_counts for a RESOLVED ref with two distinct callers."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+
+    symbols = [
+        ("scip py `svc`/Target#", "svc.py", "Target#"),
+        ("scip py `a`/callerA().", "a.py", "callerA#"),
+        ("scip py `b`/callerB().", "b.py", "callerB#"),
+    ]
+    edges = [
+        ("scip py `a`/callerA().", "scip py `svc`/Target#", "calls"),
+        ("scip py `b`/callerB().", "scip py `svc`/Target#", "references"),
+    ]
+    refs = [parse_code_ref("svc.py:Target")]
+    doc = build_baseline_witness(repo, _seeder(symbols, edges), code_refs=refs, lang="python")
+
+    assert doc["inbound_counts"] == {"svc.py:Target": 2}
+    triples = {(e["src"]["name"], e["dst"]["name"], e["reason"]) for e in doc["neighborhood"]}
+    assert ("callerA", "Target", "calls") in triples
+    assert ("callerB", "Target", "references") in triples
+    assert {e["reason"] for e in doc["neighborhood"]} <= {"calls", "references", "defines"}
+
+
+def test_baseline_refs_workspace_dirty_flag(tmp_path):
+    """(4) ``workspace_dirty`` is False on a clean checkout, True once the workspace is edited —
+    independent of the (HEAD-derived) graph facts."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+    symbols = [("scip py `svc`/Service#", "svc.py", "Service#")]
+
+    clean = build_baseline_witness(repo, _seeder(symbols, []), lang="python")
+    assert clean["workspace_dirty"] is False
+
+    (repo / "svc.py").write_text("# dirty edit\n")  # uncommitted change on the real workspace
+    dirty = build_baseline_witness(repo, _seeder(symbols, []), lang="python")
+    assert dirty["workspace_dirty"] is True
+
+
+def test_baseline_refs_is_byte_deterministic(tmp_path):
+    """(5) Two runs are byte-identical (sort_keys, no wall clock, temp-dir path never leaks)."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+
+    symbols = [
+        ("scip py `svc`/Target#", "svc.py", "Target#"),
+        ("scip py `a`/callerA().", "a.py", "callerA#"),
+    ]
+    edges = [("scip py `a`/callerA().", "scip py `svc`/Target#", "calls")]
+    reindex = _seeder(symbols, edges)
+    refs = [parse_code_ref("svc.py:Target")]
+    a = json.dumps(build_baseline_witness(repo, reindex, code_refs=refs), sort_keys=True)
+    b = json.dumps(build_baseline_witness(repo, reindex, code_refs=refs), sort_keys=True)
+    assert a == b
+
+
+def test_baseline_refs_omits_diff_only_keys(tmp_path):
+    """(6) No ``symbols_touched`` / ``unresolved_touched`` in this mode (there is no diff) —
+    ABSENT, not empty. The full key set is exactly the baseline_refs contract."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text("# svc\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+
+    symbols = [("scip py `svc`/Service#", "svc.py", "Service#")]
+    refs = [parse_code_ref("svc.py:Service")]
+    doc = build_baseline_witness(repo, _seeder(symbols, []), code_refs=refs, lang="python")
+
+    assert "symbols_touched" not in doc
+    assert "unresolved_touched" not in doc
+    assert set(doc) == {
+        "mode",
+        "graph_stamp",
+        "ingestion",
+        "declared",
+        "inbound_counts",
+        "neighborhood",
+        "workspace_dirty",
+    }
+
+
+def test_baseline_refs_not_a_git_repo_errors(tmp_path):
+    """not a git repo -> {"error": ...} (mode-1 parity)."""
+    doc = build_baseline_witness(tmp_path, _seeder([], []), lang="python")
+    assert doc["error"] == "not a git repository"
+
+
+def test_baseline_refs_no_head_errors(tmp_path):
+    """A repo with no commits -> no HEAD -> {"error": ...}."""
+    _git(tmp_path, "init", "-q", "-b", "main")
+    _git(tmp_path, "config", "user.email", "t@t")
+    _git(tmp_path, "config", "user.name", "t")
+    doc = build_baseline_witness(tmp_path, _seeder([], []), lang="python")
+    assert doc["error"] == "no HEAD commit"
+
+
+def test_baseline_refs_cli_flag_end_to_end(tmp_path, capsys):
+    """The CLI wiring: ``codeflair witness --baseline-refs`` through the REAL build_index reindex
+    on the committed baseline. Resolves the ref, emits the forecast neighborhood, exits 0."""
+    pytest.importorskip("tree_sitter_languages")
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "svc.py").write_text(
+        "def helper():\n    return 1\n\n\ndef service():\n    return helper()\n"
+    )
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "code")
+
+    rc = cli.main(
+        ["witness", "--repo", str(repo), "--baseline-refs", "--code-ref", "svc.py:service"]
+    )
+    assert rc == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc["mode"] == "baseline_refs"
+    head = cli._git_head(str(repo))
+    assert doc["graph_stamp"]["commit"] == doc["graph_stamp"]["tree_token"] == head
+    assert doc["workspace_dirty"] is False
+    assert [d["name"] for d in doc["declared"]] == ["service"]
+    triples = {(e["src"]["name"], e["dst"]["name"], e["reason"]) for e in doc["neighborhood"]}
+    assert ("service", "helper", "calls") in triples
 
 
 def test_witness_never_observes_its_own_cache(tmp_path):

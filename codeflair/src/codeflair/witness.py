@@ -33,6 +33,49 @@ The emitted document (compact JSON, ``sort_keys``, deterministic — no wall-clo
 
 On failure (not a git repo, index produced nothing) it returns ``{"error": ...}`` and the
 CLI exits nonzero.
+
+Prevention forecast — the DIFF-INDEPENDENT ``baseline_refs`` mode (UACP issue #86)
+---------------------------------------------------------------------------------
+
+``codeflair witness --repo <root> --baseline-refs --code-ref file:name ...`` derives the
+hop-1 neighborhood of the DECLARED refs on the **committed baseline (HEAD)**, never the dirty
+working tree (design/conformance-witnesses/04-prevention-redesign.md, "A new witness facts
+mode" + "Timing assumption"). It exists because the LOCKED mode-1 wire grounds ``neighborhood``
+in ``symbols_touched`` — and at PLAN-exit there is no diff, so that wire is empty by
+construction. This is an EXTENSION of the 02 seam, not a reuse of its wire.
+
+The baseline is materialized read-only (``git archive HEAD | tar -x`` into a private temp dir),
+a FRESH index is built over that materialized tree, facts are derived, and the temp dir is
+removed — so the run workspace's dirty state is provably irrelevant to the output. The document
+(compact JSON, ``sort_keys``, deterministic, no wall-clock reads):
+
+- ``mode`` — ``"baseline_refs"`` (the mode-1 diff wire carries no ``mode`` key; its presence is
+  how a consumer tells the two apart).
+- ``graph_stamp`` — ``{commit, tree_token}``, BOTH the HEAD sha: the baseline IS the commit, so
+  a content token of the materialized tree would be redundant — the commit sha already uniquely
+  identifies the committed tree's content (git's own object identity), and reusing it keeps the
+  stamp re-derivable from the record alone (04's "deterministically re-derivable from the
+  recorded graph_stamp").
+- ``ingestion`` — the touched-scoped floor applied over the RESOLVED refs' symbols (the
+  touched-set rule of mode-1 has no diff to key on here); store-wide floor as the fallback when
+  no ref resolves.
+- ``declared`` — ``[{file, name, resolved}]``, the SAME resolution semantics as mode-1
+  (shared :func:`_match_ref`: unique-component-boundary shorthand, ambiguity -> ``resolved:false``).
+- ``neighborhood`` — hop-1 edges (both directions, ``reason`` in {calls, references, defines})
+  for every RESOLVED ref's symbol.
+- ``inbound_counts`` — ``{"<file>:<name>": int}`` for every RESOLVED ref (same distinct
+  calls/references-only, defines-excluded fan-in as mode-1).
+- ``workspace_dirty`` — ``bool``: ``git status --porcelain -uall`` (gate-cache-filtered, the
+  REAL workspace) non-empty. The forecast derives on HEAD, so a dirty tree does not change the
+  facts — but the kernel needs prediction-integrity (is the forecast about the tree the agent
+  is actually editing?) WITHOUT a second git call, so it is carried as a fact here.
+
+There is intentionally NO ``symbols_touched`` / ``unresolved_touched`` in this mode — those
+are diff-derived and this mode has no diff. They are ABSENT (not empty) so a consumer cannot
+mistake "no diff exists" for "an empty diff was observed".
+
+On failure (not a git repo / no HEAD / ``git archive`` failure / index produced nothing) it
+returns ``{"error": ...}`` and the CLI exits nonzero, exactly as mode-1 does.
 """
 
 from __future__ import annotations
@@ -40,7 +83,9 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 from collections.abc import Callable, Iterable, Sequence
 
 from codeflair.freshness import content_hash
@@ -292,6 +337,22 @@ def _names_match(derived: str, declared: str) -> bool:
     return False
 
 
+def _match_ref(store: Store, file: str, name: str) -> dict[str, set[str]]:
+    """Resolve one declared ``(file, name)`` ref against the store: the DISTINCT canonical
+    human names in ``file`` that match ``name`` (:func:`_names_match`), each mapped to the
+    store symbol ids collapsing to it. The SINGLE source of the resolution rule shared by BOTH
+    witness modes: exactly one distinct canonical match -> resolved (echo the canonical name);
+    zero or >1 (ambiguity, e.g. bare ``foo`` matching both ``A.foo`` and ``B.foo``) -> not
+    resolved. Class-qualification (unique-component-boundary) lives entirely in
+    :func:`_names_match`; this helper only groups matches by canonical name."""
+    matches: dict[str, set[str]] = {}
+    for sid in store.symbols_in_file(file):
+        sym = store.symbol(sid)
+        if sym is not None and _names_match(human_name(sym), name):
+            matches.setdefault(human_name(sym), set()).add(sid)
+    return matches
+
+
 # -- fact derivation over an open store ---------------------------------------------------
 
 
@@ -451,21 +512,17 @@ def _symbol_facts(
         for f, n in sorted(touched)
     }
 
+    # Match the authored name against each symbol's CANONICAL human name (shared _match_ref).
+    # Exactly one distinct match -> echo THAT canonical name (C1: coverage compares
+    # canonical-to-canonical kernel-side, so an unqualified authored name must be echoed back
+    # class-qualified, e.g. "validate" -> "Heartgate.validate"). More than one distinct match =
+    # AMBIGUOUS (C2: bare "foo" matching both A.foo and B.foo) -> resolved:false, because an
+    # arbitrary pick would count a claim the author never disambiguated as coverage. Zero
+    # matches -> resolved:false. Either non-single case echoes the AUTHORED name (never dropped)
+    # so the gate surfaces the exact claim.
     declared: list[dict[str, object]] = []
     for file, name in code_refs:
-        # Match the authored name against each symbol's CANONICAL human name; collect the
-        # DISTINCT canonical names that match. Exactly one match -> echo THAT canonical name
-        # (C1: coverage compares canonical-to-canonical kernel-side, so an unqualified authored
-        # name must be echoed back class-qualified, e.g. "validate" -> "Heartgate.validate").
-        # More than one distinct match = AMBIGUOUS (C2: bare "foo" matching both A.foo and
-        # B.foo) -> resolved:false, because an arbitrary pick would count a claim the author
-        # never disambiguated as coverage. Zero matches -> resolved:false. Either non-single
-        # case echoes the AUTHORED name (never dropped) so the gate surfaces the exact claim.
-        matches: set[str] = set()
-        for sid in store.symbols_in_file(file):
-            sym = store.symbol(sid)
-            if sym is not None and _names_match(human_name(sym), name):
-                matches.add(human_name(sym))
+        matches = _match_ref(store, file, name)
         if len(matches) == 1:
             declared.append({"file": file, "name": next(iter(matches)), "resolved": True})
         else:
@@ -534,6 +591,104 @@ def build_witness(
         "graph_stamp": {"commit": head_commit(repo), "tree_token": tree_token(repo, changed)},
         "ingestion": ingestion,
         **facts,
+    }
+
+
+def _materialize_head(repo: str, dest: str) -> bool:
+    """Extract the committed ``HEAD`` tree (read-only) into ``dest`` via
+    ``git archive HEAD | tar -x -C dest``. Returns True on success, False on any failure.
+
+    ``git archive`` reads the COMMIT object, never the working tree — so the run workspace's
+    dirty/untracked state cannot enter the materialized copy (this is what makes the forecast a
+    prediction about the last clean state, provably independent of dirt). Output is a binary
+    tar stream (no ``text=True``); the extract is piped, never shelled through a string."""
+    try:
+        archive = subprocess.run(
+            ["git", "-C", repo, "archive", "HEAD"], capture_output=True, check=False
+        )
+        if archive.returncode != 0:
+            return False
+        extract = subprocess.run(
+            ["tar", "-x", "-C", dest], input=archive.stdout, capture_output=True, check=False
+        )
+        return extract.returncode == 0
+    except OSError:
+        return False
+
+
+def build_baseline_witness(
+    repo: str,
+    reindex: Reindex,
+    *,
+    code_refs: Sequence[tuple[str, str]] = (),
+    lang: str = "python",
+) -> dict[str, object]:
+    """The DIFF-INDEPENDENT ``baseline_refs`` forecast mode (issue #86 — see the module
+    docstring for the full contract). Derives the hop-1 neighborhood of the declared ``code_refs``
+    on the COMMITTED BASELINE (HEAD), never the dirty working tree, and returns the facts
+    document or ``{"error": ...}`` on failure.
+
+    The baseline is materialized read-only into a private temp dir, a FRESH index is built there
+    (delete-and-rebuild doctrine: the temp dir is empty of any prior store, so freshness is by
+    construction), facts are derived, and the temp dir is always cleaned up."""
+    repo = os.fspath(repo)
+    if not is_git_repo(repo):
+        return {"error": "not a git repository", "repo": repo}
+    head = head_commit(repo)
+    if not head:
+        return {"error": "no HEAD commit", "repo": repo}
+
+    # Observed on the REAL workspace (before touching any temp state): prediction-integrity fact
+    # for the kernel, gate-cache-filtered exactly as porcelain_lines already is.
+    workspace_dirty = bool(porcelain_lines(repo))
+
+    tmp = tempfile.mkdtemp(prefix="codeflair-baseline-")
+    try:
+        if not _materialize_head(repo, tmp):
+            return {"error": "git archive failed", "repo": repo}
+        # Delete-and-rebuild doctrine (mirrors build_witness): never derive from a reused store.
+        # A fresh mkdtemp holds none, but the unlink keeps the invariant explicit + defensive.
+        store_path = default_store_path(tmp)
+        try:
+            if os.path.exists(store_path):
+                os.remove(store_path)
+        except OSError:
+            pass
+        summary = reindex(tmp, lang=lang)
+        if not summary.get("indexed"):
+            return {"error": "index produced nothing", "repo": repo}
+        with Store(default_store_path(tmp), read_only=True) as store:
+            declared: list[dict[str, object]] = []
+            resolved_ids: set[str] = set()
+            # "<file>:<canonical name>" -> the ids collapsing to it, for exact per-ref fan-in.
+            inbound_ids_by_key: dict[str, set[str]] = {}
+            for file, name in code_refs:
+                matches = _match_ref(store, file, name)
+                if len(matches) == 1:
+                    canon, ids = next(iter(matches.items()))
+                    declared.append({"file": file, "name": canon, "resolved": True})
+                    resolved_ids |= ids
+                    inbound_ids_by_key.setdefault(f"{file}:{canon}", set()).update(ids)
+                else:
+                    declared.append({"file": file, "name": name, "resolved": False})
+            declared.sort(key=lambda d: (d["file"], d["name"]))
+            neighborhood = _neighborhood(store, resolved_ids)
+            inbound_counts = {
+                key: _inbound_count(store, ids) for key, ids in inbound_ids_by_key.items()
+            }
+            ingestion = touched_ingestion_floor(store, resolved_ids)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    return {
+        "mode": "baseline_refs",
+        # The baseline IS the commit: tree_token == commit (git object identity), re-derivable.
+        "graph_stamp": {"commit": head, "tree_token": head},
+        "ingestion": ingestion,
+        "declared": declared,
+        "inbound_counts": inbound_counts,
+        "neighborhood": neighborhood,
+        "workspace_dirty": workspace_dirty,
     }
 
 
