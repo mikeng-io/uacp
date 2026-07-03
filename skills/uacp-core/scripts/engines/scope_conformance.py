@@ -986,7 +986,13 @@ def join_forecast_record(workspace: str | Path, run_id: str) -> list[Violation]:
     is legitimate, after the read-only engine sweep. Idempotent — re-joining OVERWRITES
     the join fields, never duplicates. Promotion evidence, never a runtime gate input.
     A malformed record -> ``SC_FORECAST_JOIN_FAILED`` (warn), never a crash. Absent
-    record / unobservable diff / no declared boundary -> no-op. Never raises."""
+    record / unobservable diff / no declared boundary -> no-op. Never raises.
+
+    Boundary-mutation caveat (PR #95 review): when ``write_paths`` was declared at
+    plan_exit but the key is ABSENT from the final scope, the join evaluates the
+    normalized empty boundary ([]) exactly as diff-containment does — such a pair
+    reflects a boundary that mutated mid-run; the ``base_commit``/audit fields make
+    it reviewable at promotion time (the corpus is never a runtime gate input)."""
     try:
         root = Path(str(workspace)).resolve()
     except Exception:
