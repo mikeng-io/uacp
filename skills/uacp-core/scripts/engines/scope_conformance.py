@@ -1047,7 +1047,18 @@ def join_forecast_record(workspace: str | Path, run_id: str) -> list[Violation]:
         "recall": recall,
         "joined": True,
     }
-    write_forecast_record(root, run_id, merged)
+    if not write_forecast_record(root, run_id, merged):
+        # A computed-but-unpersisted join silently starves the promotion corpus —
+        # surface it exactly like the plan-side write failure (PR #94 post-merge review).
+        return [
+            _v(
+                "SC_FORECAST_WRITE_FAILED",
+                f"closure join for run '{run_id}' computed outcome/precision but the "
+                f"record could not be persisted — the (forecast, outcome) pair is lost "
+                f"unless re-joined",
+                severity="warn",
+            )
+        ]
     return []
 
 

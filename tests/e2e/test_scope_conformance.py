@@ -1723,3 +1723,24 @@ def test_heartgate_closure_gate_performs_the_join(
     decision2 = Heartgate.load(str(temp_uacp_root)).validate_closure(valid_run_id)
     all_lines = list(decision2.blockers) + list(decision2.warnings)
     assert any("SC_FORECAST_JOIN_FAILED" in ln for ln in all_lines), all_lines
+
+
+def test_join_persistence_failure_is_visible(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    """PR #94 post-merge review: a computed-but-unpersisted closure join must fire
+    SC_FORECAST_WRITE_FAILED, never silently starve the promotion corpus."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    rec_path = temp_uacp_root / ".uacp" / "verification" / f"{valid_run_id}-cascade-forecast.yaml"
+    rec_path.parent.mkdir(parents=True, exist_ok=True)
+    rec_path.write_text(yaml.safe_dump({"run_id": valid_run_id, "predicted": []}))
+    _init_git_repo(temp_uacp_root)
+
+    from engines import scope_conformance as _sc
+
+    monkeypatch.setattr(_sc, "write_forecast_record", lambda *a, **k: False)
+    out = _sc.join_forecast_record(temp_uacp_root, valid_run_id)
+    hits = [v for v in out if v.code == "SC_FORECAST_WRITE_FAILED"]
+    assert hits, f"expected SC_FORECAST_WRITE_FAILED, got {_codes(out)}"
+    assert all(v.severity == "warn" for v in hits)
