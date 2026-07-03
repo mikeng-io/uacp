@@ -62,6 +62,21 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         "properties": {
             "id": {"type": "string", "description": "Stable scope-item identity (si-*)."},
             "statement": {"type": "string", "description": "The in-scope intent, prose."},
+            "code_refs": {
+                "type": "array",
+                "minItems": 1,
+                "description": "Optional declared code touch-set for the class witness "
+                "(design/conformance-witnesses/03): {file, name} refs, diff-grounded at the gate.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["file", "name"],
+                    "properties": {
+                        "file": {"type": "string", "minLength": 1},
+                        "name": {"type": "string", "minLength": 1},
+                    },
+                },
+            },
         },
     },
     "work_unit": {
@@ -76,6 +91,21 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "id": {"type": "string", "description": "Stable work-unit identity (wu-*)."},
             "intent": {"type": "string", "description": "What this unit of work intends."},
             "expected_outputs": {"description": "Declared outputs (list or prose)."},
+            "code_refs": {
+                "type": "array",
+                "minItems": 1,
+                "description": "Optional declared code touch-set for the class witness "
+                "(design/conformance-witnesses/03): {file, name} refs, diff-grounded at the gate.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["file", "name"],
+                    "properties": {
+                        "file": {"type": "string", "minLength": 1},
+                        "name": {"type": "string", "minLength": 1},
+                    },
+                },
+            },
             "derives_from": {
                 "type": "array",
                 "items": {"type": "string"},

@@ -1498,7 +1498,10 @@ def test_untouched_declared_ref_derives_nothing(tmp_path, monkeypatch):
     fixture = _cw_fixture(
         symbols_touched=[("other.py", "Unrelated")],  # the declared ref is absent from the diff
         declared=[{"file": "big.py", "name": "Hub", "resolved": True}],
-        inbound_counts={"other.py:Unrelated": 0},
+        # Council NIT: give the untouched Hub a HIGH count — if diff-grounding broke and
+        # Hub were wrongly honored, changes_behavior(65) > sets_value would redden the
+        # CHK_CLASS_UNDERCLAIM assertion below (non-vacuity of the second assert).
+        inbound_counts={"other.py:Unrelated": 0, "big.py:Hub": 65},
     )
     _cw_configure(monkeypatch, tmp_path, fixture)
     ws = _cw_ws(
@@ -1695,3 +1698,59 @@ def test_fallback_counts_calls_references_not_defines(tmp_path, monkeypatch):
         }
     ]
     assert [h.detail.get("candidate") for h in _run(calls_edge)] == ["wires_symbol"]
+
+
+def test_unqualified_authored_ref_matches_canonical_touched(tmp_path, monkeypatch):
+    # Codex MATERIAL: an authored shorthand ("validate") must match its canonical touched
+    # symbol ("Gate.validate") via unique component-boundary matching — honored, class derived.
+    from engines.graph_projection import validate_class_underclaim
+
+    fixture = _cw_fixture(
+        symbols_touched=[("svc.py", "Gate.validate")],
+        declared=[{"file": "svc.py", "name": "Gate.validate", "resolved": True}],
+        inbound_counts={"svc.py:Gate.validate": 65},  # changes_behavior
+    )
+    _cw_configure(monkeypatch, tmp_path, fixture)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "code_refs": [{"file": "svc.py", "name": "validate"}],  # authored shorthand
+        },
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],  # weak
+    )
+    vs = validate_class_underclaim(ws, "r")
+    codes = _cw_codes(vs)
+    assert "CHK_CLASS_REF_UNTOUCHED" not in codes, [v.message for v in vs]
+    underclaim = [v for v in vs if v.code == "CHK_CLASS_UNDERCLAIM"]
+    assert underclaim, f"shorthand ref must be honored and raise the oracle: {codes}"
+    assert underclaim[0].detail.get("oracle_source") == "code_witness"
+
+
+def test_ambiguous_unqualified_ref_never_counts_as_coverage(tmp_path, monkeypatch):
+    # Two touched candidates share the shorthand -> ambiguous claim resolves to NOTHING
+    # (untouched), never to an arbitrary pick (node 03 / C2 doctrine).
+    from engines.graph_projection import validate_class_underclaim
+
+    fixture = _cw_fixture(
+        symbols_touched=[("svc.py", "A.validate"), ("svc.py", "B.validate")],
+        declared=[{"file": "svc.py", "name": "A.validate", "resolved": True}],
+        inbound_counts={"svc.py:A.validate": 65, "svc.py:B.validate": 0},
+    )
+    _cw_configure(monkeypatch, tmp_path, fixture)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "code_refs": [{"file": "svc.py", "name": "validate"}],  # ambiguous shorthand
+        },
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    vs = validate_class_underclaim(ws, "r")
+    codes = _cw_codes(vs)
+    assert "CHK_CLASS_REF_UNTOUCHED" in codes, codes
+    assert "CHK_CLASS_UNDERCLAIM" not in codes, [v.message for v in vs]

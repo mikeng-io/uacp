@@ -1038,6 +1038,27 @@ def validate_check_floor(workspace: str | Path, run_id: str) -> list[Violation]:
 _WITNESS_COUNT_REASONS = frozenset({"calls", "references"})
 
 
+def _canonical_touched(
+    ref: tuple[str, str], touched_set: set[tuple[str, str]]
+) -> tuple[str, str] | None:
+    """Resolve an AUTHORED target ref against the CANONICAL touched set.
+
+    Exact ``(file, name)`` membership wins. Otherwise an unqualified authored name
+    matches a touched symbol in the same file whose canonical name ends with
+    ``.<name>`` (component boundary, mirroring codeflair's resolution) — but only
+    when the match is UNIQUE: an ambiguous shorthand resolves to ``None`` (an
+    ambiguous claim must never count as coverage). Returns the canonical touched
+    ref used for inbound-count lookup, or ``None``. Never raises."""
+    if ref in touched_set:
+        return ref
+    file, name = ref
+    if "." in name:
+        return None  # qualified names match exactly or not at all
+    suffix = "." + name
+    candidates = [t for t in touched_set if t[0] == file and t[1].endswith(suffix)]
+    return candidates[0] if len(candidates) == 1 else None
+
+
 def _target_code_refs(tnode: dict) -> list[tuple[str, str]]:
     """The carried, validated ``code_refs`` on a target node as ``(file, name)`` tuples (empty when
     absent/malformed — ``_carry_code_refs`` already reduced a bad shape to ``None``)."""
@@ -1055,7 +1076,14 @@ def _inbound_count(facts: Any, ref: tuple[str, str]) -> int:
     Prefer the witness's authoritative ``inbound_counts`` (which now carries EVERY touched symbol,
     zero included). Fall back — defensively, should never fire — to counting DISTINCT (src, rel)
     ``calls``/``references`` neighborhood edges whose ``dst`` is ``ref``; ``defines`` is NEVER
-    counted (see :func:`witness_class`). Never raises."""
+    counted (see :func:`witness_class`). Never raises.
+
+    NOTE (council review): this fallback is LOSSY BY CONSTRUCTION — it dedups on
+    (src.file, src.name, rel) over the possibly-CAPPED neighborhood list, so it can
+    undercount vs the authoritative inbound_counts. A version-skewed witness (no
+    inbound_counts key) routes EVERY ref through it; undercount degrades to a weaker
+    class, which raise-only turns into less catch, never a false block.
+    """
     key = f"{ref[0]}:{ref[1]}"
     ic = getattr(facts, "inbound_counts", None)
     if isinstance(ic, dict):
@@ -1180,8 +1208,21 @@ def validate_class_underclaim(workspace: str | Path, run_id: str) -> list[Violat
         witness_cls: str | None = None
         refs = _target_code_refs(tnode)
         if witness_facts is not None and refs:
-            honored = [r for r in refs if r in touched_set]
-            untouched = [r for r in refs if r not in touched_set]
+            # Canonicalize AUTHORED refs against the CANONICAL touched set (codex review
+            # MATERIAL): symbols_touched carries derived class-qualified names, so an
+            # authored shorthand ("validate_closure" for "Heartgate.validate_closure")
+            # would falsely read as untouched under exact matching. Mirror codeflair's
+            # documented resolution: exact (file, name) match first; else a UNIQUE
+            # component-boundary match (canonical name ends with ".<authored>"); an
+            # AMBIGUOUS shorthand (two touched candidates) resolves to nothing — an
+            # ambiguous claim must never manufacture coverage (node 03 / C2 doctrine).
+            honored: list[tuple[str, str]] = []
+            untouched: list[tuple[str, str]] = []
+            for ref in refs:
+                match = _canonical_touched(ref, touched_set)
+                (honored if match is not None else untouched).append(
+                    match if match is not None else ref
+                )
             if untouched:
                 shown = sorted(untouched)
                 out.append(
