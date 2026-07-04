@@ -127,7 +127,7 @@ A council can fan out, critique, and synthesize, but its synthesis is consumed a
 | plan | `plan` | plan artifact + `PROPOSE->PLAN` ledger entry; **`PLAN_VALIDATION`** deterministic pre-flight (result=pass) required for PLAN→EXECUTE | plan → execute |
 | execute | `implement` | execution artifact + `PLAN->EXECUTE` ledger entry; adaptive-execute evidence gate (PIV contract + execution checkpoint coherent) for EXECUTE→VERIFY | execute → verify |
 | verify | `audit` | verification artifact + `EXECUTE->VERIFY` ledger entry | verify → resolve |
-| resolve | `resolve` | resolution artifact + `VERIFY->RESOLVE` ledger entry | resolve → terminal |
+| resolve | `resolve` | resolution artifact + `VERIFY->RESOLVED` ledger entry | resolve → terminal |
 
 The legacy post-phase-verification ledger rule (recorded as `gate: PPV`, see disambiguation below) is a deterministic 5-check self-eval that runs at the end of *every* phase before Heartgate is invoked.
 

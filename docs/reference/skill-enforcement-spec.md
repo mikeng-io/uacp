@@ -113,7 +113,7 @@ For each skill, this section lists: phase, Guardian tools allowed, Guardian tool
 
 **PIV obligation**: required.
 
-**Phase exit invariants**: `.outputs/{run_id}*`, ledger entry `VERIFY->RESOLVE`.
+**Phase exit invariants**: `.outputs/{run_id}*`, ledger entry `VERIFY->RESOLVED`.
 
 **Phase 2 obligation**: emit `.outputs/{run_id}-lessons.yaml` matching the `lessons` schema in `engines/domain/artifact_schema.py` (`artifact_schemas_dict()`; `config/artifact-schemas.yaml` deleted Slice 5), including `ledger_citations` for non-trivial lessons.
 

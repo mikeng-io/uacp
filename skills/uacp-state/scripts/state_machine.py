@@ -174,10 +174,18 @@ def handle_init(args: dict[str, Any]) -> str:
         # Track validation — fail closed on unknown tracks.
         track = str(args.get("track") or "standard").strip()
         if track not in _VALID_TRACKS:
-            return json.dumps({"error": f"invalid track '{track}': must be one of {sorted(_VALID_TRACKS)}"})
+            return json.dumps(
+                {"error": f"invalid track '{track}': must be one of {sorted(_VALID_TRACKS)}"}
+            )
 
-        goal_id: str | None = str(args["goal_id"]).strip() or None if args.get("goal_id") is not None else None
-        inherits_from: str | None = str(args["inherits_from"]).strip() or None if args.get("inherits_from") is not None else None
+        goal_id: str | None = (
+            str(args["goal_id"]).strip() or None if args.get("goal_id") is not None else None
+        )
+        inherits_from: str | None = (
+            str(args["inherits_from"]).strip() or None
+            if args.get("inherits_from") is not None
+            else None
+        )
 
         manifest_path = _run_manifest_path(workspace, run_id)
         if manifest_path.exists():
@@ -197,12 +205,12 @@ def handle_init(args: dict[str, Any]) -> str:
             try:
                 parent = _load_manifest(workspace, inherits_from)
             except FileNotFoundError:
-                return json.dumps({"error": f"inherits_from parent manifest not found: {inherits_from}"})
+                return json.dumps(
+                    {"error": f"inherits_from parent manifest not found: {inherits_from}"}
+                )
             _REUSABLE_PHASE_ARTIFACTS = ("triage", "proposal", "plan")
             inherited_artifacts = {
-                k: parent.artifacts[k]
-                for k in _REUSABLE_PHASE_ARTIFACTS
-                if k in parent.artifacts
+                k: parent.artifacts[k] for k in _REUSABLE_PHASE_ARTIFACTS if k in parent.artifacts
             }
 
         # Optional initial_phase: allows a run to start at 'brainstorm' instead
@@ -210,7 +218,11 @@ def handle_init(args: dict[str, Any]) -> str:
         initial_phase = str(args.get("initial_phase") or "triage").strip()
         _VALID_INITIAL_PHASES = {"triage", "brainstorm"}
         if initial_phase not in _VALID_INITIAL_PHASES:
-            return json.dumps({"error": f"invalid initial_phase '{initial_phase}': must be one of {sorted(_VALID_INITIAL_PHASES)}"})
+            return json.dumps(
+                {
+                    "error": f"invalid initial_phase '{initial_phase}': must be one of {sorted(_VALID_INITIAL_PHASES)}"
+                }
+            )
 
         authority = Authority(source=source, status="pass")
         # Attach optional metadata to authority
@@ -243,17 +255,23 @@ def handle_init(args: dict[str, Any]) -> str:
         current_path = base_dir(workspace) / "state" / "current.yaml"
         if not current_path.exists():
             current_body = yaml.safe_dump(
-                {"active_run_id": run_id, "active_run_manifest": str(manifest_path.relative_to(base_dir(workspace)))},
+                {
+                    "active_run_id": run_id,
+                    "active_run_manifest": str(manifest_path.relative_to(base_dir(workspace))),
+                },
                 sort_keys=False,
             )
             current_path.parent.mkdir(parents=True, exist_ok=True)
             _write_uacp_file(current_path, current_body)
 
-        return json.dumps({
-            "ok": True,
-            "run_id": run_id,
-            "manifest_path": str(manifest_path.relative_to(base_dir(workspace))),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "ok": True,
+                "run_id": run_id,
+                "manifest_path": str(manifest_path.relative_to(base_dir(workspace))),
+            },
+            ensure_ascii=False,
+        )
     except Exception as exc:
         return json.dumps({"error": f"init failed: {type(exc).__name__}: {exc}"})
 
@@ -296,10 +314,13 @@ def handle_read(args: dict[str, Any]) -> str:
             return json.dumps({"error": "run_id is required"})
 
         manifest = _load_manifest(workspace, run_id)
-        return json.dumps({
-            "ok": True,
-            "manifest": manifest.model_dump(mode="json"),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "ok": True,
+                "manifest": manifest.model_dump(mode="json"),
+            },
+            ensure_ascii=False,
+        )
     except FileNotFoundError as exc:
         return json.dumps({"error": f"read failed: {exc}"})
     except Exception as exc:
@@ -404,6 +425,21 @@ def _run_forced_execute_evidence_gate(workspace: Path, run_id: str, from_phase: 
         return [f"FORCED_EXECUTE_EVIDENCE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
 
 
+def _run_forced_verify_evidence_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
+    """Force verify evidence (verify-selection / resolve-readiness) onto
+    VERIFY->RESOLVED on the live path (PR #96 review P1) — mirrors
+    _run_forced_execute_evidence_gate: self-gated on the governed-execute
+    marker inside the heartgate method, fail-closed, lazy import."""
+    if from_phase != "verify":
+        return []
+    try:
+        from core import Heartgate
+
+        return Heartgate.load(str(workspace)).forced_verify_evidence_blockers(run_id)
+    except Exception as exc:  # fail-closed
+        return [f"FORCED_VERIFY_EVIDENCE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+
+
 def handle_transition(args: dict[str, Any]) -> str:
     """Locked phase transition with validation + the phase-exit structural gate."""
     try:
@@ -414,26 +450,64 @@ def handle_transition(args: dict[str, Any]) -> str:
 
         if not run_id:
             return json.dumps({"error": "run_id is required"})
+        # SAFETY BEFORE the lock (PR #96 codex P2): the lock path embeds run_id, so
+        # a traversal-bearing id would create lock files outside the ledger dir if
+        # checked only later by _load_manifest.
+        if ("/" in run_id) or ("\\" in run_id) or (".." in run_id) or run_id.startswith("."):
+            return json.dumps({"error": f"transition refused: unsafe run_id {run_id!r}"})
         if not from_phase:
             return json.dumps({"error": "from_phase is required"})
         if not to_phase:
             return json.dumps({"error": "to_phase is required"})
 
+        # Per-run serialization of the WHOLE critical section (manifest load ->
+        # gate checks -> canonical ledger emit -> manifest save): two concurrent
+        # transitions could otherwise both pass the idempotency read and both
+        # append, leaving duplicate gates coherence C2 later blocks (cross-
+        # provider review MATERIAL). The from-phase check inside the lock also
+        # makes the second racer fail cleanly ('current phase is ...').
+        from state import _run_transition_lock
+
+        with _run_transition_lock(workspace, run_id):
+            return _handle_transition_locked(args, workspace, run_id, from_phase, to_phase)
+    except FileNotFoundError as exc:
+        return json.dumps({"error": f"transition failed: {exc}"})
+    except Exception as exc:
+        return json.dumps({"error": f"transition failed: {type(exc).__name__}: {exc}"})
+
+
+def _handle_transition_locked(
+    args: dict[str, Any], workspace: Path, run_id: str, from_phase: str, to_phase: str
+) -> str:
+    """The transition critical section — runs under the per-run lock. Ledger emit
+    precedes the manifest mutation deliberately: a crash between the two leaves a
+    ledger gate without its history edge, which is RETRY-RECOVERABLE (the retry's
+    pass-only idempotency read skips the existing gate and completes the mutation)
+    and fail-closed in the interim — never an advanced phase without its gate."""
+    try:
         manifest = _load_manifest(workspace, run_id)
 
         if manifest.status == Status.resolved or manifest.current_phase in TERMINAL_PHASES:
-            return json.dumps({"error": f"transition refused: run is in terminal phase '{manifest.current_phase}'"})
+            return json.dumps(
+                {
+                    "error": f"transition refused: run is in terminal phase '{manifest.current_phase}'"
+                }
+            )
 
         if manifest.current_phase != from_phase:
-            return json.dumps({
-                "error": f"transition refused: current phase is '{manifest.current_phase}', not '{from_phase}'",
-            })
+            return json.dumps(
+                {
+                    "error": f"transition refused: current phase is '{manifest.current_phase}', not '{from_phase}'",
+                }
+            )
 
         allowed = VALID_TRANSITIONS.get(from_phase, set())
         if to_phase not in allowed:
-            return json.dumps({
-                "error": f"transition not allowed: {from_phase} -> {to_phase} (allowed: {sorted(allowed)})",
-            })
+            return json.dumps(
+                {
+                    "error": f"transition not allowed: {from_phase} -> {to_phase} (allowed: {sorted(allowed)})",
+                }
+            )
 
         # Phase-exit structural gate: run the state-derived graph invariants for
         # this exit BEFORE advancing. Forces the gate onto the live path so a
@@ -448,24 +522,72 @@ def handle_transition(args: dict[str, Any]) -> str:
         gate_blockers += _run_forced_brainstorm_exit_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_proposal_coverage_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_execute_evidence_gate(workspace, run_id, from_phase)
+        gate_blockers += _run_forced_verify_evidence_gate(workspace, run_id, from_phase)
         if gate_blockers:
-            return json.dumps({
-                "error": "transition blocked by phase-exit structural gate",
-                "from_phase": from_phase,
-                "to_phase": to_phase,
-                "blockers": gate_blockers,
-            }, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "error": "transition blocked by phase-exit structural gate",
+                    "from_phase": from_phase,
+                    "to_phase": to_phase,
+                    "blockers": gate_blockers,
+                },
+                ensure_ascii=False,
+            )
+
+        # BREAK-3: emit the canonical FROM->TO gate-ledger record (plus
+        # TRIAGE_COMPLETE on triage exit) atomically with the transition — exactly
+        # the ledger entries the closure sweep (evidence_completeness + coherence
+        # C2) requires, so the ledger cannot drift from state_history and the
+        # operator is not expected to hand-mirror it. Appended BEFORE the phase
+        # mutation (C2's "gate precedes the transition" contract) so a ledger-write
+        # failure leaves the manifest untouched. IDEMPOTENT: a gate already present
+        # (e.g. a hand-authored uacp_gate_ledger_append) is skipped, so hand-authored
+        # and auto-emitted gates coexist WITHOUT the duplicate coherence C2 flags —
+        # emission prevents the duplicate at the source (coherence stays unchanged).
+        # Fail-closed: an unrecordable gate blocks the transition. Lazy import reuses
+        # the governed ledger IO (state) with no import cycle (runtime-only call).
+        canonical_gates = [f"{from_phase.upper()}->{to_phase.upper()}"]
+        if from_phase == "triage":
+            canonical_gates.append("TRIAGE_COMPLETE")
+        try:
+            from state import _append_gate_ledger_record, _existing_gate_ledger_gates
+
+            already = _existing_gate_ledger_gates(workspace, run_id, passing_only=True)
+            for gate_name in canonical_gates:
+                if gate_name in already:
+                    continue
+                _append_gate_ledger_record(
+                    workspace,
+                    run_id,
+                    {"gate": gate_name, "run_id": run_id, "ts": int(time.time()), "result": "pass"},
+                )
+        except Exception as exc:  # fail-closed: cannot record the canonical gate -> do not advance
+            return json.dumps(
+                {
+                    "error": (
+                        f"transition blocked: could not record canonical gate-ledger entry: "
+                        f"{type(exc).__name__}: {exc}"
+                    ),
+                    "from_phase": from_phase,
+                    "to_phase": to_phase,
+                },
+                ensure_ascii=False,
+            )
 
         manifest.current_phase = to_phase
         if to_phase in TERMINAL_PHASES:
-            manifest.status = Status(to_phase) if to_phase in {s.value for s in Status} else manifest.status
+            manifest.status = (
+                Status(to_phase) if to_phase in {s.value for s in Status} else manifest.status
+            )
 
-        manifest.state_history.append(StateHistoryEntry(
-            event="phase_transition",
-            from_phase=from_phase,
-            to_phase=to_phase,
-            source="uacp-state",
-        ))
+        manifest.state_history.append(
+            StateHistoryEntry(
+                event="phase_transition",
+                from_phase=from_phase,
+                to_phase=to_phase,
+                source="uacp-state",
+            )
+        )
 
         _save_manifest(workspace, manifest)
         payload: dict[str, Any] = {
@@ -515,12 +637,15 @@ def handle_register_artifact(args: dict[str, Any]) -> str:
 
         manifest.artifacts[artifact_type] = path_raw
         _save_manifest(workspace, manifest)
-        return json.dumps({
-            "ok": True,
-            "run_id": run_id,
-            "artifact_type": artifact_type,
-            "path": path_raw,
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "ok": True,
+                "run_id": run_id,
+                "artifact_type": artifact_type,
+                "path": path_raw,
+            },
+            ensure_ascii=False,
+        )
     except FileNotFoundError as exc:
         return json.dumps({"error": f"register-artifact failed: {exc}"})
     except Exception as exc:
@@ -556,11 +681,14 @@ def handle_workspace(args: dict[str, Any]) -> str:
             manifest.workspace.validated_at = str(validated_at)
 
         _save_manifest(workspace, manifest)
-        return json.dumps({
-            "ok": True,
-            "run_id": run_id,
-            "workspace": manifest.workspace.model_dump(mode="json"),
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "ok": True,
+                "run_id": run_id,
+                "workspace": manifest.workspace.model_dump(mode="json"),
+            },
+            ensure_ascii=False,
+        )
     except FileNotFoundError as exc:
         return json.dumps({"error": f"workspace update failed: {exc}"})
     except Exception as exc:
@@ -618,9 +746,11 @@ def handle_finalize(args: dict[str, Any]) -> str:
         manifest = _load_manifest(workspace, run_id)
 
         if manifest.current_phase not in TERMINAL_PHASES:
-            return json.dumps({
-                "error": f"finalize refused: run is in phase '{manifest.current_phase}', not in terminal phase ({sorted(TERMINAL_PHASES)})",
-            })
+            return json.dumps(
+                {
+                    "error": f"finalize refused: run is in phase '{manifest.current_phase}', not in terminal phase ({sorted(TERMINAL_PHASES)})",
+                }
+            )
 
         # Tentatively finalize so the closure engines see a resolved/finalized run
         # (their terminal checks false-positive on a not-yet-finalized run). Keep
@@ -645,21 +775,27 @@ def handle_finalize(args: dict[str, Any]) -> str:
             manifest.status = prior_status
             manifest.finalized_at = prior_finalized_at
             _save_manifest(workspace, manifest)
-            return json.dumps({
-                "error": "finalize blocked by closure sweep",
-                "decision": decision.decision,
-                "blockers": decision.blockers,
-                "warnings": decision.warnings,
-            }, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "error": "finalize blocked by closure sweep",
+                    "decision": decision.decision,
+                    "blockers": decision.blockers,
+                    "warnings": decision.warnings,
+                },
+                ensure_ascii=False,
+            )
 
-        return json.dumps({
-            "ok": True,
-            "run_id": run_id,
-            "status": manifest.status.value,
-            "finalized_at": manifest.finalized_at,
-            "closure": decision.decision,
-            "warnings": decision.warnings,
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "ok": True,
+                "run_id": run_id,
+                "status": manifest.status.value,
+                "finalized_at": manifest.finalized_at,
+                "closure": decision.decision,
+                "warnings": decision.warnings,
+            },
+            ensure_ascii=False,
+        )
     except FileNotFoundError as exc:
         return json.dumps({"error": f"finalize failed: {exc}"})
     except Exception as exc:

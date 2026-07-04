@@ -56,7 +56,7 @@ The kernel reads this dependency model from `config/phase-transitions.yaml` (doc
 - Required inputs: VERIFY package selection at `verification/{run_id}-verify-selection.yaml`, semantic verification package `verification/{run_id}/`, PIV assessment at `verification/{run_id}-piv-assessment.yaml` when EXECUTE used PIV, and resolve readiness at `verification/{run_id}-resolve-readiness.yaml`.
 - Required outputs: RESOLVE artifacts under `.outputs/{run_id}*`, including `.outputs/{run_id}-lessons.yaml` where the lessons schema applies.
 - Heartgate checks: evidence disposition pairs, lessons artifact, adaptive verify evidence gate, and runtime delegation to the canonical artifact validator for verified facts, assumptions, blockers, PIV assessment, self-approval guard, Heartgate coherence, and resolve readiness.
-- Gate ledger: `gate: VERIFY->RESOLVE`.
+- Gate ledger: `gate: VERIFY->RESOLVED`.
 
 **Verification package contract**: VERIFY separates verified facts from assumptions/deferred items, binds facts to source evidence, records blocker/warning dispositions, evaluates PIV satisfaction, guards against self-remediation/self-certification, and produces `verify_resolve_readiness` only when closure can safely proceed.
 
@@ -65,7 +65,7 @@ The kernel reads this dependency model from `config/phase-transitions.yaml` (doc
 - Required inputs: VERIFY resolve readiness, resolve package selection at `.outputs/{run_id}-resolve-selection.yaml`, semantic RESOLVE package `.outputs/{run_id}/`, and closure artifact `.outputs/{run_id}-closure.yaml`.
 - Required outputs: final operator handoff, closure decision, residual-risk/deferred-item carry-forward, lessons/state/memory/skill disposition, and run state/registry updates through governed state surfaces.
 - Heartgate checks: adaptive resolve closure gate and runtime delegation to the canonical artifact validator for readiness binding, residual-risk carry-forward, deferred-item preservation, final decision, closed scope, lesson dispositions, state/memory action, and concise operator handoff.
-- Gate ledger: no new terminal gate required by default; `VERIFY->RESOLVE` plus RESOLVE closure artifacts carry final disposition.
+- Gate ledger: no new terminal gate required by default; `VERIFY->RESOLVED` plus RESOLVE closure artifacts carry final disposition.
 
 **Resolve closure contract**: RESOLVE does not re-verify truth. It closes the governed run by preserving VERIFY readiness, carrying forward residual risks/deferred obligations, recording what was and was not closed, and emitting a concise operator handoff rather than raw inventories.
 

@@ -379,6 +379,16 @@ def validate_adaptive_execute_evidence_gate(
 def validate_adaptive_verify_evidence_gate(
     hg: Heartgate, artifact: Mapping[str, Any], blockers: list[str]
 ) -> None:
+    # EDGE NOTE (PR #96 review P1): this FULL gate keys on the stages-graph
+    # spelling (verify->resolve) and deliberately does NOT normalize to the
+    # state-machine edge — the full package demand on every fixture/live
+    # crossing is exactly the bare ripple the forced-gate pattern avoids.
+    # The LIVE path is protected instead by the scope-minimal
+    # forced_verify_evidence_blockers (presence + identity of verify-selection
+    # and resolve-readiness), mirroring the EXECUTE-exit split: full adaptive
+    # gate on the agent-invoked path, minimal forced precondition on
+    # handle_transition. The stages-graph schism reconciliation remains the
+    # flagged separate round.
     if (
         str(artifact.get("from_phase") or "") != "verify"
         or str(artifact.get("to_phase") or "") != "resolve"
