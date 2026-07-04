@@ -22,7 +22,7 @@ from engines.coherence import validate_run_coherence
 from state import _handle_uacp_gate_ledger_append
 
 from tests.e2e.driver import Driver
-from tests.e2e.test_full_lifecycle import _SEEDERS, PHASES
+from tests.e2e.test_full_lifecycle import _SEEDERS, PHASES, transition_artifact
 
 
 def drive_happy_path(root: Path, run_id: str, *, finalize: bool = True) -> None:
@@ -72,14 +72,7 @@ def drive_happy_path(root: Path, run_id: str, *, finalize: bool = True) -> None:
         if seeder := _SEEDERS.get((frm, to)):
             seeder(root, run_id)
 
-        hg = heartgate.validate_transition(
-            {
-                "from_phase": frm,
-                "to_phase": to,
-                "run_id": run_id,
-                "artifact_path": "plans/test.yaml",
-            }
-        )
+        hg = heartgate.validate_transition(transition_artifact(frm, to, run_id))
         assert hg.decision == "pass", f"Heartgate blocked legit {frm}->{to}: {hg.blockers}"
 
         tr = d.call(

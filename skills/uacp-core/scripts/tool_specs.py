@@ -156,7 +156,7 @@ def _entity_write_schema() -> dict[str, Any]:
                     "Per-kind path placeholders. Required for multi-instance kinds: "
                     "uacp.check.* (all sub-kinds), uacp.execution_checkpoint, and uacp.investigation_entry "
                     "each require {\"seq\": \"N\"} (1-based counter); "
-                    "uacp.evidence_disposition requires {\"cluster\": \"<id>\", \"half\": \"<left|right>\"} "
+                    "uacp.evidence_disposition requires {\"cluster\": \"<id>\", \"half\": \"<verified-facts|assumptions>\"} "
                     "(template verification/{run_id}-{cluster}-{half}.md). "
                     "Omitting a required placeholder is an error that names the missing key."
                 ),

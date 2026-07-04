@@ -45,6 +45,15 @@ def _err(msg: str) -> dict[str, Any]:
     return {"error": msg}
 
 
+# The evidence-disposition ``half`` placeholder is a CLOSED two-value vocabulary
+# (the paired verified-facts / assumptions files EvidenceDispositionSchema requires).
+# Both literals contain a '-' and would otherwise trip the delimiter guard in
+# _bad_ctx_segment, so they are special-cased there (BREAK-2a). This is NOT a general
+# hyphen allowance — only these two exact literals pass, and create_entity separately
+# rejects any OTHER `half` value as out-of-vocabulary (BREAK-2 paper fix).
+_EVIDENCE_DISPOSITION_HALVES: frozenset[str] = frozenset({"verified-facts", "assumptions"})
+
+
 def _bad_ctx_value(v: Any) -> bool:
     """A path-placeholder value that could break a path segment or be empty (used for run_id)."""
     s = str(v)
@@ -56,8 +65,17 @@ def _bad_ctx_segment(v: Any) -> bool:
     siblings by '-' in templates ({run_id}-{cluster}-{half}) and by '-'/'=' in the composite
     registration key. A value containing those would make BOTH the path and the key ambiguous —
     two (cluster, half) pairs could map to one file/key (Codex PR#5 r3). So reject delimiter-bearing
-    segment values; run_id keeps '-' (a single leading placeholder, never reverse-parsed)."""
+    segment values; run_id keeps '-' (a single leading placeholder, never reverse-parsed).
+
+    EXCEPTION (BREAK-2a): the closed evidence-disposition ``half`` vocabulary
+    (``verified-facts`` / ``assumptions``) is allowed verbatim despite its '-'. The
+    vocabulary is fixed and collision-free (the sibling ``cluster`` still forbids '-'/'=',
+    so the composite key `cluster={c}-half={h}` stays unambiguously parseable), and any
+    other `half` value is rejected upstream in create_entity — so this stays a whitelist
+    of exactly two literals, not a general hyphen relaxation."""
     s = str(v)
+    if s in _EVIDENCE_DISPOSITION_HALVES:
+        return False
     return _bad_ctx_value(v) or ("-" in s) or ("=" in s)
 
 
@@ -106,6 +124,17 @@ def create_entity(
         return _err(
             f"missing required ctx placeholder(s) for {kind}: {missing} "
             f"(pass them via ctx={{...}} e.g. ctx={{'seq': '1'}})"
+        )
+    # CLOSED-VOCABULARY check (BREAK-2 paper fix): the evidence-disposition ``half``
+    # placeholder admits exactly ``verified-facts`` / ``assumptions`` (the paired files
+    # the disposition gate consumes). Any other value — the old paper doc's
+    # ``left``/``right``, or a typo — is refused here so it can never be written to a
+    # file nothing reads. (``verified-facts`` reaches this point because _bad_ctx_segment
+    # whitelists the two literals.)
+    if "half" in ctx and ctx["half"] not in _EVIDENCE_DISPOSITION_HALVES:
+        return _err(
+            f"invalid evidence-disposition half {ctx['half']!r}: must be one of "
+            f"{sorted(_EVIDENCE_DISPOSITION_HALVES)}"
         )
     rel = layout.relpath(kind, run_id=run_id, **ctx)
 

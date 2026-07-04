@@ -39,6 +39,67 @@ __all__ = [
 ]
 
 
+def _gate_ledger_path(root: Path, run_id: str) -> Path:
+    """Canonical per-run gate-ledger path (state/gate-ledger/{run_id}.jsonl),
+    containment-checked under state/. Creates the ledger dir. Raises ValueError if
+    it would resolve outside state/. Single source of the ledger path shape,
+    reused by the append handler AND handle_transition's canonical-gate emit."""
+    base = base_dir(root)
+    ledger_root = (base / "state" / "gate-ledger").resolve()
+    if (base / "state").resolve() not in ledger_root.parents and ledger_root != (
+        base / "state"
+    ).resolve():
+        raise ValueError("gate-ledger root resolved outside state/")
+    ledger_root.mkdir(parents=True, exist_ok=True)
+    return ledger_root / f"{run_id}.jsonl"
+
+
+def _append_gate_ledger_record(root: Path, run_id: str, record: dict) -> tuple[Path, int]:
+    """Append one record to the run's gate ledger as a single canonical JSONL line
+    (sorted keys; PIPE_BUF-bounded so O_APPEND stays atomic). Append-only — no seek,
+    no truncate. The ONE place that knows the ledger line format; reused by the
+    governed uacp_gate_ledger_append handler AND state_machine.handle_transition.
+    Raises ValueError on an unwritable record. Returns (ledger_path, byte_offset)."""
+    line = json.dumps(record, ensure_ascii=False, sort_keys=True)
+    if "\n" in line:
+        raise ValueError("record must not contain embedded newlines")
+    if len(line.encode("utf-8")) > 3584:
+        raise ValueError("record exceeds 3584-byte ledger limit (PIPE_BUF atomicity)")
+    ledger_path = _gate_ledger_path(root, run_id)
+    with ledger_path.open("a", encoding="utf-8") as fh:
+        offset = fh.tell()
+        fh.write(line + "\n")
+    return ledger_path, offset
+
+
+def _existing_gate_ledger_gates(root: Path, run_id: str) -> set[str]:
+    """The set of ``gate`` strings already present in the run's gate ledger — the
+    idempotency read for handle_transition's auto-emit. Never raises: a missing or
+    partially-garbled ledger yields whatever gates parse cleanly."""
+    try:
+        path = _gate_ledger_path(root, run_id)
+    except ValueError:
+        return set()
+    if not path.exists():
+        return set()
+    gates: set[str] = set()
+    try:
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                rec = json.loads(raw)
+            except Exception:
+                continue
+            gate = rec.get("gate") if isinstance(rec, dict) else None
+            if isinstance(gate, str) and gate:
+                gates.add(gate)
+    except Exception:
+        return gates
+    return gates
+
+
 def _run_manifest_goal_id(root: Path, run_id: str) -> str | None:
     """Read a run's goal_id from its manifest (state/runs/{run_id}.yaml).
 
@@ -112,25 +173,14 @@ def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
         record.setdefault("gate", gate)
         record.setdefault("run_id", run_id)
         record.setdefault("ts", int(time.time()))
-        line = json.dumps(record, ensure_ascii=False, sort_keys=True)
-        if "\n" in line:
-            return json.dumps({"error": "record must not contain embedded newlines"})
-        # Phase 3 (pc_p2_minor): bound per-record length to stay within POSIX
-        # PIPE_BUF (4096 bytes) so O_APPEND remains atomic across concurrent
-        # writers. Reserve 512 bytes for the trailing newline and headroom.
-        if len(line.encode("utf-8")) > 3584:
-            return json.dumps({"error": "record exceeds 3584-byte ledger limit (PIPE_BUF atomicity)"})
-
-        base = base_dir(root)
-        ledger_root = (base / "state" / "gate-ledger").resolve()
-        if (base / "state").resolve() not in ledger_root.parents and ledger_root != (base / "state").resolve():
-            return json.dumps({"error": "gate-ledger root resolved outside state/"})
-        ledger_root.mkdir(parents=True, exist_ok=True)
-        ledger_path = ledger_root / f"{run_id}.jsonl"
-        # Append-only — no seek, no truncate.
-        with ledger_path.open("a", encoding="utf-8") as fh:
-            offset = fh.tell()
-            fh.write(line + "\n")
+        # Serialize + append via the shared canonical ledger IO (line format,
+        # PIPE_BUF bound, containment, append-only) — the same seam
+        # handle_transition reuses so the two paths cannot diverge on format.
+        try:
+            base = base_dir(root)
+            ledger_path, offset = _append_gate_ledger_record(root, run_id, record)
+        except ValueError as exc:
+            return json.dumps({"error": str(exc)})
         return json.dumps(
             {
                 "ok": True,

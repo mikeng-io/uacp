@@ -456,6 +456,43 @@ def handle_transition(args: dict[str, Any]) -> str:
                 "blockers": gate_blockers,
             }, ensure_ascii=False)
 
+        # BREAK-3: emit the canonical FROM->TO gate-ledger record (plus
+        # TRIAGE_COMPLETE on triage exit) atomically with the transition — exactly
+        # the ledger entries the closure sweep (evidence_completeness + coherence
+        # C2) requires, so the ledger cannot drift from state_history and the
+        # operator is not expected to hand-mirror it. Appended BEFORE the phase
+        # mutation (C2's "gate precedes the transition" contract) so a ledger-write
+        # failure leaves the manifest untouched. IDEMPOTENT: a gate already present
+        # (e.g. a hand-authored uacp_gate_ledger_append) is skipped, so hand-authored
+        # and auto-emitted gates coexist WITHOUT the duplicate coherence C2 flags —
+        # emission prevents the duplicate at the source (coherence stays unchanged).
+        # Fail-closed: an unrecordable gate blocks the transition. Lazy import reuses
+        # the governed ledger IO (state) with no import cycle (runtime-only call).
+        canonical_gates = [f"{from_phase.upper()}->{to_phase.upper()}"]
+        if from_phase == "triage":
+            canonical_gates.append("TRIAGE_COMPLETE")
+        try:
+            from state import _append_gate_ledger_record, _existing_gate_ledger_gates
+
+            already = _existing_gate_ledger_gates(workspace, run_id)
+            for gate_name in canonical_gates:
+                if gate_name in already:
+                    continue
+                _append_gate_ledger_record(
+                    workspace,
+                    run_id,
+                    {"gate": gate_name, "run_id": run_id, "ts": int(time.time()), "result": "pass"},
+                )
+        except Exception as exc:  # fail-closed: cannot record the canonical gate -> do not advance
+            return json.dumps({
+                "error": (
+                    f"transition blocked: could not record canonical gate-ledger entry: "
+                    f"{type(exc).__name__}: {exc}"
+                ),
+                "from_phase": from_phase,
+                "to_phase": to_phase,
+            }, ensure_ascii=False)
+
         manifest.current_phase = to_phase
         if to_phase in TERMINAL_PHASES:
             manifest.status = Status(to_phase) if to_phase in {s.value for s in Status} else manifest.status

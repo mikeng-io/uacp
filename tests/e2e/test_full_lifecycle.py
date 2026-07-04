@@ -298,6 +298,32 @@ _SEEDERS = {
 }
 
 
+def transition_artifact(frm: str, to: str, run_id: str) -> dict:
+    """The transition artifact the agent-path ``validate_transition`` checks.
+
+    The ``verify->resolved`` edge fires the evidence-disposition gate (BREAK-2b keys
+    it on the GOVERNED edge, which the state machine records as ``verify->resolved``).
+    A trivial harness run has no verification clusters, so it declares that via the
+    documented ``handled_findings_chain`` escape hatch — the gate's own sanctioned way
+    to cross VERIFY->RESOLVE(D) with zero clusters (silent zero-cluster passage is a
+    block). Shared by test_full_lifecycle and test_coherence.drive_happy_path so the
+    happy path stays in lockstep."""
+    artifact = {
+        "from_phase": frm,
+        "to_phase": to,
+        "run_id": run_id,
+        "artifact_path": "plans/test.yaml",
+    }
+    if (frm, to) == ("verify", "resolved"):
+        artifact["handled_findings_chain"] = [
+            {
+                "original_finding_id": "none",
+                "handling_classification": "no_verification_clusters",
+            }
+        ]
+    return artifact
+
+
 def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str):
     d = Driver(temp_uacp_root, valid_run_id)
     heartgate = Heartgate.load(str(temp_uacp_root))
@@ -337,14 +363,7 @@ def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str
         if seeder := _SEEDERS.get((frm, to)):
             seeder(temp_uacp_root, valid_run_id)
 
-        hg = heartgate.validate_transition(
-            {
-                "from_phase": frm,
-                "to_phase": to,
-                "run_id": valid_run_id,
-                "artifact_path": "plans/test.yaml",
-            }
-        )
+        hg = heartgate.validate_transition(transition_artifact(frm, to, valid_run_id))
         assert hg.decision == "pass", f"Heartgate blocked legit {frm}->{to}: {hg.blockers}"
 
         tr = d.call(
@@ -413,10 +432,19 @@ def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str
     transitions = [h for h in manifest["state_history"] if h["event"] == "phase_transition"]
     assert [(h["from_phase"], h["to_phase"]) for h in transitions] == PHASES
 
-    ledger_lines = (
-        (temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl")
-        .read_text()
-        .strip()
-        .split("\n")
-    )
-    assert len(ledger_lines) == len(PHASES)
+    gates = [
+        json.loads(ln)["gate"]
+        for ln in (
+            (temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl")
+            .read_text()
+            .strip()
+            .split("\n")
+        )
+    ]
+    # Each phase's FROM->TO gate appears exactly once: the harness hand-authors it
+    # AND handle_transition auto-emits it, but the auto-emit is IDEMPOTENT (BREAK-3),
+    # so no duplicate. The triage exit additionally auto-emits TRIAGE_COMPLETE.
+    for frm, to in PHASES:
+        assert gates.count(f"{frm.upper()}->{to.upper()}") == 1, gates
+    assert gates.count("TRIAGE_COMPLETE") == 1, gates
+    assert len(gates) == len(PHASES) + 1, gates

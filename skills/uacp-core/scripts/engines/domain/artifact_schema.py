@@ -94,11 +94,18 @@ class LessonsSchema(BaseModel):
 
 
 class EvidenceDispositionSchema(BaseModel):
-    """Phase 2.2: verify->resolve evidence disposition pair files."""
+    """Phase 2.2: verify->resolved evidence disposition pair files.
+
+    The gate keys on the GOVERNED transition edge, which the state machine records
+    as ``verify->resolved`` (BREAK-2b): keyed on the lifecycle-vocabulary
+    ``verify->resolve`` it never fired on the edge a real run actually crosses. The
+    disposition validator is invoked directly / on the transition-file path; see
+    tests/unit/uacp_core/test_evidence_disposition_writeable.py for the teeth.
+    """
 
     model_config = ConfigDict(frozen=True)
 
-    required_for_transition: str = "verify->resolve"
+    required_for_transition: str = "verify->resolved"
     paired_paths: dict[str, str] = {
         "verified_facts": "verification/{run_id}-{cluster}-verified-facts.md",
         "assumptions": "verification/{run_id}-{cluster}-assumptions.md",
