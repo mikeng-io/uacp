@@ -77,7 +77,7 @@ def _append_gate_ledger_record(root: Path, run_id: str, record: dict) -> tuple[P
     if len(payload) > 3584:
         raise ValueError("record exceeds 3584-byte ledger record ceiling")
     ledger_path = _gate_ledger_path(root, run_id)
-    fd = os.open(str(ledger_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+    fd = os.open(str(ledger_path), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     try:
         offset = os.fstat(fd).st_size
         os.write(fd, payload)
@@ -96,7 +96,7 @@ def _run_transition_lock(root: Path, run_id: str):
     released on close/process death; local-filesystem semantics are sufficient —
     a run's state dir is never on NFS in supported deployments."""
     lock_path = _gate_ledger_path(root, run_id).with_suffix(".lock")
-    fd = os.open(str(lock_path), os.O_WRONLY | os.O_CREAT, 0o644)
+    fd = os.open(str(lock_path), os.O_WRONLY | os.O_CREAT, 0o600)
     try:
         fcntl.flock(fd, fcntl.LOCK_EX)
         yield

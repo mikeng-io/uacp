@@ -435,6 +435,11 @@ def handle_transition(args: dict[str, Any]) -> str:
 
         if not run_id:
             return json.dumps({"error": "run_id is required"})
+        # SAFETY BEFORE the lock (PR #96 codex P2): the lock path embeds run_id, so
+        # a traversal-bearing id would create lock files outside the ledger dir if
+        # checked only later by _load_manifest.
+        if ("/" in run_id) or ("\\" in run_id) or (".." in run_id) or run_id.startswith("."):
+            return json.dumps({"error": f"transition refused: unsafe run_id {run_id!r}"})
         if not from_phase:
             return json.dumps({"error": "from_phase is required"})
         if not to_phase:

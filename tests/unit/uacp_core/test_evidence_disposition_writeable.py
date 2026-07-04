@@ -11,8 +11,9 @@ Before the fix:
 After the fix:
   * BOTH halves ("verified-facts", "assumptions") write cleanly;
   * an out-of-vocabulary half (the old paper doc's "left"/"right") is REJECTED;
-  * the gate FIRES on ``verify->resolved`` (catches a missing verified-facts half),
-    and no longer on the phantom ``verify->resolve`` edge.
+  * the gate FIRES on ``verify->resolved`` AND on the agent-path spelling
+    ``verify->resolve`` (edge-normalized until the stages-graph schism is
+    reconciled — PR #96 codex P1: neither path may skip the pair).
 """
 
 from __future__ import annotations
@@ -98,8 +99,11 @@ def test_gate_fires_on_governed_resolved_edge(temp_uacp_root: Path, valid_run_id
     assert any("verified-facts" in b for b in blockers), blockers
 
 
-def test_gate_does_not_fire_on_phantom_resolve_edge(temp_uacp_root: Path, valid_run_id: str):
-    """The lifecycle-vocabulary ``verify->resolve`` is NOT the governed edge; the
-    gate must key on the state-machine edge, so it does not fire here."""
-    blockers = _disposition_blockers(temp_uacp_root, valid_run_id, "resolve")
-    assert blockers == [], blockers
+def test_gate_fires_on_both_edge_spellings(temp_uacp_root: Path, valid_run_id: str):
+    """PR #96 codex P1: the stages-graph schism means the agent-invoked Heartgate
+    path crosses verify->resolve while the state machine records verify->resolved.
+    Until that reconciliation, the disposition validator NORMALIZES the terminal
+    spelling — the gate must fire on BOTH, so neither path can skip the pair."""
+    for to_phase in ("resolve", "resolved"):
+        blockers = _disposition_blockers(temp_uacp_root, valid_run_id, to_phase)
+        assert any("verified-facts" in b for b in blockers), (to_phase, blockers)

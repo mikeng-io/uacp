@@ -218,7 +218,7 @@ def _drive_full_lifecycle(root: Path, run_id: str) -> dict:
 
     init = driver.call(
         "uacp_state_write",
-        lambda a: state_machine.handle_init(a),
+        state_machine.handle_init,
         {"workspace": str(root), "run_id": run_id, "source": "operator-request"},
         phase="triage",
     )
@@ -232,7 +232,7 @@ def _drive_full_lifecycle(root: Path, run_id: str) -> dict:
 
         tr = driver.call(
             "uacp_state_write",
-            lambda a: state_machine.handle_transition(a),
+            state_machine.handle_transition,
             {"workspace": str(root), "run_id": run_id, "from_phase": frm, "to_phase": to},
             phase=frm,
         )
@@ -255,7 +255,7 @@ def _drive_full_lifecycle(root: Path, run_id: str) -> dict:
 
     fin = driver.call(
         "uacp_state_write",
-        lambda a: state_machine.handle_finalize(a),
+        state_machine.handle_finalize,
         {"workspace": str(root), "run_id": run_id},
         phase="verify",
     )
