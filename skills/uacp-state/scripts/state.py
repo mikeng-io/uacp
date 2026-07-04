@@ -217,11 +217,17 @@ def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
         record.setdefault("run_id", run_id)
         record.setdefault("ts", int(time.time()))
         # Serialize + append via the shared canonical ledger IO (line format,
-        # PIPE_BUF bound, containment, append-only) — the same seam
+        # record-size bound, containment, append-only) — the same seam
         # handle_transition reuses so the two paths cannot diverge on format.
+        # UNDER THE SAME per-run lock as the transition (PR #96 review P2): a
+        # hand-authored FROM->TO append racing a transition could otherwise land
+        # between the transition's idempotency read and its emit, producing the
+        # duplicate gate coherence C2 blocks. The lock is a leaf (no nested
+        # acquisition on this path), so ordering is trivially safe.
         try:
             base = base_dir(root)
-            ledger_path, offset = _append_gate_ledger_record(root, run_id, record)
+            with _run_transition_lock(root, run_id):
+                ledger_path, offset = _append_gate_ledger_record(root, run_id, record)
         except ValueError as exc:
             return json.dumps({"error": str(exc)})
         return json.dumps(

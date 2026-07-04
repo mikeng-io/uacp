@@ -96,3 +96,46 @@ def test_emission_is_idempotent_with_hand_authored_gate(
     gates = _ledger_gates(temp_uacp_root, valid_run_id)
     assert gates.count("TRIAGE->PROPOSE") == 1, f"duplicate transition gate emitted: {gates}"
     assert gates.count("TRIAGE_COMPLETE") == 1, gates
+
+
+def test_manual_append_shares_the_transition_lock(temp_uacp_root, valid_run_id, monkeypatch):
+    """PR #96 review P2: uacp_gate_ledger_append serializes on the SAME per-run
+    lock as handle_transition — proven by observing the append path acquire it
+    (a true interleaving race is untestable deterministically; lock acquisition
+    is the invariant that closes the window)."""
+    import json as _json
+
+    import state
+    import state_machine
+
+    out = _json.loads(
+        state_machine.handle_init(
+            {"workspace": str(temp_uacp_root), "run_id": valid_run_id, "source": "operator-request"}
+        )
+    )
+    assert out.get("ok") is True, out
+
+    acquired: list[str] = []
+    real_lock = state._run_transition_lock
+
+    def spying_lock(root, run_id):
+        acquired.append(run_id)
+        return real_lock(root, run_id)
+
+    monkeypatch.setattr(state, "_run_transition_lock", spying_lock)
+    res = _json.loads(
+        state._handle_uacp_gate_ledger_append(
+            {
+                "uacp_run_id": valid_run_id,
+                "uacp_phase": "triage",
+                "workspace": str(temp_uacp_root),
+                "policy_version": "0.1",
+                "declared_side_effects": [],
+                "gate": "TRIAGE_COMPLETE",
+                "record": {"result": "pass"},
+                "authority_artifact": "plans/test.yaml",
+            }
+        )
+    )
+    assert res.get("ok") is True, res
+    assert acquired == [valid_run_id], "manual append must take the per-run transition lock"
