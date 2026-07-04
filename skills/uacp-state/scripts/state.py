@@ -72,10 +72,16 @@ def _append_gate_ledger_record(root: Path, run_id: str, record: dict) -> tuple[P
     return ledger_path, offset
 
 
-def _existing_gate_ledger_gates(root: Path, run_id: str) -> set[str]:
+def _existing_gate_ledger_gates(
+    root: Path, run_id: str, *, passing_only: bool = False
+) -> set[str]:
     """The set of ``gate`` strings already present in the run's gate ledger — the
-    idempotency read for handle_transition's auto-emit. Never raises: a missing or
-    partially-garbled ledger yields whatever gates parse cleanly."""
+    idempotency read for handle_transition's auto-emit. With ``passing_only``,
+    only records whose ``result`` == "pass" count (council NIT: a pre-seeded
+    FAILING record must not suppress the canonical pass emit — consumers today
+    key on name-presence only, but the auto-emit should not entrench that).
+    Never raises: a missing or partially-garbled ledger yields whatever gates
+    parse cleanly."""
     try:
         path = _gate_ledger_path(root, run_id)
     except ValueError:
@@ -94,6 +100,8 @@ def _existing_gate_ledger_gates(root: Path, run_id: str) -> set[str]:
                 continue
             gate = rec.get("gate") if isinstance(rec, dict) else None
             if isinstance(gate, str) and gate:
+                if passing_only and rec.get("result") != "pass":
+                    continue
                 gates.add(gate)
     except Exception:
         return gates

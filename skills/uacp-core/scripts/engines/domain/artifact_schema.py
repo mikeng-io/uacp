@@ -84,7 +84,17 @@ class ScopeSchema(BaseModel):
 
 
 class LessonsSchema(BaseModel):
-    """Phase 2.4: verify->resolve lessons artifact (resolutions/{run_id}-lessons.yaml)."""
+    """Phase 2.4: verify->resolve lessons artifact (resolutions/{run_id}-lessons.yaml).
+
+    DELIBERATELY keyed on the phantom edge (council MINOR, option B): the state
+    machine's real edge is verify->resolved, so this SHAPE check never fires on
+    the governed path — lessons shape-validation is deferred to the resolve
+    phase-exit artifact_glob in evidence_completeness (presence proven blocking
+    by test_resolve_exit_invariant). Retargeting to the real edge ripples the
+    entire fixture suite (the shape check demands the lessons artifact AT
+    transition time, which the canonical flow authors during RESOLVE) — the
+    F2b-class ripple; if lessons shape enforcement at the transition is ever
+    wanted, it needs its own reconciliation round, not a key flip."""
 
     model_config = ConfigDict(frozen=True)
 

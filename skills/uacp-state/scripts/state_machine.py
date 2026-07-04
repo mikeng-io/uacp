@@ -474,7 +474,7 @@ def handle_transition(args: dict[str, Any]) -> str:
         try:
             from state import _append_gate_ledger_record, _existing_gate_ledger_gates
 
-            already = _existing_gate_ledger_gates(workspace, run_id)
+            already = _existing_gate_ledger_gates(workspace, run_id, passing_only=True)
             for gate_name in canonical_gates:
                 if gate_name in already:
                     continue
