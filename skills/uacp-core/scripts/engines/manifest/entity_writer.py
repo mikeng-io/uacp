@@ -60,21 +60,23 @@ def _bad_ctx_value(v: Any) -> bool:
     return (not s.strip()) or ("/" in s) or ("\\" in s) or (".." in s)
 
 
-def _bad_ctx_segment(v: Any) -> bool:
+def _bad_ctx_segment(v: Any, *, key: str = "") -> bool:
     """Stricter than _bad_ctx_value: a ctx value is an INNER path placeholder, separated from
     siblings by '-' in templates ({run_id}-{cluster}-{half}) and by '-'/'=' in the composite
     registration key. A value containing those would make BOTH the path and the key ambiguous —
     two (cluster, half) pairs could map to one file/key (Codex PR#5 r3). So reject delimiter-bearing
     segment values; run_id keeps '-' (a single leading placeholder, never reverse-parsed).
 
-    EXCEPTION (BREAK-2a): the closed evidence-disposition ``half`` vocabulary
-    (``verified-facts`` / ``assumptions``) is allowed verbatim despite its '-'. The
-    vocabulary is fixed and collision-free (the sibling ``cluster`` still forbids '-'/'=',
-    so the composite key `cluster={c}-half={h}` stays unambiguously parseable), and any
-    other `half` value is rejected upstream in create_entity — so this stays a whitelist
-    of exactly two literals, not a general hyphen relaxation."""
+    EXCEPTION (BREAK-2a, KEY-AWARE — cross-provider review): the closed
+    evidence-disposition vocabulary (``verified-facts`` / ``assumptions``) is allowed
+    verbatim despite its '-', but ONLY for the ``half`` placeholder. A value-based
+    whitelist would let ``cluster="verified-facts"`` (or any other placeholder) smuggle
+    the hyphen past the delimiter guard and re-create the exact key/path ambiguity this
+    guard exists to prevent. The sibling ``cluster`` therefore still forbids '-'/'='
+    unconditionally, keeping `cluster={c}-half={h}` unambiguously parseable; any OTHER
+    `half` value is rejected upstream in create_entity."""
     s = str(v)
-    if s in _EVIDENCE_DISPOSITION_HALVES:
+    if key == "half" and s in _EVIDENCE_DISPOSITION_HALVES:
         return False
     return _bad_ctx_value(v) or ("-" in s) or ("=" in s)
 
@@ -103,7 +105,7 @@ def create_entity(
     # boundary; it can never land in **ctx.)
     if _bad_ctx_value(run_id):
         return _err(f"invalid run_id: {run_id!r}")
-    bad = {k: ctx[k] for k in ctx if _bad_ctx_segment(ctx[k])}
+    bad = {k: ctx[k] for k in ctx if _bad_ctx_segment(ctx[k], key=k)}
     if bad:
         return _err(
             f"invalid path-placeholder value(s) (no '/', '\\', '..', '-', '=', or empty): {bad}"

@@ -33,6 +33,7 @@ impossible while this test is green.
 
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import tempfile
@@ -109,6 +110,11 @@ def prod_uacp_root() -> Generator[Path]:
 # phase (stages_default phase_exit_invariants -> evidence_completeness) PLUS the
 # FROM->TO transition gate coherence C2 pairs 1:1 with each state_history edge.
 # Keyed by the from_phase of the edge being crossed.
+#
+# NOT hand-appended (cross-provider review): F3 makes handle_transition emit
+# exactly these gates — hand-seeding them here would let the keystone pass even
+# if production auto-emission broke. This map is the POST-RUN ASSERTION list:
+# the transitions themselves must have produced every one of these.
 _REQUIRED_LEDGER_GATES: dict[str, list[str]] = {
     "triage": ["TRIAGE_COMPLETE", "TRIAGE->PROPOSE"],
     "propose": ["PROPOSE->PLAN"],
@@ -221,9 +227,6 @@ def _drive_full_lifecycle(root: Path, run_id: str) -> dict:
     _seed_triage_artifact(root, run_id)
 
     for frm, to in PHASES:
-        for gate in _REQUIRED_LEDGER_GATES.get(frm, []):
-            _append_ledger(driver, root, run_id, frm, gate)
-
         if seeder := _SEEDERS.get((frm, to)):
             seeder(root, run_id)
 
@@ -234,6 +237,18 @@ def _drive_full_lifecycle(root: Path, run_id: str) -> dict:
             phase=frm,
         )
         assert tr.get("ok") is True, f"governed transition {frm}->{to} blocked: {tr}"
+
+    # F3 PROOF: the governed transitions themselves must have emitted every
+    # closure-required gate — nothing above hand-appended any of them.
+    ledger_path = root / ".uacp" / "state" / "gate-ledger" / f"{run_id}.jsonl"
+    emitted = {
+        json.loads(ln).get("gate") for ln in ledger_path.read_text().splitlines() if ln.strip()
+    }
+    for gates in _REQUIRED_LEDGER_GATES.values():
+        for gate in gates:
+            assert gate in emitted, (
+                f"handle_transition must auto-emit '{gate}' (F3); ledger has {sorted(emitted)}"
+            )
 
     _author_lessons(root, run_id)
     _watermark_registered_artifacts(root, run_id)
