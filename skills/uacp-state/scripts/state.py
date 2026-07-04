@@ -9,6 +9,7 @@ import contextlib
 import fcntl
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -227,6 +228,33 @@ def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
         try:
             base = base_dir(root)
             with _run_transition_lock(root, run_id):
+                # SEQUENTIAL dedup for CANONICAL transition gates (PR #96 review
+                # P2, sibling of the race the lock closed): a legacy/manual
+                # append of a FROM->TO (or TRIAGE_COMPLETE) gate the transition
+                # already auto-emitted would leave TWO records for ONE history
+                # edge — coherence C2's multiset check then bricks closure.
+                # Pass-only and canonical-names-only: non-transition gates may
+                # legitimately repeat (council rounds), and a forged EXTRA gate
+                # with no matching history edge is still C2's catch, untouched.
+                is_canonical = (
+                    bool(re.fullmatch(r"[A-Z][A-Z_]*->[A-Z][A-Z_]*", gate))
+                    or gate == "TRIAGE_COMPLETE"
+                )
+                if (
+                    is_canonical
+                    and record.get("result") == "pass"
+                    and gate in _existing_gate_ledger_gates(root, run_id, passing_only=True)
+                ):
+                    return json.dumps(
+                        {
+                            "ok": True,
+                            "deduplicated": True,
+                            "gate": gate,
+                            "run_id": run_id,
+                            "note": "canonical transition gate already recorded (pass); "
+                            "append skipped to keep one record per history edge",
+                        }
+                    )
                 ledger_path, offset = _append_gate_ledger_record(root, run_id, record)
         except ValueError as exc:
             return json.dumps({"error": str(exc)})

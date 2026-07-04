@@ -132,3 +132,54 @@ def test_manual_append_shares_the_transition_lock(temp_uacp_root, valid_run_id, 
     )
     assert res.get("ok") is True, res
     assert acquired == [valid_run_id], "manual append must take the per-run transition lock"
+
+
+def test_manual_duplicate_of_auto_emitted_gate_is_deduplicated(temp_uacp_root, valid_run_id):
+    """PR #96 review P2 (sequential sibling of the locked race): a manual append
+    of a canonical FROM->TO gate the transition already emitted is skipped
+    (pass-only, canonical-names-only) — one record per history edge, C2 stays
+    clean. Non-canonical gates still append freely."""
+    out = json.loads(
+        state_machine.handle_init(
+            {"workspace": str(temp_uacp_root), "run_id": valid_run_id, "source": "operator-request"}
+        )
+    )
+    assert out.get("ok") is True, out
+    tr = json.loads(
+        state_machine.handle_transition(
+            {
+                "workspace": str(temp_uacp_root),
+                "run_id": valid_run_id,
+                "from_phase": "triage",
+                "to_phase": "propose",
+            }
+        )
+    )
+    assert tr.get("ok") is True, tr
+
+    def _append(gate: str) -> dict:
+        return json.loads(
+            state._handle_uacp_gate_ledger_append(
+                {
+                    "uacp_run_id": valid_run_id,
+                    "uacp_phase": "propose",
+                    "workspace": str(temp_uacp_root),
+                    "policy_version": "0.1",
+                    "declared_side_effects": [],
+                    "gate": gate,
+                    "record": {"result": "pass"},
+                    "authority_artifact": "plans/test.yaml",
+                }
+            )
+        )
+
+    dup = _append("TRIAGE->PROPOSE")  # auto-emitted by the transition above
+    assert dup.get("ok") is True and dup.get("deduplicated") is True, dup
+
+    other = _append("PLAN_VALIDATION_ROUND")  # non-canonical: appends freely
+    assert other.get("ok") is True and other.get("deduplicated") is None, other
+
+    ledger = (
+        temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl"
+    ).read_text()
+    assert ledger.count('"TRIAGE->PROPOSE"') == 1, ledger
