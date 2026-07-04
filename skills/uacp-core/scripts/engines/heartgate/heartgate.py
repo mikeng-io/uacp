@@ -393,6 +393,63 @@ class Heartgate:
             ]
         return []
 
+    def forced_verify_evidence_blockers(self, run_id: str) -> list[str]:
+        """Force the SCOPE-MINIMAL verify-evidence precondition onto
+        VERIFY->RESOLVED on the live path (PR #96 review P1):
+        ``handle_transition`` ran the graph + brainstorm/proposal/execute forced
+        gates but never any verify-evidence demand, so a governed run could
+        reach finalize without verify-selection / resolve-readiness — while the
+        transition auto-emits the terminal ledger gate.
+
+        Doctrine of :meth:`forced_execute_evidence_blockers` applied verbatim:
+        force PRESENCE + IDENTITY of the two core artifacts (kind, run_id,
+        ready_for_resolve=true, readiness binds to the selection), NOT the
+        adaptive gate's FULL offline validation + package-directory demands —
+        forcing the full set on every transition is exactly the bare ripple the
+        forced-gate pattern deliberately avoids; the full gate still runs on
+        the agent-invoked ``validate_transition`` (now on both edge spellings).
+        Self-gated on the governed-execute marker (ANY registered checkpoint —
+        bare/ungoverned runs return []); goal-driven runs are satisfied by the
+        coherent goal-bound manifest exactly as at the EXECUTE exit."""
+        executions = self.governed_root / "executions"
+        if not any(executions.glob(f"{run_id}-checkpoint-*.yaml")):
+            return []
+        if self._run_track(run_id) == "goal-driven":
+            blockers: list[str] = []
+            self._validate_goal_driven_closure_gate(run_id, blockers)
+            return blockers
+        prefix = f"forced_verify_evidence[{run_id}]: governed run (checkpoint registered), so"
+        selection_rel = f"verification/{run_id}-verify-selection.yaml"
+        readiness_rel = f"verification/{run_id}-resolve-readiness.yaml"
+        out: list[str] = []
+        sel = self._load_yaml_under_root(selection_rel, out, "forced_verify_evidence")
+        if sel is None:
+            out.append(
+                f"{prefix} a verify-selection ({selection_rel}) must exist before VERIFY->RESOLVED"
+            )
+        else:
+            if sel.get("kind") != "uacp.verification_package":
+                out.append(f"{prefix} the verify-selection kind must be uacp.verification_package")
+            if sel.get("run_id") != run_id:
+                out.append(f"{prefix} the verify-selection run_id must match the run")
+        rdy = self._load_yaml_under_root(readiness_rel, out, "forced_verify_evidence")
+        if rdy is None:
+            out.append(
+                f"{prefix} a resolve-readiness ({readiness_rel}) must exist before VERIFY->RESOLVED"
+            )
+        else:
+            if rdy.get("kind") != "uacp.verify_resolve_readiness":
+                out.append(
+                    f"{prefix} the resolve-readiness kind must be uacp.verify_resolve_readiness"
+                )
+            if rdy.get("run_id") != run_id:
+                out.append(f"{prefix} the resolve-readiness run_id must match the run")
+            if rdy.get("ready_for_resolve") is not True:
+                out.append(f"{prefix} resolve-readiness must declare ready_for_resolve: true")
+            if rdy.get("verification_package") != selection_rel:
+                out.append(f"{prefix} the readiness must bind to the verify-selection artifact")
+        return out
+
     def forced_execute_evidence_blockers(self, run_id: str) -> list[str]:
         """The ONE execute-evidence precondition that must hold on the FORCED transition path
         (``state_machine.handle_transition`` EXECUTE->VERIFY), not only the agent-invoked

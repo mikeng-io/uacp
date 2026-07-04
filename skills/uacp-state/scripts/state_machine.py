@@ -425,6 +425,21 @@ def _run_forced_execute_evidence_gate(workspace: Path, run_id: str, from_phase: 
         return [f"FORCED_EXECUTE_EVIDENCE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
 
 
+def _run_forced_verify_evidence_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
+    """Force verify evidence (verify-selection / resolve-readiness) onto
+    VERIFY->RESOLVED on the live path (PR #96 review P1) — mirrors
+    _run_forced_execute_evidence_gate: self-gated on the governed-execute
+    marker inside the heartgate method, fail-closed, lazy import."""
+    if from_phase != "verify":
+        return []
+    try:
+        from core import Heartgate
+
+        return Heartgate.load(str(workspace)).forced_verify_evidence_blockers(run_id)
+    except Exception as exc:  # fail-closed
+        return [f"FORCED_VERIFY_EVIDENCE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+
+
 def handle_transition(args: dict[str, Any]) -> str:
     """Locked phase transition with validation + the phase-exit structural gate."""
     try:
@@ -507,6 +522,7 @@ def _handle_transition_locked(
         gate_blockers += _run_forced_brainstorm_exit_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_proposal_coverage_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_execute_evidence_gate(workspace, run_id, from_phase)
+        gate_blockers += _run_forced_verify_evidence_gate(workspace, run_id, from_phase)
         if gate_blockers:
             return json.dumps(
                 {
