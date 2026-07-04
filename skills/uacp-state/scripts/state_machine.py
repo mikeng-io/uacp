@@ -311,29 +311,37 @@ def handle_read(args: dict[str, Any]) -> str:
 _GRAPH_GATED_PHASES: frozenset[str] = frozenset({"plan", "execute", "verify"})
 
 
-def _run_transition_graph_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
+def _run_transition_graph_gate(
+    workspace: Path, run_id: str, from_phase: str
+) -> tuple[list[str], list[str]]:
     """Phase-scoped structural graph gate for a LIVE transition (D35).
 
     Forces ``validate_graph_invariants('<from_phase>_exit')`` onto the live
     transition path — the state-derived structural subset of the Heartgate
     transition gate (dropped intent / orphan / phantom / missing coverage /
     contradiction), which otherwise runs only inside the agent-invoked
-    ``validate_transition``. Returns block-severity violations as ``"CODE: message"``
-    strings (empty == pass). Phase-independent, so it runs BEFORE the phase mutation
-    (no revert needed). Fail-closed: a gate that cannot run blocks the transition.
+    ``validate_transition``. Returns ``(blockers, advisories)`` as ``"CODE: message"``
+    strings: block-severity violations gate the transition; warn-severity
+    violations (e.g. the plan_exit cascade forecast, PR #95 review) SURFACE in
+    the success response — visible, never blocking — instead of being
+    computed-then-discarded on the governed path. Phase-independent, so it runs
+    BEFORE the phase mutation (no revert needed). Fail-closed: a gate that
+    cannot run blocks the transition.
 
     Lazy import: keeps the state machine free of the engines package for callers
     that never transition, and avoids the engines->state_machine import cycle.
     """
     if from_phase not in _GRAPH_GATED_PHASES:
-        return []
+        return [], []
     try:
         from engines.graph_projection import validate_graph_invariants
 
         violations = validate_graph_invariants(workspace, run_id, f"{from_phase}_exit")
-        return [f"{v.code}: {v.message}" for v in violations if v.severity == "block"]
+        blockers = [f"{v.code}: {v.message}" for v in violations if v.severity == "block"]
+        advisories = [f"{v.code}: {v.message}" for v in violations if v.severity != "block"]
+        return blockers, advisories
     except Exception as exc:  # fail-closed: an unrunnable gate must not advance
-        return [f"TRANSITION_GRAPH_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+        return [f"TRANSITION_GRAPH_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
 
 
 def _run_forced_brainstorm_exit_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
@@ -436,7 +444,7 @@ def handle_transition(args: dict[str, Any]) -> str:
         # thereby starve the plan_exit coverage gate. Plus the forced BRAINSTORM->TRIAGE
         # admission contract so the scope package's real fields are measured here (not only
         # on the agent-invoked validate_transition path the governed transition tool bypasses).
-        gate_blockers = _run_transition_graph_gate(workspace, run_id, from_phase)
+        gate_blockers, gate_advisories = _run_transition_graph_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_brainstorm_exit_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_proposal_coverage_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_execute_evidence_gate(workspace, run_id, from_phase)
@@ -460,12 +468,18 @@ def handle_transition(args: dict[str, Any]) -> str:
         ))
 
         _save_manifest(workspace, manifest)
-        return json.dumps({
+        payload: dict[str, Any] = {
             "ok": True,
             "run_id": run_id,
             "from_phase": from_phase,
             "to_phase": to_phase,
-        }, ensure_ascii=False)
+        }
+        if gate_advisories:
+            # Advisory-severity graph findings (e.g. SC_PLAN_CASCADE_FORECAST) ride the
+            # SUCCESS response: the governed crossing proceeds, the finding stays visible
+            # (PR #95 review — previously computed-then-discarded on this path).
+            payload["advisories"] = gate_advisories
+        return json.dumps(payload, ensure_ascii=False)
     except FileNotFoundError as exc:
         return json.dumps({"error": f"transition failed: {exc}"})
     except Exception as exc:

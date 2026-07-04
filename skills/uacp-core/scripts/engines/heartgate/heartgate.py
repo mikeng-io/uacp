@@ -202,7 +202,7 @@ class Heartgate:
 
         self._validate_heartgate_coherence(artifact, blockers, warnings)
         self._validate_heartgate_coherence_requirement(artifact, blockers)
-        self._validate_phase_exit_invariants(artifact, blockers)
+        self._validate_phase_exit_invariants(artifact, blockers, warnings)
         self._validate_artifact_integrity(artifact, blockers)
         self._validate_adaptive_proposal_package_gate(artifact, blockers)
         self._validate_convergence_budget_gate(artifact, blockers)
@@ -655,16 +655,21 @@ class Heartgate:
         coherence.validate_heartgate_coherence_requirement(self, artifact, blockers)
 
     def _validate_phase_exit_invariants(
-        self, artifact: Mapping[str, Any], blockers: list[str]
+        self,
+        artifact: Mapping[str, Any],
+        blockers: list[str],
+        warnings: list[str] | None = None,
     ) -> None:
         """Enforce phase_exit_invariants from config (A3.1: delegates to
-        validators.phase_exit; logic + tests unchanged)."""
+        validators.phase_exit). Warn-severity graph-invariant violations surface
+        into ``warnings`` (advisory, never blocking) — PR #94 post-merge review."""
         phase_exit.validate_phase_exit_invariants(
             artifact,
             stages=self.stages,
             uacp_root=self.uacp_root,
             governed_root=self.governed_root,
             blockers=blockers,
+            warnings=warnings,
         )
 
     def _validate_artifact_integrity(

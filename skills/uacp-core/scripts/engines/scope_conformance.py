@@ -986,19 +986,28 @@ def join_forecast_record(workspace: str | Path, run_id: str) -> list[Violation]:
     is legitimate, after the read-only engine sweep. Idempotent — re-joining OVERWRITES
     the join fields, never duplicates. Promotion evidence, never a runtime gate input.
     A malformed record -> ``SC_FORECAST_JOIN_FAILED`` (warn), never a crash. Absent
-    record / unobservable diff / no declared boundary -> no-op. Never raises."""
+    record / unobservable diff / no declared boundary -> no-op. Never raises.
+
+    Boundary-mutation caveat (PR #95 review): when ``write_paths`` was declared at
+    plan_exit but the key is ABSENT from the final scope, the join evaluates the
+    normalized empty boundary ([]) exactly as diff-containment does — such a pair
+    reflects a boundary that mutated mid-run; the ``base_commit``/audit fields make
+    it reviewable at promotion time (the corpus is never a runtime gate input)."""
     try:
         root = Path(str(workspace)).resolve()
     except Exception:
         return []
     if not run_id or not isinstance(run_id, str):
         return []
+    # Boundary loading MIRRORS the engine path exactly (post-merge review P2): absent
+    # write_paths normalizes to [] — the strict empty boundary diff-containment evaluates —
+    # so the join proceeds against it; ONLY a malformed (non-list) declaration skips.
+    # Diverging here left an absent-boundary run's record silently unjoined while the
+    # engine still computed offenders against [].
     loaded_scope = _load_scope_for_run(root, run_id)
     scope_wps: list[str] | None = None
     if loaded_scope is not None:
         scope_wps = _normalize_write_paths(loaded_scope[0].write_paths)
-        if loaded_scope[0].write_paths is None:
-            scope_wps = None
     record, err = load_forecast_record(root, run_id)
     if record is None and err is None:
         return []  # no forecast of record for this run — nothing to join
@@ -1044,7 +1053,18 @@ def join_forecast_record(workspace: str | Path, run_id: str) -> list[Violation]:
         "recall": recall,
         "joined": True,
     }
-    write_forecast_record(root, run_id, merged)
+    if not write_forecast_record(root, run_id, merged):
+        # A computed-but-unpersisted join silently starves the promotion corpus —
+        # surface it exactly like the plan-side write failure (PR #94 post-merge review).
+        return [
+            _v(
+                "SC_FORECAST_WRITE_FAILED",
+                f"closure join for run '{run_id}' computed outcome/precision but the "
+                f"record could not be persisted — the (forecast, outcome) pair is lost "
+                f"unless re-joined",
+                severity="warn",
+            )
+        ]
     return []
 
 
