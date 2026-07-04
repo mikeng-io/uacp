@@ -17,8 +17,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import state
 import state_machine
-from state import _handle_uacp_gate_ledger_append
 
 
 def _init(root: Path, run_id: str) -> None:
@@ -68,15 +68,13 @@ def test_non_triage_exit_emits_only_transition_gate(temp_uacp_root: Path, valid_
     assert gates.count("TRIAGE_COMPLETE") == 1, gates
 
 
-def test_emission_is_idempotent_with_hand_authored_gate(
-    temp_uacp_root: Path, valid_run_id: str
-):
+def test_emission_is_idempotent_with_hand_authored_gate(temp_uacp_root: Path, valid_run_id: str):
     """An operator that hand-authors the canonical gate BEFORE transitioning must
     not end up with a duplicate (which coherence C2 would flag)."""
     _init(temp_uacp_root, valid_run_id)
     # Hand-author the transition gate first (the pre-F3 operator contract).
     ha = json.loads(
-        _handle_uacp_gate_ledger_append(
+        state._handle_uacp_gate_ledger_append(
             {
                 "uacp_run_id": valid_run_id,
                 "uacp_phase": "triage",
@@ -103,12 +101,7 @@ def test_manual_append_shares_the_transition_lock(temp_uacp_root, valid_run_id, 
     lock as handle_transition — proven by observing the append path acquire it
     (a true interleaving race is untestable deterministically; lock acquisition
     is the invariant that closes the window)."""
-    import json as _json
-
-    import state
-    import state_machine
-
-    out = _json.loads(
+    out = json.loads(
         state_machine.handle_init(
             {"workspace": str(temp_uacp_root), "run_id": valid_run_id, "source": "operator-request"}
         )
@@ -123,7 +116,7 @@ def test_manual_append_shares_the_transition_lock(temp_uacp_root, valid_run_id, 
         return real_lock(root, run_id)
 
     monkeypatch.setattr(state, "_run_transition_lock", spying_lock)
-    res = _json.loads(
+    res = json.loads(
         state._handle_uacp_gate_ledger_append(
             {
                 "uacp_run_id": valid_run_id,
