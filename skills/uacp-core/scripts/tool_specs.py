@@ -211,7 +211,7 @@ def tool_specs() -> list[ToolSpec]:
                         "description": (
                             "For register: must include run_id (string, must equal caller uacp_run_id), "
                             "phase (string), write_paths (list of UACP-root-relative strings the run may write), "
-                            "scope_artifact_path (string), started_at (ISO timestamp). "
+                            "scope_artifact_path (string), started_at (epoch seconds, integer). "
                             "For deregister: only run_id is required."
                         ),
                     },
