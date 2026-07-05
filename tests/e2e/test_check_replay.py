@@ -291,6 +291,23 @@ def test_artifact_integrity_binds_plaintext_txt_evidence(temp_uacp_root: Path):
     assert "CHK_ARTIFACT_INTEGRITY" not in _codes(temp_uacp_root, run_id)
 
 
+def test_artifact_integrity_rejects_path_escaping_governed_root(temp_uacp_root: Path):
+    # #116 codex P2: even WITH a matching watermark AND a real file present, an integrity artifact
+    # path that escapes the governed root (../) must fail-closed ERROR — never hash outside .uacp.
+    from engines.domain.artifact_hashes import record_hash
+
+    from config import base_dir as _bd
+
+    run_id = "uacp-int-esc"
+    _init(temp_uacp_root, run_id)
+    outside = _bd(temp_uacp_root).parent / "outside-evidence.txt"
+    outside.write_text("x", encoding="utf-8")  # real file OUTSIDE .uacp, content matches the mark
+    escape_rel = "../outside-evidence.txt"
+    record_hash(str(temp_uacp_root), run_id, escape_rel, "x")
+    _put_integrity_check(temp_uacp_root, run_id, escape_rel)
+    assert "CHK_ARTIFACT_INTEGRITY" in _codes(temp_uacp_root, run_id)
+
+
 def test_artifact_integrity_fails_on_tamper(temp_uacp_root: Path):
     # watermark the original, then tamper the file -> content diverges -> FAIL (block).
     run_id = "uacp-int-2"

@@ -52,7 +52,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from config import base_dir
 from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
 from engines.domain.layout import CATALOG_VERSION
@@ -907,8 +906,14 @@ def _evaluate_check(
             recorded = hash_index.get(str(art))
             if not recorded:
                 return ("ERROR", f"no watermark recorded for {art!r} — integrity unverifiable")
+            # Containment: resolve UNDER the governed root before reading, so an escaping path
+            # (../, absolute, symlink) fails closed even with a matching watermark — parity with
+            # the load_artifact guard this branch now precedes (#116 codex P2). Never read outside.
+            resolved = resolve_in_workspace(root, str(art))
+            if resolved is None:
+                return ("ERROR", f"integrity artifact path escapes the governed root: {art}")
             try:
-                raw = (base_dir(root) / str(art)).read_text(encoding="utf-8")
+                raw = resolved.read_text(encoding="utf-8")
             except OSError as exc:
                 return ("ERROR", f"cannot read {art!r} for integrity: {exc}")
             if content_hash(raw) == recorded:
