@@ -24,7 +24,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0",
+    "pytest>=9.1.1",
     "pytest-cov",
     "pytest-xdist",
     # Pinned: ruff's formatter is version-sensitive; an unpinned range lets CI
