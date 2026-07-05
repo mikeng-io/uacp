@@ -178,3 +178,18 @@ def test_inventory_registers_uacp_state_surfaces():
         ".uacp/state/escalations/",
     ):
         assert required in paths, f"{required} missing from the INDEX.md inventory"
+
+
+def test_uacp_exemption_is_narrowed_to_gitignored_paths():
+    """Codex P2 (PR #124): only runtime-created (gitignored) `.uacp/` rows are
+    exempt from tree-existence; committed corpus rows must still be validated,
+    so a typo'd or deleted `.uacp/knowledge/`-class row reddens the lint."""
+    # Runtime-created (gitignored) → exempt.
+    assert gen._runtime_created(".uacp/state/")
+    assert gen._runtime_created(".uacp/state/runs/")
+    # Committed, tracked content → NOT exempt.
+    assert not gen._runtime_created(".uacp/knowledge/")
+    assert not gen._runtime_created(".uacp/lessons/")
+    assert not gen._runtime_created(".uacp/handoffs/")
+    # Non-.uacp rows never take this branch.
+    assert not gen._runtime_created("docs/INDEX.md")

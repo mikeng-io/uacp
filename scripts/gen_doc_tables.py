@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -326,12 +327,38 @@ def inventory_paths() -> list[str]:
     return paths
 
 
+def _runtime_created(p: str) -> bool:
+    """A `.uacp/` inventory row is exempt from tree-existence ONLY when it is
+    runtime-created — i.e. gitignored. Committed rows under the namespace (the
+    tracked knowledge/lesson/handoff corpus dirs) must exist: a blanket
+    exemption would let typos/deletions in those rows pass the drift lint
+    unchecked (Codex P2, PR #124)."""
+    if not (p.startswith(".uacp/") or p == ".uacp"):
+        return False
+    if p == ".uacp":
+        return True  # the namespace root itself is runtime-seeded in a fresh clone
+    # Keep the trailing slash: `dir/`-style gitignore patterns only match
+    # directories, and for a not-yet-created path git can only know it's a
+    # directory from the probe's own trailing slash.
+    probe = p if p.endswith("/") else p + "/"
+    for candidate in (probe, p.rstrip("/")):
+        result = subprocess.run(
+            ["git", "check-ignore", "-q", candidate],
+            cwd=ROOT,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return True
+    return False
+
+
 def check_inventory() -> list[str]:
     """Inventory drift: ghost rows + rows whose path is absent from the tree."""
     errors: list[str] = []
     for p in inventory_paths():
-        if p.startswith(".uacp/") or p == ".uacp":
-            continue  # runtime-created namespace; absent in a fresh clone by design
+        if _runtime_created(p):
+            continue  # gitignored = runtime-created; absent in a fresh clone by design
         if p in _LEGACY_TOP_LEVEL:
             errors.append(f"docs/INDEX.md inventory row `{p}` is the pre-.uacp ghost layout")
             continue
