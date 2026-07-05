@@ -1,3 +1,28 @@
+---
+type: lesson
+id: uacp-agent-council-followthrough-20260513
+title: UACP Agent Council Follow-through — Run Lessons
+project: uacp
+domains: [uacp, orchestration, kanban, delegate_task, agent_council, verification, guardian, heartgate, validation, state_mutation, runtime_enforcement, audit, evidence_registry]
+invariants: []
+affected_paths: []
+severity: MEDIUM
+source_run: uacp-agent-council-followthrough-20260513
+extracted_at: "2026-05-12T20:52:40.809671+00:00"
+eligible: 0
+recurrences: 0
+bes: 0.5
+promoted_to: null
+tags: [agent-council, delegate-task, guardian, heartgate, kanban]
+---
+
+# UACP Agent Council Follow-through — Run Lessons
+
+Converted verbatim from `uacp-agent-council-followthrough-20260513.yaml` (kind `uacp.lesson`, schema_version 0.1) in the #110 corpus-parseability
+migration — the OKF frontmatter above is derived metadata; the original document is preserved
+in full below.
+
+```yaml
 schema_version: "0.1"
 kind: uacp.lesson
 lesson_id: "uacp-agent-council-followthrough-20260513"
@@ -24,3 +49,4 @@ recommended_future_runs:
   - "Validator fixture/schema hardening run."
   - "Evidence-Domain Registry selector implementation run."
   - "Downstream agent-skills extraction run."
+```

@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: adaptive-package-backfill-pattern
 title: Adaptive Package Backfill Pattern
 description: Procedure for reconstructing missing human-readable PROPOSE/PLAN packages when a run has only YAML lifecycle envelopes
 tags: [adaptive-packages, backfill, lifecycle, artifacts]

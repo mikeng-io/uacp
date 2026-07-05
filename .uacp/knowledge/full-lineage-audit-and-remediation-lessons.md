@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: full-lineage-audit-and-remediation-lessons
 title: Full-Lineage Audit and Remediation Lessons
 description: Rules for auditing the full change lineage across multiple commits or phases rather than only the latest commit
 tags: [audit, lineage, remediation, governance]

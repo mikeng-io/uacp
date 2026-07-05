@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: adaptive-package-gate-commit-pattern
 title: Adaptive Package Gate Commit Pattern
 description: How to settle a large UACP working tree after governed design/runtime work by committing with a durable explanation surface
 tags: [adaptive-packages, commit, lifecycle, governance]

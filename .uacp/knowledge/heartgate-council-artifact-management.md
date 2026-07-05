@@ -1,5 +1,6 @@
 ---
-type: lessons
+type: analysis
+id: heartgate-council-artifact-management
 title: Heartgate Council Artifact Management
 description: Phase-local council vs Heartgate Council distinction, retrieval-led reasoning requirement, artifact placement, 6 required Heartgate lenses, runtime/script alignment checklist, session-proven blocker patterns.
 tags: [heartgate, council, artifacts, lifecycle]

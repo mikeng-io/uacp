@@ -1,5 +1,6 @@
 ---
 type: analysis
+id: adaptive-gate-selection-rationale
 title: Adaptive Gate Selection Rationale
 description: "Why UACP uses domain-adaptive gates instead of a fixed checklist; meta-gate flow, domain-specific VERIFY examples (software/marketing/research/productivity), non-waivable invariants. Live implementation: `config/gate-selection.yaml`."
 tags: [guardian, gate-selection, adaptive, verification]

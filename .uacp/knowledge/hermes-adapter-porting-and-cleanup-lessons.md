@@ -1,5 +1,6 @@
 ---
-type: lessons
+type: analysis
+id: hermes-adapter-porting-and-cleanup-lessons
 title: Hermes Adapter Porting and Cleanup Lessons
 description: UACP adapter ownership direction, hermes_symlink_plugin_probe.py invocation, dirty-state precheck, branch-verification checklist, deferred-action boundary, and stale-gate-task resolution for Hermes porting work.
 tags: [hermes, adapter, porting, runtime]

@@ -1,4 +1,4 @@
-.PHONY: lint format fmt types quality test acceptance ci-pr ci-push act-pr-policy act-pr-policy-fail-assignee act-pr-policy-fail-title act-pr-policy-fail-branch release-dry release-prep act-release help
+.PHONY: lint docs-drift format fmt types quality test acceptance ci-pr ci-push act-pr-policy act-pr-policy-fail-assignee act-pr-policy-fail-title act-pr-policy-fail-branch release-dry release-prep act-release help
 .DEFAULT_GOAL := help
 
 ENGINES := skills/uacp-core/scripts/engines/
@@ -10,8 +10,15 @@ PYRIGHT_PATHS := \
 	skills/uacp-core/scripts/engines/heartgate/models.py \
 	skills/uacp-core/scripts/engines/heartgate/validators/helpers.py
 
-lint:
+lint: docs-drift
 	ruff check $(ENGINES) $(E2E)
+
+# Single-source drift lint (#111): regenerate the governed-writer list + the
+# writer-to-path map from the kernel and diff against the committed doc blocks
+# (AGENTS.md, docs/runtime/runtime-enforcement.md); also validate the
+# docs/INDEX.md repository inventory against the tree. Red on any drift.
+docs-drift:
+	python3 scripts/gen_doc_tables.py --check
 
 format:
 	ruff format --check $(ENGINES) $(E2E)
@@ -98,7 +105,8 @@ act-release:
 
 help:
 	@echo "Targets:"
-	@echo "  lint       ruff check (scoped to engines + e2e)"
+	@echo "  lint       ruff check (scoped to engines + e2e) + docs-drift"
+	@echo "  docs-drift regenerate governed-writer/path tables, fail on doc drift"
 	@echo "  format     ruff format --check (scoped)"
 	@echo "  fmt        ruff format --fix (scoped)"
 	@echo "  types      pyright (strict-scoped engines)"

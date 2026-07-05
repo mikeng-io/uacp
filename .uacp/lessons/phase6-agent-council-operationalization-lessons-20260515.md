@@ -1,3 +1,21 @@
+---
+type: lesson
+id: phase6-agent-council-operationalization-lessons-20260515
+title: Phase 6 Agent Council Operationalization — Lessons
+project: uacp
+domains: [governance, verification]
+invariants: []
+affected_paths: []
+severity: MEDIUM
+source_run: ""
+extracted_at: "2026-05-15"
+eligible: 0
+recurrences: 0
+bes: 0.5
+promoted_to: null
+tags: [agent-council, heartgate, validation, resolve]
+---
+
 # Phase 6 Agent Council Operationalization — Lessons
 
 Phase 6 converted prior Agent Council doctrine into executable UACP contracts.
