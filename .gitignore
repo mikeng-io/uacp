@@ -27,7 +27,11 @@ __pycache__/
 # Regenerate: mkdir -p .claude/skills && cd .claude/skills && \
 #   for d in ../../skills/uacp-*/; do n=$(basename $d); [ -f $d/SKILL.md ] && ln -sfn ../../skills/$n $n; done && \
 #   ln -sfn ../../skills/vendor/code-review-skill code-review-skill
-.claude/skills/
+# Ignore bridge symlinks individually (not the dir) so project-local REAL skills
+# below can be tracked. Tracked exception: tracking/ (board procedure — project-
+# local by design, NOT part of the plugin skill family; see issue #105).
+.claude/skills/*
+!.claude/skills/tracking/
 .mcp.json
 
 # Codeflair dev venv (tree-sitter etc.)
