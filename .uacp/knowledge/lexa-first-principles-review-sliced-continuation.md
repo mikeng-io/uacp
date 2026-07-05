@@ -1,5 +1,6 @@
 ---
 type: analysis
+id: lexa-first-principles-review-sliced-continuation
 title: LEXA First-Principles Review — Sliced Continuation Pattern
 description: Pattern for continuing a LEXA first-principles documentation review under UACP discipline after an authority reset
 tags: [lexa, review, continuation, authority]

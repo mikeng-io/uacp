@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: runtime-adapter-construction-guidelines
 title: Runtime Adapter Construction Guidelines
 description: Inventory-first, neutral-kernel-must-not-import-host-modules, UACP-leakage anti-pattern, governed writer scope, DB-migration sequencing, do-not-amend-mixed-commits.
 tags: [runtime, adapter, construction, guardian]

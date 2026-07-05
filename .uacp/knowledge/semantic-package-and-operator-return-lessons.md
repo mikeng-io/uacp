@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: semantic-package-and-operator-return-lessons
 title: Semantic Package and Operator Return Lessons
 description: Lessons for work touching adaptive packages, Markdown semantic substrate, validator gates, and operator-channel returns
 tags: [semantic, packages, operator, lessons]

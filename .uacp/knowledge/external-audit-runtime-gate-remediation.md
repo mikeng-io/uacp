@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: external-audit-runtime-gate-remediation
 title: External Audit Runtime Gate Remediation
 description: Pattern for closing external auditor findings when docs/config pass but runtime enforcement is incomplete
 tags: [audit, runtime, remediation, guardian]

@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: guardian-hook-audit-pattern
 title: Guardian Hook Audit Pattern
 description: "7-step hook-audit procedure, single-fire contract (`skip_pre_tool_call_hook` semantics), `_AGENT_LOOP_TOOLS` bypass risk, 4-level risk classification, known safe patterns and pitfalls."
 tags: [guardian, hooks, audit, security]

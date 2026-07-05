@@ -1,5 +1,6 @@
 ---
-type: lessons
+type: analysis
+id: agent-council-integration-and-operationalization-lessons
 title: Agent Council Integration and Operationalization Lessons
 description: Split-plan shape, cognitive-plane anti-patterns, phase-local granularity fields, surface taxonomy, skill/validator propagation, and PLAN→EXECUTE checklist for Agent Council work.
 tags: [agent-council, lifecycle, planning, operationalization]

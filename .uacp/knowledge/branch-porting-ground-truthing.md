@@ -1,5 +1,6 @@
 ---
-type: lessons
+type: analysis
+id: branch-porting-ground-truthing
 title: Branch Porting Ground Truthing
 description: Read-canon-first rule, four-category diff classification (already-present/missing/conflicting/impl-detail-only), canon read order, "skills are implementation surfaces; UACP is the authority layer" pitfall.
 tags: [branch-porting, canon, doctrine, workflow]

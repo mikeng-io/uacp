@@ -1,5 +1,6 @@
 ---
-type: lessons
+type: analysis
+id: kanban-guard-and-closure-lessons
 title: Kanban Guard and Closure Lessons
 description: 7-step closure evidence pattern, workspace-separation boundary, completion metadata field list, completion_blocked_uacp_metadata event, 5-case verification shape, and non-goals for Kanban guard phases.
 tags: [kanban, closure, evidence, coordination]

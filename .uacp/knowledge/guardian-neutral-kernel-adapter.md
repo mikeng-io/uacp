@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: guardian-neutral-kernel-adapter
 title: Guardian Neutral Kernel + Runtime Adapter Pattern
 description: "Neutral-kernel→adapter-contract→runtime-plugin→generic-seams principle, 7-step neutralization checklist, 5-item pitfall list. Cross-ref: `docs/runtime/runtime-enforcement.md`."
 tags: [guardian, kernel, adapter, runtime]
