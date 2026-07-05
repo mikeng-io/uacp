@@ -37,12 +37,7 @@ import yaml
 
 from config import base_dir
 from engines.domain import layout, schema
-from engines.domain.artifact_hashes import (
-    content_hash,
-    load_hash_index,
-    record_hash,
-    restore_hash_index,
-)
+from engines.domain.artifact_hashes import load_hash_index, record_hash, restore_hash_index
 from engines.manifest.governed_writers import _resolve_uacp_path, _write_uacp_file
 
 
@@ -194,6 +189,8 @@ def create_entity(
     # differs from the frozen watermark is a content-changing overwrite (the gaming vector) and is
     # rejected before persist; an identical re-write (hash == watermark) is an idempotent no-op.
     if kind.startswith("uacp.check."):
+        from engines.domain.artifact_hashes import content_hash
+
         frozen_mark = prior_index.get(rel)
         if frozen_mark is not None and content_hash(content) != frozen_mark:
             return _err(
