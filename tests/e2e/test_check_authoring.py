@@ -98,6 +98,22 @@ def test_governed_check_severity_must_be_block(tmp_path):
     assert "error" in res and "validate-on-write rejected" in res["error"], res
 
 
+def test_frozen_check_is_write_once(tmp_path):
+    # #121: a uacp.check.* is frozen at authoring and replayed at the gate. Re-authoring it (same
+    # seq -> same path) with a CHANGED expectation before the transition is a gaming vector (weaken
+    # the check to force a pass) and must be rejected. An identical re-write stays idempotent.
+    run_id = "uacp-wo-1"
+    _init(tmp_path, run_id)
+    fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
+    first = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert first.get("ok") is True, first
+    same = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert same.get("ok") is True, same  # identical re-write: idempotent, allowed
+    weakened = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "broken")
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", weakened, seq="1")
+    assert "error" in res and "write-once" in res["error"], res
+
+
 def test_from_class_vocabulary_matches_the_floor():
     # The class enum is duplicated (schema leaf-copy vs verification_floor.CLASSES). Pin them equal
     # so the authoring vocabulary and the floor table cannot drift (slice 2 / node 34 L2).

@@ -182,6 +182,20 @@ def create_entity(
     # one mechanism for fresh-file (drop new entry), overwrite (restore exact prior entry), and the
     # absent / deliberately-mismatched (tamper-signal) cases, never recomputed from the bytes.
     prior_index = load_hash_index(workspace, run_id)
+    # WRITE-ONCE for frozen checks (#121): a uacp.check.* is frozen at authoring and replayed at the
+    # gate. Overwriting it (same path/seq) with CHANGED content before the transition weakens the
+    # check to force a pass — a gaming vector, the same class as the no-op-PASS fix. Reject a
+    # content-changing overwrite; an identical re-write is an idempotent no-op and allowed.
+    if (
+        kind.startswith("uacp.check.")
+        and existed_before
+        and prior_content is not None
+        and content != prior_content
+    ):
+        return _err(
+            f"frozen check {rel} is write-once (#121): its authored expectation cannot be "
+            "changed before the gate; author a new check instead"
+        )
     try:
         _write_uacp_file(target, content)
     except Exception as exc:
