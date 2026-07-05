@@ -1,4 +1,5 @@
 import textwrap
+from datetime import datetime, timezone
 from engines.domain.corpus import Lesson, parse_okf, OKFParseError
 
 
@@ -203,6 +204,18 @@ def test_eligibility_counts_later_overlapping_runs():
     eligible, recurrences = count_eligibility(lesson, runs)
     assert eligible == 2
     assert recurrences == 1
+
+
+def test_eligibility_handles_epoch_int_started_at():
+    # #113: the run-registry schema stores started_at as an epoch INT; the corpus
+    # consumer must count such runs, not silently drop them because it only parsed
+    # ISO strings. A later, domain-overlapping run keyed by epoch int is eligible.
+    lesson = Lesson.from_okf(_lesson_md())  # extracted 2026-05-14, domains [kanban, runtime]
+    later_epoch = int(datetime(2026, 6, 1, tzinfo=timezone.utc).timestamp())  # after the lesson
+    runs = [_run("int-started", later_epoch, ["kanban"])]
+    eligible, recurrences = count_eligibility(lesson, runs)
+    assert eligible == 1
+    assert recurrences == 0
 
 
 def test_recurrence_requires_both_invariant_and_domain():

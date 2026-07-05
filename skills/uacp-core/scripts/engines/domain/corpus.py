@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import yaml
@@ -194,7 +194,14 @@ def bes_bonus(*, bes: float, severity: str, eligible: int) -> int:
     return bonus
 
 
-def _parse_ts(value: str) -> datetime | None:
+def _parse_ts(value: str | int | float) -> datetime | None:
+    # started_at is stored as an epoch int (run-registry schema); lesson.extracted_at
+    # is an ISO string. Accept both so int-keyed runs are not silently dropped (#113).
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        try:
+            return datetime.fromtimestamp(value, tz=UTC)
+        except (ValueError, OSError, OverflowError):
+            return None
     try:
         return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except (ValueError, TypeError):
