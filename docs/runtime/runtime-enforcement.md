@@ -311,13 +311,14 @@ full context envelope — a missing field is treated as absent run context and B
 (`Guardian._missing_context`):
 
 - `workspace`, `uacp_run_id` (non-empty), `uacp_phase` (non-empty), `declared_side_effects`.
-- `policy_version` — MUST equal `[guardian].schema_version` in `config/uacp.toml` (currently
-  **`"0.1"`**); not the top-level `schema_version` (`0.2.0`).
+- `policy_version` — set it to `[guardian].schema_version` in `config/uacp.toml` (currently
+  **`"0.1"`**), not the top-level `schema_version` (`0.2.0`). Only *presence* (non-empty) is
+  kernel-enforced at admission, not the exact value.
 - `authority_artifact` is the canonical authority param; **`declared_authority` is accepted as
   an alias** for the same value. Supply one — authority is REQUIRED.
 
-These values are enforced by the kernel; previously they were discoverable only from source
-(dogfood run #2, #126). Run-less artifacts (e.g. a handoff with no active run) cannot pass
+These context fields are required by the kernel (presence-checked at admission); previously the
+correct values were discoverable only from source (dogfood run #2, #126). Run-less artifacts (e.g. a handoff with no active run) cannot pass
 admission because the envelope requires non-empty `uacp_run_id`/`uacp_phase` (#119 family).
 
 ## State Mutation
