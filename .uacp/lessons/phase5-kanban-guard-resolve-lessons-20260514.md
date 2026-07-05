@@ -1,3 +1,21 @@
+---
+type: lesson
+id: phase5-kanban-guard-resolve-lessons-20260514
+title: Phase 5 Kanban Completion Guard — Resolve Lessons
+project: uacp
+domains: [governance, kanban, verification]
+invariants: []
+affected_paths: []
+severity: MEDIUM
+source_run: ""
+extracted_at: "2026-05-14"
+eligible: 0
+recurrences: 0
+bes: 0.5
+promoted_to: null
+tags: [kanban, heartgate, agent-council, guardian, resolve]
+---
+
 # Phase 5 Kanban Completion Guard — Resolve Lessons
 
 Phase 5 closed with the Kanban completion guard implemented locally in Hermes Agent and UACP Heartgate Council coherence hardening patched across runtime, docs, config, validator, and lifecycle artifacts.

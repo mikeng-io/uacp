@@ -1,5 +1,6 @@
 ---
-type: lessons
+type: analysis
+id: phase-transition-finalization-lessons
 title: Phase Transition Finalization Lessons
 description: "9-step finalization sequence, Guardian env-var binding template, PYTHONDONTWRITEBYTECODE/pytest `-c /dev/null` fallbacks, transition-artifact field reminders, operator reporting with explicit non-actions."
 tags: [phase-transitions, heartgate, finalization, lifecycle]

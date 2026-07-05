@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: operational-dashboard-and-live-proof
 title: Operational Dashboard and Live Proof
 description: Two-surface pattern (dashboard YAML + probe script + proof YAML), 7-item safe-probe checklist, operator approval/authority convention, 3 pitfalls.
 tags: [dashboard, operations, verification, runtime]

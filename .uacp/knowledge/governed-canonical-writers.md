@@ -1,5 +1,6 @@
 ---
 type: contract
+id: governed-canonical-writers
 title: Governed Canonical Writer Surfaces
 description: "Full governed-writer contract: four writer surfaces (`uacp_state_write`, `uacp_artifact_write`, `uacp_doc_write`, `uacp_config_write`), required context fields, containment rules, Guardian classification, verification pattern, and pitfalls."
 tags: [governed-writers, contract, guardian, state]
