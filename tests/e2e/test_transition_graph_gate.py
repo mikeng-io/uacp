@@ -126,3 +126,41 @@ def test_phantom_edge_blocks_transition(temp_uacp_root: Path, valid_run_id: str)
     assert "GP_PHANTOM_EDGE" in blockers, out
     # NOT advanced: the run is still in plan.
     assert _phase(temp_uacp_root, valid_run_id) == "plan"
+
+
+def test_warn_severity_advisory_rides_the_success_response(
+    temp_uacp_root: Path, valid_run_id: str, monkeypatch
+):
+    """PR #95 review P2: on the GOVERNED path (handle_transition), a warn-severity
+    graph finding (e.g. SC_PLAN_CASCADE_FORECAST) must ride the success response as
+    an advisory — the crossing proceeds, the finding stays visible — instead of
+    being computed-then-discarded. Block-severity behavior is untouched (the
+    phantom-edge teeth above are the regression net)."""
+    from engines import graph_projection as gp
+    from engines.base import Violation
+
+    _drive_to_plan(temp_uacp_root, valid_run_id)
+
+    monkeypatch.setattr(
+        gp,
+        "validate_graph_invariants",
+        lambda root, run_id, scope: [
+            Violation(
+                code="SC_PLAN_CASCADE_FORECAST",
+                severity="warn",
+                message="predicted out-of-boundary cascade: ['elsewhere.py']",
+            )
+        ],
+    )
+    out = _call(
+        state_machine.handle_transition,
+        {
+            "workspace": str(temp_uacp_root),
+            "run_id": valid_run_id,
+            "from_phase": "plan",
+            "to_phase": "execute",
+        },
+    )
+    assert out.get("ok") is True, out  # advisory NEVER blocks the governed crossing
+    advisories = out.get("advisories")
+    assert advisories and any("SC_PLAN_CASCADE_FORECAST" in a for a in advisories), out

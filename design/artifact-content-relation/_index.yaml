@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS: aggregate root of the artifact-content-relation design bundle.
+# WHAT IT DOES: lists member nodes (reading order), declares the inter-node graph,
+#               records status/governance/scope.
+
+kind: design_index
+title: UACP Artifact Content/Relation Model — Design Bundle
+description: >-
+  Defines the principled split between artifact content (Markdown, semantic) and artifact
+  relations (YAML, deterministic). Grounds the design in a live boundary-violation bug
+  (evidence_disposition unwriteable half) and a three-category as-built split where the
+  council review surface barely overlaps the gate measure surface. Proposes an additive
+  ratchet: YAML carries anchors + typed relations; Markdown carries all prose; field_present
+  binds to an anchored MD section instead of a YAML prose field. The meaning-gate
+  (class-underclaim) is retargeted to a claim-vs-witness pattern (codeflair as oracle).
+  Slices 0-2 shipped in PR #70 / c7bd737 / 2026-06-29; Slices 3-5 are the forward plan.
+status: building
+governance: pre-governance-input
+timestamp: '2026-06-30'
+origin: >-
+  brainstorm run acrs-20260628 (vault .uacp/brainstorm/acrs-20260628/); council REWORK verdict
+  + B1 operator decision + grounding experiment (da86643); Slices 0-2 merged PR #70 2026-06-29
+schema_dir: ../graph-engine/schema/
+
+members:
+  - 01-problem.md
+  - 02-model.md
+  - 03-anchor-primitive.md
+  - 04-check-retarget.md
+  - 05-migration.md
+  - 06-evidence-disposition-case.md
+  - 07-blast-radius-open-questions.md
+  - 08-review-findings.md
+  - 09-grounding-retarget-experiment.md
+  - 10-implementation-roadmap.md
+  - 11-full-scope-build-plan.md
+
+edges:
+  - {src: 02-model, dst: 01-problem, rel: motivated_by, provenance: asserted}
+  - {src: 03-anchor-primitive, dst: 02-model, rel: realizes, provenance: asserted}
+  - {src: 04-check-retarget, dst: 02-model, rel: realizes, provenance: asserted}
+  - {src: 04-check-retarget, dst: 03-anchor-primitive, rel: depends_on, provenance: asserted}
+  - {src: 05-migration, dst: 03-anchor-primitive, rel: depends_on, provenance: asserted}
+  - {src: 06-evidence-disposition-case, dst: 01-problem, rel: grounds, provenance: asserted}
+  - {src: 07-blast-radius-open-questions, dst: 01-problem, rel: relates_to, provenance: asserted}
+  - {src: 08-review-findings, dst: 02-model, rel: relates_to, provenance: asserted}
+  - {src: 09-grounding-retarget-experiment, dst: 08-review-findings, rel: motivated_by, provenance: asserted}
+  - {src: 10-implementation-roadmap, dst: 09-grounding-retarget-experiment, rel: depends_on, provenance: asserted}
+  - {src: 11-full-scope-build-plan, dst: 02-model, rel: realizes, provenance: asserted}
+  - {src: 11-full-scope-build-plan, dst: 05-migration, rel: relates_to, provenance: asserted}
+  - {src: 11-full-scope-build-plan, dst: 07-blast-radius-open-questions, rel: depends_on, provenance: asserted}
+  - {src: 11-full-scope-build-plan, dst: 10-implementation-roadmap, rel: relates_to, provenance: asserted}
+
+scope:
+  v1: [artifact-content-relation-model, anchor-primitive, field-present-retarget, additive-ratchet, evidence-disposition-fix, class-underclaim-retarget]
+  deferred: [semantic-witness-ceiling, per-kind-tighten-stage5, eager-run-migration, legacy-prose-retirement]

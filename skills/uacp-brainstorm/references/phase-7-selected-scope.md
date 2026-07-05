@@ -2,14 +2,13 @@
 
 If `selected_scope.enter_uacp == true`, extract a concise scope package from the vault. This is the only artifact that crosses the brainstorm → TRIAGE boundary.
 
-**Scope package path:** `.uacp/brainstorm/{session_id}/07-scope-package.yaml`
+**Scope package path:** `.uacp/brainstorm/{run_id}/07-scope-package.yaml` — written via `uacp_entity_write` (kind `uacp.brainstorm_scope_package`); the writer computes this run-keyed path and injects `run_id` into the document, so you supply `kind` + `fields` + `uacp_run_id`, not the path.
 
 ```yaml
 kind: uacp.brainstorm_scope_package
-session_id: "{session_id}"
-run_id: ""  # populated by TRIAGE if admitted
+# run_id is injected by the entity-writer (do not hand-author it).
 timestamp: "{ISO-8601}"
-source_vault: ".uacp/brainstorm/{session_id}/"
+source_vault: ".uacp/brainstorm/{run_id}/"
 
 # Admission-contract fields are FLAT at the root — this is the written artifact's shape, which the
 # entity-writer schema validates. (The vault manifest's `selected_scope` in §7.1 below is SEPARATE

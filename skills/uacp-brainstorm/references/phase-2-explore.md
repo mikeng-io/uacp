@@ -58,10 +58,10 @@ Every tool invocation during exploration must leave a trace in `manifest.yaml`:
 
 ### 2.2 Update the session-vault references YAML files
 
-Mirror the manifest entries into discrete files in the session vault's references directory `.uacp/brainstorm/{session_id}/references/` (the per-session vault, NOT this skill's own `references/` docs):
+Mirror the manifest entries into discrete files in the session vault's references directory `.uacp/brainstorm/{run_id}/references/` (the per-session vault, NOT this skill's own `references/` docs):
 
-- `.uacp/brainstorm/{session_id}/references/files-read.yaml` — all `files_read` entries
-- `.uacp/brainstorm/{session_id}/references/searches.yaml` — all `searches_performed` entries
-- `.uacp/brainstorm/{session_id}/references/web-queries.yaml` — all `web_queries` entries
+- `.uacp/brainstorm/{run_id}/references/files-read.yaml` — all `files_read` entries
+- `.uacp/brainstorm/{run_id}/references/searches.yaml` — all `searches_performed` entries
+- `.uacp/brainstorm/{run_id}/references/web-queries.yaml` — all `web_queries` entries
 
-**Output of this phase:** candidate directions, early eliminations, and populated `manifest.yaml` + `.uacp/brainstorm/{session_id}/references/` evidence files.
+**Output of this phase:** candidate directions, early eliminations, and populated `manifest.yaml` + `.uacp/brainstorm/{run_id}/references/` evidence files.

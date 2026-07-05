@@ -314,7 +314,18 @@ def validate_evidence_dispositions(
         return
     from_phase = str(artifact.get("from_phase") or "")
     to_phase = str(artifact.get("to_phase") or "")
-    if f"{from_phase}->{to_phase}" != required_transition:
+
+    # EDGE NORMALIZATION (PR #96 codex P1): the schema keys on the state machine's
+    # real edge (verify->resolved) but the agent-invoked Heartgate path derives
+    # verify exits from LIFECYCLE_GRAPH's verify->resolve spelling — the known
+    # stages-graph schism (flagged, deferred). Until that reconciliation, the
+    # terminal spelling is normalized HERE ONLY so the disposition gate fires on
+    # BOTH paths; without this, agent-side validation of the allowed edge would
+    # skip the required pair entirely.
+    def _norm(edge: str) -> str:
+        return edge[: -len("->resolve")] + "->resolved" if edge.endswith("->resolve") else edge
+
+    if _norm(f"{from_phase}->{to_phase}") != _norm(required_transition):
         return
     run_id = str(artifact.get("run_id") or "")
     if not _is_safe_run_id(run_id):
