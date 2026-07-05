@@ -303,6 +303,24 @@ guardian:
   missing_verdicts: []
 ```
 
+### Governed-writer call conventions (tool surface)
+
+A tool-surface agent calling the governed writers (`uacp_entity_write`, `uacp_artifact_write`,
+`uacp_state_write`, `uacp_gate_ledger_append`, `uacp_run_registry_update`, …) must supply the
+full context envelope — a missing field is treated as absent run context and BLOCKS admission
+(`Guardian._missing_context`):
+
+- `workspace`, `uacp_run_id` (non-empty), `uacp_phase` (non-empty), `declared_side_effects`.
+- `policy_version` — set it to `[guardian].schema_version` in `config/uacp.toml` (currently
+  **`"0.1"`**), not the top-level `schema_version` (`0.2.0`). Only *presence* (non-empty) is
+  kernel-enforced at admission, not the exact value.
+- `authority_artifact` is the canonical authority param; **`declared_authority` is accepted as
+  an alias** for the same value. Supply one — authority is REQUIRED.
+
+These context fields are required by the kernel (presence-checked at admission); previously the
+correct values were discoverable only from source (dogfood run #2, #126). Run-less artifacts (e.g. a handoff with no active run) cannot pass
+admission because the envelope requires non-empty `uacp_run_id`/`uacp_phase` (#119 family).
+
 ## State Mutation
 
 After bootstrap closure, runtime state mutation must go through a guarded state mutation path. Direct writes to `state/` are blocked unless explicitly authorized for recovery.
