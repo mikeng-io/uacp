@@ -70,6 +70,19 @@ class TestRealCorpusConformance:
         assert all(ids), "every knowledge item must carry a non-empty id"
         assert len(set(ids)) == len(ids), f"duplicate knowledge ids: {ids}"
 
+    def test_knowledge_id_equals_filename_stem(self):
+        """``index_build`` reconstructs each item's source path as ``{id}.md``
+        (engines/oracle/index_build.py:173-176) — id and filename stem are a
+        load-bearing coupling, not a convention. A rename without an id update
+        must be a red CI, never a silent identity change."""
+        by_id = {item.id for item in scan_knowledge_dir(_KNOWLEDGE_DIR)[0]}
+        stems = {p.stem for p in _KNOWLEDGE_DIR.glob("*.md")}
+        assert by_id == stems, (
+            f"knowledge id/filename-stem divergence — ids without a matching "
+            f"file: {sorted(by_id - stems)}; files without a matching id: "
+            f"{sorted(stems - by_id)}"
+        )
+
     def test_lessons_corpus_fully_parses_no_skips(self):
         items, skipped = scan_lessons_dir(_LESSONS_DIR)
         assert skipped == [], (
@@ -84,6 +97,17 @@ class TestRealCorpusConformance:
         ids = [lesson.id for lesson in items]
         assert all(ids), "every lesson must carry a non-empty id"
         assert len(set(ids)) == len(ids), f"duplicate lesson ids: {ids}"
+
+    def test_lesson_id_equals_filename_stem(self):
+        """Same id/stem coupling as knowledge (index_build reconstructs
+        ``{id}.md`` for lessons too — engines/oracle/index_build.py:169-176)."""
+        by_id = {lesson.id for lesson in scan_lessons_dir(_LESSONS_DIR)[0]}
+        stems = {p.stem for p in _LESSONS_DIR.glob("*.md")}
+        assert by_id == stems, (
+            f"lesson id/filename-stem divergence — ids without a matching file: "
+            f"{sorted(by_id - stems)}; files without a matching id: "
+            f"{sorted(stems - by_id)}"
+        )
 
     def test_no_corpus_file_dodges_the_loader_glob(self):
         """The loaders glob ``*.md`` only. Any other top-level FILE in a corpus
