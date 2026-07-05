@@ -1,0 +1,21 @@
+{
+  "executions/uacp-dogfood-002-checkpoint-1.yaml": "d49577fa1c2867a1dad8b707b923da83e1589416858fcbca3ac476cf2effeb16",
+  "plans/uacp-dogfood-002-piv.yaml": "6ecf7bef6e3fe90efd06d781138c865b113fbebd611c3a17fe50090ed05e0d6e",
+  "plans/uacp-dogfood-002-plan.yaml": "210bc85191663263a45c8a06aaffe77276fddc25fad8ddca749d42b05d060d4e",
+  "plans/uacp-dogfood-002-scope.yaml": "b8d06d3954139fec6f3463860dc727d7d59b0537ef12dda427cd5ee210c57329",
+  "proposals/uacp-dogfood-002-gate-selection.yaml": "3362aade7bef50bf9cfec596a43bed2a72812fb789cc0fdca804b16309b4bed0",
+  "proposals/uacp-dogfood-002-proposal.yaml": "6cfeb2b18bae82641411ebd8c0fab5bd7768a63ea0057dbfe83970ce89eb14a1",
+  "proposals/uacp-dogfood-002-triage.yaml": "d6be2c9c0c34760dfc0d50b1956cd2d8672856f176008b03caa8b9711b9fc0d7",
+  "resolutions/uacp-dogfood-002-closure.yaml": "24919533fab3f5fb207ad79c6fc30eb2d2895cbe31f7f970a6d300ed35d144dc",
+  "resolutions/uacp-dogfood-002-lessons.yaml": "83f300d4f5560dafda349d562d7390d9da33d766b6017d5973f25f1d5ee8416d",
+  "resolutions/uacp-dogfood-002-resolve-selection.yaml": "e58d741f2081bafeccdcbaddbbab9b83cdea90cbff3a68c83bc965e91f0c28d2",
+  "verification/uacp-dogfood-002-check-1-field_present.yaml": "a6a64d807c4e9d65c7f67c76e6f7a35d417d803062bba5f8c86df359dd69d94e",
+  "verification/uacp-dogfood-002-check-2-obligation_satisfied.yaml": "13c923e108977eed5cbd31b26b3793948c1c613c95ce815b836757add6a8712c",
+  "verification/uacp-dogfood-002-check-3-artifact_integrity.yaml": "3e8d72a6ad3f0da66fb91b7e8b4207b93c17493ac4b813cb7ec8cca0eb115e8a",
+  "verification/uacp-dogfood-002-investigation-1.yaml": "b0d48b86a013f80f9c7e959dc0861c3a8d3c9ad355428d679c52258cdaea1053",
+  "verification/uacp-dogfood-002-investigation-2.yaml": "6e68c743f696a5cf8f7174044a874047bb8020aa1fb1ab16642475fffeaf4a79",
+  "verification/uacp-dogfood-002-piv-assessment.yaml": "9b3c7f8be053de930bd362a7109d7cf5d72f92bfcb7367d9b0ddaaa41324ea28",
+  "verification/uacp-dogfood-002-pytest-evidence.txt": "c1b11015b6eaa3f4e0e7d92c7346509497126d93b50c89e54eaddb3e523dae98",
+  "verification/uacp-dogfood-002-resolve-readiness.yaml": "34cf6fd161d4b2572b3ef6c858e5d976c8f23b35babc9a55656c624ff7211555",
+  "verification/uacp-dogfood-002-verify-selection.yaml": "e65dd79019d08c904ff1eac7393ae6d3bcd6420226d989ec7cfaa99d9b0ff080"
+}
