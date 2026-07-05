@@ -1,6 +1,6 @@
 ---
 name: tracking
-description: Use at session start in this repo, when resuming UACP work, or whenever creating, picking up, updating, commenting on, or closing board items, issues, or PRs. The procedure for operating GitHub Project #7 (the UACP board) — surface boundaries, the session↔board contract, pick-up traversal, and issue↔PR wiring. Project-local skill; deliberately NOT part of the UACP plugin or the skills/uacp-* governed family.
+description: "Use at session start in this repo, when resuming UACP work, or whenever creating, picking up, updating, commenting on, or closing board items, issues, or PRs. The procedure for operating GitHub Project #7 (the UACP board) — surface boundaries, the session↔board contract, pick-up traversal, and issue↔PR wiring. Project-local skill; deliberately NOT part of the UACP plugin or the skills/uacp-* governed family."
 ---
 
 # Tracking — the UACP project board procedure
