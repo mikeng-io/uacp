@@ -266,6 +266,48 @@ def test_artifact_integrity_passes_when_watermark_matches(temp_uacp_root: Path):
     assert "CHK_ARTIFACT_INTEGRITY" not in _codes(temp_uacp_root, run_id)
 
 
+def _put_txt_artifact(root: Path, run_id: str, rel: str, text: str) -> None:
+    from config import base_dir
+
+    p = base_dir(root) / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text, encoding="utf-8")
+
+
+def test_artifact_integrity_binds_plaintext_txt_evidence(temp_uacp_root: Path):
+    # #116: a .txt evidence artifact (pytest output — not YAML) must bind for integrity. The check
+    # verifies a watermark over RAW content and must not YAML-parse the artifact; previously the
+    # load_artifact YAML-parse rejected it with a ScannerError ("cannot bind ...") before the
+    # integrity check ran. The tab below guarantees a YAML ScannerError on the pre-fix path.
+    run_id = "uacp-int-txt"
+    _init(temp_uacp_root, run_id)
+    txt_rel = f"verification/{run_id}-pytest-evidence.txt"
+    _put_txt_artifact(
+        temp_uacp_root, run_id, txt_rel, "==== 3 passed in 1.2s ====\n\tassert x == {'a': 1}\n"
+    )
+    _watermark(temp_uacp_root, run_id, txt_rel)
+    _register(temp_uacp_root, run_id, "evidence_txt", txt_rel)
+    _put_integrity_check(temp_uacp_root, run_id, txt_rel)
+    assert "CHK_ARTIFACT_INTEGRITY" not in _codes(temp_uacp_root, run_id)
+
+
+def test_artifact_integrity_rejects_path_escaping_governed_root(temp_uacp_root: Path):
+    # #116 codex P2: even WITH a matching watermark AND a real file present, an integrity artifact
+    # path that escapes the governed root (../) must fail-closed ERROR — never hash outside .uacp.
+    from engines.domain.artifact_hashes import record_hash
+
+    from config import base_dir as _bd
+
+    run_id = "uacp-int-esc"
+    _init(temp_uacp_root, run_id)
+    outside = _bd(temp_uacp_root).parent / "outside-evidence.txt"
+    outside.write_text("x", encoding="utf-8")  # real file OUTSIDE .uacp, content matches the mark
+    escape_rel = "../outside-evidence.txt"
+    record_hash(str(temp_uacp_root), run_id, escape_rel, "x")
+    _put_integrity_check(temp_uacp_root, run_id, escape_rel)
+    assert "CHK_ARTIFACT_INTEGRITY" in _codes(temp_uacp_root, run_id)
+
+
 def test_artifact_integrity_fails_on_tamper(temp_uacp_root: Path):
     # watermark the original, then tamper the file -> content diverges -> FAIL (block).
     run_id = "uacp-int-2"
