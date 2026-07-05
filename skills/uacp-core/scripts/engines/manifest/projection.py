@@ -897,15 +897,13 @@ def _evaluate_check(
         art = ref.get("artifact")
         if not art:
             return ("ERROR", "bind.ref.artifact missing")
-        loaded = load_artifact(root, str(art))
-        if loaded.error is not None or not isinstance(loaded.value, dict):
-            return ("ERROR", f"cannot bind artifact {art!r}: {loaded.error or 'not a mapping'}")
         if kind == "uacp.check.artifact_integrity":
-            # REAL integrity (council/kimi: was a no-op PASS — a usable gaming vector). Verify the
-            # artifact's CURRENT content against its recorded watermark (state/hashes). No watermark
-            # -> ERROR (integrity unverifiable, fail-closed — #503 class A), NOT a silent pass; a
-            # hash mismatch -> FAIL (out-of-band tamper since the governed write). Reuses the same
-            # watermark the AI_ artifact-integrity engine uses, so the check and that engine agree.
+            # REAL integrity (was a no-op PASS — a gaming vector). Verify the artifact's CURRENT
+            # content against its recorded watermark (state/hashes). It reads RAW bytes and must
+            # NOT YAML-parse the artifact, so plain-text (.txt) evidence (e.g. pytest output) binds
+            # fine (#116; the load_artifact YAML-parse below previously rejected it with a
+            # ScannerError before this check ran). No watermark -> ERROR (unverifiable, fail-closed,
+            # #503 class A), not a silent pass; hash mismatch -> FAIL (out-of-band tamper).
             recorded = hash_index.get(str(art))
             if not recorded:
                 return ("ERROR", f"no watermark recorded for {art!r} — integrity unverifiable")
@@ -916,6 +914,10 @@ def _evaluate_check(
             if content_hash(raw) == recorded:
                 return ("PASS", "")
             return ("FAIL", f"{art} content diverged from its watermark (out-of-band tamper)")
+        # field_equals / field_present read a field from a parsed mapping — these DO require YAML:
+        loaded = load_artifact(root, str(art))
+        if loaded.error is not None or not isinstance(loaded.value, dict):
+            return ("ERROR", f"cannot bind artifact {art!r}: {loaded.error or 'not a mapping'}")
         val = _read_path(loaded.value, str(ref.get("path") or ""))
         if kind == "uacp.check.field_present":
             empty = val is _MISSING or val in (None, "", [], {})
