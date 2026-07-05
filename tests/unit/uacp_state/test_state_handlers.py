@@ -84,7 +84,7 @@ class TestGateLedgerAppend:
             "authority_artifact": "plans/test-plan.yaml",
         }))
         assert "error" in result
-        assert "3584-byte ledger limit" in result["error"]
+        assert "3584-byte ledger record ceiling" in result["error"]
 
 
 class TestRunRegistryUpdate:
