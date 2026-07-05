@@ -7,7 +7,7 @@ description: Use at session start in this repo, when resuming UACP work, or when
 
 **Board:** GitHub Project #7 "UACP", owner `mikeng-io`, linked to `mikeng-io/uacp` — https://github.com/users/mikeng-io/projects/7
 
-**Scope boundary of this skill:** this is how *this project* is operated. It is not a UACP governance surface, ships in no plugin, claims no authority over the lifecycle/kernel, and carries no UACP `kind` frontmatter by design (it sits outside the ADR-0017 skill family). If the workflow here ever conflicts with UACP governance docs, the governance docs win for governed work — this skill only routes the work.
+**Scope boundary of this skill:** this is how *this project* is operated. It is not a UACP governance surface; it is never loaded by the plugin (plugins expose only `skills/` — bytes under `.claude/` may ride along in a plugin snapshot but are inert there), claims no authority over the lifecycle/kernel, and carries no UACP `kind` frontmatter by design (it sits outside the ADR-0017 skill family). If the workflow here ever conflicts with UACP governance docs, the governance docs win for governed work — this skill only routes the work.
 
 ## 1. Surface boundaries — what owns what
 
@@ -53,11 +53,12 @@ If memory were wiped, board + `design/` + code must fully reconstruct next-and-w
 ## 5. Issue ↔ PR wiring
 
 - **Branch:** from a worktree, never the main checkout — `git worktree add .worktrees/<name> -b <type>/<slug> main`. Branch names use the TYPE-PREFIX convention (`feat/…`, `fix/…`, `docs/…`, `chore/…`, `design/…`).
-- **Commits:** trailer `Issue: #<n>` on the commit touching that issue's scope.
+- **Commits:** trailer `Issue: #<n>` on the commit touching that issue's scope (board procedure — not CI-gated; CONTRIBUTING owns the gated conventions).
 - **PR:** body contains `Closes #<n>`; the PR template applies; merge-commits are ON and branches auto-delete.
 - **Merge authority (hard rule):** never merge with a requested review outstanding, and never without the operator's explicit per-batch go.
 - **Review tier:** kernel code, policy YAML, or canonical docs → council with a cross-provider reviewer (Invariant #4). Everything else → proportionate review. This skill's own home (`.claude/skills/`) is none of those.
 - Labels: `type: *` + `area: *` (+ `priority: *`). Board auto-workflows move closed items to Done.
+- Conventions of record for branches/PRs/merges live in `CONTRIBUTING.md` — this section summarizes; on any conflict, CONTRIBUTING wins.
 
 ## 6. Operational gotchas
 
