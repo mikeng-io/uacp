@@ -25,10 +25,11 @@ DESIGN:
   engine's dedicated "resolved without evidence" branch (branch 2), which checks
   the ``resolve`` stage's own required exit invariants on disk/ledger.
 * The real ``resolve`` stage declares TWO required invariants:
-  ``artifact_glob: resolutions/{run_id}*`` and ``gate_ledger_entry: VERIFY->RESOLVE``.
-  The happy path emits the ``VERIFY->RESOLVED`` gate (note the trailing D), so we
-  append the ``VERIFY->RESOLVE`` gate to satisfy the ledger invariant and ISOLATE
-  the artifact-glob token as the single variable under test.
+  ``artifact_glob: resolutions/{run_id}*`` and ``gate_ledger_entry: VERIFY->RESOLVED``
+  (the state-machine vocabulary — BREAK-1 fix F1; the governed transition records
+  ``verify->resolved``). The happy path already emits ``VERIFY->RESOLVED``, so the
+  ledger invariant is satisfied natively and the artifact-glob token is ISOLATED as
+  the single variable under test (the helper re-asserts it belt-and-suspenders).
 * Positive: lessons artifact present under ``.uacp/resolutions/`` ->
   NO ``EV_RESOLVED_WITHOUT_EVIDENCE``.
 * Negative: same run, artifact removed -> the invariant DOES block.
@@ -60,12 +61,13 @@ def _install_real_config(root: Path) -> None:
 
 
 def _satisfy_resolve_ledger_gate(root: Path, run_id: str) -> None:
-    """The real ``resolve`` stage also requires a ``VERIFY->RESOLVE`` gate-ledger
-    entry; the happy path emits ``VERIFY->RESOLVED`` (different gate). Append the
-    required gate so the LEDGER invariant is satisfied and the ARTIFACT-glob token
-    is the only variable this test exercises."""
+    """The real ``resolve`` stage requires a ``VERIFY->RESOLVED`` gate-ledger entry
+    (BREAK-1 fix F1). The happy path already emits it, so this belt-and-suspenders
+    re-append keeps the LEDGER invariant explicitly satisfied and the ARTIFACT-glob
+    token the only variable this test exercises (evidence_completeness reads the
+    gate set, so a duplicate is a no-op)."""
     ledger_path = root / ".uacp" / "state" / "gate-ledger" / f"{run_id}.jsonl"
-    line = json.dumps({"gate": "VERIFY->RESOLVE", "run_id": run_id, "ts": 0, "result": "pass"})
+    line = json.dumps({"gate": "VERIFY->RESOLVED", "run_id": run_id, "ts": 0, "result": "pass"})
     with ledger_path.open("a", encoding="utf-8") as fh:
         fh.write(line + "\n")
 

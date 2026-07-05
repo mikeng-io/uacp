@@ -134,3 +134,43 @@ def test_projection_reproduces_the_new_six_edges() -> None:
         "execute": {"verify"},
         "verify": {"resolved"},
     }
+
+
+def test_resolve_exit_ledger_gate_agrees_across_three_sources() -> None:
+    """The resolve-exit ledger gate name must AGREE across the three engines that
+    speak it, so the BREAK-1 ``resolve`` vs ``resolved`` deadlock cannot re-form.
+
+    Three independent sources, derived programmatically (this test FAILS if any
+    one drifts):
+
+      * EVIDENCE-COMPLETENESS / stages_default — the ``gate_ledger_entry`` the
+        RESOLVE phase-exit invariant demands (``STAGE_PHASE_EXIT_INVARIANTS``);
+      * STATE MACHINE — ``verify``'s only projected exit edge (the transition the
+        governed ``handle_transition`` actually records in ``state_history``);
+      * COHERENCE C2 — its ledger-gate parser (``_parse_gate_edge``), which pairs
+        a ledger gate 1:1 with a ``state_history`` edge.
+
+    The stages gate, parsed by coherence's own parser, MUST equal the state
+    machine's verify-exit edge — otherwise EV demands a gate C2 can never pair
+    with any history edge (the exact deadlock BREAK-1 was).
+    """
+    from engines.coherence import _parse_gate_edge
+    from engines.domain.phase_graph import state_machine_projection
+    from engines.domain.phase_transitions import STAGE_PHASE_EXIT_INVARIANTS
+
+    # Source A — evidence_completeness / stages_default resolve-exit ledger gate.
+    resolve_invariants = STAGE_PHASE_EXIT_INVARIANTS["resolve"]
+    stages_gates = [i["gate_ledger_entry"] for i in resolve_invariants if "gate_ledger_entry" in i]
+    assert len(stages_gates) == 1, stages_gates
+    stages_gate = stages_gates[0]
+
+    # Source B — the runtime state machine: verify's ONLY exit edge.
+    verify_targets = state_machine_projection()["verify"]
+    assert verify_targets == {"resolved"}, verify_targets
+    sm_edge = ("verify", next(iter(verify_targets)))
+
+    # Source C — coherence C2's parser: the stages gate MUST parse to the SM edge.
+    assert _parse_gate_edge(stages_gate) == sm_edge, (stages_gate, sm_edge)
+
+    # And the canonical uppercased gate the transition emits equals the stages gate.
+    assert stages_gate == f"{sm_edge[0].upper()}->{sm_edge[1].upper()}", stages_gate

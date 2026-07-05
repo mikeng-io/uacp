@@ -62,6 +62,21 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         "properties": {
             "id": {"type": "string", "description": "Stable scope-item identity (si-*)."},
             "statement": {"type": "string", "description": "The in-scope intent, prose."},
+            "code_refs": {
+                "type": "array",
+                "minItems": 1,
+                "description": "Optional declared code touch-set for the class witness "
+                "(design/conformance-witnesses/03): {file, name} refs, diff-grounded at the gate.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["file", "name"],
+                    "properties": {
+                        "file": {"type": "string", "minLength": 1},
+                        "name": {"type": "string", "minLength": 1},
+                    },
+                },
+            },
         },
     },
     "work_unit": {
@@ -76,6 +91,21 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "id": {"type": "string", "description": "Stable work-unit identity (wu-*)."},
             "intent": {"type": "string", "description": "What this unit of work intends."},
             "expected_outputs": {"description": "Declared outputs (list or prose)."},
+            "code_refs": {
+                "type": "array",
+                "minItems": 1,
+                "description": "Optional declared code touch-set for the class witness "
+                "(design/conformance-witnesses/03): {file, name} refs, diff-grounded at the gate.",
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["file", "name"],
+                    "properties": {
+                        "file": {"type": "string", "minLength": 1},
+                        "name": {"type": "string", "minLength": 1},
+                    },
+                },
+            },
             "derives_from": {
                 "type": "array",
                 "items": {"type": "string"},
@@ -204,6 +234,35 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "runtime_surfaces": {"description": "Optional; type unconstrained until grounded."},
             "migrations": {"description": "Optional; type unconstrained until grounded."},
             "side_effects": {"description": "Optional; type unconstrained until grounded."},
+            # Scope-witness claim (#85): the optional, falsifiable {file, name} touch-set the
+            # cascade-witness gate derives an independent account against. CLOSED item shape —
+            # each ref is exactly {file, name}, both non-empty strings (a present-but-empty ref
+            # is a bogus claim, rejected at write, matching the projection's empty=broken rule).
+            "code_refs": {
+                "type": "array",
+                # minItems 1 (design node 02 / K8): an empty list writes as a schema error,
+                # so "declared empty" cannot masquerade as a claim — absence is the ONLY
+                # no-claim state, which makes the promotion-time absence-escalation unambiguous.
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["file", "name"],
+                    "properties": {
+                        "file": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Repo-root-relative POSIX path (code store form).",
+                        },
+                        "name": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "Class-qualified symbol name (e.g. Heartgate.validate).",
+                        },
+                    },
+                },
+                "description": "Optional scope-witness claim: symbols the run declares it touches.",
+            },
         },
     },
     # uacp.triage — the admission verdict (TRIAGE serialize). OPEN-world: the producer
@@ -273,10 +332,22 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         ],
         "properties": {
             "kind": {"const": "uacp.brainstorm_scope_package"},
-            "title": {"type": "string", "minLength": 1},
-            "description": {"type": "string", "minLength": 1},
+            # pattern \S requires a non-whitespace char, matching the forced gate's str.strip()
+            # check so a whitespace-only title/description cannot write clean then block.
+            "title": {"type": "string", "minLength": 1, "pattern": r"\S"},
+            "description": {"type": "string", "minLength": 1, "pattern": r"\S"},
             "in_scope": {"type": "array", "minItems": 1},
-            "authority": {"type": "object", "properties": {"source": {"type": "string"}}},
+            # declared_side_effects must be a list (may be empty) — the admission contract the
+            # forced brainstorm-exit gate measures at the transition. Constraining it here keeps
+            # the write-time schema from accepting a package the gate would then block.
+            "declared_side_effects": {"type": "array"},
+            # authority.source must be documented (non-empty), matching the gate; an object with a
+            # blank/absent source would otherwise write clean but fail the brainstorm->triage gate.
+            "authority": {
+                "type": "object",
+                "required": ["source"],
+                "properties": {"source": {"type": "string", "minLength": 1, "pattern": r"\S"}},
+            },
             "routing_advisory": {
                 "enum": ["direct", "lightweight", "standard", "full_governance"],
             },

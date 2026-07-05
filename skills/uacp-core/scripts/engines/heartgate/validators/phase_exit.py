@@ -26,6 +26,7 @@ def validate_phase_exit_invariants(
     uacp_root: Path,
     governed_root: Path,
     blockers: list[str],
+    warnings: list[str] | None = None,
 ) -> None:
     """Phase 1 / Item 1.2: enforce phase_exit_invariants from config.
 
@@ -95,3 +96,10 @@ def validate_phase_exit_invariants(
             for v in validate_graph_invariants(uacp_root, run_id, graph_scope):
                 if v.severity == "block":
                     blockers.append(f"phase_exit_invariant unmet: {v.code}: {v.message}")
+                elif warnings is not None:
+                    # Advisory-severity graph violations (e.g. the plan_exit cascade
+                    # forecast, SC_PLAN_CASCADE_FORECAST) SURFACE as transition
+                    # warnings instead of being computed-then-discarded (PR #94
+                    # post-merge review): visible-never-blocking is the advisory
+                    # dial's whole point.
+                    warnings.append(f"phase_exit_advisory: {v.code}: {v.message}")

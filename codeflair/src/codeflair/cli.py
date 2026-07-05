@@ -7,6 +7,8 @@ Thin wrappers over the existing engine — no reimplementation:
     and prints an index summary.
   - ``codeflair query <seed>``  opens the index **read-only**, runs the expansion loop, and
     emits the canonical ``{nodes, gaps, trace}`` JSON contract (04-outputs).
+  - ``codeflair witness --repo <root> [--code-ref file:name ...]``  reindexes the working
+    tree and emits scope-conformance **facts** for the kernel gate to grade (see witness.py).
   - ``codeflair mcp``  boots the MCP server (face #3); gated on the optional ``mcp`` dep.
 
 Determinism (CF-D11 / 10-freshness): ``query`` is read-only and byte-stable (``to_json``);
@@ -26,6 +28,7 @@ from codeflair.grep_probe import index_repo_strings
 from codeflair.scip_ingest import index_repo
 from codeflair.store import Store, default_store_path
 from codeflair.trace import to_json
+from codeflair.witness import build_baseline_witness, build_witness, parse_code_ref
 
 try:  # the tree-sitter floor is optional (codeflair[treesitter]); degrade if absent
     from codeflair.treesitter_ingest import index_repo_tree_sitter
@@ -178,6 +181,21 @@ def _cmd_query(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_witness(args: argparse.Namespace) -> int:
+    # The witness derives FACTS ONLY — no coverage/undeclared/over-declared verdicts (the gate
+    # compares). Two modes: the default reindexes the CURRENT working tree (diff-grounded, 02);
+    # --baseline-refs derives the hop-1 forecast on the committed baseline HEAD (diff-independent,
+    # #86). build_index is injected as the reindex in both.
+    refs = [parse_code_ref(r) for r in (args.code_ref or [])]
+    if args.baseline_refs:
+        result = build_baseline_witness(args.repo, build_index, code_refs=refs, lang=args.lang)
+    else:
+        result = build_witness(args.repo, build_index, code_refs=refs, lang=args.lang)
+    print(json.dumps(result, sort_keys=True, indent=args.indent))
+    # exit nonzero with {"error": ...} on failure (not a git repo / no HEAD / index empty)
+    return 0 if "error" not in result else 1
+
+
 def _cmd_mcp(args: argparse.Namespace) -> int:
     # Lazy (cli <-> mcp_server import cycle break + the mcp dep is optional): deliberate
     # exception to the imports-at-top rule for this optional-dependency face.
@@ -220,6 +238,27 @@ def _build_parser() -> argparse.ArgumentParser:
         "--direction", default="callers", choices=("callers", "callees"), help="walk direction"
     )
     p_query.set_defaults(func=_cmd_query)
+
+    p_witness = sub.add_parser(
+        "witness", help="reindex the working tree and report scope-conformance FACTS as JSON"
+    )
+    p_witness.add_argument("--repo", default=".", help="repo root to witness (default: .)")
+    p_witness.add_argument(
+        "--lang", default="python", choices=sorted(_TS_EXT), help="primary language"
+    )
+    p_witness.add_argument(
+        "--code-ref",
+        action="append",
+        metavar="FILE:NAME",
+        help="a declared code ref (repeatable); NAME may contain dots (split on first colon)",
+    )
+    p_witness.add_argument(
+        "--baseline-refs",
+        action="store_true",
+        help="diff-independent forecast mode (#86): derive the hop-1 neighborhood of the "
+        "--code-refs on the committed baseline (HEAD), not the dirty working tree",
+    )
+    p_witness.set_defaults(func=_cmd_witness)
 
     p_mcp = sub.add_parser("mcp", help="run the codeflair MCP server (stdio)")
     p_mcp.set_defaults(func=_cmd_mcp)

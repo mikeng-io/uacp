@@ -211,7 +211,12 @@ _PRESLIM_PHASE_EXIT_INVARIANTS = {
     ],
     "resolve": [
         {"artifact_glob": "resolutions/{run_id}*", "required": True},
-        {"gate_ledger_entry": "VERIFY->RESOLVE", "required": True},
+        # BREAK-1 fix (F1): the pre-slim YAML shipped "VERIFY->RESOLVE" (lifecycle
+        # vocabulary), which deadlocked evidence_completeness against coherence C2
+        # (the governed transition records verify->RESOLVED). The codified default is
+        # deliberately CORRECTED to the state-machine vocabulary; this pin tracks the
+        # fix. See tests/unit/uacp_core/test_phase_graph.py (three-source agreement).
+        {"gate_ledger_entry": "VERIFY->RESOLVED", "required": True},
     ],
 }
 

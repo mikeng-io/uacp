@@ -45,19 +45,39 @@ def _err(msg: str) -> dict[str, Any]:
     return {"error": msg}
 
 
+# The evidence-disposition ``half`` placeholder is a CLOSED two-value vocabulary
+# (the paired verified-facts / assumptions files EvidenceDispositionSchema requires).
+# Both literals contain a '-' and would otherwise trip the delimiter guard in
+# _bad_ctx_segment, so they are special-cased there (BREAK-2a). This is NOT a general
+# hyphen allowance — only these two exact literals pass, and create_entity separately
+# rejects any OTHER `half` value as out-of-vocabulary (BREAK-2 paper fix).
+_EVIDENCE_DISPOSITION_HALVES: frozenset[str] = frozenset({"verified-facts", "assumptions"})
+
+
 def _bad_ctx_value(v: Any) -> bool:
     """A path-placeholder value that could break a path segment or be empty (used for run_id)."""
     s = str(v)
     return (not s.strip()) or ("/" in s) or ("\\" in s) or (".." in s)
 
 
-def _bad_ctx_segment(v: Any) -> bool:
+def _bad_ctx_segment(v: Any, *, key: str = "") -> bool:
     """Stricter than _bad_ctx_value: a ctx value is an INNER path placeholder, separated from
     siblings by '-' in templates ({run_id}-{cluster}-{half}) and by '-'/'=' in the composite
     registration key. A value containing those would make BOTH the path and the key ambiguous —
     two (cluster, half) pairs could map to one file/key (Codex PR#5 r3). So reject delimiter-bearing
-    segment values; run_id keeps '-' (a single leading placeholder, never reverse-parsed)."""
+    segment values; run_id keeps '-' (a single leading placeholder, never reverse-parsed).
+
+    EXCEPTION (BREAK-2a, KEY-AWARE — cross-provider review): the closed
+    evidence-disposition vocabulary (``verified-facts`` / ``assumptions``) is allowed
+    verbatim despite its '-', but ONLY for the ``half`` placeholder. A value-based
+    whitelist would let ``cluster="verified-facts"`` (or any other placeholder) smuggle
+    the hyphen past the delimiter guard and re-create the exact key/path ambiguity this
+    guard exists to prevent. The sibling ``cluster`` therefore still forbids '-'/'='
+    unconditionally, keeping `cluster={c}-half={h}` unambiguously parseable; any OTHER
+    `half` value is rejected upstream in create_entity."""
     s = str(v)
+    if key == "half" and s in _EVIDENCE_DISPOSITION_HALVES:
+        return False
     return _bad_ctx_value(v) or ("-" in s) or ("=" in s)
 
 
@@ -85,7 +105,7 @@ def create_entity(
     # boundary; it can never land in **ctx.)
     if _bad_ctx_value(run_id):
         return _err(f"invalid run_id: {run_id!r}")
-    bad = {k: ctx[k] for k in ctx if _bad_ctx_segment(ctx[k])}
+    bad = {k: ctx[k] for k in ctx if _bad_ctx_segment(ctx[k], key=k)}
     if bad:
         return _err(
             f"invalid path-placeholder value(s) (no '/', '\\', '..', '-', '=', or empty): {bad}"
@@ -106,6 +126,17 @@ def create_entity(
         return _err(
             f"missing required ctx placeholder(s) for {kind}: {missing} "
             f"(pass them via ctx={{...}} e.g. ctx={{'seq': '1'}})"
+        )
+    # CLOSED-VOCABULARY check (BREAK-2 paper fix): the evidence-disposition ``half``
+    # placeholder admits exactly ``verified-facts`` / ``assumptions`` (the paired files
+    # the disposition gate consumes). Any other value — the old paper doc's
+    # ``left``/``right``, or a typo — is refused here so it can never be written to a
+    # file nothing reads. (``verified-facts`` reaches this point because _bad_ctx_segment
+    # whitelists the two literals.)
+    if "half" in ctx and ctx["half"] not in _EVIDENCE_DISPOSITION_HALVES:
+        return _err(
+            f"invalid evidence-disposition half {ctx['half']!r}: must be one of "
+            f"{sorted(_EVIDENCE_DISPOSITION_HALVES)}"
         )
     rel = layout.relpath(kind, run_id=run_id, **ctx)
 

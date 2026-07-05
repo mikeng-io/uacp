@@ -99,3 +99,69 @@ def test_illegal_transition_blocked_by_heartgate(tmp_path: Path) -> None:
     decision = hg.validate_transition(artifact)
     assert decision.decision == "block"
     assert any("not allowed" in b for b in decision.blockers)
+
+
+# --- forced_brainstorm_exit_blockers: real-field gate measured directly ---
+
+import yaml  # noqa: E402
+
+_VALID_SCOPE_PACKAGE = {
+    "kind": "uacp.brainstorm_scope_package",
+    "title": "Bounded scope",
+    "description": "A gate-admissible scope.",
+    "in_scope": ["one thing"],
+    "declared_side_effects": [],
+    "authority": {"source": "operator-request"},
+    "routing_advisory": "standard",
+}
+
+
+def _write_pkg(tmp_path: Path, run_id: str, fields: dict) -> None:
+    """Write a scope package at the GOVERNED run-keyed path the entity-writer emits:
+    .uacp/brainstorm/{run_id}/07-scope-package.yaml (layout.py kind mapping)."""
+    pkg_dir = tmp_path / ".uacp" / "brainstorm" / run_id
+    pkg_dir.mkdir(parents=True, exist_ok=True)
+    (pkg_dir / "07-scope-package.yaml").write_text(yaml.safe_dump(fields), encoding="utf-8")
+
+
+def test_forced_gate_blocks_when_no_package(tmp_path: Path) -> None:
+    (tmp_path / ".uacp").mkdir()
+    hg = _make_heartgate(tmp_path)
+    blockers = hg.forced_brainstorm_exit_blockers("bs-1")
+    assert blockers and any("07-scope-package" in b for b in blockers)
+
+
+def test_forced_gate_passes_with_this_runs_valid_package(tmp_path: Path) -> None:
+    _write_pkg(tmp_path, "bs-1", dict(_VALID_SCOPE_PACKAGE))
+    hg = _make_heartgate(tmp_path)
+    assert hg.forced_brainstorm_exit_blockers("bs-1") == []
+
+
+def test_forced_gate_is_run_bound_not_workspace_global(tmp_path: Path) -> None:
+    """The crux fix: a valid package belonging to ANOTHER run must NOT admit this run's
+    crossing. A workspace-global glob would let the first brainstorm ever written latch
+    every subsequent run open — the fail-open both reviewers flagged."""
+    _write_pkg(tmp_path, "other-run", dict(_VALID_SCOPE_PACKAGE))  # a sibling run's valid package
+    hg = _make_heartgate(tmp_path)
+    # bs-1 has NO package of its own — it must still BLOCK despite other-run's valid one.
+    blockers = hg.forced_brainstorm_exit_blockers("bs-1")
+    assert blockers, "run bs-1 must not be admitted by another run's scope package"
+    assert any("bs-1" in b for b in blockers)
+
+
+def test_forced_gate_blocks_this_runs_invalid_package_despite_valid_sibling(tmp_path: Path) -> None:
+    """Run-binding also means this run's OWN malformed package blocks, even when a valid
+    sibling exists (the field validation is not defeatable by an unrelated valid package)."""
+    _write_pkg(tmp_path, "other-run", dict(_VALID_SCOPE_PACKAGE))
+    _write_pkg(tmp_path, "bs-1", dict(_VALID_SCOPE_PACKAGE, routing_advisory="bogus"))
+    hg = _make_heartgate(tmp_path)
+    blockers = hg.forced_brainstorm_exit_blockers("bs-1")
+    assert any("routing_advisory" in b for b in blockers)
+
+
+def test_forced_gate_blocks_wrong_kind(tmp_path: Path) -> None:
+    """kind binds the artifact to the contract; a differently-typed file with all the
+    other fields must not pass (write-time schema requires kind too)."""
+    _write_pkg(tmp_path, "bs-1", dict(_VALID_SCOPE_PACKAGE, kind="uacp.triage"))
+    hg = _make_heartgate(tmp_path)
+    assert any("kind" in b for b in hg.forced_brainstorm_exit_blockers("bs-1"))

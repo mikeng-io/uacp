@@ -270,7 +270,15 @@ STAGE_PHASE_EXIT_INVARIANTS: dict[str, list[dict[str, Any]]] = {
     ],
     "resolve": [
         {"artifact_glob": "resolutions/{run_id}*", "required": True},
-        {"gate_ledger_entry": "VERIFY->RESOLVE", "required": True},
+        # The GOVERNED transition into the terminal phase is recorded as
+        # verify->RESOLVED (state_machine_projection collapses the lifecycle
+        # `resolve` phase into the `resolved` status), and coherence C2 pairs the
+        # ledger's phase-transition gates 1:1 with those state_history edges. So
+        # the resolve-exit ledger gate MUST speak the state-machine vocabulary
+        # (VERIFY->RESOLVED), not the lifecycle vocabulary (VERIFY->RESOLVE):
+        # the old name deadlocked evidence_completeness against coherence C2 (no
+        # ledger content satisfied both). See tests/e2e/test_lifecycle_production_drivability.py.
+        {"gate_ledger_entry": "VERIFY->RESOLVED", "required": True},
     ],
 }
 

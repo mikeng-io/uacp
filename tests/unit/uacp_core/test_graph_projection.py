@@ -499,7 +499,9 @@ def test_verify_exit_check_coverage_passes_non_vacuously(tmp_path):
     )
     assert any(v.code == "GP_UNCHECKED_TARGET" for v in broken)
     ok = _checked_run(tmp_path / "ok", checks=[_check("chk-1", "si-1"), _check("chk-2", "wu-1")])
-    assert "GP_UNCHECKED_TARGET" not in _codes_set(validate_graph_invariants(ok, "r", "verify_exit"))
+    assert "GP_UNCHECKED_TARGET" not in _codes_set(
+        validate_graph_invariants(ok, "r", "verify_exit")
+    )
 
 
 def test_verify_exit_check_coverage_self_gates_on_adoption(tmp_path):
@@ -717,7 +719,9 @@ def test_underclaim_catches_omitted_class(tmp_path):
     from engines.graph_projection import validate_class_underclaim
 
     ws = _run_with_intent(
-        tmp_path, "mount the /settle route", [_check("chk-1", "wu-1")]  # _check sets no class
+        tmp_path,
+        "mount the /settle route",
+        [_check("chk-1", "wu-1")],  # _check sets no class
     )
     assert "CHK_CLASS_UNDERCLAIM" in _codes_set(validate_class_underclaim(ws, "r"))
 
@@ -738,9 +742,7 @@ def test_underclaim_no_false_fire_on_substring_keywords(tmp_path):
             intent,
             [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
         )
-        assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(
-            validate_class_underclaim(ws, "r")
-        ), intent
+        assert "CHK_CLASS_UNDERCLAIM" not in _codes_set(validate_class_underclaim(ws, "r")), intent
 
 
 def test_underclaim_reads_expected_outputs(tmp_path):
@@ -1181,8 +1183,13 @@ def test_field_equals_anchor_errors(tmp_path):
         "expect": {"value": "whatever"},
         "severity": "block",
     }
-    ws = _ws(tmp_path, "r", _prop([{"id": "si-1"}]), _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
-             extra_docs=[check_doc])
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[check_doc],
+    )
     p = tmp_path / ".uacp" / "proposals" / "a.md"
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("## si-1\nbody\n", encoding="utf-8")
@@ -1213,12 +1220,20 @@ def test_check_empty_anchor_is_declared_not_legacy_fallback(tmp_path):
         "id": "chk-a",
         "from": {"target": "si-1", "basis": "x"},
         # empty anchor declared ALONGSIDE a legacy artifact/path that would otherwise PASS
-        "bind": {"plane": "artifact", "ref": {"anchor": "", "artifact": "plans/p.yaml", "path": "kind"}},
+        "bind": {
+            "plane": "artifact",
+            "ref": {"anchor": "", "artifact": "plans/p.yaml", "path": "kind"},
+        },
         "expect": {},
         "severity": "block",
     }
-    ws = _ws(tmp_path, "r", _prop([{"id": "si-1"}]), _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
-             extra_docs=[check_doc])
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop([{"id": "si-1"}]),
+        _plan([{"id": "wu-1", "derives_from": ["si-1"]}]),
+        extra_docs=[check_doc],
+    )
     vs = validate_check_replay(ws, "r")
     assert any(v.code == "CHK_FIELD_PRESENT" and v.detail.get("status") == "ERROR" for v in vs), vs
 
@@ -1230,7 +1245,9 @@ def test_anchor_mismatched_fence_marker_stays_fenced(tmp_path):
 
     body = "## si-1\n```\n~~~\n## fake\n```\nreal\n"
     ws = _ws_anchor(tmp_path, "proposals/a.md#fake", "proposals/a.md", body)
-    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(validate_anchor_resolution(ws, "r"))  # #fake is code
+    assert "GP_ANCHOR_UNRESOLVED" in _codes_set(
+        validate_anchor_resolution(ws, "r")
+    )  # #fake is code
     ws2 = _ws_anchor(tmp_path / "b", "proposals/a.md#si-1", "proposals/a.md", body)
     assert validate_anchor_resolution(ws2, "r") == []  # #si-1 still resolves (non-empty body)
 
@@ -1272,3 +1289,468 @@ def test_malformed_entailed_class_blocks_with_no_checks(tmp_path):
         [],  # no checks at all
     )
     assert "CHK_ENTAILED_CLASS_INVALID" in _codes_set(validate_class_underclaim(ws, "r"))
+
+
+# ============================================================================================
+# CLASS WITNESS (design node 03 — witness #2). A scope_item/work_unit declares `code_refs`; the
+# gate derives the codeflair connectivity witness ONCE, maps each honored ref's inbound fan-in to
+# a class (witness_class), and feeds a RAISE-ONLY max-rank oracle. Driven through a STUB CLI
+# resolved from operator config (the FAITHFUL path — proves the trust root reads operator config,
+# never derive_witness monkeypatched). Workspace under tmp_path/'ws', stub under tmp_path/'cf' so
+# the CLI resolves OUTSIDE the run workspace (the trust root rejects a run-mutable prober).
+# ============================================================================================
+import json as _cw_json  # noqa: E402
+import sys as _cw_sys  # noqa: E402
+
+import engines.io.witnessio as _cw_witnessio  # noqa: E402
+from engines.io import clear_witness_memo as _cw_clear_memo  # noqa: E402
+
+_CW_STUB_SRC = (
+    "import pathlib, sys\n"
+    "here = pathlib.Path(__file__).resolve().parent\n"
+    "with (here / 'calls.log').open('a') as _f:\n"
+    "    _f.write('x')\n"
+    "sys.stdout.write((here / 'fixture.json').read_text())\n"
+)
+
+
+def _cw_fixture(
+    *,
+    symbols_touched=None,
+    declared=None,
+    neighborhood=None,
+    inbound_counts=None,
+    ingestion="scip",
+):
+    return {
+        "graph_stamp": {"commit": "deadbeef", "tree_token": "t1"},
+        "ingestion": ingestion,
+        "symbols_touched": [{"file": f, "name": n} for f, n in (symbols_touched or [])],
+        "neighborhood": neighborhood or [],
+        "declared": declared or [],
+        "unresolved_touched": [],
+        "inbound_counts": inbound_counts or {},
+    }
+
+
+def _cw_configure(monkeypatch, tmp_path, fixture):
+    """Install the stub CLI + fixture under tmp_path/'cf' (outside the workspace root) and point
+    the KERNEL-DEFAULT [witness].codeflair_cli at it. Returns the calls.log path (created iff the
+    stub actually runs). Clears the process-global witness memo for isolation."""
+    cf = tmp_path / "cf"
+    cf.mkdir(parents=True, exist_ok=True)
+    (cf / "stub.py").write_text(_CW_STUB_SRC)
+    (cf / "fixture.json").write_text(_cw_json.dumps(fixture))
+    op = tmp_path / "operator-uacp.toml"
+    cli = f"{_cw_json.dumps(_cw_sys.executable)[1:-1]} {cf / 'stub.py'}"
+    op.write_text(f"[witness]\ncodeflair_cli = {_cw_json.dumps(cli)}\n")
+    monkeypatch.setattr(_cw_witnessio, "_operator_config_path", lambda: op)
+    _cw_clear_memo()
+    return cf / "calls.log"
+
+
+def _cw_unconfigure(monkeypatch, tmp_path):
+    """Point operator config at a toml with NO [witness] table -> witness UNCONFIGURED
+    (deterministic 'not configured' unavailable, independent of the repo's real config)."""
+    op = tmp_path / "operator-empty.toml"
+    op.write_text("[other]\nx = 1\n")
+    monkeypatch.setattr(_cw_witnessio, "_operator_config_path", lambda: op)
+    _cw_clear_memo()
+
+
+def _cw_ws(tmp_path, wu, checks):
+    # Workspace under tmp_path/'ws' (disjoint from the stub at tmp_path/'cf').
+    return _run_with_wu(tmp_path / "ws", wu, checks)
+
+
+def _cw_codes(vs):
+    return {v.code for v in vs}
+
+
+# ---------------------------------------------------------------- deliverable 1: projection carry
+def test_code_refs_carry_onto_nodes_and_defensive_none(tmp_path):
+    from engines.manifest.projection import _load_and_project
+
+    ws = _ws(
+        tmp_path,
+        "r",
+        _prop(
+            [
+                {"id": "si-1", "statement": "x", "code_refs": [{"file": "a.py", "name": "A"}]},
+                {"id": "si-2", "statement": "y", "code_refs": "bogus"},  # not a list -> None
+            ]
+        ),
+        _plan(
+            [
+                {
+                    "id": "wu-1",
+                    "derives_from": ["si-1"],
+                    "code_refs": [{"file": "b.py", "name": "B"}],
+                },
+                {
+                    "id": "wu-2",
+                    "derives_from": ["si-2"],
+                    "code_refs": [{"name": "noFile"}],
+                },  # -> None
+            ]
+        ),
+    )
+    nodes, _ = _load_and_project(ws, "r")
+    assert nodes["si-1"]["code_refs"] == [{"file": "a.py", "name": "A"}]
+    assert nodes["si-2"]["code_refs"] is None
+    assert nodes["wu-1"]["code_refs"] == [{"file": "b.py", "name": "B"}]
+    assert nodes["wu-2"]["code_refs"] is None  # missing 'file' -> malformed -> None
+
+
+# ---------------------------------------------------------------- deliverable 2: heuristic branches
+def test_witness_class_heuristic_branches():
+    from engines.domain.verification_floor import witness_class
+
+    assert witness_class(0) == "sets_value"  # no inbound
+    assert witness_class(1) == "wires_symbol"  # wired-in
+    assert witness_class(5) == "wires_symbol"
+    assert witness_class(31) == "wires_symbol"  # just under the broad bound
+    assert witness_class(32) == "changes_behavior"  # broad fan-in (default bound)
+    assert witness_class(200) == "changes_behavior"
+    assert witness_class(3, broad_bound=2) == "changes_behavior"  # bound is a parameter
+    # never expresses ensures_obligation (rank 2) — connectivity cannot say obligation.
+    assert "ensures_obligation" not in {witness_class(n) for n in range(0, 100)}
+    # defensive: a garbled/negative count degrades to the weakest class, never raises.
+    assert witness_class(-1) == "sets_value"
+
+
+# heuristic branches THROUGH the gate oracle (witness class becomes the code_witness oracle) -----
+def _cw_underclaim_branch(tmp_path, monkeypatch, *, inbound):
+    # A wu with one touched, declared code_ref at `inbound` fan-in and a NO-CLASS check (rank 0),
+    # no prose, no entailed_class -> the witness class is the sole oracle; underclaim names it.
+    fixture = _cw_fixture(
+        symbols_touched=[("m.py", "Sym")],
+        declared=[{"file": "m.py", "name": "Sym", "resolved": True}],
+        inbound_counts={"m.py:Sym": inbound},
+    )
+    _cw_configure(monkeypatch, tmp_path, fixture)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "code_refs": [{"file": "m.py", "name": "Sym"}],
+        },
+        [_check("chk-1", "wu-1")],  # no declared class -> rank 0
+    )
+    from engines.graph_projection import validate_class_underclaim
+
+    return [v for v in validate_class_underclaim(ws, "r") if v.code == "CHK_CLASS_UNDERCLAIM"]
+
+
+def test_witness_branch_zero_inbound_is_sets_value(tmp_path, monkeypatch):
+    hits = _cw_underclaim_branch(tmp_path, monkeypatch, inbound=0)
+    assert [h.detail.get("candidate") for h in hits] == ["sets_value"]
+    assert hits[0].detail.get("oracle_source") == "code_witness"
+
+
+def test_witness_branch_one_inbound_is_wires_symbol(tmp_path, monkeypatch):
+    hits = _cw_underclaim_branch(tmp_path, monkeypatch, inbound=1)
+    assert [h.detail.get("candidate") for h in hits] == ["wires_symbol"]
+    assert hits[0].detail.get("oracle_source") == "code_witness"
+
+
+def test_witness_branch_broad_inbound_is_changes_behavior(tmp_path, monkeypatch):
+    hits = _cw_underclaim_branch(tmp_path, monkeypatch, inbound=40)
+    assert [h.detail.get("candidate") for h in hits] == ["changes_behavior"]
+    assert hits[0].detail.get("oracle_source") == "code_witness"
+
+
+# ---------------------------------------------------------------- (vi) witness RAISES the oracle
+def test_witness_raises_oracle_to_underclaim(tmp_path, monkeypatch):
+    # weak declared checks + a broad-fan-in witness -> CHK_CLASS_UNDERCLAIM via code_witness.
+    from engines.graph_projection import validate_class_underclaim
+
+    fixture = _cw_fixture(
+        symbols_touched=[("m.py", "Core")],
+        declared=[{"file": "m.py", "name": "Core", "resolved": True}],
+        inbound_counts={"m.py:Core": 65},
+    )
+    _cw_configure(monkeypatch, tmp_path, fixture)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "code_refs": [{"file": "m.py", "name": "Core"}],
+        },
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],  # weak
+    )
+    hits = [v for v in validate_class_underclaim(ws, "r") if v.code == "CHK_CLASS_UNDERCLAIM"]
+    assert [h.detail.get("target") for h in hits] == ["wu-1"]
+    assert hits[0].detail.get("candidate") == "changes_behavior"
+    assert hits[0].detail.get("oracle_source") == "code_witness"
+
+
+# ---------------------------------------------------------------- (i) untouched declared ref
+def test_untouched_declared_ref_derives_nothing(tmp_path, monkeypatch):
+    # The declared ref is NOT in symbols_touched -> CHK_CLASS_REF_UNTOUCHED, and it must NOT be
+    # class-derived (an untouched strong symbol cannot manufacture an oracle / false underclaim).
+    from engines.graph_projection import validate_class_underclaim
+
+    fixture = _cw_fixture(
+        symbols_touched=[("other.py", "Unrelated")],  # the declared ref is absent from the diff
+        declared=[{"file": "big.py", "name": "Hub", "resolved": True}],
+        # Council NIT: give the untouched Hub a HIGH count — if diff-grounding broke and
+        # Hub were wrongly honored, changes_behavior(65) > sets_value would redden the
+        # CHK_CLASS_UNDERCLAIM assertion below (non-vacuity of the second assert).
+        inbound_counts={"other.py:Unrelated": 0, "big.py:Hub": 65},
+    )
+    _cw_configure(monkeypatch, tmp_path, fixture)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "code_refs": [{"file": "big.py", "name": "Hub"}],
+        },
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],  # weak
+    )
+    vs = validate_class_underclaim(ws, "r")
+    codes = _cw_codes(vs)
+    assert "CHK_CLASS_REF_UNTOUCHED" in codes
+    untouched = [v for v in vs if v.code == "CHK_CLASS_REF_UNTOUCHED"]
+    assert untouched[0].detail.get("refs") == ["big.py:Hub"]
+    assert all(v.severity == "warn" for v in untouched)
+    # NOT class-derived: no false underclaim from the untouched ref.
+    assert "CHK_CLASS_UNDERCLAIM" not in codes
+
+
+# ---------------------------------------------------------------- (ii) raise-only, no false block
+def test_raise_only_weak_witness_no_false_underclaim(tmp_path, monkeypatch):
+    # entailed_class + the checks correctly declare changes_behavior; a weak witness (sets_value)
+    # must NOT create a false underclaim (the oracle is a max, never lowered), but the disagreement
+    # is surfaced: CHK_ENTAILED_CLASS_SUPERSEDED, with changes_behavior governing (max-rank).
+    from engines.graph_projection import validate_class_underclaim
+
+    fixture = _cw_fixture(
+        symbols_touched=[("m.py", "Leaf")],
+        declared=[{"file": "m.py", "name": "Leaf", "resolved": True}],
+        inbound_counts={"m.py:Leaf": 0},  # -> sets_value (weak)
+    )
+    _cw_configure(monkeypatch, tmp_path, fixture)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "entailed_class": "changes_behavior",
+            "code_refs": [{"file": "m.py", "name": "Leaf"}],
+        },
+        [
+            _class_check("chk-1", "wu-1", "changes_behavior", "uacp.check.behavioral")
+        ],  # correct/strong
+    )
+    vs = validate_class_underclaim(ws, "r")
+    codes = _cw_codes(vs)
+    assert "CHK_CLASS_UNDERCLAIM" not in codes  # correctly declared -> no false block
+    superseded = [v for v in vs if v.code == "CHK_ENTAILED_CLASS_SUPERSEDED"]
+    assert superseded and superseded[0].detail.get("governs") == "changes_behavior"
+    assert all(v.severity == "warn" for v in superseded)
+
+
+# ---------------------------------------------------------------- (iii) ensures_obligation preserved
+def test_ensures_obligation_not_downranked_by_weak_witness(tmp_path, monkeypatch):
+    # entailed_class ensures_obligation (rank 2) + weak witness (sets_value, rank 1): the witness
+    # cannot express rank 2, and raise-only means the oracle STAYS at ensures_obligation. A weak
+    # (sets_value) declared check therefore still underclaims, via entailed_class — not via witness.
+    from engines.graph_projection import validate_class_underclaim
+
+    fixture = _cw_fixture(
+        symbols_touched=[("m.py", "Guard")],
+        declared=[{"file": "m.py", "name": "Guard", "resolved": True}],
+        inbound_counts={"m.py:Guard": 0},  # sets_value
+    )
+    _cw_configure(monkeypatch, tmp_path, fixture)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "entailed_class": "ensures_obligation",
+            "code_refs": [{"file": "m.py", "name": "Guard"}],
+        },
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],  # weak
+    )
+    vs = validate_class_underclaim(ws, "r")
+    hits = [v for v in vs if v.code == "CHK_CLASS_UNDERCLAIM"]
+    assert hits and hits[0].detail.get("candidate") == "ensures_obligation"
+    assert hits[0].detail.get("oracle_source") == "entailed_class"  # oracle rank stayed at 2
+    # the disagreement is still surfaced.
+    assert "CHK_ENTAILED_CLASS_SUPERSEDED" in _cw_codes(vs)
+
+
+# ---------------------------------------------------------------- (iv) unavailability
+def test_witness_unavailable_falls_back_visibly(tmp_path, monkeypatch):
+    # code_refs declared but the CLI is UNCONFIGURED -> CHK_CLASS_WITNESS_UNAVAILABLE (once), and
+    # the legacy two-source oracle still works (entailed_class fires the underclaim).
+    from engines.graph_projection import validate_class_underclaim
+
+    _cw_unconfigure(monkeypatch, tmp_path)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "entailed_class": "wires_symbol",
+            "code_refs": [{"file": "m.py", "name": "Sym"}],
+        },
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],  # weak
+    )
+    vs = validate_class_underclaim(ws, "r")
+    unavail = [v for v in vs if v.code == "CHK_CLASS_WITNESS_UNAVAILABLE"]
+    assert len(unavail) == 1 and unavail[0].severity == "warn"  # fired ONCE, visible
+    # legacy oracle intact: entailed_class still catches the underclaim.
+    hits = [v for v in vs if v.code == "CHK_CLASS_UNDERCLAIM"]
+    assert hits and hits[0].detail.get("oracle_source") == "entailed_class"
+
+
+# ---------------------------------------------------------------- (v) no code_refs -> CLI silent
+def test_no_code_refs_never_invokes_cli(tmp_path, monkeypatch):
+    # No target declares code_refs: the CLI must NEVER be invoked (side-effect calls.log absent),
+    # and NO class-witness code appears — byte-identical to the pre-witness gate.
+    from engines.graph_projection import validate_class_underclaim
+
+    calls_log = _cw_configure(tmp_path=tmp_path, monkeypatch=monkeypatch, fixture=_cw_fixture())
+    ws = _cw_ws(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "entailed_class": "wires_symbol"},
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    vs = validate_class_underclaim(ws, "r")
+    assert not calls_log.exists(), "CLI was invoked despite no code_refs"
+    new_codes = {
+        "CHK_CLASS_REF_UNTOUCHED",
+        "CHK_ENTAILED_CLASS_SUPERSEDED",
+        "CHK_CLASS_WITNESS_UNAVAILABLE",
+    }
+    assert _cw_codes(vs) & new_codes == set()
+    # the pre-witness gate still fires on entailed_class alone (byte-identical).
+    assert "CHK_CLASS_UNDERCLAIM" in _cw_codes(vs)
+
+
+def test_malformed_code_refs_never_invokes_cli(tmp_path, monkeypatch):
+    # Malformed code_refs (defensive read) carry as None -> treated as no claim -> CLI never runs.
+    from engines.graph_projection import validate_class_underclaim
+
+    calls_log = _cw_configure(tmp_path=tmp_path, monkeypatch=monkeypatch, fixture=_cw_fixture())
+    ws = _cw_ws(
+        tmp_path,
+        {"id": "wu-1", "derives_from": ["si-1"], "intent": "", "code_refs": "not-a-list"},
+        [_check("chk-1", "wu-1")],
+    )
+    vs = validate_class_underclaim(ws, "r")
+    assert not calls_log.exists()
+    assert "CHK_CLASS_WITNESS_UNAVAILABLE" not in _cw_codes(vs)
+
+
+# ---------------------------------------------------------------- fallback: calls/refs, not defines
+def test_fallback_counts_calls_references_not_defines(tmp_path, monkeypatch):
+    # inbound_counts OMITTED for the touched symbol -> fallback to neighborhood. A `defines`-only
+    # inbound edge counts 0 (-> sets_value); a `calls` inbound edge counts 1 (-> wires_symbol).
+    from engines.graph_projection import validate_class_underclaim
+
+    def _run(neighborhood):
+        fixture = _cw_fixture(
+            symbols_touched=[("m.py", "C.method")],
+            declared=[{"file": "m.py", "name": "C.method", "resolved": True}],
+            neighborhood=neighborhood,
+            inbound_counts={},  # empty -> force the fallback path
+        )
+        _cw_configure(monkeypatch, tmp_path / neighborhood[0]["reason"], fixture)
+        ws = _cw_ws(
+            tmp_path / neighborhood[0]["reason"],
+            {
+                "id": "wu-1",
+                "derives_from": ["si-1"],
+                "intent": "",
+                "code_refs": [{"file": "m.py", "name": "C.method"}],
+            },
+            [_check("chk-1", "wu-1")],  # no class -> witness is the sole oracle
+        )
+        return [v for v in validate_class_underclaim(ws, "r") if v.code == "CHK_CLASS_UNDERCLAIM"]
+
+    defines_only = [
+        {
+            "src": {"file": "m.py", "name": "C"},
+            "dst": {"file": "m.py", "name": "C.method"},
+            "reason": "defines",
+        }
+    ]
+    assert [h.detail.get("candidate") for h in _run(defines_only)] == ["sets_value"]
+
+    calls_edge = [
+        {
+            "src": {"file": "x.py", "name": "caller"},
+            "dst": {"file": "m.py", "name": "C.method"},
+            "reason": "calls",
+        }
+    ]
+    assert [h.detail.get("candidate") for h in _run(calls_edge)] == ["wires_symbol"]
+
+
+def test_unqualified_authored_ref_matches_canonical_touched(tmp_path, monkeypatch):
+    # Codex MATERIAL: an authored shorthand ("validate") must match its canonical touched
+    # symbol ("Gate.validate") via unique component-boundary matching — honored, class derived.
+    from engines.graph_projection import validate_class_underclaim
+
+    fixture = _cw_fixture(
+        symbols_touched=[("svc.py", "Gate.validate")],
+        declared=[{"file": "svc.py", "name": "Gate.validate", "resolved": True}],
+        inbound_counts={"svc.py:Gate.validate": 65},  # changes_behavior
+    )
+    _cw_configure(monkeypatch, tmp_path, fixture)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "code_refs": [{"file": "svc.py", "name": "validate"}],  # authored shorthand
+        },
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],  # weak
+    )
+    vs = validate_class_underclaim(ws, "r")
+    codes = _cw_codes(vs)
+    assert "CHK_CLASS_REF_UNTOUCHED" not in codes, [v.message for v in vs]
+    underclaim = [v for v in vs if v.code == "CHK_CLASS_UNDERCLAIM"]
+    assert underclaim, f"shorthand ref must be honored and raise the oracle: {codes}"
+    assert underclaim[0].detail.get("oracle_source") == "code_witness"
+
+
+def test_ambiguous_unqualified_ref_never_counts_as_coverage(tmp_path, monkeypatch):
+    # Two touched candidates share the shorthand -> ambiguous claim resolves to NOTHING
+    # (untouched), never to an arbitrary pick (node 03 / C2 doctrine).
+    from engines.graph_projection import validate_class_underclaim
+
+    fixture = _cw_fixture(
+        symbols_touched=[("svc.py", "A.validate"), ("svc.py", "B.validate")],
+        declared=[{"file": "svc.py", "name": "A.validate", "resolved": True}],
+        inbound_counts={"svc.py:A.validate": 65, "svc.py:B.validate": 0},
+    )
+    _cw_configure(monkeypatch, tmp_path, fixture)
+    ws = _cw_ws(
+        tmp_path,
+        {
+            "id": "wu-1",
+            "derives_from": ["si-1"],
+            "intent": "",
+            "code_refs": [{"file": "svc.py", "name": "validate"}],  # ambiguous shorthand
+        },
+        [_class_check("chk-1", "wu-1", "sets_value", "uacp.check.field_equals")],
+    )
+    vs = validate_class_underclaim(ws, "r")
+    codes = _cw_codes(vs)
+    assert "CHK_CLASS_REF_UNTOUCHED" in codes, codes
+    assert "CHK_CLASS_UNDERCLAIM" not in codes, [v.message for v in vs]

@@ -1,46 +1,32 @@
-## Phase 8: Admission Check Before TRIAGE
+## Phase 8: The Brainstorm Admission Contract
 
-Brainstorm is a **registered lifecycle phase**, and the `brainstorm → triage` transition is a real governed boundary. The run was registered at `phase: brainstorm` on entry (Phase 0/Quick-Start step 1), and the scope package is a governed artifact written with `uacp_entity_write`. Before transitioning forward to TRIAGE, validate that the scope package satisfies the codified brainstorm exit invariant.
+Brainstorm is a **registered lifecycle phase**, and `brainstorm → triage` is a real governed boundary. The run was registered at `phase: brainstorm` on entry (Phase 0/Quick-Start step 1), and the scope package is a governed artifact written with `uacp_entity_write`. The crossing's exit contract — the **brainstorm admission contract** — is enforced **by code, inside the transition** (Phase 9), not by an agent-invoked check here.
 
-### Step 8.1: Validate the brainstorm exit invariant via `uacp_heartgate_check`
+### What the gate measures
 
-`core.py` has **no CLI**. Phase-transition validation is performed by calling the `uacp_heartgate_check` TOOL with a transition artifact. Heartgate enforces the codified `brainstorm` phase-exit invariant from `skills/uacp-core/scripts/engines/domain/phase_transitions.py` (`STAGE_PHASE_EXIT_INVARIANTS["brainstorm"]`): the selected scope-package artifact must exist at `brainstorm/*/07-scope-package.yaml` (relative to the `.uacp/` namespace root) with non-empty `title`/`description`/`in_scope`, `declared_side_effects` present, `authority.source` documented, and a valid `routing_advisory`.
+The codified `brainstorm` phase-exit contract (`skills/uacp-core/scripts/engines/domain/phase_transitions.py` `STAGE_PHASE_EXIT_INVARIANTS["brainstorm"]`, measured by `Heartgate.forced_brainstorm_exit_blockers`) requires a selected scope-package artifact at `brainstorm/*/07-scope-package.yaml` (relative to the `.uacp/` namespace root) that satisfies, as real fields (not mere file-existence):
 
-Call the tool for the `brainstorm → triage` transition:
+- `title` — non-empty
+- `description` — non-empty
+- `in_scope` — non-empty list
+- `declared_side_effects` — present (may be an empty list)
+- `authority.source` — documented (non-empty)
+- `routing_advisory` — one of `direct` | `lightweight` | `standard` | `full_governance`
 
-```
-uacp_heartgate_check(
-  from_phase = "brainstorm",
-  to_phase   = "triage",
-  artifact   = ".uacp/brainstorm/{session_id}/07-scope-package.yaml",
-  declared_side_effects = {declared_side_effects},
-)
-```
+This is the same shape Phase 7 produces and the entity-writer schema validates at write time; the transition gate re-measures it at the membrane, independent of the writer, and is **fail-closed** (a missing, unparseable, or field-incomplete scope package blocks the crossing).
 
-Heartgate checks, among the coherence rules:
+### How to apply it
 
-- `title` and `description` are non-empty
-- `in_scope` is non-empty
-- `declared_side_effects` is present (may be an empty list)
-- `authority.source` is documented
-- `routing_advisory` is valid
-- the proposed scope does not conflict with any active UACP run in `state/current.yaml`
+You do **not** call a separate validation tool in this phase. The admission contract is enforced where the boundary is — inside `uacp_run_transition` (Phase 9). Phase 8 is your own **pre-flight self-check**: confirm your selected scope package fills the shape above so the Phase 9 crossing passes on the first try. If it does not yet, return to Phase 5 (trim) / Phase 7 (scope package) and fix it before requesting the transition.
 
-**Results:**
+> Why no `uacp_heartgate_check` here: that tool validates a transition *artifact* under a managed artifact/state root — the brainstorm scope package is not transition-artifact-shaped, and earlier guidance to hand-assemble an artifact and call it with `from_phase`/`to_phase`/`artifact` passed parameters the handler never read. The fix is structural: the agent **requests** the crossing (Phase 9) and **code measures + effects** it. The agent is barred from stamping its own phase — that is the governance contract, not a tooling detail.
 
-- **pass** (no blockers) → proceed to Phase 9 and transition forward to TRIAGE.
-- **warn** → record warnings; proceed only if the user accepts the recorded risk.
-- **block** → return to Phase 5 to refine scope. Do NOT transition to TRIAGE.
-
-Fail-closed: a missing or unreadable scope-package artifact is a blocker, not a warning.
-
-### 8.2 Record the admission result in `manifest.yaml`
+### 8.1 Record the admission intent in `manifest.yaml`
 
 ```yaml
 admission:
-  heartgate_status: pass | warn | block
-  heartgate_findings: []
-  final_decision: proceed_to_triage | stop | refine_scope
+  self_check: pass | needs_refinement   # your Phase-8 pre-flight assessment
+  final_decision: proceed_to_triage | refine_scope | stop
 ```
 
-The scope package itself is a governed lifecycle artifact (written via `uacp_entity_write`) and the run is already state-registered at `phase: brainstorm`. There is no separate "informal, not registered" tier — brainstorm participates in UACP governance like any other phase; the difference is only that it is optional and its sole exit is TRIAGE.
+The authoritative admission result is the outcome of the Phase 9 `uacp_run_transition` call (its `ok` / `blockers`), recorded by the governed transition itself. The scope package remains a governed lifecycle artifact (written via `uacp_entity_write`) and the run is already state-registered at `phase: brainstorm`; brainstorm participates in UACP governance like any other phase — the only difference is that it is optional and its sole exit is TRIAGE.

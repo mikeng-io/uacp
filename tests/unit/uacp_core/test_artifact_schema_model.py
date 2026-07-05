@@ -97,12 +97,12 @@ def test_lessons_schema_required_fields():
 
 
 # ---------------------------------------------------------------------------
-# EvidenceDispositionSchema (verify->resolve)
+# EvidenceDispositionSchema (verify->resolved)
 # ---------------------------------------------------------------------------
 
 def test_evidence_disposition_schema_required_for_transition():
     schema = EvidenceDispositionSchema()
-    assert schema.required_for_transition == "verify->resolve"
+    assert schema.required_for_transition == "verify->resolved"
 
 
 def test_evidence_disposition_schema_paired_paths():
@@ -168,7 +168,7 @@ def test_dict_lessons_required_fields():
 
 def test_dict_evidence_disposition_required_for_transition():
     d = artifact_schemas_dict()
-    assert d["evidence_disposition"]["required_for_transition"] == "verify->resolve"
+    assert d["evidence_disposition"]["required_for_transition"] == "verify->resolved"
 
 
 def test_dict_evidence_disposition_paired_paths():

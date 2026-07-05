@@ -46,6 +46,24 @@ class Paths(BaseModel):
     config: str = "config.toml"
 
 
+class Witness(BaseModel):
+    """``[witness]`` — operator-owned trust root for the scope-witness prober (#85).
+
+    ``codeflair_cli`` is the command the cascade-witness gate execs to derive an
+    INDEPENDENT account of a change (subprocess boundary, git-parity — never an
+    import). It MUST resolve to an installed artifact or pinned checkout OUTSIDE
+    every run workspace; the kernel never resolves it from the run's own worktree.
+    Absent (the shipped default) → the witness is UNCONFIGURED and every derivation
+    reports UNAVAILABLE, so the gate ships inert until an operator opts in.
+
+    ``extra="allow"`` so future witness knobs (timeouts, alt provers) are retained.
+    """
+
+    model_config = ConfigDict(extra="allow")
+
+    codeflair_cli: str | None = None
+
+
 class UacpConfig(BaseModel):
     """Top-level UACP configuration.
 
@@ -57,6 +75,7 @@ class UacpConfig(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     paths: Paths = Paths()
+    witness: Witness = Witness()
 
     def resolve(self, root: Path, path_key: str, *parts: str) -> Path:
         """Resolve a path under the governed namespace, traversal-safely.
