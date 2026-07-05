@@ -133,6 +133,22 @@ def test_frozen_check_write_once_anchors_on_watermark(tmp_path):
     assert res.get("ok") is True, res
 
 
+def test_frozen_check_unwatermarked_existing_fails_closed(tmp_path):
+    # #121 codex P1 #2: a check file that exists but has NO watermark (crash window / unreadable
+    # index) must fail closed — not be treated as a new check whose overwrite re-baselines the hash.
+    from engines.domain.artifact_hashes import hash_index_path
+
+    run_id = "uacp-wo-3"
+    _init(tmp_path, run_id)
+    fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
+    first = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert first.get("ok") is True, first
+    hash_index_path(str(tmp_path), run_id).unlink()  # wipe the watermark -> existing file, no mark
+    weakened = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "broken")
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", weakened, seq="1")
+    assert "error" in res and "write-once" in res["error"], res
+
+
 def test_from_class_vocabulary_matches_the_floor():
     # The class enum is duplicated (schema leaf-copy vs verification_floor.CLASSES). Pin them equal
     # so the authoring vocabulary and the floor table cannot drift (slice 2 / node 34 L2).

@@ -192,7 +192,14 @@ def create_entity(
         from engines.domain.artifact_hashes import content_hash
 
         frozen_mark = prior_index.get(rel)
-        if frozen_mark is not None and content_hash(content) != frozen_mark:
+        # Reject when (a) a watermark exists and the new content diverges from it — a changed
+        # expectation, including delete-then-recreate since the mark outlives the file — or (b) the
+        # check file exists with NO watermark (crash window / unreadable index): fail closed rather
+        # than let an overwrite re-baseline an unwatermarked frozen check (codex P1 #2). Identical
+        # re-writes (hash == mark) and genuine new checks (no file, no mark) pass.
+        if (frozen_mark is not None and content_hash(content) != frozen_mark) or (
+            existed_before and frozen_mark is None
+        ):
             return _err(
                 f"frozen check {rel} is write-once (#121): its authored expectation cannot be "
                 "changed after freezing; author a new check instead"
