@@ -1,0 +1,66 @@
+run_id: uacp-dogfood-002
+status: resolved
+current_phase: resolved
+created_at: '2026-07-05T15:59:07Z'
+authority:
+  source: operator-request
+  status: pass
+workspace:
+  kind: worktree
+  path: /Users/mike/Workplace/uacp/.worktrees/dogfood-real
+  branch: chore/uacp-dogfood
+  created_at: '2026-07-05T15:59:07Z'
+  validated_at: null
+artifacts:
+  triage: proposals/uacp-dogfood-002-triage.yaml
+  proposal: proposals/uacp-dogfood-002-proposal.yaml
+  check.field_present:seq=1: verification/uacp-dogfood-002-check-1-field_present.yaml
+  scope: plans/uacp-dogfood-002-scope.yaml
+  phase_intent_verification_contract: plans/uacp-dogfood-002-piv.yaml
+  check.obligation_satisfied:seq=2: verification/uacp-dogfood-002-check-2-obligation_satisfied.yaml
+  execution_checkpoint:seq=1: executions/uacp-dogfood-002-checkpoint-1.yaml
+  check.artifact_integrity:seq=3: verification/uacp-dogfood-002-check-3-artifact_integrity.yaml
+  investigation_entry:seq=1: verification/uacp-dogfood-002-investigation-1.yaml
+  piv_assessment: verification/uacp-dogfood-002-piv-assessment.yaml
+  verification_package: verification/uacp-dogfood-002-verify-selection.yaml
+  verify_resolve_readiness: verification/uacp-dogfood-002-resolve-readiness.yaml
+  investigation_entry:seq=2: verification/uacp-dogfood-002-investigation-2.yaml
+  resolve_package: resolutions/uacp-dogfood-002-resolve-selection.yaml
+  lessons: resolutions/uacp-dogfood-002-lessons.yaml
+  resolve_closure: resolutions/uacp-dogfood-002-closure.yaml
+state_history:
+- event: phase_transition
+  timestamp: '2026-07-05T15:59:43Z'
+  from_phase: triage
+  to_phase: propose
+  source: uacp-state
+  artifact: null
+- event: phase_transition
+  timestamp: '2026-07-05T16:02:42Z'
+  from_phase: propose
+  to_phase: plan
+  source: uacp-state
+  artifact: null
+- event: phase_transition
+  timestamp: '2026-07-05T16:05:39Z'
+  from_phase: plan
+  to_phase: execute
+  source: uacp-state
+  artifact: null
+- event: phase_transition
+  timestamp: '2026-07-05T16:07:26Z'
+  from_phase: execute
+  to_phase: verify
+  source: uacp-state
+  artifact: null
+- event: phase_transition
+  timestamp: '2026-07-05T16:10:22Z'
+  from_phase: verify
+  to_phase: resolved
+  source: uacp-state
+  artifact: null
+finalized_at: '2026-07-05T16:11:45Z'
+track: standard
+goal_id: null
+inherits_from: null
+inherited_artifacts: {}
