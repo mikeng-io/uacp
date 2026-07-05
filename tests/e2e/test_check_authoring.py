@@ -98,6 +98,57 @@ def test_governed_check_severity_must_be_block(tmp_path):
     assert "error" in res and "validate-on-write rejected" in res["error"], res
 
 
+def test_frozen_check_is_write_once(tmp_path):
+    # #121: a uacp.check.* is frozen at authoring and replayed at the gate. Re-authoring it (same
+    # seq -> same path) with a CHANGED expectation before the transition is a gaming vector (weaken
+    # the check to force a pass) and must be rejected. An identical re-write stays idempotent.
+    run_id = "uacp-wo-1"
+    _init(tmp_path, run_id)
+    fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
+    first = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert first.get("ok") is True, first
+    same = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert same.get("ok") is True, same  # identical re-write: idempotent, allowed
+    weakened = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "broken")
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", weakened, seq="1")
+    assert "error" in res and "write-once" in res["error"], res
+
+
+def test_frozen_check_write_once_anchors_on_watermark(tmp_path):
+    # #121 codex P1: the write-once compare anchors on the recorded WATERMARK, not the current
+    # on-disk bytes. An out-of-band tamper of the check file cannot be laundered by a matching
+    # re-write, and re-authoring the ORIGINAL frozen content stays allowed (idempotent/restore).
+    from config import base_dir
+
+    run_id = "uacp-wo-2"
+    _init(tmp_path, run_id)
+    fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
+    first = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert first.get("ok") is True, first
+    chk = next((base_dir(tmp_path) / "verification").glob("*.yaml"))
+    chk.write_text(chk.read_text(encoding="utf-8") + "\n# tampered out-of-band\n", encoding="utf-8")
+    # original fields still hash to the watermark -> allowed (a byte-vs-disk compare would wrongly
+    # reject here, because the on-disk bytes were tampered).
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert res.get("ok") is True, res
+
+
+def test_frozen_check_unwatermarked_existing_fails_closed(tmp_path):
+    # #121 codex P1 #2: a check file that exists but has NO watermark (crash window / unreadable
+    # index) must fail closed — not be treated as a new check whose overwrite re-baselines the hash.
+    from engines.domain.artifact_hashes import hash_index_path
+
+    run_id = "uacp-wo-3"
+    _init(tmp_path, run_id)
+    fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
+    first = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert first.get("ok") is True, first
+    hash_index_path(str(tmp_path), run_id).unlink()  # wipe the watermark -> existing file, no mark
+    weakened = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "broken")
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", weakened, seq="1")
+    assert "error" in res and "write-once" in res["error"], res
+
+
 def test_from_class_vocabulary_matches_the_floor():
     # The class enum is duplicated (schema leaf-copy vs verification_floor.CLASSES). Pin them equal
     # so the authoring vocabulary and the floor table cannot drift (slice 2 / node 34 L2).

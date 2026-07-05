@@ -182,6 +182,28 @@ def create_entity(
     # one mechanism for fresh-file (drop new entry), overwrite (restore exact prior entry), and the
     # absent / deliberately-mismatched (tamper-signal) cases, never recomputed from the bytes.
     prior_index = load_hash_index(workspace, run_id)
+    # WRITE-ONCE for frozen checks (#121): a uacp.check.* is frozen at authoring and replayed at the
+    # gate. Anchor on the RECORDED WATERMARK, not the current on-disk bytes — an out-of-band edit
+    # could tamper the file, so comparing bytes would let a tamper-then-matching-rewrite re-baseline
+    # the watermark and launder the change past AI_TAMPERED (codex P1). A new content whose hash
+    # differs from the frozen watermark is a content-changing overwrite (the gaming vector) and is
+    # rejected before persist; an identical re-write (hash == watermark) is an idempotent no-op.
+    if kind.startswith("uacp.check."):
+        from engines.domain.artifact_hashes import content_hash
+
+        frozen_mark = prior_index.get(rel)
+        # Reject when (a) a watermark exists and the new content diverges from it — a changed
+        # expectation, including delete-then-recreate since the mark outlives the file — or (b) the
+        # check file exists with NO watermark (crash window / unreadable index): fail closed rather
+        # than let an overwrite re-baseline an unwatermarked frozen check (codex P1 #2). Identical
+        # re-writes (hash == mark) and genuine new checks (no file, no mark) pass.
+        if (frozen_mark is not None and content_hash(content) != frozen_mark) or (
+            existed_before and frozen_mark is None
+        ):
+            return _err(
+                f"frozen check {rel} is write-once (#121): its authored expectation cannot be "
+                "changed after freezing; author a new check instead"
+            )
     try:
         _write_uacp_file(target, content)
     except Exception as exc:
