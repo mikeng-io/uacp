@@ -173,6 +173,31 @@ class TestSkipReporting:
         assert "OKFParseError" in reasons["bad.md"]
         assert "KeyError" in reasons["no-id.md"] and "id" in reasons["no-id.md"]
 
+    def test_yaml_and_type_errors_are_skips_not_raises(self, tmp_path):
+        """Codex P2 (PR #123): malformed frontmatter YAML (unclosed flow list →
+        yaml.parser.ParserError) and scalar-where-iterable values (`domains: 5`
+        → TypeError) escaped the scanner's except tuple, breaking the
+        never-raise floor. Both must be reported as skips."""
+        d = tmp_path / "lessons"
+        d.mkdir()
+        (d / "good.md").write_text(_GOOD_LESSON, encoding="utf-8")
+        (d / "unclosed.md").write_text(
+            "---\nid: x\ntitle: t\nproject: p\nextracted_at: 2026-01-01\n"
+            "tags: [unclosed\n---\nBody.\n",
+            encoding="utf-8",
+        )
+        (d / "scalar-domains.md").write_text(
+            "---\nid: y\ntitle: t\nproject: p\nextracted_at: 2026-01-01\n"
+            "domains: 5\n---\nBody.\n",
+            encoding="utf-8",
+        )
+        items, skipped = scan_lessons_dir(d)  # must not raise
+        assert [lesson.id for lesson in items] == ["good-lesson"]
+        reasons = dict(skipped)
+        assert sorted(reasons) == ["scalar-domains.md", "unclosed.md"]
+        assert "ParserError" in reasons["unclosed.md"]
+        assert "TypeError" in reasons["scalar-domains.md"]
+
     def test_malformed_lesson_is_counted_with_filename(self, tmp_path):
         d = tmp_path / "lessons"
         d.mkdir()

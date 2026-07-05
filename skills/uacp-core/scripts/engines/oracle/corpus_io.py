@@ -27,6 +27,8 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
+import yaml
+
 from engines.domain.corpus import KnowledgeItem, Lesson, OKFParseError
 
 logger = logging.getLogger(__name__)
@@ -51,7 +53,18 @@ def _scan_okf_dir[T](
     for path in sorted(directory.glob("*.md")):
         try:
             items.append(parse(path.read_text(encoding="utf-8")))
-        except (OKFParseError, KeyError, ValueError, OSError) as exc:
+        except (
+            OKFParseError,
+            KeyError,
+            ValueError,
+            OSError,
+            TypeError,
+            yaml.YAMLError,
+        ) as exc:
+            # yaml.YAMLError: malformed frontmatter YAML escapes parse_okf
+            # unwrapped (e.g. an unclosed flow list); TypeError: a scalar where
+            # from_okf iterates/converts (e.g. `domains: 5`). Both verified
+            # live (PR #123 review).
             skipped.append((path.name, f"{type(exc).__name__}: {exc}"))
     if skipped:
         logger.warning(
