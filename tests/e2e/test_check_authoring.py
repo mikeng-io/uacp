@@ -114,6 +114,25 @@ def test_frozen_check_is_write_once(tmp_path):
     assert "error" in res and "write-once" in res["error"], res
 
 
+def test_frozen_check_write_once_anchors_on_watermark(tmp_path):
+    # #121 codex P1: the write-once compare anchors on the recorded WATERMARK, not the current
+    # on-disk bytes. An out-of-band tamper of the check file cannot be laundered by a matching
+    # re-write, and re-authoring the ORIGINAL frozen content stays allowed (idempotent/restore).
+    from config import base_dir
+
+    run_id = "uacp-wo-2"
+    _init(tmp_path, run_id)
+    fields = _field_equals_fields("wu-1", f"plans/{run_id}-d.yaml", "status", "ready")
+    first = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert first.get("ok") is True, first
+    chk = next((base_dir(tmp_path) / "verification").glob("*.yaml"))
+    chk.write_text(chk.read_text(encoding="utf-8") + "\n# tampered out-of-band\n", encoding="utf-8")
+    # original fields still hash to the watermark -> allowed (a byte-vs-disk compare would wrongly
+    # reject here, because the on-disk bytes were tampered).
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", fields, seq="1")
+    assert res.get("ok") is True, res
+
+
 def test_from_class_vocabulary_matches_the_floor():
     # The class enum is duplicated (schema leaf-copy vs verification_floor.CLASSES). Pin them equal
     # so the authoring vocabulary and the floor table cannot drift (slice 2 / node 34 L2).

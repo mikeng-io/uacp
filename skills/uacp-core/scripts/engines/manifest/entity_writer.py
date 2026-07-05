@@ -37,7 +37,12 @@ import yaml
 
 from config import base_dir
 from engines.domain import layout, schema
-from engines.domain.artifact_hashes import load_hash_index, record_hash, restore_hash_index
+from engines.domain.artifact_hashes import (
+    content_hash,
+    load_hash_index,
+    record_hash,
+    restore_hash_index,
+)
 from engines.manifest.governed_writers import _resolve_uacp_path, _write_uacp_file
 
 
@@ -183,19 +188,18 @@ def create_entity(
     # absent / deliberately-mismatched (tamper-signal) cases, never recomputed from the bytes.
     prior_index = load_hash_index(workspace, run_id)
     # WRITE-ONCE for frozen checks (#121): a uacp.check.* is frozen at authoring and replayed at the
-    # gate. Overwriting it (same path/seq) with CHANGED content before the transition weakens the
-    # check to force a pass — a gaming vector, the same class as the no-op-PASS fix. Reject a
-    # content-changing overwrite; an identical re-write is an idempotent no-op and allowed.
-    if (
-        kind.startswith("uacp.check.")
-        and existed_before
-        and prior_content is not None
-        and content != prior_content
-    ):
-        return _err(
-            f"frozen check {rel} is write-once (#121): its authored expectation cannot be "
-            "changed before the gate; author a new check instead"
-        )
+    # gate. Anchor on the RECORDED WATERMARK, not the current on-disk bytes — an out-of-band edit
+    # could tamper the file, so comparing bytes would let a tamper-then-matching-rewrite re-baseline
+    # the watermark and launder the change past AI_TAMPERED (codex P1). A new content whose hash
+    # differs from the frozen watermark is a content-changing overwrite (the gaming vector) and is
+    # rejected before persist; an identical re-write (hash == watermark) is an idempotent no-op.
+    if kind.startswith("uacp.check."):
+        frozen_mark = prior_index.get(rel)
+        if frozen_mark is not None and content_hash(content) != frozen_mark:
+            return _err(
+                f"frozen check {rel} is write-once (#121): its authored expectation cannot be "
+                "changed after freezing; author a new check instead"
+            )
     try:
         _write_uacp_file(target, content)
     except Exception as exc:
