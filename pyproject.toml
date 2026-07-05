@@ -17,9 +17,9 @@ version = "0.1.0"
 description = "Universal Agent Control Plane"
 requires-python = ">=3.10"
 dependencies = [
-    "pydantic>=2.0",
+    "pydantic>=2.13.4",
     "pyyaml",
-    "jsonschema>=4.0",  # uacp-schema: per-kind JSON-Schema (draft 2020-12) validation (D9/D10)
+    "jsonschema>=4.26.0",  # uacp-schema: per-kind JSON-Schema (draft 2020-12) validation (D9/D10)
 ]
 
 [project.optional-dependencies]
