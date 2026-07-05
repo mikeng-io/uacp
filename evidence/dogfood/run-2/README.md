@@ -22,10 +22,10 @@ Work product was a 1-line test comment, left uncommitted (no-commit rule) — **
 contains ZERO core code changes; it is state/evidence only.**
 
 ## Contents
-- `state/manifest.yaml` — the run manifest (state_history + 17 registered artifacts).
+- `state/manifest.yaml` — the run manifest (state_history + 16 registered artifacts).
 - `state/gate-ledger.jsonl` — 7 gate records, all pass (incl. `PLAN_VALIDATION` with `pv_1..pv_6` evidence + notes).
 - `state/hashes.json` — 19 governed-writer content hashes (the M3 independence proof).
-- `full-run-bundle.tar.gz` — the complete run (state + all 34 phase artifacts), preserved because the live `.uacp/` tree is gitignored/ephemeral.
+- `full-run-bundle.tar.gz` — the complete run: 25 files (19 phase artifacts under proposals/plans/executions/verification/resolutions + 6 state files) across 9 dirs, preserved because the live `.uacp/` tree is gitignored/ephemeral.
 
 ## Findings (board #7)
 Parent: **#112**. Findings: **#113** (F3 `uacp_run_registry_update` crashes on its own
