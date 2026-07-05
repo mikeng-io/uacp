@@ -54,10 +54,14 @@ who authorized it, what changes are in scope, and what side effects are declared
   (issue report, diagnosis, council dispatch, operator decisions)
   with timestamps and actors.
 - **Validator shape matters** — Proposal artifacts should include validator-required
-  fields (`phase: propose`, `triage_artifact`, `objective`, `scope.in_scope`,
+  fields (`title`, `phase: propose`, `triage_artifact`, `objective`, `scope.in_scope`,
   `scope.out_of_scope`, `declared_side_effects`, `authority.status`, and
   `human_involvement`) even when richer aliases such as
-  `originating_triage_artifact` are also present.
+  `originating_triage_artifact` are also present. `title` is REQUIRED by the `uacp.proposal`
+  schema — omitting it rejects the first governed write (#117). For the governed-writer
+  context envelope + param conventions (`policy_version` = `[guardian].schema_version`,
+  `authority_artifact`≡`declared_authority` alias), see `docs/runtime/runtime-enforcement.md`
+  → *Governed-writer call conventions* (#126).
 - **Write the proposal with `uacp_entity_write`** (`kind: uacp.proposal`) — the governed,
   registering manifest writer. **`scope.in_scope` items MUST be keyed objects `{id, statement}`**
   (e.g. `{id: si-1, statement: "..."}`), not bare strings: those ids are the graph's `scope_item`
@@ -184,7 +188,7 @@ the council are the separate authorities that confirm it.
 
 Preserve these concrete requirements when preparing PROPOSE→PLAN:
 - Proposal artifacts must include validator-required top-level fields:
-  `phase: propose`, `triage_artifact`, `objective`, `scope.in_scope`,
+  `title`, `phase: propose`, `triage_artifact`, `objective`, `scope.in_scope`,
   `scope.out_of_scope`, `declared_side_effects`, `authority.status` as
   `pass|warn|block`, and `human_involvement`.
 - Council synthesis artifacts must use canonical shape: `council_id`, `mode`,

@@ -159,6 +159,8 @@ Completion should produce execution evidence and, when council was used, a counc
 
 For non-trivial/governed EXECUTE work, do not treat `executions/{run_id}*.yaml` as sufficient just because a checkpoint exists. First locate the PLAN-authored PIV/evidence contract (for example `plans/{run_id}-piv.yaml` and/or `plans/{run_id}/piv-contract.md`). EXECUTE records against that contract: implementation units completed, decisions made, assumptions changed, drift/deviations, tests/probes run, invariants preserved, handled findings, and VERIFY handoff evidence.
 
+The `uacp.execution_checkpoint.invariants` field is an **object**, not a list — its keys are `authority`, `write_boundary`, `rollback`, and `privacy_preserved` (the four boundary judgments required by the offline validator `validate_uacp_artifacts.py`). The schema requires `invariants` to be an object at write time; supplying a list rejects the checkpoint (#118). For the governed-writer context envelope + param conventions, see `docs/runtime/runtime-enforcement.md` → *Governed-writer call conventions* (#126).
+
 If PLAN did not define a PIV/evidence contract but the work is medium/high consequence, governance/runtime/protected-state, public/private boundary, multi-agent, validator/Guardian/Heartgate, or profile/plugin work, record the gap and either backfill the contract before continuing or explicitly block/re-plan. Do not silently invent a one-off checkpoint schema and call it complete.
 
 A semantic execution package under `executions/{run_id}/` should explain why choices were made and how evidence maps to the plan/PIV; YAML remains the machine envelope. Avoid raw file lists as the primary record unless paired with rationale, decision, invariant, and evidence mapping.

@@ -127,7 +127,12 @@ Assemble the verification package; keep verified facts separate from assumptions
 
 Required machine artifacts when selected:
 - `verification/{run_id}-verify-selection.yaml` with `kind: uacp.verification_package`
-- `verification/{run_id}-piv-assessment.yaml` with `kind: uacp.piv_assessment` when EXECUTE used PIV
+- `verification/{run_id}-piv-assessment.yaml` with `kind: uacp.piv_assessment` when EXECUTE used PIV.
+  Each assessment's `evidence_refs` MUST be **graph node-ids** (e.g. `cp-1-wu-1` — work_unit /
+  checkpoint ids), NOT artifact paths: a path is rejected as `GP_PHANTOM_EDGE` (forged/dangling
+  reference). The gate is correct; the ref must name a node the graph already knows (#115). For the
+  governed-writer context envelope + param conventions, see
+  `docs/runtime/runtime-enforcement.md` → *Governed-writer call conventions* (#126).
 - `verification/{run_id}-resolve-readiness.yaml` with `kind: uacp.verify_resolve_readiness`
 
 Required semantic package under `verification/{run_id}/`:
