@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import dataclasses
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import yaml
@@ -199,7 +199,7 @@ def _parse_ts(value: str | int | float) -> datetime | None:
     # is an ISO string. Accept both so int-keyed runs are not silently dropped (#113).
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         try:
-            return datetime.fromtimestamp(value, tz=UTC)
+            return datetime.fromtimestamp(value, tz=timezone.utc)  # noqa: UP017 — requires-python floor is 3.10 (datetime.UTC is 3.11+)
         except (ValueError, OSError, OverflowError):
             return None
     try:
@@ -208,7 +208,7 @@ def _parse_ts(value: str | int | float) -> datetime | None:
         return None
     # Normalize to tz-aware UTC: a naive extracted_at is a permitted input, and the epoch
     # branch is always tz-aware — never mix naive/aware operands in comparisons (#113).
-    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)  # noqa: UP017
 
 
 def count_eligibility(lesson: Lesson, resolved_runs: list[dict]) -> tuple[int, int]:
