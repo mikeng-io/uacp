@@ -367,7 +367,7 @@ def main() -> int:
             # Assert [autonomy] section is present in the live uacp.toml instead.
             # escalations surface check stays (that path is independent of the deleted YAML).
             idx = (ROOT / "docs/INDEX.md").read_text()
-            has_escalations_in_idx = "state/escalations/" in idx
+            has_escalations_in_idx = ".uacp/state/escalations/" in idx
             has_autonomy_in_toml = "autonomy" in toml_data
             ok19 = has_escalations_in_idx and has_autonomy_in_toml
             report["checks"].append({

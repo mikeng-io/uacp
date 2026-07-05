@@ -318,6 +318,27 @@ The state mutation path must validate:
 - provenance is appended or referenced;
 - canonical docs/config are not mutated through the state path.
 
+### Writer-To-Path Map
+
+The authoritative mapping from each governed writer to the paths it may write (the mapping AGENTS.md Invariant #3 refers to). It is generated from the kernel — the tool registry (`skills/uacp-core/scripts/tool_specs.py`), the state-handler carve-outs (`skills/uacp-state/scripts/state.py`), the handler path validation (`skills/uacp-core/scripts/governed_handlers.py`), and the layout registry (`skills/uacp-core/scripts/engines/domain/layout.py`) — by `python3 scripts/gen_doc_tables.py --write`; the drift lint fails CI when this block and the kernel disagree. Paths shown under `.uacp/` follow the default `config/uacp.toml [paths]` names.
+
+<!-- BEGIN GENERATED: writer-path-map — derived from tool_specs.py + state.py carve-outs + governed_handlers.py path validation + engines/domain/layout.py by scripts/gen_doc_tables.py; do not edit by hand -->
+| Governed writer | Writes | Exclusivity / notes |
+|---|---|---|
+| `uacp_state_write` | `.uacp/state/**` | Generic state writer. Refuses the exclusive carve-outs below (`state/gate-ledger/`, `state/run-registry.yaml`, `state/escalations/`, `state/runs/`); writes to `state/current.yaml` are caller-bound (`active_run_id` must match the caller's `uacp_run_id`). |
+| `uacp_gate_ledger_append` | `.uacp/state/gate-ledger/{run_id}.jsonl` | Exclusive append-only ledger writer. |
+| `uacp_run_registry_update` | `.uacp/state/run-registry.yaml` | Exclusive registry mutator (`op=register`/`deregister`). |
+| `uacp_escalation_event` | `.uacp/state/escalations/{run_id}.jsonl` | Exclusive append-only escalation writer. |
+| `uacp_run_init`, `uacp_run_transition`, `uacp_run_register_artifact`, `uacp_run_finalize` | `.uacp/state/runs/{run_id}.yaml` | Exclusive owners of the run manifest (the uacp-state run-lifecycle operations). |
+| `uacp_entity_write` | RELATION-plane manifest kinds → `.uacp/brainstorm/`, `.uacp/executions/`, `.uacp/plans/`, `.uacp/proposals/`, `.uacp/resolutions/`, `.uacp/verification/` per the layout registry (`skills/uacp-core/scripts/engines/domain/layout.py`) | The ONLY writer for manifest documents: validates by `kind`, watermarks, and registers into the run manifest. |
+| `uacp_artifact_write` | `.uacp/brainstorm/`, `.uacp/executions/`, `.uacp/knowledge/`, `.uacp/lessons/`, `.uacp/plans/`, `.uacp/proposals/`, `.uacp/resolutions/`, `.uacp/verification/` | Non-manifest artifacts only; rejects `state/`, `docs/`, `config/` and any RELATION-plane manifest kind (use `uacp_entity_write`). |
+| `uacp_doc_write` | `docs/**` (`.md`; repo-root-relative, not under `.uacp/`) | Canonical docs boundary. |
+| `uacp_config_write` | `config/**` (`.yaml`/`.yml`; repo-root-relative, not under `.uacp/`) | Canonical config boundary. |
+| `uacp_contained_shell` | the declared execution workspace only | Contained shell surface (bwrap read-only root); mints state, not a namespace writer. |
+
+Read-only governed tools (no write path): `uacp_sandbox_check`, `uacp_heartgate_check`, `uacp_oracle_query`.
+<!-- END GENERATED: writer-path-map -->
+
 ## Audit
 
 Runtime audit has two layers:
