@@ -1,6 +1,16 @@
+---
+type: digest
+id: index
+title: UACP Knowledge
+description: "OKF bundle index for the .uacp/knowledge/ corpus — one entry per knowledge doc, with a one-line summary each."
+resource: .uacp/knowledge/
+tags: [index, knowledge, okf]
+timestamp: 2026-07-06
+---
+
 # UACP Knowledge
 
-This is the OKF bundle index for the `.uacp/knowledge/` directory — the single, unified knowledge corpus for UACP. Each `.md` file (except this index) carries Open Knowledge Format YAML frontmatter.
+This is the OKF bundle index for the `.uacp/knowledge/` directory — the single, unified knowledge corpus for UACP. Each `.md` file (including this index) carries Open Knowledge Format YAML frontmatter.
 
 Durable run-lessons, design rationale, patterns, and history. This corpus is Oracle-owned: it is the one knowledge home, consolidated here from the former `docs/knowledge/` and from the router-only docs that previously sat in `uacp-core/references/`.
 

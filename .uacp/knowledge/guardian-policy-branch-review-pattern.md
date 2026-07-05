@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: guardian-policy-branch-review-pattern
 title: Guardian Policy Branch Review Pattern
 description: "6-step pattern for reviewing UACP policy feature branches: isolate change, check defaults, verify containment enforcement, audit test coverage, require feature flag, council recommendation shape."
 tags: [guardian, policy, branch-review, testing]

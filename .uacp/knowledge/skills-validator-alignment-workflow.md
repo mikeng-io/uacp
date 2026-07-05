@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: skills-validator-alignment-workflow
 title: Skills and Artifact Validator Alignment Workflow
 description: "7 trigger categories, 5-phase alignment workflow, validator scope minimum, canonical finding-state list, EDR `not_runtime_active` check, 4 pitfalls."
 tags: [skills, validators, alignment, workflow]

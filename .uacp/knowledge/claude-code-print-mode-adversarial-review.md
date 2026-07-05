@@ -1,5 +1,6 @@
 ---
 type: pattern
+id: claude-code-print-mode-adversarial-review
 title: Claude Code Print-Mode Adversarial Review
 description: "3-line recipe: pipe design docs into `claude -p --effort high --max-turns 1` for adversarial architecture/security review."
 tags: [claude-code, review, adversarial, security]

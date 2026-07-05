@@ -1,5 +1,6 @@
 ---
-type: lessons
+type: analysis
+id: filesystem-containment-phase-lessons
 title: Filesystem Containment Phase Lessons
 description: Evidence-vs-execution distinction, boundary-correction principle, bwrap design, write-probe requirement, Heartgate YAML shape, and 10-step phase-start sequence for filesystem containment phases.
 tags: [filesystem, containment, security, heartgate]

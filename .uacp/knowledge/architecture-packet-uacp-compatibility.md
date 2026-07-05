@@ -1,5 +1,6 @@
 ---
 type: analysis
+id: architecture-packet-uacp-compatibility
 title: Architecture Packet UACP-Compatibility Pattern
 description: How to classify existing architecture/design packets and decide whether they need full UACP lifecycle machinery
 tags: [architecture, classification, lifecycle, compatibility]
