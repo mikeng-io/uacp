@@ -54,17 +54,25 @@ The canonical inventory of UACP-owned files outside `docs/`. Every file here MUS
 | `config/review-routing.yaml` | schema_config | canonical | Review-routing rules consumed by uacp-triage skill (council tier selection) | Update on routing-rule change |
 | `config/uacp.toml` (`[runtime_bindings]`) | schema_config | canonical | Runtime-adapter binding declarations (which adapter handles which Guardian/Heartgate event class) — collapsed from legacy runtime-bindings.yaml in Slice 3 | Update on new runtime-adapter binding |
 | `config/uacp.toml` (`[version_control]`) | schema_config | canonical | UACP repository, branch/worktree, remote-backup, and commit-boundary policy — collapsed from legacy version-control.yaml in Slice 3 | Keep aligned with runtime-porting policy and state/version-control docs |
-| `state/` | runtime_state | canonical | Mutable run state layer | Mutate through governed writers only |
-| `state/current.yaml` | runtime_state | canonical | Active-run pointer (caller-bound) | Mutate through `uacp_state_write` with caller binding |
-| `state/kanban.yaml` | runtime_state | canonical | Active coordination-adapter binding | Update when board slug changes |
-| `state/runs/` | runtime_state | canonical | Per-run manifests + checkpoint records | Append-only; do not overwrite |
-| `state/gate-ledger/` | runtime_state | canonical | Append-only JSONL ledger per run | Written exclusively through `uacp_gate_ledger_append` |
+| `.uacp/` | runtime_state | canonical | Governed namespace root (`config/uacp.toml [paths] base`); runtime-created — missing in a fresh clone means "no active run" | Mutate through governed writers only |
+| `.uacp/state/` | runtime_state | canonical | Mutable run state layer | Mutate through governed writers only |
+| `.uacp/state/current.yaml` | runtime_state | canonical | Active-run pointer (caller-bound) | Mutate through `uacp_state_write` with caller binding |
+| `.uacp/state/kanban.yaml` | runtime_state | canonical | Active coordination-adapter binding | Update when board slug changes; no dedicated writer — mutated via the generic `uacp_state_write` |
+| `.uacp/state/runs/` | runtime_state | canonical | Per-run manifests + checkpoint records | Append-only; exclusive owners: the `uacp_run_*` lifecycle writers |
 | `docs/guides/` | documentation | explanatory | Human/agent reading paths for cross-cutting topics | Guides explain and route; they do not own canonical rules |
-| `state/run-registry.yaml` | runtime_state | canonical | Phase 3.2 active-run registry | Exclusive mutator: `uacp_run_registry_update` |
-| `state/escalations/` | runtime_state | canonical | Phase 4.4 stub: append-only JSONL per run | Exclusive writer: `uacp_escalation_event`. Operator-polls; push-notify is Phase 5. |
+| `.uacp/state/gate-ledger/` | runtime_state | canonical | Append-only JSONL ledger per run | Written exclusively through `uacp_gate_ledger_append` |
+| `.uacp/state/run-registry.yaml` | runtime_state | canonical | Phase 3.2 active-run registry | Exclusive mutator: `uacp_run_registry_update` |
+| `.uacp/state/escalations/` | runtime_state | canonical | Phase 4.4 stub: append-only JSONL per run | Exclusive writer: `uacp_escalation_event`. Operator-polls; push-notify is Phase 5. |
 | `runtime-adapters/` | runtime_adapter_source | canonical | UACP-owned runtime adapter / plugin source | Source changes require binding verification + rollback evidence |
 | `scripts/` | verification_tooling | canonical | Phase verify (`phase{0..4}_verify.py`) + live probe scripts that lock in propagated-constraint remediations as machine-checked invariants | Every fail-closed kernel branch needs a paired check |
-| `plans/`, `proposals/`, `executions/`, `verification/`, `.outputs/`, `knowledge/` | run_artifact_roots | canonical | Per-run lifecycle artifact directories | Append-only per-run state; do not overwrite historical |
+| `.uacp/plans/`, `.uacp/proposals/`, `.uacp/executions/`, `.uacp/verification/`, `.uacp/resolutions/`, `.uacp/knowledge/`, `.uacp/lessons/`, `.uacp/brainstorm/` | run_artifact_roots | canonical | Per-run lifecycle artifact directories (`config/uacp.toml [paths]`; `resolutions/` replaces the old `.outputs/`) | Append-only per-run state; do not overwrite historical |
+| `UACP.md` | entry_point | canonical | The injected cognition preamble (comprehend → measure → serialize) named by AGENTS.md | Update when the core principle changes |
+| `skills/` | skill_source | canonical | Authority Layer 5 — the `skills/uacp-*` governed family implementing the documented rules | Changes follow the skill convention ([ADR-0017](architecture/0017-skill-authoring-convention.md)) |
+| `codeflair/` | witness_source | canonical | Deterministic code-plane witness; the cascade-witness gate execs it via `config/uacp.toml [witness] codeflair_cli` (unconfigured → inert) | Source changes require witness parity evidence |
+| `config/verification-floor.yaml` | schema_config | canonical | Verification-floor policy consumed by `engines/domain/verification_floor.py` | Update on floor-policy change |
+| `design/` | design_source | explanatory | Decomposed design bundles (one topic per directory) — pre-build rationale, not canonical policy | Design-convention lint enforced (`design_lint.py`) |
+| `tests/` | verification_tooling | canonical | Unit/integration/e2e/acceptance suites — the final arbiter for kernel behavior | Every fail-closed kernel branch needs a paired test |
+| `acceptance/` | verification_tooling | canonical | Containerized plugin-conformance harness (`make acceptance`) | Update when the plugin surface changes |
 
 ## Read-order for most work
 
