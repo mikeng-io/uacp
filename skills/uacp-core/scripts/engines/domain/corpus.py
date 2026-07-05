@@ -203,9 +203,12 @@ def _parse_ts(value: str | int | float) -> datetime | None:
         except (ValueError, OSError, OverflowError):
             return None
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except (ValueError, TypeError):
         return None
+    # Normalize to tz-aware UTC: a naive extracted_at is a permitted input, and the epoch
+    # branch is always tz-aware — never mix naive/aware operands in comparisons (#113).
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=UTC)
 
 
 def count_eligibility(lesson: Lesson, resolved_runs: list[dict]) -> tuple[int, int]:

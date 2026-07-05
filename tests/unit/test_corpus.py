@@ -218,6 +218,18 @@ def test_eligibility_handles_epoch_int_started_at():
     assert recurrences == 0
 
 
+def test_eligibility_naive_extracted_at_with_epoch_started():
+    # extracted_at without a UTC offset is a permitted input; comparing it against an
+    # epoch-int (tz-aware) started_at must not raise a naive/aware TypeError (#113).
+    md = _lesson_md().replace("2026-05-14T00:00:00+00:00", "2026-05-14T00:00:00")
+    lesson = Lesson.from_okf(md)
+    later_epoch = int(datetime(2026, 6, 1, tzinfo=timezone.utc).timestamp())
+    runs = [_run("int-started", later_epoch, ["kanban"])]
+    eligible, recurrences = count_eligibility(lesson, runs)
+    assert eligible == 1
+    assert recurrences == 0
+
+
 def test_recurrence_requires_both_invariant_and_domain():
     lesson = Lesson.from_okf(_lesson_md())
     runs = [
