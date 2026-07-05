@@ -1,0 +1,94 @@
+session_id: acrs-20260628
+run_id: acrs-20260628
+timestamp: '2026-06-28T11:50:00Z'
+source_vault: .uacp/brainstorm/acrs-20260628/
+title: 'Artifact content/relation model: Markdown=semantic, YAML=relations+anchors'
+description: 'Define the canonical UACP artifact model where Markdown carries semantic
+  content (intent, scope statements, authority rationale, risk/containment/verification
+  analysis) and YAML carries relations (ids, derives_from/measured_by edges, deterministic
+  scalars) plus an anchor linking each relation-node to its Markdown content home.
+  Retarget field_present to bind to anchored MD sections so the gate measures the
+  surface council actually reviews. Deliver as an additive ratchet (anchors + new
+  binding mode added; legacy YAML prose stays optional), not a hard cutover. This
+  is a DESIGN-track run whose output is a decomposed design bundle under design/artifact-content-relation/,
+  not the implementation. The evidence_disposition writer bug (Codex #4 on PR #68)
+  is folded in as the first concrete instance of the boundary violation.'
+in_scope:
+- Canonical content(MD)-vs-relations(YAML) split, stated as a rule per artifact kind
+- 'The anchor primitive (YAML relation-node -> MD section): schema + projection support'
+- 'field_present retarget: bind to an anchored MD section (presence + non-empty)'
+- Additive-ratchet migration strategy (legacy YAML prose optional; no eager run migration)
+- 'Resolve the open question: do heartgate/adaptive_gates read scope content or only
+  structure'
+- The post-council artifact-update contract (interim dual-surface + end-state single-source)
+- 'evidence_disposition as the first concrete fix: relations (cluster, half) become
+  typed YAML relations/anchors not hyphenated filename segments; corrects the left|right
+  doc fiction shipped in main (PR #68) AND the unwriteable verified-facts half (NOT
+  via a sanitizer patch)'
+out_of_scope:
+- The actual build/implementation (a later EXECUTE run)
+- Hard cutover; eager migration of in-flight on-disk runs
+- Changing the council/gate authority model (semantic=council, relational=gate stays)
+- A standalone sanitizer patch for evidence_disposition (would reinforce the model
+  being replaced)
+- The separate runtime gaps surfaced (handle_init not exposed as a governed tool)
+  — noted, filed separately
+declared_side_effects:
+- Will produce a design bundle under design/artifact-content-relation/ (decomposed
+  facet nodes + _index)
+- No kernel/schema/skill code changes in this design-track run; build is a later run
+- 'The misleading half:left|right doc line stays in main until the redesign lands
+  (operator decision: fold into redesign)'
+authority:
+  source: User request via uacp-brainstorm (operator mike, 2026-06-28)
+  approved_by:
+  - mike
+routing_advisory: full_governance
+approach_id: B
+signals:
+  artifact_type: docs
+  domains:
+  - governance
+  - lifecycle-semantics
+  - artifact-schema
+  - runtime
+  concerns:
+  - projection.py
+  - schema.py
+  - check kinds
+  - entity_writer ctx sanitizer
+  - evidence_disposition
+  - lifecycle skills
+  - test suite
+  - on-disk run migration
+  constraints:
+  - additive ratchet only
+  - design bundle output (not implementation)
+  - council-required with cross-provider reviewer
+governance_reasoning: 'Touches kernel projection + check engine + schema + entity-writer
+  + every lifecycle skill (Invariant #4 council-required). High consequence. Decomposed
+  design bundle per UACP design convention.'
+anticipated_phases:
+- triage
+- propose
+- plan
+- execute
+- verify
+- resolve
+human_involvement:
+  required: true
+  reason: Architecture decision on the canonical artifact model; council + operator
+    sign-off before build
+risks:
+- description: Blast radius underestimated if heartgate/adaptive_gates read scope
+    content (not just structure) — must resolve early
+  severity: medium
+- description: Anchor model could re-introduce a different drift (anchor points at
+    stale/missing MD section) — design must make anchor resolution a checked relation
+  severity: medium
+- description: left|right doc fiction remains live in main until redesign lands; agents
+    may be misled in the interim
+  severity: medium
+- description: Scope creep from design into premature build; keep this run design-only
+  severity: low
+kind: uacp.brainstorm_scope_package

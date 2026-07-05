@@ -23,3 +23,8 @@ class Scope(BaseModel):
     write_paths: Any = None
     blast_radius: str | None = None
     rollback_path: str | None = None
+    # Optional scope-witness claim (#85): the declared {file, name} touch-set the
+    # cascade-witness gate derives an independent account against. Any-typed here
+    # (this is a defensive READ model): the engine defends against a hand-tampered
+    # shape even though the write-time schema constrains it.
+    code_refs: Any = None

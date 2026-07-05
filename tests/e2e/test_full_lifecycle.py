@@ -264,15 +264,85 @@ def _seed_verify_assessment(root: Path, run_id: str) -> None:
         yaml.safe_dump(
             {
                 "kind": "uacp.piv_assessment",
+                "phase": "verify",
                 "run_id": run_id,
+                "piv_contract": f"plans/{run_id}-piv.yaml",
+                "overall_status": "pass",
                 "assessments": [
-                    {"id": "as-1", "obligation_id": "ob-1", "work_unit_id": "wu-1", "state": "pass"}
+                    {
+                        "id": "as-1",
+                        "obligation_id": "ob-1",
+                        "work_unit_id": "wu-1",
+                        "state": "pass",
+                        # evidence_refs must name a projected NODE (the checkpoint's
+                        # checkpoint_id), never a path — a path is GP_PHANTOM_EDGE.
+                        "evidence_refs": [f"{run_id}-cp-001"],
+                    }
                 ],
             },
             sort_keys=False,
         )
     )
     _register(root, run_id, "assessment", assessment_rel)
+
+    # PR #96 P1 (forced verify evidence): the live path now forces the adaptive
+    # VERIFY evidence gate on governed runs (self-gated on registered
+    # checkpoints), so the canonical flow authors the verification package —
+    # verify-selection + resolve-readiness + the package dir — exactly as the
+    # documented VERIFY sequence (tool_specs kinds uacp.verification_package /
+    # uacp.verify_resolve_readiness) prescribes.
+    selection_rel = f"verification/{run_id}-verify-selection.yaml"
+    readiness_rel = f"verification/{run_id}-resolve-readiness.yaml"
+    (root / ".uacp" / "verification" / run_id).mkdir(parents=True, exist_ok=True)
+    (root / ".uacp" / selection_rel).write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.verification_package",
+                "phase": "verify",
+                "run_id": run_id,
+                "verified_facts": [
+                    {"id": "vf-1", "statement": "wu-1 verified", "evidence": "executions"}
+                ],
+                "assumptions": [],
+                "deferred_items": [],
+                "warnings": [],
+                "blockers": [],
+                "findings_dispositions": [],
+                "resolve_readiness": "ready",
+                "semantic_package": {"summary": "verification of wu-1"},
+            },
+            sort_keys=False,
+        )
+    )
+    (root / ".uacp" / readiness_rel).write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.verify_resolve_readiness",
+                "phase": "verify",
+                "run_id": run_id,
+                "ready_for_resolve": True,
+                "overall_status": "pass",
+                "verification_package": selection_rel,
+                "verified_facts_summary": "1 verified fact, 0 assumptions",
+                "piv_summary": {
+                    "artifact": f"verification/{run_id}-piv-assessment.yaml",
+                    "status": "pass",
+                },
+                "evidence_cluster_summary": [{"cluster": "scope", "state": "pass"}],
+                "residual_risks": [],
+                "open_assumptions": [],
+                "deferred_items": [],
+                "blockers": [],
+                "heartgate_coherence_status": "pass",
+                "self_approval_guard": {"status": "pass", "reviewed_by": "operator"},
+                "decision_rationale": "all obligations pass",
+                "accepted_by": "operator",
+            },
+            sort_keys=False,
+        )
+    )
+    _register(root, run_id, "verification_package", selection_rel)
+    _register(root, run_id, "resolve_readiness", readiness_rel)
 
 
 # Per-(from,to) real-evidence seeding the kernel's adaptive gates REQUIRE — not
@@ -296,6 +366,32 @@ _SEEDERS = {
     # finds wu-1 verified (the registered coverage chain is now complete).
     ("verify", "resolved"): _seed_verify_assessment,
 }
+
+
+def transition_artifact(frm: str, to: str, run_id: str) -> dict:
+    """The transition artifact the agent-path ``validate_transition`` checks.
+
+    The ``verify->resolved`` edge fires the evidence-disposition gate (BREAK-2b keys
+    it on the GOVERNED edge, which the state machine records as ``verify->resolved``).
+    A trivial harness run has no verification clusters, so it declares that via the
+    documented ``handled_findings_chain`` escape hatch — the gate's own sanctioned way
+    to cross VERIFY->RESOLVE(D) with zero clusters (silent zero-cluster passage is a
+    block). Shared by test_full_lifecycle and test_coherence.drive_happy_path so the
+    happy path stays in lockstep."""
+    artifact = {
+        "from_phase": frm,
+        "to_phase": to,
+        "run_id": run_id,
+        "artifact_path": "plans/test.yaml",
+    }
+    if (frm, to) == ("verify", "resolved"):
+        artifact["handled_findings_chain"] = [
+            {
+                "original_finding_id": "none",
+                "handling_classification": "no_verification_clusters",
+            }
+        ]
+    return artifact
 
 
 def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str):
@@ -337,14 +433,7 @@ def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str
         if seeder := _SEEDERS.get((frm, to)):
             seeder(temp_uacp_root, valid_run_id)
 
-        hg = heartgate.validate_transition(
-            {
-                "from_phase": frm,
-                "to_phase": to,
-                "run_id": valid_run_id,
-                "artifact_path": "plans/test.yaml",
-            }
-        )
+        hg = heartgate.validate_transition(transition_artifact(frm, to, valid_run_id))
         assert hg.decision == "pass", f"Heartgate blocked legit {frm}->{to}: {hg.blockers}"
 
         tr = d.call(
@@ -413,10 +502,71 @@ def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str
     transitions = [h for h in manifest["state_history"] if h["event"] == "phase_transition"]
     assert [(h["from_phase"], h["to_phase"]) for h in transitions] == PHASES
 
-    ledger_lines = (
-        (temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl")
-        .read_text()
-        .strip()
-        .split("\n")
+    gates = [
+        json.loads(ln)["gate"]
+        for ln in (
+            (temp_uacp_root / ".uacp" / "state" / "gate-ledger" / f"{valid_run_id}.jsonl")
+            .read_text()
+            .strip()
+            .split("\n")
+        )
+    ]
+    # Each phase's FROM->TO gate appears exactly once: the harness hand-authors it
+    # AND handle_transition auto-emits it, but the auto-emit is IDEMPOTENT (BREAK-3),
+    # so no duplicate. The triage exit additionally auto-emits TRIAGE_COMPLETE.
+    for frm, to in PHASES:
+        assert gates.count(f"{frm.upper()}->{to.upper()}") == 1, gates
+    assert gates.count("TRIAGE_COMPLETE") == 1, gates
+    assert len(gates) == len(PHASES) + 1, gates
+
+
+def test_forced_verify_evidence_blocks_governed_run_missing_readiness(
+    temp_uacp_root: Path, valid_run_id: str
+):
+    """PR #96 P1 teeth: a GOVERNED run (checkpoint registered) whose
+    resolve-readiness is absent is BLOCKED at verify->resolved on the LIVE path
+    (the forced scope-minimal precondition); a bare run (no checkpoints) is
+    untouched — no ripple."""
+    # Drive the canonical flow to the verify phase.
+    init = json.loads(
+        state_machine.handle_init(
+            {"workspace": str(temp_uacp_root), "run_id": valid_run_id, "source": "operator-request"}
+        )
     )
-    assert len(ledger_lines) == len(PHASES)
+    assert init.get("ok") is True, init
+    for frm, to in PHASES:
+        if (frm, to) == ("verify", "resolved"):
+            break
+        if seeder := _SEEDERS.get((frm, to)):
+            seeder(temp_uacp_root, valid_run_id)
+        tr = json.loads(
+            state_machine.handle_transition(
+                {
+                    "workspace": str(temp_uacp_root),
+                    "run_id": valid_run_id,
+                    "from_phase": frm,
+                    "to_phase": to,
+                }
+            )
+        )
+        assert tr.get("ok") is True, (frm, to, tr)
+
+    # Seed the verify evidence, then REMOVE the readiness half — the forced
+    # scope-minimal gate must block the live crossing.
+    _seed_verify_assessment(temp_uacp_root, valid_run_id)
+    readiness = temp_uacp_root / ".uacp" / "verification" / f"{valid_run_id}-resolve-readiness.yaml"
+    assert readiness.exists()
+    readiness.unlink()
+
+    out = json.loads(
+        state_machine.handle_transition(
+            {
+                "workspace": str(temp_uacp_root),
+                "run_id": valid_run_id,
+                "from_phase": "verify",
+                "to_phase": "resolved",
+            }
+        )
+    )
+    assert out.get("ok") is not True, out
+    assert any("resolve-readiness" in b for b in out.get("blockers", [])), out

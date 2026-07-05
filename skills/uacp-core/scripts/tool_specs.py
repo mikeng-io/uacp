@@ -156,7 +156,7 @@ def _entity_write_schema() -> dict[str, Any]:
                     "Per-kind path placeholders. Required for multi-instance kinds: "
                     "uacp.check.* (all sub-kinds), uacp.execution_checkpoint, and uacp.investigation_entry "
                     "each require {\"seq\": \"N\"} (1-based counter); "
-                    "uacp.evidence_disposition requires {\"cluster\": \"<id>\", \"half\": \"<left|right>\"} "
+                    "uacp.evidence_disposition requires {\"cluster\": \"<id>\", \"half\": \"<verified-facts|assumptions>\"} "
                     "(template verification/{run_id}-{cluster}-{half}.md). "
                     "Omitting a required placeholder is an error that names the missing key."
                 ),
@@ -608,8 +608,8 @@ def tool_specs() -> list[ToolSpec]:
                 "Execute a locked phase transition for the active run. "
                 "Enforces UACP context fields and requires reason + authority_artifact + from_phase + to_phase. "
                 "The state machine validates the canonical phase graph, checks manifest.current_phase matches "
-                "from_phase, and runs phase-exit structural gates (graph invariants, proposal coverage, "
-                "execute evidence preconditions) before advancing."
+                "from_phase, and runs phase-exit structural gates (brainstorm admission contract, graph "
+                "invariants, proposal coverage, execute evidence preconditions) before advancing."
             ),
             input_schema={
                 "type": "object",
@@ -626,8 +626,9 @@ def tool_specs() -> list[ToolSpec]:
                         "description": (
                             "Target phase. Must be an allowed transition from from_phase "
                             "per the canonical phase graph (config/phase-transitions.yaml). "
-                            "Phase-exit structural gates (graph invariants, forced execute evidence, "
-                            "forced proposal coverage) run BEFORE the transition is committed."
+                            "Phase-exit structural gates (forced brainstorm admission contract, graph "
+                            "invariants, forced execute evidence, forced proposal coverage) run BEFORE "
+                            "the transition is committed."
                         ),
                     },
                     "reason": {"type": "string"},

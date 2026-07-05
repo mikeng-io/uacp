@@ -105,3 +105,48 @@ def test_heartgate_tool_path_capabilities_wrapper_present(tmp_path):
     gate = core.Heartgate({}, uacp_root=tmp_path)
     assert callable(getattr(gate, "_tool_path_capabilities", None))
     assert isinstance(gate._tool_path_capabilities(), dict)
+
+
+def test_phase_exit_warn_severity_graph_violations_surface_as_warnings(monkeypatch, tmp_path):
+    """PR #94 post-merge review: warn-severity graph-invariant violations (e.g. the
+    plan_exit cascade forecast) must SURFACE as transition warnings, not be
+    computed-then-discarded; block-severity still blocks."""
+    from engines.base import Violation
+    from engines.heartgate.validators import phase_exit as pe
+
+    monkeypatch.setattr(
+        pe,
+        "validate_graph_invariants",
+        lambda root, run_id, scope: [
+            Violation(code="SC_PLAN_CASCADE_FORECAST", severity="warn", message="advisory"),
+            Violation(code="GP_UNCOVERED", severity="block", message="hard"),
+        ],
+    )
+    blockers: list[str] = []
+    warnings: list[str] = []
+    pe.validate_phase_exit_invariants(
+        {"from_phase": "plan", "run_id": "r1"},
+        stages={
+            "plan": {"phase_exit_invariants": [{"required": True, "graph_invariant": "plan_exit"}]}
+        },
+        uacp_root=tmp_path,
+        governed_root=tmp_path,
+        blockers=blockers,
+        warnings=warnings,
+    )
+    assert any("GP_UNCOVERED" in b for b in blockers), blockers
+    assert any("SC_PLAN_CASCADE_FORECAST" in w for w in warnings), warnings
+    assert not any("SC_PLAN_CASCADE_FORECAST" in b for b in blockers), blockers
+
+    # Back-compat: warnings omitted -> advisory silently dropped (old call shape still works).
+    blockers2: list[str] = []
+    pe.validate_phase_exit_invariants(
+        {"from_phase": "plan", "run_id": "r1"},
+        stages={
+            "plan": {"phase_exit_invariants": [{"required": True, "graph_invariant": "plan_exit"}]}
+        },
+        uacp_root=tmp_path,
+        governed_root=tmp_path,
+        blockers=blockers2,
+    )
+    assert any("GP_UNCOVERED" in b for b in blockers2)
