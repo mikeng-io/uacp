@@ -132,6 +132,40 @@ def _state_carveouts() -> None:
         _require(src, pattern, what, "skills/uacp-state/scripts/state.py")
 
 
+def _secondary_writes() -> None:
+    """Assert every SECONDARY write the table documents still exists in source
+    (Codex P2, PR #124: under-reporting in a CI-blessed authoritative map is
+    worse than absence — enforcement/docs consuming the table would believe
+    those state paths are exclusive to other writers)."""
+    sm = (_STATE / "state_machine.py").read_text()
+    _require(
+        sm,
+        r"# Create current\.yaml pointer if none exists",
+        "run_init pointer seeding",
+        "skills/uacp-state/scripts/state_machine.py",
+    )
+    _require(
+        sm,
+        r"emit the canonical FROM->TO gate-ledger record",
+        "transition-emitted canonical ledger records",
+        "skills/uacp-state/scripts/state_machine.py",
+    )
+    gh_src = (_CORE / "governed_handlers.py").read_text()
+    _require(
+        gh_src,
+        r"from engines\.domain\.artifact_hashes import record_hash",
+        "artifact-write watermark recording",
+        "governed_handlers.py",
+    )
+    ew = (_CORE / "engines" / "manifest" / "entity_writer.py").read_text()
+    _require(
+        ew,
+        r"from engines\.domain\.artifact_hashes import .*record_hash",
+        "entity-write watermark recording",
+        "engines/manifest/entity_writer.py",
+    )
+
+
 def _template(kind: str, base: str) -> str:
     tmpl = layout.template(kind)
     if tmpl is None:
@@ -166,6 +200,7 @@ def writer_path_table(base: str | None = None) -> str:
     if base is None:
         base = _default_base()
     _state_carveouts()
+    _secondary_writes()
     artifact_roots = _artifact_roots()
     doc_suffixes = "/".join(f"`{s}`" for s in _canonical_boundary("docs"))
     config_suffixes = "/".join(f"`{s}`" for s in _canonical_boundary("config"))
@@ -212,21 +247,28 @@ def writer_path_table(base: str | None = None) -> str:
         ),
         row(
             run_lifecycle,
-            f"`{_template('uacp.run_manifest', base)}`",
-            "Exclusive owners of the run manifest (the uacp-state run-lifecycle operations).",
+            f"`{_template('uacp.run_manifest', base)}` "
+            f"+ `{base}/state/current.yaml` (seeded by `uacp_run_init` when absent) "
+            f"+ `{_template('uacp.gate_ledger', base)}` (canonical `FROM->TO`/"
+            "`TRIAGE_COMPLETE` records emitted by `uacp_run_transition`)",
+            "Exclusive owners of the run manifest (the uacp-state run-lifecycle "
+            "operations). The pointer seed and canonical ledger emits are "
+            "SECONDARY writes: the manifest is the primary surface.",
         ),
         row(
             ["uacp_entity_write"],
             f"RELATION-plane manifest kinds → {relation_dirs} per the layout "
             "registry (`skills/uacp-core/scripts/engines/domain/layout.py`)",
             "The ONLY writer for manifest documents: validates by `kind`, "
-            "watermarks, and registers into the run manifest.",
+            f"records watermarks under `{base}/state/hashes/`, and registers "
+            f"the entity into the run manifest (`{_template('uacp.run_manifest', base)}`).",
         ),
         row(
             ["uacp_artifact_write"],
             artifact_cell,
             "Non-manifest artifacts only; rejects `state/`, `docs/`, `config/` "
-            "and any RELATION-plane manifest kind (use `uacp_entity_write`).",
+            "and any RELATION-plane manifest kind (use `uacp_entity_write`). "
+            f"Records watermarks under `{base}/state/hashes/`.",
         ),
         row(
             ["uacp_doc_write"],
