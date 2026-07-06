@@ -451,19 +451,21 @@ def test_pointer_released_after_commit_not_stranded_on_commit_failure(temp_uacp_
     assert yaml.safe_load(current.read_text())["active_run_id"] == run_id
 
 
-def test_ledger_only_partial_write_recovery_reuses_recorded_disposition(
+def test_partial_write_then_advance_records_actual_phase_and_disposition(
     temp_uacp_root, monkeypatch
 ):
-    """#132 round-4 (Codex P2): if the ABORT ledger line is written but the manifest
-    commit fails, a later retry with a DIFFERENT disposition must NOT diverge the
-    ledger from the manifest — it reuses the RECORDED disposition."""
+    """#132 round-4/5 (Codex P2): after a ledger-only partial write (ABORT marker
+    written, commit failed) the run is still active and may ADVANCE. A later abort
+    must record the ACTUAL abort point + this call's disposition — never the STALE
+    metadata of the orphaned partial-write line — and the minimal ABORT ledger marker
+    carries no disposition to diverge from the manifest."""
     root = temp_uacp_root
     run_id = _init(root)
 
     def _fail_commit(*_a, **_k):
         raise RuntimeError("commit boom")
 
-    # First abort: ledger line lands, then the commit fails -> run stays active.
+    # Partial abort at triage: the minimal ABORT marker lands, then the commit fails.
     monkeypatch.setattr("state_machine._save_manifest", _fail_commit)
     first = json.loads(
         handle_abort(
@@ -472,18 +474,44 @@ def test_ledger_only_partial_write_recovery_reuses_recorded_disposition(
     )
     assert "error" in first, first
     assert _manifest(root, run_id)["status"] == "active"
-    assert _ledger_gates(root, run_id).count("ABORT") == 1  # ledger line written
+    assert _ledger_gates(root, run_id).count("ABORT") == 1
 
-    # Recover: restore commit, retry with a DIFFERENT disposition.
+    # Restore commit; the still-active run advances to a LATER phase.
     monkeypatch.undo()
+    tr = json.loads(
+        handle_transition(
+            {
+                "workspace": str(root),
+                "run_id": run_id,
+                "from_phase": "triage",
+                "to_phase": "propose",
+            }
+        )
+    )
+    assert tr.get("ok") is True, tr
+
+    # Abort at propose with a different disposition.
     second = json.loads(
         handle_abort(
             {"workspace": str(root), "run_id": run_id, "reason": "y", "disposition": "blocked"}
         )
     )
     assert second.get("ok") is True, second
-    # The committed disposition matches the LEDGER's original ('superseded'), not the
-    # retry's ('blocked'); still exactly one ABORT record.
-    assert second["disposition"] == "superseded"
-    assert _manifest(root, run_id)["abort"]["disposition"] == "superseded"
+    # Records the ACTUAL phase (propose) + THIS call's disposition (blocked), not the
+    # stale triage/superseded from the orphaned partial-write ledger line.
+    assert second["phase_at_abort"] == "propose"
+    assert second["disposition"] == "blocked"
+    m = _manifest(root, run_id)
+    assert m["abort"]["phase_at_abort"] == "propose"
+    assert m["abort"]["disposition"] == "blocked"
+    # Still exactly one ABORT ledger marker, and it carries NO disposition/phase.
     assert _ledger_gates(root, run_id).count("ABORT") == 1
+    ledger_lines = [
+        json.loads(line)
+        for line in (root / ".uacp" / "state" / "gate-ledger" / f"{run_id}.jsonl")
+        .read_text()
+        .splitlines()
+        if line.strip()
+    ]
+    abort_rec = next(r for r in ledger_lines if r["gate"] == "ABORT")
+    assert "disposition" not in abort_rec and "phase_at_abort" not in abort_rec

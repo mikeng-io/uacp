@@ -987,24 +987,22 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
 
             _assert_registry_readable(workspace)
 
-            # 1) Record the ABORT gate-ledger entry (fail-closed, pre-commit). 'ABORT'
-            # is not a FROM->TO gate, so coherence C2 (which pairs only phase-transition
-            # edges) never counts it as an orphan. RECOVERY (Codex #132): if an ABORT
-            # line already exists (a prior attempt wrote the ledger then failed before
-            # committing the manifest), REUSE its recorded disposition/phase for this
-            # commit instead of the retry's args — so the ledger and the manifest can
-            # never diverge for the same abort event.
+            # 1) Record a MINIMAL, disposition-free ABORT gate-ledger marker
+            # (fail-closed, pre-commit). The authoritative disposition / phase_at_abort
+            # / reason live ONLY in manifest.abort (typed, committed atomically with the
+            # status flip in step 2). Keeping them OUT of the ledger removes any
+            # ledger-vs-manifest divergence AND the fragile "reuse the recorded
+            # metadata" recovery it forced (Codex #132 r4/r5: reusing a prior ABORT line
+            # could stamp a STALE phase after the still-active run advanced, and could
+            # trust a non-pass/forged ABORT line). 'ABORT' is not a FROM->TO gate, so
+            # coherence C2 never counts it as an orphan. Idempotent via passing_only: a
+            # partial-write retry (ABORT already recorded) skips re-appending; a non-pass
+            # ABORT line does NOT suppress the real one; the manifest commit below
+            # records the ACTUAL current phase + this call's disposition.
             try:
-                from state import (
-                    _append_gate_ledger_record,
-                    _read_gate_ledger_record,
-                )
+                from state import _append_gate_ledger_record, _existing_gate_ledger_gates
 
-                existing_abort = _read_gate_ledger_record(workspace, run_id, "ABORT")
-                if existing_abort is not None:
-                    disposition = str(existing_abort.get("disposition") or disposition)
-                    phase_at_abort = str(existing_abort.get("phase_at_abort") or phase_at_abort)
-                else:
+                if "ABORT" not in _existing_gate_ledger_gates(workspace, run_id, passing_only=True):
                     _append_gate_ledger_record(
                         workspace,
                         run_id,
@@ -1013,8 +1011,6 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
                             "run_id": run_id,
                             "ts": int(time.time()),
                             "result": "pass",
-                            "disposition": disposition,
-                            "phase_at_abort": phase_at_abort,
                         },
                     )
             except Exception as exc:  # fail-closed: cannot record the abort -> do not commit
