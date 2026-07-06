@@ -143,6 +143,36 @@ def _existing_gate_ledger_gates(root: Path, run_id: str, *, passing_only: bool =
     return gates
 
 
+def _read_gate_ledger_record(root: Path, run_id: str, gate: str) -> dict | None:
+    """Return the FIRST gate-ledger record whose ``gate`` == ``gate`` (as a dict), or
+    None. Never raises: a missing/garbled ledger or unmatched gate yields None.
+
+    Used by handle_abort to recover from a ledger-only partial write (Codex #132): if
+    the ABORT line was appended but the manifest commit failed, a retry reuses the
+    RECORDED disposition/phase from this record instead of the retry's args, so the
+    ledger and the manifest cannot diverge for the same abort event."""
+    try:
+        path = _gate_ledger_path(root, run_id)
+    except ValueError:
+        return None
+    if not path.exists():
+        return None
+    try:
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                rec = json.loads(raw)
+            except Exception:
+                continue
+            if isinstance(rec, dict) and rec.get("gate") == gate:
+                return rec
+    except Exception:
+        return None
+    return None
+
+
 def _run_manifest_goal_id(root: Path, run_id: str) -> str | None:
     """Read a run's goal_id from its manifest (state/runs/{run_id}.yaml).
 

@@ -661,19 +661,9 @@ def handle_register_artifact(args: dict[str, Any]) -> str:
             return json.dumps({"error": "artifact_type is required"})
         if not path_raw:
             return json.dumps({"error": "path is required"})
-
-        manifest = _load_manifest(workspace, run_id)
-
-        # #107 (Codex P2): an ABORTED run's manifest is frozen — refuse artifact
-        # registration so the off-ramp blocks manifest MUTATION, not just phase
-        # transitions (else a stale-context caller could keep appending artifacts to
-        # an aborted run). Guarded on `aborted` specifically, NOT all non-active: the
-        # RESOLVE phase legitimately registers resolution artifacts while
-        # status=resolved (uacp_run_register_artifact is in resolve's allowlist).
-        if manifest.status == Status.aborted:
-            return json.dumps(
-                {"error": "register-artifact refused: run is aborted (manifest is frozen)"}
-            )
+        # run_id traversal safety BEFORE the lock (the lock path embeds run_id).
+        if ("/" in run_id) or ("\\" in run_id) or (".." in run_id) or run_id.startswith("."):
+            return json.dumps({"error": f"register-artifact refused: unsafe run_id {run_id!r}"})
 
         # Ensure artifact path stays inside the governed namespace (.uacp/).
         # Paths are base-relative (e.g. proposals/x.md, resolutions/x.yaml), so
@@ -685,8 +675,26 @@ def handle_register_artifact(args: dict[str, Any]) -> str:
         except ValueError:
             return json.dumps({"error": f"artifact path escapes workspace: {path_raw}"})
 
-        manifest.artifacts[artifact_type] = path_raw
-        _save_manifest(workspace, manifest)
+        # Serialize load -> guard -> mutate -> save under the SAME per-run lock as
+        # abort/transition (Codex #132 P1). Without it, a register racing an abort
+        # could reload an ACTIVE manifest, then save it (with the new artifact) OVER
+        # the committed abort — resurrecting the run while its pointer/registry are
+        # already released. Re-checking status INSIDE the lock is what makes the
+        # aborted-freeze guard sound (an unlocked check is TOCTOU).
+        from state import _run_transition_lock
+
+        with _run_transition_lock(workspace, run_id):
+            manifest = _load_manifest(workspace, run_id)
+            # #107: an ABORTED run's manifest is frozen — refuse mutation so the
+            # off-ramp blocks manifest MUTATION, not just phase transitions. Guarded on
+            # `aborted` specifically, NOT all non-active: the RESOLVE phase legitimately
+            # registers resolution artifacts while status=resolved.
+            if manifest.status == Status.aborted:
+                return json.dumps(
+                    {"error": "register-artifact refused: run is aborted (manifest is frozen)"}
+                )
+            manifest.artifacts[artifact_type] = path_raw
+            _save_manifest(workspace, manifest)
         return json.dumps(
             {
                 "ok": True,
@@ -717,32 +725,40 @@ def handle_workspace(args: dict[str, Any]) -> str:
 
         if not run_id:
             return json.dumps({"error": "run_id is required"})
+        if ("/" in run_id) or ("\\" in run_id) or (".." in run_id) or run_id.startswith("."):
+            return json.dumps({"error": f"workspace update refused: unsafe run_id {run_id!r}"})
 
-        manifest = _load_manifest(workspace, run_id)
+        # Serialize load -> guard -> mutate -> save under the per-run lock (Codex #132
+        # P1), same rationale as handle_register_artifact — an unlocked mutator could
+        # save a stale active manifest over a committed abort.
+        from state import _run_transition_lock
 
-        # #107 (Codex P2): an aborted run's manifest is frozen (see
-        # handle_register_artifact) — refuse workspace mutation too.
-        if manifest.status == Status.aborted:
-            return json.dumps(
-                {"error": "workspace update refused: run is aborted (manifest is frozen)"}
-            )
+        with _run_transition_lock(workspace, run_id):
+            manifest = _load_manifest(workspace, run_id)
 
-        # Update workspace fields if provided
-        for key in ("kind", "path", "branch"):
-            value = args.get(f"workspace_{key}")
-            if value is not None:
-                setattr(manifest.workspace, key, str(value))
+            # #107: an aborted run's manifest is frozen (see handle_register_artifact).
+            if manifest.status == Status.aborted:
+                return json.dumps(
+                    {"error": "workspace update refused: run is aborted (manifest is frozen)"}
+                )
 
-        validated_at = args.get("workspace_validated_at")
-        if validated_at is not None:
-            manifest.workspace.validated_at = str(validated_at)
+            # Update workspace fields if provided
+            for key in ("kind", "path", "branch"):
+                value = args.get(f"workspace_{key}")
+                if value is not None:
+                    setattr(manifest.workspace, key, str(value))
 
-        _save_manifest(workspace, manifest)
+            validated_at = args.get("workspace_validated_at")
+            if validated_at is not None:
+                manifest.workspace.validated_at = str(validated_at)
+
+            _save_manifest(workspace, manifest)
+            ws_dump = manifest.workspace.model_dump(mode="json")
         return json.dumps(
             {
                 "ok": True,
                 "run_id": run_id,
-                "workspace": manifest.workspace.model_dump(mode="json"),
+                "workspace": ws_dump,
             },
             ensure_ascii=False,
         )
@@ -973,11 +989,22 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
 
             # 1) Record the ABORT gate-ledger entry (fail-closed, pre-commit). 'ABORT'
             # is not a FROM->TO gate, so coherence C2 (which pairs only phase-transition
-            # edges) never counts it as an orphan.
+            # edges) never counts it as an orphan. RECOVERY (Codex #132): if an ABORT
+            # line already exists (a prior attempt wrote the ledger then failed before
+            # committing the manifest), REUSE its recorded disposition/phase for this
+            # commit instead of the retry's args — so the ledger and the manifest can
+            # never diverge for the same abort event.
             try:
-                from state import _append_gate_ledger_record, _existing_gate_ledger_gates
+                from state import (
+                    _append_gate_ledger_record,
+                    _read_gate_ledger_record,
+                )
 
-                if "ABORT" not in _existing_gate_ledger_gates(workspace, run_id, passing_only=True):
+                existing_abort = _read_gate_ledger_record(workspace, run_id, "ABORT")
+                if existing_abort is not None:
+                    disposition = str(existing_abort.get("disposition") or disposition)
+                    phase_at_abort = str(existing_abort.get("phase_at_abort") or phase_at_abort)
+                else:
                     _append_gate_ledger_record(
                         workspace,
                         run_id,

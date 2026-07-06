@@ -411,8 +411,6 @@ def test_deregister_runs_after_commit_paths_never_freed_while_active(temp_uacp_r
     deregister to fail — the manifest must ALREADY be aborted (proving deregister is
     the LAST step) and the registry entry must remain HELD (the safe direction: never
     active-and-deregistered)."""
-    import state as state_mod
-
     root = temp_uacp_root
     run_id = _init(root)
     _seed_registry(root, run_id, ["executions/shared.txt"])
@@ -420,7 +418,8 @@ def test_deregister_runs_after_commit_paths_never_freed_while_active(temp_uacp_r
     def _boom(*_a, **_k):
         raise RuntimeError("deregister boom")
 
-    monkeypatch.setattr(state_mod, "_deregister_run_from_registry", _boom)
+    # String target avoids a second import of `state` (single-import style; CodeQL).
+    monkeypatch.setattr("state._deregister_run_from_registry", _boom)
     out = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "x"}))
     assert "error" in out, out  # teardown failed and surfaced
 
@@ -435,8 +434,6 @@ def test_pointer_released_after_commit_not_stranded_on_commit_failure(temp_uacp_
     """#132 round-3: the pointer is released AFTER the manifest commit, so a commit
     (_save_manifest) failure never strands an ACTIVE run with a null pointer. Force
     the commit to fail — the run stays active and the pointer still names it."""
-    import state_machine as sm
-
     root = temp_uacp_root
     run_id = _init(root)
     current = root / ".uacp" / "state" / "current.yaml"
@@ -445,9 +442,48 @@ def test_pointer_released_after_commit_not_stranded_on_commit_failure(temp_uacp_
     def _boom(*_a, **_k):
         raise RuntimeError("commit boom")
 
-    monkeypatch.setattr(sm, "_save_manifest", _boom)
+    # String target avoids a second import of `state_machine` (single-import; CodeQL).
+    monkeypatch.setattr("state_machine._save_manifest", _boom)
     out = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "x"}))
     assert "error" in out, out
     # Commit failed -> run still active on disk, pointer NOT released (still names it).
     assert _manifest(root, run_id)["status"] == "active"
     assert yaml.safe_load(current.read_text())["active_run_id"] == run_id
+
+
+def test_ledger_only_partial_write_recovery_reuses_recorded_disposition(
+    temp_uacp_root, monkeypatch
+):
+    """#132 round-4 (Codex P2): if the ABORT ledger line is written but the manifest
+    commit fails, a later retry with a DIFFERENT disposition must NOT diverge the
+    ledger from the manifest — it reuses the RECORDED disposition."""
+    root = temp_uacp_root
+    run_id = _init(root)
+
+    def _fail_commit(*_a, **_k):
+        raise RuntimeError("commit boom")
+
+    # First abort: ledger line lands, then the commit fails -> run stays active.
+    monkeypatch.setattr("state_machine._save_manifest", _fail_commit)
+    first = json.loads(
+        handle_abort(
+            {"workspace": str(root), "run_id": run_id, "reason": "x", "disposition": "superseded"}
+        )
+    )
+    assert "error" in first, first
+    assert _manifest(root, run_id)["status"] == "active"
+    assert _ledger_gates(root, run_id).count("ABORT") == 1  # ledger line written
+
+    # Recover: restore commit, retry with a DIFFERENT disposition.
+    monkeypatch.undo()
+    second = json.loads(
+        handle_abort(
+            {"workspace": str(root), "run_id": run_id, "reason": "y", "disposition": "blocked"}
+        )
+    )
+    assert second.get("ok") is True, second
+    # The committed disposition matches the LEDGER's original ('superseded'), not the
+    # retry's ('blocked'); still exactly one ABORT record.
+    assert second["disposition"] == "superseded"
+    assert _manifest(root, run_id)["abort"]["disposition"] == "superseded"
+    assert _ledger_gates(root, run_id).count("ABORT") == 1
