@@ -382,3 +382,29 @@ def test_abort_pointer_release_preserves_other_fields(temp_uacp_root: Path):
     assert after["active_run_id"] is None
     assert after["released_by"] == f"{run_id}@abort"
     assert after["uacp_mode"] == "supervised_auto"  # preserved, not clobbered
+
+
+def test_deregister_runs_after_commit_paths_never_freed_while_active(temp_uacp_root, monkeypatch):
+    """#132 round-2: registry deregistration happens AFTER the manifest is committed
+    aborted, so a run's write_paths are never freed while it is still active. Force
+    deregister to fail — the manifest must ALREADY be aborted (proving deregister is
+    the LAST step) and the registry entry must remain HELD (the safe direction: never
+    active-and-deregistered)."""
+    import state as state_mod
+
+    root = temp_uacp_root
+    run_id = _init(root)
+    _seed_registry(root, run_id, ["executions/shared.txt"])
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("deregister boom")
+
+    monkeypatch.setattr(state_mod, "_deregister_run_from_registry", _boom)
+    out = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "x"}))
+    assert "error" in out, out  # teardown failed and surfaced
+
+    # The manifest WAS committed aborted -> deregister is after the commit.
+    assert _manifest(root, run_id)["status"] == "aborted"
+    # The entry is still present -> paths HELD, never freed while the run was active.
+    reg = yaml.safe_load((root / ".uacp" / "state" / "run-registry.yaml").read_text())
+    assert any(e["run_id"] == run_id for e in reg["active_runs"])

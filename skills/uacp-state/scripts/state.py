@@ -174,6 +174,33 @@ def _run_manifest_goal_id(root: Path, run_id: str) -> str | None:
         return None
 
 
+def _assert_registry_readable(root: Path) -> None:
+    """Read state/run-registry.yaml and RAISE if it exists but is malformed
+    (unparseable, non-mapping, or non-list active_runs). No-op if absent or valid;
+    mutates nothing.
+
+    handle_abort calls this BEFORE committing the abort (#132 round-2): a broken
+    registry blocks the abort while the run is still ACTIVE and nothing has been
+    written, so it stays retryable — and abort never commits an early-termination it
+    cannot subsequently tear down. The actual entry removal (_deregister_run_from_
+    registry) runs LAST, after the manifest is stamped aborted, so a run's write_paths
+    are never freed while it is still active."""
+    import yaml as _yaml
+
+    registry_path = (base_dir(root) / "state" / "run-registry.yaml").resolve()
+    if not registry_path.exists():
+        return
+    try:
+        data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        raise ValueError(f"run-registry.yaml is unparseable: {type(exc).__name__}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("run-registry.yaml top-level is not a mapping")
+    active = data.get("active_runs")
+    if active is not None and not isinstance(active, list):
+        raise ValueError("run-registry.yaml active_runs is not a list")
+
+
 def _deregister_run_from_registry(root: Path, run_id: str) -> bool:
     """Remove the active_runs[] entry for ``run_id`` from state/run-registry.yaml,
     freeing its write_paths. Returns True if an entry was removed, False on a LEGIT
