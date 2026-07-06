@@ -2,8 +2,9 @@
 
 Abort early-terminates an ACTIVE run from any phase: it stamps an abort
 disposition on the manifest, appends an ABORT gate-ledger record, frees the run's
-registry write_paths, and releases the active-run pointer (with provenance). It is
-refused for a non-active run, and an aborted run can no longer transition.
+registry write_paths, and releases the active-run pointer (with provenance). A
+resolved run is refused; re-aborting an already-aborted run is idempotent (it
+completes teardown); and an aborted run can no longer transition or be finalized.
 """
 
 from __future__ import annotations
@@ -228,16 +229,36 @@ def test_aborted_run_cannot_transition(temp_uacp_root: Path):
     assert ok.get("ok") is True, ok
 
 
-def test_abort_of_aborted_run_is_refused(temp_uacp_root: Path):
+def test_abort_of_aborted_run_is_idempotent(temp_uacp_root: Path):
+    """Re-aborting an already-aborted run is IDEMPOTENT (completes teardown), not
+    refused — this is what makes a post-commit teardown failure retryable. The
+    outcome uses the RECORDED disposition (the retry's args cannot rewrite it), and
+    the single ABORT ledger record is never duplicated."""
     root = temp_uacp_root
     run_id = _init(root)
-    first = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "cancel"}))
+    first = json.loads(
+        handle_abort(
+            {
+                "workspace": str(root),
+                "run_id": run_id,
+                "reason": "cancel",
+                "disposition": "superseded",
+            }
+        )
+    )
     assert first.get("ok") is True, first
-    second = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "again"}))
-    assert "error" in second
-    assert "not active" in second["error"]
-    # And the first abort's single ABORT ledger record is not duplicated.
+    assert first["already_aborted"] is False
+    second = json.loads(
+        handle_abort(
+            {"workspace": str(root), "run_id": run_id, "reason": "again", "disposition": "blocked"}
+        )
+    )
+    assert second.get("ok") is True, second
+    assert second["already_aborted"] is True
+    assert second["disposition"] == "superseded"  # recorded disposition wins, not "blocked"
+    # No duplicate ABORT record; the manifest keeps its original disposition.
     assert _ledger_gates(root, run_id).count("ABORT") == 1
+    assert _manifest(root, run_id)["abort"]["disposition"] == "superseded"
 
 
 def test_abort_of_resolved_run_is_refused(temp_uacp_root: Path):
@@ -408,3 +429,25 @@ def test_deregister_runs_after_commit_paths_never_freed_while_active(temp_uacp_r
     # The entry is still present -> paths HELD, never freed while the run was active.
     reg = yaml.safe_load((root / ".uacp" / "state" / "run-registry.yaml").read_text())
     assert any(e["run_id"] == run_id for e in reg["active_runs"])
+
+
+def test_pointer_released_after_commit_not_stranded_on_commit_failure(temp_uacp_root, monkeypatch):
+    """#132 round-3: the pointer is released AFTER the manifest commit, so a commit
+    (_save_manifest) failure never strands an ACTIVE run with a null pointer. Force
+    the commit to fail — the run stays active and the pointer still names it."""
+    import state_machine as sm
+
+    root = temp_uacp_root
+    run_id = _init(root)
+    current = root / ".uacp" / "state" / "current.yaml"
+    assert yaml.safe_load(current.read_text())["active_run_id"] == run_id
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("commit boom")
+
+    monkeypatch.setattr(sm, "_save_manifest", _boom)
+    out = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "x"}))
+    assert "error" in out, out
+    # Commit failed -> run still active on disk, pointer NOT released (still names it).
+    assert _manifest(root, run_id)["status"] == "active"
+    assert yaml.safe_load(current.read_text())["active_run_id"] == run_id

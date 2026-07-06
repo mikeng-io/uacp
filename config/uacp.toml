@@ -1219,11 +1219,14 @@ uacp_run_init = ["state/runs/"]
 uacp_run_transition = ["state/runs/"]
 uacp_run_register_artifact = ["state/runs/"]
 uacp_run_finalize = ["state/runs/"]
-# Abort (#107) is the broadest run-lifecycle writer: it stamps the manifest,
-# releases the active-run pointer, deregisters the run-registry entry (freeing
-# write_paths), and appends the ABORT gate-ledger record — one governed primitive
-# touching all four run-state surfaces.
-uacp_run_abort = ["state/runs/", "state/current.yaml", "state/run-registry.yaml", "state/gate-ledger/"]
+# Abort (#107) declares ONLY the run manifest as its scoped path capability, like
+# every sibling run-lifecycle op above. Its other effects (releasing the pointer,
+# deregistering the registry entry, appending its OWN fixed ABORT ledger record) are
+# internal control-plane writes, NOT scoped write targets — a PLAN scope must not be
+# able to reserve state/current.yaml / run-registry.yaml / gate-ledger/ "via
+# uacp_run_abort" (Codex #132: listing gate-ledger/ here would launder a governed
+# ledger-path reservation that handler_refusals is meant to reject).
+uacp_run_abort = ["state/runs/"]
 
 [scope.handler_refusals]
 # uacp_state_write refuses sub-paths exclusively owned by other governed writers.

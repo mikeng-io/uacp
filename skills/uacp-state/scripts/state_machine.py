@@ -924,26 +924,32 @@ def handle_abort(args: dict[str, Any]) -> str:
 def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition: str) -> str:
     """The abort critical section — runs under the per-run lock.
 
-    Order (two competing safety constraints reconciled — #132 review rounds 1+2):
-      0. PRE-CHECK the registry is readable (raise on a malformed registry) — a broken
-         registry blocks the abort while the run is still ACTIVE with nothing written,
-         so it stays retryable and we never commit an abort we cannot tear down.
-      1. append the ABORT ledger record (idempotent);
-      2. release the active-run pointer (idempotent, read-merge);
-      3. COMMIT: save the manifest as aborted (the point of no return);
-      4. deregister the registry entry LAST — only AFTER the run is committed aborted,
-         so a live run's write_paths are never freed while it is still active. A rare
-         post-commit failure here leaves the run aborted with its entry still HELD
-         (the safe direction), never active-and-freed.
-    Steps 0–2 run before the commit and are each idempotent, so any failure up to the
-    commit leaves an ACTIVE, retryable run; nothing frees write_paths until step 4."""
+    A single COMMIT (the manifest.status flip) is the point of no return; every side
+    effect is placed to make abort ATOMIC-on-commit and IDEMPOTENT-on-retry, so no
+    ordering leaves a half-applied run (#132 review rounds 1–3):
+
+      PRE-COMMIT (only when the run is still active; each fail-closed + retryable):
+        0. PRE-CHECK the registry is readable (raise on a malformed registry) so we
+           never commit an abort we cannot later tear down;
+        1. append the ABORT ledger record (idempotent);
+        2. COMMIT: save the manifest as aborted.
+      POST-COMMIT TEARDOWN (idempotent; runs for a fresh abort AND for a retry that
+      re-enters on an already-aborted run — see the status gate):
+        3. release the active-run pointer (read-merge, only if it names this run);
+        4. deregister the registry entry (frees write_paths).
+
+    Why this order: teardown (pointer + deregister) runs AFTER the commit, so a live
+    run's pointer/write_paths are never released while it is still active (a
+    pre-commit failure leaves an ACTIVE run and touches neither). And because a run
+    that is ALREADY aborted re-enters teardown (rather than being refused), a failure
+    in step 3/4 is completed by simply calling abort again — an abort can never strand
+    a half-torn-down run."""
     try:
         manifest = _load_manifest(workspace, run_id)
 
-        # Reachable only for an active run; a resolved/aborted run is already
-        # terminal. (A second abort of an aborted run lands here and is refused —
-        # the first abort, under this same lock, completed every effect.)
-        if manifest.status != Status.active:
+        # Only an active run (fresh abort) or an already-aborted run (idempotent
+        # teardown-completion / retry) is abortable. A resolved run is refused.
+        if manifest.status not in (Status.active, Status.aborted):
             return json.dumps(
                 {
                     "error": (
@@ -952,52 +958,80 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
                     )
                 }
             )
-        phase_at_abort = manifest.current_phase
 
-        # 0) PRE-CHECK the registry is readable BEFORE committing (fail-closed). A
-        # malformed registry raises here, before any write — the run stays active and
-        # the abort is retryable once the registry is repaired. The actual entry
-        # removal is deferred to step 4 (after the commit).
-        from state import _assert_registry_readable
+        already_aborted = manifest.status == Status.aborted
 
-        _assert_registry_readable(workspace)
+        if not already_aborted:
+            phase_at_abort = manifest.current_phase
 
-        # 1) Record the ABORT gate-ledger entry (fail-closed). Idempotent on retry —
-        # skip if an ABORT is already recorded. 'ABORT' is not a FROM->TO gate, so
-        # coherence C2 (which pairs only phase-transition edges) never counts it as an
-        # orphan.
-        try:
-            from state import _append_gate_ledger_record, _existing_gate_ledger_gates
+            # 0) PRE-CHECK the registry is readable BEFORE committing (fail-closed): a
+            # malformed registry raises here, before any write — the run stays active,
+            # retryable once the registry is repaired.
+            from state import _assert_registry_readable
 
-            if "ABORT" not in _existing_gate_ledger_gates(workspace, run_id, passing_only=True):
-                _append_gate_ledger_record(
-                    workspace,
-                    run_id,
-                    {
-                        "gate": "ABORT",
-                        "run_id": run_id,
-                        "ts": int(time.time()),
-                        "result": "pass",
-                        "disposition": disposition,
-                        "phase_at_abort": phase_at_abort,
-                    },
-                )
-        except Exception as exc:  # fail-closed: cannot record the abort -> do not tear down
-            return json.dumps(
-                {
-                    "error": (
-                        f"abort blocked: could not record ABORT gate-ledger entry: "
-                        f"{type(exc).__name__}: {exc}"
+            _assert_registry_readable(workspace)
+
+            # 1) Record the ABORT gate-ledger entry (fail-closed, pre-commit). 'ABORT'
+            # is not a FROM->TO gate, so coherence C2 (which pairs only phase-transition
+            # edges) never counts it as an orphan.
+            try:
+                from state import _append_gate_ledger_record, _existing_gate_ledger_gates
+
+                if "ABORT" not in _existing_gate_ledger_gates(workspace, run_id, passing_only=True):
+                    _append_gate_ledger_record(
+                        workspace,
+                        run_id,
+                        {
+                            "gate": "ABORT",
+                            "run_id": run_id,
+                            "ts": int(time.time()),
+                            "result": "pass",
+                            "disposition": disposition,
+                            "phase_at_abort": phase_at_abort,
+                        },
                     )
-                }
-            )
+            except Exception as exc:  # fail-closed: cannot record the abort -> do not commit
+                return json.dumps(
+                    {
+                        "error": (
+                            f"abort blocked: could not record ABORT gate-ledger entry: "
+                            f"{type(exc).__name__}: {exc}"
+                        )
+                    }
+                )
 
-        # 2) Release the active-run pointer IF it names this run, stamping provenance.
-        # Read-MERGE (null the two identity fields + record released_by, PRESERVE every
-        # other pointer field, e.g. uacp_mode) rather than overwrite — a full rewrite
-        # would silently drop an expanded pointer (review MINOR). Written directly
-        # (like handle_init): the uacp_state_write anti-clear guard rejects a
-        # caller-supplied empty active_run_id, so ONLY this handler may null it.
+            # 2) COMMIT: stamp the abort disposition and save the manifest. Point of no
+            # return — the run is aborted from here.
+            manifest.status = Status.aborted
+            manifest.abort = AbortRecord(
+                reason=reason, phase_at_abort=phase_at_abort, disposition=disposition
+            )
+            manifest.state_history.append(
+                StateHistoryEntry(
+                    event="run_abort",
+                    from_phase=phase_at_abort,
+                    to_phase="aborted",
+                    source="uacp-state",
+                )
+            )
+            _save_manifest(workspace, manifest)
+        else:
+            # Idempotent re-entry: the abort already committed under a prior call; this
+            # invocation only COMPLETES teardown. Use the RECORDED disposition/phase
+            # (ignore the retry's args) so the outcome cannot diverge from the commit.
+            phase_at_abort = (
+                manifest.abort.phase_at_abort if manifest.abort else manifest.current_phase
+            )
+            disposition = manifest.abort.disposition if manifest.abort else disposition
+
+        # 3) POST-COMMIT teardown — release the active-run pointer IF it names this run,
+        # stamping provenance. Read-MERGE (null the two identity fields + record
+        # released_by, PRESERVE every other pointer field, e.g. uacp_mode). AFTER the
+        # commit so a commit failure never strands an ACTIVE run with a null pointer
+        # (#132 round-3); idempotent (a second run's pointer, or an already-null
+        # pointer, is left untouched). Written directly (like handle_init): the
+        # uacp_state_write anti-clear guard rejects a caller-supplied empty
+        # active_run_id, so ONLY this handler may null it.
         current_path = base_dir(workspace) / "state" / "current.yaml"
         if current_path.exists():
             try:
@@ -1010,26 +1044,9 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
                 cur["released_by"] = f"{run_id}@abort"
                 _write_uacp_file(current_path, yaml.safe_dump(cur, sort_keys=False))
 
-        # 3) COMMIT: stamp the abort disposition and save the manifest. This is the
-        # point of no return — the run is aborted from here.
-        manifest.status = Status.aborted
-        manifest.abort = AbortRecord(
-            reason=reason, phase_at_abort=phase_at_abort, disposition=disposition
-        )
-        manifest.state_history.append(
-            StateHistoryEntry(
-                event="run_abort",
-                from_phase=phase_at_abort,
-                to_phase="aborted",
-                source="uacp-state",
-            )
-        )
-        _save_manifest(workspace, manifest)
-
-        # 4) Deregister the registry entry LAST — only now that the run is committed
-        # aborted, so its write_paths are never freed while it is still active (#132
-        # round-2). Pre-checked readable in step 0; a rare TOCTOU failure here leaves
-        # the entry HELD (safe) rather than active-and-freed.
+        # 4) POST-COMMIT teardown — deregister the registry entry, freeing write_paths.
+        # AFTER the commit so paths are never freed while the run is active (#132
+        # round-2); idempotent no-op once the entry is gone.
         from state import _deregister_run_from_registry
 
         _deregister_run_from_registry(workspace, run_id)
@@ -1038,9 +1055,10 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
             {
                 "ok": True,
                 "run_id": run_id,
-                "status": manifest.status.value,
+                "status": Status.aborted.value,
                 "phase_at_abort": phase_at_abort,
                 "disposition": disposition,
+                "already_aborted": already_aborted,
             },
             ensure_ascii=False,
         )
