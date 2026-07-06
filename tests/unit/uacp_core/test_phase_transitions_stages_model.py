@@ -32,6 +32,12 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 
 # ---------------------------------------------------------------------------
 # Pre-slim production stages values (literals from 1c281bc).
+#
+# Post-slim intentional additions (deliberate extensions, not regressions; the
+# pin asserts exact equality so any FURTHER drift is still caught):
+#   * D35: graph_invariant on plan/execute/verify exits (see note below);
+#   * #107: uacp_run_abort in every ACTIVE-phase allowlist (the off-ramp primitive
+#     is reachable from any pre-terminal phase; NOT added to resolve).
 # ---------------------------------------------------------------------------
 _PRESLIM_ALLOWED_TOOLS = {
     "brainstorm": [
@@ -47,6 +53,7 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_run_init",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "triage": [
         "uacp_artifact_write",
@@ -61,6 +68,7 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_run_init",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "propose": [
         "uacp_artifact_write",
@@ -73,6 +81,7 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_doc_write",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "plan": [
         "uacp_artifact_write",
@@ -84,6 +93,7 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_heartgate_check",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "execute": [
         "uacp_doc_write",
@@ -101,6 +111,7 @@ _PRESLIM_ALLOWED_TOOLS = {
         "execute_code",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "verify": [
         "uacp_artifact_write",
@@ -114,6 +125,7 @@ _PRESLIM_ALLOWED_TOOLS = {
         "uacp_contained_shell",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "resolve": [
         "uacp_artifact_write",

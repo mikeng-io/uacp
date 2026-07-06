@@ -30,15 +30,16 @@ _EXPECTED_NAMES = {
     "uacp_run_transition",
     "uacp_run_register_artifact",
     "uacp_run_finalize",
+    "uacp_run_abort",  # #107 off-ramp primitive
 }
 
-# read_only=True only for the read-only tools; all 13 others are writers.
+# read_only=True only for the read-only tools; all 14 others are writers.
 _READ_ONLY = {"uacp_oracle_query", "uacp_heartgate_check", "uacp_sandbox_check"}
 
 
-def test_tool_specs_has_all_sixteen_names():
+def test_tool_specs_has_all_seventeen_names():
     specs = tool_specs()
-    assert len(specs) == 16
+    assert len(specs) == 17
     assert {s.name for s in specs} == _EXPECTED_NAMES
 
 

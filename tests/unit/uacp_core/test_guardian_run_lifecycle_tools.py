@@ -34,6 +34,7 @@ RUN_TOOLS = (
     "uacp_run_transition",
     "uacp_run_register_artifact",
     "uacp_run_finalize",
+    "uacp_run_abort",
 )
 
 # Phases where each tool MUST be admitted by Layer B.
@@ -58,6 +59,17 @@ ALLOWED = {
         "resolve",
     ),
     "uacp_run_finalize": ("resolve",),
+    # Abort (#107) is the off-ramp for any ACTIVE run — reachable from every
+    # pre-terminal phase (incl. brainstorm), NOT from resolve (a run in resolve is
+    # already terminal; the handler refuses a non-active run).
+    "uacp_run_abort": (
+        "brainstorm",
+        "triage",
+        "propose",
+        "plan",
+        "execute",
+        "verify",
+    ),
 }
 
 # Phases where each tool MUST be blocked by Layer B (allowlist miss). finalize
@@ -66,6 +78,7 @@ ALLOWED = {
 DISALLOWED = {
     "uacp_run_init": ("execute", "verify", "resolve"),
     "uacp_run_finalize": ("triage", "propose", "plan", "execute", "verify"),
+    "uacp_run_abort": ("resolve",),
 }
 
 
@@ -132,9 +145,7 @@ def test_stages_default_omits_tool_in_disallowed_phases(tool):
     stages = stages_default()
     for phase in DISALLOWED[tool]:
         allowed = stages[phase]["allowed_tools"]
-        assert tool not in allowed, (
-            f"{tool} must NOT be in stages_default()[{phase}].allowed_tools"
-        )
+        assert tool not in allowed, f"{tool} must NOT be in stages_default()[{phase}].allowed_tools"
 
 
 # --- Guardian Layer B: admitted in allowed phases ---------------------------
@@ -216,9 +227,7 @@ def test_layer_b_actually_governs_run_tools(temp_uacp_root):
     stages = stages_default()
     stages["triage"] = {
         **stages["triage"],
-        "allowed_tools": [
-            t for t in stages["triage"]["allowed_tools"] if t != "uacp_run_init"
-        ],
+        "allowed_tools": [t for t in stages["triage"]["allowed_tools"] if t != "uacp_run_init"],
     }
     g = _guardian(temp_uacp_root, stages=stages)
     ev = make_event(

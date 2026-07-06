@@ -51,6 +51,7 @@ from governed_handlers import (  # noqa: E402  (import follows sys.path setup)
 from state import (  # noqa: E402  (import follows sys.path setup)
     _handle_uacp_escalation_event,
     _handle_uacp_gate_ledger_append,
+    _handle_uacp_run_abort,
     _handle_uacp_run_finalize,
     _handle_uacp_run_init,
     _handle_uacp_run_register_artifact,
@@ -155,8 +156,8 @@ def _entity_write_schema() -> dict[str, Any]:
                 "description": (
                     "Per-kind path placeholders. Required for multi-instance kinds: "
                     "uacp.check.* (all sub-kinds), uacp.execution_checkpoint, and uacp.investigation_entry "
-                    "each require {\"seq\": \"N\"} (1-based counter); "
-                    "uacp.evidence_disposition requires {\"cluster\": \"<id>\", \"half\": \"<verified-facts|assumptions>\"} "
+                    'each require {"seq": "N"} (1-based counter); '
+                    'uacp.evidence_disposition requires {"cluster": "<id>", "half": "<verified-facts|assumptions>"} '
                     "(template verification/{run_id}-{cluster}-{half}.md). "
                     "Omitting a required placeholder is an error that names the missing key."
                 ),
@@ -184,7 +185,7 @@ def _entity_write_schema() -> dict[str, Any]:
 
 
 def tool_specs() -> list[ToolSpec]:
-    """Return the 12 governed-tool specs (single source of truth)."""
+    """Return the governed-tool specs (single source of truth)."""
     return [
         ToolSpec(
             name="uacp_state_write",
@@ -737,6 +738,51 @@ def tool_specs() -> list[ToolSpec]:
                 ],
             },
             handler=_handle_uacp_run_finalize,
+            read_only=False,
+        ),
+        ToolSpec(
+            name="uacp_run_abort",
+            description="Governed run lifecycle: abort (off-ramp)",
+            schema_description=(
+                "Early-terminate an ACTIVE run from any phase (incl. brainstorm) — the "
+                "lifecycle off-ramp primitive. Enforces UACP context fields and requires "
+                "reason + authority_artifact. Records an ABORT gate-ledger entry, frees the "
+                "run's registry write_paths, releases the active-run pointer, and stamps an "
+                "abort disposition on the manifest. Refused for a resolved/aborted run. Abort "
+                "is a state-machine primitive, not a phase edge (no Heartgate transition "
+                "artifact)."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "disposition": {
+                        "type": "string",
+                        "enum": ["abandoned", "superseded", "direct", "blocked"],
+                        "description": (
+                            "Reason-class of the termination (default 'abandoned'). "
+                            "'superseded' = replaced by another run; 'direct'/'blocked' record a "
+                            "terminal-direct / blocked closure without a separate mechanism."
+                        ),
+                    },
+                    "reason": {"type": "string"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "reason",
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+            handler=_handle_uacp_run_abort,
             read_only=False,
         ),
     ]

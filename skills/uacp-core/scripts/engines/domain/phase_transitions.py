@@ -101,6 +101,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_run_init",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "triage": [
         "uacp_artifact_write",
@@ -117,6 +118,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_run_init",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "propose": [
         "uacp_artifact_write",
@@ -129,6 +131,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_doc_write",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "plan": [
         "uacp_artifact_write",
@@ -140,6 +143,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_heartgate_check",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "execute": [
         "uacp_doc_write",
@@ -157,6 +161,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "execute_code",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "verify": [
         "uacp_artifact_write",
@@ -170,6 +175,7 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
         "uacp_contained_shell",
         "uacp_run_transition",
         "uacp_run_register_artifact",
+        "uacp_run_abort",
     ],
     "resolve": [
         "uacp_artifact_write",

@@ -40,6 +40,7 @@ __all__ = [
     "_handle_uacp_run_transition",
     "_handle_uacp_run_register_artifact",
     "_handle_uacp_run_finalize",
+    "_handle_uacp_run_abort",
 ]
 
 
@@ -171,6 +172,87 @@ def _run_manifest_goal_id(root: Path, run_id: str) -> str | None:
         return None
     except Exception:
         return None
+
+
+def _assert_registry_readable(root: Path) -> None:
+    """Read state/run-registry.yaml and RAISE if it exists but is malformed
+    (unparseable, non-mapping, or non-list active_runs). No-op if absent or valid;
+    mutates nothing.
+
+    handle_abort calls this BEFORE committing the abort (#132 round-2): a broken
+    registry blocks the abort while the run is still ACTIVE and nothing has been
+    written, so it stays retryable — and abort never commits an early-termination it
+    cannot subsequently tear down. The actual entry removal (_deregister_run_from_
+    registry) runs LAST, after the manifest is stamped aborted, so a run's write_paths
+    are never freed while it is still active."""
+    import yaml as _yaml
+
+    registry_path = (base_dir(root) / "state" / "run-registry.yaml").resolve()
+    if not registry_path.exists():
+        return
+    try:
+        data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        raise ValueError(f"run-registry.yaml is unparseable: {type(exc).__name__}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("run-registry.yaml top-level is not a mapping")
+    active = data.get("active_runs")
+    if active is not None and not isinstance(active, list):
+        raise ValueError("run-registry.yaml active_runs is not a list")
+
+
+def _deregister_run_from_registry(root: Path, run_id: str) -> bool:
+    """Remove the active_runs[] entry for ``run_id`` from state/run-registry.yaml,
+    freeing its write_paths. Returns True if an entry was removed, False on a LEGIT
+    no-op (registry absent, no active_runs key, or no matching entry). Preserves
+    every other key of the registry mapping (schema_version, sibling entries).
+
+    FAIL-CLOSED (Codex #132 P2): a registry that EXISTS but is unparseable / not a
+    mapping / whose active_runs is not a list RAISES — it must NOT be swallowed as a
+    no-op. handle_abort deregisters BEFORE stamping the manifest, so this raise
+    aborts the whole operation with the run still active: the write_paths are never
+    silently left held on a broken registry, and the abort stays retryable once the
+    registry is repaired.
+
+    The CANONICAL registry mutator remains uacp_run_registry_update(op=deregister),
+    which carries caller-binding + validation for agent-issued calls. This is the
+    mechanical seam the abort PRIMITIVE (state_machine.handle_abort) reuses to tear
+    down its OWN entry. Shared for SHAPE-consistency (both paths agree on the
+    active_runs layout / preserved sibling keys), NOT for concurrency safety — see
+    the concurrency note below.
+
+    Concurrency note: state/run-registry.yaml has NO cross-writer serialization yet
+    — uacp_run_registry_update itself is unlocked (registry advisory-locking +
+    atomic-rename is the deferred pc_p3_skep_r1_005 / #103-W1 "atomic state" work).
+    This deregister matches that existing convention (single serialized writer of a
+    workspace's registry at a time) and introduces NO new race class: the per-run
+    lock held by handle_abort serializes abort against this run's own
+    transition/append. Registry-wide serialization for concurrent runs is #103-W1's
+    scope, not #107's."""
+    import yaml as _yaml
+
+    base = base_dir(root)
+    registry_path = (base / "state" / "run-registry.yaml").resolve()
+    if not registry_path.exists():
+        return False  # nothing registered -> nothing to free (legit no-op)
+    try:
+        data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    except Exception as exc:
+        # Registry exists but is unparseable: FAIL CLOSED (do not swallow as a no-op).
+        raise ValueError(f"run-registry.yaml is unparseable: {type(exc).__name__}: {exc}") from exc
+    if not isinstance(data, dict):
+        raise ValueError("run-registry.yaml top-level is not a mapping")
+    active = data.get("active_runs")
+    if active is None:
+        return False  # no active_runs key -> nothing to free (legit no-op)
+    if not isinstance(active, list):
+        raise ValueError("run-registry.yaml active_runs is not a list")
+    kept = [e for e in active if not (isinstance(e, dict) and str(e.get("run_id") or "") == run_id)]
+    if len(kept) == len(active):
+        return False  # no matching entry -> the run was never registered (legit no-op)
+    data["active_runs"] = kept
+    _write_uacp_file(registry_path, _yaml.safe_dump(data, sort_keys=False))
+    return True
 
 
 def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
@@ -887,3 +969,39 @@ def _handle_uacp_run_finalize(args: dict, **_: Any) -> str:
         return handle_finalize(params)
     except Exception as exc:
         return json.dumps({"error": f"uacp_run_finalize failed: {type(exc).__name__}: {exc}"})
+
+
+def _handle_uacp_run_abort(args: dict, **_: Any) -> str:
+    """Governed wrapper for state_machine.handle_abort (#107).
+
+    Early-terminates an active run (any phase, incl. brainstorm) with
+    governed-context enforcement: validates UACP context fields and requires
+    reason + authority_artifact before delegating. ``disposition`` is optional and
+    defaults to 'abandoned' (one of abandoned|superseded|direct|blocked). The state
+    machine records the ABORT ledger entry, frees the run's registry write_paths,
+    releases the active-run pointer, and stamps the abort disposition.
+    """
+    try:
+        missing = _required_uacp_context_missing(args)
+        if missing:
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing)}"})
+        workspace = args.get("workspace")
+        policy = GuardianPolicy.load(workspace)
+        reason = (args.get("reason") or "").strip()
+        authority = (args.get("authority_artifact") or "").strip()
+        if not reason:
+            return json.dumps({"error": "reason is required"})
+        if not authority:
+            return json.dumps({"error": "authority_artifact is required"})
+        run_id = str(args.get("uacp_run_id") or "").strip()
+        params: dict[str, Any] = {
+            "workspace": str(policy.uacp_root),
+            "run_id": run_id,
+            "reason": reason,
+            "disposition": str(args.get("disposition") or "abandoned").strip(),
+        }
+        from state_machine import handle_abort  # lazy: avoids any future import cycles
+
+        return handle_abort(params)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_run_abort failed: {type(exc).__name__}: {exc}"})
