@@ -57,6 +57,10 @@ class Status(str, Enum):
 _VALID_DISPOSITIONS: frozenset[str] = frozenset({"abandoned", "superseded", "direct", "blocked"})
 
 
+def _iso_now() -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
 # Valid phase transitions.  Each key is a "from" phase; value is the set of
 # allowed "to" phases.  The graph is a DAG ending in "resolved".
 #
@@ -105,7 +109,8 @@ class AbortRecord(BaseModel):
     reason: str
     phase_at_abort: str
     disposition: str = "abandoned"
-    aborted_at: str = Field(default_factory=lambda: _iso_now())
+    # _iso_now is defined above this class, so bind it directly (no wrapper lambda).
+    aborted_at: str = Field(default_factory=_iso_now)
 
     @field_validator("disposition")
     @classmethod
@@ -151,10 +156,6 @@ class RunManifest(BaseModel):
         if " " in v or "\t" in v or "\n" in v:
             raise ValueError("run_id must not contain whitespace")
         return v
-
-
-def _iso_now() -> str:
-    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
 def _run_manifest_path(workspace: Path, run_id: str) -> Path:
@@ -663,6 +664,17 @@ def handle_register_artifact(args: dict[str, Any]) -> str:
 
         manifest = _load_manifest(workspace, run_id)
 
+        # #107 (Codex P2): an ABORTED run's manifest is frozen — refuse artifact
+        # registration so the off-ramp blocks manifest MUTATION, not just phase
+        # transitions (else a stale-context caller could keep appending artifacts to
+        # an aborted run). Guarded on `aborted` specifically, NOT all non-active: the
+        # RESOLVE phase legitimately registers resolution artifacts while
+        # status=resolved (uacp_run_register_artifact is in resolve's allowlist).
+        if manifest.status == Status.aborted:
+            return json.dumps(
+                {"error": "register-artifact refused: run is aborted (manifest is frozen)"}
+            )
+
         # Ensure artifact path stays inside the governed namespace (.uacp/).
         # Paths are base-relative (e.g. proposals/x.md, resolutions/x.yaml), so
         # containment is checked under base_dir, and path_raw is stored verbatim.
@@ -707,6 +719,13 @@ def handle_workspace(args: dict[str, Any]) -> str:
             return json.dumps({"error": "run_id is required"})
 
         manifest = _load_manifest(workspace, run_id)
+
+        # #107 (Codex P2): an aborted run's manifest is frozen (see
+        # handle_register_artifact) — refuse workspace mutation too.
+        if manifest.status == Status.aborted:
+            return json.dumps(
+                {"error": "workspace update refused: run is aborted (manifest is frozen)"}
+            )
 
         # Update workspace fields if provided
         for key in ("kind", "path", "branch"):
@@ -782,6 +801,18 @@ def handle_finalize(args: dict[str, Any]) -> str:
             return json.dumps({"error": "run_id is required"})
 
         manifest = _load_manifest(workspace, run_id)
+
+        # #107 (review MAJOR): status is the authoritative liveness marker (see the
+        # transition guard). An ABORTED run must never be finalized to `resolved` —
+        # do NOT rely only on the phase check below (an aborted run keeps a
+        # non-terminal current_phase today, but that is incidental). Guarded on
+        # `aborted` specifically: the normal finalize path legitimately runs on
+        # status=resolved (set by the verify->resolved transition), so a blanket
+        # `status != active` check would refuse every real finalize.
+        if manifest.status == Status.aborted:
+            return json.dumps(
+                {"error": "finalize refused: run is aborted (an aborted run cannot be resolved)"}
+            )
 
         if manifest.current_phase not in TERMINAL_PHASES:
             return json.dumps(
@@ -891,11 +922,14 @@ def handle_abort(args: dict[str, Any]) -> str:
 
 
 def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition: str) -> str:
-    """The abort critical section — runs under the per-run lock. The manifest is
-    saved LAST (the transition-blocking flag): a crash between the ledger append and
-    the save leaves an ACTIVE run whose retry re-runs the whole abort (the ledger
-    append is idempotent on the ABORT gate; registry-deregister and pointer-release
-    are idempotent), so an abort can never half-apply into a stuck registration."""
+    """The abort critical section — runs under the per-run lock. Order: registry
+    deregister (the fail-closed step) -> ABORT ledger record -> pointer release ->
+    manifest save LAST (the transition-blocking flag). The manifest-last rule makes a
+    crash at any prior step leave an ACTIVE run whose retry re-runs the whole abort:
+    deregister is a no-op once the entry is gone, the ABORT ledger append is
+    idempotent, and the pointer release is idempotent — so an abort can never
+    half-apply into a stuck registration, and a broken registry blocks the abort
+    before any state is written."""
     try:
         manifest = _load_manifest(workspace, run_id)
 
@@ -913,10 +947,19 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
             )
         phase_at_abort = manifest.current_phase
 
-        # 1) Evidence first: append the ABORT gate-ledger record (fail-closed).
-        # Idempotent on retry — skip if an ABORT is already recorded for this run.
-        # 'ABORT' is not a FROM->TO gate, so coherence C2 (which pairs only
-        # phase-transition edges) never counts it as an orphan.
+        # 1) Free the registry write_paths FIRST — this is the step that fail-closes
+        # on a broken registry (Codex #132 P2). It raises on an unparseable/malformed
+        # registry, which propagates out (nothing written yet: no ledger record, no
+        # pointer change, manifest still active) so the abort is cleanly retryable
+        # once the registry is repaired. Idempotent no-op if the run isn't registered.
+        from state import _deregister_run_from_registry
+
+        _deregister_run_from_registry(workspace, run_id)
+
+        # 2) Record the ABORT gate-ledger entry (fail-closed). Idempotent on retry —
+        # skip if an ABORT is already recorded. 'ABORT' is not a FROM->TO gate, so
+        # coherence C2 (which pairs only phase-transition edges) never counts it as an
+        # orphan.
         try:
             from state import _append_gate_ledger_record, _existing_gate_ledger_gates
 
@@ -943,17 +986,12 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
                 }
             )
 
-        # 2) Free the registry write_paths (idempotent; no-op if not registered).
-        # Raises only on a genuinely unwritable registry -> block before the
-        # manifest save so a retry can complete (never abort-with-paths-held).
-        from state import _deregister_run_from_registry
-
-        _deregister_run_from_registry(workspace, run_id)
-
-        # 3) Release the active-run pointer IF it names this run, stamping
-        # provenance. Written directly (like handle_init) — the uacp_state_write
-        # anti-clear guard rejects a caller-supplied empty active_run_id; ONLY this
-        # handler may null the pointer, and it records who released it.
+        # 3) Release the active-run pointer IF it names this run, stamping provenance.
+        # Read-MERGE (null the two identity fields + record released_by, PRESERVE every
+        # other pointer field, e.g. uacp_mode) rather than overwrite — a full rewrite
+        # would silently drop an expanded pointer (review MINOR). Written directly
+        # (like handle_init): the uacp_state_write anti-clear guard rejects a
+        # caller-supplied empty active_run_id, so ONLY this handler may null it.
         current_path = base_dir(workspace) / "state" / "current.yaml"
         if current_path.exists():
             try:
@@ -961,15 +999,10 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
             except Exception:
                 cur = {}
             if isinstance(cur, dict) and str(cur.get("active_run_id") or "") == run_id:
-                released_body = yaml.safe_dump(
-                    {
-                        "active_run_id": None,
-                        "active_run_manifest": None,
-                        "released_by": f"{run_id}@abort",
-                    },
-                    sort_keys=False,
-                )
-                _write_uacp_file(current_path, released_body)
+                cur["active_run_id"] = None
+                cur["active_run_manifest"] = None
+                cur["released_by"] = f"{run_id}@abort"
+                _write_uacp_file(current_path, yaml.safe_dump(cur, sort_keys=False))
 
         # 4) Stamp the abort disposition and save the manifest LAST.
         manifest.status = Status.aborted

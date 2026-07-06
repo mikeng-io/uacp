@@ -176,35 +176,53 @@ def _run_manifest_goal_id(root: Path, run_id: str) -> str | None:
 
 def _deregister_run_from_registry(root: Path, run_id: str) -> bool:
     """Remove the active_runs[] entry for ``run_id`` from state/run-registry.yaml,
-    freeing its write_paths. Returns True if an entry was removed, False on a no-op
-    (registry absent / garbled / no matching entry). Preserves every other key of
-    the registry mapping (schema_version, sibling entries).
+    freeing its write_paths. Returns True if an entry was removed, False on a LEGIT
+    no-op (registry absent, no active_runs key, or no matching entry). Preserves
+    every other key of the registry mapping (schema_version, sibling entries).
+
+    FAIL-CLOSED (Codex #132 P2): a registry that EXISTS but is unparseable / not a
+    mapping / whose active_runs is not a list RAISES — it must NOT be swallowed as a
+    no-op. handle_abort deregisters BEFORE stamping the manifest, so this raise
+    aborts the whole operation with the run still active: the write_paths are never
+    silently left held on a broken registry, and the abort stays retryable once the
+    registry is repaired.
 
     The CANONICAL registry mutator remains uacp_run_registry_update(op=deregister),
     which carries caller-binding + validation for agent-issued calls. This is the
     mechanical seam the abort PRIMITIVE (state_machine.handle_abort) reuses to tear
-    down its OWN entry under the run lock — mirroring how _append_gate_ledger_record
-    is shared with handle_transition so the two paths cannot diverge on the
-    active_runs shape. Never raises on a garbled registry (best-effort teardown);
-    only a genuinely unwritable file propagates (via _write_uacp_file)."""
+    down its OWN entry. Shared for SHAPE-consistency (both paths agree on the
+    active_runs layout / preserved sibling keys), NOT for concurrency safety — see
+    the concurrency note below.
+
+    Concurrency note: state/run-registry.yaml has NO cross-writer serialization yet
+    — uacp_run_registry_update itself is unlocked (registry advisory-locking +
+    atomic-rename is the deferred pc_p3_skep_r1_005 / #103-W1 "atomic state" work).
+    This deregister matches that existing convention (single serialized writer of a
+    workspace's registry at a time) and introduces NO new race class: the per-run
+    lock held by handle_abort serializes abort against this run's own
+    transition/append. Registry-wide serialization for concurrent runs is #103-W1's
+    scope, not #107's."""
     import yaml as _yaml
 
     base = base_dir(root)
     registry_path = (base / "state" / "run-registry.yaml").resolve()
     if not registry_path.exists():
-        return False
+        return False  # nothing registered -> nothing to free (legit no-op)
     try:
         data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
-    except Exception:
-        return False
+    except Exception as exc:
+        # Registry exists but is unparseable: FAIL CLOSED (do not swallow as a no-op).
+        raise ValueError(f"run-registry.yaml is unparseable: {type(exc).__name__}: {exc}") from exc
     if not isinstance(data, dict):
-        return False
+        raise ValueError("run-registry.yaml top-level is not a mapping")
     active = data.get("active_runs")
+    if active is None:
+        return False  # no active_runs key -> nothing to free (legit no-op)
     if not isinstance(active, list):
-        return False
+        raise ValueError("run-registry.yaml active_runs is not a list")
     kept = [e for e in active if not (isinstance(e, dict) and str(e.get("run_id") or "") == run_id)]
     if len(kept) == len(active):
-        return False
+        return False  # no matching entry -> the run was never registered (legit no-op)
     data["active_runs"] = kept
     _write_uacp_file(registry_path, _yaml.safe_dump(data, sort_keys=False))
     return True

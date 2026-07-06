@@ -16,8 +16,11 @@ import yaml
 from state_machine import (
     AbortRecord,
     handle_abort,
+    handle_finalize,
     handle_init,
+    handle_register_artifact,
     handle_transition,
+    handle_workspace,
 )
 
 
@@ -278,3 +281,104 @@ def test_abort_refuses_unsafe_run_id(temp_uacp_root: Path):
     )
     assert "error" in out
     assert "unsafe run_id" in out["error"]
+
+
+# --------------------------------------------------------------- frozen manifest
+def test_aborted_run_rejects_register_artifact(temp_uacp_root: Path):
+    """The off-ramp freezes the manifest: an aborted run cannot register artifacts."""
+    root = temp_uacp_root
+    run_id = _init(root)
+    # Non-vacuity: registration succeeds while the run is active.
+    ok = json.loads(
+        handle_register_artifact(
+            {
+                "workspace": str(root),
+                "run_id": run_id,
+                "artifact_type": "triage",
+                "path": "proposals/x.yaml",
+            }
+        )
+    )
+    assert ok.get("ok") is True, ok
+    handle_abort({"workspace": str(root), "run_id": run_id, "reason": "cancel"})
+    blocked = json.loads(
+        handle_register_artifact(
+            {
+                "workspace": str(root),
+                "run_id": run_id,
+                "artifact_type": "verify",
+                "path": "verification/y.yaml",
+            }
+        )
+    )
+    assert "error" in blocked and "aborted" in blocked["error"], blocked
+
+
+def test_aborted_run_rejects_workspace_update(temp_uacp_root: Path):
+    root = temp_uacp_root
+    run_id = _init(root)
+    handle_abort({"workspace": str(root), "run_id": run_id, "reason": "cancel"})
+    blocked = json.loads(
+        handle_workspace({"workspace": str(root), "run_id": run_id, "workspace_branch": "x"})
+    )
+    assert "error" in blocked and "aborted" in blocked["error"], blocked
+
+
+def test_aborted_run_cannot_be_finalized_even_if_phase_forced_terminal(temp_uacp_root: Path):
+    """Resurrection probe: force an aborted run's current_phase to a terminal value on
+    disk and finalize it. The status guard must refuse — an aborted run is never
+    resolvable (the phase-only check would otherwise let it pass)."""
+    root = temp_uacp_root
+    run_id = _init(root)
+    handle_abort({"workspace": str(root), "run_id": run_id, "reason": "cancel"})
+    mpath = root / ".uacp" / "state" / "runs" / f"{run_id}.yaml"
+    data = yaml.safe_load(mpath.read_text())
+    assert data["status"] == "aborted"
+    data["current_phase"] = "resolved"  # forced terminal phase
+    mpath.write_text(yaml.safe_dump(data))
+    out = json.loads(handle_finalize({"workspace": str(root), "run_id": run_id}))
+    assert "error" in out and "aborted" in out["error"], out
+    # The manifest was NOT tentatively stamped resolved.
+    assert yaml.safe_load(mpath.read_text())["status"] == "aborted"
+
+
+# ------------------------------------------------------- fail-closed on registry
+def test_abort_fails_closed_on_malformed_registry(temp_uacp_root: Path):
+    """A registry that exists but is unparseable must BLOCK the abort (not silently
+    strand write_paths): the run stays active, no ABORT ledger record is written, and
+    a retry is possible once the registry is repaired."""
+    root = temp_uacp_root
+    run_id = _init(root)
+    reg = root / ".uacp" / "state" / "run-registry.yaml"
+    reg.parent.mkdir(parents=True, exist_ok=True)
+    reg.write_text("::: not: valid: yaml: [[[")
+
+    out = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "cancel"}))
+    assert "error" in out, out
+    assert "unparseable" in out["error"] or "abort failed" in out["error"], out
+    # Fail-closed: run still active, nothing torn down, no stranded ABORT record.
+    assert _manifest(root, run_id)["status"] == "active"
+    assert "ABORT" not in _ledger_gates(root, run_id)
+
+    # Once the registry is repaired, the abort completes (retryable).
+    reg.write_text(yaml.safe_dump({"schema_version": "0.1", "active_runs": []}))
+    ok = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "cancel"}))
+    assert ok.get("ok") is True, ok
+    assert _manifest(root, run_id)["status"] == "aborted"
+
+
+def test_abort_pointer_release_preserves_other_fields(temp_uacp_root: Path):
+    """Pointer release nulls the identity fields + stamps released_by but PRESERVES
+    any other pointer fields (read-merge, not overwrite)."""
+    root = temp_uacp_root
+    run_id = _init(root)
+    current = root / ".uacp" / "state" / "current.yaml"
+    cur = yaml.safe_load(current.read_text())
+    cur["uacp_mode"] = "supervised_auto"  # an expanded pointer field
+    current.write_text(yaml.safe_dump(cur))
+
+    handle_abort({"workspace": str(root), "run_id": run_id, "reason": "cancel"})
+    after = yaml.safe_load(current.read_text())
+    assert after["active_run_id"] is None
+    assert after["released_by"] == f"{run_id}@abort"
+    assert after["uacp_mode"] == "supervised_auto"  # preserved, not clobbered
