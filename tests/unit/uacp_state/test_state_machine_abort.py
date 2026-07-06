@@ -405,6 +405,37 @@ def test_abort_pointer_release_preserves_other_fields(temp_uacp_root: Path):
     assert after["uacp_mode"] == "supervised_auto"  # preserved, not clobbered
 
 
+def test_abort_fails_closed_on_unreadable_pointer(temp_uacp_root: Path):
+    """#132 round-6: an existing-but-unreadable current.yaml must BLOCK teardown, not
+    be swallowed as empty. The run commits aborted, but the abort surfaces
+    teardown-incomplete and the registry entry stays HELD (never frees write_paths
+    under a broken pointer). Once the pointer is repaired, a retry completes."""
+    root = temp_uacp_root
+    run_id = _init(root)
+    _seed_registry(root, run_id, ["executions/shared.txt"])
+    current = root / ".uacp" / "state" / "current.yaml"
+    current.write_text(":::not valid yaml:::[[[")  # exists but unparseable
+
+    out = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "x"}))
+    assert "error" in out, out
+    assert "current.yaml" in out["error"] or "teardown incomplete" in out["error"], out
+    # Registry entry still HELD — write_paths not freed under a broken pointer.
+    reg = yaml.safe_load((root / ".uacp" / "state" / "run-registry.yaml").read_text())
+    assert any(e["run_id"] == run_id for e in reg["active_runs"])
+
+    # Repair the pointer; a retry (idempotent re-entry) completes teardown.
+    current.write_text(
+        yaml.safe_dump(
+            {"active_run_id": run_id, "active_run_manifest": f"state/runs/{run_id}.yaml"}
+        )
+    )
+    ok = json.loads(handle_abort({"workspace": str(root), "run_id": run_id, "reason": "x"}))
+    assert ok.get("ok") is True, ok
+    reg2 = yaml.safe_load((root / ".uacp" / "state" / "run-registry.yaml").read_text())
+    assert not any(e["run_id"] == run_id for e in reg2["active_runs"])  # now freed
+    assert yaml.safe_load(current.read_text())["active_run_id"] is None  # pointer released
+
+
 def test_deregister_runs_after_commit_paths_never_freed_while_active(temp_uacp_root, monkeypatch):
     """#132 round-2: registry deregistration happens AFTER the manifest is committed
     aborted, so a run's write_paths are never freed while it is still active. Force

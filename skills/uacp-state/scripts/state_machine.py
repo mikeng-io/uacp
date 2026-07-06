@@ -1055,21 +1055,37 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
         # pointer, is left untouched). Written directly (like handle_init): the
         # uacp_state_write anti-clear guard rejects a caller-supplied empty
         # active_run_id, so ONLY this handler may null it.
+        #
+        # FAIL-CLOSED (Codex #132 round-6): an existing-but-unreadable / non-mapping
+        # pointer means we cannot tell whether it still names this run, so we must NOT
+        # report a complete teardown. Raise — the run is already committed aborted, but
+        # this surfaces teardown-incomplete and (because pointer-release precedes the
+        # deregister in step 4) leaves the registry entry HELD rather than freeing
+        # write_paths under a broken pointer. Retryable via re-entry once repaired.
         current_path = base_dir(workspace) / "state" / "current.yaml"
         if current_path.exists():
             try:
-                cur = yaml.safe_load(current_path.read_text(encoding="utf-8")) or {}
-            except Exception:
-                cur = {}
-            if isinstance(cur, dict) and str(cur.get("active_run_id") or "") == run_id:
+                cur = yaml.safe_load(current_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                raise ValueError(
+                    f"abort teardown incomplete: state/current.yaml is unreadable: "
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
+            if cur is not None and not isinstance(cur, dict):
+                raise ValueError(
+                    "abort teardown incomplete: state/current.yaml content is not a mapping"
+                )
+            cur = cur or {}
+            if str(cur.get("active_run_id") or "") == run_id:
                 cur["active_run_id"] = None
                 cur["active_run_manifest"] = None
                 cur["released_by"] = f"{run_id}@abort"
                 _write_uacp_file(current_path, yaml.safe_dump(cur, sort_keys=False))
 
         # 4) POST-COMMIT teardown — deregister the registry entry, freeing write_paths.
-        # AFTER the commit so paths are never freed while the run is active (#132
-        # round-2); idempotent no-op once the entry is gone.
+        # AFTER the commit AND after the pointer release, so paths are never freed while
+        # the run is active (#132 round-2) NOR under an unreadable pointer (round-6);
+        # idempotent no-op once the entry is gone.
         from state import _deregister_run_from_registry
 
         _deregister_run_from_registry(workspace, run_id)
