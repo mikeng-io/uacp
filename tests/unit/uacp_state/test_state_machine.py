@@ -246,7 +246,9 @@ class TestStateMachineTransition:
             "to_phase": "triage",
         }))
         assert "error" in result
-        assert "terminal" in result["error"]
+        # #107: the guard now refuses ANY non-active run (resolved included) with a
+        # status-anchored message, not only the current_phase-terminal wording.
+        assert "not active" in result["error"]
 
 
 class TestStateMachineRegisterArtifact:

@@ -261,7 +261,7 @@ schema_version = "0.1"
 [guardian.protected_categories."state.uacp"]
 description = "Runtime lifecycle state under state/."
 default_decision = "block"
-allowed_tools = ["uacp_state_write", "uacp_gate_ledger_append", "uacp_run_registry_update", "uacp_escalation_event", "uacp_run_init", "uacp_run_transition", "uacp_run_register_artifact", "uacp_run_finalize"]
+allowed_tools = ["uacp_state_write", "uacp_gate_ledger_append", "uacp_run_registry_update", "uacp_escalation_event", "uacp_run_init", "uacp_run_transition", "uacp_run_register_artifact", "uacp_run_finalize", "uacp_run_abort"]
 
 [guardian.protected_categories."docs.uacp"]
 description = "Canonical UACP Markdown docs under docs/."
@@ -355,6 +355,7 @@ uacp_run_init = "state.uacp"
 uacp_run_transition = "state.uacp"
 uacp_run_register_artifact = "state.uacp"
 uacp_run_finalize = "state.uacp"
+uacp_run_abort = "state.uacp"
 terminal = "exec.shell"
 # Raw filesystem write surface (host Edit/Write/MultiEdit/NotebookEdit normalize
 # here via host_tool_classification). file.write defaults to require_approval, so
@@ -425,6 +426,7 @@ names = [
     "uacp_run_transition",
     "uacp_run_register_artifact",
     "uacp_run_finalize",
+    "uacp_run_abort",
 ]
 
 # --- Host tool classification (host tool name -> KERNEL tool name) ---------
@@ -1217,6 +1219,11 @@ uacp_run_init = ["state/runs/"]
 uacp_run_transition = ["state/runs/"]
 uacp_run_register_artifact = ["state/runs/"]
 uacp_run_finalize = ["state/runs/"]
+# Abort (#107) is the broadest run-lifecycle writer: it stamps the manifest,
+# releases the active-run pointer, deregisters the run-registry entry (freeing
+# write_paths), and appends the ABORT gate-ledger record — one governed primitive
+# touching all four run-state surfaces.
+uacp_run_abort = ["state/runs/", "state/current.yaml", "state/run-registry.yaml", "state/gate-ledger/"]
 
 [scope.handler_refusals]
 # uacp_state_write refuses sub-paths exclusively owned by other governed writers.

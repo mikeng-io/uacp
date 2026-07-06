@@ -40,6 +40,7 @@ __all__ = [
     "_handle_uacp_run_transition",
     "_handle_uacp_run_register_artifact",
     "_handle_uacp_run_finalize",
+    "_handle_uacp_run_abort",
 ]
 
 
@@ -171,6 +172,42 @@ def _run_manifest_goal_id(root: Path, run_id: str) -> str | None:
         return None
     except Exception:
         return None
+
+
+def _deregister_run_from_registry(root: Path, run_id: str) -> bool:
+    """Remove the active_runs[] entry for ``run_id`` from state/run-registry.yaml,
+    freeing its write_paths. Returns True if an entry was removed, False on a no-op
+    (registry absent / garbled / no matching entry). Preserves every other key of
+    the registry mapping (schema_version, sibling entries).
+
+    The CANONICAL registry mutator remains uacp_run_registry_update(op=deregister),
+    which carries caller-binding + validation for agent-issued calls. This is the
+    mechanical seam the abort PRIMITIVE (state_machine.handle_abort) reuses to tear
+    down its OWN entry under the run lock — mirroring how _append_gate_ledger_record
+    is shared with handle_transition so the two paths cannot diverge on the
+    active_runs shape. Never raises on a garbled registry (best-effort teardown);
+    only a genuinely unwritable file propagates (via _write_uacp_file)."""
+    import yaml as _yaml
+
+    base = base_dir(root)
+    registry_path = (base / "state" / "run-registry.yaml").resolve()
+    if not registry_path.exists():
+        return False
+    try:
+        data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return False
+    if not isinstance(data, dict):
+        return False
+    active = data.get("active_runs")
+    if not isinstance(active, list):
+        return False
+    kept = [e for e in active if not (isinstance(e, dict) and str(e.get("run_id") or "") == run_id)]
+    if len(kept) == len(active):
+        return False
+    data["active_runs"] = kept
+    _write_uacp_file(registry_path, _yaml.safe_dump(data, sort_keys=False))
+    return True
 
 
 def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
@@ -887,3 +924,39 @@ def _handle_uacp_run_finalize(args: dict, **_: Any) -> str:
         return handle_finalize(params)
     except Exception as exc:
         return json.dumps({"error": f"uacp_run_finalize failed: {type(exc).__name__}: {exc}"})
+
+
+def _handle_uacp_run_abort(args: dict, **_: Any) -> str:
+    """Governed wrapper for state_machine.handle_abort (#107).
+
+    Early-terminates an active run (any phase, incl. brainstorm) with
+    governed-context enforcement: validates UACP context fields and requires
+    reason + authority_artifact before delegating. ``disposition`` is optional and
+    defaults to 'abandoned' (one of abandoned|superseded|direct|blocked). The state
+    machine records the ABORT ledger entry, frees the run's registry write_paths,
+    releases the active-run pointer, and stamps the abort disposition.
+    """
+    try:
+        missing = _required_uacp_context_missing(args)
+        if missing:
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing)}"})
+        workspace = args.get("workspace")
+        policy = GuardianPolicy.load(workspace)
+        reason = (args.get("reason") or "").strip()
+        authority = (args.get("authority_artifact") or "").strip()
+        if not reason:
+            return json.dumps({"error": "reason is required"})
+        if not authority:
+            return json.dumps({"error": "authority_artifact is required"})
+        run_id = str(args.get("uacp_run_id") or "").strip()
+        params: dict[str, Any] = {
+            "workspace": str(policy.uacp_root),
+            "run_id": run_id,
+            "reason": reason,
+            "disposition": str(args.get("disposition") or "abandoned").strip(),
+        }
+        from state_machine import handle_abort  # lazy: avoids any future import cycles
+
+        return handle_abort(params)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_run_abort failed: {type(exc).__name__}: {exc}"})
