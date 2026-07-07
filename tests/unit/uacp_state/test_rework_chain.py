@@ -187,6 +187,46 @@ def test_rework_empty_parent_id_rejected(temp_uacp_root: Path):
     assert "empty" in out["error"]
 
 
+def test_rework_rejected_when_parent_has_no_verify_findings(temp_uacp_root: Path):
+    """Codex #134: a rework must have defects to fix — a parent that hasn't registered
+    any VERIFY findings (e.g. still at plan) is rejected, not silently carried empty."""
+    root = temp_uacp_root
+    parent = RunManifest(
+        run_id="pre-verify",
+        authority=Authority(source="operator-request"),
+        track="standard",
+        current_phase="plan",
+        artifacts={"triage": "proposals/pre-verify-triage.yaml", "plan": "plans/pre-verify.yaml"},
+    )
+    _save_manifest(root, parent)
+    out = _init_rework(root, "run-B", "pre-verify")
+    assert "error" in out
+    assert "no registered VERIFY findings" in out["error"]
+
+
+def test_rework_carries_composite_investigation_entry_key(temp_uacp_root: Path):
+    """Typed uacp.investigation_entry registers as 'investigation_entry' or a composite
+    'investigation_entry:seq=1' — both must be carried (matched by base key)."""
+    root = temp_uacp_root
+    parent = RunManifest(
+        run_id="inv-parent",
+        authority=Authority(source="operator-request"),
+        track="standard",
+        current_phase="verify",
+        artifacts={
+            "verification_package": "verification/inv-parent-verify-selection.yaml",
+            "investigation_entry:seq=1": "verification/inv-parent-investigation-1.yaml",
+        },
+    )
+    _save_manifest(root, parent)
+    out = _init_rework(root, "run-B", "inv-parent")
+    assert out.get("ok") is True, out
+    assert _manifest(root, "run-B")["carried_findings"] == {
+        "verification_package": "verification/inv-parent-verify-selection.yaml",
+        "investigation_entry:seq=1": "verification/inv-parent-investigation-1.yaml",
+    }
+
+
 def test_rework_requires_standard_track_parent(temp_uacp_root: Path):
     """M4: keep the loops distinct — a standard rework cannot rework a goal-driven parent."""
     root = temp_uacp_root

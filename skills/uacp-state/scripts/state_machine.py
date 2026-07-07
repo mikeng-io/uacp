@@ -323,24 +323,36 @@ def handle_init(args: dict[str, Any]) -> str:
                         "not standard (a standard-track rework requires a standard-track parent)"
                     }
                 )
-            # The parent's VERIFY findings carried forward, keyed by the artifact_type
-            # keys the STANDARD verify flow actually registers in manifest.artifacts
-            # (Codex #134: verification_package / resolve_readiness / assessment — see
-            # tests/e2e/test_full_lifecycle._seed_verify_assessment; NOT the schema-KIND
-            # names). NOTE (review #135): a NEW verify artifact key must be added here or
-            # it will not be carried — a follow-up should derive this from the
-            # phase->artifact schema rather than a hardcoded tuple.
-            _VERIFY_FINDING_KEYS = (
-                "verification_package",
-                "resolve_readiness",
-                "assessment",
-                "investigation",
+            # The parent's VERIFY findings carried forward, matched by the BASE
+            # artifact_type key (before any ':seq=N' composite suffix) the STANDARD
+            # verify flow actually registers in manifest.artifacts (Codex #134):
+            #   verification_package / resolve_readiness / assessment (test_full_lifecycle
+            #   ._seed_verify_assessment) + investigation_entry (typed uacp.investigation_
+            #   entry, which entity_writer registers as 'investigation_entry' or
+            #   'investigation_entry:seq=1'). NOT the schema-KIND names.
+            # NOTE (review #135): a NEW verify artifact key must be added here — a
+            # follow-up should derive this from the phase->artifact schema instead.
+            _VERIFY_FINDING_BASE_KEYS = frozenset(
+                {"verification_package", "resolve_readiness", "assessment", "investigation_entry"}
             )
             carried_findings = {
-                k: rework_parent.artifacts[k]
-                for k in _VERIFY_FINDING_KEYS
-                if k in rework_parent.artifacts
+                k: v
+                for k, v in rework_parent.artifacts.items()
+                if k.split(":", 1)[0] in _VERIFY_FINDING_BASE_KEYS
             }
+            # Fail-closed (Codex #134): a rework MUST have defects to fix. A parent with
+            # no registered VERIFY findings (hasn't reached verify / wrong parent) would
+            # yield an empty carry, making the rework indistinguishable from a fresh run
+            # while this slice does not yet enforce the fix downstream (#135).
+            if not carried_findings:
+                return json.dumps(
+                    {
+                        "error": (
+                            f"reworks refused: parent '{reworks}' has no registered VERIFY findings "
+                            "to carry (has it reached verify?) — nothing to rework"
+                        )
+                    }
+                )
             rework_depth = int(getattr(rework_parent, "rework_depth", 0) or 0) + 1
 
         # Optional initial_phase: allows a run to start at 'brainstorm' instead
