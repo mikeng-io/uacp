@@ -20,6 +20,7 @@ from state_machine import (
     RunManifest,
     _save_manifest,
     handle_init,
+    handle_read,
 )
 
 LIFECYCLE_GRAPH = phase_graph.LIFECYCLE_GRAPH
@@ -83,8 +84,8 @@ def test_rework_records_provenance_and_carries_findings(temp_uacp_root: Path):
     # Re-author model: NO gate-level reuse — the rework drives its own upstream.
     assert m["inherits_from"] is None
     assert m["inherited_artifacts"] == {}
-    # Carried findings = the parent's VERIFY artifacts (the defects to fix), the only
-    # phase output that crosses the boundary (as EXECUTE input, not gate reuse).
+    # Carried findings = PARENT-RELATIVE references to the parent's VERIFY artifacts
+    # (the defects the rework should address), recorded on the manifest.
     assert m["carried_findings"] == {
         "verification": "verification/run-A-package.yaml",
         "verify_resolve_readiness": "verification/run-A-resolve-readiness.yaml",
@@ -147,6 +148,73 @@ def test_rework_missing_parent_fails_closed(temp_uacp_root: Path):
     out = _init_rework(root, "run-B", "does-not-exist")
     assert "error" in out
     assert "not found" in out["error"]
+
+
+def test_rework_self_reference_rejected(temp_uacp_root: Path):
+    # A fresh run cannot name itself as the parent it reworks.
+    root = temp_uacp_root
+    out = _init_rework(root, "run-self", "run-self")
+    assert "error" in out
+    assert "cannot rework itself" in out["error"]
+
+
+def test_rework_unsafe_parent_id_rejected(temp_uacp_root: Path):
+    root = temp_uacp_root
+    for bad in ("../../../etc/passwd", "sub/run-A"):
+        out = _init_rework(root, "run-B", bad)
+        assert "error" in out and "unsafe parent run_id" in out["error"], (bad, out)
+
+
+def test_rework_empty_parent_id_rejected(temp_uacp_root: Path):
+    """A fat-fingered empty reworks must error, not silently become a fresh run."""
+    root = temp_uacp_root
+    out = json.loads(
+        handle_init(
+            {
+                "workspace": str(root),
+                "run_id": "run-B",
+                "source": "operator-request",
+                "reworks": "   ",
+            }
+        )
+    )
+    assert "error" in out
+    assert "empty" in out["error"]
+
+
+def test_rework_requires_standard_track_parent(temp_uacp_root: Path):
+    """M4: keep the loops distinct — a standard rework cannot rework a goal-driven parent."""
+    root = temp_uacp_root
+    parent = RunManifest(
+        run_id="gd-parent",
+        authority=Authority(source="operator-request"),
+        track="goal-driven",
+        goal_id="g1",
+        current_phase="verify",
+        artifacts={"verification": "verification/gd-parent-package.yaml"},
+    )
+    _save_manifest(root, parent)
+    out = _init_rework(root, "run-B", "gd-parent")
+    assert "error" in out
+    assert "not standard" in out["error"]
+
+
+def test_carried_findings_readable_via_run_read(temp_uacp_root: Path):
+    """carried_findings is not inert: it is serialized manifest state surfaced by the
+    governed run-read, so a rework agent has a governed way to see the defects
+    (enforcement that it addresses them is a follow-up)."""
+    root = temp_uacp_root
+    _seed_parent_at_verify(root, "run-A")
+    _init_rework(root, "run-B", "run-A")
+    read = json.loads(handle_read({"workspace": str(root), "run_id": "run-B"}))
+    assert read.get("ok") is True, read
+    m = read["manifest"]
+    assert m["reworks"] == "run-A"
+    assert m["rework_depth"] == 1
+    assert m["carried_findings"] == {
+        "verification": "verification/run-A-package.yaml",
+        "verify_resolve_readiness": "verification/run-A-resolve-readiness.yaml",
+    }
 
 
 def test_standard_run_without_reworks_is_unaffected(temp_uacp_root: Path):

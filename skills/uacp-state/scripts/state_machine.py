@@ -145,11 +145,12 @@ class RunManifest(BaseModel):
     # (triage/proposal/plan/scope/PIV/…) and drives the lifecycle forward normally —
     # it does not reuse the parent's gate artifacts (those are read via templated
     # {run_id} paths, so a reference wouldn't satisfy them). Only three things cross
-    # the chain boundary:
+    # the chain boundary (all RECORDED manifest state, readable via handle_read;
+    # ENFORCING that the rework addresses the findings is a follow-up, not this slice):
     #   * `reworks` — the parent run_id this run reworks (provenance link, NOT a
     #     gate-reuse pointer; distinct from `inherits_from`, the goal-driven rewind);
-    #   * `carried_findings` — references to the parent's VERIFY findings (the defects
-    #     to fix), carried forward as EXECUTE input;
+    #   * `carried_findings` — PARENT-RELATIVE references to the parent's VERIFY findings
+    #     (paths under the PARENT's namespace; the defects the rework should address);
     #   * `rework_depth` — the hop count along the chain (0 = fresh, N = Nth rework):
     #     the VISIBLE bound, so an unbounded chain shows an escalating depth rather
     #     than looping invisibly.
@@ -241,9 +242,14 @@ def handle_init(args: dict[str, Any]) -> str:
         # reuse, and the plan-exit gates read templated {run_id} paths a reference
         # can't satisfy). Only the provenance link + the carried findings + the visible
         # depth cross the chain boundary.
+        _reworks_raw = args.get("reworks")
         reworks: str | None = (
-            str(args["reworks"]).strip() or None if args.get("reworks") is not None else None
+            str(_reworks_raw).strip() or None if _reworks_raw is not None else None
         )
+        # N1 (review): a fat-fingered empty parent id must not silently become an
+        # ungoverned fresh run — reject an explicitly-supplied but empty reworks.
+        if _reworks_raw is not None and reworks is None:
+            return json.dumps({"error": "reworks was provided but empty"})
 
         manifest_path = _run_manifest_path(workspace, run_id)
         if manifest_path.exists():
@@ -291,10 +297,36 @@ def handle_init(args: dict[str, Any]) -> str:
                         "error": f"reworks requires track='standard' (got '{track}'); goal-driven runs rewind via inherits_from"
                     }
                 )
+            # Explicit safe-id check (clean error + defense-in-depth). A traversal id is
+            # already contained downstream by _resolve_uacp_path, but reject it here with
+            # a clear message rather than a generic 'init failed'.
+            if (
+                ("/" in reworks)
+                or ("\\" in reworks)
+                or (".." in reworks)
+                or reworks.startswith(".")
+            ):
+                return json.dumps({"error": f"reworks refused: unsafe parent run_id {reworks!r}"})
+            if reworks == run_id:
+                return json.dumps({"error": "reworks refused: a run cannot rework itself"})
             try:
                 rework_parent = _load_manifest(workspace, reworks)
             except FileNotFoundError:
                 return json.dumps({"error": f"reworks parent manifest not found: {reworks}"})
+            # M4 (review): keep the two loops distinct — a standard-track rework must
+            # rework a STANDARD-track parent, not seed itself from a goal-driven run's
+            # findings.
+            if getattr(rework_parent, "track", "standard") != "standard":
+                return json.dumps(
+                    {
+                        "error": f"reworks refused: parent '{reworks}' is track='{rework_parent.track}', "
+                        "not standard (a standard-track rework requires a standard-track parent)"
+                    }
+                )
+            # The parent's VERIFY findings carried forward. Known verify finding keys;
+            # NOTE (review): a NEW verify artifact kind must be added here or it will not
+            # be carried — a follow-up should derive this from the phase->artifact schema
+            # rather than a hardcoded tuple.
             _VERIFY_FINDING_KEYS = ("verification", "verify_resolve_readiness", "investigation")
             carried_findings = {
                 k: rework_parent.artifacts[k]

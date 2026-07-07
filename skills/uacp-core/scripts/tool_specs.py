@@ -574,11 +574,13 @@ def tool_specs() -> list[ToolSpec]:
                             "Parent run_id this run REWORKS (#109) — the standard-track findings->fix "
                             "loop. Per ADR-0016 P2 this is a NEW FORWARD RUN (not a verify->execute "
                             "back-edge): the rework run RE-AUTHORS its own upstream and drives the "
-                            "lifecycle forward normally. Three things cross the chain boundary: a "
-                            "provenance link (reworks), the parent's carried VERIFY findings (the defects "
-                            "to fix, as EXECUTE input), and an incremented visible rework_depth. Standard "
-                            "track only; mutually exclusive with goal_id and inherits_from. Fail-closed on "
-                            "missing parent."
+                            "lifecycle forward normally. Three things are RECORDED on the rework manifest "
+                            "(readable via uacp_run_read): a provenance link (reworks), references to the "
+                            "parent's VERIFY findings (carried_findings — the defects the rework should "
+                            "address), and an incremented visible rework_depth. NOTE: this slice serializes "
+                            "these as manifest state; a gate ENFORCING that the rework addresses the "
+                            "carried findings is a follow-up. Standard-track parent + child only; mutually "
+                            "exclusive with goal_id and inherits_from; fail-closed on a missing/unsafe parent."
                         ),
                     },
                     "workspace_kind": {
