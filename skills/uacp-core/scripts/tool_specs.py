@@ -568,6 +568,19 @@ def tool_specs() -> list[ToolSpec]:
                             "inherited_artifacts. The parent manifest must exist; fail-closed on missing parent."
                         ),
                     },
+                    "reworks": {
+                        "type": "string",
+                        "description": (
+                            "Parent run_id this run REWORKS (#109) — the standard-track findings->fix "
+                            "loop. Per ADR-0016 P2 this is a NEW FORWARD RUN (not a verify->execute "
+                            "back-edge): the rework run RE-AUTHORS its own upstream and drives the "
+                            "lifecycle forward normally. Three things cross the chain boundary: a "
+                            "provenance link (reworks), the parent's carried VERIFY findings (the defects "
+                            "to fix, as EXECUTE input), and an incremented visible rework_depth. Standard "
+                            "track only; mutually exclusive with goal_id and inherits_from. Fail-closed on "
+                            "missing parent."
+                        ),
+                    },
                     "workspace_kind": {
                         "type": "string",
                         "description": "Workspace kind (default: 'worktree').",
