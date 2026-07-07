@@ -35,13 +35,16 @@ def _seed_parent_at_verify(workspace: Path, run_id: str, *, rework_depth: int = 
         track="standard",
         current_phase="verify",
         rework_depth=rework_depth,
+        # Keys match what the STANDARD verify flow actually registers (Codex #134):
+        # verification_package / resolve_readiness / assessment — NOT the schema-KIND names.
         artifacts={
             "triage": f"proposals/{run_id}-triage.yaml",
             "proposal": f"proposals/{run_id}.yaml",
             "plan": f"plans/{run_id}.yaml",
             "execution_checkpoint": f"executions/{run_id}-checkpoint-001.yaml",
-            "verification": f"verification/{run_id}-package.yaml",
-            "verify_resolve_readiness": f"verification/{run_id}-resolve-readiness.yaml",
+            "verification_package": f"verification/{run_id}-verify-selection.yaml",
+            "resolve_readiness": f"verification/{run_id}-resolve-readiness.yaml",
+            "assessment": f"verification/{run_id}-piv-assessment.yaml",
         },
     )
     _save_manifest(workspace, manifest)
@@ -85,10 +88,12 @@ def test_rework_records_provenance_and_carries_findings(temp_uacp_root: Path):
     assert m["inherits_from"] is None
     assert m["inherited_artifacts"] == {}
     # Carried findings = PARENT-RELATIVE references to the parent's VERIFY artifacts
-    # (the defects the rework should address), recorded on the manifest.
+    # (the defects the rework should address), recorded on the manifest — keyed by the
+    # REAL artifact_type keys the standard verify flow registers.
     assert m["carried_findings"] == {
-        "verification": "verification/run-A-package.yaml",
-        "verify_resolve_readiness": "verification/run-A-resolve-readiness.yaml",
+        "verification_package": "verification/run-A-verify-selection.yaml",
+        "resolve_readiness": "verification/run-A-resolve-readiness.yaml",
+        "assessment": "verification/run-A-piv-assessment.yaml",
     }
     # A rework run's own execution state starts clean.
     assert m["artifacts"] == {}
@@ -212,8 +217,9 @@ def test_carried_findings_readable_via_run_read(temp_uacp_root: Path):
     assert m["reworks"] == "run-A"
     assert m["rework_depth"] == 1
     assert m["carried_findings"] == {
-        "verification": "verification/run-A-package.yaml",
-        "verify_resolve_readiness": "verification/run-A-resolve-readiness.yaml",
+        "verification_package": "verification/run-A-verify-selection.yaml",
+        "resolve_readiness": "verification/run-A-resolve-readiness.yaml",
+        "assessment": "verification/run-A-piv-assessment.yaml",
     }
 
 

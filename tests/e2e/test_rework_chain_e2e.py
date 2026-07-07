@@ -24,13 +24,13 @@ import pytest
 import state_machine
 import yaml
 from engines.domain import phase_graph
-from state import _handle_uacp_run_register_artifact
 
 from tests.e2e.driver import Driver
 from tests.e2e.test_adaptive_evidence_gate_uacp import REAL_CONFIG, REAL_VALIDATOR
 from tests.e2e.test_full_lifecycle import _SEEDERS, PHASES
 from tests.e2e.test_lifecycle_production_drivability import (
     _author_lessons,
+    _drive_full_lifecycle,
     _seed_triage_artifact,
     _watermark_registered_artifacts,
 )
@@ -77,42 +77,6 @@ def prod_uacp_root() -> Generator[Path]:
 
 def _manifest(root: Path, run_id: str) -> dict:
     return yaml.safe_load((root / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text())
-
-
-def _seed_parent_with_finding(root: Path, run_id: str) -> None:
-    """Parent run A that reached VERIFY and recorded a verification finding (the
-    defect the rework exists to fix)."""
-    driver = Driver(root, run_id)
-    init = driver.call(
-        "uacp_state_write",
-        state_machine.handle_init,
-        {"workspace": str(root), "run_id": run_id, "source": "operator-request"},
-        phase="triage",
-    )
-    assert init.get("ok") is True, init
-    # Register A's verification finding (governed) so the rework can carry it forward.
-    finding_rel = f"verification/{run_id}-package.yaml"
-    (root / ".uacp" / "verification").mkdir(parents=True, exist_ok=True)
-    (root / ".uacp" / finding_rel).write_text(
-        yaml.safe_dump({"kind": "uacp.verification_package", "run_id": run_id, "verdict": "fail"})
-    )
-    reg = driver.call(
-        "uacp_run_register_artifact",
-        _handle_uacp_run_register_artifact,
-        {
-            "uacp_run_id": run_id,
-            "uacp_phase": "verify",
-            "workspace": str(root),
-            "policy_version": "0.1",
-            "declared_side_effects": [],
-            "reason": "record verify finding",
-            "authority_artifact": "plans/test.yaml",
-            "artifact_type": "verification",
-            "path": finding_rel,
-        },
-        phase="verify",
-    )
-    assert reg.get("ok") is True, reg
 
 
 def _drive_rework_to_resolved(root: Path, run_id: str, reworks: str) -> dict:
@@ -163,11 +127,17 @@ def _drive_rework_to_resolved(root: Path, run_id: str, reworks: str) -> dict:
 def test_rework_run_drives_forward_to_resolved_carrying_findings(prod_uacp_root: Path) -> None:
     root = prod_uacp_root
 
-    # Parent A reached VERIFY and recorded a finding.
-    _seed_parent_with_finding(root, PARENT)
+    # Parent A drives the REAL standard lifecycle through VERIFY (registering the
+    # production verify artifact keys — verification_package / resolve_readiness /
+    # assessment — via the keystone seeders), so the carried findings are the ACTUAL
+    # keys a real run leaves behind (not a hand-picked stub — Codex #134).
+    fin_a = _drive_full_lifecycle(root, PARENT)
+    assert fin_a.get("ok") is True, f"parent lifecycle BLOCKED: {fin_a}"
+    parent_artifacts = _manifest(root, PARENT)["artifacts"]
+    assert "verification_package" in parent_artifacts, parent_artifacts  # non-vacuity guard
 
-    # Rework run B reworks A: carries A's finding + a visible depth, re-authors its own
-    # upstream, and drives the full lifecycle forward to RESOLVED.
+    # Rework run B reworks A: carries A's real verify findings + a visible depth,
+    # re-authors its own upstream, and drives the full lifecycle forward to RESOLVED.
     fin = _drive_rework_to_resolved(root, CHILD, PARENT)
     assert fin.get("ok") is True, f"rework finalize BLOCKED: {fin}"
     assert fin.get("status") == "resolved", fin
@@ -183,10 +153,16 @@ def test_rework_run_drives_forward_to_resolved_carrying_findings(prod_uacp_root:
         if h["event"] == "phase_transition"
     ]
     assert transitions == PHASES, transitions
-    # Carried the parent's finding + a visible rework depth (the #109 metadata).
+    # Carried the parent's REAL verify findings (non-empty) + a visible rework depth.
     assert m["reworks"] == PARENT
     assert m["rework_depth"] == 1
-    assert m["carried_findings"] == {"verification": f"verification/{PARENT}-package.yaml"}
+    expected_findings = {
+        k: parent_artifacts[k]
+        for k in ("verification_package", "resolve_readiness", "assessment", "investigation")
+        if k in parent_artifacts
+    }
+    assert expected_findings, "non-vacuity: the parent must have registered verify findings"
+    assert m["carried_findings"] == expected_findings
     # Re-author model: no gate-level inheritance was used.
     assert m["inherits_from"] is None
     assert m["inherited_artifacts"] == {}

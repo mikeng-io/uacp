@@ -323,11 +323,19 @@ def handle_init(args: dict[str, Any]) -> str:
                         "not standard (a standard-track rework requires a standard-track parent)"
                     }
                 )
-            # The parent's VERIFY findings carried forward. Known verify finding keys;
-            # NOTE (review): a NEW verify artifact kind must be added here or it will not
-            # be carried — a follow-up should derive this from the phase->artifact schema
-            # rather than a hardcoded tuple.
-            _VERIFY_FINDING_KEYS = ("verification", "verify_resolve_readiness", "investigation")
+            # The parent's VERIFY findings carried forward, keyed by the artifact_type
+            # keys the STANDARD verify flow actually registers in manifest.artifacts
+            # (Codex #134: verification_package / resolve_readiness / assessment — see
+            # tests/e2e/test_full_lifecycle._seed_verify_assessment; NOT the schema-KIND
+            # names). NOTE (review #135): a NEW verify artifact key must be added here or
+            # it will not be carried — a follow-up should derive this from the
+            # phase->artifact schema rather than a hardcoded tuple.
+            _VERIFY_FINDING_KEYS = (
+                "verification_package",
+                "resolve_readiness",
+                "assessment",
+                "investigation",
+            )
             carried_findings = {
                 k: rework_parent.artifacts[k]
                 for k in _VERIFY_FINDING_KEYS
