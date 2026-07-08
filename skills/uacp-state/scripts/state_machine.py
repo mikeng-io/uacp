@@ -140,6 +140,23 @@ class RunManifest(BaseModel):
     track: str = "standard"
     goal_id: str | None = None
     inherits_from: str | None = None
+    # Standard-track rework chaining (#109, ADR-0016 P2: rework = a NEW FORWARD RUN,
+    # NOT a verify->execute back-edge). A rework run RE-AUTHORS its own upstream
+    # (triage/proposal/plan/scope/PIV/…) and drives the lifecycle forward normally —
+    # it does not reuse the parent's gate artifacts (those are read via templated
+    # {run_id} paths, so a reference wouldn't satisfy them). Only three things cross
+    # the chain boundary (all RECORDED manifest state, readable via handle_read;
+    # ENFORCING that the rework addresses the findings is a follow-up, not this slice):
+    #   * `reworks` — the parent run_id this run reworks (provenance link, NOT a
+    #     gate-reuse pointer; distinct from `inherits_from`, the goal-driven rewind);
+    #   * `carried_findings` — PARENT-RELATIVE references to the parent's VERIFY findings
+    #     (paths under the PARENT's namespace; the defects the rework should address);
+    #   * `rework_depth` — the hop count along the chain (0 = fresh, N = Nth rework):
+    #     the VISIBLE bound, so an unbounded chain shows an escalating depth rather
+    #     than looping invisibly.
+    reworks: str | None = None
+    rework_depth: int = 0
+    carried_findings: dict[str, str] = Field(default_factory=dict)
     # Goal-chaining: phase-output references reused from the run named by
     # `inherits_from`. Kept SEPARATE from `artifacts` (which holds THIS run's
     # own freshly-registered outputs) so provenance is unambiguous — an entry
@@ -217,20 +234,32 @@ def handle_init(args: dict[str, Any]) -> str:
             if args.get("inherits_from") is not None
             else None
         )
+        # Standard-track rework (#109): `reworks=<parent>` is the findings->fix loop —
+        # a NEW FORWARD RUN (ADR-0016 P2, NOT a verify->execute back-edge), distinct
+        # from the goal-driven rewind (`inherits_from`+`goal_id`). The rework run
+        # RE-AUTHORS its own upstream and drives the lifecycle forward normally; it
+        # does NOT set inherits_from / inherited_artifacts (those trigger gate-level
+        # reuse, and the plan-exit gates read templated {run_id} paths a reference
+        # can't satisfy). Only the provenance link + the carried findings + the visible
+        # depth cross the chain boundary.
+        _reworks_raw = args.get("reworks")
+        reworks: str | None = (
+            str(_reworks_raw).strip() or None if _reworks_raw is not None else None
+        )
+        # N1 (review): a fat-fingered empty parent id must not silently become an
+        # ungoverned fresh run — reject an explicitly-supplied but empty reworks.
+        if _reworks_raw is not None and reworks is None:
+            return json.dumps({"error": "reworks was provided but empty"})
 
         manifest_path = _run_manifest_path(workspace, run_id)
         if manifest_path.exists():
             return json.dumps({"error": f"run manifest already exists: {run_id}"})
 
-        # Goal-chaining (Task 3): when launching a forward run under a held goal
-        # that inherits a prior run, copy the parent's reusable prior-phase
-        # output references into inherited_artifacts. The reused set is the
-        # parent's `artifacts` entries for the completed upstream phases
-        # (triage/proposal/plan) — the parent's MUTABLE state (state_history,
-        # its own in-flight artifacts beyond those phases, status) is NOT
-        # carried over, matching design 0016 P2=option-b (a checkpoint is a
-        # reusable prior-phase output reference, not an in-run state snapshot).
-        # Fail closed if the named parent manifest is absent.
+        # Goal-chaining (Task 3): when launching a forward run under a held goal that
+        # inherits a prior run, copy the parent's reusable prior-phase output
+        # references into inherited_artifacts (the parent's `artifacts` entries for the
+        # completed upstream phases). Its MUTABLE state is NOT carried (design 0016
+        # P2=option-b). Fail closed if the named parent manifest is absent.
         inherited_artifacts: dict[str, str] = {}
         if inherits_from is not None:
             try:
@@ -243,6 +272,88 @@ def handle_init(args: dict[str, Any]) -> str:
             inherited_artifacts = {
                 k: parent.artifacts[k] for k in _REUSABLE_PHASE_ARTIFACTS if k in parent.artifacts
             }
+
+        # Rework carry (#109): validate the fork, then carry the parent's VERIFY
+        # findings + advance the visible rework counter. The rework run re-authors its
+        # own upstream, so nothing goes into inherited_artifacts.
+        carried_findings: dict[str, str] = {}
+        rework_depth = 0
+        if reworks is not None:
+            if goal_id is not None:
+                return json.dumps(
+                    {
+                        "error": "reworks and goal_id are mutually exclusive (standard-track rework vs goal-driven rewind)"
+                    }
+                )
+            if inherits_from is not None:
+                return json.dumps(
+                    {
+                        "error": "reworks and inherits_from are mutually exclusive (rework re-authors its own upstream)"
+                    }
+                )
+            if track != "standard":
+                return json.dumps(
+                    {
+                        "error": f"reworks requires track='standard' (got '{track}'); goal-driven runs rewind via inherits_from"
+                    }
+                )
+            # Explicit safe-id check (clean error + defense-in-depth). A traversal id is
+            # already contained downstream by _resolve_uacp_path, but reject it here with
+            # a clear message rather than a generic 'init failed'.
+            if (
+                ("/" in reworks)
+                or ("\\" in reworks)
+                or (".." in reworks)
+                or reworks.startswith(".")
+            ):
+                return json.dumps({"error": f"reworks refused: unsafe parent run_id {reworks!r}"})
+            if reworks == run_id:
+                return json.dumps({"error": "reworks refused: a run cannot rework itself"})
+            try:
+                rework_parent = _load_manifest(workspace, reworks)
+            except FileNotFoundError:
+                return json.dumps({"error": f"reworks parent manifest not found: {reworks}"})
+            # M4 (review): keep the two loops distinct — a standard-track rework must
+            # rework a STANDARD-track parent, not seed itself from a goal-driven run's
+            # findings.
+            if getattr(rework_parent, "track", "standard") != "standard":
+                return json.dumps(
+                    {
+                        "error": f"reworks refused: parent '{reworks}' is track='{rework_parent.track}', "
+                        "not standard (a standard-track rework requires a standard-track parent)"
+                    }
+                )
+            # The parent's VERIFY findings carried forward, matched by the BASE
+            # artifact_type key (before any ':seq=N' composite suffix) the STANDARD
+            # verify flow actually registers in manifest.artifacts (Codex #134):
+            #   verification_package / resolve_readiness / assessment (test_full_lifecycle
+            #   ._seed_verify_assessment) + investigation_entry (typed uacp.investigation_
+            #   entry, which entity_writer registers as 'investigation_entry' or
+            #   'investigation_entry:seq=1'). NOT the schema-KIND names.
+            # NOTE (review #135): a NEW verify artifact key must be added here — a
+            # follow-up should derive this from the phase->artifact schema instead.
+            _VERIFY_FINDING_BASE_KEYS = frozenset(
+                {"verification_package", "resolve_readiness", "assessment", "investigation_entry"}
+            )
+            carried_findings = {
+                k: v
+                for k, v in rework_parent.artifacts.items()
+                if k.split(":", 1)[0] in _VERIFY_FINDING_BASE_KEYS
+            }
+            # Fail-closed (Codex #134): a rework MUST have defects to fix. A parent with
+            # no registered VERIFY findings (hasn't reached verify / wrong parent) would
+            # yield an empty carry, making the rework indistinguishable from a fresh run
+            # while this slice does not yet enforce the fix downstream (#135).
+            if not carried_findings:
+                return json.dumps(
+                    {
+                        "error": (
+                            f"reworks refused: parent '{reworks}' has no registered VERIFY findings "
+                            "to carry (has it reached verify?) — nothing to rework"
+                        )
+                    }
+                )
+            rework_depth = int(getattr(rework_parent, "rework_depth", 0) or 0) + 1
 
         # Optional initial_phase: allows a run to start at 'brainstorm' instead
         # of the default 'triage'. Fail closed on unknown phases.
@@ -279,6 +390,9 @@ def handle_init(args: dict[str, Any]) -> str:
             goal_id=goal_id,
             inherits_from=inherits_from,
             inherited_artifacts=inherited_artifacts,
+            reworks=reworks,
+            rework_depth=rework_depth,
+            carried_findings=carried_findings,
         )
         _save_manifest(workspace, manifest)
 
@@ -295,14 +409,18 @@ def handle_init(args: dict[str, Any]) -> str:
             current_path.parent.mkdir(parents=True, exist_ok=True)
             _write_uacp_file(current_path, current_body)
 
-        return json.dumps(
-            {
-                "ok": True,
-                "run_id": run_id,
-                "manifest_path": str(manifest_path.relative_to(base_dir(workspace))),
-            },
-            ensure_ascii=False,
-        )
+        payload: dict[str, Any] = {
+            "ok": True,
+            "run_id": run_id,
+            "manifest_path": str(manifest_path.relative_to(base_dir(workspace))),
+        }
+        if reworks is not None:
+            # Surface the rework chain state so the escalating depth is VISIBLE to the
+            # caller/operator (the #109 "visible, not blocked-by-magic" bound).
+            payload["rework_depth"] = rework_depth
+            payload["reworks"] = reworks
+            payload["carried_findings"] = sorted(carried_findings.keys())
+        return json.dumps(payload, ensure_ascii=False)
     except Exception as exc:
         return json.dumps({"error": f"init failed: {type(exc).__name__}: {exc}"})
 

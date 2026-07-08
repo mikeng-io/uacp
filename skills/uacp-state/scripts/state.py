@@ -843,6 +843,7 @@ def _handle_uacp_run_init(args: dict, **_: Any) -> str:
             "workspace_branch",
             "goal_id",
             "inherits_from",
+            "reworks",
             "scope",
             "granularity",
             "risk",
