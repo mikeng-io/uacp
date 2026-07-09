@@ -57,5 +57,7 @@ def _write_uacp_file(target: Path, content: str) -> None:
         try:
             os.unlink(tmp)
         except FileNotFoundError:
+            # The temp was already renamed onto the target (os.replace succeeded and a
+            # later step raised) or never created — nothing to clean up.
             pass
         raise
