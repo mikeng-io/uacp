@@ -109,6 +109,37 @@ def _run_transition_lock(root: Path, run_id: str):
             os.close(fd)
 
 
+# The shared workspace state file the registry writers serialize on (#103-W1b).
+_REGISTRY_LOCK_NAME = "run-registry.yaml"
+
+
+@contextlib.contextmanager
+def _workspace_state_lock(root: Path, name: str):
+    """Advisory lock serializing ALL writers of a SHARED workspace state file — one
+    that multiple runs/agents read-modify-write and that the per-RUN
+    _run_transition_lock does NOT cover (#103-W1b: run-registry.yaml; current.yaml is
+    the W1-b2 follow-up). Without it, two concurrent register/deregister calls each
+    read the active_runs list, modify their own copy, and write back — a classic
+    lost-update where the second write silently clobbers the first. flock on a sidecar
+    lockfile under state/; blocking, released on close/process death; local-filesystem
+    semantics suffice (a workspace's state dir is never NFS in supported deployments).
+
+    Lock ORDERING (deadlock-free): the per-run _run_transition_lock is always the OUTER
+    lock — handle_abort holds it and takes THIS lock only for the tight registry RMW.
+    Nothing acquires this file lock and THEN the run lock, so there is no inversion."""
+    lock_path = base_dir(root) / "state" / f".{name}.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(str(lock_path), os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+
 def _existing_gate_ledger_gates(root: Path, run_id: str, *, passing_only: bool = False) -> set[str]:
     """The set of ``gate`` strings already present in the run's gate ledger — the
     idempotency read for handle_transition's auto-emit. With ``passing_only``,
@@ -217,42 +248,47 @@ def _deregister_run_from_registry(root: Path, run_id: str) -> bool:
     The CANONICAL registry mutator remains uacp_run_registry_update(op=deregister),
     which carries caller-binding + validation for agent-issued calls. This is the
     mechanical seam the abort PRIMITIVE (state_machine.handle_abort) reuses to tear
-    down its OWN entry. Shared for SHAPE-consistency (both paths agree on the
-    active_runs layout / preserved sibling keys), NOT for concurrency safety — see
-    the concurrency note below.
+    down its OWN entry (shape-consistent on the active_runs layout / preserved sibling
+    keys).
 
-    Concurrency note: state/run-registry.yaml has NO cross-writer serialization yet
-    — uacp_run_registry_update itself is unlocked (registry advisory-locking +
-    atomic-rename is the deferred pc_p3_skep_r1_005 / #103-W1 "atomic state" work).
-    This deregister matches that existing convention (single serialized writer of a
-    workspace's registry at a time) and introduces NO new race class: the per-run
-    lock held by handle_abort serializes abort against this run's own
-    transition/append. Registry-wide serialization for concurrent runs is #103-W1's
-    scope, not #107's."""
+    Concurrency (#103-W1b, pc_p3_skep_r1_005 — now DONE): the whole read-modify-write
+    below runs under the shared _workspace_state_lock(root, run-registry.yaml), the SAME
+    lock uacp_run_registry_update takes, so two concurrent registry writers can no
+    longer lost-update each other. Combined with the atomic-rename write (#103-W1a) the
+    registry is both corruption-safe and serialized. handle_abort holds the per-run lock
+    as the OUTER lock and takes this file lock only for this tight RMW — no inversion."""
     import yaml as _yaml
 
     base = base_dir(root)
     registry_path = (base / "state" / "run-registry.yaml").resolve()
-    if not registry_path.exists():
-        return False  # nothing registered -> nothing to free (legit no-op)
-    try:
-        data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
-    except Exception as exc:
-        # Registry exists but is unparseable: FAIL CLOSED (do not swallow as a no-op).
-        raise ValueError(f"run-registry.yaml is unparseable: {type(exc).__name__}: {exc}") from exc
-    if not isinstance(data, dict):
-        raise ValueError("run-registry.yaml top-level is not a mapping")
-    active = data.get("active_runs")
-    if active is None:
-        return False  # no active_runs key -> nothing to free (legit no-op)
-    if not isinstance(active, list):
-        raise ValueError("run-registry.yaml active_runs is not a list")
-    kept = [e for e in active if not (isinstance(e, dict) and str(e.get("run_id") or "") == run_id)]
-    if len(kept) == len(active):
-        return False  # no matching entry -> the run was never registered (legit no-op)
-    data["active_runs"] = kept
-    _write_uacp_file(registry_path, _yaml.safe_dump(data, sort_keys=False))
-    return True
+    # Serialize the whole read-modify-write under the registry lock (#103-W1b) so a
+    # concurrent register/deregister cannot land between this read and write and get
+    # clobbered. Held tightly; run-lock (if abort holds it) is always the outer lock.
+    with _workspace_state_lock(root, _REGISTRY_LOCK_NAME):
+        if not registry_path.exists():
+            return False  # nothing registered -> nothing to free (legit no-op)
+        try:
+            data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+        except Exception as exc:
+            # Registry exists but is unparseable: FAIL CLOSED (do not swallow).
+            raise ValueError(
+                f"run-registry.yaml is unparseable: {type(exc).__name__}: {exc}"
+            ) from exc
+        if not isinstance(data, dict):
+            raise ValueError("run-registry.yaml top-level is not a mapping")
+        active = data.get("active_runs")
+        if active is None:
+            return False  # no active_runs key -> nothing to free (legit no-op)
+        if not isinstance(active, list):
+            raise ValueError("run-registry.yaml active_runs is not a list")
+        kept = [
+            e for e in active if not (isinstance(e, dict) and str(e.get("run_id") or "") == run_id)
+        ]
+        if len(kept) == len(active):
+            return False  # no matching entry -> the run was never registered (legit no-op)
+        data["active_runs"] = kept
+        _write_uacp_file(registry_path, _yaml.safe_dump(data, sort_keys=False))
+        return True
 
 
 def _handle_uacp_gate_ledger_append(args: dict, **_: Any) -> str:
@@ -390,6 +426,30 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
             return json.dumps(
                 {
                     "error": "uacp_state_write may not write state/run-registry.yaml directly; use uacp_run_registry_update via the uacp-state skill"
+                }
+            )
+        # #103-W1b (Codex P2): the workspace advisory-lock sidecars — state/.<name>.lock,
+        # opened+flock'd by _workspace_state_lock to serialize registry/pointer writers —
+        # guarantee mutual exclusion via a STABLE inode. The atomic _write_uacp_file
+        # (os.replace, W1-a) would swap that inode for a fresh one, so a generic
+        # uacp_state_write to a lockfile path lets holder-of-old-inode and
+        # opener-of-new-inode both hold "the" lock and lost-update the very state the
+        # lock protects. Reserve every *.lock sidecar under state/ (present and future,
+        # incl. W1-b2's current.yaml lock), mirroring the registry/gate-ledger carve-outs.
+        # Reject a .lock spelling in ANY path component under state/, not just the
+        # basename. Two vectors: (a) the lockfile itself — writing it would os.replace
+        # its inode out from under _workspace_state_lock, defeating serialization; and
+        # (b) a nested target like `state/.run-registry.yaml.lock/payload` — since
+        # _write_uacp_file mkdir-parents, that would materialize the lockfile path as a
+        # DIRECTORY, so the next os.open(..., O_CREAT) in _workspace_state_lock raises
+        # IsADirectoryError and bricks registry register/deregister workspace-wide (DoS).
+        # Case-insensitive: on a case-insensitive FS (default macOS APFS / Windows) a
+        # `.LOCK` spelling resolves to the same path and must be refused too.
+        rel_under_state = target.relative_to(state_root) if target != state_root else target
+        if any(part.lower().endswith(".lock") for part in rel_under_state.parts):
+            return json.dumps(
+                {
+                    "error": "uacp_state_write may not write any state/*.lock path (file or ancestor component); the advisory-lock sidecars are managed exclusively by _workspace_state_lock and must keep a stable inode"
                 }
             )
         # Global review R1 (TECH-G-001): state/escalations/ is exclusively
@@ -554,114 +614,124 @@ def _handle_uacp_run_registry_update(args: dict, **_: Any) -> str:
             return json.dumps(
                 {"error": "uacp_run_registry_update: reason and authority_artifact are required"}
             )
-        registry_path = (base / "state" / "run-registry.yaml").resolve()
-        # Read existing registry.
+        # PyYAML availability and the (pure path-arithmetic) registry path are
+        # lock-independent — resolve them BEFORE acquiring the lock so the critical
+        # section holds only the actual read-modify-write of shared state.
         try:
             import yaml as _yaml
         except Exception:
             return json.dumps({"error": "uacp_run_registry_update: PyYAML required"})
-        if registry_path.exists():
-            try:
-                data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
-            except Exception as exc:
-                return json.dumps(
-                    {
-                        "error": f"uacp_run_registry_update: existing registry unparseable: {type(exc).__name__}: {exc}"
-                    }
-                )
-            if not isinstance(data, dict):
-                return json.dumps(
-                    {
-                        "error": "uacp_run_registry_update: existing registry top-level must be a mapping"
-                    }
-                )
-        else:
-            data = {"schema_version": "0.1", "active_runs": []}
-        active = data.get("active_runs", [])
-        if not isinstance(active, list):
-            return json.dumps(
-                {"error": "uacp_run_registry_update: existing active_runs must be a list"}
-            )
-        if op == "register":
-            wps = entry.get("write_paths") or []
-            if not isinstance(wps, list) or not all(isinstance(w, str) for w in wps):
-                return json.dumps(
-                    {
-                        "error": "uacp_run_registry_update: entry.write_paths must be a list of strings"
-                    }
-                )
-            # TECH-R1-002 — canonicalize each write_path; reject any that
-            # canonicalize to empty (parent escape, absolute path, wildcard,
-            # whitespace-only). This makes write_paths non-cloakable.
-            canon_wps: list[str] = []
-            for w in wps:
-                cw = Heartgate._canon_write_path(w)
-                if not cw:
+        registry_path = (base / "state" / "run-registry.yaml").resolve()
+        # Serialize the whole registry read-modify-write under the shared lock (#103-W1b)
+        # so concurrent register/deregister (or abort's deregister) cannot lost-update.
+        with _workspace_state_lock(root, _REGISTRY_LOCK_NAME):
+            # Read existing registry.
+            if registry_path.exists():
+                try:
+                    data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
+                except Exception as exc:
                     return json.dumps(
                         {
-                            "error": f"uacp_run_registry_update: write_path '{w}' is not canonicalizable (rejects '..', absolute paths, wildcards, whitespace-only)"
+                            "error": f"uacp_run_registry_update: existing registry unparseable: {type(exc).__name__}: {exc}"
                         }
                     )
-                canon_wps.append(cw)
-            # SKEP-R1-004 defense-in-depth — empty write_paths is suspicious;
-            # require either at least one canonical entry or an explicit
-            # no_writes_intended sentinel.
-            if not canon_wps and not entry.get("no_writes_intended"):
+                if not isinstance(data, dict):
+                    return json.dumps(
+                        {
+                            "error": "uacp_run_registry_update: existing registry top-level must be a mapping"
+                        }
+                    )
+            else:
+                data = {"schema_version": "0.1", "active_runs": []}
+            active = data.get("active_runs", [])
+            if not isinstance(active, list):
                 return json.dumps(
-                    {
-                        "error": "uacp_run_registry_update: empty write_paths requires explicit entry.no_writes_intended=true"
-                    }
+                    {"error": "uacp_run_registry_update: existing active_runs must be a list"}
                 )
-            # Replace any existing entry for this run_id.
-            active = [
-                e for e in active if isinstance(e, dict) and str(e.get("run_id") or "") != run_id
-            ]
-            new_entry = {
-                "run_id": run_id,
-                "phase": str(entry.get("phase") or ""),
-                "write_paths": canon_wps,
-                "scope_artifact_path": str(entry.get("scope_artifact_path") or ""),
-                "started_at": int(entry.get("started_at") or 0),
-            }
-            # Goal-chaining (Task 3): record the persistent goal link when
-            # present so the chain is queryable by goal_id (list_runs_for_goal).
-            # Caller-binding (SKEP-R1-001) above is unchanged — goal_id does not
-            # widen who may register an entry. Standard runs omit goal_id.
-            goal_id = entry.get("goal_id")
-            if goal_id is not None:
-                # Council M-1 (defense-in-depth): a registry goal_id must match
-                # the caller's run-MANIFEST goal_id. The manifest is the
-                # authoritative binding (the convergence cap counts the chain by
-                # manifest), so the registry must not be poisoned with a
-                # different goal_id (which a registry-based count would have
-                # trusted). Fail CLOSED on mismatch — error, no write. A run
-                # whose manifest is absent/unreadable cannot assert a goal_id
-                # binding either.
-                manifest_goal_id = _run_manifest_goal_id(root, run_id)
-                if manifest_goal_id is None:
+            if op == "register":
+                wps = entry.get("write_paths") or []
+                if not isinstance(wps, list) or not all(isinstance(w, str) for w in wps):
                     return json.dumps(
                         {
-                            "error": f"uacp_run_registry_update: cannot bind goal_id '{goal_id}' — run manifest for '{run_id}' is missing or unreadable (the manifest goal_id is authoritative)"
+                            "error": "uacp_run_registry_update: entry.write_paths must be a list of strings"
                         }
                     )
-                if str(goal_id) != manifest_goal_id:
+                # TECH-R1-002 — canonicalize each write_path; reject any that
+                # canonicalize to empty (parent escape, absolute path, wildcard,
+                # whitespace-only). This makes write_paths non-cloakable.
+                canon_wps: list[str] = []
+                for w in wps:
+                    cw = Heartgate._canon_write_path(w)
+                    if not cw:
+                        return json.dumps(
+                            {
+                                "error": f"uacp_run_registry_update: write_path '{w}' is not canonicalizable (rejects '..', absolute paths, wildcards, whitespace-only)"
+                            }
+                        )
+                    canon_wps.append(cw)
+                # SKEP-R1-004 defense-in-depth — empty write_paths is suspicious;
+                # require either at least one canonical entry or an explicit
+                # no_writes_intended sentinel.
+                if not canon_wps and not entry.get("no_writes_intended"):
                     return json.dumps(
                         {
-                            "error": f"uacp_run_registry_update: entry.goal_id '{goal_id}' does not match run-manifest goal_id '{manifest_goal_id}' for '{run_id}' — the manifest goal_id is authoritative (registry-poisoning refused)"
+                            "error": "uacp_run_registry_update: empty write_paths requires explicit entry.no_writes_intended=true"
                         }
                     )
-                new_entry["goal_id"] = str(goal_id)
-            active.append(new_entry)
-        else:  # deregister
-            active = [
-                e for e in active if isinstance(e, dict) and str(e.get("run_id") or "") != run_id
-            ]
-        data["active_runs"] = active
-        # Write through the canonical writer (Phase 4 will add atomic-rename
-        # + advisory locking per pc_p3_skep_r1_005).
-        registry_path.parent.mkdir(parents=True, exist_ok=True)
-        body = _yaml.safe_dump(data, sort_keys=False)
-        _write_uacp_file(registry_path, body)
+                # Replace any existing entry for this run_id.
+                active = [
+                    e
+                    for e in active
+                    if isinstance(e, dict) and str(e.get("run_id") or "") != run_id
+                ]
+                new_entry = {
+                    "run_id": run_id,
+                    "phase": str(entry.get("phase") or ""),
+                    "write_paths": canon_wps,
+                    "scope_artifact_path": str(entry.get("scope_artifact_path") or ""),
+                    "started_at": int(entry.get("started_at") or 0),
+                }
+                # Goal-chaining (Task 3): record the persistent goal link when
+                # present so the chain is queryable by goal_id (list_runs_for_goal).
+                # Caller-binding (SKEP-R1-001) above is unchanged — goal_id does not
+                # widen who may register an entry. Standard runs omit goal_id.
+                goal_id = entry.get("goal_id")
+                if goal_id is not None:
+                    # Council M-1 (defense-in-depth): a registry goal_id must match
+                    # the caller's run-MANIFEST goal_id. The manifest is the
+                    # authoritative binding (the convergence cap counts the chain by
+                    # manifest), so the registry must not be poisoned with a
+                    # different goal_id (which a registry-based count would have
+                    # trusted). Fail CLOSED on mismatch — error, no write. A run
+                    # whose manifest is absent/unreadable cannot assert a goal_id
+                    # binding either.
+                    manifest_goal_id = _run_manifest_goal_id(root, run_id)
+                    if manifest_goal_id is None:
+                        return json.dumps(
+                            {
+                                "error": f"uacp_run_registry_update: cannot bind goal_id '{goal_id}' — run manifest for '{run_id}' is missing or unreadable (the manifest goal_id is authoritative)"
+                            }
+                        )
+                    if str(goal_id) != manifest_goal_id:
+                        return json.dumps(
+                            {
+                                "error": f"uacp_run_registry_update: entry.goal_id '{goal_id}' does not match run-manifest goal_id '{manifest_goal_id}' for '{run_id}' — the manifest goal_id is authoritative (registry-poisoning refused)"
+                            }
+                        )
+                    new_entry["goal_id"] = str(goal_id)
+                active.append(new_entry)
+            else:  # deregister
+                active = [
+                    e
+                    for e in active
+                    if isinstance(e, dict) and str(e.get("run_id") or "") != run_id
+                ]
+            data["active_runs"] = active
+            # Write through the atomic canonical writer (#103-W1a); the whole RMW is
+            # under the shared registry lock above (#103-W1b) — pc_p3_skep_r1_005 done.
+            registry_path.parent.mkdir(parents=True, exist_ok=True)
+            body = _yaml.safe_dump(data, sort_keys=False)
+            _write_uacp_file(registry_path, body)
         return json.dumps(
             {
                 "ok": True,
