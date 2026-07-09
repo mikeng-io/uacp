@@ -116,9 +116,7 @@ def test_agent_drives_verify_to_resolve_and_finalizes(prod_uacp_root: Path) -> N
     assert m["current_phase"] == "resolved"
     assert ("verify", "resolved") in [(h["from_phase"], h["to_phase"]) for h in m["state_history"]]
     ledger_path = root / ".uacp" / "state" / "gate-ledger" / f"{run_id}.jsonl"
-    gates = [
-        json.loads(ln)["gate"] for ln in ledger_path.read_text().splitlines() if ln.strip()
-    ]
+    gates = [json.loads(ln)["gate"] for ln in ledger_path.read_text().splitlines() if ln.strip()]
     assert "VERIFY->RESOLVED" in gates
     # No un-canonicalized 'VERIFY->RESOLVE' gate leaked into the ledger.
     assert "VERIFY->RESOLVE" not in gates
