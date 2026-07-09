@@ -155,6 +155,10 @@ def canonical_transition_target(to_phase: str) -> str:
     boundary — every other phase passes through unchanged, so nothing downstream (which
     already speaks ``resolved``) is affected. It is INPUT normalization only; the
     recorded/canonical edge stays ``VERIFY->RESOLVED``.
+
+    Expects an already-stripped, lowercase target (as ``handle_transition`` supplies —
+    phase tokens are lowercase-exact); a non-normalized ``"Resolve"`` passes through
+    unchanged and is then rejected by the membership check.
     """
     return _RESOLVED_STATUS if to_phase == _RESOLVE_PHASE else to_phase
 
