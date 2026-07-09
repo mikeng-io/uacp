@@ -428,6 +428,20 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
                     "error": "uacp_state_write may not write state/run-registry.yaml directly; use uacp_run_registry_update via the uacp-state skill"
                 }
             )
+        # #103-W1b (Codex P2): the workspace advisory-lock sidecars — state/.<name>.lock,
+        # opened+flock'd by _workspace_state_lock to serialize registry/pointer writers —
+        # guarantee mutual exclusion via a STABLE inode. The atomic _write_uacp_file
+        # (os.replace, W1-a) would swap that inode for a fresh one, so a generic
+        # uacp_state_write to a lockfile path lets holder-of-old-inode and
+        # opener-of-new-inode both hold "the" lock and lost-update the very state the
+        # lock protects. Reserve every *.lock sidecar under state/ (present and future,
+        # incl. W1-b2's current.yaml lock), mirroring the registry/gate-ledger carve-outs.
+        if target.name.endswith(".lock"):
+            return json.dumps(
+                {
+                    "error": "uacp_state_write may not write state/*.lock advisory-lock sidecars; these are managed exclusively by _workspace_state_lock and must keep a stable inode"
+                }
+            )
         # Global review R1 (TECH-G-001): state/escalations/ is exclusively
         # written by uacp_escalation_event (Phase 4.4). Extend the pattern
         # established by gate-ledger and run-registry so uacp_state_write

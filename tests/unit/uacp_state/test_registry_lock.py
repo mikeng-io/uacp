@@ -138,3 +138,49 @@ def test_concurrent_register_and_deregister_serialize(temp_uacp_root: Path):
     # 'new' added AND 'drop' removed, both survived the race; 'keep' untouched.
     ids = {e["run_id"] for e in _registry(root)["active_runs"]}
     assert ids == {"keep", "new"}, ids
+
+
+# --------------------------------------------------- lockfile inode is not swappable
+def _state_write(root: Path, target_path: str, content: str) -> dict:
+    """Drive the generic governed state writer, the only writer that reaches state/."""
+    import json
+
+    from state import _handle_uacp_state_write
+
+    return json.loads(
+        _handle_uacp_state_write(
+            {
+                "target_path": target_path,
+                "content": content,
+                "reason": "codex-p2 test",
+                "authority_artifact": "plans/test.yaml",
+                "workspace": str(root),
+                "uacp_run_id": "r1",
+                "uacp_phase": "execute",
+                "policy_version": "0.1",
+                "declared_side_effects": [],
+            }
+        )
+    )
+
+
+def test_state_write_refuses_registry_lockfile(temp_uacp_root: Path):
+    """The advisory lock only serializes if its sidecar keeps a STABLE inode. The atomic
+    _write_uacp_file (os.replace) would mint a fresh inode, letting a holder of the old
+    inode and an opener of the new one both 'hold' the lock. uacp_state_write — the one
+    generic writer that reaches state/ — must therefore REFUSE the lockfile path so the
+    inode can never be swapped out from under _workspace_state_lock (#103-W1b, Codex P2)."""
+    root = temp_uacp_root
+    out = _state_write(root, "state/.run-registry.yaml.lock", "{}\n")
+    assert "error" in out and ".lock" in out["error"], out
+    # And the reserve is general, not one hard-coded name — future sidecars (e.g. the
+    # W1-b2 current.yaml lock) are covered by the same rule.
+    out2 = _state_write(root, "state/.current.yaml.lock", "{}\n")
+    assert "error" in out2 and ".lock" in out2["error"], out2
+
+
+def test_state_write_still_allows_ordinary_state_file(temp_uacp_root: Path):
+    """The .lock carve-out must not over-refuse: a normal state write still succeeds."""
+    root = temp_uacp_root
+    out = _state_write(root, "state/scratch.yaml", "k: v\n")
+    assert out.get("ok") is True, out
