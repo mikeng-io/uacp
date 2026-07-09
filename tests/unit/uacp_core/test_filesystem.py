@@ -80,3 +80,45 @@ class TestWriteUacpFile:
         target.write_text("old")
         _write_uacp_file(target, "new")
         assert target.read_text() == "new"
+
+    def test_leaves_no_temp_file_after_success(self, temp_uacp_root: Path):
+        """The atomic temp file is renamed onto the target — none is left behind."""
+        root = temp_uacp_root
+        target = root / "state" / "clean.yaml"
+        _write_uacp_file(target, "kind: uacp.scope\nstatus: ready\n")
+        strays = [p.name for p in target.parent.iterdir() if p.name != "clean.yaml"]
+        assert strays == [], strays
+
+    def test_write_is_atomic_on_failure(self, temp_uacp_root: Path, monkeypatch):
+        """#103-W1: if the atomic rename fails, the EXISTING target is left intact
+        (never truncated/partial) and no temp file is orphaned."""
+        import os as _os
+
+        root = temp_uacp_root
+        target = root / "state" / "atomic.txt"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("ORIGINAL")
+
+        def _boom(_src, _dst):
+            raise OSError("replace boom")
+
+        monkeypatch.setattr(_os, "replace", _boom)
+        with pytest.raises(OSError, match="replace boom"):
+            _write_uacp_file(target, "NEW PARTIAL")
+        # The old content survives untouched (no truncation) ...
+        assert target.read_text() == "ORIGINAL"
+        # ... and the failed write left no stray temp file.
+        strays = [p.name for p in target.parent.iterdir() if p.name != "atomic.txt"]
+        assert strays == [], strays
+
+    def test_malformed_yaml_writes_nothing(self, temp_uacp_root: Path):
+        """Fail-closed validation runs BEFORE any file is created — a malformed .yaml
+        never reaches disk and leaves no temp."""
+        root = temp_uacp_root
+        target = root / "state" / "bad.yaml"
+        with pytest.raises(Exception):
+            _write_uacp_file(target, "::: not: valid: yaml: [[[")
+        assert not target.exists()
+        # Validation precedes even the parent mkdir, so nothing was created at all.
+        state_dir = root / "state"
+        assert not state_dir.exists() or list(state_dir.iterdir()) == []
