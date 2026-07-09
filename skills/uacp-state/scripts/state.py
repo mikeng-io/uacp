@@ -590,15 +590,18 @@ def _handle_uacp_run_registry_update(args: dict, **_: Any) -> str:
             return json.dumps(
                 {"error": "uacp_run_registry_update: reason and authority_artifact are required"}
             )
+        # PyYAML availability and the (pure path-arithmetic) registry path are
+        # lock-independent — resolve them BEFORE acquiring the lock so the critical
+        # section holds only the actual read-modify-write of shared state.
+        try:
+            import yaml as _yaml
+        except Exception:
+            return json.dumps({"error": "uacp_run_registry_update: PyYAML required"})
+        registry_path = (base / "state" / "run-registry.yaml").resolve()
         # Serialize the whole registry read-modify-write under the shared lock (#103-W1b)
         # so concurrent register/deregister (or abort's deregister) cannot lost-update.
         with _workspace_state_lock(root, _REGISTRY_LOCK_NAME):
-            registry_path = (base / "state" / "run-registry.yaml").resolve()
             # Read existing registry.
-            try:
-                import yaml as _yaml
-            except Exception:
-                return json.dumps({"error": "uacp_run_registry_update: PyYAML required"})
             if registry_path.exists():
                 try:
                     data = _yaml.safe_load(registry_path.read_text(encoding="utf-8")) or {}
