@@ -182,6 +182,16 @@ def test_state_write_refuses_registry_lockfile(temp_uacp_root: Path):
     # case-sensitive check would be a full bypass on the platform this actually runs on.
     out3 = _state_write(root, "state/.run-registry.yaml.LOCK", "{}\n")
     assert "error" in out3 and ".lock" in out3["error"], out3
+    # Path COMPONENT, not just basename: `.../.run-registry.yaml.lock/payload` would
+    # (via _write_uacp_file's mkdir-parents) materialize the lockfile path as a DIRECTORY,
+    # so the next _workspace_state_lock os.open raises IsADirectoryError and bricks the
+    # registry workspace-wide. A final-component-only guard would miss this.
+    out4 = _state_write(root, "state/.run-registry.yaml.lock/payload", "{}\n")
+    assert "error" in out4 and ".lock" in out4["error"], out4
+    # The lockfile path must NOT have been materialized as a directory by the rejected write.
+    assert not (root / ".uacp" / "state" / ".run-registry.yaml.lock").exists(), (
+        "rejected nested write must not have created the lockfile directory"
+    )
 
 
 def test_state_write_still_allows_ordinary_state_file(temp_uacp_root: Path):

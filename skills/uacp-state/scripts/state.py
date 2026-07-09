@@ -436,13 +436,20 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         # opener-of-new-inode both hold "the" lock and lost-update the very state the
         # lock protects. Reserve every *.lock sidecar under state/ (present and future,
         # incl. W1-b2's current.yaml lock), mirroring the registry/gate-ledger carve-outs.
-        # Case-insensitive: on a case-insensitive FS (default macOS APFS / Windows)
-        # `.run-registry.yaml.LOCK` resolves to the same inode as `.lock` but would
-        # slip a case-sensitive suffix check, re-opening the swap hole.
-        if target.name.lower().endswith(".lock"):
+        # Reject a .lock spelling in ANY path component under state/, not just the
+        # basename. Two vectors: (a) the lockfile itself — writing it would os.replace
+        # its inode out from under _workspace_state_lock, defeating serialization; and
+        # (b) a nested target like `state/.run-registry.yaml.lock/payload` — since
+        # _write_uacp_file mkdir-parents, that would materialize the lockfile path as a
+        # DIRECTORY, so the next os.open(..., O_CREAT) in _workspace_state_lock raises
+        # IsADirectoryError and bricks registry register/deregister workspace-wide (DoS).
+        # Case-insensitive: on a case-insensitive FS (default macOS APFS / Windows) a
+        # `.LOCK` spelling resolves to the same path and must be refused too.
+        rel_under_state = target.relative_to(state_root) if target != state_root else target
+        if any(part.lower().endswith(".lock") for part in rel_under_state.parts):
             return json.dumps(
                 {
-                    "error": "uacp_state_write may not write state/*.lock advisory-lock sidecars; these are managed exclusively by _workspace_state_lock and must keep a stable inode"
+                    "error": "uacp_state_write may not write any state/*.lock path (file or ancestor component); the advisory-lock sidecars are managed exclusively by _workspace_state_lock and must keep a stable inode"
                 }
             )
         # Global review R1 (TECH-G-001): state/escalations/ is exclusively
