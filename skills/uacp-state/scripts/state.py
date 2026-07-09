@@ -436,7 +436,10 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         # opener-of-new-inode both hold "the" lock and lost-update the very state the
         # lock protects. Reserve every *.lock sidecar under state/ (present and future,
         # incl. W1-b2's current.yaml lock), mirroring the registry/gate-ledger carve-outs.
-        if target.name.endswith(".lock"):
+        # Case-insensitive: on a case-insensitive FS (default macOS APFS / Windows)
+        # `.run-registry.yaml.LOCK` resolves to the same inode as `.lock` but would
+        # slip a case-sensitive suffix check, re-opening the swap hole.
+        if target.name.lower().endswith(".lock"):
             return json.dumps(
                 {
                     "error": "uacp_state_write may not write state/*.lock advisory-lock sidecars; these are managed exclusively by _workspace_state_lock and must keep a stable inode"

@@ -177,6 +177,11 @@ def test_state_write_refuses_registry_lockfile(temp_uacp_root: Path):
     # W1-b2 current.yaml lock) are covered by the same rule.
     out2 = _state_write(root, "state/.current.yaml.lock", "{}\n")
     assert "error" in out2 and ".lock" in out2["error"], out2
+    # Case-insensitive: on a case-insensitive FS (default macOS/Windows) a `.LOCK`
+    # spelling resolves to the SAME inode as `.lock`, so it must be refused too — a
+    # case-sensitive check would be a full bypass on the platform this actually runs on.
+    out3 = _state_write(root, "state/.run-registry.yaml.LOCK", "{}\n")
+    assert "error" in out3 and ".lock" in out3["error"], out3
 
 
 def test_state_write_still_allows_ordinary_state_file(temp_uacp_root: Path):
