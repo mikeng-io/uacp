@@ -642,6 +642,9 @@ def tool_specs() -> list[ToolSpec]:
                         "description": (
                             "Target phase. Must be an allowed transition from from_phase "
                             "per the canonical phase graph (config/phase-transitions.yaml). "
+                            "The lifecycle phase name 'resolve' is accepted as an alias for the "
+                            "terminal 'resolved' status the projection collapses it into (#114), so "
+                            "'verify -> resolve' works; it is recorded canonically as VERIFY->RESOLVED. "
                             "Phase-exit structural gates (forced brainstorm admission contract, graph "
                             "invariants, forced execute evidence, forced proposal coverage) run BEFORE "
                             "the transition is committed."

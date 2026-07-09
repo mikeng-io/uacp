@@ -142,6 +142,23 @@ def state_machine_projection() -> dict[str, set[str]]:
     return projected
 
 
+def canonical_transition_target(to_phase: str) -> str:
+    """Canonicalize a caller-supplied transition target to the state-machine vocabulary
+    (#114 alias, not a graph change).
+
+    Docs, skills, config `allowed_transitions`, and the agent-path `validate_transition`
+    all speak the LIFECYCLE phase name ``resolve``; the state-machine projection
+    collapses that phase into the ``resolved`` terminal STATUS, so the governed
+    ``VALID_TRANSITIONS`` only lists ``resolved``. An agent following the docs and
+    driving ``verify -> resolve`` was therefore rejected (the user-visible schism). This
+    accepts ``resolve`` as an alias for the projected ``resolved`` at the transition
+    boundary — every other phase passes through unchanged, so nothing downstream (which
+    already speaks ``resolved``) is affected. It is INPUT normalization only; the
+    recorded/canonical edge stays ``VERIFY->RESOLVED``.
+    """
+    return _RESOLVED_STATUS if to_phase == _RESOLVE_PHASE else to_phase
+
+
 def runtime_terminal_phases() -> set[str]:
     """Return the runtime ``TERMINAL_PHASES`` set.
 

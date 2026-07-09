@@ -34,7 +34,11 @@ if str(_PHASE_GRAPH_DIR) not in sys.path:
 
 from config import base_dir
 from filesystem import _resolve_uacp_path, _write_uacp_file
-from phase_graph import runtime_terminal_phases, state_machine_projection
+from phase_graph import (
+    canonical_transition_target,
+    runtime_terminal_phases,
+    state_machine_projection,
+)
 
 
 try:
@@ -608,6 +612,12 @@ def handle_transition(args: dict[str, Any]) -> str:
             return json.dumps({"error": "from_phase is required"})
         if not to_phase:
             return json.dumps({"error": "to_phase is required"})
+        # #114: accept the lifecycle phase name 'resolve' (what docs/skills/config and
+        # the agent-path speak) as an alias for the projected 'resolved' status the
+        # state machine validates against. INPUT normalization only — everything below
+        # (VALID_TRANSITIONS, the VERIFY->RESOLVED ledger gate, state_history, status)
+        # uses the canonical 'resolved', so there is no downstream ripple.
+        to_phase = canonical_transition_target(to_phase)
 
         # Per-run serialization of the WHOLE critical section (manifest load ->
         # gate checks -> canonical ledger emit -> manifest save): two concurrent
