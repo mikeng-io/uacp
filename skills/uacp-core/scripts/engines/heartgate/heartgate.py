@@ -553,9 +553,7 @@ class Heartgate:
                 ]
         return []
 
-    def forced_plan_exit_blockers(
-        self, run_id: str, from_phase: str, to_phase: str
-    ) -> list[str]:
+    def forced_plan_exit_blockers(self, run_id: str, from_phase: str, to_phase: str) -> list[str]:
         """Force the three EVIDENCE-BASED plan-exit gates onto the live
         ``state_machine.handle_transition`` path (#99), not only the agent-invoked
         ``validate_transition``: the scope-artifact gate, the PLAN_VALIDATION ledger gate,
