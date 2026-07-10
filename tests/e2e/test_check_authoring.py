@@ -149,6 +149,44 @@ def test_frozen_check_unwatermarked_existing_fails_closed(tmp_path):
     assert "error" in res and "write-once" in res["error"], res
 
 
+def test_authoring_rejects_duplicate_check_id_even_at_lower_seq(tmp_path):
+    """#131 teeth: a check `id` is unique per run. The #121 write-once only guards a same-PATH
+    rewrite; a producer could still author a WEAKER same-id check at a NEW seq (new path) to race
+    the frozen original. `seq` is caller-supplied, so "lowest seq wins" alone is defeatable by
+    picking seq=0 — the authoring guard must reject the second same-id check outright, at ANY seq.
+
+    Author a strong check (id chk-1, seq=1) that FAILs (status broken != ready), then attempt a
+    weaker same-id copy at seq=0 that would PASS. It must be REJECTED, and the strong FAIL must
+    still be the only chk-1 on the replay path. Non-vacuity: the current pushed code accepts the
+    seq=0 copy and lets it displace the strong check (lowest-seq-wins) — replay codes become empty.
+    """
+    run_id = "uacp-dupid-1"
+    _init(tmp_path, run_id)
+    data_rel = f"plans/{run_id}-data.yaml"
+    (tmp_path / ".uacp" / "plans").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".uacp" / data_rel).write_text(
+        yaml.safe_dump({"kind": "uacp.scope", "status": "broken"}), encoding="utf-8"
+    )
+    from state_machine import handle_register_artifact
+
+    handle_register_artifact(
+        {"workspace": str(tmp_path), "run_id": run_id, "artifact_type": "data", "path": data_rel}
+    )
+
+    strong = _field_equals_fields("wu-1", data_rel, "status", "ready")  # FAILs on real data
+    first = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", strong, seq="1")
+    assert first.get("ok") is True, first
+
+    weak = _field_equals_fields("wu-1", data_rel, "status", "broken")  # would PASS
+    weak["id"] = "chk-1"  # same id, undercut seq
+    res = create_entity(str(tmp_path), run_id, "uacp.check.field_equals", weak, seq="0")
+    assert "error" in res and "duplicate check id" in res["error"], res
+
+    # the strong check is the only chk-1 that binds -> its FAIL still gates
+    replay = validate_check_replay(str(tmp_path), run_id)
+    assert any(v.code == "CHK_FIELD_EQUALS" for v in replay), replay
+
+
 def test_from_class_vocabulary_matches_the_floor():
     # The class enum is duplicated (schema leaf-copy vs verification_floor.CLASSES). Pin them equal
     # so the authoring vocabulary and the floor table cannot drift (slice 2 / node 34 L2).

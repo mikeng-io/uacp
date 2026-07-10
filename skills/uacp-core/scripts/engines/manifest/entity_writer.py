@@ -40,11 +40,49 @@ import yaml
 from config import base_dir
 from engines.domain import layout, schema
 from engines.domain.artifact_hashes import load_hash_index, record_hash, restore_hash_index
+from engines.io import load_artifact, load_manifest
 from engines.manifest.governed_writers import _resolve_uacp_path, _write_uacp_file
 
 
 def _err(msg: str) -> dict[str, Any]:
     return {"error": msg}
+
+
+def _duplicate_check_id_path(workspace: str, run_id: str, new_id: Any, rel: str) -> str | None:
+    """Return the path of an already-frozen ``uacp.check.*`` whose ``id`` equals ``new_id`` and
+    that lives at a DIFFERENT path than ``rel`` — else None.
+
+    #131 TEETH. Check IDENTITY must be unique per run AT AUTHORING. The freeze/write-once guard
+    (#121) only catches a same-PATH rewrite; a producer could still author a WEAKER check with the
+    SAME ``id`` at a NEW ``seq`` (new path) and race the original. ``seq`` is caller-supplied
+    (``ctx={"seq": …}`` -> the registration key), so it is worthless as a security signal — an
+    attacker just picks ``seq=0``. So we reject the SECOND same-id check outright: two same-id
+    checks can never coexist, and neither projection load order nor a chosen ``seq`` can decide
+    which binds. A same-path re-write (``arel == rel``) is the #121 idempotent/write-once case,
+    handled there — skipped here. Best-effort read: an unreadable prior artifact is skipped (it
+    cannot be a confirmed conflict); the single-writer-per-run assumption (see module docstring)
+    makes the read-then-register window benign."""
+    root = Path(workspace).resolve()
+    loaded = load_manifest(root, run_id)
+    if loaded.value is None:
+        return None
+    arts = loaded.value.raw.get("artifacts")
+    if not isinstance(arts, dict):
+        return None
+    for arel in arts.values():
+        if not isinstance(arel, str) or arel == rel:
+            continue
+        other = load_artifact(root, arel)
+        if other.error is not None or not isinstance(other.value, dict):
+            continue
+        okind = other.value.get("kind")
+        if (
+            isinstance(okind, str)
+            and okind.startswith("uacp.check.")
+            and other.value.get("id") == new_id
+        ):
+            return arel
+    return None
 
 
 # The evidence-disposition ``half`` placeholder is a CLOSED two-value vocabulary
@@ -141,6 +179,20 @@ def create_entity(
             f"{sorted(_EVIDENCE_DISPOSITION_HALVES)}"
         )
     rel = layout.relpath(kind, run_id=run_id, **ctx)
+
+    # CHECK-ID UNIQUENESS (#131 teeth): a uacp.check.* id is unique per run. Reject a SECOND check
+    # that reuses an already-frozen id at a new path (new seq) — the #131 weakening vector that the
+    # same-path write-once (#121) cannot see. This is the real fix; it does not depend on the
+    # caller-supplied `seq`. Author a distinct id for a distinct check (per #121 doctrine).
+    if kind.startswith("uacp.check."):
+        conflict = _duplicate_check_id_path(workspace, run_id, fields.get("id"), rel)
+        if conflict is not None:
+            return _err(
+                f"duplicate check id {fields.get('id')!r} (#131): a frozen check with this id is "
+                f"already authored at {conflict}; check ids are unique per run — a check's "
+                "authored expectation is write-once (#121), so author a NEW check with a distinct "
+                "id instead of re-authoring this one at a new seq"
+            )
 
     # 2. SERIALIZE + 3. VALIDATE (shape) — branched by layout format (node 35 §2.4).
     if fmt == layout.YAML:
