@@ -29,7 +29,9 @@ write-time STRUCTURAL validation (today deferred to the transition gate's carved
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -314,13 +316,32 @@ def _rollback(
     Best-effort: rollback must never raise."""
     try:
         if existed_before and prior_content is not None:
-            # NOTE (#103-W1a review MINOR-2): this restore is deliberately a raw write,
-            # NOT the atomic _write_uacp_file — the rollback must be able to recover even
-            # when _write_uacp_file is the component that FAILED (e.g. disk full), so it
-            # must not depend on it. With atomic writes a failed persist now leaves the
-            # target UNTOUCHED anyway (no partial to restore); making this restore itself
-            # crash-atomic without reintroducing that circular dependency is a W1-b item.
-            target.write_text(prior_content, encoding="utf-8")
+            # #103-W1 MINOR-2: crash-atomic restore. Write the prior bytes to a temp file
+            # in the target's dir, fsync, then os.replace — a crash mid-restore leaves
+            # either the pre-rollback target or the fully-restored one, never a torn
+            # partial. Uses os primitives DIRECTLY, not _write_uacp_file: the rollback must
+            # recover even when _write_uacp_file is the component that FAILED (e.g. disk
+            # full), so it must not depend on it (the independence W1-a's review preserved).
+            fd, tmp = tempfile.mkstemp(
+                dir=str(target.parent), prefix=f".{target.name}.", suffix=".rollback"
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(prior_content)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                os.replace(tmp, target)
+            finally:
+                # Best-effort temp cleanup on EVERY exit: after a successful os.replace
+                # the temp is already gone (FileNotFoundError → ignore); on failure it is
+                # removed here. No explicit re-raise — any error propagates naturally to
+                # the outer best-effort handler (which swallows it, keeping the ORIGINAL
+                # create_entity failure as the reported one: rollback never raises).
+                try:
+                    os.unlink(tmp)
+                except FileNotFoundError:
+                    # Expected on the success path: os.replace already consumed the temp.
+                    pass
         else:
             target.unlink()
         restore_hash_index(workspace, run_id, prior_index)

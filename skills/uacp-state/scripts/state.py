@@ -111,6 +111,7 @@ def _run_transition_lock(root: Path, run_id: str):
 
 # The shared workspace state file the registry writers serialize on (#103-W1b).
 _REGISTRY_LOCK_NAME = "run-registry.yaml"
+_POINTER_LOCK_NAME = "current.yaml"
 
 
 @contextlib.contextmanager
@@ -406,23 +407,33 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         state_root = (base / "state").resolve()
         if target != state_root and state_root not in target.parents:
             return json.dumps({"error": "uacp_state_write may only write under state/"})
-        # Phase 1 remediation (skeptic F1): the gate ledger is append-only and
-        # must only be written through uacp_gate_ledger_append. uacp_state_write
-        # refuses any path under state/gate-ledger/, eliminating the forge-
-        # PIV-record bypass.
-        gate_ledger_root = (base / "state" / "gate-ledger").resolve()
-        if target == gate_ledger_root or gate_ledger_root in target.parents:
+        # #103-W1 carve-out hardening: compare the reserved paths on CASE-FOLDED
+        # components relative to state/. On a case-insensitive FS (default macOS APFS /
+        # Windows) `state/RUN-REGISTRY.yaml` resolves to the same inode as the reserved
+        # lowercase path, so an exact/case-sensitive `target == run_registry_path` guard
+        # is a full bypass. And a reserved FILE name appearing as a non-final component
+        # (`state/run-registry.yaml/payload`) would — via _write_uacp_file's mkdir-parents
+        # — materialize the reserved path as a DIRECTORY, breaking every reader (same DoS
+        # class as the lockfiles). So: subdir reserves match on the first component; file
+        # reserves + the .lock sidecars match on ANY component; all case-insensitive.
+        rel_lower = (
+            tuple(p.lower() for p in target.relative_to(state_root).parts)
+            if target != state_root
+            else ()
+        )
+        first = rel_lower[0] if rel_lower else ""
+        # Phase 1 remediation (skeptic F1): the gate ledger is append-only and must only
+        # be written through uacp_gate_ledger_append (forge-PIV-record bypass).
+        if first == "gate-ledger":
             return json.dumps(
                 {
                     "error": "uacp_state_write may not write under state/gate-ledger/; use uacp_gate_ledger_append"
                 }
             )
-        # Phase 3 R1 (GOV-002 / SKEP-002): the run registry is exclusively
-        # mutated by the uacp-state skill. Mirror the gate-ledger pattern —
-        # refuse direct writes through uacp_state_write so the registry
-        # cannot be clobbered by an EXECUTE-phase caller.
-        run_registry_path = (base / "state" / "run-registry.yaml").resolve()
-        if target == run_registry_path:
+        # Phase 3 R1 (GOV-002 / SKEP-002): the run registry is exclusively mutated by the
+        # uacp-state skill — refuse direct writes so an EXECUTE-phase caller cannot clobber
+        # it (any component: exact file OR ancestor-directory DoS).
+        if "run-registry.yaml" in rel_lower:
             return json.dumps(
                 {
                     "error": "uacp_state_write may not write state/run-registry.yaml directly; use uacp_run_registry_update via the uacp-state skill"
@@ -433,49 +444,32 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         # guarantee mutual exclusion via a STABLE inode. The atomic _write_uacp_file
         # (os.replace, W1-a) would swap that inode for a fresh one, so a generic
         # uacp_state_write to a lockfile path lets holder-of-old-inode and
-        # opener-of-new-inode both hold "the" lock and lost-update the very state the
-        # lock protects. Reserve every *.lock sidecar under state/ (present and future,
-        # incl. W1-b2's current.yaml lock), mirroring the registry/gate-ledger carve-outs.
-        # Reject a .lock spelling in ANY path component under state/, not just the
-        # basename. Two vectors: (a) the lockfile itself — writing it would os.replace
-        # its inode out from under _workspace_state_lock, defeating serialization; and
-        # (b) a nested target like `state/.run-registry.yaml.lock/payload` — since
-        # _write_uacp_file mkdir-parents, that would materialize the lockfile path as a
-        # DIRECTORY, so the next os.open(..., O_CREAT) in _workspace_state_lock raises
-        # IsADirectoryError and bricks registry register/deregister workspace-wide (DoS).
-        # Case-insensitive: on a case-insensitive FS (default macOS APFS / Windows) a
-        # `.LOCK` spelling resolves to the same path and must be refused too.
-        rel_under_state = target.relative_to(state_root) if target != state_root else target
-        if any(part.lower().endswith(".lock") for part in rel_under_state.parts):
+        # opener-of-new-inode both hold "the" lock and lost-update the state it protects.
+        # Reject a .lock spelling in ANY component under state/: (a) the lockfile itself
+        # (inode swap) and (b) a nested target `.../.foo.lock/payload` which mkdir-parents
+        # would turn the lockfile path into a DIRECTORY → next os.open raises
+        # IsADirectoryError and bricks the workspace (DoS).
+        if any(part.endswith(".lock") for part in rel_lower):
             return json.dumps(
                 {
                     "error": "uacp_state_write may not write any state/*.lock path (file or ancestor component); the advisory-lock sidecars are managed exclusively by _workspace_state_lock and must keep a stable inode"
                 }
             )
-        # Global review R1 (TECH-G-001): state/escalations/ is exclusively
-        # written by uacp_escalation_event (Phase 4.4). Extend the pattern
-        # established by gate-ledger and run-registry so uacp_state_write
-        # cannot clobber JSONL files or skip the trigger/severity/mode
-        # validation done in the narrow writer.
-        escalations_root = (base / "state" / "escalations").resolve()
-        if target == escalations_root or escalations_root in target.parents:
+        # Global review R1 (TECH-G-001): state/escalations/ is exclusively written by
+        # uacp_escalation_event (Phase 4.4) — refuse so the narrow writer's
+        # trigger/severity/mode validation cannot be skipped.
+        if first == "escalations":
             return json.dumps(
                 {
                     "error": "uacp_state_write may not write under state/escalations/; use uacp_escalation_event"
                 }
             )
-        # F2 (verification-method council, 2026-06-25): state/runs/ holds the run
-        # MANIFEST (state/runs/{run_id}.yaml) whose `artifacts:` map is the graph that
-        # the coverage projection, the registration precondition, and scope-conformance's
-        # governance-by-kind exemption all TRUST. A generic uacp_state_write to this
-        # subdir let an EXECUTE-phase caller forge manifest.artifacts / phase and defeat
-        # every graph-trust gate. Mirror the gate-ledger / run-registry / escalations
-        # carve-outs: run state is authoritative and mutated ONLY by the uacp-state
-        # operations (handle_init / handle_transition / handle_register_artifact /
-        # handle_finalize / handle_workspace), which write it directly — never through
-        # this generic escape hatch.
-        runs_root = (base / "state" / "runs").resolve()
-        if target == runs_root or runs_root in target.parents:
+        # F2 (verification-method council, 2026-06-25): state/runs/ holds the run MANIFEST
+        # (state/runs/{run_id}.yaml) whose `artifacts:` map every graph-trust gate TRUSTS;
+        # a generic write here let an EXECUTE-phase caller forge manifest.artifacts / phase.
+        # Mutated ONLY via the uacp-state operations (init/transition/register-artifact/
+        # finalize/workspace), which write it directly — never through this escape hatch.
+        if first == "runs":
             return json.dumps(
                 {
                     "error": "uacp_state_write may not write under state/runs/; run state (the run manifest + transition artifacts) is mutated only via the uacp-state operations (init/transition/register-artifact/finalize), which own manifest.artifacts integrity"
@@ -494,8 +488,23 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         # but new content has empty active_run_id). Bootstrap permits any
         # caller to seed the file; once the file exists, every write must
         # declare a non-empty active_run_id that matches the caller.
-        current_pointer_path = (base / "state" / "current.yaml").resolve()
-        if target == current_pointer_path:
+        if rel_lower == ("current.yaml",):
+            # Require the EXACT canonical spelling. A case-variant (state/CURRENT.yaml on a
+            # case-sensitive FS) case-folds into this branch but must NOT be serviced:
+            # writing the caller's `target` creates a distinct file the lowercase-only
+            # readers (loaders/coherence) miss (Codex P2a), and redirecting to
+            # (state/current.yaml).resolve() would follow a symlinked current.yaml OUT of the
+            # worktree, bypassing _resolve_uacp_path's symlink containment (Codex P2b — the
+            # out-of-tree write lands before relative_to can error). So reject non-canonical
+            # spellings; the exact path — already symlink-contained by _resolve_uacp_path
+            # upstream (a symlinked current.yaml is rejected there before we get here) — is
+            # the ONLY path written, and we write `target`, never a re-resolved path.
+            if target.name != "current.yaml":
+                return json.dumps(
+                    {
+                        "error": "uacp_state_write: the active-run pointer must be written via the canonical lowercase state/current.yaml (non-canonical spelling refused)"
+                    }
+                )
             caller_run_id = str(args.get("uacp_run_id") or "")
             try:
                 import yaml as _yaml
@@ -512,31 +521,59 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
                     {"error": "uacp_state_write: state/current.yaml content must be a YAML mapping"}
                 )
             declared_run_id = str(parsed.get("active_run_id") or "")
-            pointer_exists = current_pointer_path.exists()
-            if pointer_exists:
-                # Post-bootstrap: every write must carry a caller-bound active_run_id.
-                if not declared_run_id:
-                    return json.dumps(
-                        {
-                            "error": "uacp_state_write: state/current.yaml#active_run_id is required (pointer-clear-attack refused; current.yaml already exists)"
-                        }
-                    )
-                if declared_run_id != caller_run_id:
-                    return json.dumps(
-                        {
-                            "error": f"uacp_state_write: state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}' — current-pointer mutations must be caller-owned"
-                        }
-                    )
-            else:
-                # Bootstrap path: file does not yet exist. Permit seeding; if
-                # the new content carries an active_run_id, still require it
-                # match the caller (defense-in-depth).
-                if declared_run_id and caller_run_id and declared_run_id != caller_run_id:
-                    return json.dumps(
-                        {
-                            "error": f"uacp_state_write: bootstrap seed of state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}'"
-                        }
-                    )
+            # #103-W1b2: serialize the pointer read-modify-write (exists-check → caller
+            # binding → write) under the shared pointer lock, so a concurrent seed/release
+            # (handle_init / handle_abort / another uacp_state_write) cannot interleave and
+            # lost-update the active-run pointer. Independent of the registry lock — the two
+            # file locks are never held simultaneously, so there is no ordering inversion.
+            # Content parsing above stays OUTSIDE the lock (caller data, not shared state).
+            with _workspace_state_lock(root, _POINTER_LOCK_NAME):
+                pointer_exists = target.exists()
+                if pointer_exists:
+                    # Post-bootstrap: every write must carry a caller-bound active_run_id.
+                    if not declared_run_id:
+                        return json.dumps(
+                            {
+                                "error": "uacp_state_write: state/current.yaml#active_run_id is required (pointer-clear-attack refused; current.yaml already exists)"
+                            }
+                        )
+                    if declared_run_id != caller_run_id:
+                        return json.dumps(
+                            {
+                                "error": f"uacp_state_write: state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}' — current-pointer mutations must be caller-owned"
+                            }
+                        )
+                else:
+                    # Bootstrap path: file does not yet exist. Permit seeding; if the new
+                    # content carries an active_run_id, still require it match the caller.
+                    if declared_run_id and caller_run_id and declared_run_id != caller_run_id:
+                        return json.dumps(
+                            {
+                                "error": f"uacp_state_write: bootstrap seed of state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}'"
+                            }
+                        )
+                # Write `target` — the _resolve_uacp_path result, symlink-contained and
+                # (per the non-canonical rejection above) exactly state/current.yaml. Never a
+                # re-resolved path, which would follow a symlink out of the worktree.
+                _write_uacp_file(target, content)
+                return json.dumps(
+                    {
+                        "ok": True,
+                        "path": str(target.relative_to(base)),
+                        "reason": reason,
+                        "authority_artifact": authority,
+                    },
+                    ensure_ascii=False,
+                )
+        elif "current.yaml" in rel_lower:
+            # current.yaml as a NON-final component → _write_uacp_file's mkdir-parents
+            # would materialize the active-run pointer path as a DIRECTORY (same DoS class
+            # as the reserved files / lockfiles). The pointer is a file; refuse.
+            return json.dumps(
+                {
+                    "error": "uacp_state_write may not write under state/current.yaml/; the active-run pointer is a file managed by the uacp-state operations"
+                }
+            )
 
         _write_uacp_file(target, content)
         return json.dumps(
