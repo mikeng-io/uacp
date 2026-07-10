@@ -24,6 +24,8 @@ from state_machine import (
     handle_workspace,
 )
 
+from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
+
 
 def _init(root: Path, run_id: str = "uacp-abort-001") -> str:
     out = json.loads(
@@ -133,6 +135,9 @@ def test_abort_reachable_from_a_later_phase(temp_uacp_root: Path):
     """Abort works from ≥2 distinct phases — drive to execute, then abort there."""
     root = temp_uacp_root
     run_id = _init(root)
+    # #99: the live plan->execute path forces the scope-artifact + PLAN_VALIDATION +
+    # run-registry gates. Seed those faithfully so the run can reach execute to abort there.
+    seed_plan_exit_prerequisites(root, run_id)
     for frm, to in (("triage", "propose"), ("propose", "plan"), ("plan", "execute")):
         tr = json.loads(
             handle_transition(

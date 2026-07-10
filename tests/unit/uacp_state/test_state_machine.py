@@ -316,6 +316,13 @@ class TestStateMachineFinalize:
             "run_id": "uacp-test-001",
             "source": "operator-request",
         })
+        # #99: the forced plan-exit gates now block a bare plan->execute; seed the faithful
+        # scope + PLAN_VALIDATION prerequisites so the run can REACH resolved and the test can
+        # assert finalize blocks on the missing CLOSURE artifact (its actual subject), not on
+        # a stuck plan phase. The lessons/closure artifact stays deliberately unauthored.
+        from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
+
+        seed_plan_exit_prerequisites(temp_uacp_root, "uacp-test-001")
         # Move through phases to resolved (structural transitions only — no
         # lessons artifact authored, so the run is NOT closeable).
         for frm, to in [

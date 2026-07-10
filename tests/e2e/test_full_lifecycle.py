@@ -206,6 +206,70 @@ def _seed_plan_package(root: Path, run_id: str) -> None:
     piv_rel = f"plans/{run_id}-piv.yaml"
     (root / ".uacp" / piv_rel).write_text(yaml.safe_dump(_piv(run_id), sort_keys=False))
     _register(root, run_id, "piv", piv_rel)
+    # #99: the forced plan_validation gate now fires on the live PLAN->EXECUTE path under
+    # production config. Seed a satisfying PLAN_VALIDATION ledger record so this faithful
+    # plan package can advance (a real PLAN authors this record before exiting to EXECUTE).
+    _seed_plan_validation_ledger(root, run_id)
+
+
+def seed_plan_exit_prerequisites(
+    root: Path, run_id: str, write_paths: list[str] | None = None
+) -> None:
+    """Minimal FAITHFUL setup for crossing PLAN->EXECUTE under the #99 forced gates, for
+    tests that drive the transition but don't build the full plan package: a scope artifact
+    (``plans/{run_id}-scope.yaml``), a PLAN_VALIDATION ledger record, and an (empty) run
+    registry. Mirrors what ``_seed_plan_package`` seeds for these three gates, minus the plan
+    package / PIV a graph-gate test supplies itself. Declare ``write_paths`` for overlap tests."""
+    paths = list(write_paths or [])
+    (root / ".uacp" / "plans" / f"{run_id}-scope.yaml").parent.mkdir(parents=True, exist_ok=True)
+    (root / ".uacp" / "plans" / f"{run_id}-scope.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.scope",
+                "run_id": run_id,
+                "write_paths": paths,
+                "no_writes_intended": not paths,
+                "blast_radius": "low",
+                "rollback_path": "none--test-run",
+            },
+            sort_keys=False,
+        )
+    )
+    registry = root / ".uacp" / "state" / "run-registry.yaml"
+    if not registry.exists():
+        registry.parent.mkdir(parents=True, exist_ok=True)
+        registry.write_text(yaml.safe_dump({"active_runs": []}, sort_keys=False))
+    _seed_plan_validation_ledger(root, run_id)
+
+
+def _seed_plan_validation_ledger(root: Path, run_id: str) -> None:
+    """Append a satisfying PLAN_VALIDATION gate-ledger record via the GOVERNED append handler
+    (so it carries run_id + ts for the closure integrity sweep), with per-check pass evidence
+    for every declared pv_id — the record a real PLAN authors before EXECUTE. Lets the forced
+    plan_validation gate (#99) pass on the live PLAN->EXECUTE path under production config.
+    pv_ids are derived from the production rule so this stays correct if the check set changes."""
+    from engines.domain.gate_rules import plan_validation_gate_default
+
+    pv_ids = [str(c["id"]) for c in plan_validation_gate_default()["checks"]]
+    out = json.loads(
+        _handle_uacp_gate_ledger_append(
+            {
+                "workspace": str(root),
+                "uacp_run_id": run_id,
+                "uacp_phase": "plan",
+                "gate": "PLAN_VALIDATION",
+                "record": {
+                    "phase": "plan",
+                    "result": "pass",
+                    "checks": [{"id": pid, "result": "pass"} for pid in pv_ids],
+                },
+                "authority_artifact": f"plans/{run_id}-plan-selection.yaml",
+                "policy_version": "0.1",
+                "declared_side_effects": [],
+            }
+        )
+    )
+    assert out.get("ok") is True, out
 
 
 def _seed_execute_evidence(root: Path, run_id: str) -> None:
@@ -517,7 +581,10 @@ def test_full_lifecycle_reaches_resolved(temp_uacp_root: Path, valid_run_id: str
     for frm, to in PHASES:
         assert gates.count(f"{frm.upper()}->{to.upper()}") == 1, gates
     assert gates.count("TRIAGE_COMPLETE") == 1, gates
-    assert len(gates) == len(PHASES) + 1, gates
+    # #99: a faithful PLAN authors one PLAN_VALIDATION record before EXECUTE (seeded by
+    # _seed_plan_package -> _seed_plan_validation_ledger), so it appears exactly once too.
+    assert gates.count("PLAN_VALIDATION") == 1, gates
+    assert len(gates) == len(PHASES) + 2, gates
 
 
 def test_forced_verify_evidence_blocks_governed_run_missing_readiness(

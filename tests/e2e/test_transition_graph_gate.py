@@ -29,6 +29,8 @@ from pathlib import Path
 import state_machine
 import yaml
 
+from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
+
 
 def _call(fn, args: dict) -> dict:
     return json.loads(fn(args))
@@ -44,6 +46,11 @@ def _drive_to_plan(root: Path, run_id: str) -> None:
             state_machine.handle_transition,
             {"workspace": str(root), "run_id": run_id, "from_phase": frm, "to_phase": to},
         ).get("ok"), f"{frm}->{to}"
+    # #99: the live plan->execute path now forces the scope-artifact + PLAN_VALIDATION +
+    # run-registry gates. Seed the faithful plan-exit prerequisites here so an advances-test
+    # crosses; a phantom-edge test still BLOCKS on GP_PHANTOM_EDGE (scope passing does not
+    # mask the graph blocker), and the plan doc each test registers supplies the rest.
+    seed_plan_exit_prerequisites(root, run_id)
 
 
 def _register_plan(root: Path, run_id: str, plan_doc: dict) -> None:

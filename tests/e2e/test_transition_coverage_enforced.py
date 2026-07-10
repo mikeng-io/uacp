@@ -21,6 +21,8 @@ from pathlib import Path
 import state_machine
 from governed_handlers import _handle_uacp_entity_write
 
+from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
+
 
 def _ew(root: Path, run_id: str, kind: str, fields: dict) -> dict:
     return json.loads(
@@ -155,6 +157,9 @@ def test_fully_covered_run_advances(temp_uacp_root: Path):
     ).get("ok")
     _advance_to_plan(temp_uacp_root, run_id)
 
+    # #99: cross the forced plan-exit gates (scope artifact + PLAN_VALIDATION + run
+    # registry) faithfully; the entity-written proposal/PIV above supply the graph coverage.
+    seed_plan_exit_prerequisites(temp_uacp_root, run_id)
     out = _try_plan_to_execute(temp_uacp_root, run_id)
     assert out.get("ok") is True, out
     assert _phase(temp_uacp_root, run_id) == "execute"

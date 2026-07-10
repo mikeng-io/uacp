@@ -43,6 +43,8 @@ import state_machine
 import yaml
 from core import Heartgate
 
+from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
+
 # --- package-selection producer mechanics (write a referenced module, then register) ---
 
 
@@ -260,6 +262,9 @@ def test_registered_covered_run_advances_at_forced_plan_exit(temp_uacp_root: Pat
     assert _register(temp_uacp_root, run_id, "piv", piv_rel).get("ok")
     _advance_to_plan(temp_uacp_root, run_id)
 
+    # #99: cross the forced plan-exit gates (scope artifact + PLAN_VALIDATION + run
+    # registry) faithfully; the registered scope module + covering PIV supply graph coverage.
+    seed_plan_exit_prerequisites(temp_uacp_root, run_id)
     out = _try_plan_to_execute(temp_uacp_root, run_id)
     assert out.get("ok") is True, out
     assert _phase(temp_uacp_root, run_id) == "execute"
