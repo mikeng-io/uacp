@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS: the aggregate root of the council-reviewer-independence design bundle.
+# WHAT IT DOES: lists member nodes (reading order), declares the design's own inter-node
+#               graph, records status/governance/scope.
+# VALIDATED BY: ../graph-engine/schema/design-index.schema.json (shared design_index shape).
+
+kind: design_index
+title: Council External-Reviewer Independence — Design Bundle
+description: >-
+  Make the Agent-Council external reviewer (Tier >=2, external runtime) behave like an
+  independent auditor that PULLS its own grounding from the artifact, not one that is
+  push-fed the orchestrator's narrative. Diagnoses the real leak (leading narrative
+  conflated with the engagement spec inside one dispatch payload) and corrects it (Slice 1)
+  by plumbing the already-existing `context_policy: minimal-non-leading` into review/audit
+  dispatch. The "teeth" that would MEASURE the pull (a grounding_provenance field checked
+  fail-closed) are DEFERRED-until-honest: a 3-reviewer audit (2026-07-10) showed the naive
+  check cannot distinguish self-pull from restated-push (diff-echo) and is hollow on the
+  preferred MCP path. That audit also refuted the even-more-naive "empty the two fields"
+  patch as reviewer-starvation.
+status: design                      # enum: design|proposed|accepted|building|built
+governance: pre-governance-input    # enum: pre-governance-input|governed|ratified
+timestamp: '2026-07-10'
+origin: session 2026-07-10 (reviewer-blackbox thread; Mike's Deloitte-audit framing + 3-subagent adversarial review)
+schema_dir: ../graph-engine/schema/
+
+# Numbered by NATURE, not phase:
+#   00-01 = the problem + its load-bearing distinction
+#   10-13 = the fixes (dispatch correctness / independence teeth / domains reframe / taxonomy)
+#   20-21 = build constraints (blast radius) + one applied rewrite (the audit-loop doc)
+#   30    = rollout sequencing
+members:
+  - 00-problem.md                    # ROOT: the independence gap + Deloitte framing + why the naive patch was refuted
+  - 01-narrative-vs-spec.md          # the load-bearing distinction: leading narrative vs neutral engagement spec
+  - 10-minimal-non-leading-dispatch.md   # CORRECTNESS FIX: plumb context_policy:minimal-non-leading into review/audit dispatch
+  - 11-grounding-provenance.md       # DEFERRED teeth: grounding_provenance — why the naive check fails + conditions to un-defer
+  - 12-domains-coverage-floor.md     # reframe the pushed `domains` array as a coverage floor (Slice 1 prompt-only; crediting deferred)
+  - 13-taxonomy-dimension.md         # name the pull-vs-push axis now (doc); DEFER serializing it into canonical council-taxonomy
+  - 20-blast-radius.md               # BUILD CONSTRAINTS: consumers that break if fields are naively emptied; projection-not-manifest rule
+  - 21-audit-loop-rewrite.md         # applied: rewrite kimi-codex-agent-council-audit-loop.md to drop pre-curated surfaces + role prescription
+  - 30-rollout.md                    # sequencing: correctness fix first, then teeth, then reframe/taxonomy
+
+# DERIVED: mirror of each node's `edges:` frontmatter (src = the node that owns the edge).
+edges:
+  - {src: 01-narrative-vs-spec, dst: 00-problem, rel: motivated_by, provenance: asserted}
+  - {src: 10-minimal-non-leading-dispatch, dst: 01-narrative-vs-spec, rel: realizes, provenance: asserted}
+  - {src: 11-grounding-provenance, dst: 01-narrative-vs-spec, rel: depends_on, provenance: derived}
+  - {src: 11-grounding-provenance, dst: 00-problem, rel: realizes, provenance: asserted}
+  - {src: 12-domains-coverage-floor, dst: 10-minimal-non-leading-dispatch, rel: extends, provenance: derived}
+  - {src: 12-domains-coverage-floor, dst: 11-grounding-provenance, rel: relates_to, provenance: asserted}
+  - {src: 13-taxonomy-dimension, dst: 11-grounding-provenance, rel: depends_on, provenance: derived}
+  - {src: 13-taxonomy-dimension, dst: 00-problem, rel: motivated_by, provenance: asserted}
+  - {src: 20-blast-radius, dst: 10-minimal-non-leading-dispatch, rel: depends_on, provenance: derived}
+  - {src: 21-audit-loop-rewrite, dst: 01-narrative-vs-spec, rel: realizes, provenance: asserted}
+  - {src: 21-audit-loop-rewrite, dst: 11-grounding-provenance, rel: relates_to, provenance: asserted}
+  - {src: 21-audit-loop-rewrite, dst: 12-domains-coverage-floor, rel: depends_on, provenance: derived}
+  - {src: 30-rollout, dst: 10-minimal-non-leading-dispatch, rel: sequences, provenance: asserted}
+  - {src: 30-rollout, dst: 11-grounding-provenance, rel: sequences, provenance: asserted}
