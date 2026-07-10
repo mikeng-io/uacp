@@ -1,7 +1,0 @@
-README.md
-pyproject.toml
-uacp.egg-info/PKG-INFO
-uacp.egg-info/SOURCES.txt
-uacp.egg-info/dependency_links.txt
-uacp.egg-info/requires.txt
-uacp.egg-info/top_level.txt
