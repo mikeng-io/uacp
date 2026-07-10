@@ -262,6 +262,12 @@ def _rollback(
     Best-effort: rollback must never raise."""
     try:
         if existed_before and prior_content is not None:
+            # NOTE (#103-W1a review MINOR-2): this restore is deliberately a raw write,
+            # NOT the atomic _write_uacp_file — the rollback must be able to recover even
+            # when _write_uacp_file is the component that FAILED (e.g. disk full), so it
+            # must not depend on it. With atomic writes a failed persist now leaves the
+            # target UNTOUCHED anyway (no partial to restore); making this restore itself
+            # crash-atomic without reintroducing that circular dependency is a W1-b item.
             target.write_text(prior_content, encoding="utf-8")
         else:
             target.unlink()

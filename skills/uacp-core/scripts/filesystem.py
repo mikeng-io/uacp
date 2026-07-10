@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import tempfile
 from pathlib import Path
 
 
@@ -34,6 +36,28 @@ def _write_uacp_file(target: Path, content: str) -> None:
     if target.suffix in {".yaml", ".yml"}:
         import yaml
 
+        # Validate BEFORE writing anything (fail-closed): a malformed YAML never
+        # reaches disk, and no temp file is created.
         yaml.safe_load(content)
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
+    # ATOMIC write (#103-W1): write to a temp file in the SAME directory, flush +
+    # fsync, then os.replace() — an atomic rename on the same filesystem. A reader
+    # (or a crash) therefore never observes a partially-written governed state file:
+    # target is always either the complete OLD content or the complete NEW content,
+    # never a truncated mix. A failure at any step cleans up the temp and leaves the
+    # existing target untouched.
+    fd, tmp = tempfile.mkstemp(dir=str(target.parent), prefix=f".{target.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(content)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, target)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            # The temp was already renamed onto the target (os.replace succeeded and a
+            # later step raised) or never created — nothing to clean up.
+            pass
+        raise
