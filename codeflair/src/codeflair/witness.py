@@ -430,6 +430,18 @@ def _neighborhood(store: Store, touched_ids: set[str]) -> list[dict[str, object]
         if rel not in _REASONS:
             continue
         sn, dn = _node(store, src), _node(store, dst)
+        # File-less endpoints (issue #104 / dogfood F1): a symbol merely REFERENCED but never
+        # DEFINED in a repo doc — a builtin/external like `str` — is stored with file="" (scip)
+        # or resolves to no store symbol at all (_node -> {"file": "", "name": id}). Serialized,
+        # that is {"file": "", "name": "str"}, which the kernel's strict-wire validation
+        # fail-closes on (non-empty file REQUIRED; ANY malformed endpoint -> the ENTIRE
+        # neighborhood -> witness UNAVAILABLE, by design — do NOT relax the kernel). Such an
+        # endpoint is not a resolvable repo location the gate can compare, so drop the edge here:
+        # the wire carries only repo-symbol edges (both endpoints file-anchored), matching the
+        # kernel's node contract. Inbound fan-in is counted off the edges table directly
+        # (_inbound_count), so this filtering does not perturb inbound_counts.
+        if not sn["file"] or not dn["file"]:
+            continue
         key = (sn["file"], sn["name"], dn["file"], dn["name"], rel)
         if key in seen:
             continue

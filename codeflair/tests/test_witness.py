@@ -113,6 +113,49 @@ def test_witness_reports_changed_file_symbols_and_neighborhood(tmp_path):
     assert doc["ingestion"] == "scip"
 
 
+def test_neighborhood_excludes_file_less_builtin_endpoints(tmp_path):
+    """Regression for issue #104 / dogfood F1: a ``references`` edge to a FILE-LESS builtin
+    symbol (e.g. the ``str`` type — merely referenced, never DEFINED in a repo doc, so scip
+    stores it with ``file=""``) must NOT surface in the neighborhood wire as
+    ``{"file": "", "name": "str"}``. The kernel's strict-wire validation fail-closes on any
+    endpoint with an empty file (by design — ANY malformed entry -> error -> witness
+    UNAVAILABLE), so a single file-less endpoint spuriously takes the WHOLE neighborhood, and
+    thus both diff-mode witnesses, to UNAVAILABLE. The producer must emit only resolvable
+    repo-symbol endpoints (every ``src``/``dst`` has a non-empty file)."""
+    repo = tmp_path
+    _init_repo(repo)
+    (repo / "config.py").write_text("# config\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "f")
+    (repo / "config.py").write_text("# changed\n")
+
+    # Paths.base (a str-typed field in the changed file) references the builtin `str`. The
+    # builtin is referenced but never defined in a repo doc -> scip stores it file-less.
+    symbols = [
+        ("scip py `config`/Paths#", "config.py", "Paths#"),
+        ("scip py `config`/Paths#base.", "config.py", "base#"),
+        # builtin str: no repo definition -> file="" (exactly what scip_ingest records)
+        ("scip python 3.11 `builtins`/str#", "", "str#"),
+    ]
+    edges = [
+        ("scip py `config`/Paths#", "scip py `config`/Paths#base.", "defines"),
+        # the offending edge: touched symbol -> file-less builtin str
+        ("scip py `config`/Paths#base.", "scip python 3.11 `builtins`/str#", "references"),
+    ]
+    doc = build_witness(repo, _seeder(symbols, edges), lang="python")
+
+    # No neighborhood endpoint may have an empty file (the exact kernel _is_sym requirement).
+    for edge in doc["neighborhood"]:
+        assert edge["src"]["file"], f"file-less src endpoint leaked: {edge!r}"
+        assert edge["dst"]["file"], f"file-less dst endpoint leaked: {edge!r}"
+
+    # The malformed builtin endpoint must be gone specifically; the clean in-repo `defines`
+    # edge must remain (filtering is surgical, not a blanket neighborhood wipe).
+    names = {(e["src"]["name"], e["dst"]["name"], e["reason"]) for e in doc["neighborhood"]}
+    assert ("Paths", "Paths.base", "defines") in names
+    assert not any(dst == "str" for _, dst, _ in names)
+
+
 # -- (2) declared resolution (resolves / not / dotted parse) ------------------------------
 
 
