@@ -602,24 +602,24 @@ def _run_forced_verify_evidence_gate(workspace: Path, run_id: str, from_phase: s
 
 def _run_forced_plan_exit_gate(
     workspace: Path, run_id: str, from_phase: str, to_phase: str
-) -> list[str]:
+) -> tuple[list[str], list[str]]:
     """Force the three evidence-based PLAN->EXECUTE gates (scope-artifact, PLAN_VALIDATION
     ledger, run-registry write-path overlap) onto the live path (#99). Each Heartgate
     validator already reads the run's real serialized state and self-gates to its configured
     edge, so this is a DIRECT invocation, not a re-derivation — closing the bypass where a run
     advances PLAN->EXECUTE via ``handle_transition`` without a scope artifact, a PLAN_VALIDATION
-    ledger record, or write-path isolation from other active runs. Self-gate on the plan exit;
-    fail-closed; lazy import (engines<->state cycle)."""
+    ledger record, or write-path isolation from other active runs. Returns
+    ``(blockers, advisories)`` so non-blocking findings (registry-absent, ledger hygiene) stay
+    observable on the live path like the graph gate's advisories (Codex #144 P2). Self-gate on
+    the plan exit; fail-closed; lazy import (engines<->state cycle)."""
     if from_phase != "plan":
-        return []
+        return [], []
     try:
         from core import Heartgate
 
-        return Heartgate.load(str(workspace)).forced_plan_exit_blockers(
-            run_id, from_phase, to_phase
-        )
+        return Heartgate.load(str(workspace)).forced_plan_exit(run_id, from_phase, to_phase)
     except Exception as exc:  # fail-closed
-        return [f"FORCED_PLAN_EXIT_UNAVAILABLE: {type(exc).__name__}: {exc}"]
+        return [f"FORCED_PLAN_EXIT_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
 
 
 def handle_transition(args: dict[str, Any]) -> str:
@@ -721,9 +721,15 @@ def _handle_transition_locked(
         gate_blockers += _run_forced_verify_evidence_gate(workspace, run_id, from_phase)
         # #99: force the three evidence-based PLAN->EXECUTE gates (scope-artifact,
         # PLAN_VALIDATION ledger, run-registry overlap) onto the live path — each already
-        # reads the run's real state and self-gates to plan->execute (fixture opts out via
-        # empty config rule; production enforces, guarded by the drivability keystone).
-        gate_blockers += _run_forced_plan_exit_gate(workspace, run_id, from_phase, to_phase)
+        # reads the run's real state and self-gates to plan->execute. Under the temp test
+        # fixture only plan_validation opts out (an empty config block); scope + run_registry
+        # are code defaults and fire there too, so production enforces all three (guarded by
+        # the drivability keystone). Non-blocking findings ride the advisory path (Codex P2).
+        pe_blockers, pe_advisories = _run_forced_plan_exit_gate(
+            workspace, run_id, from_phase, to_phase
+        )
+        gate_blockers += pe_blockers
+        gate_advisories += pe_advisories
         if gate_blockers:
             return json.dumps(
                 {
