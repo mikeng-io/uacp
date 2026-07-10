@@ -279,12 +279,16 @@ def _rollback(
                     fh.flush()
                     os.fsync(fh.fileno())
                 os.replace(tmp, target)
-            except BaseException:
+            finally:
+                # Best-effort temp cleanup on EVERY exit: after a successful os.replace
+                # the temp is already gone (FileNotFoundError → ignore); on failure it is
+                # removed here. No explicit re-raise — any error propagates naturally to
+                # the outer best-effort handler (which swallows it, keeping the ORIGINAL
+                # create_entity failure as the reported one: rollback never raises).
                 try:
                     os.unlink(tmp)
                 except FileNotFoundError:
                     pass
-                raise
         else:
             target.unlink()
         restore_hash_index(workspace, run_id, prior_index)
