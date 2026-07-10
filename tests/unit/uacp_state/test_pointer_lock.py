@@ -108,37 +108,64 @@ def test_pointer_lock_distinct_from_registry_lock(temp_uacp_root: Path):
 
 
 # ------------------------------------------------------------- no lost update on the pointer
-def test_concurrent_pointer_writes_serialize(temp_uacp_root: Path):
-    """Two concurrent caller-bound pointer updates for the SAME run serialize under the
-    lock: each read-modify-write completes atomically, leaving a valid single mapping (not
-    a torn/interleaved one). Without the lock the two RMWs race on current.yaml."""
+def test_uacp_state_write_pointer_update_acquires_the_lock(temp_uacp_root: Path):
+    """NON-VACUOUS guard that the uacp_state_write current.yaml branch actually takes the
+    pointer lock: while the lock is held externally, a pointer update MUST block until
+    release. (A vacuous version — two full-content writers of the same run — passes on
+    W1-a's atomic replace alone even with the lock removed; this one fails if the lock is
+    dropped from that code path, because the update would not block.)"""
     root = temp_uacp_root
-    # Bootstrap the pointer for run r1.
     seed = _state_write(root, "state/current.yaml", "active_run_id: r1\nphase: execute\n")
     assert seed.get("ok") is True, seed
 
-    barrier = threading.Barrier(2)
-    errors: list[dict] = []
+    lock_held = threading.Event()
+    release = threading.Event()
+    done = threading.Event()
 
-    def writer(marker: str):
-        barrier.wait()
-        out = _state_write(
-            root, "state/current.yaml", f"active_run_id: r1\nphase: execute\nmark: {marker}\n"
-        )
-        if out.get("ok") is not True:
-            errors.append(out)
+    def hold_lock():
+        with _workspace_state_lock(root, _POINTER_LOCK_NAME):
+            lock_held.set()
+            release.wait(timeout=5)
 
-    t1 = threading.Thread(target=writer, args=("a",))
-    t2 = threading.Thread(target=writer, args=("b",))
-    t1.start()
-    t2.start()
-    t1.join(timeout=10)
-    t2.join(timeout=10)
-    assert errors == [], errors
-    # Final pointer is a valid mapping for r1 carrying exactly one of the two markers.
-    final = _pointer(root)
-    assert final["active_run_id"] == "r1", final
-    assert final.get("mark") in {"a", "b"}, final
+    def update():
+        lock_held.wait(timeout=5)  # only write once the lock is definitely held
+        _state_write(root, "state/current.yaml", "active_run_id: r1\nphase: execute\nmark: x\n")
+        done.set()
+
+    th = threading.Thread(target=hold_lock)
+    tu = threading.Thread(target=update)
+    th.start()
+    tu.start()
+    assert lock_held.wait(timeout=5)
+    time.sleep(0.2)
+    assert not done.is_set(), (
+        "pointer update completed while the pointer lock was held — the lock is missing "
+        "from the uacp_state_write current.yaml write path"
+    )
+    release.set()
+    th.join(timeout=5)
+    tu.join(timeout=5)
+    assert done.is_set(), "pointer update never completed after lock release"
+    assert _pointer(root).get("mark") == "x", _pointer(root)
+
+
+def test_pointer_case_variant_writes_canonical_path(temp_uacp_root: Path):
+    """Codex #140 P2: a case-variant spelling enters the pointer branch (case-folded match)
+    and must write the CANONICAL state/current.yaml — not a distinct state/CURRENT.yaml the
+    lowercase-only readers never see — while still enforcing caller-binding."""
+    root = temp_uacp_root
+    # Bootstrap canonically, then update via an upper-case spelling bound to the caller.
+    assert _state_write(root, "state/current.yaml", "active_run_id: r1\n").get("ok") is True
+    out = _state_write(root, "state/CURRENT.yaml", "active_run_id: r1\nmark: via_variant\n")
+    assert out.get("ok") is True, out
+    # FS-independent proof of the fix: the RESPONSE reports the canonical path (old code
+    # reported the caller's CURRENT.yaml spelling), and the canonical pointer file — the
+    # only path the lowercase-only readers load — carries the update.
+    assert out["path"].endswith("state/current.yaml"), out
+    assert _pointer(root).get("mark") == "via_variant", _pointer(root)
+    # Caller-binding is still enforced on the variant spelling.
+    bad = _state_write(root, "state/CURRENT.yaml", "active_run_id: OTHER\n", run_id="r1")
+    assert "error" in bad and "does not match caller" in bad["error"], bad
 
 
 # ------------------------------------------------------------- carve-out hardening

@@ -537,11 +537,18 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
                                 "error": f"uacp_state_write: bootstrap seed of state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}'"
                             }
                         )
-                _write_uacp_file(target, content)
+                # Write the CANONICAL pointer path, not the caller's spelling (Codex #140
+                # P2): the branch is entered by case-folded match, so on a case-sensitive
+                # FS `state/CURRENT.yaml` would otherwise write a distinct file the
+                # lowercase-only readers (loaders/coherence) never see — a governed write
+                # reporting ok while the real pointer stays stale. Writing current_pointer_path
+                # also closes the OLD bypass where a case-variant skipped caller-binding by
+                # never matching the exact guard.
+                _write_uacp_file(current_pointer_path, content)
                 return json.dumps(
                     {
                         "ok": True,
-                        "path": str(target.relative_to(base)),
+                        "path": str(current_pointer_path.relative_to(base)),
                         "reason": reason,
                         "authority_artifact": authority,
                     },
