@@ -29,7 +29,9 @@ write-time STRUCTURAL validation (today deferred to the transition gate's carved
 from __future__ import annotations
 
 import json
+import os
 import re
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -38,11 +40,49 @@ import yaml
 from config import base_dir
 from engines.domain import layout, schema
 from engines.domain.artifact_hashes import load_hash_index, record_hash, restore_hash_index
+from engines.io import load_artifact, load_manifest
 from engines.manifest.governed_writers import _resolve_uacp_path, _write_uacp_file
 
 
 def _err(msg: str) -> dict[str, Any]:
     return {"error": msg}
+
+
+def _duplicate_check_id_path(workspace: str, run_id: str, new_id: Any, rel: str) -> str | None:
+    """Return the path of an already-frozen ``uacp.check.*`` whose ``id`` equals ``new_id`` and
+    that lives at a DIFFERENT path than ``rel`` — else None.
+
+    #131 TEETH. Check IDENTITY must be unique per run AT AUTHORING. The freeze/write-once guard
+    (#121) only catches a same-PATH rewrite; a producer could still author a WEAKER check with the
+    SAME ``id`` at a NEW ``seq`` (new path) and race the original. ``seq`` is caller-supplied
+    (``ctx={"seq": …}`` -> the registration key), so it is worthless as a security signal — an
+    attacker just picks ``seq=0``. So we reject the SECOND same-id check outright: two same-id
+    checks can never coexist, and neither projection load order nor a chosen ``seq`` can decide
+    which binds. A same-path re-write (``arel == rel``) is the #121 idempotent/write-once case,
+    handled there — skipped here. Best-effort read: an unreadable prior artifact is skipped (it
+    cannot be a confirmed conflict); the single-writer-per-run assumption (see module docstring)
+    makes the read-then-register window benign."""
+    root = Path(workspace).resolve()
+    loaded = load_manifest(root, run_id)
+    if loaded.value is None:
+        return None
+    arts = loaded.value.raw.get("artifacts")
+    if not isinstance(arts, dict):
+        return None
+    for arel in arts.values():
+        if not isinstance(arel, str) or arel == rel:
+            continue
+        other = load_artifact(root, arel)
+        if other.error is not None or not isinstance(other.value, dict):
+            continue
+        okind = other.value.get("kind")
+        if (
+            isinstance(okind, str)
+            and okind.startswith("uacp.check.")
+            and other.value.get("id") == new_id
+        ):
+            return arel
+    return None
 
 
 # The evidence-disposition ``half`` placeholder is a CLOSED two-value vocabulary
@@ -139,6 +179,20 @@ def create_entity(
             f"{sorted(_EVIDENCE_DISPOSITION_HALVES)}"
         )
     rel = layout.relpath(kind, run_id=run_id, **ctx)
+
+    # CHECK-ID UNIQUENESS (#131 teeth): a uacp.check.* id is unique per run. Reject a SECOND check
+    # that reuses an already-frozen id at a new path (new seq) — the #131 weakening vector that the
+    # same-path write-once (#121) cannot see. This is the real fix; it does not depend on the
+    # caller-supplied `seq`. Author a distinct id for a distinct check (per #121 doctrine).
+    if kind.startswith("uacp.check."):
+        conflict = _duplicate_check_id_path(workspace, run_id, fields.get("id"), rel)
+        if conflict is not None:
+            return _err(
+                f"duplicate check id {fields.get('id')!r} (#131): a frozen check with this id is "
+                f"already authored at {conflict}; check ids are unique per run — a check's "
+                "authored expectation is write-once (#121), so author a NEW check with a distinct "
+                "id instead of re-authoring this one at a new seq"
+            )
 
     # 2. SERIALIZE + 3. VALIDATE (shape) — branched by layout format (node 35 §2.4).
     if fmt == layout.YAML:
@@ -262,13 +316,32 @@ def _rollback(
     Best-effort: rollback must never raise."""
     try:
         if existed_before and prior_content is not None:
-            # NOTE (#103-W1a review MINOR-2): this restore is deliberately a raw write,
-            # NOT the atomic _write_uacp_file — the rollback must be able to recover even
-            # when _write_uacp_file is the component that FAILED (e.g. disk full), so it
-            # must not depend on it. With atomic writes a failed persist now leaves the
-            # target UNTOUCHED anyway (no partial to restore); making this restore itself
-            # crash-atomic without reintroducing that circular dependency is a W1-b item.
-            target.write_text(prior_content, encoding="utf-8")
+            # #103-W1 MINOR-2: crash-atomic restore. Write the prior bytes to a temp file
+            # in the target's dir, fsync, then os.replace — a crash mid-restore leaves
+            # either the pre-rollback target or the fully-restored one, never a torn
+            # partial. Uses os primitives DIRECTLY, not _write_uacp_file: the rollback must
+            # recover even when _write_uacp_file is the component that FAILED (e.g. disk
+            # full), so it must not depend on it (the independence W1-a's review preserved).
+            fd, tmp = tempfile.mkstemp(
+                dir=str(target.parent), prefix=f".{target.name}.", suffix=".rollback"
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(prior_content)
+                    fh.flush()
+                    os.fsync(fh.fileno())
+                os.replace(tmp, target)
+            finally:
+                # Best-effort temp cleanup on EVERY exit: after a successful os.replace
+                # the temp is already gone (FileNotFoundError → ignore); on failure it is
+                # removed here. No explicit re-raise — any error propagates naturally to
+                # the outer best-effort handler (which swallows it, keeping the ORIGINAL
+                # create_entity failure as the reported one: rollback never raises).
+                try:
+                    os.unlink(tmp)
+                except FileNotFoundError:
+                    # Expected on the success path: os.replace already consumed the temp.
+                    pass
         else:
             target.unlink()
         restore_hash_index(workspace, run_id, prior_index)

@@ -327,7 +327,7 @@ def test_create_entity_rollback_restores_exact_prior_watermark(tmp_path, monkeyp
 
 def test_create_entity_persist_failure_rolls_back(tmp_path, monkeypatch):
     # Atomicity completeness: a persist (_write_uacp_file) failure on an overwrite restores prior bytes.
-    import engines.manifest.entity_writer as ew
+    from engines.manifest import entity_writer as ew
 
     run_id = _init_run(tmp_path)
     good = create_entity(
@@ -353,6 +353,38 @@ def test_create_entity_persist_failure_rolls_back(tmp_path, monkeypatch):
     assert "error" in res and "persist failed" in res["error"]
     # Non-vacuity: without persist-fail rollback the file would hold "CORRUPTED-PARTIAL".
     assert (tmp_path / ".uacp" / rel).read_text(encoding="utf-8") == original
+
+
+def test_persist_failure_rollback_is_crash_atomic_no_temp_leak(tmp_path, monkeypatch):
+    # #103-W1 MINOR-2: the rollback restore is now crash-atomic (temp + fsync + os.replace),
+    # independent of _write_uacp_file. Prove it restores the exact prior bytes AND leaves no
+    # .rollback temp sidecar behind (a partial/temp leak would be its own corruption footgun).
+    from engines.manifest import entity_writer as ew
+
+    run_id = _init_run(tmp_path)
+    good = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {"write_paths": ["plans/a.yaml"], "blast_radius": "low", "rollback_path": "orig"},
+    )
+    rel = good["path"]
+    target = tmp_path / ".uacp" / rel
+    original = target.read_text(encoding="utf-8")
+
+    monkeypatch.setattr(
+        ew, "_write_uacp_file", lambda t, c: (_ for _ in ()).throw(OSError("disk full"))
+    )
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.scope",
+        {"write_paths": ["plans/X.yaml"], "blast_radius": "high", "rollback_path": "new"},
+    )
+    assert "error" in res
+    assert target.read_text(encoding="utf-8") == original
+    leaked = [p.name for p in target.parent.iterdir() if ".rollback" in p.name]
+    assert leaked == [], f"crash-atomic restore leaked a temp file: {leaked}"
 
 
 def test_governed_writers_reexport_identity():
