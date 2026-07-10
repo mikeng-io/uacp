@@ -400,18 +400,25 @@ def handle_init(args: dict[str, Any]) -> str:
         )
         _save_manifest(workspace, manifest)
 
-        # Create current.yaml pointer if none exists
+        # Create current.yaml pointer if none exists. #103-W1b2: the exists-check → write
+        # is a read-modify-write on the shared pointer; serialize it under the pointer lock
+        # so a concurrent seed (another init) or release (abort) cannot interleave. handle_init
+        # holds NO run lock, so this is a standalone file-lock — never nested with the registry
+        # lock (init registers separately), so no ordering inversion.
+        from state import _POINTER_LOCK_NAME, _workspace_state_lock
+
         current_path = base_dir(workspace) / "state" / "current.yaml"
-        if not current_path.exists():
-            current_body = yaml.safe_dump(
-                {
-                    "active_run_id": run_id,
-                    "active_run_manifest": str(manifest_path.relative_to(base_dir(workspace))),
-                },
-                sort_keys=False,
-            )
-            current_path.parent.mkdir(parents=True, exist_ok=True)
-            _write_uacp_file(current_path, current_body)
+        with _workspace_state_lock(workspace, _POINTER_LOCK_NAME):
+            if not current_path.exists():
+                current_body = yaml.safe_dump(
+                    {
+                        "active_run_id": run_id,
+                        "active_run_manifest": str(manifest_path.relative_to(base_dir(workspace))),
+                    },
+                    sort_keys=False,
+                )
+                current_path.parent.mkdir(parents=True, exist_ok=True)
+                _write_uacp_file(current_path, current_body)
 
         payload: dict[str, Any] = {
             "ok": True,
@@ -1190,25 +1197,32 @@ def _handle_abort_locked(workspace: Path, run_id: str, reason: str, disposition:
         # this surfaces teardown-incomplete and (because pointer-release precedes the
         # deregister in step 4) leaves the registry entry HELD rather than freeing
         # write_paths under a broken pointer. Retryable via re-entry once repaired.
+        # #103-W1b2: serialize the pointer read-modify-write under the shared pointer lock.
+        # Inner to the run lock this abort already holds, and taken/released BEFORE the
+        # step-4 registry deregister below — the pointer and registry locks are never held
+        # simultaneously, so no ordering inversion with any other writer.
+        from state import _POINTER_LOCK_NAME, _workspace_state_lock
+
         current_path = base_dir(workspace) / "state" / "current.yaml"
-        if current_path.exists():
-            try:
-                cur = yaml.safe_load(current_path.read_text(encoding="utf-8"))
-            except Exception as exc:
-                raise ValueError(
-                    f"abort teardown incomplete: state/current.yaml is unreadable: "
-                    f"{type(exc).__name__}: {exc}"
-                ) from exc
-            if cur is not None and not isinstance(cur, dict):
-                raise ValueError(
-                    "abort teardown incomplete: state/current.yaml content is not a mapping"
-                )
-            cur = cur or {}
-            if str(cur.get("active_run_id") or "") == run_id:
-                cur["active_run_id"] = None
-                cur["active_run_manifest"] = None
-                cur["released_by"] = f"{run_id}@abort"
-                _write_uacp_file(current_path, yaml.safe_dump(cur, sort_keys=False))
+        with _workspace_state_lock(workspace, _POINTER_LOCK_NAME):
+            if current_path.exists():
+                try:
+                    cur = yaml.safe_load(current_path.read_text(encoding="utf-8"))
+                except Exception as exc:
+                    raise ValueError(
+                        f"abort teardown incomplete: state/current.yaml is unreadable: "
+                        f"{type(exc).__name__}: {exc}"
+                    ) from exc
+                if cur is not None and not isinstance(cur, dict):
+                    raise ValueError(
+                        "abort teardown incomplete: state/current.yaml content is not a mapping"
+                    )
+                cur = cur or {}
+                if str(cur.get("active_run_id") or "") == run_id:
+                    cur["active_run_id"] = None
+                    cur["active_run_manifest"] = None
+                    cur["released_by"] = f"{run_id}@abort"
+                    _write_uacp_file(current_path, yaml.safe_dump(cur, sort_keys=False))
 
         # 4) POST-COMMIT teardown — deregister the registry entry, freeing write_paths.
         # AFTER the commit AND after the pointer release, so paths are never freed while

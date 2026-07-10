@@ -386,3 +386,93 @@ def test_edge_exists_graph_plane(temp_uacp_root: Path):
     )
     _register(temp_uacp_root, run_id, "check_absent", f"verification/{run_id}-chk-absent.yaml")
     assert "CHK_EDGE_EXISTS" in _codes(temp_uacp_root, run_id)
+
+
+def _same_id_pair(root: Path, run_id: str, register_order: str) -> set[str]:
+    """Build a run with TWO frozen field_equals checks sharing id ``chk-dup`` (each DIRECTLY
+    registered, bypassing the governed authoring path's id-uniqueness guard, to exercise the
+    projection's defence-in-depth dedup). seq=1 is STRONGER — expects status='ready' on data whose
+    real status is 'broken', so its replay FAILs. seq=2 is WEAKER — expects status='broken', which
+    MATCHES reality, so it PASSes. If projection lets load order decide, the weaker copy can drop
+    the FAIL.
+
+    ``register_order`` controls manifest load order: 'weak_first' registers seq=2 before seq=1 —
+    the order that made the old first-wins `setdefault` keep the weaker copy."""
+    _init(root, run_id)
+    data_rel = f"plans/{run_id}-data.yaml"
+    _write(root, data_rel, {"kind": "uacp.scope", "status": "broken"})
+    _register(root, run_id, "data", data_rel)
+
+    strong = _field_equals_check("wu-1", data_rel, "status", "ready")  # FAILs (broken != ready)
+    strong["id"] = "chk-dup"
+    weak = _field_equals_check("wu-1", data_rel, "status", "broken")  # PASSes (broken == broken)
+    weak["id"] = "chk-dup"
+
+    strong_rel = f"verification/{run_id}-check-1-field_equals.yaml"
+    weak_rel = f"verification/{run_id}-check-2-field_equals.yaml"
+    _write(root, strong_rel, strong)
+    _write(root, weak_rel, weak)
+    # Register under the entity-writer's multi-instance composite key (`<type>:seq=N`).
+    if register_order == "weak_first":
+        _register(root, run_id, "check.field_equals:seq=2", weak_rel)
+        _register(root, run_id, "check.field_equals:seq=1", strong_rel)
+    else:
+        _register(root, run_id, "check.field_equals:seq=1", strong_rel)
+        _register(root, run_id, "check.field_equals:seq=2", weak_rel)
+    return _codes(root, run_id)
+
+
+def test_same_id_dedup_is_load_order_independent(temp_uacp_root: Path):
+    """#131 (projection defence-in-depth): when two same-`id` check copies slip past governed
+    authoring into a manifest, the projection must pick the SAME winner regardless of load order —
+    load order must not decide which check binds. With a lower-seq STRONG + higher-seq WEAK copy,
+    the strong FAIL survives in BOTH registration orders. Non-vacuity: on the old first-wins
+    `setdefault`, 'weak_first' kept the passing (weaker) copy and dropped the FAIL (empty set).
+
+    NB this is NOT the security boundary — `seq` is caller-supplied, so an author who can register
+    directly could also pick seq=0. The authoritative guard is authoring-time id-uniqueness
+    (test_authoring_rejects_duplicate_check_id_even_at_lower_seq); this only pins DETERMINISM."""
+    weak_first = _same_id_pair(temp_uacp_root, "uacp-dup-weakfirst", "weak_first")
+    assert "CHK_FIELD_EQUALS" in weak_first, weak_first  # would be ABSENT under the old bug
+
+    strong_first = _same_id_pair(temp_uacp_root, "uacp-dup-strongfirst", "strong_first")
+    assert "CHK_FIELD_EQUALS" in strong_first, strong_first
+
+    assert weak_first == strong_first, (weak_first, strong_first)  # load-order-independent
+
+
+def test_losing_check_copy_edge_is_suppressed(temp_uacp_root: Path):
+    """Codex P1: dedup must be consistent across the node AND its edges. A losing same-id check
+    copy that names a DIFFERENT target must not leave its `measured_by` edge behind — otherwise the
+    winner's node payload coexists with the loser's edge, and coverage/floor gates treat the
+    loser's target as 'checked' by a check that actually measures the winner's target.
+
+    Lower-seq winner measures target 'wu-A'; higher-seq loser measures 'wu-B'. Only the winner's
+    edge (-> wu-A) may survive; the loser's edge (-> wu-B) must be absent. Non-vacuity: current
+    code emits BOTH edges, so the wu-B assertion fails on it."""
+    from engines.manifest.projection import _load_and_project
+
+    run_id = "uacp-dup-edge"
+    _init(temp_uacp_root, run_id)
+    data_rel = f"plans/{run_id}-data.yaml"
+    _write(temp_uacp_root, data_rel, {"kind": "uacp.scope", "status": "ok"})
+    _register(temp_uacp_root, run_id, "data", data_rel)
+
+    winner = _field_equals_check("wu-A", data_rel, "status", "ok")
+    winner["id"] = "chk-dup"
+    loser = _field_equals_check("wu-B", data_rel, "status", "ok")
+    loser["id"] = "chk-dup"
+    win_rel = f"verification/{run_id}-check-1-field_equals.yaml"
+    lose_rel = f"verification/{run_id}-check-2-field_equals.yaml"
+    _write(temp_uacp_root, win_rel, winner)
+    _write(temp_uacp_root, lose_rel, loser)
+    # loser registered FIRST so the old code would still emit its edge regardless of node dedup.
+    _register(temp_uacp_root, run_id, "check.field_equals:seq=2", lose_rel)
+    _register(temp_uacp_root, run_id, "check.field_equals:seq=1", win_rel)
+
+    graph = _load_and_project(temp_uacp_root, run_id)
+    assert graph is not None
+    _nodes, edges = graph
+    measured = {(e["src"], e["dst"]) for e in edges if e["rel"] == "measured_by"}
+    assert ("chk-dup", "wu-A") in measured, measured  # winner's edge kept
+    assert ("chk-dup", "wu-B") not in measured, measured  # loser's edge suppressed (fails on old)
