@@ -88,6 +88,8 @@ templates.
 
 ## Tests that must exist (none do today)
 
+**Slice 1 gate — these three lock the hygiene change and must pass before Slice 1 lands:**
+
 1. **Projection strips narrative, keeps spec:** a Tier >=2 `review`/`audit` `runtime_input` carries no
    leading narrative **and** a resolvable change pointer; a Tier 0/1 in-runtime prompt retains full
    context. Locks the separation the whole bundle depends on.
@@ -95,8 +97,12 @@ templates.
    `context_summary` + a present engagement spec.
 3. **Workflow query is non-empty:** deep-research/ultracode dispatch builds a non-empty query from the
    engagement spec when `task_description` is stripped.
-4. **grounding_provenance fail-close** ([[11-grounding-provenance]]): a report with unresolvable
-   provenance is rejected/downgraded at synthesis; a resolvable one passes.
 
-These are the arbiters [[10-minimal-non-leading-dispatch]] defers build detail to — per the design
+**Slice 2 gate (DEFERRED — NOT part of Slice 1):**
+
+4. **grounding_provenance fail-close** ([[11-grounding-provenance]]): a report with unresolvable
+   provenance is rejected/downgraded at synthesis; a resolvable one passes. This test ships **with the
+   teeth**, not with the hygiene slice — see [[30-rollout]] Slice 2.
+
+Tests 1–3 are the arbiters [[10-minimal-non-leading-dispatch]] defers build detail to — per the design
 convention, the design states the model; the tests pin the exact behavior.

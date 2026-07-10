@@ -21,8 +21,9 @@ starved ([[01-narrative-vs-spec]]):
 - Fix the two HARD breaks ([[20-blast-radius]]): the debate phase-1 sole-task-line, and the
   deep-research/ultracode empty-query.
 - Apply the empty-narrative rendering rule everywhere the narrative is stripped.
-- Land the four locking tests ([[20-blast-radius]]), at minimum test 1 (projection strips narrative,
-  keeps a resolvable change pointer; Tier 0/1 untouched).
+- Land the three Slice-1 locking tests ([[20-blast-radius]] tests 1–3: projection / debate / workflow),
+  at minimum test 1 (projection strips narrative, keeps a resolvable change pointer; Tier 0/1 untouched).
+  Test 4 (grounding_provenance fail-close) is **not** a Slice-1 gate — it ships with Slice 2's teeth.
 
 Slice 1 also includes the **audit-loop doc rewrite** ([[21-audit-loop-rewrite]]) — it depends only on the
 narrative-vs-spec distinction, not on the teeth, so it lands here — and the Slice-1 (prompt-only)
