@@ -131,39 +131,44 @@ def _project(
     edges: list,
     run: str,
     seq: int | None = None,
-    node_seq: dict[str, int] | None = None,
+    node_seq: dict[str, int | None] | None = None,
+    check_edges: dict[str, str | None] | None = None,
 ) -> None:
     """Extract nodes + typed edges from one artifact doc into the shared graph.
 
     ``seq`` is THIS doc's authoring sequence (parsed from its multi-instance registration key,
-    ``…:seq=N``) and ``node_seq`` a shared id->seq ledger used only to resolve ``check``-node id
-    collisions deterministically (#131) — see ``add_node``."""
+    ``…:seq=N``); ``node_seq`` and ``check_edges`` are shared ledgers (id->seq, id->measured_by
+    target) used to keep ``check``-node dedup CONSISTENT across nodes AND their edges — see
+    ``add_node`` and _load_and_project's deferred check-edge emission."""
     ns = node_seq if node_seq is not None else {}
+    ce = check_edges if check_edges is not None else {}
 
-    def add_node(nid: str, kind: str, **extra: Any) -> None:
+    def add_node(nid: str, kind: str, measured_by: str | None = None, **extra: Any) -> None:
         existing = nodes.get(nid)
         if existing is None:
             nodes[nid] = {"id": nid, "kind": kind, **extra}
-            if kind == "check" and isinstance(seq, int):
-                ns[nid] = seq
+            if kind == "check":
+                ns[nid] = seq if isinstance(seq, int) else None
+                ce[nid] = measured_by  # emitted at the end (deferred), only for the winning copy
             return
-        # DEDUP TIE-BREAK (#131). Plain setdefault gave FIRST-LOADED-wins, so a producer could
-        # author a WEAKER check with the SAME `id` at a NEW `seq` (new path -> new doc, so #121's
-        # same-path write-once does not catch it) and, depending only on manifest LOAD ORDER, have
-        # it displace the frozen original. Resolve `check` collisions DETERMINISTICALLY: the
-        # FIRST-FROZEN check — the LOWEST authoring `seq` — binds, independent of load order. This
-        # is the freeze / write-once contract (#121) extended from same-path to check IDENTITY;
-        # `expect` strength is not machine-orderable, so "the original binds" is the principled
-        # rule (a later same-id check is an off-contract re-author; author a NEW check instead).
-        # `seq` is absent for hand-registered / legacy artifacts -> keep first-wins (unchanged).
-        # NON-check kinds are untouched: their first-wins is a deliberate ordering guarantee
-        # (own-over-inherited, see _load_and_project), NOT a bug.
+        # DEDUP TIE-BREAK (#131), DEFENCE-IN-DEPTH ONLY — NOT the security boundary. The real teeth
+        # live at AUTHORING: create_entity rejects a second uacp.check.* that reuses a frozen `id`
+        # at a new path, so a governed run can never register two same-id checks. This branch only
+        # disambiguates duplicates that BYPASS governed authoring (a hand-`register`ed / legacy /
+        # externally-crafted manifest). It is deliberately NOT adversary-proof: `seq` is
+        # caller-supplied, so a hostile author who could also register directly could pick `seq=0`
+        # — closing that is the authoring-time uniqueness guard's job, not this one. Here we only
+        # need a DETERMINISTIC (load-order-independent) pick, and lowest-seq gives one; the node's
+        # measured_by edge is carried with it so the graph never mixes the winner's node payload
+        # with a loser's edge (Codex P1). NON-check kinds keep first-wins — a deliberate ordering
+        # guarantee (own-over-inherited, see _load_and_project), not a bug.
         if kind != "check" or existing.get("kind") != "check":
             return
         old_seq = ns.get(nid)
         if isinstance(seq, int) and isinstance(old_seq, int) and seq < old_seq:
             nodes[nid] = {"id": nid, "kind": kind, **extra}
             ns[nid] = seq
+            ce[nid] = measured_by  # winner's edge replaces the displaced copy's
 
     def add_edge(src: str, dst: str, rel: str) -> None:
         edges.append({"src": src, "dst": dst, "rel": rel})
@@ -173,15 +178,21 @@ def _project(
     # `measured_by` edge to the target it proves, so the check-coverage gate can require every
     # target carry a check and the replay engine (validate_check_replay) can re-run it. NET-NEW
     # arm: a check doc matches none of the structural extractors below, so without this arm it
-    # projects ZERO nodes (the built-vs-new correction in design node 30 — not "for free").
+    # projects ZERO nodes (the built-vs-new correction in design node 30 — not "for free"). The
+    # measured_by edge is passed THROUGH add_node (not add_edge) and emitted at the end for the
+    # winning copy only, so node+edge dedup stay consistent under a same-id collision (Codex P1).
     doc_kind = doc.get("kind")
     if isinstance(doc_kind, str) and doc_kind.startswith("uacp.check.") and doc.get("id"):
         frm = doc.get("from")
         frm = frm if isinstance(frm, dict) else {}
         bind = doc.get("bind")
+        target = frm.get("target")
         add_node(
             doc["id"],
             "check",
+            # measured_by target travels WITH the node through dedup so a losing same-id copy's
+            # edge is never emitted (Codex P1); _load_and_project materialises it at the end.
+            measured_by=str(target) if target else None,
             check_kind=doc_kind,
             bind=bind if isinstance(bind, dict) else {},
             expect=doc.get("expect"),
@@ -193,9 +204,6 @@ def _project(
             basis=frm.get("basis"),
             catalog_version=doc.get("catalog_version"),
         )
-        target = frm.get("target")
-        if target:
-            add_edge(doc["id"], str(target), "measured_by")
 
     # uacp.investigation_entry — one move in the verify loop (capsule #3 node 13). Project it as an
     # `investigation_entry` node carrying its move/verdict and a `supersedes` edge to the entry it
@@ -652,13 +660,19 @@ def _load_and_project(workspace: str | Path, run_id: str) -> tuple[dict, list] |
         pairs += list(inherited.items())
     nodes: dict[str, dict] = {}
     edges: list[dict] = []
-    node_seq: dict[str, int] = {}
+    node_seq: dict[str, int | None] = {}
+    # check id -> its winning copy's measured_by target (deferred so a losing same-id copy's edge
+    # is never emitted — node/edge dedup consistency, Codex P1).
+    check_edges: dict[str, str | None] = {}
     for key, rel in pairs:
         if not isinstance(rel, str) or not rel:
             continue
         doc = load_artifact(root, rel)
         if doc.error is None and isinstance(doc.value, dict):
-            _project(doc.value, nodes, edges, run_id, _seq_of_key(key), node_seq)
+            _project(doc.value, nodes, edges, run_id, _seq_of_key(key), node_seq, check_edges)
+    for cid, dst in check_edges.items():
+        if dst is not None:
+            edges.append({"src": cid, "dst": dst, "rel": "measured_by"})
     return nodes, edges
 
 
