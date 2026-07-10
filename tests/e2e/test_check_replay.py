@@ -386,3 +386,52 @@ def test_edge_exists_graph_plane(temp_uacp_root: Path):
     )
     _register(temp_uacp_root, run_id, "check_absent", f"verification/{run_id}-chk-absent.yaml")
     assert "CHK_EDGE_EXISTS" in _codes(temp_uacp_root, run_id)
+
+
+def _same_id_pair(root: Path, run_id: str, register_order: str) -> set[str]:
+    """Build a run with TWO frozen field_equals checks sharing id ``chk-dup`` but authored at
+    different `seq` (new seq -> new path -> new node): the ORIGINAL (seq=1) is STRONGER — it
+    expects status='ready' on data whose real status is 'broken', so its replay FAILs (a real
+    gate). The seq=2 copy is WEAKER — it expects status='broken', which MATCHES reality, so it
+    PASSes. If dedup lets the weaker win, the FAIL disappears and the gate is silently defeated.
+
+    ``register_order`` controls manifest load order: 'weak_first' registers seq=2 before seq=1
+    (the adversarial order that made the old first-wins setdefault keep the weaker check)."""
+    _init(root, run_id)
+    data_rel = f"plans/{run_id}-data.yaml"
+    _write(root, data_rel, {"kind": "uacp.scope", "status": "broken"})
+    _register(root, run_id, "data", data_rel)
+
+    strong = _field_equals_check("wu-1", data_rel, "status", "ready")  # FAILs (broken != ready)
+    strong["id"] = "chk-dup"
+    weak = _field_equals_check("wu-1", data_rel, "status", "broken")  # PASSes (broken == broken)
+    weak["id"] = "chk-dup"
+
+    strong_rel = f"verification/{run_id}-check-1-field_equals.yaml"
+    weak_rel = f"verification/{run_id}-check-2-field_equals.yaml"
+    _write(root, strong_rel, strong)
+    _write(root, weak_rel, weak)
+    # Register under the entity-writer's multi-instance composite key (`<type>:seq=N`) — that key,
+    # not load order, must decide which same-id check binds.
+    if register_order == "weak_first":
+        _register(root, run_id, "check.field_equals:seq=2", weak_rel)
+        _register(root, run_id, "check.field_equals:seq=1", strong_rel)
+    else:
+        _register(root, run_id, "check.field_equals:seq=1", strong_rel)
+        _register(root, run_id, "check.field_equals:seq=2", weak_rel)
+    return _codes(root, run_id)
+
+
+def test_same_id_dedup_keeps_stronger_check_regardless_of_load_order(temp_uacp_root: Path):
+    """#131: a same-`id` check authored WEAKER at a new `seq` must not displace the frozen
+    original via manifest load order. The first-frozen (lowest seq) STRONGER check must bind and
+    keep FAILing in BOTH registration orders. Non-vacuity: on the old first-wins `setdefault`, the
+    'weak_first' order kept the passing (weaker) check and dropped the FAIL — this asserts the
+    opposite for that exact order."""
+    weak_first = _same_id_pair(temp_uacp_root, "uacp-dup-weakfirst", "weak_first")
+    assert "CHK_FIELD_EQUALS" in weak_first, weak_first  # would be ABSENT under the old bug
+
+    strong_first = _same_id_pair(temp_uacp_root, "uacp-dup-strongfirst", "strong_first")
+    assert "CHK_FIELD_EQUALS" in strong_first, strong_first
+
+    assert weak_first == strong_first, (weak_first, strong_first)  # load-order-independent

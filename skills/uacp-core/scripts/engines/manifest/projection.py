@@ -100,6 +100,18 @@ def _synth_id(prefix: str, text: str, run: str) -> str:
     return f"{prefix}-{hashlib.sha1(f'{run}:{text}'.encode()).hexdigest()[:8]}"
 
 
+def _seq_of_key(key: Any) -> int | None:
+    """Extract the authoring ``seq`` from a multi-instance artifact registration key.
+
+    The entity-writer registers placeholder-bearing kinds under a composite key
+    ``<type>:k=v-…`` (e.g. ``check.field_equals:seq=3``); ``seq`` is that instance's monotonic
+    authoring counter — the ONE load-order-independent ordering signal available at projection.
+    Single-instance kinds (plain ``proposal``/``plan``) and hand-registered/legacy artifacts carry
+    no ``seq`` -> None (dedup then keeps first-wins, the historical behavior)."""
+    m = re.search(r"(?:^|[-:])seq=(\d+)(?:$|-)", str(key))
+    return int(m.group(1)) if m else None
+
+
 def _rollup_result(results: list) -> str | None:
     """Roll a checkpoint's evidence[].result values up to one outcome — worst wins (block > warn >
     deferred); 'pass' only if EVERY evidence result is 'pass'. Returns None when there is no
@@ -113,11 +125,45 @@ def _rollup_result(results: list) -> str | None:
     return None
 
 
-def _project(doc: dict, nodes: dict, edges: list, run: str) -> None:
-    """Extract nodes + typed edges from one artifact doc into the shared graph."""
+def _project(
+    doc: dict,
+    nodes: dict,
+    edges: list,
+    run: str,
+    seq: int | None = None,
+    node_seq: dict[str, int] | None = None,
+) -> None:
+    """Extract nodes + typed edges from one artifact doc into the shared graph.
+
+    ``seq`` is THIS doc's authoring sequence (parsed from its multi-instance registration key,
+    ``…:seq=N``) and ``node_seq`` a shared id->seq ledger used only to resolve ``check``-node id
+    collisions deterministically (#131) — see ``add_node``."""
+    ns = node_seq if node_seq is not None else {}
 
     def add_node(nid: str, kind: str, **extra: Any) -> None:
-        nodes.setdefault(nid, {"id": nid, "kind": kind, **extra})
+        existing = nodes.get(nid)
+        if existing is None:
+            nodes[nid] = {"id": nid, "kind": kind, **extra}
+            if kind == "check" and isinstance(seq, int):
+                ns[nid] = seq
+            return
+        # DEDUP TIE-BREAK (#131). Plain setdefault gave FIRST-LOADED-wins, so a producer could
+        # author a WEAKER check with the SAME `id` at a NEW `seq` (new path -> new doc, so #121's
+        # same-path write-once does not catch it) and, depending only on manifest LOAD ORDER, have
+        # it displace the frozen original. Resolve `check` collisions DETERMINISTICALLY: the
+        # FIRST-FROZEN check — the LOWEST authoring `seq` — binds, independent of load order. This
+        # is the freeze / write-once contract (#121) extended from same-path to check IDENTITY;
+        # `expect` strength is not machine-orderable, so "the original binds" is the principled
+        # rule (a later same-id check is an off-contract re-author; author a NEW check instead).
+        # `seq` is absent for hand-registered / legacy artifacts -> keep first-wins (unchanged).
+        # NON-check kinds are untouched: their first-wins is a deliberate ordering guarantee
+        # (own-over-inherited, see _load_and_project), NOT a bug.
+        if kind != "check" or existing.get("kind") != "check":
+            return
+        old_seq = ns.get(nid)
+        if isinstance(seq, int) and isinstance(old_seq, int) and seq < old_seq:
+            nodes[nid] = {"id": nid, "kind": kind, **extra}
+            ns[nid] = seq
 
     def add_edge(src: str, dst: str, rel: str) -> None:
         edges.append({"src": src, "dst": dst, "rel": rel})
@@ -597,19 +643,22 @@ def _load_and_project(workspace: str | Path, run_id: str) -> tuple[dict, list] |
     # those too — otherwise a child run's coverage graph is missing the inherited
     # scope_items/work_units and a dropped intent silently passes. Own artifacts are
     # projected FIRST so a child's re-authored doc wins over an inherited one
-    # (add_node uses setdefault).
+    # (add_node keeps first-wins for every non-check kind).
     inherited = loaded.value.raw.get("inherited_artifacts")
-    rels = list(artifacts.values())
+    # (key, rel): the KEY carries a multi-instance artifact's authoring `seq` (…:seq=N),
+    # the only load-order-independent signal for deterministic check-node dedup (#131).
+    pairs = list(artifacts.items())
     if isinstance(inherited, dict):
-        rels += list(inherited.values())
+        pairs += list(inherited.items())
     nodes: dict[str, dict] = {}
     edges: list[dict] = []
-    for rel in rels:
+    node_seq: dict[str, int] = {}
+    for key, rel in pairs:
         if not isinstance(rel, str) or not rel:
             continue
         doc = load_artifact(root, rel)
         if doc.error is None and isinstance(doc.value, dict):
-            _project(doc.value, nodes, edges, run_id)
+            _project(doc.value, nodes, edges, run_id, _seq_of_key(key), node_seq)
     return nodes, edges
 
 
