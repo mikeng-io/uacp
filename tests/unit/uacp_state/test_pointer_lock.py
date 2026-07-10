@@ -149,23 +149,43 @@ def test_uacp_state_write_pointer_update_acquires_the_lock(temp_uacp_root: Path)
     assert _pointer(root).get("mark") == "x", _pointer(root)
 
 
-def test_pointer_case_variant_writes_canonical_path(temp_uacp_root: Path):
-    """Codex #140 P2: a case-variant spelling enters the pointer branch (case-folded match)
-    and must write the CANONICAL state/current.yaml — not a distinct state/CURRENT.yaml the
-    lowercase-only readers never see — while still enforcing caller-binding."""
+def test_pointer_noncanonical_variant_never_desyncs(temp_uacp_root: Path):
+    """Codex #140 P2 (a+b): a case-variant spelling (state/CURRENT.yaml) case-folds into the
+    pointer branch but must never desync the pointer. On a case-sensitive FS the exact-case
+    guard REJECTS it (writing the caller's distinct file, or redirecting via .resolve()
+    through a symlink, are both refused); on a case-insensitive FS it resolves to the same
+    inode and is serviced as the canonical pointer. Either way: no stale pointer, no stray
+    file — FS-robust invariant."""
     root = temp_uacp_root
-    # Bootstrap canonically, then update via an upper-case spelling bound to the caller.
     assert _state_write(root, "state/current.yaml", "active_run_id: r1\n").get("ok") is True
-    out = _state_write(root, "state/CURRENT.yaml", "active_run_id: r1\nmark: via_variant\n")
-    assert out.get("ok") is True, out
-    # FS-independent proof of the fix: the RESPONSE reports the canonical path (old code
-    # reported the caller's CURRENT.yaml spelling), and the canonical pointer file — the
-    # only path the lowercase-only readers load — carries the update.
-    assert out["path"].endswith("state/current.yaml"), out
-    assert _pointer(root).get("mark") == "via_variant", _pointer(root)
-    # Caller-binding is still enforced on the variant spelling.
-    bad = _state_write(root, "state/CURRENT.yaml", "active_run_id: OTHER\n", run_id="r1")
-    assert "error" in bad and "does not match caller" in bad["error"], bad
+    out = _state_write(root, "state/CURRENT.yaml", "active_run_id: r1\nmark: x\n")
+    if "error" in out:
+        # case-sensitive FS: rejected as non-canonical, pointer left untouched.
+        assert "canonical" in out["error"], out
+        assert _pointer(root).get("mark") is None, _pointer(root)
+    else:
+        # case-insensitive FS: serviced as THE canonical pointer (same inode).
+        assert out["path"].endswith("state/current.yaml"), out
+        assert _pointer(root).get("mark") == "x", _pointer(root)
+
+
+def test_pointer_write_never_escapes_worktree_via_symlink(temp_uacp_root: Path, tmp_path: Path):
+    """Codex #140 P2b: if state/current.yaml is a symlink to an out-of-tree file, the pointer
+    write must NOT follow it out of the worktree. _resolve_uacp_path rejects symlinked
+    components and the write targets that contained path — never a re-resolved one. Proven by
+    the out-of-tree file staying pristine (the old .resolve()-write would have clobbered it)."""
+    root = temp_uacp_root
+    state = root / ".uacp" / "state"
+    state.mkdir(parents=True, exist_ok=True)
+    outside = tmp_path / "escape-target.yaml"
+    outside.write_text("PRISTINE\n", encoding="utf-8")
+    (state / "current.yaml").symlink_to(outside)
+    # Attempt to write the pointer via both the exact and the variant spelling.
+    _state_write(root, "state/current.yaml", "active_run_id: r1\n")
+    _state_write(root, "state/CURRENT.yaml", "active_run_id: r1\n")
+    assert outside.read_text(encoding="utf-8") == "PRISTINE\n", (
+        "pointer write escaped the worktree through a symlinked current.yaml"
+    )
 
 
 # ------------------------------------------------------------- carve-out hardening

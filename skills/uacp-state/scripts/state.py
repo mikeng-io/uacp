@@ -488,8 +488,23 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
         # but new content has empty active_run_id). Bootstrap permits any
         # caller to seed the file; once the file exists, every write must
         # declare a non-empty active_run_id that matches the caller.
-        current_pointer_path = (base / "state" / "current.yaml").resolve()
         if rel_lower == ("current.yaml",):
+            # Require the EXACT canonical spelling. A case-variant (state/CURRENT.yaml on a
+            # case-sensitive FS) case-folds into this branch but must NOT be serviced:
+            # writing the caller's `target` creates a distinct file the lowercase-only
+            # readers (loaders/coherence) miss (Codex P2a), and redirecting to
+            # (state/current.yaml).resolve() would follow a symlinked current.yaml OUT of the
+            # worktree, bypassing _resolve_uacp_path's symlink containment (Codex P2b — the
+            # out-of-tree write lands before relative_to can error). So reject non-canonical
+            # spellings; the exact path — already symlink-contained by _resolve_uacp_path
+            # upstream (a symlinked current.yaml is rejected there before we get here) — is
+            # the ONLY path written, and we write `target`, never a re-resolved path.
+            if target.name != "current.yaml":
+                return json.dumps(
+                    {
+                        "error": "uacp_state_write: the active-run pointer must be written via the canonical lowercase state/current.yaml (non-canonical spelling refused)"
+                    }
+                )
             caller_run_id = str(args.get("uacp_run_id") or "")
             try:
                 import yaml as _yaml
@@ -513,7 +528,7 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
             # file locks are never held simultaneously, so there is no ordering inversion.
             # Content parsing above stays OUTSIDE the lock (caller data, not shared state).
             with _workspace_state_lock(root, _POINTER_LOCK_NAME):
-                pointer_exists = current_pointer_path.exists()
+                pointer_exists = target.exists()
                 if pointer_exists:
                     # Post-bootstrap: every write must carry a caller-bound active_run_id.
                     if not declared_run_id:
@@ -537,18 +552,14 @@ def _handle_uacp_state_write(args: dict, **_: Any) -> str:
                                 "error": f"uacp_state_write: bootstrap seed of state/current.yaml#active_run_id '{declared_run_id}' does not match caller uacp_run_id '{caller_run_id}'"
                             }
                         )
-                # Write the CANONICAL pointer path, not the caller's spelling (Codex #140
-                # P2): the branch is entered by case-folded match, so on a case-sensitive
-                # FS `state/CURRENT.yaml` would otherwise write a distinct file the
-                # lowercase-only readers (loaders/coherence) never see — a governed write
-                # reporting ok while the real pointer stays stale. Writing current_pointer_path
-                # also closes the OLD bypass where a case-variant skipped caller-binding by
-                # never matching the exact guard.
-                _write_uacp_file(current_pointer_path, content)
+                # Write `target` — the _resolve_uacp_path result, symlink-contained and
+                # (per the non-canonical rejection above) exactly state/current.yaml. Never a
+                # re-resolved path, which would follow a symlink out of the worktree.
+                _write_uacp_file(target, content)
                 return json.dumps(
                     {
                         "ok": True,
-                        "path": str(current_pointer_path.relative_to(base)),
+                        "path": str(target.relative_to(base)),
                         "reason": reason,
                         "authority_artifact": authority,
                     },
