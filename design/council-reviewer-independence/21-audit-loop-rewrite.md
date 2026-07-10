@@ -6,7 +6,7 @@ tags: [kimi-codex, audit-loop, required-surfaces, role-prescription, applied]
 timestamp: 2026-07-10
 edges:
   - {dst: 01-narrative-vs-spec, rel: realizes, provenance: asserted}
-  - {dst: 11-grounding-provenance, rel: depends_on, provenance: derived}
+  - {dst: 11-grounding-provenance, rel: relates_to, provenance: asserted}
   - {dst: 12-domains-coverage-floor, rel: depends_on, provenance: derived}
 ---
 

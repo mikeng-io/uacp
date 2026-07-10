@@ -52,7 +52,7 @@ edges:
   - {src: 13-taxonomy-dimension, dst: 00-problem, rel: motivated_by, provenance: asserted}
   - {src: 20-blast-radius, dst: 10-minimal-non-leading-dispatch, rel: depends_on, provenance: derived}
   - {src: 21-audit-loop-rewrite, dst: 01-narrative-vs-spec, rel: realizes, provenance: asserted}
-  - {src: 21-audit-loop-rewrite, dst: 11-grounding-provenance, rel: depends_on, provenance: derived}
+  - {src: 21-audit-loop-rewrite, dst: 11-grounding-provenance, rel: relates_to, provenance: asserted}
   - {src: 21-audit-loop-rewrite, dst: 12-domains-coverage-floor, rel: depends_on, provenance: derived}
   - {src: 30-rollout, dst: 10-minimal-non-leading-dispatch, rel: sequences, provenance: asserted}
   - {src: 30-rollout, dst: 11-grounding-provenance, rel: sequences, provenance: asserted}
