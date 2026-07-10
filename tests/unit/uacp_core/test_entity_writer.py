@@ -327,7 +327,7 @@ def test_create_entity_rollback_restores_exact_prior_watermark(tmp_path, monkeyp
 
 def test_create_entity_persist_failure_rolls_back(tmp_path, monkeypatch):
     # Atomicity completeness: a persist (_write_uacp_file) failure on an overwrite restores prior bytes.
-    import engines.manifest.entity_writer as ew
+    from engines.manifest import entity_writer as ew
 
     run_id = _init_run(tmp_path)
     good = create_entity(
@@ -359,7 +359,7 @@ def test_persist_failure_rollback_is_crash_atomic_no_temp_leak(tmp_path, monkeyp
     # #103-W1 MINOR-2: the rollback restore is now crash-atomic (temp + fsync + os.replace),
     # independent of _write_uacp_file. Prove it restores the exact prior bytes AND leaves no
     # .rollback temp sidecar behind (a partial/temp leak would be its own corruption footgun).
-    import engines.manifest.entity_writer as ew
+    from engines.manifest import entity_writer as ew
 
     run_id = _init_run(tmp_path)
     good = create_entity(

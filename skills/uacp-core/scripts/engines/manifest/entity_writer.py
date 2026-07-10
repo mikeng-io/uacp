@@ -288,6 +288,7 @@ def _rollback(
                 try:
                     os.unlink(tmp)
                 except FileNotFoundError:
+                    # Expected on the success path: os.replace already consumed the temp.
                     pass
         else:
             target.unlink()

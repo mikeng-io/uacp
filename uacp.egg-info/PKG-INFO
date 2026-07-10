@@ -3,16 +3,18 @@ Name: uacp
 Version: 0.1.0
 Summary: Universal Agent Control Plane
 Requires-Python: >=3.10
-Requires-Dist: pydantic>=2.0
+Requires-Dist: pydantic>=2.13.4
 Requires-Dist: pyyaml
-Requires-Dist: jsonschema>=4.0
+Requires-Dist: jsonschema>=4.26.0
 Provides-Extra: dev
-Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest>=9.1.1; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: ruff>=0.15; extra == "dev"
+Requires-Dist: ruff==0.15.20; extra == "dev"
+Requires-Dist: pyright==1.1.411; extra == "dev"
 Provides-Extra: mcp
-Requires-Dist: mcp>=1.0; extra == "mcp"
+Requires-Dist: mcp>=1.28.1; extra == "mcp"
+Requires-Dist: anyio; extra == "mcp"
 Provides-Extra: oracle-e2e
 Requires-Dist: lancedb; extra == "oracle-e2e"
 Requires-Dist: sentence-transformers; extra == "oracle-e2e"
