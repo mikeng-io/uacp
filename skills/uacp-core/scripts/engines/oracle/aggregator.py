@@ -235,8 +235,10 @@ def oracle_query(
             },
         }
 
-    # FULL and ADVISORY (enabled): floor + honcho + semantic.
-    packets: list[ProviderPacket] = list(floor_packets)
+    # FULL and ADVISORY (enabled): the semantic + honcho tiers take PRIORITY; the
+    # deterministic floor BACKFILLS remaining budget below them (deduped) so it can never
+    # starve the ML-ranked results — it layers UNDER, not over (council #148 review).
+    packets: list[ProviderPacket] = []
     sources_skipped: list[str] = []
 
     # Source 1: honcho memory (advisory, optional)
@@ -272,7 +274,24 @@ def oracle_query(
     except Exception:
         sources_skipped.append("semantic")
 
-    # Trim to limit
+    # #100: backfill remaining budget with the deterministic floor, skipping any corpus
+    # doc already surfaced by the semantic tier (dedup by id — both read the same corpus,
+    # semantic under source="corpus", floor under "corpus-floor"). The floor thus fills
+    # only what the higher-trust tiers left room for, never displacing them.
+    seen_ids = {
+        p.payload.get("id") for p in packets if isinstance(p.payload, dict) and p.payload.get("id")
+    }
+    for fp in floor_packets:
+        if len(packets) >= limit:
+            break
+        fid = fp.payload.get("id") if isinstance(fp.payload, dict) else None
+        if fid and fid in seen_ids:
+            continue
+        packets.append(fp)
+        if fid:
+            seen_ids.add(fid)
+
+    # Trim to limit (defensive; the backfill already respects it).
     packets = packets[:limit]
 
     return {

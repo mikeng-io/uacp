@@ -110,13 +110,22 @@ def test_floor_empty_corpus_returns_nothing(temp_uacp_root: Path):
 
 
 def test_floor_import_is_ml_free():
-    """The floor guarantee: engines.oracle.deterministic must import without any ML deps
-    (lancedb / llama_cpp / httpx), so it runs on a bare clone."""
+    """The floor guarantee: importing engines.oracle.deterministic must not pull in ANY ML
+    dep (lancedb / llama_cpp / httpx). Pop them + the module from sys.modules and re-import
+    FRESH, so this catches transitive pollution (a vacuous check that only inspects a
+    pre-loaded sys.modules would pass even if a sibling test already imported the dep)."""
     import importlib
 
-    mod = importlib.import_module("engines.oracle.deterministic")
-    loaded = set(sys.modules)
-    for heavy in ("lancedb", "llama_cpp", "httpx"):
-        assert heavy not in loaded or getattr(mod, heavy, None) is None, (
-            f"deterministic floor must not pull in {heavy}"
-        )
+    heavies = ("lancedb", "llama_cpp", "httpx")
+    saved = {m: sys.modules.pop(m, None) for m in heavies}
+    for name in list(sys.modules):
+        if name.startswith("engines.oracle.deterministic"):
+            sys.modules.pop(name, None)
+    try:
+        importlib.import_module("engines.oracle.deterministic")
+        leaked = [h for h in heavies if h in sys.modules]
+        assert leaked == [], f"deterministic floor transitively imported ML deps: {leaked}"
+    finally:
+        for m, mod in saved.items():
+            if mod is not None:
+                sys.modules[m] = mod
