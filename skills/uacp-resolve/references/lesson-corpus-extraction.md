@@ -10,7 +10,7 @@ timestamp: "2026-06-17"
 
 After RESOLVE writes `resolutions/{run_id}-lessons.yaml` (the gate artifact), durable lessons are extracted as OKF markdown files into `.uacp/lessons/<id>.md` and scored for effectiveness. High-scoring or chronically-recurring lessons are promoted to `.uacp/knowledge/`.
 
-All corpus writes go through the **Oracle corpus-write surface** (`engines.oracle.corpus_writer.persist_lesson` / `persist_knowledge`). The Oracle is the single owner of the knowledge/lesson corpus (read *and* write); RESOLVE never calls `uacp_artifact_write` directly for corpus files and never touches `.uacp/lessons/` / `.uacp/knowledge/` on the filesystem. The corpus-writer serializes the OKF doc and routes it through the governed artifact writer (Guardian-audited; `lessons/` and `knowledge/` are in scope per `config/uacp.toml [scope.tool_path_capabilities]`).
+All corpus writes go through the **Oracle corpus-write surface**. A tool-surface-only agent persists via the governed **`uacp_corpus_write`** tool (`kind: lesson|knowledge`, `okf: <the OKF markdown>`) — the tool delegates to the Oracle's `write_corpus` entrypoint, which validates the OKF and routes it through the governed artifact writer (Guardian-audited; `lessons/` and `knowledge/` are in scope per `config/uacp.toml [scope.tool_path_capabilities]`). The Oracle is the single owner of the knowledge/lesson corpus (read *and* write); RESOLVE never calls `uacp_artifact_write` directly for corpus files and never touches `.uacp/lessons/` / `.uacp/knowledge/` on the filesystem. (In-process kernel code may call `engines.oracle.write_corpus` directly; #119 exposed the tool so a tool-surface-only agent no longer has to.)
 
 ---
 
@@ -28,7 +28,7 @@ For each durable lesson in the gate artifact `resolutions/{run_id}-lessons.yaml`
    - `eligible: 0`, `recurrences: 0`, `bes: 0.5` (initial prior — BES is recomputed in Step 2)
    - `promoted_to: null`
    - `tags`: optional domain tags
-3. Persist to `.uacp/lessons/<id>.md` via `engines.oracle.corpus_writer.persist_lesson(root, lesson, run_id=..., authority_artifact="resolutions/{run_id}-lessons.yaml")`. If the file exists (same topic extracted in a prior run), **overwrite** — the recompute in Step 2 will refresh fields (no idempotency marker needed; id is topic-stable).
+3. Persist the lesson by calling the **`uacp_corpus_write`** tool with `kind: lesson`, `okf:` the full OKF markdown doc, and `authority_artifact: resolutions/{run_id}-lessons.yaml`. If the file exists (same topic extracted in a prior run), it **overwrites** — the recompute in Step 2 will refresh fields (no idempotency marker needed; id is topic-stable). *(In-process kernel code may instead call `engines.oracle.write_corpus(root, kind="lesson", okf=..., run_id=..., authority_artifact=...)`.)*
 
 ---
 
@@ -84,17 +84,19 @@ For each `"effective"` or `"chronic"` candidate, run the **distillation step**:
 1. **Gather the cluster**: all lessons sharing the same class/domain/invariant as the candidate, plus existing `.uacp/knowledge/` docs on the same topic.
 2. **Dispatch Agent Council synthesis** (see `../uacp-core/references/agent-council-followthrough.md`) to abstract a generalized pattern from the cluster.
 3. **Extend-over-create**: if a knowledge doc already owns the topic (`id` matches or the council identifies an existing item), update it and append to `derived_from`; otherwise create a new `KnowledgeItem` OKF (`type: pattern` or `type: digest`).
-4. Persist the knowledge doc to `.uacp/knowledge/<id>.md` via `engines.oracle.corpus_writer.persist_knowledge`.
+4. Persist the knowledge doc via the **`uacp_corpus_write`** tool (`kind: knowledge`, `okf: <the OKF doc>`).
 5. Set **backlinks**:
    - On the knowledge doc: `derived_from` (list of lesson ids used as input).
    - On each promoted lesson: `promoted_to = <knowledge_id>`.
-   - Re-persist each modified lesson via `engines.oracle.corpus_writer.persist_lesson`.
+   - Re-persist each modified lesson via **`uacp_corpus_write`** (`kind: lesson`).
 
 ---
 
 ## Top-down intake (non-lesson knowledge)
 
-Design docs, ADR digests, and research analysis may author `.uacp/knowledge/` without a lesson backing them. Build a `KnowledgeItem` and persist it via `engines.oracle.corpus_writer.persist_knowledge` (the corpus-writer serializes via `KnowledgeItem.to_okf`). Set `derived_from: []` and `scope: shared` or the project key as appropriate.
+Design docs, ADR digests, and research analysis may author `.uacp/knowledge/` without a lesson backing them. Author a knowledge OKF doc and persist it via the **`uacp_corpus_write`** tool (`kind: knowledge`). Set `derived_from: []` and `scope: shared` or the project key as appropriate.
+
+> **Tool-surface scope (#119).** The `uacp_corpus_write` tool covers the per-doc PERSIST of Step 1, Step 3, and top-down intake — the operations that blocked a tool-surface-only agent from doing lesson extraction. The whole-corpus **read + recompute** loops (Step 2 BES recompute; Step 3's cluster-gather) remain in-process kernel/Oracle work (`engines.oracle` owns corpus read); exposing a batch-recompute tool is a #119 follow-on if a tool-surface agent ever needs to drive it.
 
 ---
 

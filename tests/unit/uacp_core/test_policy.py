@@ -23,7 +23,7 @@ class TestGuardianPolicyLoad:
         # This proves load sources from config.py (uacp.toml [guardian]) rather
         # than from the old 3/4-tool guardian-policy.yaml stub.
         policy = GuardianPolicy.load(tmp_path)
-        assert len(policy.self_attesting_tools) == 16, policy.self_attesting_tools
+        assert len(policy.self_attesting_tools) == 17, policy.self_attesting_tools
         assert "uacp_doc_write" in policy.self_attesting_tools
         assert "uacp_contained_shell" in policy.self_attesting_tools
         # tool_classification-backed: the full policy classifies all 32 tools.
@@ -33,7 +33,7 @@ class TestGuardianPolicyLoad:
         # web_fetch/web_search (external.network_read); + uacp_entity_write, the
         # auto-registering manifest write path; + the 4 run-lifecycle ops
         # uacp_run_init/transition/register_artifact/finalize -> state.uacp.)
-        assert len(policy.tool_classification) == 33, policy.tool_classification
+        assert len(policy.tool_classification) == 34, policy.tool_classification
 
     def test_override_mode_is_honored(self, tmp_path: Path):
         # Proves the live reader actually flows through config.py's deep-merge:
@@ -46,7 +46,7 @@ class TestGuardianPolicyLoad:
         policy = GuardianPolicy.load(tmp_path)
         assert policy.mode == "observe"
         assert policy.version == "0.1"
-        assert len(policy.self_attesting_tools) == 16
+        assert len(policy.self_attesting_tools) == 17
 
     def test_raises_when_guardian_table_missing(self, tmp_path: Path, monkeypatch):
         # The source is now config/uacp.toml [guardian] via config.py. If the

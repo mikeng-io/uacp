@@ -38,6 +38,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 #   * D35: graph_invariant on plan/execute/verify exits (see note below);
 #   * #107: uacp_run_abort in every ACTIVE-phase allowlist (the off-ramp primitive
 #     is reachable from any pre-terminal phase; NOT added to resolve).
+#   * #119: uacp_corpus_write in the RESOLVE allowlist ONLY (the governed Oracle
+#     corpus writer — RESOLVE lesson/knowledge extraction; not a mid-lifecycle tool).
 # ---------------------------------------------------------------------------
 _PRESLIM_ALLOWED_TOOLS = {
     "brainstorm": [
@@ -130,6 +132,7 @@ _PRESLIM_ALLOWED_TOOLS = {
     "resolve": [
         "uacp_artifact_write",
         "uacp_entity_write",
+        "uacp_corpus_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",
@@ -290,11 +293,7 @@ def test_exits_to_pin(stages: dict, phase: str) -> None:
 
 def test_exits_to_is_derived_from_phase_graph(stages: dict) -> None:
     """exits_to must equal the canonical graph (no second hardcoded copy)."""
-    derived = {
-        (phase, target)
-        for phase, body in stages.items()
-        for target in body["exits_to"]
-    }
+    derived = {(phase, target) for phase, body in stages.items() for target in body["exits_to"]}
     assert derived == phase_graph.lifecycle_edges()
 
 

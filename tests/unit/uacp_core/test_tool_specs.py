@@ -25,6 +25,7 @@ _EXPECTED_NAMES = {
     "uacp_gate_ledger_append",
     "uacp_heartgate_check",
     "uacp_oracle_query",
+    "uacp_corpus_write",  # #119 governed Oracle corpus writer
     # Run lifecycle tools (Phase 8)
     "uacp_run_init",
     "uacp_run_transition",
@@ -37,9 +38,9 @@ _EXPECTED_NAMES = {
 _READ_ONLY = {"uacp_oracle_query", "uacp_heartgate_check", "uacp_sandbox_check"}
 
 
-def test_tool_specs_has_all_seventeen_names():
+def test_tool_specs_has_all_eighteen_names():
     specs = tool_specs()
-    assert len(specs) == 17
+    assert len(specs) == 18
     assert {s.name for s in specs} == _EXPECTED_NAMES
 
 

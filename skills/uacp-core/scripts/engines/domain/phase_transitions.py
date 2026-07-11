@@ -180,6 +180,9 @@ STAGE_ALLOWED_TOOLS: dict[str, list[str]] = {
     "resolve": [
         "uacp_artifact_write",
         "uacp_entity_write",
+        # #119: the governed Oracle corpus writer — RESOLVE lesson/knowledge
+        # extraction into the corpus (delegates to the governed artifact writer).
+        "uacp_corpus_write",
         "uacp_state_write",
         "uacp_run_registry_update",
         "uacp_escalation_event",

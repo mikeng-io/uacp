@@ -81,7 +81,7 @@ class TestToolRegistryParity:
         assert set(hermes) == mcp_names, (
             f"tool-name divergence between Hermes and MCP: {set(hermes) ^ mcp_names}"
         )
-        assert len(mcp_names) == 17, f"expected 17 governed tools, got {len(mcp_names)}"
+        assert len(mcp_names) == 18, f"expected 18 governed tools, got {len(mcp_names)}"
 
     def test_bare_input_schemas_match(self, temp_uacp_root: Path) -> None:
         """Each spec's bare input_schema equals the Hermes wrapped 'parameters'."""
@@ -123,6 +123,4 @@ class TestToolRegistryParity:
             "uacp_sandbox_check",
         }, f"unexpected read-only set: {read_only_names}"
         for spec in tool_specs():
-            assert hermes[spec.name]["toolset"] == spec.toolset, (
-                f"toolset diverges for {spec.name}"
-            )
+            assert hermes[spec.name]["toolset"] == spec.toolset, f"toolset diverges for {spec.name}"

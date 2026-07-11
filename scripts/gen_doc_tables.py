@@ -271,6 +271,13 @@ def writer_path_table(base: str | None = None) -> str:
             f"Records watermarks under `{base}/state/hashes/`.",
         ),
         row(
+            ["uacp_corpus_write"],
+            f"`{base}/lessons/**` + `{base}/knowledge/**` (OKF `.md`)",
+            "Oracle corpus writer (lessons + knowledge). Parses the authored OKF "
+            "into a `Lesson`/`KnowledgeItem` and persists via `uacp_artifact_write` "
+            "(the Oracle owns corpus read + write).",
+        ),
+        row(
             ["uacp_doc_write"],
             f"`docs/**` ({doc_suffixes}; repo-root-relative, not under `{base}/`)",
             "Canonical docs boundary.",
