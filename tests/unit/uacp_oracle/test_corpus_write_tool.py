@@ -19,7 +19,7 @@ _CORE = Path(__file__).resolve().parents[3] / "skills" / "uacp-core" / "scripts"
 if str(_CORE) not in sys.path:
     sys.path.insert(0, str(_CORE))
 
-from core import GuardianPolicy  # noqa: E402
+from core import Guardian, GuardianPolicy, make_event  # noqa: E402
 from engines.domain.corpus import KnowledgeItem, Lesson  # noqa: E402
 from engines.domain.phase_transitions import stages_default  # noqa: E402
 from governed_handlers import _handle_uacp_corpus_write  # noqa: E402
@@ -85,6 +85,38 @@ def test_corpus_write_admitted_in_resolve_omitted_elsewhere():
         assert TOOL not in stages[phase]["allowed_tools"], (
             f"{TOOL} must NOT be allowed in {phase} — corpus writeback is a RESOLVE op"
         )
+
+
+def test_guardian_evaluate_admits_in_resolve_blocks_in_execute(temp_uacp_root: Path):
+    """The REAL 'registering != governing' proof — drive Guardian.evaluate (not just the
+    config dicts): the tool is ADMITTED in RESOLVE and BLOCKED in a non-resolve phase
+    through Guardian's actual Layer-A/B decision (council #147 review)."""
+    guardian = Guardian(
+        GuardianPolicy.load(str(temp_uacp_root)), phase_config={"stages": stages_default()}
+    )
+    base = {
+        "uacp_run_id": "uacp-test-001",
+        "workspace": str(temp_uacp_root),
+        "policy_version": "0.1",
+        "authority_artifact": "resolutions/uacp-test-001-lessons.yaml",
+        "reason": "corpus test",
+        "declared_side_effects": [],
+        "kind": "lesson",
+        "okf": "---\nid: x\n---\nbody",
+    }
+    admitted = guardian.evaluate(
+        make_event(
+            tool_name=TOOL, args={**base, "uacp_phase": "resolve"}, filesystem_guard_verified=True
+        )
+    )
+    assert admitted.decision != "block", admitted
+    assert admitted.category == "artifact.uacp", admitted
+    blocked = guardian.evaluate(
+        make_event(
+            tool_name=TOOL, args={**base, "uacp_phase": "execute"}, filesystem_guard_verified=True
+        )
+    )
+    assert blocked.decision == "block", blocked
 
 
 # --------------------------------------------------------------- handler round-trip
