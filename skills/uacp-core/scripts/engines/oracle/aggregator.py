@@ -9,10 +9,14 @@ The aggregator is the main entry point for oracle_query(). It:
 4. Each source is wrapped in try/except — failures append to sources_skipped,
    never raise to the caller.
 
-Data-ownership boundary: the Oracle reads ONLY the knowledge/lesson corpus
-(via the semantic pipeline over engines.domain.corpus) and the advisory honcho
-memory. It does NOT read run-state or manifests — that boundary belongs to the
-state engine. No run-state/deterministic tier exists here by design.
+Data-ownership boundary: the Oracle reads ONLY the knowledge/lesson corpus (via the
+semantic pipeline AND, #100, the deterministic corpus floor over engines.oracle.corpus)
+and the advisory honcho memory. It does NOT read run-state or manifests — that boundary
+belongs to the state engine (no RUN-STATE tier exists here by design). A DETERMINISTIC
+corpus tier now DOES exist (engines.oracle.deterministic): it serves a no-vector-store
+floor so retrieval is never empty just because the semantic Oracle is disabled or its
+store is unavailable (decision-log 2026-07-11, overriding the prior "no deterministic
+tier" note).
 
 Semantic source (Task 8b):
   _semantic_packets resolves the store + embedding/rerank clients via resolve_role()
@@ -190,21 +194,9 @@ def oracle_query(
         except Exception:
             oracle_cfg = {"enabled": False}
 
-    # Check if oracle is enabled
-    if not oracle_cfg.get("enabled", False):
-        return {
-            "packets": [],
-            "metadata": {
-                "phase": phase,
-                "mode": OracleMode.NONE.value,
-                "sources_skipped": ["all"],
-                "note": "oracle disabled (oracle.enabled=false)",
-            },
-        }
-
     mode = mode_for_phase(phase)
 
-    # NONE and WRITEBACK phases have no external retrieval
+    # NONE and WRITEBACK phases have no external retrieval — not even the floor.
     if mode in (OracleMode.NONE, OracleMode.WRITEBACK):
         return {
             "packets": [],
@@ -216,8 +208,35 @@ def oracle_query(
             },
         }
 
-    # FULL and ADVISORY: collect from all enabled sources
-    packets: list[ProviderPacket] = []
+    # #100 DETERMINISTIC READ FLOOR: on every retrieval phase, scan the lesson/knowledge
+    # corpus deterministically (no vector store, no ML deps) so retrieval is never empty
+    # merely because the semantic Oracle is disabled or its store is unavailable — a fact
+    # learned in run N surfaces in run N+50 on a fresh clone. Runs BEFORE the semantic
+    # sources so it is always present; the semantic tier layers on top when available.
+    floor_packets: list[ProviderPacket] = []
+    try:
+        from engines.oracle.deterministic import deterministic_corpus_packets
+
+        floor_packets = deterministic_corpus_packets(
+            workspace, project, domains=domains, query=query, limit=limit
+        )
+    except Exception:
+        floor_packets = []
+
+    # Oracle disabled: the deterministic floor is the WHOLE result (no semantic/honcho).
+    if not oracle_cfg.get("enabled", False):
+        return {
+            "packets": floor_packets,
+            "metadata": {
+                "phase": phase,
+                "mode": mode.value,
+                "sources_skipped": ["semantic", "honcho"],
+                "note": "deterministic corpus floor (oracle disabled)",
+            },
+        }
+
+    # FULL and ADVISORY (enabled): floor + honcho + semantic.
+    packets: list[ProviderPacket] = list(floor_packets)
     sources_skipped: list[str] = []
 
     # Source 1: honcho memory (advisory, optional)

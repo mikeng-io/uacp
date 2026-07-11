@@ -81,9 +81,11 @@ BRAINSTORM → TRIAGE → PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE
 
 ## Advisory prior-art (Oracle)
 
-When the Oracle engine is enabled (`[oracle] enabled = true` in `config/uacp.toml`, overridable per-project via `.uacp/config.toml`), call
-`uacp_oracle_query` early in the brainstorm phase to surface relevant prior-art before
-opening the exploration vault.
+**Always** call `uacp_oracle_query` early in the brainstorm phase to surface relevant
+prior-art before opening the exploration vault — retrieval has a **deterministic floor**
+(#100): even with the semantic Oracle disabled (the default) or its store absent,
+`uacp_oracle_query` returns deterministic corpus matches over `.uacp/lessons` +
+`.uacp/knowledge`. It is never silenced merely because the vector store is off.
 
 ```
 uacp_oracle_query(phase=brainstorm, project=<project-id>)
@@ -91,4 +93,4 @@ uacp_oracle_query(phase=brainstorm, project=<project-id>)
 
 Results are **advisory** (`trust_class=advisory`, `evidence_required=true`). Use them
 to seed the vault and inform scope calibration — never treat them as authoritative.
-If oracle is disabled or returns no packets, proceed without retrieval.
+If `uacp_oracle_query` returns no packets (an empty corpus), proceed without retrieval.

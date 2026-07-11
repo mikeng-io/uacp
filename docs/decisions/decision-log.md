@@ -14,6 +14,26 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-07-11 — Deterministic corpus retrieval FLOOR in the Oracle aggregator (#100)
+
+Decision: Add a DETERMINISTIC corpus tier to `oracle_query` (`engines.oracle.deterministic`). On every retrieval phase (ADVISORY/FULL), it runs a no-vector-store, no-ML keyword + domain + BES scan over the lesson/knowledge corpus and returns advisory ProviderPackets. It runs BEFORE the semantic sources and is served even when the semantic Oracle is disabled (`[oracle] enabled = false`, the default) or its vector store is unavailable — so `oracle_query` never returns empty merely because the store is off. The TRIAGE and brainstorm skills' "if oracle is disabled, proceed without retrieval" branches are removed: retrieval always has a floor.
+
+This **overrides** the prior Oracle aggregator design note "No run-state/deterministic tier exists here by design" — the sanctioned override mechanism per the Authority Chain (AGENTS.md). The RUN-STATE boundary is unchanged (the Oracle still reads only the corpus + honcho, never run-state/manifests); only a deterministic CORPUS tier is added.
+
+Rationale: Audit finding (#97 Theme 4 → #100): memory was write-only/frozen — a fact learned in run N was NOT retrievable in run N+50 on a fresh clone, because retrieval was entirely gated on the ML/vector Oracle being enabled (it ships `enabled=false`). "A retrieval/writeback floor with no vector store" is the stated goal. The corpus (`.uacp/lessons` + `.uacp/knowledge`) already exists as deterministic OKF; a keyword/domain/BES scan over it is a sound, explainable floor that needs no embeddings. The semantic tier still layers on top when enabled. Trust class stays advisory (heuristic, evidence_required=true). Pairs with #119 (the governed writeback tool) to close the produce→retrieve loop.
+
+Scope / non-conflict: import-clean (depends only on the Oracle floor: corpus_writer readers + corpus dataclasses + packets — never lancedb/llama_cpp/httpx), preserving the aggregator's floor guarantee (imports clean on a bare clone). Two existing tests that pinned the old "disabled → empty" contract were updated to the new floor contract (one now proves the produce→retrieve loop).
+
+Status: accepted.
+
+Canonical targets:
+
+- `skills/uacp-core/scripts/engines/oracle/deterministic.py` (new)
+- `skills/uacp-core/scripts/engines/oracle/aggregator.py` (floor wired into `oracle_query`; docstring note updated)
+- `skills/uacp-triage/SKILL.md`, `skills/uacp-brainstorm/SKILL.md` (de-gated retrieval)
+
+Follow-up: handoff surfacing at SessionStart + `.uacp/handoffs/` registration; per-run committed digest; codeflair index build trigger — the remaining #100 slices.
+
 ### 2026-06-27 — Design-bundle convention codified + gated (ADR-0020)
 
 Decision: Codified the "design = decomposed bundle" convention by splitting it per

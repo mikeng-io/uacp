@@ -3,18 +3,24 @@ from __future__ import annotations
 
 
 import engines.oracle.aggregator as agg
-from engines.oracle.tier_config import OracleMode
+from engines.oracle.tier_config import OracleMode, mode_for_phase
 
 
 def test_disabled_oracle_serves_floor(temp_uacp_root):
+    # #100: on a RETRIEVAL phase, a disabled oracle now serves the DETERMINISTIC corpus
+    # floor (empty here — no corpus seeded), reporting the phase's real mode (plan->full)
+    # rather than NONE, with the floor note. (Content-serving is covered by
+    # test_deterministic_floor.) Retrieval is no longer silenced just because the vector
+    # store is off.
     result = agg.oracle_query(
         temp_uacp_root,
         phase="plan",
         project="proj",
         oracle_cfg={"enabled": False},
     )
-    assert result["packets"] == []
-    assert result["metadata"]["mode"] == OracleMode.NONE.value
+    assert result["packets"] == []  # empty corpus -> empty floor
+    assert result["metadata"]["mode"] == mode_for_phase("plan").value  # phase mode, not NONE
+    assert "floor" in result["metadata"].get("note", "")
     assert "disabled" in result["metadata"].get("note", "")
 
 
