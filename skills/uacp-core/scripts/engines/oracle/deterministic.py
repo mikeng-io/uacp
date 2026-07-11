@@ -28,11 +28,20 @@ from engines.oracle.packets import ProviderPacket, TrustClass
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 
-def _tokens(*texts: str) -> set[str]:
+def _tokens(*texts: Any) -> set[str]:
     out: set[str] = set()
     for t in texts:
-        out.update(w for w in _WORD_RE.findall(t.lower()) if len(w) > 2)
+        out.update(w for w in _WORD_RE.findall(str(t).lower()) if len(w) > 2)
     return out
+
+
+def _join(values: Any) -> str:
+    """Space-join a corpus list field, coercing each entry to str. YAML admits non-string
+    list entries (e.g. ``tags: [1]``) and Lesson/KnowledgeItem.from_okf only wraps the list,
+    so a bare ``" ".join(...)`` would raise TypeError on such a doc."""
+    if not isinstance(values, (list, tuple)):
+        return str(values or "")
+    return " ".join(str(v) for v in values)
 
 
 def _relevance(
@@ -66,35 +75,43 @@ def deterministic_corpus_packets(
     scored: list[tuple[float, float, str, Any]] = []  # (relevance, bes, kind, item)
 
     for lesson in corpus_writer.load_lessons(workspace):
-        # Project scoping: a run for `project` sees its own lessons (+ project-less ones),
-        # not another project's.
-        if lesson.project and lesson.project != project:
+        # Per-doc resilient: a single malformed corpus doc is SKIPPED, never allowed to
+        # suppress the whole floor (the broken-doc-skip contract; Codex #148 P2).
+        try:
+            # Project scoping: a run for `project` sees its own lessons (+ project-less ones),
+            # not another project's.
+            if lesson.project and lesson.project != project:
+                continue
+            text_tokens = _tokens(
+                lesson.title, lesson.body, _join(lesson.invariants), _join(lesson.tags)
+            )
+            rel = _relevance(
+                item_domains=lesson.domains,
+                text_tokens=text_tokens,
+                want_domains=want_domains,
+                q_tokens=q_tokens,
+            )
+            if rel > 0.0 or no_filter:
+                scored.append((rel, float(lesson.bes), "lesson", lesson))
+        except Exception:
             continue
-        text_tokens = _tokens(
-            lesson.title, lesson.body, " ".join(lesson.invariants), " ".join(lesson.tags)
-        )
-        rel = _relevance(
-            item_domains=lesson.domains,
-            text_tokens=text_tokens,
-            want_domains=want_domains,
-            q_tokens=q_tokens,
-        )
-        if rel > 0.0 or no_filter:
-            scored.append((rel, float(lesson.bes), "lesson", lesson))
 
     for item in corpus_writer.load_knowledge(workspace):
-        # Knowledge is "shared" or scoped to a project key; a run sees shared + its own.
-        if item.scope not in ("shared", project):
+        try:
+            # Knowledge is "shared" or scoped to a project key; a run sees shared + its own.
+            if item.scope not in ("shared", project):
+                continue
+            text_tokens = _tokens(item.title, item.body, item.description, _join(item.tags))
+            rel = _relevance(
+                item_domains=item.domains,
+                text_tokens=text_tokens,
+                want_domains=want_domains,
+                q_tokens=q_tokens,
+            )
+            if rel > 0.0 or no_filter:
+                scored.append((rel, 0.5, "knowledge", item))  # knowledge carries no BES
+        except Exception:
             continue
-        text_tokens = _tokens(item.title, item.body, item.description, " ".join(item.tags))
-        rel = _relevance(
-            item_domains=item.domains,
-            text_tokens=text_tokens,
-            want_domains=want_domains,
-            q_tokens=q_tokens,
-        )
-        if rel > 0.0 or no_filter:
-            scored.append((rel, 0.5, "knowledge", item))  # knowledge carries no BES
 
     # Rank by relevance, then BES (effectiveness) as the deterministic tie-break.
     scored.sort(key=lambda t: (t[0], t[1]), reverse=True)

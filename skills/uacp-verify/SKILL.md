@@ -235,10 +235,10 @@ This is a presentation rule only. Preserve complete raw evidence in UACP artifac
 
 ## Retrieval-led prior-art (Oracle)
 
-When the Oracle engine is enabled (`[oracle] enabled = true` in `config/uacp.toml`, overridable per-project via `.uacp/config.toml`), call `uacp_oracle_query` at the start of verification (Step 1) to surface the active run's execution history and any relevant prior verification outcomes.
+**Always** call `uacp_oracle_query` at the start of verification (Step 1) to surface the active run's execution history and any relevant prior verification outcomes — retrieval has a **deterministic floor** (#100): even with the semantic Oracle disabled (the default), it returns deterministic corpus matches over `.uacp/lessons` + `.uacp/knowledge`.
 
 ```
 uacp_oracle_query(phase=verify, project=<project-id>)
 ```
 
-Results at `phase=verify` are **FULL** mode — run-state packets are `trust_class=authoritative` and can be used as ground-truth evidence for checklist synthesis. Corpus and Honcho packets are `trust_class=normative` or `advisory` and require corroboration before being cited as verification proof. If oracle is disabled or returns no packets, proceed without retrieval.
+Results at `phase=verify` are **FULL** mode — run-state packets are `trust_class=authoritative` and can be used as ground-truth evidence for checklist synthesis. Corpus and Honcho packets are `trust_class=normative` or `advisory` and require corroboration before being cited as verification proof. If `uacp_oracle_query` returns no packets (an empty corpus), proceed without retrieval.

@@ -282,9 +282,10 @@ For any selected adaptive PLAN package, Markdown artifacts are mandatory semanti
 
 ## Retrieval-led prior-art (Oracle)
 
-When the Oracle engine is enabled (`[oracle] enabled = true` in `config/uacp.toml` (overridable per-project via `.uacp/config.toml`)), call
-`uacp_oracle_query` before completing the plan to surface prior execution patterns,
-scope decisions, and relevant council findings.
+**Always** call `uacp_oracle_query` before completing the plan to surface prior execution
+patterns, scope decisions, and relevant council findings — retrieval has a **deterministic
+floor** (#100): even with the semantic Oracle disabled (the default), it returns deterministic
+corpus matches over `.uacp/lessons` + `.uacp/knowledge`.
 
 ```
 uacp_oracle_query(phase=plan, project=<project-id>)
@@ -293,5 +294,5 @@ uacp_oracle_query(phase=plan, project=<project-id>)
 Results at `phase=plan` are **FULL** mode — run-state packets are `trust_class=authoritative`;
 corpus and Honcho packets are `trust_class=normative` or `advisory`. Use retrieved packets to
 inform work breakdown, risk assessment, and tool selection. Cite relevant `source` values in
-the plan's rationale. If oracle is disabled or returns no packets, proceed without retrieval.
+the plan's rationale. If `uacp_oracle_query` returns no packets (an empty corpus), proceed without retrieval.
 

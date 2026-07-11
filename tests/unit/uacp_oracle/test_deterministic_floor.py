@@ -109,6 +109,23 @@ def test_floor_empty_corpus_returns_nothing(temp_uacp_root: Path):
     assert deterministic_corpus_packets(temp_uacp_root, "uacp", query="anything") == []
 
 
+def test_floor_skips_malformed_doc_without_suppressing_the_rest(temp_uacp_root: Path):
+    """A corpus doc with a non-string list entry (YAML allows `tags: [1]`) must not kill the
+    WHOLE floor — the coerce + per-doc skip keeps valid lessons surfacing (Codex #148 P2)."""
+    d = temp_uacp_root / ".uacp" / "lessons"
+    d.mkdir(parents=True, exist_ok=True)
+    # Hand-authored malformed lesson: non-string entries in tags + invariants.
+    (d / "malformed.md").write_text(
+        "---\nid: malformed\ntitle: bad\nproject: uacp\ntags:\n- 1\ninvariants:\n- 2\n---\nbody\n",
+        encoding="utf-8",
+    )
+    _write_lesson(temp_uacp_root, id="valid", title="ok", project="uacp", domains=["x"])
+    ids = {
+        p.payload["id"] for p in deterministic_corpus_packets(temp_uacp_root, "uacp", domains=["x"])
+    }
+    assert "valid" in ids, "a single malformed doc suppressed the whole floor"
+
+
 def test_floor_import_is_ml_free():
     """The floor guarantee: importing engines.oracle.deterministic must not pull in ANY ML
     dep (lancedb / llama_cpp / httpx). Pop them + the module from sys.modules and re-import
