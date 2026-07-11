@@ -883,3 +883,44 @@ def _handle_uacp_oracle_query(args: dict, **_: Any) -> str:
         )
     except Exception as exc:
         return json.dumps({"error": f"oracle_query failed: {exc}"})
+
+
+def _handle_uacp_corpus_write(args: dict, **_: Any) -> str:
+    """Handler for the uacp_corpus_write governed tool (#119).
+
+    The corpus writeback path (persist an authored OKF lesson/knowledge doc)
+    previously existed ONLY inside the Oracle package, so a tool-surface-only agent
+    could not do RESOLVE lesson extraction without reaching into internals. This
+    exposes it on the governed surface. The agent authors the OKF doc; the tool
+    delegates to the Oracle's single ``write_corpus`` entrypoint, which parses +
+    persists through the governed artifact writer (Guardian-audited). ALL corpus
+    (de)serialization + path knowledge stays inside engines.oracle — this handler
+    never touches corpus internals, keeping the data-ownership boundary intact
+    (tests/unit/uacp_oracle/test_corpus_boundary.py).
+    """
+    kind = str(args.get("kind") or "")
+    okf = args.get("okf")
+    authority = args.get("authority_artifact")
+    if kind not in ("lesson", "knowledge"):
+        return json.dumps({"error": "uacp_corpus_write: kind must be 'lesson' or 'knowledge'"})
+    if not isinstance(okf, str) or not okf.strip():
+        return json.dumps({"error": "uacp_corpus_write: okf (the OKF markdown) is required"})
+    if not authority:
+        return json.dumps({"error": "uacp_corpus_write: authority_artifact is required"})
+    if missing := _required_uacp_context_missing(args):
+        return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing)}"})
+    try:
+        from engines.oracle import write_corpus
+
+        result = write_corpus(
+            GuardianPolicy.load(args.get("workspace")).uacp_root,
+            kind=kind,
+            okf=okf,
+            run_id=str(args.get("uacp_run_id") or ""),
+            phase=str(args.get("uacp_phase") or "resolve"),
+            reason=str(args.get("reason") or ""),
+            authority_artifact=str(authority),
+        )
+        return json.dumps(result)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_corpus_write failed: {type(exc).__name__}: {exc}"})

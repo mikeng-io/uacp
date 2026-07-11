@@ -232,3 +232,45 @@ def persist_knowledge(
         reason=reason,
         authority_artifact=authority_artifact,
     )
+
+
+def write_corpus(
+    workspace: Path | str,
+    *,
+    kind: str,
+    okf: str,
+    run_id: str,
+    phase: str = "resolve",
+    reason: str = "",
+    authority_artifact: str,
+) -> dict[str, Any]:
+    """Tool-facing corpus writeback (#119): parse an authored OKF doc into a Lesson
+    or KnowledgeItem and persist it via ``persist_lesson`` / ``persist_knowledge``.
+
+    This is the SINGLE entrypoint the governed ``uacp_corpus_write`` tool calls, so
+    the corpus (de)serialization (``from_okf``) and the ``.uacp/lessons`` /
+    ``.uacp/knowledge`` path knowledge stay INSIDE the Oracle package — the
+    data-ownership boundary the tool handler must not cross
+    (tests/unit/uacp_oracle/test_corpus_boundary.py). Returns the persist result
+    (``{"ok": True, "path": ...}`` or ``{"ok"/"error": ...}``); never raises for a
+    rejected write, but a malformed OKF (e.g. missing id) raises from ``from_okf``.
+    """
+    if kind == "lesson":
+        return persist_lesson(
+            workspace,
+            Lesson.from_okf(okf),
+            run_id=run_id,
+            phase=phase,
+            reason=reason or "persist lesson to corpus",
+            authority_artifact=authority_artifact,
+        )
+    if kind == "knowledge":
+        return persist_knowledge(
+            workspace,
+            KnowledgeItem.from_okf(okf),
+            run_id=run_id,
+            phase=phase,
+            reason=reason or "persist knowledge to corpus",
+            authority_artifact=authority_artifact,
+        )
+    return {"ok": False, "error": f"kind must be 'lesson' or 'knowledge', got {kind!r}"}

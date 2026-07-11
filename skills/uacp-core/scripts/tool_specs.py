@@ -40,6 +40,7 @@ from governed_handlers import (  # noqa: E402  (import follows sys.path setup)
     _handle_uacp_artifact_write,
     _handle_uacp_config_write,
     _handle_uacp_contained_shell,
+    _handle_uacp_corpus_write,
     _handle_uacp_doc_write,
     _handle_uacp_entity_write,
     _handle_uacp_heartgate_check,
@@ -507,6 +508,47 @@ def tool_specs() -> list[ToolSpec]:
             input_schema=_oracle_query_schema()["parameters"],
             handler=_handle_uacp_oracle_query,
             read_only=True,
+        ),
+        ToolSpec(
+            name="uacp_corpus_write",
+            description="UACP Oracle corpus writer (lessons + knowledge)",
+            schema_description=(
+                "#119 — persist an OKF lesson or knowledge doc into the Oracle corpus "
+                "so a tool-surface-only agent can do RESOLVE lesson extraction. Author "
+                "the OKF markdown (frontmatter + body); the tool delegates to the Oracle "
+                "corpus-write surface, which validates and persists through the governed "
+                "artifact writer (the Oracle owns corpus read + write)."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "enum": ["lesson", "knowledge"]},
+                    "okf": {
+                        "type": "string",
+                        "description": "The full OKF markdown doc (--- frontmatter --- + body); "
+                        "must carry an 'id'.",
+                    },
+                    "reason": {"type": "string"},
+                    "authority_artifact": {"type": "string"},
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {"type": "string"},
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "kind",
+                    "okf",
+                    "authority_artifact",
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+            handler=_handle_uacp_corpus_write,
+            read_only=False,
         ),
         # -------------------------------------------------------------------
         # Run lifecycle tools (Phase 8): governed wrappers for the state
