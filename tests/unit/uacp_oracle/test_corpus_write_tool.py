@@ -131,3 +131,16 @@ def test_corpus_write_rejects_okf_without_id(temp_uacp_root: Path):
     # OKF with no 'id' in frontmatter -> Lesson.from_okf raises -> handler errors.
     out = _call(temp_uacp_root, "lesson", "---\ntitle: no id here\n---\nbody")
     assert "error" in out, out
+
+
+def test_corpus_write_rejects_id_path_traversal(temp_uacp_root: Path):
+    """The corpus id becomes the '{id}.md' path component, so a traversal id must be
+    refused — the tool can never escape lessons/ / knowledge/ (gemini #147 review)."""
+    okf = (
+        Lesson(id="x", title="t", project="uacp")
+        .to_okf()
+        .replace("id: x", "id: ../../../../tmp/uacp-escape")
+    )
+    out = _call(temp_uacp_root, "lesson", okf)
+    assert "error" in out and "invalid corpus id" in out["error"], out
+    assert not Path("/tmp/uacp-escape.md").exists(), "corpus write escaped the corpus root!"
