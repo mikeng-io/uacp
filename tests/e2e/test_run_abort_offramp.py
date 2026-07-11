@@ -29,6 +29,7 @@ from state import _handle_uacp_run_abort, _handle_uacp_run_registry_update
 
 from tests.e2e.driver import Driver
 from tests.e2e.test_adaptive_evidence_gate_uacp import REAL_CONFIG, REAL_VALIDATOR
+from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
 
 RUN_A = "uacp-abort-e2e-A"
 RUN_B = "uacp-abort-e2e-B"
@@ -115,6 +116,12 @@ def test_governed_abort_frees_paths_for_a_successor(prod_uacp_root: Path) -> Non
         phase="triage",
     )
     assert init.get("ok") is True, init
+    # #99: the live plan->execute path forces the scope-artifact + PLAN_VALIDATION +
+    # run-registry gates. Seed the faithful plan-exit prerequisites; declare the run's
+    # write_paths so the scope matches what run A later registers (SHARED_PATH). The
+    # empty registry seeded here holds no active runs, so plan->execute self-blocks on
+    # nothing — the overlap semantics (A frees the path for successor B) still hold.
+    seed_plan_exit_prerequisites(root, RUN_A, write_paths=[SHARED_PATH])
     for frm, to in (("triage", "propose"), ("propose", "plan"), ("plan", "execute")):
         tr = driver_a.call(
             "uacp_state_write",

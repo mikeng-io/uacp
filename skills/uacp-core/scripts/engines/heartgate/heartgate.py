@@ -553,6 +553,41 @@ class Heartgate:
                 ]
         return []
 
+    def forced_plan_exit(
+        self, run_id: str, from_phase: str, to_phase: str
+    ) -> tuple[list[str], list[str]]:
+        """Force the three EVIDENCE-BASED plan-exit gates onto the live
+        ``state_machine.handle_transition`` path (#99), not only the agent-invoked
+        ``validate_transition``: the scope-artifact gate, the PLAN_VALIDATION ledger gate,
+        and the run-registry write-path overlap gate.
+
+        Unlike the coverage/PIV forced gates above (which re-derive a single ripple-free
+        precondition), these three validators ALREADY read the run's real serialized state
+        (``plans/{run_id}-scope.yaml``, ``state/gate-ledger/{run_id}.jsonl``,
+        ``state/run-registry.yaml``) and SELF-GATE to their configured transition edge
+        (``plan->execute`` by default). So forcing them live is a DIRECT invocation with the
+        live transition's ``{from_phase, to_phase, run_id}`` — reusing the exact tested logic,
+        not a parallel re-derivation. Each self-gates on its config RULE. Under the temp test
+        fixture only ``plan_validation`` opts out (an empty ``plan_validation_gate: {}`` block);
+        ``scope`` (schema code-default) and ``run_registry`` (rule code-default) fire there too,
+        so production config enforces all three (the fixture-vs-production keystone pattern, #96).
+
+        Returns ``(blockers, warnings)``. Blockers block the transition; warnings are
+        surfaced as transition ADVISORIES (Codex #144 P2) — the run-registry-absent and
+        PLAN_VALIDATION ledger-hygiene warnings would otherwise vanish on the live path even
+        though ``validate_transition`` and ``_run_transition_graph_gate`` keep them
+        observable. Both keep their originating prefixes (``scope artifact`` /
+        ``plan_validation_gate`` / ``run_registry``) so the source gate stays identifiable.
+        Scope runs first: the run-registry gate defers missing-scope blocking to it.
+        """
+        artifact = {"from_phase": from_phase, "to_phase": to_phase, "run_id": run_id}
+        blockers: list[str] = []
+        warnings: list[str] = []
+        self._validate_scope_artifact(artifact, blockers, warnings)
+        self._validate_plan_validation_gate(artifact, blockers, warnings)
+        self._validate_run_registry_overlap(artifact, blockers, warnings)
+        return blockers, warnings
+
     def validate_transition_file(self, path: str | Path) -> HeartgateDecision:
         raw_path = Path(path)
         if not raw_path.is_absolute():
