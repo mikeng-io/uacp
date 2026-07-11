@@ -165,6 +165,26 @@ def test_corpus_write_rejects_okf_without_id(temp_uacp_root: Path):
     assert "error" in out, out
 
 
+def test_corpus_write_accepts_declared_authority_alias(temp_uacp_root: Path):
+    """The governed-writer contract accepts either authority_artifact OR the documented
+    declared_authority alias — uacp_corpus_write must too (Codex #147 P2), else a valid
+    alias call that Guardian already admitted is wrongly rejected by the handler."""
+    okf = Lesson(id="via-alias", title="t", project="uacp").to_okf()
+    args = {
+        "kind": "lesson",
+        "okf": okf,
+        "declared_authority": "resolutions/uacp-test-001-lessons.yaml",  # alias, not authority_artifact
+        "workspace": str(temp_uacp_root),
+        "uacp_run_id": "uacp-test-001",
+        "uacp_phase": "resolve",
+        "policy_version": "0.1",
+        "declared_side_effects": "write corpus doc",
+    }
+    out = json.loads(_handle_uacp_corpus_write(args))
+    assert out.get("ok") is True, out
+    assert (temp_uacp_root / ".uacp" / "lessons" / "via-alias.md").exists()
+
+
 def test_corpus_write_rejects_id_path_traversal(temp_uacp_root: Path):
     """The corpus id becomes the '{id}.md' path component, so a traversal id must be
     refused — the tool can never escape lessons/ / knowledge/ (gemini #147 review)."""

@@ -900,7 +900,11 @@ def _handle_uacp_corpus_write(args: dict, **_: Any) -> str:
     """
     kind = str(args.get("kind") or "")
     okf = args.get("okf")
-    authority = args.get("authority_artifact")
+    # Accept the documented governed-writer authority alias declared_authority
+    # (Guardian's make_event maps it; docs/runtime/runtime-enforcement.md) — mirror
+    # _validate_common_write_args so uacp_corpus_write matches every other writer's
+    # contract instead of rejecting an otherwise-valid alias call (Codex #147 P2).
+    authority = args.get("authority_artifact") or args.get("declared_authority")
     if kind not in ("lesson", "knowledge"):
         return json.dumps({"error": "uacp_corpus_write: kind must be 'lesson' or 'knowledge'"})
     if not isinstance(okf, str) or not okf.strip():
