@@ -70,7 +70,13 @@ def deterministic_corpus_packets(
     when the corpus is genuinely empty."""
     want_domains = {d.lower() for d in (domains or [])}
     q_tokens = _tokens(query)
-    no_filter = not want_domains and not q_tokens
+    # no_filter reflects caller INTENT (did they ask for anything?), not tokenization residue.
+    # A short-acronym query ("AI"/"UI"/"Go"/"DB") tokenizes to nothing under the >2 floor, but
+    # the caller still supplied a filter — treating that as no_filter would dump the unfiltered
+    # top-BES corpus and inject unrelated prior art (Codex #148 P2). Key off the raw query so
+    # such a query yields precise (possibly empty) matches, never an unrelated dump. The genuine
+    # unfiltered floor (fresh TRIAGE: no domains AND no query) still surfaces top-BES.
+    no_filter = not want_domains and not query.strip()
 
     scored: list[tuple[float, float, str, Any]] = []  # (relevance, bes, kind, item)
 

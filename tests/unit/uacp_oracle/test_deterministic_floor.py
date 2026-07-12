@@ -111,6 +111,22 @@ def test_floor_surfaces_top_bes_when_unfiltered(temp_uacp_root: Path):
     assert packets[0].payload["id"] == "strong", [p.payload["id"] for p in packets]
 
 
+def test_short_acronym_query_does_not_dump_unfiltered_corpus(temp_uacp_root: Path):
+    """A query of only short tokens ("AI") tokenizes to nothing under the >2 floor, but the
+    caller DID supply a filter — it must not be treated as no_filter and dump the unfiltered
+    top-BES corpus (Codex #148 P2). It yields precise (here empty) matches, never an unrelated
+    dump; the genuine no-filter path (blank query) still surfaces top-BES."""
+    _write_lesson(
+        temp_uacp_root, id="unrelated", title="deployment pipeline", project="uacp", bes=0.95
+    )
+    dumped = deterministic_corpus_packets(temp_uacp_root, "uacp", query="AI")
+    assert dumped == [], "short-acronym query dumped the unfiltered top-BES corpus"
+    # sanity: the genuine unfiltered floor (blank query, no domains) STILL surfaces the lesson,
+    # so the fix narrowed no_filter to caller intent without disabling the real floor.
+    unfiltered = deterministic_corpus_packets(temp_uacp_root, "uacp", query="")
+    assert any(p.payload["id"] == "unrelated" for p in unfiltered), "genuine no-filter floor broke"
+
+
 def test_floor_empty_corpus_returns_nothing(temp_uacp_root: Path):
     assert deterministic_corpus_packets(temp_uacp_root, "uacp", query="anything") == []
 
