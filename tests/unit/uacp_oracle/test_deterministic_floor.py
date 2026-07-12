@@ -127,6 +127,40 @@ def test_short_acronym_query_does_not_dump_unfiltered_corpus(temp_uacp_root: Pat
     assert any(p.payload["id"] == "unrelated" for p in unfiltered), "genuine no-filter floor broke"
 
 
+def test_floor_payload_preserves_matched_fields(temp_uacp_root: Path):
+    """The floor matches lessons over invariants/tags and knowledge over description/tags — the
+    packet payload must EXPOSE those fields, or a packet matched on an invariant/description
+    surfaces looking generic and the agent can't cite the actionable data (Codex #148 P2)."""
+    _write_lesson(
+        temp_uacp_root,
+        id="les",
+        title="t",
+        project="uacp",
+        invariants=["never raw-write .uacp state"],
+        tags=["governance"],
+        severity="HIGH",
+    )
+    _write_knowledge(
+        temp_uacp_root,
+        id="kno",
+        title="t",
+        type="contract",
+        description="governed writers validate + watermark",
+        tags=["writers"],
+        scope="shared",
+    )
+    # lesson matched on its invariant text
+    lp = deterministic_corpus_packets(temp_uacp_root, "uacp", query="raw-write")
+    les = next(p for p in lp if p.payload["id"] == "les")
+    assert les.payload["invariants"] == ["never raw-write .uacp state"], les.payload
+    assert les.payload["tags"] == ["governance"] and les.payload["severity"] == "HIGH", les.payload
+    # knowledge matched on its description text
+    kp = deterministic_corpus_packets(temp_uacp_root, "uacp", query="watermark")
+    kno = next(p for p in kp if p.payload["id"] == "kno")
+    assert kno.payload["description"] == "governed writers validate + watermark", kno.payload
+    assert kno.payload["tags"] == ["writers"] and kno.payload["type"] == "contract", kno.payload
+
+
 def test_floor_empty_corpus_returns_nothing(temp_uacp_root: Path):
     assert deterministic_corpus_packets(temp_uacp_root, "uacp", query="anything") == []
 

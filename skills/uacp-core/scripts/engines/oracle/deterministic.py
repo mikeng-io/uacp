@@ -130,17 +130,30 @@ def deterministic_corpus_packets(
         # ranks above a marginally-relevant one; when unfiltered (no_filter) relevance is 0
         # so BES alone orders the surfaced set.
         final = rel if not no_filter else round(bes, 3)
+        # Preserve the fields the floor MATCHED on (Codex #148 P2): lessons are tokenized over
+        # invariants/tags, knowledge over description/tags. Dropping them would surface a packet
+        # matched on an invariant/description as an apparently generic one, hiding the actionable
+        # lesson/contract data a PLAN/VERIFY agent needs to cite. Mirror the semantic corpus
+        # packet's shape with the citation-relevant frontmatter (not the internal BES/provenance).
+        payload: dict[str, Any] = {
+            "kind": kind,
+            "id": item.id,
+            "title": item.title,
+            "body": item.body,
+            "domains": list(item.domains),
+            "tags": list(getattr(item, "tags", [])),
+        }
+        if kind == "lesson":
+            payload["invariants"] = list(item.invariants)
+            payload["severity"] = item.severity
+        else:  # knowledge
+            payload["description"] = item.description
+            payload["type"] = item.type
         packets.append(
             ProviderPacket(
                 source="corpus-floor",
                 trust_class=TrustClass.advisory,
-                payload={
-                    "kind": kind,
-                    "id": item.id,
-                    "title": item.title,
-                    "body": item.body,
-                    "domains": list(item.domains),
-                },
+                payload=payload,
                 score=round(final, 3),
                 metadata={"deterministic": True, "corpus": kind, "bes": round(bes, 3)},
             )
