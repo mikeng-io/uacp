@@ -235,7 +235,7 @@ This is a presentation rule only. Preserve complete raw evidence in UACP artifac
 
 ## Retrieval-led prior-art (Oracle)
 
-**Always** call `uacp_oracle_query` at the start of verification (Step 1) to surface the active run's execution history and any relevant prior verification outcomes — retrieval has a **deterministic floor** (#100): even with the semantic Oracle disabled (the default), it returns deterministic corpus matches over `.uacp/lessons` + `.uacp/knowledge`.
+**Always** call `uacp_oracle_query` at the start of verification (Step 1) to surface relevant prior verification outcomes and lessons — retrieval has a **deterministic floor** (#100): even with the semantic Oracle disabled (the default), it returns deterministic **corpus** matches over `.uacp/lessons` + `.uacp/knowledge`. Note the floor is corpus-only: the active run's own execution history is NOT corpus and is surfaced by `uacp_oracle_query` only when the Oracle is enabled (the FULL-mode run-state packets below) — do not treat a disabled-floor result as having retrieved current execution evidence.
 
 ```
 uacp_oracle_query(phase=verify, project=<project-id>)

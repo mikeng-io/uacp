@@ -282,10 +282,12 @@ For any selected adaptive PLAN package, Markdown artifacts are mandatory semanti
 
 ## Retrieval-led prior-art (Oracle)
 
-**Always** call `uacp_oracle_query` before completing the plan to surface prior execution
-patterns, scope decisions, and relevant council findings — retrieval has a **deterministic
-floor** (#100): even with the semantic Oracle disabled (the default), it returns deterministic
-corpus matches over `.uacp/lessons` + `.uacp/knowledge`.
+**Always** call `uacp_oracle_query` before completing the plan to surface relevant prior
+lessons, scope decisions, and council findings **from the corpus** — retrieval has a
+**deterministic floor** (#100): even with the semantic Oracle disabled (the default), it
+returns deterministic corpus matches over `.uacp/lessons` + `.uacp/knowledge`. (The floor is
+corpus-only; run-state execution history is surfaced only when the Oracle is enabled — the
+FULL-mode packets below.)
 
 ```
 uacp_oracle_query(phase=plan, project=<project-id>)

@@ -190,8 +190,9 @@ This is a presentation rule only. Preserve complete raw evidence in UACP artifac
 
 ## Advisory prior-art (Oracle)
 
-**Always** call `uacp_oracle_query` at the start of triage to surface prior runs and context
-before scope-calibration scoring — retrieval has a **deterministic floor** (#100): even when
+**Always** call `uacp_oracle_query` at the start of triage to surface relevant prior lessons
+and knowledge before scope-calibration scoring — retrieval has a **deterministic floor**
+(#100; corpus-only): even when
 the semantic Oracle is disabled (`[oracle] enabled = false`, the default) or its vector store
 is absent, `uacp_oracle_query` returns deterministic corpus matches (domain/keyword/BES scan
 over `.uacp/lessons` + `.uacp/knowledge`). It never silently returns nothing merely because

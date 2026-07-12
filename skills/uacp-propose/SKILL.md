@@ -301,10 +301,11 @@ For any selected adaptive proposal package, Markdown artifacts are mandatory sem
 
 ## Retrieval-led prior-art (Oracle)
 
-**Always** call `uacp_oracle_query` before authoring the proposal to surface relevant run
-history, prior decisions, and corpus context — retrieval has a **deterministic floor** (#100):
-even with the semantic Oracle disabled (the default), it returns deterministic corpus matches
-over `.uacp/lessons` + `.uacp/knowledge`.
+**Always** call `uacp_oracle_query` before authoring the proposal to surface relevant prior
+decisions and corpus context — retrieval has a **deterministic floor** (#100): even with the
+semantic Oracle disabled (the default), it returns deterministic **corpus** matches over
+`.uacp/lessons` + `.uacp/knowledge`. (The floor is corpus-only; prior run *history* is a
+run-state capability surfaced only when the Oracle is enabled — the FULL-mode packets below.)
 
 ```
 uacp_oracle_query(phase=propose, project=<project-id>)
