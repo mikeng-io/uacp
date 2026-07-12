@@ -285,16 +285,16 @@ For any selected adaptive PLAN package, Markdown artifacts are mandatory semanti
 **Always** call `uacp_oracle_query` before completing the plan to surface relevant prior
 lessons, scope decisions, and council findings **from the corpus** — retrieval has a
 **deterministic floor** (#100): even with the semantic Oracle disabled (the default), it
-returns deterministic corpus matches over `.uacp/lessons` + `.uacp/knowledge`. (The floor is
-corpus-only; run-state execution history is surfaced only when the Oracle is enabled — the
-FULL-mode packets below.)
+returns deterministic corpus matches over `.uacp/lessons` + `.uacp/knowledge`.
+(`uacp_oracle_query` reads only the corpus and Honcho — never run-state or manifests.)
 
 ```
 uacp_oracle_query(phase=plan, project=<project-id>)
 ```
 
-Results at `phase=plan` are **FULL** mode — run-state packets are `trust_class=authoritative`;
-corpus and Honcho packets are `trust_class=normative` or `advisory`. Use retrieved packets to
-inform work breakdown, risk assessment, and tool selection. Cite relevant `source` values in
-the plan's rationale. If `uacp_oracle_query` returns no packets (an empty corpus), proceed without retrieval.
+Results at `phase=plan` are **FULL** mode, but `uacp_oracle_query` returns only corpus, Honcho,
+and deterministic-floor packets (`trust_class=normative` or `advisory`) — never
+run-state/manifests, so none is ground truth. Use retrieved packets to inform work breakdown,
+risk assessment, and tool selection. Cite relevant `source` values in the plan's rationale. If
+`uacp_oracle_query` returns no packets (an empty corpus), proceed without retrieval.
 

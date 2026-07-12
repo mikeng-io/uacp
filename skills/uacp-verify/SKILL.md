@@ -235,10 +235,10 @@ This is a presentation rule only. Preserve complete raw evidence in UACP artifac
 
 ## Retrieval-led prior-art (Oracle)
 
-**Always** call `uacp_oracle_query` at the start of verification (Step 1) to surface relevant prior verification outcomes and lessons — retrieval has a **deterministic floor** (#100): even with the semantic Oracle disabled (the default), it returns deterministic **corpus** matches over `.uacp/lessons` + `.uacp/knowledge`. Note the floor is corpus-only: the active run's own execution history is NOT corpus and is surfaced by `uacp_oracle_query` only when the Oracle is enabled (the FULL-mode run-state packets below) — do not treat a disabled-floor result as having retrieved current execution evidence.
+**Always** call `uacp_oracle_query` at the start of verification (Step 1) to surface relevant prior verification outcomes and lessons — retrieval has a **deterministic floor** (#100): even with the semantic Oracle disabled (the default), it returns deterministic **corpus** matches over `.uacp/lessons` + `.uacp/knowledge`. Note `uacp_oracle_query` **never** returns the active run's own execution history — enabled or not, it reads only the corpus (lessons/knowledge), Honcho memory, and the deterministic floor, not run-state or manifests. Get current execution evidence from the run's actual checkpoints, diffs, and artifacts — not from retrieval.
 
 ```
 uacp_oracle_query(phase=verify, project=<project-id>)
 ```
 
-Results at `phase=verify` are **FULL** mode — run-state packets are `trust_class=authoritative` and can be used as ground-truth evidence for checklist synthesis. Corpus and Honcho packets are `trust_class=normative` or `advisory` and require corroboration before being cited as verification proof. If `uacp_oracle_query` returns no packets (an empty corpus), proceed without retrieval.
+Results at `phase=verify` are **FULL** mode, but `uacp_oracle_query` reads only the semantic corpus, Honcho, and the deterministic floor — it does NOT read run-state or manifests, so it never returns ground-truth execution evidence. All packets are `trust_class=normative` or `advisory`; corroborate each against the run's actual checkpoints, diffs, and artifacts before citing it as verification proof. If `uacp_oracle_query` returns no packets (an empty corpus), proceed without retrieval.
