@@ -90,12 +90,18 @@ def test_floor_ranks_domain_and_keyword_matches_above_others(temp_uacp_root: Pat
 
 
 def test_floor_scopes_by_project(temp_uacp_root: Path):
+    # EXACT project match (mirrors corpus.lessons_for_project): own project in, other
+    # project out, and a project-LESS lesson is NOT global — it stays out of every project
+    # (Codex #148 P2). Shared cross-project material must be a knowledge item (scope=shared).
     _write_lesson(temp_uacp_root, id="mine", title="t", project="uacp", domains=["x"])
     _write_lesson(temp_uacp_root, id="theirs", title="t", project="other-proj", domains=["x"])
+    _write_lesson(temp_uacp_root, id="projectless", title="t", project="", domains=["x"])
     ids = {
         p.payload["id"] for p in deterministic_corpus_packets(temp_uacp_root, "uacp", domains=["x"])
     }
-    assert "mine" in ids and "theirs" not in ids, ids
+    assert "mine" in ids, ids
+    assert "theirs" not in ids, ids
+    assert "projectless" not in ids, "a project-less lesson leaked into a project's floor"
 
 
 def test_floor_surfaces_top_bes_when_unfiltered(temp_uacp_root: Path):

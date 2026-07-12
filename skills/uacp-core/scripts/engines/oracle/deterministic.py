@@ -78,9 +78,11 @@ def deterministic_corpus_packets(
         # Per-doc resilient: a single malformed corpus doc is SKIPPED, never allowed to
         # suppress the whole floor (the broken-doc-skip contract; Codex #148 P2).
         try:
-            # Project scoping: a run for `project` sees its own lessons (+ project-less ones),
-            # not another project's.
-            if lesson.project and lesson.project != project:
+            # Project scoping — EXACT match, mirroring engines.domain.corpus.lessons_for_project
+            # (Codex #148 P2): lessons are project-local, so a project-less lesson (project=="")
+            # is NOT global — it stays out of every project's floor (cross-project material
+            # belongs in shared KNOWLEDGE, scope="shared", handled below).
+            if lesson.project != project:
                 continue
             text_tokens = _tokens(
                 lesson.title, lesson.body, _join(lesson.invariants), _join(lesson.tags)
