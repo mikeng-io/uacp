@@ -277,6 +277,105 @@ def test_standard_run_without_reworks_is_unaffected(temp_uacp_root: Path):
     assert m["inherits_from"] is None
 
 
+# ------------------------------------ #135 P1: carried findings SURFACE into EXECUTE
+def test_execute_entry_surfaces_carried_findings_for_rework(temp_uacp_root: Path):
+    """On PLAN->EXECUTE a rework run echoes its carried findings + a briefing into the
+    transition response, so the fix agent cannot enter EXECUTE unaware of what it reworks."""
+    from state_machine import handle_transition
+    from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
+
+    root = temp_uacp_root
+    _seed_parent_at_verify(root, "run-A")
+    _init_rework(root, "run-B", "run-A")
+    # advance the rework to PLAN (the surface fires on entry to EXECUTE); seed the faithful
+    # plan-exit prerequisites so the #99 forced gates let the transition cross.
+    m = _manifest(root, "run-B")
+    m["current_phase"] = "plan"
+    (root / ".uacp" / "state" / "runs" / "run-B.yaml").write_text(
+        yaml.safe_dump(m, sort_keys=False), encoding="utf-8"
+    )
+    seed_plan_exit_prerequisites(root, "run-B")
+
+    out = json.loads(
+        handle_transition(
+            {"workspace": str(root), "run_id": "run-B", "from_phase": "plan", "to_phase": "execute"}
+        )
+    )
+    assert out.get("ok") is True, out
+    assert out["reworks"] == "run-A"
+    assert out["carried_findings"] == {
+        "verification_package": "verification/run-A-verify-selection.yaml",
+        "resolve_readiness": "verification/run-A-resolve-readiness.yaml",
+        "assessment": "verification/run-A-piv-assessment.yaml",
+    }
+    assert "handled_findings_chain" in out["rework_briefing"]  # tells the agent the obligation
+
+
+def test_execute_entry_no_rework_noise_for_plain_run(temp_uacp_root: Path):
+    """A non-rework run entering EXECUTE gets NO carried_findings/rework_briefing keys."""
+    from state_machine import handle_init, handle_transition
+    from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
+
+    root = temp_uacp_root
+    handle_init({"workspace": str(root), "run_id": "run-plain", "source": "operator-request"})
+    m = _manifest(root, "run-plain")
+    m["current_phase"] = "plan"
+    (root / ".uacp" / "state" / "runs" / "run-plain.yaml").write_text(
+        yaml.safe_dump(m, sort_keys=False), encoding="utf-8"
+    )
+    seed_plan_exit_prerequisites(root, "run-plain")
+    out = json.loads(
+        handle_transition(
+            {
+                "workspace": str(root),
+                "run_id": "run-plain",
+                "from_phase": "plan",
+                "to_phase": "execute",
+            }
+        )
+    )
+    assert out.get("ok") is True, out
+    assert "carried_findings" not in out and "rework_briefing" not in out
+
+
+# ---------------------------------------------- #135 P3: keys DERIVED from schema
+def test_verify_finding_keys_derived_from_schema_match_carry_set():
+    """The carry set is derived from the schema registry, not a frozen literal — and the
+    derivation reproduces the exact keys the standard verify flow registers (no behavior
+    change), so a rework carries verification_package/resolve_readiness/assessment/
+    investigation_entry."""
+    from engines.domain.schema import verify_finding_artifact_keys
+
+    assert verify_finding_artifact_keys() == frozenset(
+        {"verification_package", "resolve_readiness", "assessment", "investigation_entry"}
+    )
+
+
+def test_new_verify_phase_kind_is_carried_automatically(monkeypatch, temp_uacp_root: Path):
+    """The POINT of P3: register a NEW schema kind pinned phase=verify and it flows into
+    the carry set WITHOUT editing the carry code — the miss the #135 review flagged (a new
+    verify artifact kind silently not carried) can no longer happen."""
+    from engines.domain import schema as S
+
+    patched = dict(S._SCHEMAS)
+    patched["uacp.verify_new_probe"] = {"properties": {"phase": {"const": "verify"}}}
+    monkeypatch.setattr(S, "_SCHEMAS", patched)
+
+    # unmapped kind falls back to its base name (strip uacp.), never silently dropped
+    assert "verify_new_probe" in S.verify_finding_artifact_keys()
+
+    # and a rework parent that registers it carries it forward
+    root = temp_uacp_root
+    _seed_parent_at_verify(root, "run-A")
+    m0 = _manifest(root, "run-A")
+    m0["artifacts"]["verify_new_probe"] = "verification/run-A-new-probe.yaml"
+    (root / ".uacp" / "state" / "runs" / "run-A.yaml").write_text(
+        yaml.safe_dump(m0, sort_keys=False), encoding="utf-8"
+    )
+    out = _init_rework(root, "run-B", "run-A")
+    assert "verify_new_probe" in _manifest(root, "run-B")["carried_findings"], out
+
+
 # --------------------------------------------------------------- ADR-0016 P2 invariant
 def test_no_verify_to_execute_backedge_in_the_graph(temp_uacp_root: Path):
     """The load-bearing invariant of option B: rework adds NO phase-graph back-edge.

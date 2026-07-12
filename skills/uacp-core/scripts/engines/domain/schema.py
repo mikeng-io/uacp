@@ -784,3 +784,50 @@ def validate(kind: str, doc: Any) -> list[str]:
         path = ".".join(str(p) for p in err.path) or "(root)"
         out.append(f"{path}: {err.message}")
     return out
+
+
+# --------------------------------------------------------------------------- #135 P3
+# Manifest artifact_type keys under which a VERIFY finding-bearing artifact is
+# registered — DERIVED from this schema registry rather than frozen as a literal, so a
+# NEW verify artifact kind is automatically carried into a rework instead of being
+# silently missed (#135; the prior hardcoded tuple in state_machine.handle_init).
+#
+# Two hops, because the schema KIND is not the manifest KEY:
+#   (1) which kinds carry verify findings — schema-driven: every kind whose schema pins
+#       ``phase == "verify"``, PLUS the verify-LOOP kinds that carry findings without a
+#       phase const (the investigation-ledger move has no single phase);
+#   (2) the manifest artifact_type key each kind is registered under — the registration
+#       convention the uacp-verify / uacp-resolve skills pass to
+#       uacp_run_register_artifact (e.g. ``uacp.verify_resolve_readiness`` is registered
+#       as ``resolve_readiness``, ``uacp.piv_assessment`` as ``assessment``). There is no
+#       single code map for this, so it is small + explicit here.
+# A phase=verify kind with no explicit key mapping falls back to its base kind name
+# (strip ``uacp.``) so it is STILL carried — never silently dropped.
+_VERIFY_LOOP_KINDS_WITHOUT_PHASE: frozenset[str] = frozenset({"uacp.investigation_entry"})
+_KIND_TO_ARTIFACT_KEY: dict[str, str] = {
+    "uacp.verification_package": "verification_package",
+    "uacp.verify_resolve_readiness": "resolve_readiness",
+    "uacp.piv_assessment": "assessment",
+    "uacp.investigation_entry": "investigation_entry",
+}
+
+
+def _phase_const(schema: dict[str, Any]) -> str | None:
+    props = schema.get("properties") if isinstance(schema, dict) else None
+    phase = props.get("phase") if isinstance(props, dict) else None
+    return phase.get("const") if isinstance(phase, dict) else None
+
+
+def verify_finding_artifact_keys() -> frozenset[str]:
+    """The manifest artifact_type keys a standard-track run registers its VERIFY
+    findings under, derived from the schema registry. A rework carries exactly these
+    keys from its parent (#109), and the rework_completeness engine (#135) demands a
+    disposition for each. Deriving this (vs a frozen tuple) means a new phase=verify
+    schema kind is carried automatically — the miss the #135 review flagged.
+    """
+    kinds = {k for k, sch in _SCHEMAS.items() if _phase_const(sch) == "verify"}
+    kinds |= _VERIFY_LOOP_KINDS_WITHOUT_PHASE
+    keys: set[str] = set()
+    for k in kinds:
+        keys.add(_KIND_TO_ARTIFACT_KEY.get(k) or k.split(".", 1)[-1])
+    return frozenset(keys)

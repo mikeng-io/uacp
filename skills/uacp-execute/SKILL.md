@@ -16,6 +16,33 @@ EXECUTE serializes honest evidence of what happened — it judges *happened / di
 ## Read first
 - `UACP_ROOT/config/state.yaml`
 
+## Rework runs — address the carried findings first (#135)
+
+**If this run reworks another** (`reworks` is set on the manifest — the PLAN→EXECUTE
+response echoes `reworks`, `carried_findings`, and a `rework_briefing` for exactly this
+reason), your EXECUTE work is not open-ended: it exists to fix the parent run's VERIFY
+findings. Before anything else, `uacp_run_read` the manifest and read `carried_findings`
+— a map of the parent's VERIFY finding artifacts (keyed by artifact type, e.g.
+`verification_package` / `resolve_readiness` / `assessment` / `investigation_entry`,
+valued by the parent-relative path). Treat each entry as a required objective.
+
+Every carried finding MUST be **discharged** with an explicit disposition recorded in a
+`handled_findings_chain` entry (the same LN grammar VERIFY already uses) in your VERIFY /
+closure evidence — one entry per carried finding, correlated by `original_finding_id`
+(the carried key) or `original_artifact_path` (the carried path), carrying a
+`handling_classification`:
+
+- **`remediated` / `expanded`** — you actually fixed it (point to the fix via
+  `handling_artifact_path`);
+- **`justified` / `deferred` / `accepted_warning` / `rejected_with_reason`** — an explicit
+  accepted-exception; it MUST carry a `residual_risk` rationale or an
+  `accepted_exception_artifact`.
+
+**Closure is fail-closed on this.** The `rework_completeness` closure engine blocks
+RESOLVE if any carried finding has no disposition (`RW_CARRIED_FINDING_UNADDRESSED`) or an
+accepted-exception with no rationale (`RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE`). A rework
+cannot quietly close having ignored a finding it was created to fix.
+
 ## Execution Posture (Critical)
 
 **Full autonomy is the default for bounded, documented work.** When a plan or run manifest already defines the next gate — a PR to open, tests to run, a doc sync, a state update — execute it immediately without prompting. The only reasons to stop and ask:
