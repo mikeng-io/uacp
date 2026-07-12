@@ -301,16 +301,20 @@ For any selected adaptive proposal package, Markdown artifacts are mandatory sem
 
 ## Retrieval-led prior-art (Oracle)
 
-When the Oracle engine is enabled (`[oracle] enabled = true` in `config/uacp.toml` (overridable per-project via `.uacp/config.toml`)), call
-`uacp_oracle_query` before authoring the proposal to surface relevant run history,
-prior decisions, and corpus context.
+**Always** call `uacp_oracle_query` before authoring the proposal to surface relevant prior
+decisions and corpus context — retrieval has a **deterministic floor** (#100): even with the
+semantic Oracle disabled (the default), it returns deterministic **corpus** matches over
+`.uacp/lessons` + `.uacp/knowledge`. (`uacp_oracle_query` reads only the corpus and Honcho —
+never run-state or manifests — so it surfaces prior decisions and lessons, not the active run's
+own history.)
 
 ```
 uacp_oracle_query(phase=propose, project=<project-id>)
 ```
 
-Results at `phase=propose` are **FULL** mode — run-state packets are `trust_class=authoritative`;
-corpus and Honcho packets are `trust_class=normative` or `advisory`. Reference retrieved packets
-in the proposal's rationale section and cite their `source` field. If oracle is disabled or
-returns no packets, proceed without retrieval.
+Results at `phase=propose` are **FULL** mode, but `uacp_oracle_query` returns only corpus,
+Honcho, and deterministic-floor packets (`trust_class=normative` or `advisory`) — never
+run-state/manifests, so none is ground truth. Reference retrieved packets in the proposal's
+rationale section and cite their `source` field; corroborate before relying on them. If
+`uacp_oracle_query` returns no packets (an empty corpus), proceed without retrieval.
 

@@ -228,8 +228,10 @@ class TestLessonProduceRetrieve:
             f"Phase 'brainstorm' should be ADVISORY, got {result['metadata']['mode']!r}"
         )
 
-    def test_oracle_disabled_returns_empty(self, temp_uacp_root: Path) -> None:
-        """oracle_query with oracle disabled returns empty packets and disabled note."""
+    def test_oracle_disabled_serves_produced_lesson_via_floor(self, temp_uacp_root: Path) -> None:
+        """#100: a lesson produced this run is RETRIEVABLE even with the semantic oracle
+        disabled — the deterministic corpus floor serves it (the produce->retrieve loop
+        that makes memory a floor, not vector-store-gated)."""
         _persist_lesson(temp_uacp_root)
         result = oracle_query(
             workspace=temp_uacp_root,
@@ -237,5 +239,6 @@ class TestLessonProduceRetrieve:
             project=_PROJECT,
             oracle_cfg={"enabled": False},
         )
-        assert result["packets"] == []
-        assert "disabled" in result["metadata"].get("note", "").lower()
+        ids = {p.payload["id"] for p in result["packets"] if isinstance(p.payload, dict)}
+        assert _LESSON_ID in ids, result["metadata"]
+        assert "floor" in result["metadata"].get("note", "").lower()

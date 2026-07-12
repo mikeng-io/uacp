@@ -7,6 +7,7 @@ Verifies:
   - poison-dep floor path: lancedb+llama_cpp+httpx poisoned → floor packets only,
     semantic in sources_skipped, NO raise
 """
+
 from __future__ import annotations
 
 import sys
@@ -20,6 +21,7 @@ from engines.oracle.packets import ProviderPacket  # noqa: F401 — used in isin
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _enabled_cfg(extra: dict | None = None) -> dict:
     base = {
@@ -38,19 +40,31 @@ def _enabled_cfg(extra: dict | None = None) -> dict:
 # _semantic_packets unit (wiring without going through oracle_query)
 # ---------------------------------------------------------------------------
 
+
 def test_semantic_packets_returns_list_of_provider_packets(monkeypatch, tmp_path) -> None:
     """With a working fake store, _semantic_packets returns ProviderPackets."""
+
     class _FakeStore:
         def available(self) -> bool:
             return True
+
         def dense_search(self, v, k):
             return []
+
         def fts_search(self, q, k):
             return [
-                {"id": "L1", "type": "lesson", "domains": ["auth"],
-                 "invariants": ["I1"], "bes": 0.8, "severity": "HIGH",
-                 "eligible": 2, "body": "body text"},
+                {
+                    "id": "L1",
+                    "type": "lesson",
+                    "domains": ["auth"],
+                    "invariants": ["I1"],
+                    "bes": 0.8,
+                    "severity": "HIGH",
+                    "eligible": 2,
+                    "body": "body text",
+                },
             ]
+
         def rrf_hybrid(self, v, q, k):
             return self.fts_search(q, k)
 
@@ -131,16 +145,33 @@ def test_oracle_query_semantic_exception_recorded_in_skipped(monkeypatch, tmp_pa
 # oracle_query integration — semantic wired end-to-end
 # ---------------------------------------------------------------------------
 
+
 def test_oracle_query_retrieval_led_phase_gets_semantic_packets(monkeypatch, tmp_path) -> None:
     """For a retrieval-led phase with a working store, semantic packets appear in results."""
+
     class _FakeStore:
-        def available(self): return True
-        def dense_search(self, v, k): return []
+        def available(self):
+            return True
+
+        def dense_search(self, v, k):
+            return []
+
         def fts_search(self, q, k):
-            return [{"id": "L1", "type": "lesson", "domains": ["auth"],
-                     "invariants": [], "bes": 0.7, "severity": "MEDIUM",
-                     "eligible": 1, "body": "body"}]
-        def rrf_hybrid(self, v, q, k): return self.fts_search(q, k)
+            return [
+                {
+                    "id": "L1",
+                    "type": "lesson",
+                    "domains": ["auth"],
+                    "invariants": [],
+                    "bes": 0.7,
+                    "severity": "MEDIUM",
+                    "eligible": 1,
+                    "body": "body",
+                }
+            ]
+
+        def rrf_hybrid(self, v, q, k):
+            return self.fts_search(q, k)
 
     monkeypatch.setattr(
         "engines.oracle.aggregator._get_oracle_store",
@@ -158,6 +189,64 @@ def test_oracle_query_retrieval_led_phase_gets_semantic_packets(monkeypatch, tmp
     semantic_packets = [p for p in result["packets"] if p.source == "corpus"]
     assert semantic_packets, "expected corpus packets from semantic pipeline"
     assert "semantic" not in result["metadata"]["sources_skipped"]
+
+
+def test_floor_backfills_under_semantic_without_starving(monkeypatch, tmp_path) -> None:
+    """#148 council MAJOR: on the ENABLED path the deterministic floor must LAYER UNDER the
+    semantic tier (backfill remaining budget, deduped) — never fill the whole limit and
+    starve the ML-ranked results. With a working store AND a seeded corpus, both semantic
+    ('corpus') and floor ('corpus-floor') packets appear, and a doc surfaced by both is
+    deduped."""
+    from engines.domain.corpus import Lesson
+
+    lessons_dir = tmp_path / ".uacp" / "lessons"
+    lessons_dir.mkdir(parents=True, exist_ok=True)
+    # Extra corpus docs so the floor has content, + one whose id the semantic tier also returns.
+    for i in range(3):
+        les = Lesson(id=f"floor-{i}", title="t", project="p", domains=["auth"], bes=0.6)
+        (lessons_dir / f"{les.id}.md").write_text(les.to_okf(), encoding="utf-8")
+    dup = Lesson(id="L1", title="dup", project="p", domains=["auth"])
+    (lessons_dir / "L1.md").write_text(dup.to_okf(), encoding="utf-8")
+
+    class _FakeStore:
+        def available(self):
+            return True
+
+        def dense_search(self, v, k):
+            return []
+
+        def fts_search(self, q, k):
+            return [
+                {
+                    "id": "L1",
+                    "type": "lesson",
+                    "domains": ["auth"],
+                    "invariants": [],
+                    "bes": 0.7,
+                    "severity": "MEDIUM",
+                    "eligible": 1,
+                    "body": "body",
+                }
+            ]
+
+        def rrf_hybrid(self, v, q, k):
+            return self.fts_search(q, k)
+
+    monkeypatch.setattr("engines.oracle.aggregator._get_oracle_store", lambda *a, **k: _FakeStore())
+
+    result = agg.oracle_query(
+        workspace=tmp_path,
+        phase="propose",
+        project="p",
+        domains=["auth"],
+        query="auth",
+        oracle_cfg=_enabled_cfg(),
+    )
+    sources = [p.source for p in result["packets"]]
+    assert "corpus" in sources, f"semantic tier starved by the floor: {sources}"
+    assert "corpus-floor" in sources, f"floor absent on the enabled path: {sources}"
+    ids = [p.payload["id"] for p in result["packets"] if isinstance(p.payload, dict)]
+    assert ids.count("L1") == 1, f"doc surfaced by both tiers not deduped: {ids}"
 
 
 def test_oracle_query_semantic_skipped_when_store_unavailable(monkeypatch, tmp_path) -> None:
@@ -178,6 +267,7 @@ def test_oracle_query_semantic_skipped_when_store_unavailable(monkeypatch, tmp_p
 # ---------------------------------------------------------------------------
 # Poison-dep floor path (the load-bearing floor claim)
 # ---------------------------------------------------------------------------
+
 
 def test_poisoned_deps_floor_path_no_raise(monkeypatch, tmp_path) -> None:
     """With lancedb+llama_cpp+httpx poisoned, oracle_query for a retrieval-led phase:

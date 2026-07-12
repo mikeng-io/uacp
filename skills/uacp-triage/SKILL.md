@@ -190,10 +190,13 @@ This is a presentation rule only. Preserve complete raw evidence in UACP artifac
 
 ## Advisory prior-art (Oracle)
 
-When the Oracle engine is enabled (`[oracle] enabled = true` in `config/uacp.toml`,
-overridable per-project via `.uacp/config.toml`), call
-`uacp_oracle_query` at the start of triage to surface prior runs and context before
-scope-calibration scoring.
+**Always** call `uacp_oracle_query` at the start of triage to surface relevant prior lessons
+and knowledge before scope-calibration scoring — retrieval has a **deterministic floor**
+(#100; corpus-only): even when
+the semantic Oracle is disabled (`[oracle] enabled = false`, the default) or its vector store
+is absent, `uacp_oracle_query` returns deterministic corpus matches (domain/keyword/BES scan
+over `.uacp/lessons` + `.uacp/knowledge`). It never silently returns nothing merely because
+the vector store is off.
 
 ```
 uacp_oracle_query(phase=triage, project=<project-id>)
@@ -203,5 +206,5 @@ Results are **advisory in TRIAGE regardless of source trust class** — treat al
 packets as advisory (`evidence_required=true`) even when the Oracle engine tags them with a
 higher trust class. Use them to inform granularity scoring and routing; they do not override
 triage invariants.
-If oracle is disabled or returns no packets, proceed without retrieval.
+If `uacp_oracle_query` returns no packets (an empty corpus), proceed without retrieval.
 
