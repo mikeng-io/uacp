@@ -1,13 +1,16 @@
 """Witness-advisory ledger I/O — the promotion-evidence substrate (#80).
 
-The conformance witnesses (scope diff/cascade, class-underclaim) ship **advisory** and
-their findings surface transiently in the closure response — nothing tallies them across
-runs, so the "≥N runs with zero false-positive advisories" bar the promotion design
-(`design/conformance-witnesses/` nodes 02–04) makes a hard gate on advisory→blocking
-promotion cannot be measured. This module records, at each closure, WHICH witness codes
-fired for a run, under the governed verification surface
+The conformance witnesses (scope diff/cascade, class) ship **advisory** and their findings
+surface transiently in the closure response — nothing tallies them across runs, so the
+promotion design (`design/conformance-witnesses/` nodes 02–04) bar for advisory→blocking
+promotion cannot be measured. This module records, at each closure, WHICH witness codes fired
+for a run, under the governed verification surface
 (``<base>/verification/<run_id>-witness-ledger.yaml``), so a later promotion report can
-aggregate firing counts by code and by witnessable population.
+aggregate the SOUND signals: per-family substantive-advisory counts (the false-positive
+numerator) and starvation counts. NB (Codex #80): a witness that ran clean emits nothing, and
+so does one that never ran — so the clean-run DENOMINATOR is not directly measurable here; that
+needs positive witness attestation from the engines (a follow-up), and the report withholds any
+"clean" verdict rather than overclaim one.
 
 This is pure OBSERVATION — writing a ledger record changes NO gate outcome and promotes NO
 witness. The record is gate-owned evidence (never read back as a gate INPUT), mirroring the
@@ -111,15 +114,22 @@ def witness_counts(codes: Iterable[str]) -> dict[str, int]:
 
 
 def family_status(family: WitnessFamily, codes: Iterable[str]) -> str:
-    """Classify a run FOR THIS FAMILY: ``"unavailable"`` (its prober was absent/failed), else
-    ``"unresolved"`` (a starved symbol), else ``"witnessable"`` (it ran — its advisories count
-    toward the FP bar). Independent of the other families."""
+    """Classify a run FOR THIS FAMILY from the codes it emitted: ``"unavailable"`` (its prober
+    was absent/failed), else ``"unresolved"`` (a starved symbol), else ``"unstarved"``.
+
+    IMPORTANT (Codex #80): ``"unstarved"`` means only "emitted no starvation code" — it does
+    NOT prove the witness ran. A witness emits a code ONLY on a finding or on starvation; a run
+    where it ran and found nothing is INDISTINGUISHABLE from one where it never ran at all (no
+    git diff for scope_diff; no ``code_refs`` for cascade/class). So ``unstarved`` conflates
+    "ran clean" with "never ran" — it is NOT a trustworthy clean-run denominator. Measuring
+    that soundly needs the witness engines to emit POSITIVE attestation ("I ran, examined X"),
+    which they do not yet — a follow-up. Independent of the other families."""
     s = {c for c in codes if isinstance(c, str)}
     if s & family.unavailable:
         return "unavailable"
     if s & family.unresolved:
         return "unresolved"
-    return "witnessable"
+    return "unstarved"
 
 
 def build_witness_record(run_id: str, codes: Iterable[str], witnessed_at: float) -> dict[str, Any]:
@@ -186,6 +196,7 @@ def write_witness_ledger(root: Path, run_id: str, record: dict[str, Any]) -> boo
             try:
                 tmp_path.unlink()
             except OSError:
+                # best-effort temp cleanup; a lingering temp is harmless (never the target)
                 pass
         return False
 

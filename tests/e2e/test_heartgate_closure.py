@@ -69,7 +69,7 @@ def test_compliant_finalized_run_passes_closure(temp_uacp_root: Path, valid_run_
 def test_closure_writes_witness_advisory_ledger(temp_uacp_root: Path, valid_run_id: str):
     """A closure records a witness-advisory ledger (#80 promotion-evidence substrate) — a
     per-run tally of which conformance-witness codes fired, WITHOUT changing the decision.
-    A clean coherent run is the promotion DENOMINATOR: population=witnessable, no substantive
+    A clean coherent run is the promotion DENOMINATOR: every family unstarved, no substantive
     witness findings."""
     import engines.io.witness_ledger_io as wl
 
@@ -81,9 +81,10 @@ def test_closure_writes_witness_advisory_ledger(temp_uacp_root: Path, valid_run_
     assert err is None and record is not None, "closure must write a witness ledger"
     assert record["kind"] == "uacp.witness_ledger"
     assert record["run_id"] == valid_run_id
-    # a clean run is the promotion DENOMINATOR: every witness family witnessable, zero advisories
+    # a run with no witness findings records every family UNSTARVED with zero advisories (NB:
+    # 'unstarved' means no starvation code — it does not by itself prove the witness ran)
     for fname in ("scope_diff", "scope_cascade", "class"):
-        assert record["families"][fname] == {"status": "witnessable", "substantive": 0}, record
+        assert record["families"][fname] == {"status": "unstarved", "substantive": 0}, record
 
 
 # ---------------------------------------------------- teeth 1: coherence (C1)

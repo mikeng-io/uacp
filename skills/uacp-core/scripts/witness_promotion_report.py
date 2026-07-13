@@ -45,16 +45,19 @@ def _load_yaml(path: Path) -> dict[str, Any] | None:
 
 def build_report(root: Path | str) -> dict[str, Any]:
     """Aggregate every witness ledger + forecast record under a workspace's verification dir,
-    PER WITNESS FAMILY (council #80): each family's witnessable/starved population and its own
+    PER WITNESS FAMILY (council #80): each family's unstarved/starved run counts and its own
     substantive-advisory runs are tallied independently, so one starved witness cannot mask
-    another's advisory. Never raises — an unreadable/absent dir yields an empty report."""
+    another's advisory. NB (Codex #80): ``unstarved`` counts runs that emitted no starvation
+    code — which conflates "ran clean" with "never ran", so it is NOT a clean-run denominator
+    (see ``promotion_readiness``). Never raises — an unreadable/absent dir yields an empty
+    report."""
     try:
         vdir = dir_for(Path(str(root)).resolve(), "verification")
     except Exception:
         vdir = None
 
     families: dict[str, dict[str, int]] = {
-        f.name: {"witnessable": 0, "unresolved": 0, "unavailable": 0, "substantive_runs": 0}
+        f.name: {"unstarved": 0, "unresolved": 0, "unavailable": 0, "substantive_runs": 0}
         for f in WITNESS_FAMILIES
     }
     per_code: dict[str, dict[str, int]] = {}
@@ -80,10 +83,10 @@ def build_report(root: Path | str) -> dict[str, Any]:
                 if not isinstance(fdata, dict):
                     continue
                 status = fdata.get("status")
-                if status in ("witnessable", "unresolved", "unavailable"):
+                if status in ("unstarved", "unresolved", "unavailable"):
                     agg[status] += 1
                 if (
-                    status == "witnessable"
+                    status == "unstarved"
                     and isinstance(fdata.get("substantive"), int)
                     and fdata["substantive"] > 0
                 ):
@@ -129,30 +132,29 @@ def _forecast_summary(vdir: Path | None) -> dict[str, Any]:
 def promotion_readiness(
     report: dict[str, Any], min_runs: int = _MIN_WITNESSABLE_RUNS
 ) -> dict[str, Any]:
-    """A COARSE PER-FAMILY readiness flag from the aggregated report — advisory only. A witness
-    family is "evidence-clean" when ITS witnessable population has reached ``min_runs`` and no
-    witnessable run recorded a substantive advisory for it. Per-family so one starved witness
-    cannot mask another (council #80). This does NOT encode the full node-02/03/04 criteria
-    (hunk-level derivation, hub bound, trust-root pin, absence-escalation) — those remain a
-    human read + the locked design gates."""
+    """Per-family SOUND signals — advisory only, and deliberately NOT a "ready to promote"
+    verdict. A witness emits a code ONLY on a finding or on starvation; a run where it ran and
+    found nothing emits nothing, indistinguishable from a run where it never ran at all — so
+    the "zero-FP over the witnessable population" bar's DENOMINATOR (clean runs) is NOT directly
+    measurable from closure output (Codex #80). What IS sound: the substantive-advisory count
+    (numerator) and the starvation count. A trustworthy clean-run denominator requires the
+    witness engines to emit POSITIVE attestation ("I ran, examined X"), which they do not yet —
+    tracked as a follow-up. Until then this reports the sound numbers and WITHHOLDS any CLEAN
+    verdict rather than overclaim one."""
     families: dict[str, dict[str, Any]] = {}
     for fname, agg in report.get("families", {}).items():
-        w = agg.get("witnessable", 0)
-        enough = w >= min_runs
-        clean = agg.get("substantive_runs", 0) == 0
         families[fname] = {
-            "witnessable_runs": w,
-            "min_runs": min_runs,
-            "detection_evidence_clean": bool(enough and clean),
-            "detection_reason": (
-                "insufficient witnessable runs"
-                if not enough
-                else ("substantive advisories present" if not clean else "clean")
-            ),
+            "substantive_advisory_runs": agg.get("substantive_runs", 0),
+            "starved_runs": agg.get("unresolved", 0) + agg.get("unavailable", 0),
+            "unstarved_runs": agg.get("unstarved", 0),  # ran-clean OR never-ran — indeterminate
+            "no_advisory_yet": agg.get("substantive_runs", 0) == 0,
+            "clean_denominator_measurable": False,
+            "note": "clean-run denominator needs positive witness attestation (not yet emitted)",
         }
     prec = report.get("forecast", {}).get("mean_precision")
     return {
         "families": families,
+        "min_runs": min_runs,
         "forecast_precision_ok": (isinstance(prec, float) and prec >= _MIN_FORECAST_PRECISION),
         "forecast_precision": prec,
     }
@@ -160,21 +162,22 @@ def promotion_readiness(
 
 def format_report(report: dict[str, Any]) -> str:
     """Render the report as a compact human-readable block for the Scoreboard."""
+    header = "per witness FAMILY (advisory runs | starved | unstarved[ran-clean OR never-ran])"
     lines = [
         "UACP witness promotion report (#80) — evidence only, promotes nothing",
         "=" * 66,
         f"runs observed: {report['total_runs']}",
         "",
-        "per witness FAMILY (witnessable / unresolved / unavailable — substantive-advisory runs):",
+        header,
     ]
     ready = promotion_readiness(report)
     for fname, agg in report["families"].items():
         r = ready["families"].get(fname, {})
-        verdict = "CLEAN" if r.get("detection_evidence_clean") else "not yet"
+        flag = "no advisories yet" if r.get("no_advisory_yet") else "ADVISORIES present"
         lines.append(
-            f"  {fname:<14} w={agg['witnessable']:>3} u={agg['unresolved']:>3} "
-            f"n={agg['unavailable']:>3}  substantive_runs={agg['substantive_runs']:>3}  "
-            f"[{verdict}: {r.get('detection_reason', '?')}]"
+            f"  {fname:<14} advisory_runs={agg['substantive_runs']:>3}  "
+            f"starved={agg['unresolved'] + agg['unavailable']:>3}  "
+            f"unstarved={agg['unstarved']:>3}  [{flag}]"
         )
     lines += ["", "per witness code (runs fired / total firings):"]
     if report["per_code"]:
@@ -184,17 +187,17 @@ def format_report(report: dict[str, Any]) -> str:
         lines.append("  (no witness codes fired in any recorded run)")
     fc = report["forecast"]
     mp, mr = fc["mean_precision"], fc["mean_recall"]
-    lines += [
-        "",
+    forecast_line = (
         f"forecast joined runs: {fc['joined_runs']}  "
         f"mean_precision={'n/a' if mp is None else f'{mp:.3f}'}  "
-        f"mean_recall={'n/a' if mr is None else f'{mr:.3f}'}",
-        f"forecast precision >= {_MIN_FORECAST_PRECISION}: "
-        f"{'yes' if ready['forecast_precision_ok'] else 'no'}",
-        "",
-        "NB: promotion stays gated on design/conformance-witnesses nodes 02-04 "
-        "+ operator sign-off.",
-    ]
+        f"mean_recall={'n/a' if mr is None else f'{mr:.3f}'}"
+    )
+    gate_note = (
+        "NB: no CLEAN verdict is computed — the clean-run denominator is not measurable without"
+        " positive witness attestation (a follow-up). Promotion stays gated on"
+        " design/conformance-witnesses nodes 02-04 + operator sign-off."
+    )
+    lines += ["", forecast_line, "", gate_note]
     return "\n".join(lines)
 
 

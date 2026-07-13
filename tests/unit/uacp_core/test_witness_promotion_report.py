@@ -30,7 +30,7 @@ def test_empty_workspace_is_all_zero(tmp_path: Path):
     assert r["forecast"]["joined_runs"] == 0
     for fname in ("scope_diff", "scope_cascade", "class"):
         assert r["families"][fname] == {
-            "witnessable": 0,
+            "unstarved": 0,
             "unresolved": 0,
             "unavailable": 0,
             "substantive_runs": 0,
@@ -38,23 +38,22 @@ def test_empty_workspace_is_all_zero(tmp_path: Path):
 
 
 def test_aggregates_per_family_and_per_code(tmp_path: Path):
-    _seed_ledger(tmp_path, "r1", ["SC_DIFF_OUT_OF_SCOPE"])  # scope_diff witnessable+substantive
+    _seed_ledger(tmp_path, "r1", ["SC_DIFF_OUT_OF_SCOPE"])  # scope_diff unstarved+substantive
     _seed_ledger(
         tmp_path, "r2", ["SC_DIFF_OUT_OF_SCOPE", "SC_UNDECLARED_CASCADE"]
     )  # both fam substantive
-    _seed_ledger(tmp_path, "r3", [])  # all witnessable, clean
+    _seed_ledger(tmp_path, "r3", [])  # all unstarved, no advisory
     _seed_ledger(tmp_path, "r4", ["SC_WITNESS_UNAVAILABLE"])  # scope_cascade unavailable
     _seed_ledger(tmp_path, "r5", ["SC_WITNESS_UNRESOLVED_TOUCHED"])  # scope_cascade unresolved
 
     r = rep.build_report(tmp_path)
     assert r["total_runs"] == 5
-    # scope_diff: r1,r2,r3,r4,r5 are ALL witnessable for the diff witness (none starve IT);
-    # r1,r2 substantive
-    assert r["families"]["scope_diff"]["witnessable"] == 5
+    # scope_diff: r1..r5 all UNSTARVED for the diff witness (none starve IT); r1,r2 substantive
+    assert r["families"]["scope_diff"]["unstarved"] == 5
     assert r["families"]["scope_diff"]["substantive_runs"] == 2
-    # scope_cascade: r1,r2,r3 witnessable; r4 unavailable; r5 unresolved; r2 substantive
+    # scope_cascade: r1,r2,r3 unstarved; r4 unavailable; r5 unresolved; r2 substantive
     assert r["families"]["scope_cascade"] == {
-        "witnessable": 3,
+        "unstarved": 3,
         "unresolved": 1,
         "unavailable": 1,
         "substantive_runs": 1,
@@ -64,26 +63,29 @@ def test_aggregates_per_family_and_per_code(tmp_path: Path):
 
 def test_starved_witness_does_not_mask_another_families_advisory(tmp_path: Path):
     """Council #80 P2 at the REPORT level: a run with a real diff advisory but an unavailable
-    class witness must NOT hide the diff advisory. 12 clean runs + 1 such run → scope_diff is
-    NOT clean (its advisory is counted), even though the class witness starved that run."""
+    class witness must NOT hide the diff advisory. 12 no-advisory runs + 1 such run → scope_diff
+    counts the advisory, even though the class witness starved that run."""
     for i in range(12):
         _seed_ledger(tmp_path, f"clean{i}", [])
     _seed_ledger(tmp_path, "masked", ["SC_DIFF_OUT_OF_SCOPE", "CHK_CLASS_WITNESS_UNAVAILABLE"])
     report = rep.build_report(tmp_path)
     ready = rep.promotion_readiness(report, min_runs=10)
-    # scope_diff saw the advisory (13 witnessable, 1 substantive) → NOT clean (not masked!)
+    # scope_diff saw the advisory (13 unstarved, 1 substantive) — NOT masked
     assert report["families"]["scope_diff"] == {
-        "witnessable": 13,
+        "unstarved": 13,
         "unresolved": 0,
         "unavailable": 0,
         "substantive_runs": 1,
     }
-    assert ready["families"]["scope_diff"]["detection_evidence_clean"] is False
-    assert "substantive" in ready["families"]["scope_diff"]["detection_reason"]
-    # class witness: the masked run correctly starved it, so it saw only the 12 clean runs →
-    # legitimately CLEAN (per-family independence: the diff advisory is NOT its concern)
-    assert report["families"]["class"]["witnessable"] == 12
-    assert ready["families"]["class"]["detection_evidence_clean"] is True
+    assert ready["families"]["scope_diff"]["substantive_advisory_runs"] == 1
+    assert ready["families"]["scope_diff"]["no_advisory_yet"] is False
+    # class witness: the masked run correctly starved it (unavailable), so its advisory count is
+    # unaffected — per-family independence (the diff advisory is NOT its concern)
+    assert report["families"]["class"]["unstarved"] == 12
+    assert report["families"]["class"]["unavailable"] == 1
+    assert ready["families"]["class"]["no_advisory_yet"] is True
+    # and NO family gets an unsound CLEAN verdict — the clean denominator is not measurable
+    assert all(f["clean_denominator_measurable"] is False for f in ready["families"].values())
 
 
 def test_forecast_mean_precision_recall(tmp_path: Path):
@@ -97,34 +99,33 @@ def test_forecast_mean_precision_recall(tmp_path: Path):
     assert abs(r["forecast"]["mean_recall"] - 0.7) < 1e-9  # mean over r1(0.5),r3(0.9)
 
 
-def test_readiness_needs_enough_clean_witnessable_runs(tmp_path: Path):
-    # 12 clean runs → EVERY family is CLEAN at min_runs=10 (all witnessable, zero substantive)
+def test_readiness_reports_sound_signals_no_clean_verdict(tmp_path: Path):
+    """The report must NOT emit an unmeasurable CLEAN verdict (Codex #80): a witness emits
+    nothing both when it ran clean AND when it never ran, so 'clean' is not measurable. It
+    reports the SOUND signals — advisory count (numerator) + no_advisory_yet — and withholds
+    any clean verdict."""
     for i in range(12):
-        _seed_ledger(tmp_path, f"clean{i}", [])
+        _seed_ledger(tmp_path, f"clean{i}", [])  # all silent (no codes) — indeterminate, NOT clean
     ready = rep.promotion_readiness(rep.build_report(tmp_path), min_runs=10)
-    assert ready["families"]["scope_diff"]["detection_evidence_clean"] is True
-    assert ready["families"]["scope_diff"]["witnessable_runs"] == 12
+    sd = ready["families"]["scope_diff"]
+    assert sd["no_advisory_yet"] is True  # sound: zero advisories recorded
+    assert sd["substantive_advisory_runs"] == 0
+    assert sd["clean_denominator_measurable"] is False  # honest: cannot certify clean
+    assert "detection_evidence_clean" not in sd  # the unsound flag is GONE
 
-    # one substantive scope_diff run flips ONLY scope_diff to not-clean
+    # a real advisory is soundly counted
     _seed_ledger(tmp_path, "dirty", ["SC_DIFF_OUT_OF_SCOPE"])
     ready2 = rep.promotion_readiness(rep.build_report(tmp_path), min_runs=10)
-    assert ready2["families"]["scope_diff"]["detection_evidence_clean"] is False
-    assert "substantive" in ready2["families"]["scope_diff"]["detection_reason"]
-    # the cascade family is untouched by a diff advisory → still clean
-    assert ready2["families"]["scope_cascade"]["detection_evidence_clean"] is True
+    assert ready2["families"]["scope_diff"]["no_advisory_yet"] is False
+    assert ready2["families"]["scope_diff"]["substantive_advisory_runs"] == 1
 
 
-def test_readiness_insufficient_runs(tmp_path: Path):
-    _seed_ledger(tmp_path, "one", [])
-    ready = rep.promotion_readiness(rep.build_report(tmp_path), min_runs=10)
-    assert ready["families"]["scope_diff"]["detection_evidence_clean"] is False
-    assert "insufficient" in ready["families"]["scope_diff"]["detection_reason"]
-
-
-def test_format_report_renders_and_names_the_gate(tmp_path: Path):
+def test_format_report_withholds_clean_and_names_the_gate(tmp_path: Path):
     _seed_ledger(tmp_path, "r1", ["SC_DIFF_OUT_OF_SCOPE"])
     out = rep.format_report(rep.build_report(tmp_path))
     assert "witness promotion report" in out
     assert "scope_diff" in out and "SC_DIFF_OUT_OF_SCOPE" in out
-    # promotion stays gated — the report must SAY so, not imply auto-promotion
-    assert "gated on design/conformance-witnesses" in out
+    # the report must NOT print a CLEAN verdict, and must name the attestation gap + the gate
+    assert "no CLEAN verdict is computed" in out
+    assert "positive witness attestation" in out
+    assert "gated on" in out and "design/conformance-witnesses" in out

@@ -30,20 +30,20 @@ def _family(name):
 
 def test_family_status_is_independent_per_family():
     diff, cascade = _family("scope_diff"), _family("scope_cascade")
-    assert wl.family_status(diff, ["SC_DIFF_OUT_OF_SCOPE"]) == "witnessable"
+    assert wl.family_status(diff, ["SC_DIFF_OUT_OF_SCOPE"]) == "unstarved"
     assert wl.family_status(diff, ["SC_DIFF_UNAVAILABLE"]) == "unavailable"
     assert wl.family_status(cascade, ["SC_WITNESS_UNRESOLVED_TOUCHED"]) == "unresolved"
-    # KEY (council #80 P2): the diff witness is witnessable even when the CLASS witness starved
+    # KEY (council #80 P2): the diff witness is UNSTARVED even when the CLASS witness starved
     assert (
         wl.family_status(diff, ["SC_DIFF_OUT_OF_SCOPE", "CHK_CLASS_WITNESS_UNAVAILABLE"])
-        == "witnessable"
+        == "unstarved"
     )
     assert wl.family_status(_family("class"), ["CHK_CLASS_WITNESS_UNAVAILABLE"]) == "unavailable"
 
 
 def test_build_record_is_per_family_and_no_cross_masking():
     """P2 fix: a run where the diff witness FIRED a substantive advisory but the class witness
-    is UNAVAILABLE must record scope_diff as witnessable+substantive (not masked)."""
+    is UNAVAILABLE must record scope_diff as unstarved+substantive (not masked)."""
     rec = wl.build_witness_record(
         "run-1", ["SC_DIFF_OUT_OF_SCOPE", "CHK_CLASS_WITNESS_UNAVAILABLE"], witnessed_at=123.0
     )
@@ -51,7 +51,7 @@ def test_build_record_is_per_family_and_no_cross_masking():
     assert rec["witnessed_at"] == 123.0
     fam = rec["families"]
     # scope_diff: witnessable, with a substantive advisory — NOT masked by the class starvation
-    assert fam["scope_diff"] == {"status": "witnessable", "substantive": 1}
+    assert fam["scope_diff"] == {"status": "unstarved", "substantive": 1}
     # class: correctly out of its own FP population
     assert fam["class"]["status"] == "unavailable"
     assert fam["class"]["substantive"] == 0
@@ -67,12 +67,12 @@ def test_already_blocking_codes_recorded_but_not_substantive():
     assert "CHK_CLASS_UNDERCLAIM" not in _family("class").substantive
 
 
-def test_clean_run_records_every_family_witnessable_zero():
+def test_clean_run_records_every_family_unstarved_zero():
     """A run where witnesses ran and found nothing is the promotion DENOMINATOR — every family
-    records witnessable/0, not omitted."""
+    records unstarved/0, not omitted."""
     rec = wl.build_witness_record("run-clean", [], witnessed_at=1.0)
     for fname in ("scope_diff", "scope_cascade", "class"):
-        assert rec["families"][fname] == {"status": "witnessable", "substantive": 0}
+        assert rec["families"][fname] == {"status": "unstarved", "substantive": 0}
     assert rec["counts"] == {}
 
 
