@@ -105,12 +105,21 @@ def build_report(root: Path | str) -> dict[str, Any]:
 
 
 def _forecast_summary(vdir: Path | None) -> dict[str, Any]:
-    """Mean precision/recall over forecast records that carry a joined outcome."""
+    """Mean precision/recall over forecast records that carry a joined outcome — restricted to
+    RESOLVED runs. The cascade forecast is joined during closure BEFORE handle_finalize knows
+    whether a blocker will revert the run, and the joined file is not removed on a block, so a
+    failed closure attempt would otherwise contribute precision/recall to a run that never
+    resolved (Codex #80). Filter by witness-ledger presence: the ledger is written ONLY for a
+    non-blocked closure, so a run with a ledger resolved — one without it blocked/reverted."""
     precisions: list[float] = []
     recalls: list[float] = []
     joined = 0
     if vdir is not None and vdir.is_dir():
+        resolved_run_ids = {p.stem for p in vdir.glob("witness-ledgers/*.yaml")}
         for path in sorted(vdir.glob("*-cascade-forecast.yaml")):
+            run_id = path.name.removesuffix("-cascade-forecast.yaml")
+            if run_id not in resolved_run_ids:
+                continue  # no ledger -> the closure blocked/reverted -> exclude from averages
             rec = _load_yaml(path)
             if rec is None:
                 continue

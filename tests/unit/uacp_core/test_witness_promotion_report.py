@@ -103,14 +103,27 @@ def test_advisory_counted_even_when_same_family_also_starved(tmp_path: Path):
 
 
 def test_forecast_mean_precision_recall(tmp_path: Path):
-    _seed_forecast(tmp_path, "r1", 1.0, 0.5)
-    _seed_forecast(tmp_path, "r2", 0.6, None)  # recall absent → excluded from recall mean
-    _seed_forecast(tmp_path, "r3", None, 0.9)  # recall-only (nothing predicted) — still JOINED
+    # each forecast run must ALSO have a ledger (= it resolved) to count (Codex #80)
+    for rid, p, rc in [("r1", 1.0, 0.5), ("r2", 0.6, None), ("r3", None, 0.9)]:
+        _seed_forecast(tmp_path, rid, p, rc)
+        _seed_ledger(tmp_path, rid, [])  # ledger => this run resolved
     r = rep.build_report(tmp_path)
-    # joined_runs counts a run with EITHER precision or recall (gemini #80 P2): r1,r2,r3
+    # joined_runs counts a resolved run with EITHER precision or recall (gemini #80 P2): r1,r2,r3
     assert r["forecast"]["joined_runs"] == 3
     assert abs(r["forecast"]["mean_precision"] - 0.8) < 1e-9  # mean over r1,r2 only
     assert abs(r["forecast"]["mean_recall"] - 0.7) < 1e-9  # mean over r1(0.5),r3(0.9)
+
+
+def test_forecast_from_a_blocked_closure_is_excluded(tmp_path: Path):
+    """A cascade forecast joined during a blocked/reverted closure (no witness ledger, since the
+    ledger is written only for non-blocked closures) must NOT pollute the promotion averages
+    (Codex #80)."""
+    _seed_forecast(tmp_path, "resolved", 1.0, 1.0)
+    _seed_ledger(tmp_path, "resolved", [])  # resolved -> has a ledger -> counts
+    _seed_forecast(tmp_path, "blocked", 0.1, 0.1)  # NO ledger -> blocked/reverted -> excluded
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["joined_runs"] == 1  # only the resolved run
+    assert abs(r["forecast"]["mean_precision"] - 1.0) < 1e-9  # the 0.1 blocked run is NOT averaged
 
 
 def test_readiness_reports_sound_signals_no_clean_verdict(tmp_path: Path):
