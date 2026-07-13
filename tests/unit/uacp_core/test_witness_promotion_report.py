@@ -88,6 +88,20 @@ def test_starved_witness_does_not_mask_another_families_advisory(tmp_path: Path)
     assert all(f["clean_denominator_measurable"] is False for f in ready["families"].values())
 
 
+def test_advisory_counted_even_when_same_family_also_starved(tmp_path: Path):
+    """One sweep can emit BOTH a substantive advisory and a starvation code for the SAME family
+    (Codex #80): scope_cascade gets SC_UNDECLARED_CASCADE (advisory) + SC_WITNESS_UNRESOLVED_
+    TOUCHED (starvation). The family's status is 'unresolved', but its advisory must STILL be
+    counted — not dropped — so no_advisory_yet cannot hide a real potential false positive."""
+    _seed_ledger(tmp_path, "mixed", ["SC_UNDECLARED_CASCADE", "SC_WITNESS_UNRESOLVED_TOUCHED"])
+    r = rep.build_report(tmp_path)
+    cascade = r["families"]["scope_cascade"]
+    assert cascade["unresolved"] == 1  # the starvation is recorded
+    assert cascade["substantive_runs"] == 1  # AND the advisory is counted (not dropped)
+    ready = rep.promotion_readiness(r)
+    assert ready["families"]["scope_cascade"]["no_advisory_yet"] is False
+
+
 def test_forecast_mean_precision_recall(tmp_path: Path):
     _seed_forecast(tmp_path, "r1", 1.0, 0.5)
     _seed_forecast(tmp_path, "r2", 0.6, None)  # recall absent → excluded from recall mean

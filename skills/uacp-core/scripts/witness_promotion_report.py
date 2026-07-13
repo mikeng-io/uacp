@@ -87,11 +87,13 @@ def build_report(root: Path | str) -> dict[str, Any]:
                 status = fdata.get("status")
                 if status in ("unstarved", "unresolved", "unavailable"):
                     agg[status] += 1
-                if (
-                    status == "unstarved"
-                    and isinstance(fdata.get("substantive"), int)
-                    and fdata["substantive"] > 0
-                ):
+                # Count a substantive advisory INDEPENDENTLY of the starvation status (Codex
+                # #80): one sweep can emit both an advisory (SC_UNDECLARED_CASCADE) and a
+                # starvation code (SC_WITNESS_UNRESOLVED_TOUCHED) for the SAME family — the
+                # advisory (a real potential false positive) must not be dropped just because
+                # some other symbol in the same run could not be resolved.
+                sub = fdata.get("substantive")
+                if isinstance(sub, int) and sub > 0:
                     agg["substantive_runs"] += 1
 
     return {
