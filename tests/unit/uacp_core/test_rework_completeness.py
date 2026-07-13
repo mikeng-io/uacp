@@ -147,6 +147,43 @@ def test_disposition_in_governed_writer_readiness_artifact_is_scanned(temp_uacp_
     assert validate_rework_completeness(temp_uacp_root, "run-B") == []
 
 
+def test_disposition_in_governed_resolve_closure_artifact_is_scanned(temp_uacp_root: Path):
+    """A rework authoring its dispositions during RESOLVE records them in the governed
+    RESOLVE artifact, registered as 'resolve_closure' / 'resolve_package'
+    (kind.removeprefix('uacp.')). The engine scans EVERY registered artifact for the chain,
+    so a correctly-documented RESOLVE-authored disposition is not falsely blocked (Codex
+    #135) — no curated key list to miss."""
+    rc_rel = "resolutions/run-B-resolve-closure.yaml"
+    _write_manifest(
+        temp_uacp_root,
+        "run-B",
+        reworks="run-A",
+        rework_depth=1,
+        carried_findings=_CARRIED,
+        artifacts={"resolve_closure": rc_rel},  # governed RESOLVE key, not lessons/verify
+    )
+    _write_artifact(
+        temp_uacp_root,
+        rc_rel,
+        {
+            "kind": "uacp.resolve_closure",
+            "handled_findings_chain": [
+                {
+                    "original_finding_id": "verification_package",
+                    "handling_classification": "remediated",
+                    "handling_artifact_path": "x",
+                },
+                {
+                    "original_finding_id": "assessment",
+                    "handling_classification": "remediated",
+                    "handling_artifact_path": "y",
+                },
+            ],
+        },
+    )
+    assert validate_rework_completeness(temp_uacp_root, "run-B") == []
+
+
 # ------------------------------------------------------------------ blocking paths
 def test_carried_finding_without_disposition_blocks(temp_uacp_root: Path):
     # only the first carried key is disposed; 'assessment' is ignored

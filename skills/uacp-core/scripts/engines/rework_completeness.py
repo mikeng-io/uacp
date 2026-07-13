@@ -80,11 +80,6 @@ _VALID_CLASSES: frozenset[str] = frozenset(
 # no extra field (their evidence is the fix itself, checked by execute/verify coverage).
 _ACCEPTED_EXCEPTION_CLASSES: frozenset[str] = _VALID_CLASSES - {"remediated", "expanded"}
 
-# Where a rework records its dispositions: its own closure/lessons artifact plus its own
-# VERIFY finding artifacts (the same keys it carried from the parent — a rework re-authors
-# its own verify evidence). Scanned for a ``handled_findings_chain`` list.
-_CLOSURE_ARTIFACT_KEYS: tuple[str, ...] = ("lessons", "resolution", "learning")
-
 _DEFAULT_MAX_REWORK_DEPTH = 5
 
 
@@ -115,31 +110,25 @@ def _str_field(entry: dict[str, Any], key: str) -> str:
 
 
 def _collect_dispositions(root: Path, manifest: dict[str, Any]) -> list[dict[str, Any]]:
-    """Every ``handled_findings_chain`` entry across the rework's own registered
-    VERIFY / closure artifacts. Tolerant: a missing / garbled / non-list artifact
-    contributes nothing (a genuinely absent disposition is caught as UNADDRESSED)."""
+    """Every ``handled_findings_chain`` entry across ALL of the rework's OWN registered
+    artifacts. A rework may record its dispositions in any of its governed evidence — its
+    VERIFY package/readiness/assessment OR its RESOLVE closure/lessons artifact — and each
+    lands under a different manifest key depending on the writer (a governed
+    ``uacp_entity_write`` key = ``kind.removeprefix("uacp.")`` vs a shorter manual alias).
+    Curating a source-key list repeatedly missed a valid registration key (Codex #135: first
+    the governed VERIFY keys, then the RESOLVE ``resolve_package`` / ``resolve_closure`` keys),
+    so scan EVERY registered artifact for the chain instead — they are all the rework's own
+    watermarked evidence, and ``handled_findings_chain`` only appears where a disposition was
+    authored. Tolerant: a missing / garbled / non-list artifact contributes nothing (a
+    genuinely absent disposition is caught as UNADDRESSED)."""
     artifacts = manifest.get("artifacts")
     if not isinstance(artifacts, dict):
         return []
 
-    # Import here (not at module load) to avoid any import-order coupling to the schema
-    # engine; the derivation is cheap and cached upstream.
-    from engines.domain.schema import verify_finding_artifact_keys
-
-    source_keys = set(_CLOSURE_ARTIFACT_KEYS) | set(verify_finding_artifact_keys())
-
     entries: list[dict[str, Any]] = []
     seen_rels: set[str] = set()
-    for key, rel in artifacts.items():
-        # keys can carry a ':seq=N' composite suffix — match on the base key. Guard the key
-        # type too (council #135 D3): a non-str manifest key would raise on .split and break
-        # the module's never-raises contract — skip it (the value guard already exists).
-        if not isinstance(key, str) or not isinstance(rel, str) or not rel.strip():
-            continue
-        base = key.split(":", 1)[0]
-        if base not in source_keys:
-            continue
-        if rel in seen_rels:
+    for rel in artifacts.values():
+        if not isinstance(rel, str) or not rel.strip() or rel in seen_rels:
             continue
         seen_rels.add(rel)
         loaded = load_artifact(root, rel)
