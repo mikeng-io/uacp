@@ -229,21 +229,18 @@ def test_safe_dump_shape_surfaces_active(tmp_path: Path) -> None:
     assert "old-thing" not in ctx
 
 
-def test_mapping_keyed_entries_surface(tmp_path: Path) -> None:
-    """An `entries:` MAPPING keyed by workstream (a plausible alternate shape) is handled."""
-    plugin_dir, workspace_dir = tmp_path / "plugin", tmp_path / "workspace"
-    plugin_dir.mkdir()
-    workspace_dir.mkdir()
-    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
-    _write_raw_index(
-        workspace_dir / ".uacp" / "handoffs",
-        'kind: handoff_index\nentries:\n  alpha:\n    status: active\n    hook: "alpha next"\n'
-        "  beta:\n    status: resolved\n",
+def test_both_parse_paths_agree_on_the_list_form() -> None:
+    """The yaml path and the stdlib fallback must return the SAME entries for the list form the
+    skill writes — so behavior does not silently change with PyYAML's presence (Codex #100)."""
+    mod = _load_shim_module()
+    text = (
+        "kind: handoff_index\nentries:\n"
+        "  - workstream: a\n    status: active\n    hook: do a\n"
+        "  - workstream: b\n    status: resolved\n"
     )
-    proc = _run(plugin_dir, payload={"cwd": str(workspace_dir)})
-    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
-    assert "alpha" in ctx and "alpha next" in ctx
-    assert "beta" not in ctx
+    assert mod._parse_handoff_entries_stdlib(text) == mod._entries_from_obj(
+        __import__("yaml").safe_load(text)
+    )
 
 
 def test_oversized_hook_is_clamped(tmp_path: Path) -> None:

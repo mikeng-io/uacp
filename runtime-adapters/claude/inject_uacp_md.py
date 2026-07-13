@@ -113,19 +113,16 @@ def _coerce_entry(raw: dict[str, Any]) -> dict[str, str]:
 
 
 def _entries_from_obj(data: Any) -> list[dict[str, str]]:
-    """Normalize a parsed index object to a list of entry dicts. Accepts both an ``entries``
-    LIST (the common block sequence) and an ``entries`` MAPPING keyed by workstream."""
+    """Normalize a parsed index object to a list of entry dicts. ``entries`` is a LIST of
+    mappings — the shape the uacp-handoff skill writes (see its SKILL.md template). Only the
+    list form is supported, and BOTH the yaml and stdlib-fallback paths handle it identically,
+    so behavior does not silently change with PyYAML's presence (Codex #100). A non-list
+    ``entries`` (e.g. a workstream-keyed mapping) is not a shape the skill produces -> []."""
     if not isinstance(data, dict):
         return []
     entries = data.get("entries")
     if isinstance(entries, list):
         return [_coerce_entry(e) for e in entries if isinstance(e, dict)]
-    if isinstance(entries, dict):
-        return [
-            _coerce_entry({"workstream": ws, **v})
-            for ws, v in entries.items()
-            if isinstance(v, dict)
-        ]
     return []
 
 
