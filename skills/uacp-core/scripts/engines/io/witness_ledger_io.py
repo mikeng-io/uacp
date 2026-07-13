@@ -155,6 +155,19 @@ def build_witness_record(run_id: str, codes: Iterable[str], witnessed_at: float)
     }
 
 
+def _is_safe_run_id(run_id: Any) -> bool:
+    """A run_id is safe to embed in a filename iff it is a non-empty str with no path
+    separators, no ``..``, and no leading dot (mirrors state_machine's run-id guard)."""
+    return (
+        isinstance(run_id, str)
+        and bool(run_id)
+        and "/" not in run_id
+        and "\\" not in run_id
+        and ".." not in run_id
+        and not run_id.startswith(".")
+    )
+
+
 def witness_ledger_path(root: Path, run_id: str) -> Path | None:
     """``<base>/verification/witness-ledgers/<run_id>.yaml`` (config-aware), or None when the
     governed verification dir cannot be resolved. Never raises.
@@ -165,7 +178,15 @@ def witness_ledger_path(root: Path, run_id: str) -> Path | None:
     ``verification/{run_id}-witness-ledger.yaml`` would MATCH it and could, on a re-check of a
     finalized run whose real verification package was removed, be the only matching file and
     falsely satisfy the evidence-presence check. Under ``witness-ledgers/`` it does not match
-    that glob, so this gate-owned observer never masks missing verification evidence."""
+    that glob, so this gate-owned observer never masks missing verification evidence.
+
+    SECURITY (Codex #80): reject an unsafe ``run_id`` (path separators / ``..`` / leading dot)
+    BEFORE building the filename. The ledger writer runs best-effort inside ``validate_closure``
+    *before* the invalid-run decision is returned, so an id like ``'../../state/run-registry'``
+    would otherwise resolve the write OUT of the sub-namespace and overwrite governed state.
+    An unsafe id yields None -> the write is skipped (the closure blocks the run anyway)."""
+    if not _is_safe_run_id(run_id):
+        return None
     try:
         vdir = dir_for(Path(root).resolve(), "verification")
     except Exception:

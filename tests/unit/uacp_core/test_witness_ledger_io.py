@@ -87,6 +87,22 @@ def test_load_absent_is_none_none(tmp_path: Path):
     assert wl.load_witness_ledger(tmp_path, "nope") == (None, None)
 
 
+def test_traversal_run_id_is_rejected_and_writes_nothing(tmp_path: Path):
+    """A path-traversal run_id must NOT resolve the ledger write out of the sub-namespace and
+    overwrite governed state (Codex #80). The write is skipped (returns False), and the target
+    it would have hit (e.g. state/run-registry.yaml) is untouched."""
+    base = tmp_path / ".uacp"
+    (base / "state").mkdir(parents=True, exist_ok=True)
+    registry = base / "state" / "run-registry.yaml"
+    registry.write_text("active_runs: []\n", encoding="utf-8")
+
+    for bad in ("../../state/run-registry", "a/b", "..\\x", ".hidden"):
+        assert wl.witness_ledger_path(tmp_path, bad) is None
+        assert wl.write_witness_ledger(tmp_path, bad, {"kind": "uacp.witness_ledger"}) is False
+    # the governed file the traversal targeted is intact
+    assert registry.read_text(encoding="utf-8") == "active_runs: []\n"
+
+
 def test_ledger_does_not_pollute_the_verify_evidence_glob(tmp_path: Path):
     """The ledger must live UNDER verification/witness-ledgers/, not directly in verification/,
     so it never matches the non-recursive verify-evidence invariant glob `verification/{run_id}*`
