@@ -77,16 +77,31 @@ def _read_stdin_json() -> dict[str, Any] | None:
 
 
 def _workspace_root(payload: dict[str, Any] | None) -> str:
-    """Where `.uacp/` lives for THIS session -- the payload `cwd` (the tree the agent is
-    actually in; the worktree, when working inside one), mirroring
-    runtime-adapters/shared/guardian_pretooluse.py's `_target_under_governed`. Falls back
-    to the plugin root when the payload/cwd is absent (no-stdin invocation, or a workspace
-    that IS the plugin root)."""
+    """Where the workspace's ``.uacp/`` lives for THIS session. Start from the payload ``cwd``
+    (the tree the agent is in; the worktree, when working inside one), then WALK UP to the
+    nearest ancestor that actually contains a ``.uacp/`` directory (Codex #100): Claude may be
+    started from a repo SUBDIRECTORY, in which case ``cwd`` is the subdir while ``.uacp/`` sits
+    at the project root above it. Falls back to the plugin root when there is no payload/cwd,
+    and to the original cwd when no ``.uacp/`` ancestor is found (fail open — the handoffs
+    section simply does not render)."""
+    cwd = None
     if payload is not None:
-        cwd = payload.get("cwd")
-        if isinstance(cwd, str) and cwd:
-            return cwd
-    return _plugin_root()
+        c = payload.get("cwd")
+        if isinstance(c, str) and c:
+            cwd = c
+    if cwd is None:
+        return _plugin_root()
+    try:
+        d = os.path.abspath(cwd)
+        while True:
+            if os.path.isdir(os.path.join(d, ".uacp")):
+                return d
+            parent = os.path.dirname(d)
+            if parent == d:  # reached the filesystem root without finding .uacp/
+                return cwd
+            d = parent
+    except Exception:
+        return cwd
 
 
 def _unquote(value: str) -> str:

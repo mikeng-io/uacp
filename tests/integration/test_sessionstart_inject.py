@@ -229,6 +229,25 @@ def test_safe_dump_shape_surfaces_active(tmp_path: Path) -> None:
     assert "old-thing" not in ctx
 
 
+def test_handoffs_found_when_started_from_a_subdirectory(tmp_path: Path) -> None:
+    """Claude may start from a repo SUBDIR (cwd = repo/src) while .uacp/ is at the project root
+    above it — the hook must walk UP from cwd to find .uacp/handoffs/ (Codex #100)."""
+    plugin_dir = tmp_path / "plugin"
+    project_root = tmp_path / "project"
+    subdir = project_root / "src" / "deep"
+    plugin_dir.mkdir()
+    subdir.mkdir(parents=True)
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    _write_index(
+        project_root / ".uacp" / "handoffs",  # index at the PROJECT ROOT
+        "  - workstream: root-ws\n    status: active\n    hook: from the root\n",
+    )
+    proc = _run(plugin_dir, payload={"cwd": str(subdir)})  # started deep in a subdir
+    assert proc.returncode == 0
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "root-ws" in ctx and "from the root" in ctx  # found by walking up
+
+
 def test_both_parse_paths_agree_on_the_list_form() -> None:
     """The yaml path and the stdlib fallback must return the SAME entries for the list form the
     skill writes — so behavior does not silently change with PyYAML's presence (Codex #100)."""
