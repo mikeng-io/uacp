@@ -24,10 +24,21 @@ UACP coherence preamble (`UACP.md`, minus its HTML-comment header) as
 `SessionStart` `additionalContext`, so a host agent inherits the discipline at
 session start.
 
+It also surfaces `active` uacp-handoff capsules (`.uacp/handoffs/_index.yaml`,
+skills/uacp-handoff/) as a one-line-per-workstream summary appended after the
+preamble — so RESUME is no longer a purely manual skill verb. `.uacp/` lives in the
+WORKSPACE, not the plugin, so the workspace root is read from the SessionStart
+payload's `cwd` (stdin JSON) — the same field `guardian_pretooluse.py` uses — and
+falls back to the plugin root when no payload/`cwd` is given.
+
 Like the Guardian shim it **fails open**: a missing *or undecodable* `UACP.md`
 yields `exit 0` with no output and never blocks a session (it is a cognition nudge,
-not a gate — the architecture surface is the fail-closed one). Stdlib only; it
-imports nothing from the kernel.
+not a gate — the architecture surface is the fail-closed one); an absent or
+malformed handoffs index just drops the handoffs section, never the UACP.md
+preamble. Kernel-free (imports nothing from the UACP kernel). The handoffs index
+is read with PyYAML when the hook's python has it (robust for any shape), falling
+back to a tolerant stdlib-only parser when it does not — so the hook never
+hard-depends on yaml. Injected capsule fields are length-clamped.
 
 It is **Claude-Code-only today**; Kimi / opencode would each need their own
 session-start hook (a follow-up, analogous to the manual `config.toml` paste that
