@@ -33,6 +33,9 @@ Codes
 * ``RW_CARRIED_FINDING_UNADDRESSED`` (block) — a carried finding has NO disposition
   entry in any of the rework's registered VERIFY/closure artifacts (or only entries with
   an unrecognized ``handling_classification``, which are not valid handling decisions).
+* ``RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED`` (block) — a carried finding is disposed
+  as a remediation (``remediated`` / ``expanded``) but no matching entry points to its fix
+  via ``handling_artifact_path``; a claimed fix must link its evidence.
 * ``RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE`` (block) — a carried finding is disposed
   with an accepted-exception class but carries neither ``residual_risk`` nor
   ``accepted_exception_artifact``.
@@ -45,13 +48,16 @@ Scope / honest limits
 
 * **No-op for non-rework runs.** A run with an empty ``carried_findings`` and
   ``rework_depth == 0`` returns ``[]`` — the common path is untouched.
-* **The UNADDRESSED / EXCEPTION checks are a CLOSURE obligation** — they fire only once
-  the run is ``status == 'resolved'`` (the closure gate finalizes first, then sweeps), so
-  an in-flight rework that has not yet authored its dispositions is not false-flagged.
-  The depth escalation is pure visibility and fires whenever it is a rework run.
-* **Structural completeness only.** A disposition is checked for PRESENCE + a valid class
-  + (for exceptions) a non-empty rationale — NOT for whether the fix or the justification
-  is semantically adequate. Adequacy is a council concern (matching
+* **The discharge checks are a CLOSURE obligation** — they fire only once the run is
+  closing (``status == 'resolved'`` OR ``finalized_at`` set; the closure gate finalizes
+  first, then sweeps), so an in-flight rework that has not yet authored its dispositions is
+  not false-flagged. The depth escalation is pure visibility and fires whenever it is a
+  rework run.
+* **Structural completeness only.** A disposition is checked for PRESENCE + a valid class +
+  its class-required evidence FIELD (a remediation's ``handling_artifact_path`` fix pointer;
+  an accepted-exception's ``residual_risk`` / ``accepted_exception_artifact``) — NOT for
+  whether the fix or the justification is semantically adequate, and the linked path is not
+  resolved to a real checkpoint. Adequacy is a council concern (matching
   ``deferral_completeness``'s documented limit).
 
 Architecture: PURE of filesystem I/O — all disk reads go through :mod:`engines.io`
@@ -75,10 +81,13 @@ from engines.io.loaders import ManifestDoc
 _VALID_CLASSES: frozenset[str] = frozenset(
     {"remediated", "expanded", "justified", "deferred", "accepted_warning", "rejected_with_reason"}
 )
-# The "not fixed, but explicitly accepted" classes — each needs a rationale/exception
-# artifact. ``remediated`` / ``expanded`` are the "actually addressed" classes and need
-# no extra field (their evidence is the fix itself, checked by execute/verify coverage).
-_ACCEPTED_EXCEPTION_CLASSES: frozenset[str] = _VALID_CLASSES - {"remediated", "expanded"}
+# The "actually addressed" classes: each must POINT TO its fix via handling_artifact_path
+# (the LN grammar's fix-evidence pointer; the execute skill requires it). A bare
+# ``remediated`` with no linked fix is a label, not a discharge (Codex #135).
+_REMEDIATION_CLASSES: frozenset[str] = frozenset({"remediated", "expanded"})
+# The "not fixed, but explicitly accepted" classes — each needs a residual_risk rationale or
+# an accepted_exception_artifact.
+_ACCEPTED_EXCEPTION_CLASSES: frozenset[str] = _VALID_CLASSES - _REMEDIATION_CLASSES
 
 _DEFAULT_MAX_REWORK_DEPTH = 5
 
@@ -159,6 +168,22 @@ def _entry_addresses(entry: dict[str, Any], carried_key: str, carried_path: str)
     return id_ok and path_ok
 
 
+def _disposition_complete(entry: dict[str, Any]) -> bool:
+    """True iff the disposition carries the evidence its class demands (structural, not
+    adequacy): a remediation (remediated / expanded) must point to the fix via
+    ``handling_artifact_path``; an accepted-exception must carry a ``residual_risk`` rationale
+    or an ``accepted_exception_artifact``. A bare ``{handling_classification: remediated}`` with
+    no fix pointer is a label, not a discharge (Codex #135)."""
+    cls = _str_field(entry, "handling_classification")
+    if cls in _REMEDIATION_CLASSES:
+        return bool(_str_field(entry, "handling_artifact_path"))
+    if cls in _ACCEPTED_EXCEPTION_CLASSES:
+        return bool(
+            _str_field(entry, "residual_risk") or _str_field(entry, "accepted_exception_artifact")
+        )
+    return False  # unreachable: _entry_addresses already filtered to _VALID_CLASSES
+
+
 def validate_rework_completeness(workspace: str | Path, run_id: str) -> list[Violation]:
     """Validate that a rework run discharged every carried finding, and surface a long
     rework chain as a warning. Returns a list of Violation (empty == clean). Never raises.
@@ -231,14 +256,27 @@ def validate_rework_completeness(workspace: str | Path, run_id: str) -> list[Vio
                     )
                 )
                 continue
-            # Discharged — but an accepted-exception class must carry a rationale.
-            if all(
-                _str_field(e, "handling_classification") in _ACCEPTED_EXCEPTION_CLASSES
-                and not _str_field(e, "residual_risk")
-                and not _str_field(e, "accepted_exception_artifact")
-                for e in matches
+            # A finding is discharged when at least one matching disposition is COMPLETE:
+            # a remediation must point to the fix, an accepted-exception must state what is
+            # being accepted (structural presence — adequacy stays a council concern). If none
+            # is complete, report the failure by what the incomplete matches attempted.
+            if any(_disposition_complete(e) for e in matches):
+                continue
+            classes = sorted({_str_field(e, "handling_classification") for e in matches})
+            if any(
+                _str_field(e, "handling_classification") in _REMEDIATION_CLASSES for e in matches
             ):
-                classes = sorted({_str_field(e, "handling_classification") for e in matches})
+                violations.append(
+                    _v(
+                        "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED",
+                        f"carried finding '{carried_key}' is disposed as {classes} (a claimed "
+                        f"remediation) but no matching entry points to its fix via "
+                        f"'handling_artifact_path' — a remediation must link its fix evidence",
+                        carried_finding=carried_key,
+                        handling_classifications=classes,
+                    )
+                )
+            else:
                 violations.append(
                     _v(
                         "RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE",

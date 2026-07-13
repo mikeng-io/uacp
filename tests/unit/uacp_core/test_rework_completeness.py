@@ -219,6 +219,30 @@ def test_no_dispositions_at_all_blocks_every_carried_finding(temp_uacp_root: Pat
     assert codes.count("RW_CARRIED_FINDING_UNADDRESSED") == 2, codes
 
 
+def test_bare_remediated_without_fix_evidence_blocks(temp_uacp_root: Path):
+    """A remediation must LINK its fix via handling_artifact_path — a bare
+    {original_finding_id, handling_classification: remediated} is a label, not a discharge, and
+    must not let finalize pass without fix evidence (Codex #135)."""
+    chain = [
+        {
+            "original_finding_id": "verification_package",
+            "handling_classification": "remediated",
+            "handling_artifact_path": "executions/run-B-checkpoint-001.yaml",
+        },
+        {
+            "original_finding_id": "assessment",
+            "handling_classification": "remediated",
+        },  # no fix pointer
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    rem = [x for x in v if x.code == "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED"]
+    assert len(rem) == 1 and rem[0].severity == "block", _codes(v)
+    assert rem[0].detail["carried_finding"] == "assessment"
+    # the properly-evidenced verification_package remediation is NOT flagged
+    assert not any(x.detail.get("carried_finding") == "verification_package" for x in v)
+
+
 def test_accepted_exception_without_rationale_blocks(temp_uacp_root: Path):
     """An accepted-exception classification (justified/deferred/…) must carry a rationale
     or an exception artifact — an empty 'justified' is not an explicit accepted-exception."""
