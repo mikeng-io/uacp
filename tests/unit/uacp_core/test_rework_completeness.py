@@ -111,6 +111,42 @@ def test_disposition_correlates_by_artifact_path_too(temp_uacp_root: Path):
     assert validate_rework_completeness(temp_uacp_root, "run-B") == []
 
 
+def test_disposition_in_governed_writer_readiness_artifact_is_scanned(temp_uacp_root: Path):
+    """A child that authored its readiness via uacp_entity_write registers it under the
+    GOVERNED-WRITER key 'verify_resolve_readiness' (kind.removeprefix('uacp.')), not the
+    'resolve_readiness' alias — the engine must scan that artifact for dispositions too, or a
+    real governed rework's dispositions are ignored (Codex #135)."""
+    rr_rel = "verification/run-B-resolve-readiness.yaml"
+    _write_manifest(
+        temp_uacp_root,
+        "run-B",
+        reworks="run-A",
+        rework_depth=1,
+        carried_findings=_CARRIED,
+        artifacts={"verify_resolve_readiness": rr_rel},  # governed-writer key
+    )
+    _write_artifact(
+        temp_uacp_root,
+        rr_rel,
+        {
+            "kind": "uacp.verify_resolve_readiness",
+            "handled_findings_chain": [
+                {
+                    "original_finding_id": "verification_package",
+                    "handling_classification": "remediated",
+                    "handling_artifact_path": "x",
+                },
+                {
+                    "original_finding_id": "assessment",
+                    "handling_classification": "remediated",
+                    "handling_artifact_path": "y",
+                },
+            ],
+        },
+    )
+    assert validate_rework_completeness(temp_uacp_root, "run-B") == []
+
+
 # ------------------------------------------------------------------ blocking paths
 def test_carried_finding_without_disposition_blocks(temp_uacp_root: Path):
     # only the first carried key is disposed; 'assessment' is ignored

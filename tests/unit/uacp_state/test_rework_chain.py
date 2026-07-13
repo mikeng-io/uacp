@@ -227,6 +227,34 @@ def test_rework_carries_composite_investigation_entry_key(temp_uacp_root: Path):
     }
 
 
+def test_rework_carries_governed_writer_verify_keys(temp_uacp_root: Path):
+    """A parent that authored its verify artifacts via uacp_entity_write registers them
+    under the GOVERNED-WRITER keys 'verify_resolve_readiness' / 'piv_assessment'
+    (kind.removeprefix('uacp.')). These MUST be carried too — a production rework's readiness
+    and assessment findings must not be silently dropped just because the manual-alias keys
+    differ (Codex #135)."""
+    root = temp_uacp_root
+    parent = RunManifest(
+        run_id="gov-parent",
+        authority=Authority(source="operator-request"),
+        track="standard",
+        current_phase="verify",
+        artifacts={
+            "verification_package": "verification/gov-parent-verify-selection.yaml",
+            "verify_resolve_readiness": "verification/gov-parent-resolve-readiness.yaml",
+            "piv_assessment": "verification/gov-parent-piv-assessment.yaml",
+        },
+    )
+    _save_manifest(root, parent)
+    out = _init_rework(root, "run-B", "gov-parent")
+    assert out.get("ok") is True, out
+    assert _manifest(root, "run-B")["carried_findings"] == {
+        "verification_package": "verification/gov-parent-verify-selection.yaml",
+        "verify_resolve_readiness": "verification/gov-parent-resolve-readiness.yaml",
+        "piv_assessment": "verification/gov-parent-piv-assessment.yaml",
+    }
+
+
 def test_rework_requires_standard_track_parent(temp_uacp_root: Path):
     """M4: keep the loops distinct — a standard rework cannot rework a goal-driven parent."""
     root = temp_uacp_root
@@ -339,15 +367,33 @@ def test_execute_entry_no_rework_noise_for_plain_run(temp_uacp_root: Path):
 
 
 # ---------------------------------------------- #135 P3: keys DERIVED from schema
-def test_verify_finding_keys_derived_from_schema_match_carry_set():
-    """The carry set is derived from the schema registry, not a frozen literal — and the
-    derivation reproduces the exact keys the standard verify flow registers (no behavior
-    change), so a rework carries verification_package/resolve_readiness/assessment/
-    investigation_entry."""
+def test_verify_finding_keys_cover_both_registration_conventions():
+    """The carry set is derived from the schema registry (not a frozen literal) and covers
+    BOTH manifest registration conventions per verify kind (Codex #135): the governed-writer
+    key (kind.removeprefix('uacp.'), the production uacp_entity_write path) AND the manual
+    alias the skill/seeders register (resolve_readiness / assessment). If it only had the
+    manual aliases, a real governed run's readiness/assessment findings would not be carried."""
     from engines.domain.schema import verify_finding_artifact_keys
 
-    assert verify_finding_artifact_keys() == frozenset(
-        {"verification_package", "resolve_readiness", "assessment", "investigation_entry"}
+    keys = verify_finding_artifact_keys()
+    # governed-writer keys (production) — MUST be present
+    assert {
+        "verify_resolve_readiness",
+        "piv_assessment",
+        "verification_package",
+        "investigation_entry",
+    } <= keys
+    # manual/seeder aliases — also present
+    assert {"resolve_readiness", "assessment"} <= keys
+    assert keys == frozenset(
+        {
+            "verification_package",
+            "verify_resolve_readiness",
+            "resolve_readiness",
+            "piv_assessment",
+            "assessment",
+            "investigation_entry",
+        }
     )
 
 
