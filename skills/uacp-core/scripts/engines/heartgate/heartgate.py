@@ -645,6 +645,25 @@ class Heartgate:
 
             violations = [*violations, *join_forecast_record(self.uacp_root, run_id)]
 
+            # PROMOTION EVIDENCE (#80): record which conformance-witness codes fired at this
+            # closure so a later promotion report can tally advisory firing across runs — the
+            # "N runs with zero false-positive advisories" bar that advisory->blocking witness
+            # promotion is gated on (design/conformance-witnesses nodes 02-04). Gate-owned
+            # OBSERVATION only: it reads the same sweep's violations, changes NO decision and
+            # promotes NO witness, and never raises (best-effort — a failed write is dropped).
+            try:
+                import time as _time
+
+                from engines.io.witness_ledger_io import (  # noqa: PLC0415
+                    build_witness_record,
+                    write_witness_ledger,
+                )
+
+                _record = build_witness_record(run_id, [v.code for v in violations], _time.time())
+                write_witness_ledger(self.uacp_root, run_id, _record)
+            except Exception:  # evidence is best-effort — never let it affect closure
+                pass
+
             blockers: list[str] = []
             warnings: list[str] = []
             for v in violations:

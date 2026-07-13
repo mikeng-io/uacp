@@ -1,0 +1,206 @@
+"""Witness-advisory ledger I/O — the promotion-evidence substrate (#80).
+
+The conformance witnesses (scope diff/cascade, class-underclaim) ship **advisory** and
+their findings surface transiently in the closure response — nothing tallies them across
+runs, so the "≥N runs with zero false-positive advisories" bar the promotion design
+(`design/conformance-witnesses/` nodes 02–04) makes a hard gate on advisory→blocking
+promotion cannot be measured. This module records, at each closure, WHICH witness codes
+fired for a run, under the governed verification surface
+(``<base>/verification/<run_id>-witness-ledger.yaml``), so a later promotion report can
+aggregate firing counts by code and by witnessable population.
+
+This is pure OBSERVATION — writing a ledger record changes NO gate outcome and promotes NO
+witness. The record is gate-owned evidence (never read back as a gate INPUT), mirroring the
+cascade-forecast record (``forecastio``); like every io helper it NEVER raises (a failed
+write returns ``False``).
+"""
+
+from __future__ import annotations
+
+import os
+import tempfile
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from config import dir_for
+
+# Promotion evidence is PER WITNESS FAMILY, not per run (council #80): a run that starves one
+# witness (e.g. the class prober is absent) must NOT mask a real advisory from another (the
+# diff witness fired) — collapsing to a single per-run bucket would drop that advisory from
+# the false-positive denominator, letting readiness overclaim CLEAN. Each family independently
+# classifies a run as witnessable / starved and counts ITS OWN advisories.
+#
+#   * ``substantive`` — the ADVISORY findings that count toward the FP bar (the ones pending
+#     advisory->blocking promotion). Excludes already-blocking codes (see below).
+#   * ``unavailable`` — the family's prober was absent / failed (run out of its FP population).
+#   * ``unresolved``  — a claimed/touched symbol could not be resolved (a starved witness).
+
+
+class WitnessFamily:
+    """One conformance-witness family and the codes that classify a run FOR IT."""
+
+    __slots__ = ("name", "substantive", "unavailable", "unresolved")
+
+    def __init__(
+        self,
+        name: str,
+        substantive: frozenset[str],
+        unavailable: frozenset[str],
+        unresolved: frozenset[str],
+    ) -> None:
+        self.name = name
+        self.substantive = substantive
+        self.unavailable = unavailable
+        self.unresolved = unresolved
+
+    @property
+    def codes(self) -> frozenset[str]:
+        return self.substantive | self.unavailable | self.unresolved
+
+
+WITNESS_FAMILIES: tuple[WitnessFamily, ...] = (
+    WitnessFamily(
+        "scope_diff",
+        substantive=frozenset({"SC_DIFF_OUT_OF_SCOPE"}),
+        unavailable=frozenset({"SC_DIFF_UNAVAILABLE"}),
+        unresolved=frozenset(),
+    ),
+    WitnessFamily(
+        "scope_cascade",
+        substantive=frozenset({"SC_UNDECLARED_CASCADE", "SC_SCOPE_OVERDECLARED"}),
+        unavailable=frozenset({"SC_WITNESS_UNAVAILABLE"}),
+        unresolved=frozenset({"SC_WITNESS_UNRESOLVED_CLAIM", "SC_WITNESS_UNRESOLVED_TOUCHED"}),
+    ),
+    WitnessFamily(
+        "class",
+        # Only the ADVISORY class-witness codes. CHK_CLASS_UNDERCLAIM / CHK_ENTAILED_CLASS_INVALID
+        # are already BLOCK-severity (see _ALREADY_BLOCKING) — nothing to promote, so they are
+        # recorded but never counted as advisory evidence (council #80 P3).
+        substantive=frozenset({"CHK_CLASS_REF_UNTOUCHED", "CHK_ENTAILED_CLASS_SUPERSEDED"}),
+        unavailable=frozenset({"CHK_CLASS_WITNESS_UNAVAILABLE"}),
+        unresolved=frozenset(),
+    ),
+)
+
+# Witness-family codes that already ship as BLOCK severity (not advisory) — recorded in the raw
+# ledger for completeness but excluded from every family's substantive advisory numerator.
+_ALREADY_BLOCKING: frozenset[str] = frozenset(
+    {"CHK_CLASS_UNDERCLAIM", "CHK_ENTAILED_CLASS_INVALID"}
+)
+
+# Every recognized witness code (family codes + already-blocking). Explicit set (not an
+# "SC_"/"CHK_" prefix match) so unrelated scope/check codes (SC_SCOPE_REGISTRY_DISAGREE,
+# CHK_FLOOR_UNMET, ...) are never miscounted as witness firings.
+WITNESS_CODES: frozenset[str] = frozenset(
+    _ALREADY_BLOCKING.union(*(f.codes for f in WITNESS_FAMILIES))
+)
+
+
+def witness_counts(codes: Iterable[str]) -> dict[str, int]:
+    """Tally only the recognized witness codes in ``codes`` (a run's fired violation codes),
+    dropping everything else. Returns ``{code: count}`` (sorted-key insertion for stable
+    serialization). Never raises."""
+    counts: dict[str, int] = {}
+    for c in codes:
+        if isinstance(c, str) and c in WITNESS_CODES:
+            counts[c] = counts.get(c, 0) + 1
+    return {k: counts[k] for k in sorted(counts)}
+
+
+def family_status(family: WitnessFamily, codes: Iterable[str]) -> str:
+    """Classify a run FOR THIS FAMILY: ``"unavailable"`` (its prober was absent/failed), else
+    ``"unresolved"`` (a starved symbol), else ``"witnessable"`` (it ran — its advisories count
+    toward the FP bar). Independent of the other families."""
+    s = {c for c in codes if isinstance(c, str)}
+    if s & family.unavailable:
+        return "unavailable"
+    if s & family.unresolved:
+        return "unresolved"
+    return "witnessable"
+
+
+def build_witness_record(run_id: str, codes: Iterable[str], witnessed_at: float) -> dict[str, Any]:
+    """Assemble the per-run witness-ledger record from the closure sweep's fired codes. The
+    record carries the raw ``counts`` plus a PER-FAMILY breakdown (status + this family's
+    substantive advisory count), so a promotion report can compute a per-witness FP
+    denominator that one starved witness cannot corrupt (council #80)."""
+    codes = list(codes)
+    counts = witness_counts(codes)
+    families = {
+        f.name: {
+            "status": family_status(f, codes),
+            "substantive": sum(counts.get(c, 0) for c in f.substantive),
+        }
+        for f in WITNESS_FAMILIES
+    }
+    return {
+        "kind": "uacp.witness_ledger",
+        "run_id": run_id,
+        "witnessed_at": witnessed_at,
+        "counts": counts,
+        "families": families,
+    }
+
+
+def witness_ledger_path(root: Path, run_id: str) -> Path | None:
+    """``<base>/verification/<run_id>-witness-ledger.yaml`` (config-aware), or None when the
+    governed verification dir cannot be resolved. Never raises."""
+    try:
+        vdir = dir_for(Path(root).resolve(), "verification")
+    except Exception:
+        return None
+    return vdir / f"{run_id}-witness-ledger.yaml"
+
+
+def write_witness_ledger(root: Path, run_id: str, record: dict[str, Any]) -> bool:
+    """Write the witness-ledger record ATOMICALLY (same-dir temp + fsync + os.replace), so a
+    reader never observes a half-written record and a crash cannot leave a partial file
+    (last-write-wins across retried closures). On ANY failure the temp is cleaned and
+    ``False`` is returned. Creates the verification dir if needed. Never raises."""
+    path = witness_ledger_path(root, run_id)
+    if path is None:
+        return False
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        data = yaml.safe_dump(record, sort_keys=False)
+    except Exception:
+        return False
+
+    tmp_path: Path | None = None
+    try:
+        fd, tmp_name = tempfile.mkstemp(
+            dir=str(path.parent), prefix=f".{path.name}.", suffix=".tmp"
+        )
+        tmp_path = Path(tmp_name)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(data)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp_path, path)  # atomic within the same directory
+        return True
+    except Exception:
+        if tmp_path is not None:
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+        return False
+
+
+def load_witness_ledger(root: Path, run_id: str) -> tuple[dict[str, Any] | None, str | None]:
+    """Load the witness-ledger record. ``(record, None)`` when present + well-formed,
+    ``(None, None)`` when ABSENT, ``(None, error)`` when present but unreadable / not a
+    mapping. Never raises."""
+    path = witness_ledger_path(root, run_id)
+    if path is None or not path.exists():
+        return None, None
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        return None, f"witness ledger unreadable: {type(exc).__name__}: {exc}"
+    if not isinstance(data, dict):
+        return None, "witness ledger is not a mapping"
+    return data, None
