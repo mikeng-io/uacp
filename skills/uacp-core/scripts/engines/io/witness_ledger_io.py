@@ -156,13 +156,21 @@ def build_witness_record(run_id: str, codes: Iterable[str], witnessed_at: float)
 
 
 def witness_ledger_path(root: Path, run_id: str) -> Path | None:
-    """``<base>/verification/<run_id>-witness-ledger.yaml`` (config-aware), or None when the
-    governed verification dir cannot be resolved. Never raises."""
+    """``<base>/verification/witness-ledgers/<run_id>.yaml`` (config-aware), or None when the
+    governed verification dir cannot be resolved. Never raises.
+
+    NB (Codex #80): the ledger lives in a SUBDIRECTORY of ``verification/``, not directly in
+    it, ON PURPOSE. The verify-phase evidence invariant globs ``verification/{run_id}*``
+    (non-recursive, ``evidence_completeness`` via ``glob_in_workspace``); a ledger written as
+    ``verification/{run_id}-witness-ledger.yaml`` would MATCH it and could, on a re-check of a
+    finalized run whose real verification package was removed, be the only matching file and
+    falsely satisfy the evidence-presence check. Under ``witness-ledgers/`` it does not match
+    that glob, so this gate-owned observer never masks missing verification evidence."""
     try:
         vdir = dir_for(Path(root).resolve(), "verification")
     except Exception:
         return None
-    return vdir / f"{run_id}-witness-ledger.yaml"
+    return vdir / "witness-ledgers" / f"{run_id}.yaml"
 
 
 def write_witness_ledger(root: Path, run_id: str, record: dict[str, Any]) -> bool:

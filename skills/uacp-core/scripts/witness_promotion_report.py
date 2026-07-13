@@ -64,7 +64,9 @@ def build_report(root: Path | str) -> dict[str, Any]:
     total_runs = 0
 
     if vdir is not None and vdir.is_dir():
-        for path in sorted(vdir.glob("*-witness-ledger.yaml")):
+        # ledgers live under verification/witness-ledgers/ (out of the verify-evidence glob,
+        # Codex #80) — read them from there, one per run.
+        for path in sorted(vdir.glob("witness-ledgers/*.yaml")):
             rec = _load_yaml(path)
             if rec is None:
                 continue

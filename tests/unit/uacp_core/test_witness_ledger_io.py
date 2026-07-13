@@ -87,6 +87,20 @@ def test_load_absent_is_none_none(tmp_path: Path):
     assert wl.load_witness_ledger(tmp_path, "nope") == (None, None)
 
 
+def test_ledger_does_not_pollute_the_verify_evidence_glob(tmp_path: Path):
+    """The ledger must live UNDER verification/witness-ledgers/, not directly in verification/,
+    so it never matches the non-recursive verify-evidence invariant glob `verification/{run_id}*`
+    and can't falsely satisfy an evidence-presence check (Codex #80)."""
+    rec = wl.build_witness_record("run-x", ["SC_DIFF_OUT_OF_SCOPE"], witnessed_at=1.0)
+    assert wl.write_witness_ledger(tmp_path, "run-x", rec) is True
+    base = tmp_path / ".uacp"
+    # the verify-evidence-style glob (non-recursive) must NOT see the ledger
+    assert list(base.glob("verification/run-x*")) == []
+    # but it IS written + loadable under the sub-namespace
+    assert (base / "verification" / "witness-ledgers" / "run-x.yaml").is_file()
+    assert wl.load_witness_ledger(tmp_path, "run-x")[0] == rec
+
+
 def test_replace_failure_returns_false_and_leaves_no_partial(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(wl.os, "replace", lambda _s, _d: (_ for _ in ()).throw(OSError("full")))
     assert wl.write_witness_ledger(tmp_path, "run-io", {"kind": "uacp.witness_ledger"}) is False
