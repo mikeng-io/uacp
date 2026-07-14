@@ -64,6 +64,33 @@ def test_empty_workspace_is_all_zero(tmp_path: Path):
         }
 
 
+def test_symlinked_ledger_dir_is_not_followed_on_read(tmp_path: Path):
+    """The report must NOT follow a symlinked witness-ledgers dir (Codex #80): pointed at
+    state/runs it would read every run manifest as a ledger, inflating total_runs and seeding
+    the forecast fallback from non-ledger files. Such a dir is skipped entirely."""
+    base = tmp_path / ".uacp"
+    runs = base / "state" / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    # a run manifest that would masquerade as a ledger if the symlink were followed
+    (runs / "victim.yaml").write_text("kind: uacp.run_manifest\nrun_id: victim\n", encoding="utf-8")
+    (base / "verification").mkdir(parents=True, exist_ok=True)
+    (base / "verification" / "witness-ledgers").symlink_to(runs, target_is_directory=True)
+
+    r = rep.build_report(tmp_path)
+    assert r["total_runs"] == 0  # the run manifest was NOT read as a ledger
+    assert r["per_code"] == {}
+
+
+def test_foreign_kind_in_ledger_dir_is_not_counted(tmp_path: Path):
+    """Defense in depth: even in a real (non-symlinked) ledger dir, a stray file whose kind is
+    not uacp.witness_ledger must not inflate the tally (Codex #80)."""
+    _seed_ledger(tmp_path, "real", ["SC_DIFF_OUT_OF_SCOPE"])  # a genuine ledger
+    stray = tmp_path / ".uacp" / "verification" / "witness-ledgers" / "stray.yaml"
+    stray.write_text("kind: uacp.run_manifest\nrun_id: stray\n", encoding="utf-8")
+    r = rep.build_report(tmp_path)
+    assert r["total_runs"] == 1  # only the real ledger counts
+
+
 def test_aggregates_per_family_and_per_code(tmp_path: Path):
     _seed_ledger(tmp_path, "r1", ["SC_DIFF_OUT_OF_SCOPE"])  # scope_diff unstarved+substantive
     _seed_ledger(

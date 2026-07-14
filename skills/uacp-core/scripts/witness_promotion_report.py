@@ -40,6 +40,24 @@ _MIN_FORECAST_PRECISION = 0.8
 _MIN_FORECAST_RUNS = 20
 
 
+_WITNESS_LEDGER_KIND = "uacp.witness_ledger"
+
+
+def _ledger_dir_or_none(vdir: Path) -> Path | None:
+    """The ``verification/witness-ledgers`` dir, or None if it is absent OR a SYMLINK (or its
+    parent is). The report must NOT follow a symlinked ledger dir: pointed at e.g.
+    ``.uacp/state/runs`` it would make every run manifest be read as a witness ledger, inflating
+    total_runs / seeding the forecast fallback from non-ledger files (Codex #80). Checked with
+    ``is_symlink`` BEFORE ``is_dir`` (which follows links). Never raises."""
+    try:
+        d = vdir / "witness-ledgers"
+        if vdir.is_symlink() or d.is_symlink() or not d.is_dir():
+            return None
+        return d
+    except Exception:
+        return None
+
+
 def _load_yaml(path: Path) -> dict[str, Any] | None:
     try:
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -69,12 +87,18 @@ def build_report(root: Path | str) -> dict[str, Any]:
     per_code: dict[str, dict[str, int]] = {}
     total_runs = 0
 
-    if vdir is not None and vdir.is_dir():
+    ledger_dir = _ledger_dir_or_none(vdir) if vdir is not None else None
+    if ledger_dir is not None:
         # ledgers live under verification/witness-ledgers/ (out of the verify-evidence glob,
         # Codex #80) — read them from there, one per run.
-        for path in sorted(vdir.glob("witness-ledgers/*.yaml")):
+        for path in sorted(ledger_dir.glob("*.yaml")):
             rec = _load_yaml(path)
             if rec is None:
+                continue
+            # Only count REAL witness ledgers — a stray / foreign file (e.g. a run manifest
+            # reachable via a symlinked dir) carries a different kind and must not inflate the
+            # tally (Codex #80).
+            if rec.get("kind") != _WITNESS_LEDGER_KIND:
                 continue
             total_runs += 1
             counts = rec.get("counts")
@@ -189,7 +213,15 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
     except Exception:
         vdir = None
     if vdir is not None and vdir.is_dir():
-        ledger_run_ids = {p.stem for p in vdir.glob("witness-ledgers/*.yaml")}
+        # The ledger-presence fallback set: real witness ledgers under a NON-symlinked dir only
+        # (a symlinked dir or a foreign kind must not seed the resolved-fallback — Codex #80).
+        ledger_dir = _ledger_dir_or_none(vdir)
+        ledger_run_ids = (
+            {p.stem for p in ledger_dir.glob("*.yaml")
+             if (_load_yaml(p) or {}).get("kind") == _WITNESS_LEDGER_KIND}
+            if ledger_dir is not None
+            else set()
+        )
         for path in sorted(vdir.glob("*-cascade-forecast.yaml")):
             run_id = path.name.removesuffix("-cascade-forecast.yaml")
             if not _run_is_resolved(root_p, run_id, ledger_run_ids):
