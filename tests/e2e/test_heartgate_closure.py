@@ -65,6 +65,53 @@ def test_compliant_finalized_run_passes_closure(temp_uacp_root: Path, valid_run_
     assert isinstance(decision, type(Heartgate.load(str(temp_uacp_root)).validate_transition({})))
 
 
+# ------------------------------------------- promotion-evidence ledger (#80)
+def test_closure_writes_witness_advisory_ledger(temp_uacp_root: Path, valid_run_id: str):
+    """A closure records a witness-advisory ledger (#80 promotion-evidence substrate) — a
+    per-run tally of which conformance-witness codes fired, WITHOUT changing the decision.
+    A clean coherent run is the promotion DENOMINATOR: every family unstarved, no substantive
+    witness findings."""
+    import engines.io.witness_ledger_io as wl
+
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    decision = _closure(temp_uacp_root, valid_run_id)
+    assert decision.decision == "pass", decision.blockers  # ledger did not affect the pass
+
+    record, err = wl.load_witness_ledger(temp_uacp_root, valid_run_id)
+    assert err is None and record is not None, "closure must write a witness ledger"
+    assert record["kind"] == "uacp.witness_ledger"
+    assert record["run_id"] == valid_run_id
+    # a run with no witness findings records every family UNSTARVED with zero advisories (NB:
+    # 'unstarved' means no starvation code — it does not by itself prove the witness ran)
+    for fname in ("scope_diff", "scope_cascade", "class"):
+        assert record["families"][fname] == {"status": "unstarved", "substantive": 0}, record
+
+
+def test_blocked_closure_writes_no_witness_ledger(temp_uacp_root: Path, valid_run_id: str):
+    """A BLOCKED closure must NOT persist a witness ledger (Codex #80): validate_closure runs
+    during handle_finalize's tentative finalize, and a blocked run is reverted — persisting a
+    ledger for a run that never resolved would pollute the promotion corpus."""
+    import engines.io.witness_ledger_io as wl
+
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    # seed_coherent_run finalizes (a PASSING closure) — which correctly wrote a ledger. Remove
+    # it so we test the BLOCKED path in isolation.
+    ledger = wl.witness_ledger_path(temp_uacp_root, valid_run_id)
+    assert ledger is not None and ledger.is_file(), "a passing closure should have written one"
+    ledger.unlink()
+
+    # corrupt the manifest so closure BLOCKS (C1 run_id mismatch)
+    data = _load_manifest_raw(temp_uacp_root, valid_run_id)
+    data["run_id"] = "uacp-test-IMPOSTER"
+    _write_manifest_raw(temp_uacp_root, valid_run_id, data)
+
+    decision = _closure(temp_uacp_root, valid_run_id)
+    assert decision.decision == "block", decision.blockers  # precondition: it really blocked
+    assert wl.load_witness_ledger(temp_uacp_root, valid_run_id) == (None, None), (
+        "a blocked closure must not leave a ledger in the promotion corpus"
+    )
+
+
 # ---------------------------------------------------- teeth 1: coherence (C1)
 def test_manifest_run_id_mismatch_blocks_with_c1(temp_uacp_root: Path, valid_run_id: str):
     seed_coherent_run(temp_uacp_root, valid_run_id)

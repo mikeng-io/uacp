@@ -654,6 +654,29 @@ class Heartgate:
                 else:
                     warnings.append(line)
 
+            # PROMOTION EVIDENCE (#80): record which conformance-witness codes fired at this
+            # closure so a later promotion report can tally advisory firing across runs (the
+            # advisory->blocking promotion bar). Written ONLY for a NON-blocked closure (Codex
+            # #80): validate_closure runs during handle_finalize's TENTATIVE finalize, and a
+            # blocked closure is reverted — persisting a ledger for a run that never resolved
+            # would pollute the promotion corpus (report counts every witness-ledgers/*.yaml).
+            # Gate-owned OBSERVATION only: it reads the same sweep's violations, changes NO
+            # decision, promotes NO witness, and never raises (best-effort — a failed write is
+            # dropped).
+            if not blockers:
+                try:
+                    import time as _time
+
+                    from engines.io.witness_ledger_io import (  # noqa: PLC0415
+                        build_witness_record,
+                        write_witness_ledger,
+                    )
+
+                    _rec = build_witness_record(run_id, [v.code for v in violations], _time.time())
+                    write_witness_ledger(self.uacp_root, run_id, _rec)
+                except Exception:  # evidence is best-effort — never let it affect closure
+                    pass
+
             if blockers:
                 return HeartgateDecision(
                     "block", "closure blocked by computed engines", blockers, warnings
