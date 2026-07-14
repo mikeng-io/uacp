@@ -45,22 +45,32 @@ the item must be structurally well-formed (fail-CLOSED, #149). Each item MUST ca
 7. `residual_risk`;
 8. `heartgate_validation` — one of `pass | warn | block`.
 
-The `handling_classification` also carries its class-required evidence:
+Beyond the 8 base fields, the item MUST also satisfy the **conditional grammar** the closure
+engine mirrors from the canonical validator (`validate_handled_findings_chain`) — filling only
+the base fields is **not enough**:
 
-- **`remediated` / `expanded`** — you actually fixed it (point to the fix via
-  `handling_artifact_path`);
-- **`justified` / `deferred` / `accepted_warning` / `rejected_with_reason`** — an explicit
-  accepted-exception; it MUST carry a `residual_risk` rationale or an
-  `accepted_exception_artifact`.
+- **`remediated` / `expanded` / `justified`** ("the fix / justification stands") — MUST EITHER
+  open a tracked followup (`followup_required: true` **and** a
+  `followup_council_synthesis_artifact`) **OR** carry an `accepted_exception_artifact`;
+- **`deferred` / `accepted_warning` / `rejected_with_reason`** (carried onward) — MUST carry a
+  `next_phase_obligation` (plus `owner` + `residual_risk`, already base); and
+  `accepted_warning` / `rejected_with_reason` MUST additionally carry an
+  `accepted_exception_artifact`;
+- if `followup_required: true`, a `followup_council_synthesis_artifact` is required;
+- a `blocker` / `invariant_failure` finding carried forward (any of the carry-forward
+  classes) MUST set `heartgate_validation: block`;
+- `followup_depth`, if present, must be an integer within the max (1).
 
-**Closure is fail-closed on this.** The `rework_completeness` closure engine blocks
-RESOLVE if any carried finding has no disposition (`RW_CARRIED_FINDING_UNADDRESSED`), a
-remediation with no fix pointer (`RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED`), an
-accepted-exception with no rationale (`RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE`), or a
-disposition that carries its class-evidence but is not a well-formed canonical item —
-missing a base field or an invalid enum (`RW_CARRIED_FINDING_DISPOSITION_MALFORMED`). A
-rework cannot quietly close having ignored, or half-documented, a finding it was created to
-fix.
+**Closure is fail-closed on this.** The `rework_completeness` engine blocks RESOLVE if any
+carried finding has no disposition (`RW_CARRIED_FINDING_UNADDRESSED`), a remediation with no
+fix pointer (`RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED`), an accepted-exception with no
+rationale (`RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE`), or a disposition that carries its
+class-evidence but is not a well-formed canonical item — a missing base **or conditional**
+field, or an invalid enum (`RW_CARRIED_FINDING_DISPOSITION_MALFORMED`). The disposition must
+also live in **this run's own** VERIFY / closure artifact (matching `run_id`, phase
+verify/resolve) — a chain borrowed from another run or an earlier-phase artifact does not
+discharge. A rework cannot quietly close having ignored, or half-documented, a finding it was
+created to fix.
 
 ## Execution Posture (Critical)
 
