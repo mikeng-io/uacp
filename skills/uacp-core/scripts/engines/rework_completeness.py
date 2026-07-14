@@ -147,6 +147,15 @@ _CARRY_FORWARD_HANDLINGS: frozenset[str] = frozenset(
 )
 _MAX_FOLLOWUP_DEPTH_DEFAULT = 1
 
+# A rework discharges a carried finding ONLY in its VERIFY / closure evidence — a disposition
+# is not evidence until the run has actually reached verify/resolve. The lifecycle artifact
+# schemas each pin a ``phase`` const (propose/plan/execute/verify/resolve); dispositions are
+# honored only from artifacts declaring one of these phases, so a syntactically-valid
+# handled_findings_chain planted in an earlier-phase (proposal/plan/execute) artifact — the
+# schemas are open to extra fields — cannot discharge a carried finding before the required
+# verify/closure evidence exists (Codex #135).
+_DISPOSITION_PHASES: frozenset[str] = frozenset({"verify", "resolve"})
+
 _DEFAULT_MAX_REWORK_DEPTH = 5
 
 
@@ -184,10 +193,11 @@ def _collect_dispositions(root: Path, manifest: dict[str, Any]) -> list[dict[str
     ``uacp_entity_write`` key = ``kind.removeprefix("uacp.")`` vs a shorter manual alias).
     Curating a source-key list repeatedly missed a valid registration key (Codex #135: first
     the governed VERIFY keys, then the RESOLVE ``resolve_package`` / ``resolve_closure`` keys),
-    so scan EVERY registered artifact for the chain instead — they are all the rework's own
-    watermarked evidence, and ``handled_findings_chain`` only appears where a disposition was
-    authored. Tolerant: a missing / garbled / non-list artifact contributes nothing (a
-    genuinely absent disposition is caught as UNADDRESSED)."""
+    so scan EVERY registered artifact for the chain instead of a fragile key list — BUT only
+    honor those declaring a VERIFY / RESOLVE ``phase`` (:data:`_DISPOSITION_PHASES`), so a chain
+    in an earlier-phase artifact cannot discharge a finding before verify/closure evidence
+    exists (Codex #135). Tolerant: a missing / garbled / non-list / wrong-phase artifact
+    contributes nothing (a genuinely absent disposition is caught as UNADDRESSED)."""
     artifacts = manifest.get("artifacts")
     if not isinstance(artifacts, dict):
         return []
@@ -200,6 +210,12 @@ def _collect_dispositions(root: Path, manifest: dict[str, Any]) -> list[dict[str
         seen_rels.add(rel)
         loaded = load_artifact(root, rel)
         if loaded.error is not None or not isinstance(loaded.value, dict):
+            continue
+        # Honor dispositions ONLY from VERIFY / closure artifacts (the contract): a chain in an
+        # earlier-phase artifact (proposal/plan/execute) must not discharge a carried finding
+        # before verify/closure evidence exists (Codex #135). Gate on the artifact's declared
+        # phase — a phase-less / non-verify/resolve artifact contributes nothing.
+        if loaded.value.get("phase") not in _DISPOSITION_PHASES:
             continue
         chain = loaded.value.get("handled_findings_chain")
         if isinstance(chain, list):

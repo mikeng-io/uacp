@@ -106,7 +106,9 @@ def _seed_rework(root: Path, run_id: str, *, carried: dict, chain: list, rework_
         artifacts={"resolve_readiness": rr_rel},
     )
     _write_artifact(
-        root, rr_rel, {"kind": "uacp.verify_resolve_readiness", "handled_findings_chain": chain}
+        root,
+        rr_rel,
+        {"kind": "uacp.verify_resolve_readiness", "phase": "verify", "handled_findings_chain": chain},
     )
 
 
@@ -167,6 +169,7 @@ def test_disposition_in_governed_writer_readiness_artifact_is_scanned(temp_uacp_
         rr_rel,
         {
             "kind": "uacp.verify_resolve_readiness",
+            "phase": "verify",
             "handled_findings_chain": [
                 _canonical("verification_package", handling_artifact_path="x"),
                 _canonical("assessment", handling_artifact_path="y"),
@@ -196,6 +199,7 @@ def test_disposition_in_governed_resolve_closure_artifact_is_scanned(temp_uacp_r
         rc_rel,
         {
             "kind": "uacp.resolve_closure",
+            "phase": "resolve",
             "handled_findings_chain": [
                 _canonical("verification_package", handling_artifact_path="x"),
                 _canonical("assessment", handling_artifact_path="y"),
@@ -203,6 +207,39 @@ def test_disposition_in_governed_resolve_closure_artifact_is_scanned(temp_uacp_r
         },
     )
     assert validate_rework_completeness(temp_uacp_root, "run-B") == []
+
+
+def test_disposition_in_non_verify_resolve_artifact_does_not_discharge(temp_uacp_root: Path):
+    """A syntactically-valid handled_findings_chain planted in an EARLIER-phase artifact
+    (here a plan artifact, phase='plan') must NOT discharge a carried finding — dispositions
+    are only honored from VERIFY/closure artifacts, so a rework cannot close before the required
+    verify/closure evidence exists (Codex #135). The lifecycle schemas are open to extra fields,
+    so the chain would otherwise be silently accepted."""
+    plan_rel = "plan/run-B-plan.yaml"
+    _write_manifest(
+        temp_uacp_root,
+        "run-B",
+        reworks="run-A",
+        rework_depth=1,
+        carried_findings=_CARRIED,
+        artifacts={"plan": plan_rel},  # ONLY a plan artifact carries the (misplaced) chain
+    )
+    _write_artifact(
+        temp_uacp_root,
+        plan_rel,
+        {
+            "kind": "uacp.plan_validation",
+            "phase": "plan",  # NOT verify/resolve -> its chain must be ignored
+            "handled_findings_chain": [
+                _canonical("verification_package", handling_artifact_path="x"),
+                _canonical("assessment", handling_artifact_path="y"),
+            ],
+        },
+    )
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    assert _codes(v) == {"RW_CARRIED_FINDING_UNADDRESSED"}
+    # BOTH carried findings are still unaddressed (the plan chain discharged neither)
+    assert len([x for x in v if x.code == "RW_CARRIED_FINDING_UNADDRESSED"]) == 2
 
 
 # ------------------------------------------------------------------ blocking paths
