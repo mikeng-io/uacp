@@ -103,6 +103,25 @@ def test_traversal_run_id_is_rejected_and_writes_nothing(tmp_path: Path):
     assert registry.read_text(encoding="utf-8") == "active_runs: []\n"
 
 
+def test_symlinked_ledger_dir_is_rejected_and_writes_nothing(tmp_path: Path):
+    """A symlinked witness-ledgers directory must NOT let the atomic replace write THROUGH the
+    link onto governed state (Codex #80). If verification/witness-ledgers is a symlink to
+    state/runs, the write is skipped (False) and the victim dir is untouched — parity with the
+    governed writers' symlinked-component guard."""
+    base = tmp_path / ".uacp"
+    victim = base / "state" / "runs"
+    victim.mkdir(parents=True, exist_ok=True)
+    (base / "verification").mkdir(parents=True, exist_ok=True)
+    # verification/witness-ledgers is a SYMLINK pointing at the governed state/runs dir
+    (base / "verification" / "witness-ledgers").symlink_to(victim, target_is_directory=True)
+
+    rec = wl.build_witness_record("run-io", ["SC_DIFF_OUT_OF_SCOPE"], witnessed_at=1.0)
+    assert wl.write_witness_ledger(tmp_path, "run-io", rec) is False
+    # nothing was written through the link into the governed dir
+    assert not (victim / "run-io.yaml").exists()
+    assert list(victim.iterdir()) == []
+
+
 def test_ledger_does_not_pollute_the_verify_evidence_glob(tmp_path: Path):
     """The ledger must live UNDER verification/witness-ledgers/, not directly in verification/,
     so it never matches the non-recursive verify-evidence invariant glob `verification/{run_id}*`

@@ -194,6 +194,26 @@ def witness_ledger_path(root: Path, run_id: str) -> Path | None:
     return vdir / "witness-ledgers" / f"{run_id}.yaml"
 
 
+def _no_symlinked_component(path: Path, root: Path) -> bool:
+    """True iff no path component from the workspace ROOT down to ``path`` is a symlink and the
+    target itself is not a symlink — parity with the governed writers' guard
+    (``filesystem._resolve_uacp_path``). A symlinked ``verification/witness-ledgers`` dir (e.g.
+    pointing at ``state/runs``) would otherwise let the atomic ``os.replace`` write THROUGH the
+    link and clobber governed state (Codex #80). Fail-closed: any error / out-of-root path ->
+    False (skip the best-effort write)."""
+    try:
+        root_resolved = Path(root).resolve()
+        rel = path.relative_to(root_resolved)
+    except Exception:
+        return False
+    current = root_resolved
+    for part in rel.parts[:-1]:
+        current = current / part
+        if current.is_symlink():
+            return False
+    return not (path.exists() and path.is_symlink())
+
+
 def write_witness_ledger(root: Path, run_id: str, record: dict[str, Any]) -> bool:
     """Write the witness-ledger record ATOMICALLY (same-dir temp + fsync + os.replace), so a
     reader never observes a half-written record and a crash cannot leave a partial file
@@ -201,6 +221,11 @@ def write_witness_ledger(root: Path, run_id: str, record: dict[str, Any]) -> boo
     ``False`` is returned. Creates the verification dir if needed. Never raises."""
     path = witness_ledger_path(root, run_id)
     if path is None:
+        return False
+    # Fail closed on symlinked path components BEFORE creating/replacing anything: a symlinked
+    # ledger directory could redirect the write onto governed state (Codex #80), the same class
+    # the _is_safe_run_id guard blocks for the filename.
+    if not _no_symlinked_component(path, root):
         return False
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
