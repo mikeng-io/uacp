@@ -26,11 +26,26 @@ findings. Before anything else, `uacp_run_read` the manifest and read `carried_f
 `verification_package` / `resolve_readiness` / `assessment` / `investigation_entry`,
 valued by the parent-relative path). Treat each entry as a required objective.
 
-Every carried finding MUST be **discharged** with an explicit disposition recorded in a
-`handled_findings_chain` entry (the same LN grammar VERIFY already uses) in your VERIFY /
-closure evidence — one entry per carried finding, correlated by `original_finding_id`
-(the carried key) or `original_artifact_path` (the carried path), carrying a
-`handling_classification`:
+Every carried finding MUST be **discharged** with an explicit disposition recorded as a
+**complete, canonical `handled_findings_chain` item** (the same LN grammar VERIFY already
+uses) in your VERIFY / closure evidence — one entry per carried finding. A disposition that
+carries only a `handling_classification` plus its class-evidence field is **not enough**:
+the item must be structurally well-formed (fail-CLOSED, #149). Each item MUST carry all
+**8 required base fields**, present and non-empty, with valid enum values:
+
+1. `original_finding_id` — the carried key (or set `original_artifact_path` to the carried
+   path; correlation accepts either, but the canonical item still requires
+   `original_finding_id`);
+2. `finding_classification` — one of `blocker | concern | invariant_failure |
+   negative_finding | material_warning`;
+3. `handling_classification` — see below;
+4. `handling_artifact_path` — the fix / evidence pointer;
+5. `followup_required` — boolean;
+6. `owner`;
+7. `residual_risk`;
+8. `heartgate_validation` — one of `pass | warn | block`.
+
+The `handling_classification` also carries its class-required evidence:
 
 - **`remediated` / `expanded`** — you actually fixed it (point to the fix via
   `handling_artifact_path`);
@@ -39,9 +54,13 @@ closure evidence — one entry per carried finding, correlated by `original_find
   `accepted_exception_artifact`.
 
 **Closure is fail-closed on this.** The `rework_completeness` closure engine blocks
-RESOLVE if any carried finding has no disposition (`RW_CARRIED_FINDING_UNADDRESSED`) or an
-accepted-exception with no rationale (`RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE`). A rework
-cannot quietly close having ignored a finding it was created to fix.
+RESOLVE if any carried finding has no disposition (`RW_CARRIED_FINDING_UNADDRESSED`), a
+remediation with no fix pointer (`RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED`), an
+accepted-exception with no rationale (`RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE`), or a
+disposition that carries its class-evidence but is not a well-formed canonical item —
+missing a base field or an invalid enum (`RW_CARRIED_FINDING_DISPOSITION_MALFORMED`). A
+rework cannot quietly close having ignored, or half-documented, a finding it was created to
+fix.
 
 ## Execution Posture (Critical)
 

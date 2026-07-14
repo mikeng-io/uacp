@@ -39,6 +39,11 @@ Codes
 * ``RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE`` (block) — a carried finding is disposed
   with an accepted-exception class but carries neither ``residual_risk`` nor
   ``accepted_exception_artifact``.
+* ``RW_CARRIED_FINDING_DISPOSITION_MALFORMED`` (block) — a carried finding has a
+  class-evidence-complete disposition (its fix pointer / accepted-exception rationale is
+  present) but the entry is NOT a well-formed canonical ``handled_findings_chain`` item: a
+  required base field is missing/empty or an enum is invalid. Closure must fail-CLOSED on a
+  structurally-invalid disposition, not accept the partial one (#149).
 * ``RW_REWORK_DEPTH_ESCALATION`` (warn) — the run's ``rework_depth`` is at/above the
   configured ``[heartgate] max_rework_depth`` (#135 P4). ESCALATES as a warning, never a
   hard block — a long findings->fix chain is a signal to a human, not an automatic stop.
@@ -55,10 +60,13 @@ Scope / honest limits
   rework run.
 * **Structural completeness only.** A disposition is checked for PRESENCE + a valid class +
   its class-required evidence FIELD (a remediation's ``handling_artifact_path`` fix pointer;
-  an accepted-exception's ``residual_risk`` / ``accepted_exception_artifact``) — NOT for
-  whether the fix or the justification is semantically adequate, and the linked path is not
-  resolved to a real checkpoint. Adequacy is a council concern (matching
-  ``deferral_completeness``'s documented limit).
+  an accepted-exception's ``residual_risk`` / ``accepted_exception_artifact``) AND for the
+  canonical ``handled_findings_chain`` well-formedness FLOOR — every base field in
+  :data:`_CANONICAL_DISPOSITION_REQUIRED_FIELDS` present/non-empty with valid enums, mirroring
+  ``validate_handled_findings_chain`` (source of truth). What is NOT checked: whether the fix
+  or the justification is semantically adequate, and the linked path is not resolved to a real
+  checkpoint. Adequacy is a council concern (matching ``deferral_completeness``'s documented
+  limit).
 
 Architecture: PURE of filesystem I/O — all disk reads go through :mod:`engines.io`
 read-models; this module never raises (every failure becomes a :class:`Violation` or a
@@ -88,6 +96,34 @@ _REMEDIATION_CLASSES: frozenset[str] = frozenset({"remediated", "expanded"})
 # The "not fixed, but explicitly accepted" classes — each needs a residual_risk rationale or
 # an accepted_exception_artifact.
 _ACCEPTED_EXCEPTION_CLASSES: frozenset[str] = _VALID_CLASSES - _REMEDIATION_CLASSES
+
+# The canonical handled_findings_chain ITEM grammar — the well-formedness FLOOR a disposition
+# must clear to discharge a carried finding, on top of its class-required evidence. Source of
+# truth: ``scripts/validate_uacp_artifacts.py`` ``validate_handled_findings_chain`` (which BLOCKs
+# on any of these missing/empty) and ``config/phase-transitions.yaml`` handled_findings_chain
+# item schema. Each field must be PRESENT and NON-EMPTY under the validator's exact emptiness
+# test ``item.get(field) in (None, "")`` — note ``False`` / ``0`` are PRESENT (valid), only
+# ``None`` / ``""`` fail. A disposition carrying only a handling_classification + its class-
+# evidence field (e.g. handling_artifact_path) is class-evidence-complete but NOT canonically
+# well-formed, so it cannot close a rework (fail-CLOSED, #149).
+_CANONICAL_DISPOSITION_REQUIRED_FIELDS: tuple[str, ...] = (
+    "original_finding_id",
+    "finding_classification",
+    "handling_classification",
+    "handling_artifact_path",
+    "followup_required",
+    "owner",
+    "residual_risk",
+    "heartgate_validation",
+)
+# Enum members MIRRORED from ``scripts/validate_uacp_artifacts.py``
+# (``VALID_FINDING_CLASSIFICATIONS`` / ``VALID_HEARTGATE_VALIDATIONS``) and
+# ``config/phase-transitions.yaml`` — kept in sync with those constants. The handling_classification
+# enum is already ``_VALID_CLASSES`` above.
+_VALID_FINDING_CLASSIFICATIONS: frozenset[str] = frozenset(
+    {"blocker", "concern", "invariant_failure", "negative_finding", "material_warning"}
+)
+_VALID_HEARTGATE_VALIDATIONS: frozenset[str] = frozenset({"pass", "warn", "block"})
 
 _DEFAULT_MAX_REWORK_DEPTH = 5
 
@@ -184,6 +220,31 @@ def _disposition_complete(entry: dict[str, Any]) -> bool:
     return False  # unreachable: _entry_addresses already filtered to _VALID_CLASSES
 
 
+def _disposition_defects(entry: dict[str, Any]) -> list[str]:
+    """The human-readable ways ``entry`` violates the canonical handled_findings_chain item
+    grammar (:data:`_CANONICAL_DISPOSITION_REQUIRED_FIELDS`, source of truth
+    ``validate_handled_findings_chain`` in ``scripts/validate_uacp_artifacts.py``). Each missing/
+    empty base field is reported ``missing <field>``; each invalid enum value ``invalid <field>``.
+    An empty list == canonically well-formed. Mirrors the validator's emptiness test
+    ``entry.get(field) in (None, "")`` (so ``False`` / ``0`` count as PRESENT) and only reports
+    an invalid enum when the value is present (an empty enum field is ``missing``, not
+    ``invalid``)."""
+    defects: list[str] = []
+    for field in _CANONICAL_DISPOSITION_REQUIRED_FIELDS:
+        if entry.get(field) in (None, ""):
+            defects.append(f"missing {field}")
+    finding = entry.get("finding_classification")
+    if finding not in (None, "") and finding not in _VALID_FINDING_CLASSIFICATIONS:
+        defects.append(f"invalid finding_classification {finding!r}")
+    handling = entry.get("handling_classification")
+    if handling not in (None, "") and handling not in _VALID_CLASSES:
+        defects.append(f"invalid handling_classification {handling!r}")
+    validation = entry.get("heartgate_validation")
+    if validation not in (None, "") and validation not in _VALID_HEARTGATE_VALIDATIONS:
+        defects.append(f"invalid heartgate_validation {validation!r}")
+    return defects
+
+
 def validate_rework_completeness(workspace: str | Path, run_id: str) -> list[Violation]:
     """Validate that a rework run discharged every carried finding, and surface a long
     rework chain as a warning. Returns a list of Violation (empty == clean). Never raises.
@@ -256,38 +317,61 @@ def validate_rework_completeness(workspace: str | Path, run_id: str) -> list[Vio
                     )
                 )
                 continue
-            # A finding is discharged when at least one matching disposition is COMPLETE:
-            # a remediation must point to the fix, an accepted-exception must state what is
-            # being accepted (structural presence — adequacy stays a council concern). If none
-            # is complete, report the failure by what the incomplete matches attempted.
-            if any(_disposition_complete(e) for e in matches):
+            # A finding is discharged when at least one matching disposition is BOTH
+            # class-evidence-complete (its class's fix pointer / accepted-exception rationale)
+            # AND canonically well-formed (a complete handled_findings_chain item — every base
+            # field present + valid enums). Class-evidence alone is not enough: a rework may not
+            # close on a structurally-INVALID disposition (#149 fail-CLOSED).
+            if any(_disposition_complete(e) and not _disposition_defects(e) for e in matches):
                 continue
-            classes = sorted({_str_field(e, "handling_classification") for e in matches})
-            if any(
-                _str_field(e, "handling_classification") in _REMEDIATION_CLASSES for e in matches
-            ):
-                violations.append(
-                    _v(
-                        "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED",
-                        f"carried finding '{carried_key}' is disposed as {classes} (a claimed "
-                        f"remediation) but no matching entry points to its fix via "
-                        f"'handling_artifact_path' — a remediation must link its fix evidence",
-                        carried_finding=carried_key,
-                        handling_classifications=classes,
+            complete_matches = [e for e in matches if _disposition_complete(e)]
+            if not complete_matches:
+                # No match carries even its class-required evidence — report by what the
+                # incomplete matches attempted (the existing two-way split, unchanged).
+                classes = sorted({_str_field(e, "handling_classification") for e in matches})
+                if any(
+                    _str_field(e, "handling_classification") in _REMEDIATION_CLASSES
+                    for e in matches
+                ):
+                    violations.append(
+                        _v(
+                            "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED",
+                            f"carried finding '{carried_key}' is disposed as {classes} (a claimed "
+                            f"remediation) but no matching entry points to its fix via "
+                            f"'handling_artifact_path' — a remediation must link its fix evidence",
+                            carried_finding=carried_key,
+                            handling_classifications=classes,
+                        )
                     )
-                )
-            else:
-                violations.append(
-                    _v(
-                        "RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE",
-                        f"carried finding '{carried_key}' is disposed as accepted-exception(s) "
-                        f"{classes} but carries neither a 'residual_risk' rationale nor an "
-                        f"'accepted_exception_artifact' — an explicit accepted-exception must "
-                        f"state what is being accepted",
-                        carried_finding=carried_key,
-                        handling_classifications=classes,
+                else:
+                    violations.append(
+                        _v(
+                            "RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE",
+                            f"carried finding '{carried_key}' is disposed as accepted-exception(s) "
+                            f"{classes} but carries neither a 'residual_risk' rationale nor an "
+                            f"'accepted_exception_artifact' — an explicit accepted-exception must "
+                            f"state what is being accepted",
+                            carried_finding=carried_key,
+                            handling_classifications=classes,
+                        )
                     )
+                continue
+            # Some match carries its class-evidence but is not a well-formed canonical item — the
+            # discharge floor is not met. Name the MINIMAL defect set (the class-evidence-complete
+            # match closest to well-formed) so the author sees the smallest fix.
+            best = min(complete_matches, key=lambda e: len(_disposition_defects(e)))
+            defects = _disposition_defects(best)
+            violations.append(
+                _v(
+                    "RW_CARRIED_FINDING_DISPOSITION_MALFORMED",
+                    f"carried finding '{carried_key}' has a class-evidence-complete disposition "
+                    f"that is not a well-formed handled_findings_chain item ({', '.join(defects)}) "
+                    f"— a carried-finding disposition must be a complete canonical item (all of "
+                    f"{list(_CANONICAL_DISPOSITION_REQUIRED_FIELDS)} present with valid enums)",
+                    carried_finding=carried_key,
+                    defects=defects,
                 )
+            )
 
     return violations
 

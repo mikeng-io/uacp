@@ -1,4 +1,4 @@
-"""#135: the rework_completeness closure engine (codes prefixed ``RW_``).
+"""#135 / #149: the rework_completeness closure engine (codes prefixed ``RW_``).
 
 A standard-track rework (#109) carries the parent's VERIFY findings forward on the
 manifest's ``carried_findings`` map, but nothing yet forced the rework to actually
@@ -6,10 +6,13 @@ ADDRESS them — a rework could close having silently ignored a carried defect. 
 engine makes closure fail-closed on that: for a run with carried findings, EVERY
 carried key must be discharged by an explicit disposition (the existing LN
 ``handled_findings_chain`` grammar — ``handling_classification`` ∈
-remediated|expanded|justified|deferred|accepted_warning|rejected_with_reason), and an
-accepted-exception classification must carry a rationale/exception artifact. A carried
-key with no disposition → RW_CARRIED_FINDING_UNADDRESSED (block). No-op for non-rework
-runs (empty carried_findings, depth 0) so the common path is untouched.
+remediated|expanded|justified|deferred|accepted_warning|rejected_with_reason), an
+accepted-exception classification must carry a rationale/exception artifact, AND (#149)
+the disposition must be a well-formed canonical ``handled_findings_chain`` item (all 8
+base fields present, valid enums) — a class-evidence-only disposition that is otherwise
+structurally invalid must NOT discharge (fail-CLOSED). A carried key with no disposition
+→ RW_CARRIED_FINDING_UNADDRESSED (block). No-op for non-rework runs (empty
+carried_findings, depth 0) so the common path is untouched.
 
 These are UNIT tests over hand-seeded run manifests + artifacts on disk (the engine is
 a pure read-only validator: (workspace, run_id) -> [Violation], never raises).
@@ -17,15 +20,40 @@ a pure read-only validator: (workspace, run_id) -> [Violation], never raises).
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
 import yaml
-from engines.rework_completeness import validate_rework_completeness
+from engines.rework_completeness import (
+    _CANONICAL_DISPOSITION_REQUIRED_FIELDS,
+    _VALID_CLASSES,
+    _VALID_FINDING_CLASSIFICATIONS,
+    _VALID_HEARTGATE_VALIDATIONS,
+    validate_rework_completeness,
+)
 
 
 def _codes(violations) -> set[str]:
     return {v.code for v in violations}
+
+
+def _canonical(original_finding_id: str, **over: Any) -> dict[str, Any]:
+    """A FULL, canonically well-formed handled_findings_chain item (all 8 base fields,
+    valid enums) — what a real rework author writes per the #135/#149 execute-skill
+    briefing. Override any field via kwargs (e.g. to drop one for a fail-closed test)."""
+    item: dict[str, Any] = {
+        "original_finding_id": original_finding_id,
+        "finding_classification": "concern",
+        "handling_classification": "remediated",
+        "handling_artifact_path": "executions/run-B-checkpoint-001.yaml",
+        "followup_required": False,
+        "owner": "rework-author",
+        "residual_risk": "no material residual risk on the fix branch",
+        "heartgate_validation": "pass",
+    }
+    item.update(over)
+    return item
 
 
 def _write_manifest(root: Path, run_id: str, **fields: Any) -> None:
@@ -75,17 +103,13 @@ def _seed_rework(root: Path, run_id: str, *, carried: dict, chain: list, rework_
 # ------------------------------------------------------------------ passing path
 def test_rework_with_full_dispositions_passes(temp_uacp_root: Path):
     chain = [
-        {
-            "original_finding_id": "verification_package",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "executions/run-B-checkpoint-001.yaml",
-        },
-        {
-            "original_finding_id": "assessment",
-            "handling_classification": "justified",
-            "accepted_exception_artifact": "verification/run-B-exception.yaml",
-            "residual_risk": "accepted: parent finding not reproducible on the fix branch",
-        },
+        _canonical("verification_package", handling_classification="remediated"),
+        _canonical(
+            "assessment",
+            handling_classification="justified",
+            accepted_exception_artifact="verification/run-B-exception.yaml",
+            residual_risk="accepted: parent finding not reproducible on the fix branch",
+        ),
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
     v = validate_rework_completeness(temp_uacp_root, "run-B")
@@ -94,18 +118,21 @@ def test_rework_with_full_dispositions_passes(temp_uacp_root: Path):
 
 def test_disposition_correlates_by_artifact_path_too(temp_uacp_root: Path):
     """A disposition may reference the carried finding by its PARENT-RELATIVE path
-    (original_artifact_path) instead of the manifest key."""
+    (original_artifact_path) in addition to the manifest key. The canonical item grammar
+    still requires original_finding_id, so both are present and correlate to the SAME
+    finding (conjunctive match)."""
     chain = [
-        {
-            "original_artifact_path": "verification/run-A-verify-selection.yaml",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "x.yaml",
-        },
-        {
-            "original_artifact_path": "verification/run-A-piv-assessment.yaml",
-            "handling_classification": "expanded",
-            "handling_artifact_path": "y.yaml",
-        },
+        _canonical(
+            "verification_package",
+            original_artifact_path="verification/run-A-verify-selection.yaml",
+            handling_artifact_path="x.yaml",
+        ),
+        _canonical(
+            "assessment",
+            original_artifact_path="verification/run-A-piv-assessment.yaml",
+            handling_classification="expanded",
+            handling_artifact_path="y.yaml",
+        ),
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
     assert validate_rework_completeness(temp_uacp_root, "run-B") == []
@@ -131,16 +158,8 @@ def test_disposition_in_governed_writer_readiness_artifact_is_scanned(temp_uacp_
         {
             "kind": "uacp.verify_resolve_readiness",
             "handled_findings_chain": [
-                {
-                    "original_finding_id": "verification_package",
-                    "handling_classification": "remediated",
-                    "handling_artifact_path": "x",
-                },
-                {
-                    "original_finding_id": "assessment",
-                    "handling_classification": "remediated",
-                    "handling_artifact_path": "y",
-                },
+                _canonical("verification_package", handling_artifact_path="x"),
+                _canonical("assessment", handling_artifact_path="y"),
             ],
         },
     )
@@ -168,16 +187,8 @@ def test_disposition_in_governed_resolve_closure_artifact_is_scanned(temp_uacp_r
         {
             "kind": "uacp.resolve_closure",
             "handled_findings_chain": [
-                {
-                    "original_finding_id": "verification_package",
-                    "handling_classification": "remediated",
-                    "handling_artifact_path": "x",
-                },
-                {
-                    "original_finding_id": "assessment",
-                    "handling_classification": "remediated",
-                    "handling_artifact_path": "y",
-                },
+                _canonical("verification_package", handling_artifact_path="x"),
+                _canonical("assessment", handling_artifact_path="y"),
             ],
         },
     )
@@ -187,13 +198,7 @@ def test_disposition_in_governed_resolve_closure_artifact_is_scanned(temp_uacp_r
 # ------------------------------------------------------------------ blocking paths
 def test_carried_finding_without_disposition_blocks(temp_uacp_root: Path):
     # only the first carried key is disposed; 'assessment' is ignored
-    chain = [
-        {
-            "original_finding_id": "verification_package",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "x.yaml",
-        }
-    ]
+    chain = [_canonical("verification_package", handling_artifact_path="x.yaml")]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
     v = validate_rework_completeness(temp_uacp_root, "run-B")
     assert "RW_CARRIED_FINDING_UNADDRESSED" in _codes(v), _codes(v)
@@ -221,41 +226,30 @@ def test_no_dispositions_at_all_blocks_every_carried_finding(temp_uacp_root: Pat
 
 def test_bare_remediated_without_fix_evidence_blocks(temp_uacp_root: Path):
     """A remediation must LINK its fix via handling_artifact_path — a bare
-    {original_finding_id, handling_classification: remediated} is a label, not a discharge, and
-    must not let finalize pass without fix evidence (Codex #135)."""
+    {original_finding_id, handling_classification: remediated} with no fix pointer has no
+    class-evidence at all, so it is UNEVIDENCED (not a well-formedness MALFORMED)."""
     chain = [
-        {
-            "original_finding_id": "verification_package",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "executions/run-B-checkpoint-001.yaml",
-        },
-        {
-            "original_finding_id": "assessment",
-            "handling_classification": "remediated",
-        },  # no fix pointer
+        _canonical("verification_package", handling_artifact_path="executions/run-B-cp-001.yaml"),
+        # class-evidence MISSING: remediated with no handling_artifact_path
+        {"original_finding_id": "assessment", "handling_classification": "remediated"},
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
     v = validate_rework_completeness(temp_uacp_root, "run-B")
     rem = [x for x in v if x.code == "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED"]
     assert len(rem) == 1 and rem[0].severity == "block", _codes(v)
     assert rem[0].detail["carried_finding"] == "assessment"
-    # the properly-evidenced verification_package remediation is NOT flagged
+    # the properly-evidenced, well-formed verification_package remediation is NOT flagged
     assert not any(x.detail.get("carried_finding") == "verification_package" for x in v)
 
 
 def test_accepted_exception_without_rationale_blocks(temp_uacp_root: Path):
     """An accepted-exception classification (justified/deferred/…) must carry a rationale
-    or an exception artifact — an empty 'justified' is not an explicit accepted-exception."""
+    or an exception artifact — a 'deferred' with no class-evidence is UNEVIDENCED at the
+    class-evidence layer (EXCEPTION_INCOMPLETE), before the well-formedness floor."""
     chain = [
-        {
-            "original_finding_id": "verification_package",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "x.yaml",
-        },
-        {
-            "original_finding_id": "assessment",
-            "handling_classification": "deferred",
-        },  # no rationale
+        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        # class-evidence MISSING: deferred with neither residual_risk nor exception artifact
+        {"original_finding_id": "assessment", "handling_classification": "deferred"},
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
     v = validate_rework_completeness(temp_uacp_root, "run-B")
@@ -265,18 +259,118 @@ def test_accepted_exception_without_rationale_blocks(temp_uacp_root: Path):
     )
 
 
+# ------------------------------------------------- #149: well-formedness floor (fail-CLOSED)
+def test_class_evidence_complete_but_missing_base_fields_is_malformed(temp_uacp_root: Path):
+    """#149 fail-CLOSED: a disposition that carries its class-evidence (handling_artifact_path)
+    but OMITS canonical base fields is NOT a valid discharge — it blocks as MALFORMED and the
+    message names every missing field."""
+    # verification_package: full canonical (discharges). assessment: class-evidence-complete
+    # (has handling_artifact_path) but missing finding_classification/followup_required/owner/
+    # residual_risk/heartgate_validation.
+    chain = [
+        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        {
+            "original_finding_id": "assessment",
+            "handling_classification": "remediated",
+            "handling_artifact_path": "executions/run-B-cp-002.yaml",
+        },
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    mal = [x for x in v if x.code == "RW_CARRIED_FINDING_DISPOSITION_MALFORMED"]
+    assert len(mal) == 1 and mal[0].severity == "block", _codes(v)
+    assert mal[0].detail["carried_finding"] == "assessment"
+    for field in (
+        "finding_classification",
+        "followup_required",
+        "owner",
+        "residual_risk",
+        "heartgate_validation",
+    ):
+        assert field in mal[0].message, (field, mal[0].message)
+        assert f"missing {field}" in mal[0].detail["defects"], (field, mal[0].detail["defects"])
+    # the well-formed verification_package disposition is NOT flagged
+    assert not any(x.detail.get("carried_finding") == "verification_package" for x in v)
+
+
+def test_single_missing_base_field_is_malformed(temp_uacp_root: Path):
+    """Dropping ONE required base field (owner) from an otherwise-complete canonical item
+    still fails closed as MALFORMED naming exactly that field."""
+    chain = [
+        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        _canonical("assessment", owner=""),  # empty owner — one defect
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    mal = [x for x in v if x.code == "RW_CARRIED_FINDING_DISPOSITION_MALFORMED"]
+    assert len(mal) == 1, _codes(v)
+    assert mal[0].detail["defects"] == ["missing owner"], mal[0].detail["defects"]
+
+
+def test_invalid_enum_value_is_malformed(temp_uacp_root: Path):
+    """An invalid enum value (heartgate_validation='maybe') on an otherwise-complete item is
+    MALFORMED — the well-formedness floor mirrors the validator's enum check."""
+    chain = [
+        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        _canonical("assessment", heartgate_validation="maybe"),
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    mal = [x for x in v if x.code == "RW_CARRIED_FINDING_DISPOSITION_MALFORMED"]
+    assert len(mal) == 1 and mal[0].severity == "block", _codes(v)
+    assert any("invalid heartgate_validation" in d for d in mal[0].detail["defects"]), mal[0].detail
+
+
+def test_invalid_finding_classification_is_malformed(temp_uacp_root: Path):
+    """An invalid finding_classification enum also trips the floor."""
+    chain = [
+        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        _canonical("assessment", finding_classification="catastrophe"),
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    mal = [x for x in v if x.code == "RW_CARRIED_FINDING_DISPOSITION_MALFORMED"]
+    assert len(mal) == 1, _codes(v)
+    assert any("invalid finding_classification" in d for d in mal[0].detail["defects"]), mal[0].detail
+
+
+def test_full_canonical_item_discharges(temp_uacp_root: Path):
+    """A FULL canonical item (all 8 base fields, valid enums) discharges — no violation."""
+    chain = [
+        _canonical("verification_package"),
+        _canonical("assessment", handling_artifact_path="executions/run-B-cp-002.yaml"),
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
+    assert validate_rework_completeness(temp_uacp_root, "run-B") == []
+
+
+def test_malformed_and_incomplete_prefer_the_class_evidence_layer(temp_uacp_root: Path):
+    """Reporting precedence: if NO match is class-evidence-complete, the class-evidence code
+    (UNEVIDENCED / EXCEPTION_INCOMPLETE) fires — MALFORMED is only reported when a match DID
+    carry its class-evidence but is base-malformed. Here assessment has ONLY malformed-and-
+    incomplete matches (remediated, no fix pointer) → UNEVIDENCED, not MALFORMED."""
+    chain = [
+        _canonical("verification_package"),
+        # remediated, missing handling_artifact_path (no class-evidence) AND missing base fields
+        {"original_finding_id": "assessment", "handling_classification": "remediated"},
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
+    codes = _codes(validate_rework_completeness(temp_uacp_root, "run-B"))
+    assert "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED" in codes, codes
+    assert "RW_CARRIED_FINDING_DISPOSITION_MALFORMED" not in codes, codes
+
+
 def test_cross_talk_disposition_discharges_neither_finding(temp_uacp_root: Path):
     """Gaming vector (gemini #135 P1): ONE entry whose original_finding_id names finding A
     while its original_artifact_path names finding B must discharge NEITHER — correlation is
     conjunctive over the fields the entry declares, so a disposition that names two different
     findings matches none of them (a disjunctive match would let it discharge both)."""
     chain = [
-        {
-            "original_finding_id": "verification_package",  # names finding A (by key)
-            "original_artifact_path": "verification/run-A-piv-assessment.yaml",  # names finding B (by path)
-            "handling_classification": "remediated",
-            "handling_artifact_path": "x.yaml",
-        }
+        _canonical(
+            "verification_package",  # names finding A (by key)
+            original_artifact_path="verification/run-A-piv-assessment.yaml",  # names B (by path)
+            handling_artifact_path="x.yaml",
+        )
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
     codes = [x.code for x in validate_rework_completeness(temp_uacp_root, "run-B")]
@@ -285,14 +379,10 @@ def test_cross_talk_disposition_discharges_neither_finding(temp_uacp_root: Path)
 
 
 def test_multiple_incomplete_exception_classes_all_reported(temp_uacp_root: Path):
-    """When several entries match one finding and all are incomplete accepted-exceptions, the
-    violation names every failing class (not just the first)."""
+    """When several entries match one finding and all are incomplete accepted-exceptions (no
+    class-evidence), the violation names every failing class (not just the first)."""
     chain = [
-        {
-            "original_finding_id": "verification_package",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "x.yaml",
-        },
+        _canonical("verification_package"),
         {"original_finding_id": "assessment", "handling_classification": "justified"},
         {"original_finding_id": "assessment", "handling_classification": "deferred"},
     ]
@@ -309,11 +399,7 @@ def test_unknown_handling_classification_blocks(temp_uacp_root: Path):
     """A disposition with a classification outside the LN enum does not discharge the
     finding — it is not a recognized handling decision."""
     chain = [
-        {
-            "original_finding_id": "verification_package",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "x.yaml",
-        },
+        _canonical("verification_package"),
         {"original_finding_id": "assessment", "handling_classification": "looks-fine-to-me"},
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
@@ -342,18 +428,7 @@ def test_rework_depth_escalation_warns_not_blocks(temp_uacp_root: Path):
     (temp_uacp_root / ".uacp" / "config.toml").write_text(
         "[heartgate]\nmax_rework_depth = 1\n", encoding="utf-8"
     )
-    chain = [
-        {
-            "original_finding_id": "verification_package",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "x",
-        },
-        {
-            "original_finding_id": "assessment",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "y",
-        },
-    ]
+    chain = [_canonical("verification_package"), _canonical("assessment")]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1)
     v = validate_rework_completeness(temp_uacp_root, "run-B")
     esc = [x for x in v if x.code == "RW_REWORK_DEPTH_ESCALATION"]
@@ -364,18 +439,7 @@ def test_rework_depth_escalation_warns_not_blocks(temp_uacp_root: Path):
 
 
 def test_depth_below_threshold_does_not_escalate(temp_uacp_root: Path):
-    chain = [
-        {
-            "original_finding_id": "verification_package",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "x",
-        },
-        {
-            "original_finding_id": "assessment",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "y",
-        },
-    ]
+    chain = [_canonical("verification_package"), _canonical("assessment")]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1)
     # default threshold (5) not reached at depth 1
     assert not any(
@@ -391,18 +455,7 @@ def test_max_rework_depth_zero_escalates_every_rework(temp_uacp_root: Path):
     (temp_uacp_root / ".uacp" / "config.toml").write_text(
         "[heartgate]\nmax_rework_depth = 0\n", encoding="utf-8"
     )
-    chain = [
-        {
-            "original_finding_id": "verification_package",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "x",
-        },
-        {
-            "original_finding_id": "assessment",
-            "handling_classification": "remediated",
-            "handling_artifact_path": "y",
-        },
-    ]
+    chain = [_canonical("verification_package"), _canonical("assessment")]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1)
     v = validate_rework_completeness(temp_uacp_root, "run-B")
     assert any(x.code == "RW_REWORK_DEPTH_ESCALATION" for x in v), _codes(v)
@@ -439,3 +492,52 @@ def test_discharge_enforced_when_finalized_at_set_even_if_status_not_resolved(te
     assert "RW_CARRIED_FINDING_UNADDRESSED" in _codes(
         validate_rework_completeness(temp_uacp_root, "run-B")
     )
+
+
+# ------------------------------------------ #149 behavioral parity with the canonical validator
+def test_engine_required_fields_match_the_canonical_validator():
+    """Tie the engine's canonical required set to the validator's grammar WITHOUT importing the
+    validator's private local list: an entry populated with EXACTLY the engine's
+    _CANONICAL_DISPOSITION_REQUIRED_FIELDS (valid enums) yields NO 'missing' BLOCK from
+    validate_handled_findings_chain; dropping any one engine-required field yields a
+    'missing <field>' BLOCK. If the two required sets ever diverge, this test fails."""
+    repo_scripts = Path(__file__).resolve().parents[3] / "scripts"
+    if str(repo_scripts) not in sys.path:
+        sys.path.insert(0, str(repo_scripts))
+    import validate_uacp_artifacts as vua
+
+    def _missing_blocks(entry: dict) -> list[str]:
+        issues: list[str] = []
+        vua.validate_handled_findings_chain(
+            Path("synthetic.yaml"),
+            {"source_negative_findings_present": True, "handled_findings_chain": [entry]},
+            issues,
+        )
+        return [i for i in issues if " missing " in i]
+
+    # valid enums for the enum-typed required fields
+    complete = {
+        f: "concern"
+        if f == "finding_classification"
+        else "remediated"
+        if f == "handling_classification"
+        else "pass"
+        if f == "heartgate_validation"
+        else False
+        if f == "followup_required"
+        else "value"
+        for f in _CANONICAL_DISPOSITION_REQUIRED_FIELDS
+    }
+    # (a) a full engine-required entry yields NO 'missing' block
+    assert _missing_blocks(dict(complete)) == [], _missing_blocks(dict(complete))
+    # (b) dropping any one engine-required field yields a 'missing <field>' block
+    for field in _CANONICAL_DISPOSITION_REQUIRED_FIELDS:
+        partial = dict(complete)
+        del partial[field]
+        blocks = _missing_blocks(partial)
+        assert any(f"missing {field}" in b for b in blocks), (field, blocks)
+    # (c) the engine's MIRRORED enum sets must match the validator's canonical enums, so a
+    # future enum change to the grammar cannot silently diverge the engine (gemini #149 P3).
+    assert _VALID_FINDING_CLASSIFICATIONS == frozenset(vua.VALID_FINDING_CLASSIFICATIONS)
+    assert _VALID_CLASSES == frozenset(vua.VALID_HANDLING_CLASSIFICATIONS)
+    assert _VALID_HEARTGATE_VALIDATIONS == frozenset(vua.VALID_HEARTGATE_VALIDATIONS)

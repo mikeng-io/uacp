@@ -93,13 +93,20 @@ def _author_rework_dispositions(root: Path, run_id: str) -> None:
     assert rr_rel, "rework did not register a resolve_readiness artifact to dispose into"
     rr_path = base / rr_rel
     doc = yaml.safe_load(rr_path.read_text(encoding="utf-8"))
-    # one remediated disposition per carried finding, correlated by the carried key
+    # one FULL canonical handled_findings_chain disposition per carried finding, correlated by
+    # the carried key — a complete item (#149): all 8 base fields present with valid enums, so
+    # the rework_completeness well-formedness floor is cleared, not just the class-evidence field.
     doc["handled_findings_chain"] = [
         {
             "original_finding_id": key,
             "original_artifact_path": path,
+            "finding_classification": "concern",
             "handling_classification": "remediated",
             "handling_artifact_path": f"executions/{run_id}-checkpoint-001.yaml",
+            "followup_required": False,
+            "owner": "rework-author",
+            "residual_risk": "no material residual risk on the fix branch",
+            "heartgate_validation": "pass",
         }
         for key, path in carried.items()
     ]
