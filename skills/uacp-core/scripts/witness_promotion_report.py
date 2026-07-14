@@ -32,8 +32,12 @@ from config import dir_for
 # The node-02 minimum witnessable-run count before a zero-false-positive record is treated as
 # promotion evidence. Advisory only — the report flags eligibility, it does not promote.
 _MIN_WITNESSABLE_RUNS = 10
-# node-04 forecast precision bar.
+# node-04 forecast promotion bar: precision >= _MIN_FORECAST_PRECISION over AT LEAST
+# _MIN_FORECAST_RUNS joined (predicted, outcome) pairs (design/conformance-witnesses/
+# 04-prevention-redesign.md: "≥0.8 precision over ≥20 witnessed runs"). BOTH the threshold
+# and the sample size must clear — a single 1.0 pair is not evidence (Codex #80).
 _MIN_FORECAST_PRECISION = 0.8
+_MIN_FORECAST_RUNS = 20
 
 
 def _load_yaml(path: Path) -> dict[str, Any] | None:
@@ -206,12 +210,24 @@ def promotion_readiness(
             "clean_denominator_measurable": False,
             "note": "clean-run denominator needs positive witness attestation (not yet emitted)",
         }
-    prec = report.get("forecast", {}).get("mean_precision")
+    forecast = report.get("forecast", {})
+    prec = forecast.get("mean_precision")
+    joined = forecast.get("joined_runs", 0)
+    joined = joined if isinstance(joined, int) else 0
+    # The forecast bar clears ONLY when precision meets the threshold AND it is measured over a
+    # large-enough sample — a single high-precision pair is not promotion evidence (Codex #80).
+    forecast_precision_ok = (
+        isinstance(prec, float)
+        and prec >= _MIN_FORECAST_PRECISION
+        and joined >= _MIN_FORECAST_RUNS
+    )
     return {
         "families": families,
         "min_runs": min_runs,
-        "forecast_precision_ok": (isinstance(prec, float) and prec >= _MIN_FORECAST_PRECISION),
+        "forecast_precision_ok": forecast_precision_ok,
         "forecast_precision": prec,
+        "forecast_joined_runs": joined,
+        "min_forecast_runs": _MIN_FORECAST_RUNS,
     }
 
 

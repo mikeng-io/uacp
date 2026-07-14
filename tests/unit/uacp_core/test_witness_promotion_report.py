@@ -186,6 +186,28 @@ def test_forecast_manifest_missing_falls_back_to_ledger_presence(tmp_path: Path)
     assert abs(r["forecast"]["mean_precision"] - 0.9) < 1e-9
 
 
+def test_forecast_precision_ok_requires_enough_pairs(tmp_path: Path):
+    """The node-04 bar is precision >= 0.8 over >= _MIN_FORECAST_RUNS joined pairs (Codex #80):
+    a single perfect-precision pair must NOT flip forecast_precision_ok true. It clears only
+    once BOTH the threshold and the sample size are met."""
+    # one resolved forecast at precision 1.0 -> above threshold but far below the sample floor
+    _seed_forecast(tmp_path, "solo", 1.0, 1.0)
+    _seed_manifest(tmp_path, "solo", status="resolved")
+    ready = rep.promotion_readiness(rep.build_report(tmp_path))
+    assert ready["forecast_joined_runs"] == 1
+    assert ready["forecast_precision"] == 1.0  # threshold met
+    assert ready["forecast_precision_ok"] is False  # but sample floor not met -> NOT ok
+    assert ready["min_forecast_runs"] == rep._MIN_FORECAST_RUNS
+
+    # enough high-precision pairs -> both conditions met -> ok
+    for i in range(rep._MIN_FORECAST_RUNS):
+        _seed_forecast(tmp_path, f"run{i}", 0.9, 0.9)
+        _seed_manifest(tmp_path, f"run{i}", status="resolved")
+    ready2 = rep.promotion_readiness(rep.build_report(tmp_path))
+    assert ready2["forecast_joined_runs"] >= rep._MIN_FORECAST_RUNS
+    assert ready2["forecast_precision_ok"] is True
+
+
 def test_readiness_reports_sound_signals_no_clean_verdict(tmp_path: Path):
     """The report must NOT emit an unmeasurable CLEAN verdict (Codex #80): a witness emits
     nothing both when it ran clean AND when it never ran, so 'clean' is not measurable. It
