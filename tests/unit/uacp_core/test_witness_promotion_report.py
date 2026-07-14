@@ -228,6 +228,36 @@ def test_forecast_precision_floor_counts_precision_not_recall_only(tmp_path: Pat
     assert ready["forecast_precision_ok"] is False  # so the bar is NOT cleared
 
 
+def _seed_forecast_full(root: Path, run_id: str, record: dict) -> None:
+    from engines.io import forecastio
+
+    forecastio.write_forecast_record(root, run_id, record)
+
+
+def test_forecast_excludes_commit_early_hindsight_pairs(tmp_path: Path):
+    """A record whose graph_stamp.commit != base_commit is commit-early hindsight (design node
+    04 / council M1): it must be EXCLUDED from the precision bar's corpus but NOT silently
+    dropped — surfaced as hindsight_runs for the human promotion decision (Codex #80)."""
+    # a clean pair (commit == base_commit) contributes to the bar
+    _seed_forecast_full(
+        tmp_path, "clean", {"precision": 1.0, "recall": 1.0, "base_commit": "abc",
+                            "graph_stamp": {"commit": "abc"}}
+    )
+    _seed_manifest(tmp_path, "clean", finalized_at="2026-07-14T00:00:00Z")
+    # a hindsight pair (commit advanced past base) is excluded from the corpus but counted
+    _seed_forecast_full(
+        tmp_path, "hind", {"precision": 0.2, "recall": 0.2, "base_commit": "abc",
+                           "graph_stamp": {"commit": "def"}}
+    )
+    _seed_manifest(tmp_path, "hind", finalized_at="2026-07-14T00:00:00Z")
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["precision_runs"] == 1  # only the clean pair feeds the bar
+    assert r["forecast"]["hindsight_runs"] == 1  # the hindsight pair is surfaced, not dropped
+    assert abs(r["forecast"]["mean_precision"] - 1.0) < 1e-9  # hindsight 0.2 is NOT averaged in
+    out = rep.format_report(r)
+    assert "commit-early hindsight" in out and "EXCLUDED" in out
+
+
 def test_readiness_reports_sound_signals_no_clean_verdict(tmp_path: Path):
     """The report must NOT emit an unmeasurable CLEAN verdict (Codex #80): a witness emits
     nothing both when it ran clean AND when it never ran, so 'clean' is not measurable. It

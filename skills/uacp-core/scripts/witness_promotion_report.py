@@ -139,6 +139,18 @@ def _run_is_resolved(root: Path, run_id: str, ledger_run_ids: set[str]) -> bool:
     return run_id in ledger_run_ids  # manifest unavailable -> ledger-presence fallback
 
 
+def _is_commit_early_hindsight(rec: dict[str, Any]) -> bool:
+    """A forecast is commit-early HINDSIGHT when its ``graph_stamp.commit`` != ``base_commit``
+    (design node 04, council M1): HEAD advanced past the branch point before plan_exit, so the
+    forecast derived on a graph that already contained the change. Only a signal when BOTH are
+    present and differ — a record lacking the audit fields is NOT flagged (cannot be audited, so
+    it is not treated as hindsight). Never raises."""
+    base = rec.get("base_commit")
+    gs = rec.get("graph_stamp")
+    commit = gs.get("commit") if isinstance(gs, dict) else None
+    return bool(base and commit and base != commit)
+
+
 def _forecast_summary(root: Path) -> dict[str, Any]:
     """Mean precision/recall over forecast records that carry a joined outcome — restricted to
     genuinely RESOLVED runs, keyed off AUTHORITATIVE run status.
@@ -158,6 +170,7 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
     precisions: list[float] = []
     recalls: list[float] = []
     joined = 0
+    hindsight = 0
     root_p = Path(str(root)).resolve()
     try:
         vdir = dir_for(root_p, "verification")
@@ -171,6 +184,15 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
                 continue  # not authoritatively resolved -> exclude from the averages
             rec = _load_yaml(path)
             if rec is None:
+                continue
+            # Commit-early HINDSIGHT audit (design node 04, council M1): a record whose
+            # graph_stamp.commit != base_commit derived on a graph that already contained the
+            # change — a forecast wearing hindsight. The design says promotion audit MUST exclude
+            # such pairs from the bar, but NOT silently drop them (some are legitimate pre-work
+            # setup for the human to judge). So keep them OUT of the precision/recall corpus and
+            # surface the count for review (Codex #80).
+            if _is_commit_early_hindsight(rec):
+                hindsight += 1
                 continue
             # A forecast is JOINED once the closure computed an outcome — which yields a
             # precision AND/OR a recall (precision is None when nothing was predicted, recall
@@ -192,6 +214,9 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
         # clear the bar on one-sample support (Codex #80).
         "precision_runs": len(precisions),
         "recall_runs": len(recalls),
+        # commit-early hindsight pairs EXCLUDED from the bar above — surfaced (never silently
+        # dropped) so the human promotion decision can review them (design node 04).
+        "hindsight_runs": hindsight,
         "mean_precision": (sum(precisions) / len(precisions)) if precisions else None,
         "mean_recall": (sum(recalls) / len(recalls)) if recalls else None,
     }
@@ -283,6 +308,12 @@ def format_report(report: dict[str, Any]) -> str:
         f"forecast precision bar (>={_MIN_FORECAST_PRECISION} over >={_MIN_FORECAST_RUNS} "
         f"precision samples): {'MET' if ready['forecast_precision_ok'] else 'NOT met'}"
     )
+    hindsight = fc.get("hindsight_runs", 0)
+    if hindsight:
+        bar_line += (
+            f"  [{hindsight} commit-early hindsight pair(s) EXCLUDED from the bar — "
+            f"review for promotion, not auto-dropped]"
+        )
     gate_note = (
         "NB: no CLEAN verdict is computed — the clean-run denominator is not measurable without"
         " positive witness attestation (a follow-up). Promotion stays gated on"
