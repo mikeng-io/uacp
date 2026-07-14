@@ -177,6 +177,11 @@ def _run_is_resolved(root: Path, run_id: str, ledger_run_ids: set[str]) -> bool:
     if loaded is not None and loaded.error is None and loaded.value is not None:
         raw = getattr(loaded.value, "raw", None)
         if isinstance(raw, dict):
+            # The manifest's embedded run_id MUST match the run we asked about: a finalized
+            # manifest copied/renamed to another run's path would otherwise mark THAT run
+            # resolved with a different run's closure state (Codex #80).
+            if raw.get("run_id") != run_id:
+                return False
             return bool(raw.get("finalized_at"))  # the ONLY closure-complete marker
         return False  # manifest loaded but shapeless -> authoritatively NOT resolved
     return run_id in ledger_run_ids  # manifest unavailable -> ledger-presence fallback

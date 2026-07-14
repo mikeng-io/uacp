@@ -165,6 +165,21 @@ def test_ledger_run_id_must_match_filename(tmp_path: Path):
     assert r["per_code"] == {}
 
 
+def test_forecast_excluded_when_manifest_run_id_mismatches(tmp_path: Path):
+    """_run_is_resolved must verify the manifest's embedded run_id matches: a finalized manifest
+    copied/renamed to another run's path must NOT mark that other run resolved with a different
+    run's closure state (Codex #80)."""
+    _seed_forecast(tmp_path, "other", 1.0, 1.0)  # eligible forecast, embedded run_id 'other'
+    runs = tmp_path / ".uacp" / "state" / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    # a finalized manifest at other.yaml but embedding a DIFFERENT run_id ('real')
+    (runs / "other.yaml").write_text(
+        "run_id: real\nfinalized_at: 2026-07-14T00:00:00Z\n", encoding="utf-8"
+    )
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["joined_runs"] == 0  # manifest run_id 'real' != 'other' -> not resolved
+
+
 def test_forecast_run_id_must_match_filename(tmp_path: Path):
     """A forecast copied to <other>-cascade-forecast.yaml keeps its embedded run_id; even with a
     finalized manifest for <other>, the mismatch must exclude it so the same precision/recall
