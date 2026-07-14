@@ -16,6 +16,62 @@ EXECUTE serializes honest evidence of what happened — it judges *happened / di
 ## Read first
 - `UACP_ROOT/config/state.yaml`
 
+## Rework runs — address the carried findings first (#135)
+
+**If this run reworks another** (`reworks` is set on the manifest — the PLAN→EXECUTE
+response echoes `reworks`, `carried_findings`, and a `rework_briefing` for exactly this
+reason), your EXECUTE work is not open-ended: it exists to fix the parent run's VERIFY
+findings. Before anything else, `uacp_run_read` the manifest and read `carried_findings`
+— a map of the parent's VERIFY finding artifacts (keyed by artifact type, e.g.
+`verification_package` / `resolve_readiness` / `assessment` / `investigation_entry`,
+valued by the parent-relative path). Treat each entry as a required objective.
+
+Every carried finding MUST be **discharged** with an explicit disposition recorded as a
+**complete, canonical `handled_findings_chain` item** (the same LN grammar VERIFY already
+uses) in your VERIFY / closure evidence — one entry per carried finding. A disposition that
+carries only a `handling_classification` plus its class-evidence field is **not enough**:
+the item must be structurally well-formed (fail-CLOSED, #149). Each item MUST carry all
+**8 required base fields**, present and non-empty, with valid enum values:
+
+1. `original_finding_id` — the carried key (or set `original_artifact_path` to the carried
+   path; correlation accepts either, but the canonical item still requires
+   `original_finding_id`);
+2. `finding_classification` — one of `blocker | concern | invariant_failure |
+   negative_finding | material_warning`;
+3. `handling_classification` — see below;
+4. `handling_artifact_path` — the fix / evidence pointer;
+5. `followup_required` — boolean;
+6. `owner`;
+7. `residual_risk`;
+8. `heartgate_validation` — one of `pass | warn | block`.
+
+Beyond the 8 base fields, the item MUST also satisfy the **conditional grammar** the closure
+engine mirrors from the canonical validator (`validate_handled_findings_chain`) — filling only
+the base fields is **not enough**:
+
+- **`remediated` / `expanded` / `justified`** ("the fix / justification stands") — MUST EITHER
+  open a tracked followup (`followup_required: true` **and** a
+  `followup_council_synthesis_artifact`) **OR** carry an `accepted_exception_artifact`;
+- **`deferred` / `accepted_warning` / `rejected_with_reason`** (carried onward) — MUST carry a
+  `next_phase_obligation` (plus `owner` + `residual_risk`, already base); and
+  `accepted_warning` / `rejected_with_reason` MUST additionally carry an
+  `accepted_exception_artifact`;
+- if `followup_required: true`, a `followup_council_synthesis_artifact` is required;
+- a `blocker` / `invariant_failure` finding carried forward (any of the carry-forward
+  classes) MUST set `heartgate_validation: block`;
+- `followup_depth`, if present, must be an integer within the max (1).
+
+**Closure is fail-closed on this.** The `rework_completeness` engine blocks RESOLVE if any
+carried finding has no disposition (`RW_CARRIED_FINDING_UNADDRESSED`), a remediation with no
+fix pointer (`RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED`), an accepted-exception with no
+rationale (`RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE`), or a disposition that carries its
+class-evidence but is not a well-formed canonical item — a missing base **or conditional**
+field, or an invalid enum (`RW_CARRIED_FINDING_DISPOSITION_MALFORMED`). The disposition must
+also live in **this run's own** VERIFY / closure artifact (matching `run_id`, phase
+verify/resolve) — a chain borrowed from another run or an earlier-phase artifact does not
+discharge. A rework cannot quietly close having ignored, or half-documented, a finding it was
+created to fix.
+
 ## Execution Posture (Critical)
 
 **Full autonomy is the default for bounded, documented work.** When a plan or run manifest already defines the next gate — a PR to open, tests to run, a doc sync, a state update — execute it immediately without prompting. The only reasons to stop and ask:

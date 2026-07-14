@@ -18,6 +18,7 @@ from . import (
     evidence_completeness,  # noqa: F401
     graph_projection,  # noqa: F401
     ledger_integrity,  # noqa: F401
+    rework_completeness,  # noqa: F401
     scope_conformance,  # noqa: F401
 )
 from .base import ENGINES, Engine, Violation, run_all_engines

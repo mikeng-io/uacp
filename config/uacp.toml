@@ -503,6 +503,14 @@ allowed_transitions = [
 ]
 decision_values = ["pass", "warn", "block"]
 
+# #135 P4: escalation threshold for the standard-track rework chain (findings->fix
+# loop, #109). When a run's visible `rework_depth` reaches this value, the closure
+# sweep's rework_completeness engine emits RW_REWORK_DEPTH_ESCALATION — a WARNING, not
+# a hard block: a long loop is a signal for a human to check convergence, not an
+# automatic stop. Read via config.get_config(root); a code default (5) applies when
+# absent (see engines.rework_completeness._DEFAULT_MAX_REWORK_DEPTH).
+max_rework_depth = 5
+
 # Slice 4b T4c-1: the transition-boundary coherence-requirement POLICY. The
 # structural grammar (which artifact field is demanded — heartgate_coherence —
 # and the six lenses it must cover) is codified in code

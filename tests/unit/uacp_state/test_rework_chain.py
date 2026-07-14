@@ -227,6 +227,34 @@ def test_rework_carries_composite_investigation_entry_key(temp_uacp_root: Path):
     }
 
 
+def test_rework_carries_governed_writer_verify_keys(temp_uacp_root: Path):
+    """A parent that authored its verify artifacts via uacp_entity_write registers them
+    under the GOVERNED-WRITER keys 'verify_resolve_readiness' / 'piv_assessment'
+    (kind.removeprefix('uacp.')). These MUST be carried too — a production rework's readiness
+    and assessment findings must not be silently dropped just because the manual-alias keys
+    differ (Codex #135)."""
+    root = temp_uacp_root
+    parent = RunManifest(
+        run_id="gov-parent",
+        authority=Authority(source="operator-request"),
+        track="standard",
+        current_phase="verify",
+        artifacts={
+            "verification_package": "verification/gov-parent-verify-selection.yaml",
+            "verify_resolve_readiness": "verification/gov-parent-resolve-readiness.yaml",
+            "piv_assessment": "verification/gov-parent-piv-assessment.yaml",
+        },
+    )
+    _save_manifest(root, parent)
+    out = _init_rework(root, "run-B", "gov-parent")
+    assert out.get("ok") is True, out
+    assert _manifest(root, "run-B")["carried_findings"] == {
+        "verification_package": "verification/gov-parent-verify-selection.yaml",
+        "verify_resolve_readiness": "verification/gov-parent-resolve-readiness.yaml",
+        "piv_assessment": "verification/gov-parent-piv-assessment.yaml",
+    }
+
+
 def test_rework_requires_standard_track_parent(temp_uacp_root: Path):
     """M4: keep the loops distinct — a standard rework cannot rework a goal-driven parent."""
     root = temp_uacp_root
@@ -275,6 +303,123 @@ def test_standard_run_without_reworks_is_unaffected(temp_uacp_root: Path):
     assert m["rework_depth"] == 0
     assert m["carried_findings"] == {}
     assert m["inherits_from"] is None
+
+
+# ------------------------------------ #135 P1: carried findings SURFACE into EXECUTE
+def test_execute_entry_surfaces_carried_findings_for_rework(temp_uacp_root: Path):
+    """On PLAN->EXECUTE a rework run echoes its carried findings + a briefing into the
+    transition response, so the fix agent cannot enter EXECUTE unaware of what it reworks."""
+    from state_machine import handle_transition
+    from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
+
+    root = temp_uacp_root
+    _seed_parent_at_verify(root, "run-A")
+    _init_rework(root, "run-B", "run-A")
+    # advance the rework to PLAN (the surface fires on entry to EXECUTE); seed the faithful
+    # plan-exit prerequisites so the #99 forced gates let the transition cross.
+    m = _manifest(root, "run-B")
+    m["current_phase"] = "plan"
+    (root / ".uacp" / "state" / "runs" / "run-B.yaml").write_text(
+        yaml.safe_dump(m, sort_keys=False), encoding="utf-8"
+    )
+    seed_plan_exit_prerequisites(root, "run-B")
+
+    out = json.loads(
+        handle_transition(
+            {"workspace": str(root), "run_id": "run-B", "from_phase": "plan", "to_phase": "execute"}
+        )
+    )
+    assert out.get("ok") is True, out
+    assert out["reworks"] == "run-A"
+    assert out["carried_findings"] == {
+        "verification_package": "verification/run-A-verify-selection.yaml",
+        "resolve_readiness": "verification/run-A-resolve-readiness.yaml",
+        "assessment": "verification/run-A-piv-assessment.yaml",
+    }
+    assert "handled_findings_chain" in out["rework_briefing"]  # tells the agent the obligation
+
+
+def test_execute_entry_no_rework_noise_for_plain_run(temp_uacp_root: Path):
+    """A non-rework run entering EXECUTE gets NO carried_findings/rework_briefing keys."""
+    from state_machine import handle_init, handle_transition
+    from tests.e2e.test_full_lifecycle import seed_plan_exit_prerequisites
+
+    root = temp_uacp_root
+    handle_init({"workspace": str(root), "run_id": "run-plain", "source": "operator-request"})
+    m = _manifest(root, "run-plain")
+    m["current_phase"] = "plan"
+    (root / ".uacp" / "state" / "runs" / "run-plain.yaml").write_text(
+        yaml.safe_dump(m, sort_keys=False), encoding="utf-8"
+    )
+    seed_plan_exit_prerequisites(root, "run-plain")
+    out = json.loads(
+        handle_transition(
+            {
+                "workspace": str(root),
+                "run_id": "run-plain",
+                "from_phase": "plan",
+                "to_phase": "execute",
+            }
+        )
+    )
+    assert out.get("ok") is True, out
+    assert "carried_findings" not in out and "rework_briefing" not in out
+
+
+# ---------------------------------------------- #135 P3: keys DERIVED from schema
+def test_verify_finding_keys_cover_both_registration_conventions():
+    """The carry set is derived from the schema registry (not a frozen literal) and covers
+    BOTH manifest registration conventions per verify kind (Codex #135): the governed-writer
+    key (kind.removeprefix('uacp.'), the production uacp_entity_write path) AND the manual
+    alias the skill/seeders register (resolve_readiness / assessment). If it only had the
+    manual aliases, a real governed run's readiness/assessment findings would not be carried."""
+    from engines.domain.schema import verify_finding_artifact_keys
+
+    keys = verify_finding_artifact_keys()
+    # governed-writer keys (production) — MUST be present
+    assert {
+        "verify_resolve_readiness",
+        "piv_assessment",
+        "verification_package",
+        "investigation_entry",
+    } <= keys
+    # manual/seeder aliases — also present
+    assert {"resolve_readiness", "assessment"} <= keys
+    assert keys == frozenset(
+        {
+            "verification_package",
+            "verify_resolve_readiness",
+            "resolve_readiness",
+            "piv_assessment",
+            "assessment",
+            "investigation_entry",
+        }
+    )
+
+
+def test_new_verify_phase_kind_is_carried_automatically(monkeypatch, temp_uacp_root: Path):
+    """The POINT of P3: register a NEW schema kind pinned phase=verify and it flows into
+    the carry set WITHOUT editing the carry code — the miss the #135 review flagged (a new
+    verify artifact kind silently not carried) can no longer happen."""
+    from engines.domain import schema as S
+
+    patched = dict(S._SCHEMAS)
+    patched["uacp.verify_new_probe"] = {"properties": {"phase": {"const": "verify"}}}
+    monkeypatch.setattr(S, "_SCHEMAS", patched)
+
+    # unmapped kind falls back to its base name (strip uacp.), never silently dropped
+    assert "verify_new_probe" in S.verify_finding_artifact_keys()
+
+    # and a rework parent that registers it carries it forward
+    root = temp_uacp_root
+    _seed_parent_at_verify(root, "run-A")
+    m0 = _manifest(root, "run-A")
+    m0["artifacts"]["verify_new_probe"] = "verification/run-A-new-probe.yaml"
+    (root / ".uacp" / "state" / "runs" / "run-A.yaml").write_text(
+        yaml.safe_dump(m0, sort_keys=False), encoding="utf-8"
+    )
+    out = _init_rework(root, "run-B", "run-A")
+    assert "verify_new_probe" in _manifest(root, "run-B")["carried_findings"], out
 
 
 # --------------------------------------------------------------- ADR-0016 P2 invariant

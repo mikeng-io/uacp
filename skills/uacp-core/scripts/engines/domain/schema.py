@@ -784,3 +784,63 @@ def validate(kind: str, doc: Any) -> list[str]:
         path = ".".join(str(p) for p in err.path) or "(root)"
         out.append(f"{path}: {err.message}")
     return out
+
+
+# --------------------------------------------------------------------------- #135 P3
+# Manifest artifact_type keys under which a VERIFY finding-bearing artifact is
+# registered — DERIVED from this schema registry rather than frozen as a literal, so a
+# NEW verify artifact kind is automatically carried into a rework instead of being
+# silently missed (#135; the prior hardcoded tuple in state_machine.handle_init).
+#
+# Two hops, because the schema KIND is not the manifest KEY, and there are TWO
+# registration conventions a key can arrive under (both must be recognized — Codex #135):
+#   (1) which kinds carry verify findings — schema-driven: every kind whose schema pins
+#       ``phase == "verify"``, PLUS the verify-LOOP kinds that carry findings without a
+#       phase const (the investigation-ledger move has no single phase);
+#   (2) the manifest artifact_type key each kind is registered under, of which there are two:
+#       - the GOVERNED-WRITER key — ``uacp_entity_write`` registers via
+#         ``engines/manifest/entity_writer.py`` as ``kind.removeprefix("uacp.")``
+#         (e.g. ``verify_resolve_readiness`` / ``piv_assessment``). This is the PRODUCTION
+#         path, so its keys MUST be in the set or a real governed run's readiness/assessment
+#         findings are silently not carried, and a governed-writer-authored disposition is
+#         not scanned by rework_completeness;
+#       - the MANUAL alias — where the uacp-verify skill / test seeders pass a shorter
+#         ``artifact_type`` to ``uacp_run_register_artifact`` directly
+#         (``resolve_readiness`` / ``assessment``). Recorded here where it differs from the
+#         removeprefix key.
+# The derived set is the UNION of both per verify kind, so carry + disposition-scan work
+# whichever writer authored the artifact.
+_VERIFY_LOOP_KINDS_WITHOUT_PHASE: frozenset[str] = frozenset({"uacp.investigation_entry"})
+# Manual-alias overrides ONLY (the governed-writer key = kind.removeprefix('uacp.') is added
+# unconditionally). A kind absent here has no distinct manual alias.
+_KIND_MANUAL_ALIAS: dict[str, str] = {
+    "uacp.verify_resolve_readiness": "resolve_readiness",
+    "uacp.piv_assessment": "assessment",
+}
+
+
+def _phase_const(schema: dict[str, Any]) -> str | None:
+    props = schema.get("properties") if isinstance(schema, dict) else None
+    phase = props.get("phase") if isinstance(props, dict) else None
+    return phase.get("const") if isinstance(phase, dict) else None
+
+
+def verify_finding_artifact_keys() -> frozenset[str]:
+    """The manifest artifact_type keys a standard-track run registers its VERIFY findings
+    under, derived from the schema registry. A rework carries exactly these keys from its
+    parent (#109), and the rework_completeness engine (#135) demands a disposition for each.
+
+    Deriving this (vs a frozen tuple) means a new phase=verify schema kind is carried
+    automatically. For EACH verify kind the set includes BOTH registration conventions: the
+    governed-writer key (``kind.removeprefix("uacp.")``, the production ``uacp_entity_write``
+    path) AND the manual alias where the skill/seeders register a shorter key — so findings
+    and dispositions are recognized whichever writer authored the artifact (Codex #135).
+    """
+    kinds = {k for k, sch in _SCHEMAS.items() if _phase_const(sch) == "verify"}
+    kinds |= _VERIFY_LOOP_KINDS_WITHOUT_PHASE
+    keys: set[str] = set()
+    for k in kinds:
+        keys.add(k.removeprefix("uacp."))  # governed-writer registration key (production)
+        if k in _KIND_MANUAL_ALIAS:
+            keys.add(_KIND_MANUAL_ALIAS[k])  # manual/seeder alias where it differs
+    return frozenset(keys)
