@@ -196,11 +196,14 @@ def _collect_dispositions(root: Path, manifest: dict[str, Any]) -> list[dict[str
     so scan EVERY registered artifact for the chain instead of a fragile key list — BUT only
     honor those declaring a VERIFY / RESOLVE ``phase`` (:data:`_DISPOSITION_PHASES`), so a chain
     in an earlier-phase artifact cannot discharge a finding before verify/closure evidence
-    exists (Codex #135). Tolerant: a missing / garbled / non-list / wrong-phase artifact
-    contributes nothing (a genuinely absent disposition is caught as UNADDRESSED)."""
+    exists (Codex #135), AND only those belonging to THIS run (matching ``run_id``), so a
+    borrowed parent/sibling disposition cannot discharge a finding. Tolerant: a missing /
+    garbled / non-list / wrong-phase / foreign-run artifact contributes nothing (a genuinely
+    absent disposition is caught as UNADDRESSED)."""
     artifacts = manifest.get("artifacts")
     if not isinstance(artifacts, dict):
         return []
+    own_run_id = manifest.get("run_id")
 
     entries: list[dict[str, Any]] = []
     seen_rels: set[str] = set()
@@ -216,6 +219,12 @@ def _collect_dispositions(root: Path, manifest: dict[str, Any]) -> list[dict[str
         # before verify/closure evidence exists (Codex #135). Gate on the artifact's declared
         # phase — a phase-less / non-verify/resolve artifact contributes nothing.
         if loaded.value.get("phase") not in _DISPOSITION_PHASES:
+            continue
+        # And the disposition must be THIS run's OWN evidence: a rework manifest can register a
+        # parent/sibling run's artifact (handle_register_artifact only records the path), so a
+        # borrowed disposition from another run's verify/closure artifact must NOT discharge a
+        # carried finding (Codex #135). The lifecycle schemas require ``run_id`` on these kinds.
+        if loaded.value.get("run_id") != own_run_id:
             continue
         chain = loaded.value.get("handled_findings_chain")
         if isinstance(chain, list):

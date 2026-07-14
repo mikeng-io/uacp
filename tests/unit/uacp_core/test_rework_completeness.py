@@ -108,7 +108,12 @@ def _seed_rework(root: Path, run_id: str, *, carried: dict, chain: list, rework_
     _write_artifact(
         root,
         rr_rel,
-        {"kind": "uacp.verify_resolve_readiness", "phase": "verify", "handled_findings_chain": chain},
+        {
+            "kind": "uacp.verify_resolve_readiness",
+            "phase": "verify",
+            "run_id": run_id,
+            "handled_findings_chain": chain,
+        },
     )
 
 
@@ -170,6 +175,7 @@ def test_disposition_in_governed_writer_readiness_artifact_is_scanned(temp_uacp_
         {
             "kind": "uacp.verify_resolve_readiness",
             "phase": "verify",
+            "run_id": "run-B",
             "handled_findings_chain": [
                 _canonical("verification_package", handling_artifact_path="x"),
                 _canonical("assessment", handling_artifact_path="y"),
@@ -200,6 +206,7 @@ def test_disposition_in_governed_resolve_closure_artifact_is_scanned(temp_uacp_r
         {
             "kind": "uacp.resolve_closure",
             "phase": "resolve",
+            "run_id": "run-B",
             "handled_findings_chain": [
                 _canonical("verification_package", handling_artifact_path="x"),
                 _canonical("assessment", handling_artifact_path="y"),
@@ -230,6 +237,7 @@ def test_disposition_in_non_verify_resolve_artifact_does_not_discharge(temp_uacp
         {
             "kind": "uacp.plan_validation",
             "phase": "plan",  # NOT verify/resolve -> its chain must be ignored
+            "run_id": "run-B",  # own run, so ONLY the phase gate rejects it
             "handled_findings_chain": [
                 _canonical("verification_package", handling_artifact_path="x"),
                 _canonical("assessment", handling_artifact_path="y"),
@@ -239,6 +247,38 @@ def test_disposition_in_non_verify_resolve_artifact_does_not_discharge(temp_uacp
     v = validate_rework_completeness(temp_uacp_root, "run-B")
     assert _codes(v) == {"RW_CARRIED_FINDING_UNADDRESSED"}
     # BOTH carried findings are still unaddressed (the plan chain discharged neither)
+    assert len([x for x in v if x.code == "RW_CARRIED_FINDING_UNADDRESSED"]) == 2
+
+
+def test_disposition_from_a_foreign_run_does_not_discharge(temp_uacp_root: Path):
+    """A rework can register a parent/sibling run's VERIFY/RESOLVE artifact (register only
+    records the path). A borrowed disposition — right phase, but declaring ANOTHER run's
+    run_id — must NOT discharge this run's carried findings; only the run's OWN evidence
+    counts (Codex #135)."""
+    rr_rel = "verification/run-B-resolve-readiness.yaml"
+    _write_manifest(
+        temp_uacp_root,
+        "run-B",
+        reworks="run-A",
+        rework_depth=1,
+        carried_findings=_CARRIED,
+        artifacts={"verify_resolve_readiness": rr_rel},
+    )
+    _write_artifact(
+        temp_uacp_root,
+        rr_rel,
+        {
+            "kind": "uacp.verify_resolve_readiness",
+            "phase": "verify",
+            "run_id": "run-A",  # a FOREIGN run's disposition evidence
+            "handled_findings_chain": [
+                _canonical("verification_package", handling_artifact_path="x"),
+                _canonical("assessment", handling_artifact_path="y"),
+            ],
+        },
+    )
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    assert _codes(v) == {"RW_CARRIED_FINDING_UNADDRESSED"}
     assert len([x for x in v if x.code == "RW_CARRIED_FINDING_UNADDRESSED"]) == 2
 
 
