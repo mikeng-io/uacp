@@ -604,10 +604,10 @@ class Heartgate:
     def validate_closure(self, run_id: str) -> HeartgateDecision:
         """Run the computed engines as the RESOLVE / closure gate for a run.
 
-        This is the operator-facing closure check: it sweeps all five computed
+        This is the operator-facing closure check: it sweeps all six computed
         engines (coherence, ledger_integrity, scope_conformance,
-        evidence_completeness, deferral_completeness) over the run's emitted
-        state and maps their violations onto a :class:`HeartgateDecision` — any
+        evidence_completeness, deferral_completeness, rework_completeness) over the
+        run's emitted state and maps their violations onto a :class:`HeartgateDecision` — any
         ``severity == "block"`` violation becomes a blocker, ``"warn"`` becomes a
         warning. Decision is ``"block"`` if any blockers, else ``"warn"`` if any
         warnings, else ``"pass"``.
@@ -653,6 +653,29 @@ class Heartgate:
                     blockers.append(line)
                 else:
                     warnings.append(line)
+
+            # PROMOTION EVIDENCE (#80): record which conformance-witness codes fired at this
+            # closure so a later promotion report can tally advisory firing across runs (the
+            # advisory->blocking promotion bar). Written ONLY for a NON-blocked closure (Codex
+            # #80): validate_closure runs during handle_finalize's TENTATIVE finalize, and a
+            # blocked closure is reverted — persisting a ledger for a run that never resolved
+            # would pollute the promotion corpus (report counts every witness-ledgers/*.yaml).
+            # Gate-owned OBSERVATION only: it reads the same sweep's violations, changes NO
+            # decision, promotes NO witness, and never raises (best-effort — a failed write is
+            # dropped).
+            if not blockers:
+                try:
+                    import time as _time
+
+                    from engines.io.witness_ledger_io import (  # noqa: PLC0415
+                        build_witness_record,
+                        write_witness_ledger,
+                    )
+
+                    _rec = build_witness_record(run_id, [v.code for v in violations], _time.time())
+                    write_witness_ledger(self.uacp_root, run_id, _rec)
+                except Exception:  # evidence is best-effort — never let it affect closure
+                    pass
 
             if blockers:
                 return HeartgateDecision(

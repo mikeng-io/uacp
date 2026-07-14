@@ -334,11 +334,13 @@ def handle_init(args: dict[str, Any]) -> str:
             #   ._seed_verify_assessment) + investigation_entry (typed uacp.investigation_
             #   entry, which entity_writer registers as 'investigation_entry' or
             #   'investigation_entry:seq=1'). NOT the schema-KIND names.
-            # NOTE (review #135): a NEW verify artifact key must be added here — a
-            # follow-up should derive this from the phase->artifact schema instead.
-            _VERIFY_FINDING_BASE_KEYS = frozenset(
-                {"verification_package", "resolve_readiness", "assessment", "investigation_entry"}
-            )
+            # #135 P3: DERIVED from the schema registry (kinds pinned phase=verify + the
+            # investigation-loop kind, mapped to their registration keys) rather than a
+            # frozen literal, so a NEW verify artifact kind is carried automatically
+            # instead of being silently missed. Lazy import (engines<->state cycle).
+            from engines.domain.schema import verify_finding_artifact_keys
+
+            _VERIFY_FINDING_BASE_KEYS = verify_finding_artifact_keys()
             carried_findings = {
                 k: v
                 for k, v in rework_parent.artifacts.items()
@@ -808,6 +810,21 @@ def _handle_transition_locked(
             # SUCCESS response: the governed crossing proceeds, the finding stays visible
             # (PR #95 review — previously computed-then-discarded on this path).
             payload["advisories"] = gate_advisories
+        # #135 P1: SURFACE the carried findings into the rework run's EXECUTE context. On
+        # entry to EXECUTE a rework run (reworks set) echoes the parent's carried findings
+        # + a briefing so the fix agent cannot proceed unaware of what it is reworking —
+        # the enforcement half (#135 P2, closure engine) then demands a disposition for
+        # each at RESOLVE. Only on EXECUTE entry, only for a rework run (no noise elsewhere).
+        if to_phase == "execute" and manifest.reworks and manifest.carried_findings:
+            payload["reworks"] = manifest.reworks
+            payload["rework_depth"] = manifest.rework_depth
+            payload["carried_findings"] = dict(manifest.carried_findings)
+            payload["rework_briefing"] = (
+                f"This run REWORKS '{manifest.reworks}'. You must address each carried finding "
+                f"below and record a handled_findings_chain disposition (remediated / justified / "
+                f"deferred / ...) for every one at VERIFY/RESOLVE — closure blocks on an "
+                f"undischarged carried finding (#135)."
+            )
         return json.dumps(payload, ensure_ascii=False)
     except FileNotFoundError as exc:
         return json.dumps({"error": f"transition failed: {exc}"})
