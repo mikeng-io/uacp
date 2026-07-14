@@ -604,10 +604,10 @@ class Heartgate:
     def validate_closure(self, run_id: str) -> HeartgateDecision:
         """Run the computed engines as the RESOLVE / closure gate for a run.
 
-        This is the operator-facing closure check: it sweeps all five computed
+        This is the operator-facing closure check: it sweeps all six computed
         engines (coherence, ledger_integrity, scope_conformance,
-        evidence_completeness, deferral_completeness) over the run's emitted
-        state and maps their violations onto a :class:`HeartgateDecision` — any
+        evidence_completeness, deferral_completeness, rework_completeness) over the
+        run's emitted state and maps their violations onto a :class:`HeartgateDecision` — any
         ``severity == "block"`` violation becomes a blocker, ``"warn"`` becomes a
         warning. Decision is ``"block"`` if any blockers, else ``"warn"`` if any
         warnings, else ``"pass"``.
