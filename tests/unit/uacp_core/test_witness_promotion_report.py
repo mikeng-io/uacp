@@ -91,9 +91,12 @@ def test_symlinked_verification_dir_is_not_followed(tmp_path: Path):
     decoy = tmp_path / "decoy"
     (decoy / "witness-ledgers").mkdir(parents=True, exist_ok=True)
     (decoy / "witness-ledgers" / "x.yaml").write_text(
-        "kind: uacp.witness_ledger\nrun_id: x\ncounts: {SC_DIFF_OUT_OF_SCOPE: 1}\n", encoding="utf-8"
+        "kind: uacp.witness_ledger\nrun_id: x\ncounts: {SC_DIFF_OUT_OF_SCOPE: 1}\n",
+        encoding="utf-8",
     )
-    (decoy / "x-cascade-forecast.yaml").write_text("precision: 1.0\nrecall: 1.0\n", encoding="utf-8")
+    (decoy / "x-cascade-forecast.yaml").write_text(
+        "precision: 1.0\nrecall: 1.0\n", encoding="utf-8"
+    )
     (base / "verification").symlink_to(decoy, target_is_directory=True)
 
     r = rep.build_report(tmp_path)
@@ -185,9 +188,15 @@ def test_forecast_run_id_must_match_filename(tmp_path: Path):
     finalized manifest for <other>, the mismatch must exclude it so the same precision/recall
     sample is not counted again for another run (Codex #80)."""
     _seed_forecast_full(
-        tmp_path, "other",
-        {"run_id": "real", "precision": 1.0, "recall": 1.0,
-         "base_commit": "a", "graph_stamp": {"commit": "a"}},
+        tmp_path,
+        "other",
+        {
+            "run_id": "real",
+            "precision": 1.0,
+            "recall": 1.0,
+            "base_commit": "a",
+            "graph_stamp": {"commit": "a"},
+        },
     )
     _seed_manifest(tmp_path, "other", finalized_at="2026-07-14T00:00:00Z")
     r = rep.build_report(tmp_path)
@@ -383,14 +392,16 @@ def test_forecast_excludes_commit_early_hindsight_pairs(tmp_path: Path):
     dropped — surfaced as hindsight_runs for the human promotion decision (Codex #80)."""
     # a clean pair (commit == base_commit) contributes to the bar
     _seed_forecast_full(
-        tmp_path, "clean", {"precision": 1.0, "recall": 1.0, "base_commit": "abc",
-                            "graph_stamp": {"commit": "abc"}}
+        tmp_path,
+        "clean",
+        {"precision": 1.0, "recall": 1.0, "base_commit": "abc", "graph_stamp": {"commit": "abc"}},
     )
     _seed_manifest(tmp_path, "clean", finalized_at="2026-07-14T00:00:00Z")
     # a hindsight pair (commit advanced past base) is excluded from the corpus but counted
     _seed_forecast_full(
-        tmp_path, "hind", {"precision": 0.2, "recall": 0.2, "base_commit": "abc",
-                           "graph_stamp": {"commit": "def"}}
+        tmp_path,
+        "hind",
+        {"precision": 0.2, "recall": 0.2, "base_commit": "abc", "graph_stamp": {"commit": "def"}},
     )
     _seed_manifest(tmp_path, "hind", finalized_at="2026-07-14T00:00:00Z")
     r = rep.build_report(tmp_path)
@@ -405,8 +416,11 @@ def test_forecast_excludes_unauditable_pairs(tmp_path: Path):
     """A resolved forecast MISSING the audit fields (no base_commit / graph_stamp.commit) cannot
     be checked for the hindsight condition, so it is NOT verifiable-clean evidence and must be
     EXCLUDED from the bar — a separate surfaced bucket, not counted as clean (Codex #80)."""
-    _seed_forecast_full(tmp_path, "clean", {"precision": 1.0, "recall": 1.0,
-                                            "base_commit": "base", "graph_stamp": {"commit": "base"}})
+    _seed_forecast_full(
+        tmp_path,
+        "clean",
+        {"precision": 1.0, "recall": 1.0, "base_commit": "base", "graph_stamp": {"commit": "base"}},
+    )
     _seed_manifest(tmp_path, "clean", finalized_at="2026-07-14T00:00:00Z")
     _seed_forecast_full(tmp_path, "noaudit", {"precision": 0.3, "recall": 0.3})  # no audit fields
     _seed_manifest(tmp_path, "noaudit", finalized_at="2026-07-14T00:00:00Z")
@@ -426,7 +440,8 @@ def test_non_joined_forecast_is_not_bucketed_as_excluded(tmp_path: Path):
     _seed_manifest(tmp_path, "noOutcome", finalized_at="2026-07-14T00:00:00Z")
     # a hindsight record that also never joined -> likewise not bucketed
     _seed_forecast_full(
-        tmp_path, "hindNoOutcome",
+        tmp_path,
+        "hindNoOutcome",
         {"precision": None, "recall": None, "base_commit": "a", "graph_stamp": {"commit": "b"}},
     )
     _seed_manifest(tmp_path, "hindNoOutcome", finalized_at="2026-07-14T00:00:00Z")

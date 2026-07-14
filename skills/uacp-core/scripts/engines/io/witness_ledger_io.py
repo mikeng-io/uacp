@@ -160,8 +160,6 @@ def build_witness_record(run_id: str, codes: Iterable[str], witnessed_at: float)
     }
 
 
-
-
 def safe_unresolved_verification_dir(root: Path) -> Path | None:
     """``<root>/<paths.base>/<paths.verification>`` as an UNRESOLVED path, or None if a config
     segment is absolute / escaping (``..``) or ANY component is a symlink.
