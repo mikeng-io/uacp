@@ -114,6 +114,24 @@ blob. Resist it: when in doubt, make it an anchor, not prose.
 The exact OKF capsule shape (frontmatter + anchors-as-edges + section rules) is in
 `references/capsule-format.md`; the empty form is `assets/handoff-template.md`.
 
-> Integration note (future): `.uacp/handoffs/` and the `handoff` / `handoff_index`
-> kinds are not yet registered in `layout.py` / `uacp-lint`; the skill uses the
-> fixed path directly. Register them when the handoff workstream merges.
+`.uacp/handoffs/` is declared as a namespace segment (`config/uacp.toml` `[paths].handoffs`),
+and a SessionStart hook (`runtime-adapters/claude/inject_uacp_md.py`) surfaces `active` capsules
+from `_index.yaml` at session start, so RESUME is no longer purely a manual skill verb.
+
+The `_index.yaml` shape the hook reads (real YAML — key order and indentation are free):
+
+```yaml
+kind: handoff_index
+entries:
+  - workstream: <kebab-id>     # = the capsule file's name (<workstream>.md)
+    status: active             # active | resolved | superseded
+    updated_at: '<YYYY-MM-DD>'
+    hook: <one line: the next concrete step>   # surfaced verbatim (length-clamped)
+```
+
+NOTE: handoffs are deliberately NOT run-scoped manifest kinds (no `run_id`; a capsule is a
+cross-session, workstream-scoped record the skill writes directly). They are therefore NOT
+registered as `uacp.handoff*` kinds in the run-manifest layout / governed-writer path — doing
+so would falsely assert `uacp_entity_write` (which registers into a run manifest) owns them.
+Whether capsules should become a governed entity kind with a non-run-scoped writer is an open
+decision, tracked on #100.

@@ -25,6 +25,7 @@ verification = "verification"
 resolutions = "resolutions"   # replaces the old .outputs/
 knowledge = "knowledge"
 lessons = "lessons"
+handoffs = "handoffs"
 config = "config.toml"
 
 [paths.bridge_artifacts]

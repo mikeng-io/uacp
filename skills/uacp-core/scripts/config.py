@@ -43,6 +43,7 @@ class Paths(BaseModel):
     resolutions: str = "resolutions"
     knowledge: str = "knowledge"
     lessons: str = "lessons"
+    handoffs: str = "handoffs"
     config: str = "config.toml"
 
 
