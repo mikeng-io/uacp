@@ -20,7 +20,18 @@ def _seed_ledger(root: Path, run_id: str, codes: list[str], witnessed_at: float 
 def _seed_forecast(root: Path, run_id: str, precision, recall) -> None:
     from engines.io import forecastio
 
-    forecastio.write_forecast_record(root, run_id, {"precision": precision, "recall": recall})
+    # Auditable + CLEAN by default (graph_stamp.commit == base_commit) so the record is
+    # bar-eligible; hindsight/unaudited variants are seeded explicitly via _seed_forecast_full.
+    forecastio.write_forecast_record(
+        root,
+        run_id,
+        {
+            "precision": precision,
+            "recall": recall,
+            "base_commit": "base",
+            "graph_stamp": {"commit": "base"},
+        },
+    )
 
 
 def _seed_manifest(root: Path, run_id: str, status=None, finalized_at=None) -> None:
@@ -256,6 +267,22 @@ def test_forecast_excludes_commit_early_hindsight_pairs(tmp_path: Path):
     assert abs(r["forecast"]["mean_precision"] - 1.0) < 1e-9  # hindsight 0.2 is NOT averaged in
     out = rep.format_report(r)
     assert "commit-early hindsight" in out and "EXCLUDED" in out
+
+
+def test_forecast_excludes_unauditable_pairs(tmp_path: Path):
+    """A resolved forecast MISSING the audit fields (no base_commit / graph_stamp.commit) cannot
+    be checked for the hindsight condition, so it is NOT verifiable-clean evidence and must be
+    EXCLUDED from the bar — a separate surfaced bucket, not counted as clean (Codex #80)."""
+    _seed_forecast_full(tmp_path, "clean", {"precision": 1.0, "recall": 1.0,
+                                            "base_commit": "base", "graph_stamp": {"commit": "base"}})
+    _seed_manifest(tmp_path, "clean", finalized_at="2026-07-14T00:00:00Z")
+    _seed_forecast_full(tmp_path, "noaudit", {"precision": 0.3, "recall": 0.3})  # no audit fields
+    _seed_manifest(tmp_path, "noaudit", finalized_at="2026-07-14T00:00:00Z")
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["precision_runs"] == 1  # only the auditable clean pair feeds the bar
+    assert r["forecast"]["unaudited_runs"] == 1  # the unauditable pair is surfaced, not dropped
+    assert abs(r["forecast"]["mean_precision"] - 1.0) < 1e-9  # the 0.3 unaudited is NOT averaged
+    assert "unauditable" in rep.format_report(r)
 
 
 def test_readiness_reports_sound_signals_no_clean_verdict(tmp_path: Path):
