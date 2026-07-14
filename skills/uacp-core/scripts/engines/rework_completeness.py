@@ -61,12 +61,16 @@ Scope / honest limits
 * **Structural completeness only.** A disposition is checked for PRESENCE + a valid class +
   its class-required evidence FIELD (a remediation's ``handling_artifact_path`` fix pointer;
   an accepted-exception's ``residual_risk`` / ``accepted_exception_artifact``) AND for the
-  canonical ``handled_findings_chain`` well-formedness FLOOR — every base field in
-  :data:`_CANONICAL_DISPOSITION_REQUIRED_FIELDS` present/non-empty with valid enums, mirroring
-  ``validate_handled_findings_chain`` (source of truth). What is NOT checked: whether the fix
-  or the justification is semantically adequate, and the linked path is not resolved to a real
-  checkpoint. Adequacy is a council concern (matching ``deferral_completeness``'s documented
-  limit).
+  canonical ``handled_findings_chain`` well-formedness FLOOR — which mirrors the FULL
+  ``validate_handled_findings_chain`` per-item grammar (source of truth): the base fields in
+  :data:`_CANONICAL_DISPOSITION_REQUIRED_FIELDS` present/non-empty, the enum checks, AND the
+  CONDITIONAL followup / carry-forward per-item rules (followup_depth bound; a HARD_FOLLOWUP
+  handling opening a tracked followup or carrying an exception artifact; an opened followup
+  linking its council synthesis; a CARRY_FORWARD handling naming its next_phase_obligation +
+  exception artifact; a blocker/invariant_failure not carried forward without a hard-block
+  validation). What is NOT checked: whether the fix or the justification is semantically
+  adequate, and the linked path is not resolved to a real checkpoint. Adequacy is a council
+  concern (matching ``deferral_completeness``'s documented limit).
 
 Architecture: PURE of filesystem I/O — all disk reads go through :mod:`engines.io`
 read-models; this module never raises (every failure becomes a :class:`Violation` or a
@@ -124,6 +128,24 @@ _VALID_FINDING_CLASSIFICATIONS: frozenset[str] = frozenset(
     {"blocker", "concern", "invariant_failure", "negative_finding", "material_warning"}
 )
 _VALID_HEARTGATE_VALIDATIONS: frozenset[str] = frozenset({"pass", "warn", "block"})
+
+# The handling_classification partition the canonical grammar's CONDITIONAL per-item rules
+# key off (MIRRORED from ``scripts/validate_uacp_artifacts.py`` — HARD_FOLLOWUP_HANDLINGS /
+# CARRY_FORWARD_HANDLINGS / MAX_FOLLOWUP_DEPTH_DEFAULT — the source of truth; kept in sync):
+# * HARD_FOLLOWUP handlings ("the fix / justification stands") must EITHER open a tracked
+#   followup (followup_required=true) OR carry an accepted_exception_artifact.
+# * CARRY_FORWARD handlings ("not fixed, deferred/accepted onward") must name the obligation
+#   they push to the next phase (owner / residual_risk / next_phase_obligation), and the
+#   explicitly-accepted ones (accepted_warning / rejected_with_reason) an exception artifact.
+# NB these are DISTINCT from ``_REMEDIATION_CLASSES`` / ``_ACCEPTED_EXCEPTION_CLASSES`` above
+# (which partition on class-EVIDENCE): ``justified`` is a HARD_FOLLOWUP here but an
+# accepted-exception for class-evidence; ``deferred`` is CARRY_FORWARD here but likewise an
+# accepted-exception for class-evidence. The two partitions answer different questions.
+_HARD_FOLLOWUP_HANDLINGS: frozenset[str] = frozenset({"remediated", "expanded", "justified"})
+_CARRY_FORWARD_HANDLINGS: frozenset[str] = frozenset(
+    {"deferred", "accepted_warning", "rejected_with_reason"}
+)
+_MAX_FOLLOWUP_DEPTH_DEFAULT = 1
 
 _DEFAULT_MAX_REWORK_DEPTH = 5
 
@@ -222,13 +244,18 @@ def _disposition_complete(entry: dict[str, Any]) -> bool:
 
 def _disposition_defects(entry: dict[str, Any]) -> list[str]:
     """The human-readable ways ``entry`` violates the canonical handled_findings_chain item
-    grammar (:data:`_CANONICAL_DISPOSITION_REQUIRED_FIELDS`, source of truth
-    ``validate_handled_findings_chain`` in ``scripts/validate_uacp_artifacts.py``). Each missing/
-    empty base field is reported ``missing <field>``; each invalid enum value ``invalid <field>``.
-    An empty list == canonically well-formed. Mirrors the validator's emptiness test
-    ``entry.get(field) in (None, "")`` (so ``False`` / ``0`` count as PRESENT) and only reports
-    an invalid enum when the value is present (an empty enum field is ``missing``, not
-    ``invalid``)."""
+    grammar, MIRRORING ``validate_handled_findings_chain`` in ``scripts/validate_uacp_artifacts.py``
+    (source of truth) in FULL: the base fields (:data:`_CANONICAL_DISPOSITION_REQUIRED_FIELDS`),
+    the enum checks, AND the conditional followup / carry-forward per-item rules. Each defect is a
+    short string (``missing <field>`` / ``invalid <field>`` / the rule's requirement). An empty list
+    == canonically well-formed.
+
+    Truthiness is matched to the validator EXACTLY: the base-field emptiness test is
+    ``entry.get(field) in (None, "")`` (so ``False`` / ``0`` count as PRESENT); the conditional
+    rules use ``not entry.get(field)`` (falsy: None/""/False/0/[]) for
+    next_phase_obligation / accepted_exception_artifact / followup_council_synthesis_artifact, and
+    the strict ``is True`` / ``is not True`` for followup_required. Enum defects are only reported
+    when the value is present (an empty enum field is ``missing``, not ``invalid``)."""
     defects: list[str] = []
     for field in _CANONICAL_DISPOSITION_REQUIRED_FIELDS:
         if entry.get(field) in (None, ""):
@@ -242,6 +269,53 @@ def _disposition_defects(entry: dict[str, Any]) -> list[str]:
     validation = entry.get("heartgate_validation")
     if validation not in (None, "") and validation not in _VALID_HEARTGATE_VALIDATIONS:
         defects.append(f"invalid heartgate_validation {validation!r}")
+
+    # Rule 1 — followup_depth (optional, default 0): int-convertible and within the max.
+    depth = entry.get("followup_depth", 0)
+    try:
+        depth_int = int(depth)
+    except Exception:
+        defects.append("followup_depth must be integer")
+        depth_int = 0
+    if depth_int > _MAX_FOLLOWUP_DEPTH_DEFAULT:
+        defects.append(f"followup_depth exceeds max {_MAX_FOLLOWUP_DEPTH_DEFAULT}")
+
+    # Rule 2 — a HARD_FOLLOWUP handling must open a tracked followup OR carry an exception artifact.
+    if (
+        handling in _HARD_FOLLOWUP_HANDLINGS
+        and entry.get("followup_required") is not True
+        and not entry.get("accepted_exception_artifact")
+    ):
+        defects.append("requires followup_required=true or accepted_exception_artifact")
+
+    # Rule 3 — an opened followup must link its council synthesis artifact.
+    if entry.get("followup_required") is True and not entry.get(
+        "followup_council_synthesis_artifact"
+    ):
+        defects.append("followup_required=true requires followup_council_synthesis_artifact")
+
+    # Rule 4 — a CARRY_FORWARD handling must name the obligation it pushes forward (owner /
+    # residual_risk are already base-8; next_phase_obligation is NOT — the validator re-checks
+    # all three with ``not entry.get(f)``, a superset of the base emptiness test, so mirror that
+    # while not double-reporting a field the base loop already flagged).
+    if handling in _CARRY_FORWARD_HANDLINGS:
+        for field in ("owner", "residual_risk", "next_phase_obligation"):
+            if not entry.get(field) and f"missing {field}" not in defects:
+                defects.append(f"missing {field}")
+        if handling in {"accepted_warning", "rejected_with_reason"} and not entry.get(
+            "accepted_exception_artifact"
+        ):
+            defects.append("requires accepted_exception_artifact")
+
+    # Rule 5 — a blocker / invariant_failure finding cannot be carried forward unless the
+    # heartgate validation is a hard block.
+    if (
+        finding in {"blocker", "invariant_failure"}
+        and handling in _CARRY_FORWARD_HANDLINGS
+        and validation != "block"
+    ):
+        defects.append("cannot carry forward without heartgate_validation=block")
+
     return defects
 
 

@@ -103,7 +103,12 @@ def _author_rework_dispositions(root: Path, run_id: str) -> None:
             "finding_classification": "concern",
             "handling_classification": "remediated",
             "handling_artifact_path": f"executions/{run_id}-checkpoint-001.yaml",
-            "followup_required": False,
+            # remediated is a HARD_FOLLOWUP handling under the full grammar (#149): it must open
+            # a tracked followup (followup_required=true + a council-synthesis artifact) or carry
+            # an accepted_exception_artifact. Open the followup so the item is fully well-formed.
+            "followup_required": True,
+            "followup_council_synthesis_artifact": f"verification/{run_id}-followup-council.yaml",
+            "next_phase_obligation": "carry the residual risk into the next phase's acceptance",
             "owner": "rework-author",
             "residual_risk": "no material residual risk on the fix branch",
             "heartgate_validation": "pass",

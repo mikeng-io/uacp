@@ -30,6 +30,7 @@ from engines.rework_completeness import (
     _VALID_CLASSES,
     _VALID_FINDING_CLASSIFICATIONS,
     _VALID_HEARTGATE_VALIDATIONS,
+    _disposition_defects,
     validate_rework_completeness,
 )
 
@@ -39,15 +40,24 @@ def _codes(violations) -> set[str]:
 
 
 def _canonical(original_finding_id: str, **over: Any) -> dict[str, Any]:
-    """A FULL, canonically well-formed handled_findings_chain item (all 8 base fields,
-    valid enums) — what a real rework author writes per the #135/#149 execute-skill
-    briefing. Override any field via kwargs (e.g. to drop one for a fail-closed test)."""
+    """A FULL, canonically well-formed handled_findings_chain item — what a real rework
+    author writes per the #135/#149 execute-skill briefing. It clears the ENTIRE per-item
+    grammar mirrored from ``validate_handled_findings_chain``: all 8 base fields present with
+    valid enums, and the conditional followup/carry-forward rules. The default is a
+    ``remediated`` (HARD_FOLLOWUP) item that opens a tracked followup — ``followup_required``
+    True with a ``followup_council_synthesis_artifact`` (satisfies rules 2 & 3) — and also
+    carries a ``next_phase_obligation`` so an override that switches the handling to a
+    CARRY_FORWARD class (rule 4) stays valid without editing the base. Override any field via
+    kwargs (e.g. drop one for a fail-closed test). Control-case validity is proven objectively
+    by the parity battery below."""
     item: dict[str, Any] = {
         "original_finding_id": original_finding_id,
         "finding_classification": "concern",
         "handling_classification": "remediated",
         "handling_artifact_path": "executions/run-B-checkpoint-001.yaml",
-        "followup_required": False,
+        "followup_required": True,
+        "followup_council_synthesis_artifact": "verification/run-B-followup-council.yaml",
+        "next_phase_obligation": "carry the residual risk into the next phase's acceptance",
         "owner": "rework-author",
         "residual_risk": "no material residual risk on the fix branch",
         "heartgate_validation": "pass",
@@ -334,6 +344,97 @@ def test_invalid_finding_classification_is_malformed(temp_uacp_root: Path):
     assert any("invalid finding_classification" in d for d in mal[0].detail["defects"]), mal[0].detail
 
 
+# ------- #149 rework: the FULL per-item grammar (followup / carry-forward conditionals)
+def _malformed(temp_uacp_root: Path, assessment_entry: dict[str, Any]):
+    """Seed a rework whose 'assessment' carried finding is disposed by ``assessment_entry``
+    (its class-evidence present so the discharge reaches the well-formedness floor), plus a
+    fully-valid 'verification_package' disposition. Return the MALFORMED violations."""
+    chain = [_canonical("verification_package"), assessment_entry]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    return [x for x in v if x.code == "RW_CARRIED_FINDING_DISPOSITION_MALFORMED"]
+
+
+def test_followup_depth_over_max_is_malformed(temp_uacp_root: Path):
+    """Rule 1: followup_depth beyond the max (1) trips the floor even when every base field
+    is present."""
+    mal = _malformed(temp_uacp_root, _canonical("assessment", followup_depth=2))
+    assert len(mal) == 1 and mal[0].detail["carried_finding"] == "assessment", mal
+    assert "followup_depth exceeds max 1" in mal[0].detail["defects"], mal[0].detail
+
+
+def test_non_integer_followup_depth_is_malformed(temp_uacp_root: Path):
+    """Rule 1: a non-int-convertible followup_depth is a defect."""
+    mal = _malformed(temp_uacp_root, _canonical("assessment", followup_depth="deep"))
+    assert len(mal) == 1, mal
+    assert "followup_depth must be integer" in mal[0].detail["defects"], mal[0].detail
+
+
+def test_hard_followup_without_followup_or_exception_is_malformed(temp_uacp_root: Path):
+    """Rule 2: a HARD_FOLLOWUP handling (remediated) with followup_required=False and no
+    accepted_exception_artifact does NOT discharge."""
+    mal = _malformed(
+        temp_uacp_root,
+        _canonical("assessment", followup_required=False, followup_council_synthesis_artifact=None),
+    )
+    assert len(mal) == 1, mal
+    assert (
+        "requires followup_required=true or accepted_exception_artifact"
+        in mal[0].detail["defects"]
+    ), mal[0].detail
+
+
+def test_followup_required_without_synthesis_is_malformed(temp_uacp_root: Path):
+    """Rule 3: followup_required=True without a followup_council_synthesis_artifact is a defect."""
+    mal = _malformed(
+        temp_uacp_root, _canonical("assessment", followup_council_synthesis_artifact=None)
+    )
+    assert len(mal) == 1, mal
+    assert (
+        "followup_required=true requires followup_council_synthesis_artifact"
+        in mal[0].detail["defects"]
+    ), mal[0].detail
+
+
+def test_carry_forward_without_next_phase_obligation_is_malformed(temp_uacp_root: Path):
+    """Rule 4: a deferred (CARRY_FORWARD) disposition complete except MISSING next_phase_obligation
+    is not a valid discharge — MALFORMED naming next_phase_obligation."""
+    mal = _malformed(
+        temp_uacp_root,
+        _canonical("assessment", handling_classification="deferred", next_phase_obligation=None),
+    )
+    assert len(mal) == 1, mal
+    assert "missing next_phase_obligation" in mal[0].detail["defects"], mal[0].detail
+
+
+def test_accepted_warning_without_exception_artifact_is_malformed(temp_uacp_root: Path):
+    """Rule 4: an accepted_warning (CARRY_FORWARD) missing accepted_exception_artifact is
+    MALFORMED — its residual_risk supplies class-evidence, so the floor is reached."""
+    mal = _malformed(
+        temp_uacp_root, _canonical("assessment", handling_classification="accepted_warning")
+    )
+    assert len(mal) == 1, mal
+    assert "requires accepted_exception_artifact" in mal[0].detail["defects"], mal[0].detail
+
+
+def test_blocker_carried_forward_without_block_validation_is_malformed(temp_uacp_root: Path):
+    """Rule 5: a blocker finding carried forward (deferred) with heartgate_validation='warn'
+    (not 'block') is MALFORMED."""
+    mal = _malformed(
+        temp_uacp_root,
+        _canonical(
+            "assessment",
+            finding_classification="blocker",
+            handling_classification="deferred",
+            heartgate_validation="warn",
+        ),
+    )
+    assert len(mal) == 1, mal
+    assert (
+        "cannot carry forward without heartgate_validation=block" in mal[0].detail["defects"]
+    ), mal[0].detail
+
+
 def test_full_canonical_item_discharges(temp_uacp_root: Path):
     """A FULL canonical item (all 8 base fields, valid enums) discharges — no violation."""
     chain = [
@@ -541,3 +642,98 @@ def test_engine_required_fields_match_the_canonical_validator():
     assert _VALID_FINDING_CLASSIFICATIONS == frozenset(vua.VALID_FINDING_CLASSIFICATIONS)
     assert _VALID_CLASSES == frozenset(vua.VALID_HANDLING_CLASSIFICATIONS)
     assert _VALID_HEARTGATE_VALIDATIONS == frozenset(vua.VALID_HEARTGATE_VALIDATIONS)
+
+    # (d) COMPREHENSIVE behavioral parity across the WHOLE per-item grammar (#149): for a
+    # battery of representative entries — valid controls for every handling shape AND one
+    # entry violating EACH conditional/base/enum rule — the engine's well-formedness verdict
+    # (does _disposition_defects report ANY defect?) must equal the REAL validator's verdict
+    # (does validate_handled_findings_chain emit ANY BLOCK?). If the engine's floor ever
+    # diverges from the canonical grammar in EITHER direction, this fails.
+    def _validator_blocks(entry: dict) -> bool:
+        issues: list[str] = []
+        vua.validate_handled_findings_chain(
+            Path("synthetic.yaml"),
+            {"source_negative_findings_present": True, "handled_findings_chain": [entry]},
+            issues,
+        )
+        return bool(issues)  # every issue this function emits is a BLOCK
+
+    battery: list[tuple[str, dict]] = [
+        # ---- valid controls (well-formed for their handling shape): expect NO block ----
+        ("valid-remediated", _canonical("f")),
+        ("valid-expanded", _canonical("f", handling_classification="expanded")),
+        ("valid-justified", _canonical("f", handling_classification="justified")),
+        ("valid-deferred", _canonical("f", handling_classification="deferred")),
+        (
+            "valid-accepted_warning",
+            _canonical(
+                "f",
+                handling_classification="accepted_warning",
+                accepted_exception_artifact="verification/f-exception.yaml",
+            ),
+        ),
+        (
+            "valid-rejected_with_reason",
+            _canonical(
+                "f",
+                handling_classification="rejected_with_reason",
+                accepted_exception_artifact="verification/f-exception.yaml",
+            ),
+        ),
+        (
+            "valid-remediated-via-exception",
+            _canonical(
+                "f",
+                followup_required=False,
+                followup_council_synthesis_artifact=None,
+                accepted_exception_artifact="verification/f-exception.yaml",
+            ),
+        ),
+        (
+            "valid-blocker-deferred-block",
+            _canonical(
+                "f",
+                finding_classification="blocker",
+                handling_classification="deferred",
+                heartgate_validation="block",
+            ),
+        ),
+        # ---- one entry violating each rule: expect a block ----
+        ("base-missing-owner", _canonical("f", owner="")),
+        ("enum-bad-heartgate", _canonical("f", heartgate_validation="maybe")),
+        ("enum-bad-finding", _canonical("f", finding_classification="catastrophe")),
+        ("enum-bad-handling", _canonical("f", handling_classification="looks-fine")),
+        ("rule1-depth-over-max", _canonical("f", followup_depth=2)),
+        ("rule1-depth-non-int", _canonical("f", followup_depth="deep")),
+        (
+            "rule2-hard-followup-bare",
+            _canonical("f", followup_required=False, followup_council_synthesis_artifact=None),
+        ),
+        ("rule3-followup-no-synthesis", _canonical("f", followup_council_synthesis_artifact=None)),
+        (
+            "rule4-carry-no-obligation",
+            _canonical("f", handling_classification="deferred", next_phase_obligation=None),
+        ),
+        (
+            "rule4-accepted_warning-no-exception",
+            _canonical("f", handling_classification="accepted_warning"),
+        ),
+        (
+            "rule5-blocker-carry-warn",
+            _canonical(
+                "f",
+                finding_classification="blocker",
+                handling_classification="deferred",
+                heartgate_validation="warn",
+            ),
+        ),
+    ]
+    for label, entry in battery:
+        engine_defects = _disposition_defects(entry)
+        assert bool(engine_defects) == _validator_blocks(entry), (
+            label,
+            engine_defects,
+        )
+    # Non-vacuity: the battery exercises BOTH verdicts (some clean, some blocked).
+    verdicts = {_validator_blocks(e) for _, e in battery}
+    assert verdicts == {True, False}, verdicts
