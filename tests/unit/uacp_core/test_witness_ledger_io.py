@@ -96,11 +96,23 @@ def test_traversal_run_id_is_rejected_and_writes_nothing(tmp_path: Path):
     registry = base / "state" / "run-registry.yaml"
     registry.write_text("active_runs: []\n", encoding="utf-8")
 
-    for bad in ("../../state/run-registry", "a/b", "..\\x", ".hidden"):
+    for bad in ("../../state/run-registry", "a/b", "..\\x", ".", ".."):
         assert wl.witness_ledger_path(tmp_path, bad) is None
         assert wl.write_witness_ledger(tmp_path, bad, {"kind": "uacp.witness_ledger"}) is False
     # the governed file the traversal targeted is intact
     assert registry.read_text(encoding="utf-8") == "active_runs: []\n"
+
+
+def test_canonical_run_ids_that_look_dotty_are_accepted(tmp_path: Path):
+    """The ledger reuses the CANONICAL run-id validator, so run_ids the Heartgate helper accepts
+    (dots that are not the literal `.`/`..`, e.g. `.foo` / `a..b`) get a ledger — they must not
+    silently opt out of the evidence lane (Codex #80). Only `/`, `\\`, control chars and the
+    literal `.`/`..` are unsafe."""
+    for ok in (".foo", "a..b", "run.2026"):
+        assert wl.witness_ledger_path(tmp_path, ok) is not None
+        rec = wl.build_witness_record(ok, ["SC_DIFF_OUT_OF_SCOPE"], witnessed_at=1.0)
+        assert wl.write_witness_ledger(tmp_path, ok, rec) is True
+        assert wl.load_witness_ledger(tmp_path, ok)[0] == rec
 
 
 def test_symlinked_ledger_dir_is_rejected_and_writes_nothing(tmp_path: Path):

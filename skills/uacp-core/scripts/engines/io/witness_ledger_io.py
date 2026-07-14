@@ -28,6 +28,13 @@ from typing import Any
 
 import yaml
 
+# Reuse the CANONICAL run-id validator (the Heartgate helper, re-exported for external
+# importers) rather than a private copy: a stricter local guard rejected run_ids that
+# validate_closure accepts (e.g. ``.foo`` / ``a..b``), so those finalized runs got no ledger and
+# the promotion report undercounted their advisories (Codex #80). The helper is stdlib-only with
+# no import back into the kernel hub, so this stays acyclic.
+from engines.heartgate.validators.helpers import _is_safe_run_id
+
 # Promotion evidence is PER WITNESS FAMILY, not per run (council #80): a run that starves one
 # witness (e.g. the class prober is absent) must NOT mask a real advisory from another (the
 # diff witness fired) — collapsing to a single per-run bucket would drop that advisory from
@@ -153,17 +160,6 @@ def build_witness_record(run_id: str, codes: Iterable[str], witnessed_at: float)
     }
 
 
-def _is_safe_run_id(run_id: Any) -> bool:
-    """A run_id is safe to embed in a filename iff it is a non-empty str with no path
-    separators, no ``..``, and no leading dot (mirrors state_machine's run-id guard)."""
-    return (
-        isinstance(run_id, str)
-        and bool(run_id)
-        and "/" not in run_id
-        and "\\" not in run_id
-        and ".." not in run_id
-        and not run_id.startswith(".")
-    )
 
 
 def safe_unresolved_verification_dir(root: Path) -> Path | None:
