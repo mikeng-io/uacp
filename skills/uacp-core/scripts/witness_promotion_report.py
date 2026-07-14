@@ -67,6 +67,13 @@ def _unresolved_governed_dir(root: Path, *extra: str) -> Path | None:
         return None
 
 
+def _run_id_of(path: Path) -> str:
+    """The run_id a ``witness-ledgers/*.yaml`` filename encodes. Strip the literal ``.yaml``
+    suffix — NOT ``Path.stem``, which mishandles all-dot names (``Path('....yaml').stem`` is
+    ``'....yaml'``, not ``'...'``), so a canonical all-dot run_id would be skipped (Codex #80)."""
+    return path.name.removesuffix(".yaml")
+
+
 def _load_yaml(path: Path) -> dict[str, Any] | None:
     try:
         # Never follow a symlinked LEAF: a witness-ledgers/*.yaml or *-cascade-forecast.yaml
@@ -110,7 +117,7 @@ def build_report(root: Path | str) -> dict[str, Any]:
             # reachable via a symlinked dir) carries a different kind and must not inflate the
             # tally (Codex #80). And the embedded run_id MUST match the filename: a ledger copied
             # / renamed to <other-run>.yaml would otherwise be counted as another run.
-            if rec.get("kind") != _WITNESS_LEDGER_KIND or rec.get("run_id") != path.stem:
+            if rec.get("kind") != _WITNESS_LEDGER_KIND or rec.get("run_id") != _run_id_of(path):
                 continue
             total_runs += 1
             counts = rec.get("counts")
@@ -231,11 +238,11 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
         # match the filename, so a copied / renamed ledger cannot mark another run resolved.
         ledger_run_ids = (
             {
-                p.stem
+                _run_id_of(p)
                 for p in ledger_dir.glob("*.yaml")
                 if (rec := _load_yaml(p)) is not None
                 and rec.get("kind") == _WITNESS_LEDGER_KIND
-                and rec.get("run_id") == p.stem
+                and rec.get("run_id") == _run_id_of(p)
             }
             if ledger_dir is not None
             else set()

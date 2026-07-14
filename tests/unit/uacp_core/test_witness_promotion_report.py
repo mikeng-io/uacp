@@ -136,6 +136,20 @@ def test_foreign_kind_in_ledger_dir_is_not_counted(tmp_path: Path):
     assert r["total_runs"] == 1  # only the real ledger counts
 
 
+def test_all_dot_run_id_ledger_is_counted(tmp_path: Path):
+    """An all-dot canonical run_id (e.g. '...') writes '....yaml'; the report must strip the
+    literal .yaml suffix (NOT Path.stem, which returns '....yaml') so the run_id matches and the
+    ledger is counted, not skipped (Codex #80)."""
+    from engines.io import witness_ledger_io as wl
+
+    rec = wl.build_witness_record("...", ["SC_DIFF_OUT_OF_SCOPE"], witnessed_at=1.0)
+    assert wl.write_witness_ledger(tmp_path, "...", rec) is True
+    assert (tmp_path / ".uacp" / "verification" / "witness-ledgers" / "....yaml").is_file()
+    r = rep.build_report(tmp_path)
+    assert r["total_runs"] == 1  # the all-dot ledger IS counted (run_id '...' matches)
+    assert r["per_code"]["SC_DIFF_OUT_OF_SCOPE"]["runs"] == 1
+
+
 def test_ledger_run_id_must_match_filename(tmp_path: Path):
     """A witness ledger whose embedded run_id != its filename (copied / renamed) must NOT be
     counted — otherwise one valid ledger renamed to <other>.yaml inflates the run tally and can
