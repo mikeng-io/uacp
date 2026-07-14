@@ -285,6 +285,25 @@ def test_forecast_excludes_unauditable_pairs(tmp_path: Path):
     assert "unauditable" in rep.format_report(r)
 
 
+def test_non_joined_forecast_is_not_bucketed_as_excluded(tmp_path: Path):
+    """A resolved forecast that never JOINED (no numeric precision or recall — closure could not
+    observe the diff) is not a promotion pair, so it must NOT be tallied into the hindsight /
+    unaudited exclusion buckets even though it lacks audit fields (Codex #80)."""
+    # unauditable-looking (no audit fields) AND no outcome -> not a pair -> not bucketed
+    _seed_forecast_full(tmp_path, "noOutcome", {"precision": None, "recall": None})
+    _seed_manifest(tmp_path, "noOutcome", finalized_at="2026-07-14T00:00:00Z")
+    # a hindsight record that also never joined -> likewise not bucketed
+    _seed_forecast_full(
+        tmp_path, "hindNoOutcome",
+        {"precision": None, "recall": None, "base_commit": "a", "graph_stamp": {"commit": "b"}},
+    )
+    _seed_manifest(tmp_path, "hindNoOutcome", finalized_at="2026-07-14T00:00:00Z")
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["joined_runs"] == 0
+    assert r["forecast"]["unaudited_runs"] == 0  # no joined pair -> nothing excluded
+    assert r["forecast"]["hindsight_runs"] == 0
+
+
 def test_readiness_reports_sound_signals_no_clean_verdict(tmp_path: Path):
     """The report must NOT emit an unmeasurable CLEAN verdict (Codex #80): a witness emits
     nothing both when it ran clean AND when it never ran, so 'clean' is not measurable. It

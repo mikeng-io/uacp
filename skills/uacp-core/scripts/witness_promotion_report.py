@@ -197,12 +197,20 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
             rec = _load_yaml(path)
             if rec is None:
                 continue
-            # Only AUDITABLE + CLEAN forecasts feed the bar (design node 04, council M1). A
-            # commit-early hindsight pair (graph_stamp.commit != base_commit) OR an unauditable
-            # one (missing audit fields — the hindsight condition cannot be checked) is NOT
-            # verifiable-clean evidence; each is excluded from the precision/recall corpus and
-            # surfaced (never silently dropped) as its own bucket for the human decision (Codex
-            # #80).
+            # A forecast is JOINED only once the closure computed an OUTCOME — a numeric
+            # precision AND/OR recall (precision is None when nothing was predicted, recall None
+            # when nothing landed out-of-boundary; a run whose diff could not be observed has
+            # NEITHER). A non-joined record is not a promotion pair at all, so it is neither
+            # averaged NOR bucketed as excluded (Codex #80) — skip it before classifying.
+            p, r = rec.get("precision"), rec.get("recall")
+            has_p, has_r = isinstance(p, (int, float)), isinstance(r, (int, float))
+            if not (has_p or has_r):
+                continue  # no outcome sample -> nothing to average or exclude
+            # Of the JOINED pairs, only AUDITABLE + CLEAN feed the bar (design node 04, council
+            # M1). A commit-early hindsight pair (graph_stamp.commit != base_commit) OR an
+            # unauditable one (missing audit fields — the hindsight condition cannot be checked)
+            # is NOT verifiable-clean evidence; each is excluded from the precision/recall corpus
+            # and surfaced (never silently dropped) as its own bucket for the human decision.
             eligibility = _forecast_bar_eligibility(rec)
             if eligibility == "hindsight":
                 hindsight += 1
@@ -210,18 +218,11 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
             if eligibility == "unaudited":
                 unaudited += 1
                 continue
-            # A forecast is JOINED once the closure computed an outcome — which yields a
-            # precision AND/OR a recall (precision is None when nothing was predicted, recall
-            # None when nothing landed out-of-boundary). Count the run as joined if EITHER is
-            # present, so joined_runs is the true denominator of both means (gemini #80 P2).
-            p, r = rec.get("precision"), rec.get("recall")
-            has_p, has_r = isinstance(p, (int, float)), isinstance(r, (int, float))
             if has_p:
                 precisions.append(float(p))
             if has_r:
                 recalls.append(float(r))
-            if has_p or has_r:
-                joined += 1
+            joined += 1
     return {
         "joined_runs": joined,
         # precision_runs is the sample SIZE behind mean_precision — records with a numeric
