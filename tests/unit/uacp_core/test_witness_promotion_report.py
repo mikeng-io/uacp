@@ -143,11 +143,11 @@ def test_forecast_from_a_blocked_closure_is_excluded(tmp_path: Path):
 
 
 def test_forecast_resolved_by_manifest_without_ledger_is_counted(tmp_path: Path):
-    """CORE FIX: a genuinely-resolved run (authoritative manifest status=resolved) whose
+    """CORE FIX: a genuinely-finalized run (authoritative manifest finalized_at) whose
     best-effort witness ledger was skipped/failed — or predates the ledger writer — must STILL
     contribute its precision/recall. Keying off ledger presence silently dropped it."""
     _seed_forecast(tmp_path, "resolved_noledger", 1.0, 1.0)
-    _seed_manifest(tmp_path, "resolved_noledger", status="resolved")  # authoritative resolved
+    _seed_manifest(tmp_path, "resolved_noledger", finalized_at="2026-07-14T00:00:00Z")
     # deliberately NO witness ledger
     r = rep.build_report(tmp_path)
     assert r["forecast"]["joined_runs"] == 1  # the false-drop is gone
@@ -155,21 +155,24 @@ def test_forecast_resolved_by_manifest_without_ledger_is_counted(tmp_path: Path)
     assert abs(r["forecast"]["mean_recall"] - 1.0) < 1e-9
 
 
-def test_forecast_resolved_by_finalized_at_is_counted(tmp_path: Path):
-    """``finalized_at`` present (and status absent) is also an authoritative resolved-marker."""
-    _seed_forecast(tmp_path, "fin", 0.7, 0.7)
-    _seed_manifest(tmp_path, "fin", finalized_at="2026-07-14T00:00:00Z")
+def test_forecast_reverted_closure_with_resolved_status_is_excluded(tmp_path: Path):
+    """The verify->resolved transition sets status=resolved BEFORE finalize, and a blocked
+    handle_finalize reverts finalized_at to None while restoring that prior (resolved) status —
+    so a failed closure ends status==resolved with NO finalized_at (Codex #80). Such a run's
+    forecast, joined during the failed attempt, must be EXCLUDED: status alone is not the
+    closure-complete marker, only finalized_at is."""
+    _seed_forecast(tmp_path, "reverted", 0.1, 0.1)
+    _seed_manifest(tmp_path, "reverted", status="resolved")  # resolved status, NO finalized_at
     r = rep.build_report(tmp_path)
-    assert r["forecast"]["joined_runs"] == 1
-    assert abs(r["forecast"]["mean_precision"] - 0.7) < 1e-9
+    assert r["forecast"]["joined_runs"] == 0
+    assert r["forecast"]["mean_precision"] is None
 
 
 def test_forecast_blocked_by_manifest_status_is_excluded(tmp_path: Path):
-    """A run whose authoritative manifest is NOT resolved (blocked/reverted closure — see
-    handle_finalize's fail-closed revert) and carries no finalized_at must be EXCLUDED even
-    though a forecast file was joined during the failed closure attempt."""
+    """A run whose authoritative manifest carries no finalized_at (a closure that never
+    completed) must be EXCLUDED even though a forecast file was joined during the attempt."""
     _seed_forecast(tmp_path, "blocked", 0.1, 0.1)
-    _seed_manifest(tmp_path, "blocked", status="execute")  # not resolved, no finalized_at
+    _seed_manifest(tmp_path, "blocked", status="execute")  # not finalized
     r = rep.build_report(tmp_path)
     assert r["forecast"]["joined_runs"] == 0
     assert r["forecast"]["mean_precision"] is None
@@ -187,14 +190,14 @@ def test_forecast_manifest_missing_falls_back_to_ledger_presence(tmp_path: Path)
 
 
 def test_forecast_precision_ok_requires_enough_pairs(tmp_path: Path):
-    """The node-04 bar is precision >= 0.8 over >= _MIN_FORECAST_RUNS joined pairs (Codex #80):
-    a single perfect-precision pair must NOT flip forecast_precision_ok true. It clears only
-    once BOTH the threshold and the sample size are met."""
-    # one resolved forecast at precision 1.0 -> above threshold but far below the sample floor
+    """The node-04 bar is precision >= 0.8 over >= _MIN_FORECAST_RUNS PRECISION-bearing samples
+    (Codex #80): a single perfect-precision pair must NOT flip forecast_precision_ok true. It
+    clears only once BOTH the threshold and the precision-sample size are met."""
+    # one finalized forecast at precision 1.0 -> above threshold but far below the sample floor
     _seed_forecast(tmp_path, "solo", 1.0, 1.0)
-    _seed_manifest(tmp_path, "solo", status="resolved")
+    _seed_manifest(tmp_path, "solo", finalized_at="2026-07-14T00:00:00Z")
     ready = rep.promotion_readiness(rep.build_report(tmp_path))
-    assert ready["forecast_joined_runs"] == 1
+    assert ready["forecast_precision_runs"] == 1
     assert ready["forecast_precision"] == 1.0  # threshold met
     assert ready["forecast_precision_ok"] is False  # but sample floor not met -> NOT ok
     assert ready["min_forecast_runs"] == rep._MIN_FORECAST_RUNS
@@ -202,10 +205,27 @@ def test_forecast_precision_ok_requires_enough_pairs(tmp_path: Path):
     # enough high-precision pairs -> both conditions met -> ok
     for i in range(rep._MIN_FORECAST_RUNS):
         _seed_forecast(tmp_path, f"run{i}", 0.9, 0.9)
-        _seed_manifest(tmp_path, f"run{i}", status="resolved")
+        _seed_manifest(tmp_path, f"run{i}", finalized_at="2026-07-14T00:00:00Z")
     ready2 = rep.promotion_readiness(rep.build_report(tmp_path))
-    assert ready2["forecast_joined_runs"] >= rep._MIN_FORECAST_RUNS
+    assert ready2["forecast_precision_runs"] >= rep._MIN_FORECAST_RUNS
     assert ready2["forecast_precision_ok"] is True
+
+
+def test_forecast_precision_floor_counts_precision_not_recall_only(tmp_path: Path):
+    """The sample floor must count PRECISION-bearing forecasts, not joined_runs (Codex #80):
+    _MIN_FORECAST_RUNS recall-only joins (precision=None) plus ONE perfect prediction give
+    joined_runs > the floor but only ONE precision sample — forecast_precision_ok must stay
+    false, since precision has one-sample support."""
+    for i in range(rep._MIN_FORECAST_RUNS):
+        _seed_forecast(tmp_path, f"recallonly{i}", None, 0.9)  # recall only, no precision
+        _seed_manifest(tmp_path, f"recallonly{i}", finalized_at="2026-07-14T00:00:00Z")
+    _seed_forecast(tmp_path, "oneprecision", 1.0, 1.0)
+    _seed_manifest(tmp_path, "oneprecision", finalized_at="2026-07-14T00:00:00Z")
+    report = rep.build_report(tmp_path)
+    assert report["forecast"]["joined_runs"] > rep._MIN_FORECAST_RUNS  # joined is above the floor
+    assert report["forecast"]["precision_runs"] == 1  # but only one precision sample
+    ready = rep.promotion_readiness(report)
+    assert ready["forecast_precision_ok"] is False  # so the bar is NOT cleared
 
 
 def test_readiness_reports_sound_signals_no_clean_verdict(tmp_path: Path):

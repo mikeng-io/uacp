@@ -111,13 +111,16 @@ def build_report(root: Path | str) -> dict[str, Any]:
 
 
 def _run_is_resolved(root: Path, run_id: str, ledger_run_ids: set[str]) -> bool:
-    """Decide, AUTHORITATIVELY, whether a forecast's run genuinely resolved.
+    """Decide, AUTHORITATIVELY, whether a forecast's run reached a COMPLETED closure.
 
-    Primary signal is the run MANIFEST (``load_manifest``): it loaded AND either
-    ``status == "resolved"`` OR ``finalized_at`` is truthy. This is authoritative because
-    ``state_machine.handle_finalize`` OPTIMISTICALLY sets both, then on ANY closure blocker
-    REVERTS them (fail-closed) — so a blocked/reverted closure ends with ``status`` not
-    resolved and ``finalized_at`` unset, while a genuine resolution keeps them.
+    Primary signal is the run MANIFEST's ``finalized_at`` (via ``load_manifest``) — NOT
+    ``status``. ``status == "resolved"`` is set by the verify->resolved transition BEFORE
+    finalization (``state_machine`` ~784-788), and a blocked ``handle_finalize`` reverts
+    ``finalized_at`` to None while restoring that PRIOR status — which is already
+    ``resolved`` — so a failed closure attempt ends with ``status == "resolved"`` but no
+    ``finalized_at`` (Codex #80). Only ``finalized_at`` is the finalize-specific,
+    closure-complete marker: ``handle_finalize`` stamps it on success and clears it on any
+    blocker, so it excludes blocked closures while a genuinely finalized run keeps it.
 
     FALLBACK: only when the manifest cannot be loaded (``.error`` set / missing / garbled)
     do we fall back to witness-ledger presence — the ledger is written only on a non-blocked
@@ -131,7 +134,7 @@ def _run_is_resolved(root: Path, run_id: str, ledger_run_ids: set[str]) -> bool:
     if loaded is not None and loaded.error is None and loaded.value is not None:
         raw = getattr(loaded.value, "raw", None)
         if isinstance(raw, dict):
-            return raw.get("status") == "resolved" or bool(raw.get("finalized_at"))
+            return bool(raw.get("finalized_at"))  # the ONLY closure-complete marker
         return False  # manifest loaded but shapeless -> authoritatively NOT resolved
     return run_id in ledger_run_ids  # manifest unavailable -> ledger-presence fallback
 
@@ -183,6 +186,12 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
                 joined += 1
     return {
         "joined_runs": joined,
+        # precision_runs is the sample SIZE behind mean_precision — records with a numeric
+        # precision, NOT joined_runs (which also counts recall-only records). The sample floor
+        # keys off this so a lone precision-bearing forecast among many recall-only joins cannot
+        # clear the bar on one-sample support (Codex #80).
+        "precision_runs": len(precisions),
+        "recall_runs": len(recalls),
         "mean_precision": (sum(precisions) / len(precisions)) if precisions else None,
         "mean_recall": (sum(recalls) / len(recalls)) if recalls else None,
     }
@@ -212,21 +221,23 @@ def promotion_readiness(
         }
     forecast = report.get("forecast", {})
     prec = forecast.get("mean_precision")
-    joined = forecast.get("joined_runs", 0)
-    joined = joined if isinstance(joined, int) else 0
+    precision_runs = forecast.get("precision_runs", 0)
+    precision_runs = precision_runs if isinstance(precision_runs, int) else 0
     # The forecast bar clears ONLY when precision meets the threshold AND it is measured over a
-    # large-enough sample — a single high-precision pair is not promotion evidence (Codex #80).
+    # large-enough PRECISION sample — the count of precision-bearing forecasts, NOT joined_runs
+    # (which also counts recall-only records), so a lone perfect prediction among many
+    # recall-only joins cannot clear the bar on one-sample support (Codex #80).
     forecast_precision_ok = (
         isinstance(prec, float)
         and prec >= _MIN_FORECAST_PRECISION
-        and joined >= _MIN_FORECAST_RUNS
+        and precision_runs >= _MIN_FORECAST_RUNS
     )
     return {
         "families": families,
         "min_runs": min_runs,
         "forecast_precision_ok": forecast_precision_ok,
         "forecast_precision": prec,
-        "forecast_joined_runs": joined,
+        "forecast_precision_runs": precision_runs,
         "min_forecast_runs": _MIN_FORECAST_RUNS,
     }
 
