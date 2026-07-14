@@ -25,9 +25,11 @@ from typing import Any
 
 import yaml
 from engines.io.loaders import load_manifest
-from engines.io.witness_ledger_io import WITNESS_CODES, WITNESS_FAMILIES
-
-from config import get_config
+from engines.io.witness_ledger_io import (
+    WITNESS_CODES,
+    WITNESS_FAMILIES,
+    safe_unresolved_verification_dir,
+)
 
 # The node-02 minimum witnessable-run count before a zero-false-positive record is treated as
 # promotion evidence. Advisory only — the report flags eligibility, it does not promote.
@@ -44,20 +46,19 @@ _WITNESS_LEDGER_KIND = "uacp.witness_ledger"
 
 
 def _unresolved_governed_dir(root: Path, *extra: str) -> Path | None:
-    """``<root>/<paths.base>/<paths.verification>/<extra...>`` as an UNRESOLVED path, returned
-    only if it exists as a directory and NO component (from root down) is a symlink.
+    """``<verification>/<extra...>`` as an UNRESOLVED path, returned only if it exists as a
+    directory and NO component is a symlink.
 
-    ``dir_for`` / ``base_dir`` call ``.resolve()``, so they FOLLOW a symlinked ``verification``
-    (or witness-ledgers) dir — ``vdir.is_symlink()`` would then never fire and the report could
-    read ledgers / forecasts from the symlink target (e.g. ``.uacp/state/...``), poisoning the
-    promotion metrics (Codex #80). Reconstruct the path from config and check each raw component
-    with ``is_symlink`` (parity with ``filesystem._resolve_uacp_path``). Any symlinked component
-    -> None. Never raises."""
+    The verification dir comes from :func:`safe_unresolved_verification_dir` (shared with the
+    ledger writer) — which reconstructs the raw path and rejects absolute/``..``/symlinked
+    config segments, because ``dir_for``/``base_dir`` ``.resolve()`` would FOLLOW a symlinked
+    ``verification`` dir into e.g. ``.uacp/state`` and let the report read ledgers/forecasts from
+    the symlink target (Codex #80). Any symlinked ``extra`` component -> None. Never raises."""
     try:
-        cfg = get_config(root)
-        current = Path(root).resolve()
-        segs = (*Path(cfg.paths.base).parts, *Path(cfg.paths.verification).parts, *extra)
-        for part in segs:
+        current = safe_unresolved_verification_dir(root)
+        if current is None:
+            return None
+        for part in extra:
             current = current / part
             if current.is_symlink():
                 return None

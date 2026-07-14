@@ -122,6 +122,36 @@ def test_symlinked_ledger_dir_is_rejected_and_writes_nothing(tmp_path: Path):
     assert list(victim.iterdir()) == []
 
 
+def test_symlinked_verification_dir_is_rejected_by_writer(tmp_path: Path):
+    """dir_for RESOLVES a symlinked verification/ dir, so the writer must reconstruct the raw
+    path and refuse (Codex #80): with .uacp/verification a symlink to .uacp/state, the ledger
+    path is None, the write is skipped, and no ledger lands under the symlink target."""
+    base = tmp_path / ".uacp"
+    victim = base / "state"
+    victim.mkdir(parents=True, exist_ok=True)
+    (base / "verification").symlink_to(victim, target_is_directory=True)
+
+    assert wl.witness_ledger_path(tmp_path, "run-io") is None
+    rec = wl.build_witness_record("run-io", ["SC_DIFF_OUT_OF_SCOPE"], witnessed_at=1.0)
+    assert wl.write_witness_ledger(tmp_path, "run-io", rec) is False
+    assert not (victim / "witness-ledgers").exists()  # nothing written through the link
+
+
+def test_safe_unresolved_verification_dir_rejects_escaping_config(tmp_path: Path, monkeypatch):
+    """A config override with an escaping (``..``) or absolute verification segment must yield
+    None (parity with dir_for's containment), so the writer/reader never touch an out-of-
+    namespace dir (Codex #80)."""
+    import config as cfgmod
+
+    def _cfg(base: str, verif: str):
+        paths = type("P", (), {"base": base, "verification": verif})()
+        return type("C", (), {"paths": paths})()
+
+    for base, verif in ((".uacp", "../state"), (".uacp", "/etc"), ("/abs", "verification")):
+        monkeypatch.setattr(cfgmod, "get_config", lambda root, b=base, v=verif: _cfg(b, v))
+        assert wl.safe_unresolved_verification_dir(tmp_path) is None
+
+
 def test_ledger_does_not_pollute_the_verify_evidence_glob(tmp_path: Path):
     """The ledger must live UNDER verification/witness-ledgers/, not directly in verification/,
     so it never matches the non-recursive verify-evidence invariant glob `verification/{run_id}*`

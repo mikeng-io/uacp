@@ -28,8 +28,6 @@ from typing import Any
 
 import yaml
 
-from config import dir_for
-
 # Promotion evidence is PER WITNESS FAMILY, not per run (council #80): a run that starves one
 # witness (e.g. the class prober is absent) must NOT mask a real advisory from another (the
 # diff witness fired) — collapsing to a single per-run bucket would drop that advisory from
@@ -168,6 +166,35 @@ def _is_safe_run_id(run_id: Any) -> bool:
     )
 
 
+def safe_unresolved_verification_dir(root: Path) -> Path | None:
+    """``<root>/<paths.base>/<paths.verification>`` as an UNRESOLVED path, or None if a config
+    segment is absolute / escaping (``..``) or ANY component is a symlink.
+
+    ``dir_for`` / ``base_dir`` call ``.resolve()``, so they FOLLOW a symlinked ``verification``
+    dir (e.g. -> ``.uacp/state``) BEFORE any symlink guard runs — the write would then land under
+    the symlink target and pollute a governed subtree (Codex #80). Reconstruct the raw path from
+    config and validate each component here: reject absolute/``..``/empty segments (parity with
+    ``dir_for``'s containment) and any symlinked component. Never raises."""
+    try:
+        from config import get_config
+
+        cfg = get_config(root)
+        base_seg, verif_seg = cfg.paths.base, cfg.paths.verification
+        if Path(base_seg).is_absolute() or Path(verif_seg).is_absolute():
+            return None
+        segs = (*Path(base_seg).parts, *Path(verif_seg).parts)
+        if any(p in ("", ".", "..") for p in segs):
+            return None
+        current = Path(root).resolve()
+        for part in segs:
+            current = current / part
+            if current.is_symlink():
+                return None
+        return current
+    except Exception:
+        return None
+
+
 def witness_ledger_path(root: Path, run_id: str) -> Path | None:
     """``<base>/verification/witness-ledgers/<run_id>.yaml`` (config-aware), or None when the
     governed verification dir cannot be resolved. Never raises.
@@ -184,14 +211,21 @@ def witness_ledger_path(root: Path, run_id: str) -> Path | None:
     BEFORE building the filename. The ledger writer runs best-effort inside ``validate_closure``
     *before* the invalid-run decision is returned, so an id like ``'../../state/run-registry'``
     would otherwise resolve the write OUT of the sub-namespace and overwrite governed state.
-    An unsafe id yields None -> the write is skipped (the closure blocks the run anyway)."""
+    An unsafe id yields None -> the write is skipped (the closure blocks the run anyway).
+
+    SECURITY (Codex #80): the verification dir is resolved via
+    :func:`safe_unresolved_verification_dir` (NOT ``dir_for``, which resolves symlinks), so a
+    symlinked ``verification`` / ``witness-ledgers`` component fails closed BEFORE the path is
+    built — the write cannot land through a symlink into a sibling governed subtree."""
     if not _is_safe_run_id(run_id):
         return None
-    try:
-        vdir = dir_for(Path(root).resolve(), "verification")
-    except Exception:
+    vdir = safe_unresolved_verification_dir(root)
+    if vdir is None:
         return None
-    return vdir / "witness-ledgers" / f"{run_id}.yaml"
+    ledgers = vdir / "witness-ledgers"
+    if ledgers.is_symlink():  # the leaf ledger dir must not be a symlink either
+        return None
+    return ledgers / f"{run_id}.yaml"
 
 
 def _no_symlinked_component(path: Path, root: Path) -> bool:
