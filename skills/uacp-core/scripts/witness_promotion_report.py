@@ -28,6 +28,8 @@ from engines.io.loaders import load_manifest
 from engines.io.witness_ledger_io import (
     WITNESS_CODES,
     WITNESS_FAMILIES,
+    _is_safe_run_id,
+    safe_unresolved_governed_dir,
     safe_unresolved_verification_dir,
 )
 
@@ -170,8 +172,20 @@ def _run_is_resolved(root: Path, run_id: str, ledger_run_ids: set[str]) -> bool:
     closure, so it stays a valid POSITIVE fallback and keeps manifest-less workspaces no worse
     than the prior ledger-only signal. Never raises.
     """
+    # Reject a symlinked state path BEFORE load_manifest follows it (Codex #80): a manifest
+    # symlinked into state/runs (or a symlinked state/runs dir) could otherwise import an
+    # external/sibling run's finalized state and mark this forecast resolved. Same guard as the
+    # verification reads. Fall back to the ledger set when the safe path can't be confirmed.
+    state_dir = safe_unresolved_governed_dir(root, "state")
+    if state_dir is not None and _is_safe_run_id(run_id):
+        runs = state_dir / "runs"
+        mpath = runs / f"{run_id}.yaml"
+        if runs.is_symlink() or mpath.is_symlink():
+            state_dir = None  # symlinked manifest path -> do not trust the manifest
+    else:
+        state_dir = None
     try:
-        loaded = load_manifest(root, run_id)
+        loaded = load_manifest(root, run_id) if state_dir is not None else None
     except Exception:  # load_manifest is documented not to raise; guard anyway
         loaded = None
     if loaded is not None and loaded.error is None and loaded.value is not None:

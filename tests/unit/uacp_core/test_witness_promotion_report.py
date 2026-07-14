@@ -168,6 +168,21 @@ def test_ledger_run_id_must_match_filename(tmp_path: Path):
     assert r["per_code"] == {}
 
 
+def test_forecast_excluded_when_manifest_path_is_symlinked(tmp_path: Path):
+    """load_manifest follows a symlinked state/runs/<run_id>.yaml, so an external finalized
+    manifest symlinked into state/runs could mark a forecast resolved. The report must reject a
+    symlinked manifest path (parity with the verification reads) and fall back to the ledger set
+    — with no ledger, the forecast is excluded (Codex #80)."""
+    _seed_forecast(tmp_path, "other", 1.0, 1.0)  # eligible forecast
+    external = tmp_path / "ext-manifest.yaml"
+    external.write_text("run_id: other\nfinalized_at: 2026-07-14T00:00:00Z\n", encoding="utf-8")
+    runs = tmp_path / ".uacp" / "state" / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    (runs / "other.yaml").symlink_to(external)  # symlinked manifest leaf
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["joined_runs"] == 0  # symlinked manifest not trusted; no ledger fallback
+
+
 def test_forecast_excluded_when_manifest_run_id_mismatches(tmp_path: Path):
     """_run_is_resolved must verify the manifest's embedded run_id matches: a finalized manifest
     copied/renamed to another run's path must NOT mark that other run resolved with a different

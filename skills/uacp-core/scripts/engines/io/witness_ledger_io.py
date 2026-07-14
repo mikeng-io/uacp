@@ -160,23 +160,27 @@ def build_witness_record(run_id: str, codes: Iterable[str], witnessed_at: float)
     }
 
 
-def safe_unresolved_verification_dir(root: Path) -> Path | None:
-    """``<root>/<paths.base>/<paths.verification>`` as an UNRESOLVED path, or None if a config
-    segment is absolute / escaping (``..``) or ANY component is a symlink.
+def safe_unresolved_governed_dir(root: Path, path_key: str) -> Path | None:
+    """``<root>/<paths.base>/<paths.{path_key}>`` (e.g. ``verification`` / ``state``) as an
+    UNRESOLVED path, or None if a config segment is absolute / escaping (``..``) or ANY component
+    is a symlink.
 
-    ``dir_for`` / ``base_dir`` call ``.resolve()``, so they FOLLOW a symlinked ``verification``
-    dir (e.g. -> ``.uacp/state``) BEFORE any symlink guard runs — the write would then land under
-    the symlink target and pollute a governed subtree (Codex #80). Reconstruct the raw path from
-    config and validate each component here: reject absolute/``..``/empty segments (parity with
-    ``dir_for``'s containment) and any symlinked component. Never raises."""
+    ``dir_for`` / ``base_dir`` call ``.resolve()``, so they FOLLOW a symlinked governed subdir
+    (e.g. ``verification`` -> ``state``, or a ``state/runs`` symlink) BEFORE any symlink guard
+    runs — reads/writes would then land under the symlink target and pollute or import an
+    external governed subtree (Codex #80). Reconstruct the raw path from config and validate each
+    component: reject absolute/``..``/empty segments (parity with ``dir_for``'s containment) and
+    any symlinked component. Never raises."""
     try:
         from config import get_config
 
         cfg = get_config(root)
-        base_seg, verif_seg = cfg.paths.base, cfg.paths.verification
-        if Path(base_seg).is_absolute() or Path(verif_seg).is_absolute():
+        base_seg, sub_seg = cfg.paths.base, getattr(cfg.paths, path_key, None)
+        if not isinstance(sub_seg, str):
             return None
-        segs = (*Path(base_seg).parts, *Path(verif_seg).parts)
+        if Path(base_seg).is_absolute() or Path(sub_seg).is_absolute():
+            return None
+        segs = (*Path(base_seg).parts, *Path(sub_seg).parts)
         if any(p in ("", ".", "..") for p in segs):
             return None
         current = Path(root).resolve()
@@ -187,6 +191,12 @@ def safe_unresolved_verification_dir(root: Path) -> Path | None:
         return current
     except Exception:
         return None
+
+
+def safe_unresolved_verification_dir(root: Path) -> Path | None:
+    """The verification governed dir — thin wrapper over
+    :func:`safe_unresolved_governed_dir` (kept for callers). Never raises."""
+    return safe_unresolved_governed_dir(root, "verification")
 
 
 def witness_ledger_path(root: Path, run_id: str) -> Path | None:
