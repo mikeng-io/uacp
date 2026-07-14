@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from engines.io.loaders import load_manifest
 from engines.io.witness_ledger_io import WITNESS_CODES, WITNESS_FAMILIES
 
 from config import dir_for
@@ -51,8 +52,9 @@ def build_report(root: Path | str) -> dict[str, Any]:
     code — which conflates "ran clean" with "never ran", so it is NOT a clean-run denominator
     (see ``promotion_readiness``). Never raises — an unreadable/absent dir yields an empty
     report."""
+    root_p = Path(str(root)).resolve()
     try:
-        vdir = dir_for(Path(str(root)).resolve(), "verification")
+        vdir = dir_for(root_p, "verification")
     except Exception:
         vdir = None
 
@@ -100,26 +102,66 @@ def build_report(root: Path | str) -> dict[str, Any]:
         "total_runs": total_runs,
         "families": families,
         "per_code": {k: per_code[k] for k in sorted(per_code)},
-        "forecast": _forecast_summary(vdir),
+        "forecast": _forecast_summary(root_p),
     }
 
 
-def _forecast_summary(vdir: Path | None) -> dict[str, Any]:
+def _run_is_resolved(root: Path, run_id: str, ledger_run_ids: set[str]) -> bool:
+    """Decide, AUTHORITATIVELY, whether a forecast's run genuinely resolved.
+
+    Primary signal is the run MANIFEST (``load_manifest``): it loaded AND either
+    ``status == "resolved"`` OR ``finalized_at`` is truthy. This is authoritative because
+    ``state_machine.handle_finalize`` OPTIMISTICALLY sets both, then on ANY closure blocker
+    REVERTS them (fail-closed) — so a blocked/reverted closure ends with ``status`` not
+    resolved and ``finalized_at`` unset, while a genuine resolution keeps them.
+
+    FALLBACK: only when the manifest cannot be loaded (``.error`` set / missing / garbled)
+    do we fall back to witness-ledger presence — the ledger is written only on a non-blocked
+    closure, so it stays a valid POSITIVE fallback and keeps manifest-less workspaces no worse
+    than the prior ledger-only signal. Never raises.
+    """
+    try:
+        loaded = load_manifest(root, run_id)
+    except Exception:  # load_manifest is documented not to raise; guard anyway
+        loaded = None
+    if loaded is not None and loaded.error is None and loaded.value is not None:
+        raw = getattr(loaded.value, "raw", None)
+        if isinstance(raw, dict):
+            return raw.get("status") == "resolved" or bool(raw.get("finalized_at"))
+        return False  # manifest loaded but shapeless -> authoritatively NOT resolved
+    return run_id in ledger_run_ids  # manifest unavailable -> ledger-presence fallback
+
+
+def _forecast_summary(root: Path) -> dict[str, Any]:
     """Mean precision/recall over forecast records that carry a joined outcome — restricted to
-    RESOLVED runs. The cascade forecast is joined during closure BEFORE handle_finalize knows
-    whether a blocker will revert the run, and the joined file is not removed on a block, so a
-    failed closure attempt would otherwise contribute precision/recall to a run that never
-    resolved (Codex #80). Filter by witness-ledger presence: the ledger is written ONLY for a
-    non-blocked closure, so a run with a ledger resolved — one without it blocked/reverted."""
+    genuinely RESOLVED runs, keyed off AUTHORITATIVE run status.
+
+    The cascade forecast is joined during closure BEFORE ``handle_finalize`` knows whether a
+    blocker will revert the run, and the joined file is not removed on a block, so a failed
+    closure attempt would otherwise contribute precision/recall to a run that never resolved
+    (Codex #80). The witness ledger is a BEST-EFFORT OBSERVATION artifact, not authoritative
+    run state: a genuinely-resolved run can lack one (runs predating the ledger writer, or any
+    resolved closure where the best-effort ledger write was skipped/failed). Keying off ledger
+    presence therefore SILENTLY DROPPED valid forecasts.
+
+    Instead, resolved-ness is decided by ``_run_is_resolved`` from the run MANIFEST — which
+    EXCLUDES blocked closures (``handle_finalize`` reverts ``status``/``finalized_at`` on any
+    blocker) while INCLUDING resolved runs that have no ledger. Ledger presence is retained
+    ONLY as a fallback for when the manifest is unavailable. Never raises."""
     precisions: list[float] = []
     recalls: list[float] = []
     joined = 0
+    root_p = Path(str(root)).resolve()
+    try:
+        vdir = dir_for(root_p, "verification")
+    except Exception:
+        vdir = None
     if vdir is not None and vdir.is_dir():
-        resolved_run_ids = {p.stem for p in vdir.glob("witness-ledgers/*.yaml")}
+        ledger_run_ids = {p.stem for p in vdir.glob("witness-ledgers/*.yaml")}
         for path in sorted(vdir.glob("*-cascade-forecast.yaml")):
             run_id = path.name.removesuffix("-cascade-forecast.yaml")
-            if run_id not in resolved_run_ids:
-                continue  # no ledger -> the closure blocked/reverted -> exclude from averages
+            if not _run_is_resolved(root_p, run_id, ledger_run_ids):
+                continue  # not authoritatively resolved -> exclude from the averages
             rec = _load_yaml(path)
             if rec is None:
                 continue

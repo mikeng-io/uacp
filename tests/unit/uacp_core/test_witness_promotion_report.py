@@ -23,6 +23,22 @@ def _seed_forecast(root: Path, run_id: str, precision, recall) -> None:
     forecastio.write_forecast_record(root, run_id, {"precision": precision, "recall": recall})
 
 
+def _seed_manifest(root: Path, run_id: str, status=None, finalized_at=None) -> None:
+    """Seed a run manifest at the authoritative path ``load_manifest`` reads
+    (``<root>/.uacp/state/runs/<run_id>.yaml``) with the minimal shape."""
+    import yaml
+    from config import dir_for
+
+    runs = dir_for(Path(root).resolve(), "state") / "runs"
+    runs.mkdir(parents=True, exist_ok=True)
+    body: dict = {"run_id": run_id}
+    if status is not None:
+        body["status"] = status
+    if finalized_at is not None:
+        body["finalized_at"] = finalized_at
+    (runs / f"{run_id}.yaml").write_text(yaml.safe_dump(body), encoding="utf-8")
+
+
 def test_empty_workspace_is_all_zero(tmp_path: Path):
     r = rep.build_report(tmp_path)
     assert r["total_runs"] == 0
@@ -124,6 +140,50 @@ def test_forecast_from_a_blocked_closure_is_excluded(tmp_path: Path):
     r = rep.build_report(tmp_path)
     assert r["forecast"]["joined_runs"] == 1  # only the resolved run
     assert abs(r["forecast"]["mean_precision"] - 1.0) < 1e-9  # the 0.1 blocked run is NOT averaged
+
+
+def test_forecast_resolved_by_manifest_without_ledger_is_counted(tmp_path: Path):
+    """CORE FIX: a genuinely-resolved run (authoritative manifest status=resolved) whose
+    best-effort witness ledger was skipped/failed — or predates the ledger writer — must STILL
+    contribute its precision/recall. Keying off ledger presence silently dropped it."""
+    _seed_forecast(tmp_path, "resolved_noledger", 1.0, 1.0)
+    _seed_manifest(tmp_path, "resolved_noledger", status="resolved")  # authoritative resolved
+    # deliberately NO witness ledger
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["joined_runs"] == 1  # the false-drop is gone
+    assert abs(r["forecast"]["mean_precision"] - 1.0) < 1e-9
+    assert abs(r["forecast"]["mean_recall"] - 1.0) < 1e-9
+
+
+def test_forecast_resolved_by_finalized_at_is_counted(tmp_path: Path):
+    """``finalized_at`` present (and status absent) is also an authoritative resolved-marker."""
+    _seed_forecast(tmp_path, "fin", 0.7, 0.7)
+    _seed_manifest(tmp_path, "fin", finalized_at="2026-07-14T00:00:00Z")
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["joined_runs"] == 1
+    assert abs(r["forecast"]["mean_precision"] - 0.7) < 1e-9
+
+
+def test_forecast_blocked_by_manifest_status_is_excluded(tmp_path: Path):
+    """A run whose authoritative manifest is NOT resolved (blocked/reverted closure — see
+    handle_finalize's fail-closed revert) and carries no finalized_at must be EXCLUDED even
+    though a forecast file was joined during the failed closure attempt."""
+    _seed_forecast(tmp_path, "blocked", 0.1, 0.1)
+    _seed_manifest(tmp_path, "blocked", status="execute")  # not resolved, no finalized_at
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["joined_runs"] == 0
+    assert r["forecast"]["mean_precision"] is None
+
+
+def test_forecast_manifest_missing_falls_back_to_ledger_presence(tmp_path: Path):
+    """When the manifest cannot be loaded, ledger presence remains a valid POSITIVE fallback
+    (the ledger is written only on a non-blocked closure) — manifest-less workspaces are no
+    worse than before."""
+    _seed_forecast(tmp_path, "fallback", 0.9, 0.9)
+    _seed_ledger(tmp_path, "fallback", [])  # ledger present, NO manifest -> fallback counts it
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["joined_runs"] == 1
+    assert abs(r["forecast"]["mean_precision"] - 0.9) < 1e-9
 
 
 def test_readiness_reports_sound_signals_no_clean_verdict(tmp_path: Path):
