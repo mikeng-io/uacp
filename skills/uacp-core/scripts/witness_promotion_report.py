@@ -108,8 +108,9 @@ def build_report(root: Path | str) -> dict[str, Any]:
                 continue
             # Only count REAL witness ledgers — a stray / foreign file (e.g. a run manifest
             # reachable via a symlinked dir) carries a different kind and must not inflate the
-            # tally (Codex #80).
-            if rec.get("kind") != _WITNESS_LEDGER_KIND:
+            # tally (Codex #80). And the embedded run_id MUST match the filename: a ledger copied
+            # / renamed to <other-run>.yaml would otherwise be counted as another run.
+            if rec.get("kind") != _WITNESS_LEDGER_KIND or rec.get("run_id") != path.stem:
                 continue
             total_runs += 1
             counts = rec.get("counts")
@@ -226,9 +227,16 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
         # The ledger-presence fallback set: real witness ledgers under a NON-symlinked dir only
         # (a symlinked dir or a foreign kind must not seed the resolved-fallback — Codex #80).
         ledger_dir = _unresolved_governed_dir(root_p, "witness-ledgers")
+        # A ledger only marks ITS OWN run resolved: require kind AND the embedded run_id to
+        # match the filename, so a copied / renamed ledger cannot mark another run resolved.
         ledger_run_ids = (
-            {p.stem for p in ledger_dir.glob("*.yaml")
-             if (_load_yaml(p) or {}).get("kind") == _WITNESS_LEDGER_KIND}
+            {
+                p.stem
+                for p in ledger_dir.glob("*.yaml")
+                if (rec := _load_yaml(p)) is not None
+                and rec.get("kind") == _WITNESS_LEDGER_KIND
+                and rec.get("run_id") == p.stem
+            }
             if ledger_dir is not None
             else set()
         )
@@ -238,6 +246,11 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
                 continue  # not authoritatively resolved -> exclude from the averages
             rec = _load_yaml(path)
             if rec is None:
+                continue
+            # The forecast's embedded run_id MUST match its filename: a forecast copied to
+            # <other>-cascade-forecast.yaml would otherwise re-count the same precision/recall
+            # sample for <other> and corrupt the promotion corpus (Codex #80).
+            if rec.get("run_id") != run_id:
                 continue
             # A forecast is JOINED only once the closure computed an OUTCOME — a numeric
             # precision AND/OR recall (precision is None when nothing was predicted, recall None

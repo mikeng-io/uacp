@@ -26,6 +26,7 @@ def _seed_forecast(root: Path, run_id: str, precision, recall) -> None:
         root,
         run_id,
         {
+            "run_id": run_id,  # embedded run_id matches the filename (real records do)
             "precision": precision,
             "recall": recall,
             "base_commit": "base",
@@ -133,6 +134,35 @@ def test_foreign_kind_in_ledger_dir_is_not_counted(tmp_path: Path):
     stray.write_text("kind: uacp.run_manifest\nrun_id: stray\n", encoding="utf-8")
     r = rep.build_report(tmp_path)
     assert r["total_runs"] == 1  # only the real ledger counts
+
+
+def test_ledger_run_id_must_match_filename(tmp_path: Path):
+    """A witness ledger whose embedded run_id != its filename (copied / renamed) must NOT be
+    counted — otherwise one valid ledger renamed to <other>.yaml inflates the run tally and can
+    mark <other> resolved for the forecast fallback (Codex #80)."""
+    ldir = tmp_path / ".uacp" / "verification" / "witness-ledgers"
+    ldir.mkdir(parents=True, exist_ok=True)
+    (ldir / "other.yaml").write_text(
+        "kind: uacp.witness_ledger\nrun_id: real\ncounts: {SC_DIFF_OUT_OF_SCOPE: 1}\n",
+        encoding="utf-8",
+    )
+    r = rep.build_report(tmp_path)
+    assert r["total_runs"] == 0  # embedded run_id 'real' != filename 'other' -> not counted
+    assert r["per_code"] == {}
+
+
+def test_forecast_run_id_must_match_filename(tmp_path: Path):
+    """A forecast copied to <other>-cascade-forecast.yaml keeps its embedded run_id; even with a
+    finalized manifest for <other>, the mismatch must exclude it so the same precision/recall
+    sample is not counted again for another run (Codex #80)."""
+    _seed_forecast_full(
+        tmp_path, "other",
+        {"run_id": "real", "precision": 1.0, "recall": 1.0,
+         "base_commit": "a", "graph_stamp": {"commit": "a"}},
+    )
+    _seed_manifest(tmp_path, "other", finalized_at="2026-07-14T00:00:00Z")
+    r = rep.build_report(tmp_path)
+    assert r["forecast"]["joined_runs"] == 0  # embedded run_id 'real' != filename 'other'
 
 
 def test_aggregates_per_family_and_per_code(tmp_path: Path):
@@ -313,7 +343,9 @@ def test_forecast_precision_floor_counts_precision_not_recall_only(tmp_path: Pat
 def _seed_forecast_full(root: Path, run_id: str, record: dict) -> None:
     from engines.io import forecastio
 
-    forecastio.write_forecast_record(root, run_id, record)
+    # default the embedded run_id to the filename (real records embed it); an explicit run_id
+    # in ``record`` wins, so a test can seed a deliberate filename/run_id MISMATCH.
+    forecastio.write_forecast_record(root, run_id, {"run_id": run_id, **record})
 
 
 def test_forecast_excludes_commit_early_hindsight_pairs(tmp_path: Path):
