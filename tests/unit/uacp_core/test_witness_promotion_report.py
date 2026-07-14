@@ -81,6 +81,26 @@ def test_symlinked_ledger_dir_is_not_followed_on_read(tmp_path: Path):
     assert r["per_code"] == {}
 
 
+def test_symlinked_verification_dir_is_not_followed(tmp_path: Path):
+    """dir_for() RESOLVES symlinks, so a symlinked verification/ dir would be followed; the
+    report must reconstruct the UNRESOLVED path and reject it (Codex #80). With .uacp/
+    verification a symlink to a decoy holding a witness-ledgers/<manifest>, nothing is read."""
+    base = tmp_path / ".uacp"
+    base.mkdir(parents=True, exist_ok=True)
+    decoy = tmp_path / "decoy"
+    (decoy / "witness-ledgers").mkdir(parents=True, exist_ok=True)
+    (decoy / "witness-ledgers" / "x.yaml").write_text(
+        "kind: uacp.witness_ledger\nrun_id: x\ncounts: {SC_DIFF_OUT_OF_SCOPE: 1}\n", encoding="utf-8"
+    )
+    (decoy / "x-cascade-forecast.yaml").write_text("precision: 1.0\nrecall: 1.0\n", encoding="utf-8")
+    (base / "verification").symlink_to(decoy, target_is_directory=True)
+
+    r = rep.build_report(tmp_path)
+    assert r["total_runs"] == 0  # the symlinked verification dir was NOT followed
+    assert r["per_code"] == {}
+    assert r["forecast"]["joined_runs"] == 0  # nor the forecast under it
+
+
 def test_foreign_kind_in_ledger_dir_is_not_counted(tmp_path: Path):
     """Defense in depth: even in a real (non-symlinked) ledger dir, a stray file whose kind is
     not uacp.witness_ledger must not inflate the tally (Codex #80)."""

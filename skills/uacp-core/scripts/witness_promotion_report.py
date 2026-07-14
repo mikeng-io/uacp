@@ -27,7 +27,7 @@ import yaml
 from engines.io.loaders import load_manifest
 from engines.io.witness_ledger_io import WITNESS_CODES, WITNESS_FAMILIES
 
-from config import dir_for
+from config import get_config
 
 # The node-02 minimum witnessable-run count before a zero-false-positive record is treated as
 # promotion evidence. Advisory only — the report flags eligibility, it does not promote.
@@ -43,17 +43,25 @@ _MIN_FORECAST_RUNS = 20
 _WITNESS_LEDGER_KIND = "uacp.witness_ledger"
 
 
-def _ledger_dir_or_none(vdir: Path) -> Path | None:
-    """The ``verification/witness-ledgers`` dir, or None if it is absent OR a SYMLINK (or its
-    parent is). The report must NOT follow a symlinked ledger dir: pointed at e.g.
-    ``.uacp/state/runs`` it would make every run manifest be read as a witness ledger, inflating
-    total_runs / seeding the forecast fallback from non-ledger files (Codex #80). Checked with
-    ``is_symlink`` BEFORE ``is_dir`` (which follows links). Never raises."""
+def _unresolved_governed_dir(root: Path, *extra: str) -> Path | None:
+    """``<root>/<paths.base>/<paths.verification>/<extra...>`` as an UNRESOLVED path, returned
+    only if it exists as a directory and NO component (from root down) is a symlink.
+
+    ``dir_for`` / ``base_dir`` call ``.resolve()``, so they FOLLOW a symlinked ``verification``
+    (or witness-ledgers) dir — ``vdir.is_symlink()`` would then never fire and the report could
+    read ledgers / forecasts from the symlink target (e.g. ``.uacp/state/...``), poisoning the
+    promotion metrics (Codex #80). Reconstruct the path from config and check each raw component
+    with ``is_symlink`` (parity with ``filesystem._resolve_uacp_path``). Any symlinked component
+    -> None. Never raises."""
     try:
-        d = vdir / "witness-ledgers"
-        if vdir.is_symlink() or d.is_symlink() or not d.is_dir():
-            return None
-        return d
+        cfg = get_config(root)
+        current = Path(root).resolve()
+        segs = (*Path(cfg.paths.base).parts, *Path(cfg.paths.verification).parts, *extra)
+        for part in segs:
+            current = current / part
+            if current.is_symlink():
+                return None
+        return current if current.is_dir() else None
     except Exception:
         return None
 
@@ -75,10 +83,6 @@ def build_report(root: Path | str) -> dict[str, Any]:
     (see ``promotion_readiness``). Never raises — an unreadable/absent dir yields an empty
     report."""
     root_p = Path(str(root)).resolve()
-    try:
-        vdir = dir_for(root_p, "verification")
-    except Exception:
-        vdir = None
 
     families: dict[str, dict[str, int]] = {
         f.name: {"unstarved": 0, "unresolved": 0, "unavailable": 0, "substantive_runs": 0}
@@ -87,7 +91,7 @@ def build_report(root: Path | str) -> dict[str, Any]:
     per_code: dict[str, dict[str, int]] = {}
     total_runs = 0
 
-    ledger_dir = _ledger_dir_or_none(vdir) if vdir is not None else None
+    ledger_dir = _unresolved_governed_dir(root_p, "witness-ledgers")
     if ledger_dir is not None:
         # ledgers live under verification/witness-ledgers/ (out of the verify-evidence glob,
         # Codex #80) — read them from there, one per run.
@@ -208,14 +212,13 @@ def _forecast_summary(root: Path) -> dict[str, Any]:
     hindsight = 0
     unaudited = 0
     root_p = Path(str(root)).resolve()
-    try:
-        vdir = dir_for(root_p, "verification")
-    except Exception:
-        vdir = None
-    if vdir is not None and vdir.is_dir():
+    # Symlink-safe UNRESOLVED dirs (dir_for resolves symlinks, so a symlinked verification /
+    # ledger dir would otherwise be followed into e.g. state/ — Codex #80).
+    vdir = _unresolved_governed_dir(root_p)
+    if vdir is not None:
         # The ledger-presence fallback set: real witness ledgers under a NON-symlinked dir only
         # (a symlinked dir or a foreign kind must not seed the resolved-fallback — Codex #80).
-        ledger_dir = _ledger_dir_or_none(vdir)
+        ledger_dir = _unresolved_governed_dir(root_p, "witness-ledgers")
         ledger_run_ids = (
             {p.stem for p in ledger_dir.glob("*.yaml")
              if (_load_yaml(p) or {}).get("kind") == _WITNESS_LEDGER_KIND}
