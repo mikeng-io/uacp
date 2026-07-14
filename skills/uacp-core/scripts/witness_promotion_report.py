@@ -269,17 +269,26 @@ def format_report(report: dict[str, Any]) -> str:
         lines.append("  (no witness codes fired in any recorded run)")
     fc = report["forecast"]
     mp, mr = fc["mean_precision"], fc["mean_recall"]
+    p_runs, r_runs = fc.get("precision_runs", 0), fc.get("recall_runs", 0)
+    # Show mean_precision's SAMPLE SIZE next to it, NOT joined_runs — a mean over few precision
+    # records beside a large joined_runs (recall-only joins) would otherwise look like ample
+    # precision evidence when the bar is not met (Codex #80). Also print the bar's verdict.
     forecast_line = (
         f"forecast joined runs: {fc['joined_runs']}  "
-        f"mean_precision={'n/a' if mp is None else f'{mp:.3f}'}  "
-        f"mean_recall={'n/a' if mr is None else f'{mr:.3f}'}"
+        f"mean_precision={'n/a' if mp is None else f'{mp:.3f}'} "
+        f"(over {p_runs}/{_MIN_FORECAST_RUNS} precision samples)  "
+        f"mean_recall={'n/a' if mr is None else f'{mr:.3f}'} (over {r_runs} recall samples)"
+    )
+    bar_line = (
+        f"forecast precision bar (>={_MIN_FORECAST_PRECISION} over >={_MIN_FORECAST_RUNS} "
+        f"precision samples): {'MET' if ready['forecast_precision_ok'] else 'NOT met'}"
     )
     gate_note = (
         "NB: no CLEAN verdict is computed — the clean-run denominator is not measurable without"
         " positive witness attestation (a follow-up). Promotion stays gated on"
         " design/conformance-witnesses nodes 02-04 + operator sign-off."
     )
-    lines += ["", forecast_line, "", gate_note]
+    lines += ["", forecast_line, bar_line, "", gate_note]
     return "\n".join(lines)
 
 

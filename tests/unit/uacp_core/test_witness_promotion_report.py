@@ -258,3 +258,19 @@ def test_format_report_withholds_clean_and_names_the_gate(tmp_path: Path):
     assert "no CLEAN verdict is computed" in out
     assert "positive witness attestation" in out
     assert "gated on" in out and "design/conformance-witnesses" in out
+
+
+def test_format_report_shows_precision_sample_size_not_joined(tmp_path: Path):
+    """The formatted forecast line must display mean_precision's PRECISION-SAMPLE size and the
+    bar verdict — not just joined_runs — so 20 recall-only joins + one perfect prediction does
+    not read as ample precision evidence (Codex #80)."""
+    for i in range(rep._MIN_FORECAST_RUNS):
+        _seed_forecast(tmp_path, f"recallonly{i}", None, 0.9)
+        _seed_manifest(tmp_path, f"recallonly{i}", finalized_at="2026-07-14T00:00:00Z")
+    _seed_forecast(tmp_path, "oneprecision", 1.0, 1.0)
+    _seed_manifest(tmp_path, "oneprecision", finalized_at="2026-07-14T00:00:00Z")
+    out = rep.format_report(rep.build_report(tmp_path))
+    # joined runs is above the floor, but the line makes the ONE precision sample explicit
+    assert f"1/{rep._MIN_FORECAST_RUNS} precision samples" in out
+    # and the bar verdict is shown as NOT met (one-sample support)
+    assert "forecast precision bar" in out and "NOT met" in out
