@@ -101,6 +101,30 @@ def test_symlinked_verification_dir_is_not_followed(tmp_path: Path):
     assert r["forecast"]["joined_runs"] == 0  # nor the forecast under it
 
 
+def test_symlinked_yaml_leaf_is_not_read(tmp_path: Path):
+    """Even inside a REAL verification tree, a symlinked YAML leaf (ledger or forecast) could
+    point outside the governed tree; it must NOT be read/counted (Codex #80)."""
+    base = tmp_path / ".uacp"
+    ledgers = base / "verification" / "witness-ledgers"
+    ledgers.mkdir(parents=True, exist_ok=True)
+    # an external ledger-shaped file the symlink points at
+    external = tmp_path / "external.yaml"
+    external.write_text(
+        "kind: uacp.witness_ledger\nrun_id: ext\ncounts: {SC_DIFF_OUT_OF_SCOPE: 5}\n",
+        encoding="utf-8",
+    )
+    (ledgers / "ext.yaml").symlink_to(external)
+    # an external forecast the symlink points at
+    ext_fc = tmp_path / "ext-forecast.yaml"
+    ext_fc.write_text("precision: 1.0\nrecall: 1.0\n", encoding="utf-8")
+    (base / "verification" / "ext-cascade-forecast.yaml").symlink_to(ext_fc)
+
+    r = rep.build_report(tmp_path)
+    assert r["total_runs"] == 0  # the symlinked ledger leaf was not read
+    assert r["per_code"] == {}
+    assert r["forecast"]["joined_runs"] == 0  # nor the symlinked forecast leaf
+
+
 def test_foreign_kind_in_ledger_dir_is_not_counted(tmp_path: Path):
     """Defense in depth: even in a real (non-symlinked) ledger dir, a stray file whose kind is
     not uacp.witness_ledger must not inflate the tally (Codex #80)."""

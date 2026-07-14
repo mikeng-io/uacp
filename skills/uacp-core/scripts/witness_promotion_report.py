@@ -69,6 +69,12 @@ def _unresolved_governed_dir(root: Path, *extra: str) -> Path | None:
 
 def _load_yaml(path: Path) -> dict[str, Any] | None:
     try:
+        # Never follow a symlinked LEAF: a witness-ledgers/*.yaml or *-cascade-forecast.yaml
+        # symlink (even inside a real dir) could point OUT of the governed verification tree and
+        # inflate advisory/forecast evidence from an external file (Codex #80). All report reads
+        # go through here, so this one guard covers every leaf.
+        if path.is_symlink():
+            return None
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
     except Exception:
         return None
