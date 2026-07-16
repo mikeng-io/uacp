@@ -79,8 +79,8 @@ The canonical inventory of UACP-owned files outside `docs/`. Every file here MUS
 When approaching UACP cold, this order minimizes back-tracking:
 
 1. [`/PROJECT.md`](../PROJECT.md) — what UACP is.
-2. [`design/telos/`](../design/telos/00-telos.md) — **why UACP exists** (bedrock): the telos (reduce the long-run friction of cooperation on semantic work), the conformance loop it governs, and how CMS / gates / lifecycle / the memory substrate derive from it.
-3. [`policy/constitution.md`](policy/constitution.md) + [`policy/first-principles.md`](policy/first-principles.md) — non-negotiables.
+2. [`policy/first-principles.md`](policy/first-principles.md) ("The Conformance Loop for Semantic Work") + [`architecture/0021-telos-conformance-loop.md`](architecture/0021-telos-conformance-loop.md) — **why UACP exists** (bedrock, canonical): the telos (reduce the long-run friction of cooperation on semantic work), the conformance loop it governs, and how CMS / gates / lifecycle / the memory substrate derive from it. Design rationale trail: [`design/telos/`](../design/telos/00-telos.md) (non-canonical, explanatory).
+3. [`policy/constitution.md`](policy/constitution.md) — non-negotiables (derives from the first principles above).
 4. [`lifecycle/lifecycle-reference.md`](lifecycle/lifecycle-reference.md) — phase semantics + the **single source of truth for the verification & review model** (six mechanisms / three layers: Guardian, Agent Council, exit invariants/PLAN_VALIDATION, Heartgate, PIV, the VERIFY phase; plus the PIV-acronym disambiguation).
 5. [`reference/proposal-schema.md`](reference/proposal-schema.md) + [`reference/skill-enforcement-spec.md`](reference/skill-enforcement-spec.md) + [`reference/lifecycle-trace-table.md`](reference/lifecycle-trace-table.md) — canonical schemas.
 6. [`runtime/runtime-enforcement.md`](runtime/runtime-enforcement.md) — how Guardian + Heartgate enforce.

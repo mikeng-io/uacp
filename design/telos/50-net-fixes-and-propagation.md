@@ -101,7 +101,7 @@ On the governed **#98** build (worktree → PLAN → council → EXECUTE), these
 
 ## D. Governance note
 This touches **canonical docs** → Invariant #4 (council gate) applies; it must run through the
-lifecycle with a cross-provider council before merge. This bundle is the **pre-governance
-design input** (`governance: pre-governance-input`) — v2, post-panel (2× adversarial/
-completeness + cross-provider gemini; findings folded 2026-07-17). The red-pen artifact, not
-the merge.
+lifecycle with a cross-provider council before merge. This bundle entered as the pre-governance design input, was panel-reviewed (2× adversarial/
+completeness + cross-provider gemini; findings folded 2026-07-17), approved by mike, and
+propagated by the #98 build (PR #155) with a cross-provider council on the propagation diff —
+now `governance: ratified`; the canonical encoding lives in first-principles.md + ADR-0021.

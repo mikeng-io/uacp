@@ -24,9 +24,11 @@ description: >-
   is why it is worth its price. CMS/Heartgate/lifecycle derive from this. Folds the #98 "fix the
   net" items + the CMS To-expand sweep. v1 drafted 2026-07-16 (mike + Claude); v2 2026-07-17
   after a 3-way review panel (2x adversarial/completeness + cross-provider gemini) and mike's
-  four rulings (keep `measure`; memory->substrate; time-asymmetric friction; coherence=product).
-status: design
-governance: pre-governance-input
+  four rulings (keep `measure`; memory->substrate; time-asymmetric friction; coherence=product);
+  RATIFIED + propagated into canon 2026-07-17 (PR #155; canonical encoding = first-principles.md
+  + ADR-0021; this bundle = the rationale trail).
+status: accepted
+governance: ratified
 timestamp: '2026-07-16'
 origin: session 2026-07-16/17 (telos / conformance-loop thread; mike + Claude, from the #97 bedrock audit; v2 post-panel)
 schema_dir: ../graph-engine/schema/

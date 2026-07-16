@@ -9,10 +9,13 @@ edges: []
 
 # The Telos (root)
 
-> **DRAFT v2 — post-review (#98).** v1 was reviewed by a 3-way panel (2× adversarial/completeness
-> + cross-provider); v2 folds the findings and mike's four rulings (2026-07-17): keep `measure`;
-> memory → *substrate*; friction is *time-asymmetric*; coherence is the *product*. This node
-> stays thin — one entity per node — substance lives in 10–50.
+> **v2 — RATIFIED 2026-07-17 (#98).** v1 was panel-reviewed (2× adversarial/completeness +
+> cross-provider gemini); v2 folds the findings and mike's four rulings (keep `measure`;
+> memory → *substrate*; friction is *time-asymmetric*; coherence is the *product*), was
+> approved by mike, and was PROPAGATED into the canon (PR #155). The CANONICAL encoding lives
+> in `docs/policy/first-principles.md` ("The Conformance Loop for Semantic Work") and
+> ADR-0021; this bundle is the non-canonical design rationale trail. This node stays thin —
+> substance lives in 10–50.
 
 ## Purpose (the end)
 UACP exists to **reduce the long-run friction of cooperation** on work done by *semantic*
