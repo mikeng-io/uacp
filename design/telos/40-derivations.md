@@ -1,54 +1,79 @@
 ---
 type: analysis
-title: Derivations and the friction budget — what hangs off the telos
-description: CMS, Heartgate/gates/witnesses, the lifecycle, and memory all DERIVE from the telos (the inversion #98 flags, corrected). The "CMS at every grain" recursion gets its missing BASE CASE (= the governed write) plus a triviality rule. The FRICTION BUDGET is the means/end guard — the loop is worth running only where the friction it removes exceeds the friction it adds; where negative, the honest move is LESS governance.
-tags: [derivations, inversion, grain-base-case, friction-budget, triviality, means-end]
+title: Derivations, the grain base case, and the friction budget (hardened)
+description: CMS, Heartgate/gates/witnesses, the lifecycle, and the memory substrate all DERIVE from the telos. The "CMS at every grain" recursion gets its missing GRAIN BASE CASE (= the governed write) plus a deterministic triviality floor. The FRICTION BUDGET is an AMORTIZATION test (up-front friction vs lifetime repayment), and it is HARDENED against self-authorization — any budget/triviality/termination decision is made on the WITNESS side, serialized as a first-class governed decision, itself open to critique; never asserted by the actor being governed.
+tags: [derivations, grain-base-case, friction-budget, amortization, triviality, witness-side, means-end]
 timestamp: 2026-07-16
 edges:
   - {dst: 00-telos, rel: depends_on, provenance: derived}
 ---
 
-# Derivations and the friction budget
+# Derivations, the grain base case, and the friction budget
 
-## What derives (the inversion, corrected)
-CMS does **not** stand above the purpose; it derives from it. Reading the stack top-down:
+## What derives
+Reading the stack top-down, each layer is a *means* to the telos:
 
-- **CMS (comprehend → evaluate → serialize)** = the loop instantiated *at a single grain* —
+- **CMS (comprehend → measure → serialize)** = the loop instantiated *at a single grain* —
   read the declaration, judge conformance, record the evidence.
 - **Heartgate / gates / witnesses** = the *external-witness* requirement (10) made mechanical.
-- **The lifecycle** (TRIAGE…RESOLVE) = the loop run *across phases*.
-- **Memory** = the loop run *across runs* (the feedback edge, 30).
-- **The friction budget** (below) = the means/end guard that keeps all of the above honest.
+- **The lifecycle** (TRIAGE…RESOLVE) = the loop run *across phases* (with TRIAGE/BRAINSTORM
+  honestly upstream of the atom, per 10).
+- **The memory substrate** = the loop run *across runs* (the feedback edge, 30).
+- **The friction budget** (below) = the amortization test that keeps all of the above honest.
 
-Corrected inversion: every one of these is a *means*; the telos is the *end*. A change to any of
-them is legitimate only insofar as it serves the end — which is measurable only once the end is
-encoded (the whole point of #98).
+Coherence remains **the product** these layers manufacture (00); the telos is why the product
+is worth its price. A change to any layer is legitimate only insofar as it improves the
+long-run friction trade — which is measurable only once the telos is encoded (the point of #98).
 
-## The grain base case (the missing base case for "CMS at every grain")
-`UACP.md` commands CMS "at every grain," and the CMS bundle admits the recursion has **no base
-case**. The telos supplies it:
+## The grain base case (closing "CMS at every grain")
+`UACP.md` commands CMS "at every grain," and `23-composition.md` admits the recursion has no
+base case. The telos supplies it (matching 23's own "To expand" sketch):
 
 > **The grain bottoms out at the governed write.** CMS applies down to — and stops at — the
 > smallest *serialized* act (a governed writer call). Below that there is nothing to make
-> conform; there is no sub-grain to comprehend/evaluate/serialize.
+> conform; there is no sub-grain to comprehend/measure/serialize.
 
-Paired with a **triviality rule**: work whose friction-removed does not exceed its
-friction-added is *exempt* — you do not wrap a one-line, self-evident, reversible act in the
-full loop. (This is the operational form of "no ceremony below the budget," and it is what the
-friction budget decides.)
+(Named the **grain base case** to keep it distinct from 20's **critique base case** — two
+different recursions, two different floors.)
 
-## The friction budget (means/end guard)
-The loop is worth running **only where the friction it removes exceeds the friction it adds.**
+## The triviality floor (deterministic, witnessed — not a judgment call)
+Trivial work is exempt from the full loop — but *triviality is not self-declared*. The
+exemption requires BOTH:
 
-- Governance has a real cost (declaration, evidence, gates, review). That cost is measured
-  against the *purpose* (less friction on cooperation), not indulged for its own sake.
-- Where the budget is **negative** — the governance costs more friction than the drift it
-  prevents — the honest move is **less** governance, not more. Coherence is a means; buying it
-  past its value is the failure this bundle guards against.
-- The budget is also a **base case for recursive critique** (20.4): critique stops when further
-  critique would cost more than the residual risk it could still find.
+1. a **deterministic floor** — the change is bounded (e.g. contained in a single governed
+   write / single work-unit), reversible, and passes all automated checks; AND
+2. a **witnessed record** — the exemption itself is serialized as a governed decision (who
+   exempted, on what floor). Skipping governance is *itself a governed act*.
 
-Open question for red-pen: is the friction budget **qualitative** (a doctrine + the triviality
-rule, applied by judgment) or does it want a **quantitative** proxy (e.g., rework-rounds /
-gate-count vs. defects-caught, measured by the Proving Ground)? The telos needs the doctrine;
-the number, if any, is an empirical follow-up the substrate can supply.
+An exemption that fails either prong is not triviality — it is drift wearing a label. (This is
+the operational form of "no ceremony below the budget," with the ceremony's *absence* still on
+the ledger.)
+
+## The friction budget (amortization form, hardened)
+The v1 phrasing — "where the budget is negative, the honest move is less governance" — was
+correctly flagged by review as a **self-authorizing escape hatch**: an actor optimized for
+velocity will always claim the budget is negative. v2 restates the budget with two locks.
+
+**Form: amortization, not instant cost.** Friction is time-asymmetric (00): governance *adds*
+friction at the point of interaction and *removes* it over the pipeline's lifetime (guardrails,
+SOPs, no re-derivation, no silent drift). The budget question is never "does this feel
+expensive now?" but **"is the up-front investment repaid over the horizon of cooperation?"** A
+governance step with lifetime-negative return should be removed; one that is merely annoying
+today is exactly the investment the telos exists to make.
+
+**Lock 1 — witness-side, serialized, critiquable.** Any decision that invokes the budget —
+terminating a critique (20.4), exempting work as trivial, or removing a governance step as
+lifetime-negative — is made on the **witness/independent side**, serialized as a first-class
+governed decision, and remains open to recursive critique. **Never asserted by the actor being
+governed** — a self-graded budget is self-attestation, forbidden by 10 and Invariant #5. The
+friction budget thereby obeys the very atom it governs.
+
+**Lock 2 — asymmetric burden.** Adding governance needs a plausible amortization case;
+*removing* governance needs a **serialized, witness-side case with evidence** (e.g. measured
+cost vs. measured defect-catch — numbers the Proving Ground substrate can supply). Doctrine
+alone never removes a guardrail.
+
+**Status of quantification:** the doctrine above is normative now; the quantitative proxy
+(rework-rounds / gate-cost vs. defects-caught, measured per-run) is an empirical follow-up the
+Proving Ground is designed to feed. Until it lands, budget invocations lean on Lock 1's
+witness + serialization — a *soft floor honestly labeled* (20), not a pretended measurement.

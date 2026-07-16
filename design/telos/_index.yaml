@@ -13,30 +13,34 @@
 kind: design_index
 title: The Telos — UACP is a Conformance Loop for Semantic Work (Design Bundle)
 description: >-
-  The PURPOSE UACP exists to serve -- decrease the friction of cooperation on work done by
-  SEMANTIC (non-deterministic) actors -- and the mechanism that serves it: a CONFORMANCE LOOP
-  that binds declared intent to witnessed evidence and refuses to let them drift. SDD and TDD
-  are the two faces of its atom; recursive critique (to a base case) is the third leg that makes
-  the loop survive a fallible witness; the cross-run memory substrate is the loop's residue. CMS,
-  Heartgate, the gates/witnesses, the lifecycle, and memory all DERIVE from this (the inversion
-  #98 flags is corrected here). Also folds the #98 "fix the net" items (authority chain,
-  first-principles, human-verdict primitive, gate taxonomy, UACP.md sync). Drafted 2026-07-16
-  (mike + Claude), reframing comprehend-measure-serialize onto its purpose.
+  The PURPOSE UACP exists to serve -- reduce the LONG-RUN friction of cooperation on work done
+  by SEMANTIC (non-deterministic) actors (friction is time-asymmetric: invested at the point of
+  interaction, repaid over the pipeline's lifetime) -- and the mechanism that serves it: a
+  CONFORMANCE LOOP that governs the binding between two independently-owned faces (declared
+  intent / witnessed evidence) and refuses to let them drift. Recursive critique (to a declared
+  critique base case, bounding EFFORT not correctness) is the third leg that makes the loop
+  survive a fallible witness; the loop's cross-run residue is the MEMORY SUBSTRATE (the
+  foundation memory is built on). Coherence is the PRODUCT the machinery manufactures; the telos
+  is why it is worth its price. CMS/Heartgate/lifecycle derive from this. Folds the #98 "fix the
+  net" items + the CMS To-expand sweep. v1 drafted 2026-07-16 (mike + Claude); v2 2026-07-17
+  after a 3-way review panel (2x adversarial/completeness + cross-provider gemini) and mike's
+  four rulings (keep `measure`; memory->substrate; time-asymmetric friction; coherence=product).
 status: design
 governance: pre-governance-input
 timestamp: '2026-07-16'
-origin: session 2026-07-16 (telos / conformance-loop thread; mike + Claude, from the #97 bedrock audit)
+origin: session 2026-07-16/17 (telos / conformance-loop thread; mike + Claude, from the #97 bedrock audit; v2 post-panel)
 schema_dir: ../graph-engine/schema/
 
-# 00 = thin root; 10 = the loop (atom + differentia); 20 = recursive critique + base case;
-# 30 = the pipeline in time; 40 = derivations + friction budget; 50 = net-fixes + propagation.
+# 00 = thin root; 10 = the differentia + atom + honest limits; 20 = recursive critique + critique base case;
+# 30 = the pipeline in time (measure KEPT); 40 = derivations + grain base case + hardened friction budget;
+# 50 = net-fixes + cooperation rule + To-expand sweep + propagation.
 members:
-  - 00-telos.md                  # ROOT (thin): the purpose + the conformance-loop claim + the map
-  - 10-conformance-loop.md       # the ATOM: realize-vs-declared; SDD/TDD as two faces; refusal-to-drift; the semantic differentia
-  - 20-recursive-critique.md     # the THIRD LEG: no verdict final by fiat; terminates at a declared base case
-  - 30-pipeline.md               # the atom run IN TIME: Reality->...->Persistent State; measure->evaluate; feedback edge = memory
-  - 40-derivations.md            # what DERIVES (CMS/gates/lifecycle/memory); the inversion corrected; grain base case; friction budget
-  - 50-net-fixes-and-propagation.md  # the #98 leftovers manifest + ADR + propagation targets + CMS-bundle reconciliation
+  - 00-telos.md                  # ROOT (thin): time-asymmetric friction; coherence=product; substrate; the map
+  - 10-conformance-loop.md       # the DIFFERENTIA (headline) + the atom: two independently-owned faces, governed binding; honest limits
+  - 20-recursive-critique.md     # the THIRD LEG: critique base case (bounds EFFORT not correctness); independence; witness-side termination
+  - 30-pipeline.md               # the atom run IN TIME: `measure` name KEPT (ADR-0018); Measure/Decision split; feedback edge = substrate
+  - 40-derivations.md            # what DERIVES; grain base case (= governed write); triviality floor; friction budget (amortization, hardened)
+  - 50-net-fixes-and-propagation.md  # #98 leftovers + cross-actor rule + To-expand sweep + ADR-0018 amendment + propagation
 
 # DERIVED: mirror of each node's `edges:` frontmatter.
 # rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
