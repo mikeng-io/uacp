@@ -45,6 +45,8 @@ So step 2's whole job is to force the model to **measure** (produce a fail-close
 
 Naming step 2 "decide" names it **after the disease**. And because CMS is injected into the LLM's prompt to shape cognition ([25-enforcement-surfaces](25-enforcement-surfaces.md)), **the word is the intervention**: "measure" pushes the model toward *"what is my evidence? can this come back FAIL?"*; "decide" would push it toward *"I conclude X."* In an infra-only framing the name is cosmetic (which is why descriptive reviewers optimized for accuracy); on the cognition surface the name is **load-bearing**, and `measure` is the corrective. **Decision: `measure` stays.** (Bounded by the hunt: the discipline holds where the actor is **mechanical**; for pure state-moves with no decision, `measure` is simply out of scope — node 30.)
 
+**Re-tested 2026-07-17 — rename rejected again.** A v1 telos draft re-proposed `measure → evaluate` on the same *descriptive* grounds; review caught that this re-opened the ratified decision on the exact grounds it had already rejected, and **mike reaffirmed the ruling — the name stays** (see [`design/telos/30-pipeline.md`](../telos/30-pipeline.md)). The design now states the split explicitly and locates each half: the *operation* named `measure` **is a grounded, fail-closed judgment** — compare / assess / select, with no pretense of an objective ruler (descriptive honesty — lives in the design); the *injected name* stays the **corrective intervention** against premature deciding (normative — lives in the prompt).
+
 ## To expand
 - The signal taxonomy (boolean / scalar / ordinal / categorical) and which decisions each can route.
 - Where the determinism bar bites (a measurement that depends on environment is class-E fragility).
