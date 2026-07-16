@@ -47,7 +47,7 @@ that container with it**, against a model reached through a standard provider en
 2. **Benchmark scores** — *does governance help, and at what cost?* N-replicated cells (40),
    objective oracles + governance metrics consumed from the existing witness/forecast ledgers.
    This feeds the telos **friction budget** its quantitative proxy
-   (`design/telos/40-derivations.md`, Lock 2 — the hook is explicit on both sides).
+   (`design/telos/40-derivations.md`, Lock 2 — the hook is explicit on both sides; canonical encoding: `docs/policy/first-principles.md` + ADR-0021).
 
 Two readouts, not two systems: the benchmark is the test run *scored*; the test is the
 benchmark run *gated*.
