@@ -68,20 +68,31 @@ reports, not hides).
 A content-auditor gets these backwards. This litmus is the acceptance test for the observer
 itself.
 
-## Calibration — planted faults, mandatory *(kept, mechanism now specified)*
-1. **Clean run** → hard gate PASS (baseline).
-2. **Inject a KNOWN engine break** (e.g. force a gate always-pass) → the matching L **must
-   FAIL**. A prover never run against a known-broken engine is theater.
+## Calibration — planted faults + rejecting stimuli, mandatory *(kept, mechanism specified)*
+A fault flag alone is vacuous for exactly the fault that matters most: on a clean, legal run,
+`gate_always_pass` emits the same successful trail as a correct gate — setting `UACP_FAULT`
+proves the flag was *requested*, not that anything changed. So calibration is a **pair**, per
+fault (Codex on this PR — which restores self-diagnosis's "stimulus" as load-bearing, not
+merely reframed):
 
-**The mechanism (panel: it was missing):** faults are injected via **kernel fault flags** — a
-small, test-only fault-injection switch in the UACP runtime (env-triggered, e.g.
-`UACP_FAULT=gate_always_pass`), OFF and inert by default, compiled into the *same* +UACP image
-rather than a matrix of patched images. The runner flips the env var per calibration cell.
-This keeps images pre-baked (10), makes the fault set version-controlled next to the kernel,
-and is budgeted as real S3 work (50) — not a platitude. Calibration is token-cheap on local
-cells but **wall-clock serial** like everything on the shared host GPU (40's time budget); it
-is not optional and re-runs whenever the observer's checks change (the observer, too, sits in
-a conformance loop).
+1. **Clean baseline** — legal run → hard gate PASS; **plus a must-block stimulus** — an input
+   the engine MUST reject (an illegal transition, an ungated close, a raw governed-state
+   write) → the **externally captured rejection is asserted** (the refusal visible in the
+   runner-side transcript / the gate ledger's block record).
+2. **Fault run** (`UACP_FAULT=gate_always_pass`, etc.) — replay the SAME must-block stimulus →
+   the rejection **disappears**; the observer **must catch that** (the L2/L1 FAIL is the
+   catch). A fault whose paired stimulus the observer does not flag = calibration FAIL.
+
+Every planted fault ships with its must-block stimulus; "every planted fault is caught" (S3's
+exit) means every *(fault, stimulus)* pair, not every flag.
+
+**The injection mechanism:** kernel **fault flags** — a small, test-only switch in the UACP
+runtime (env-triggered), OFF and inert by default, compiled into the *same* +UACP image
+rather than a matrix of patched images; the runner flips the env per calibration cell. Keeps
+images pre-baked (10), keeps the fault set version-controlled next to the kernel, budgeted as
+real S3 work (50). Calibration is token-cheap on local cells but **wall-clock serial** like
+everything on the shared host GPU (40's time budget); it re-runs whenever the observer's
+checks change (the observer, too, sits in a conformance loop).
 
 ## Signals *(kept, with the two-class split of 10)*
 - **Runner-side ground truth** (the SUT cannot author it): the ACP transcript captured on the

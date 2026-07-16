@@ -25,14 +25,18 @@ edges:
   **Pre-req (P0 below):** its `spec.md`/`prior-art.md` are currently **UNTRACKED** (they exist
   only in the `.worktrees/self-diagnosis-design/` working tree — verified by the panel); they
   must be committed to their branch before a supersession stamp can mean anything.
-- **The Hermes drive channel is a named prerequisite, not an assumption.** The panel verified
-  the `uacp_guardian` hermes plugin exposes only a *partial* tool surface (no
-  `run_init/run_transition/run_finalize` — `config/state.yaml`: `live_adapter_partial`). The
-  fix inside Hermes-first: the `hermes-uacp` cell loads the **canonical UACP MCP server**
-  (`runtime-adapters/mcp/uacp_mcp_server.py`, which exposes the full `tool_specs()` set — the
-  same surface the Claude plugin uses) via `hermes mcp add <name> --command …`; the
-  `uacp_guardian` plugin remains for pre/post-tool **hooks**. The image must carry `uv` (the
-  MCP server launches via `uv run --with mcp`) — a named bake dependency.
+- **The Hermes drive channel is a named prerequisite, not an assumption — and it is the
+  NATIVE plugin.** (Corrected per Codex on this PR: an earlier claim that the plugin exposes
+  a partial surface was **stale** — `uacp_guardian.register()` registers every `tool_specs()`
+  entry, lifecycle tools included, and `tests/integration/test_tool_registry_parity.py` pins
+  Hermes registrations == the MCP registry, 18 tools.) The REAL gap is **runtime loading**:
+  the plugin is code-complete in-repo but not installed into a given Hermes instance (this
+  host's `hermes plugins list` does not show it). So the S2 prerequisite is: **bake the
+  plugin's installation/registration into the cell image** and verify it via the
+  plugin-conformance probe (a cell where the surface fails to load is a probe FAIL with
+  evidence). The canonical MCP server (`hermes mcp add`, image carries `uv`) remains a
+  **fallback drive channel** if in-image plugin registration proves brittle — an S2 decision
+  recorded either way, not a repair for a missing capability.
 
 ## Stages (each gated by its own verification; re-staged per the panel)
 - **P0 — commit the self-diagnosis spec** to `docs/self-diagnosis-design` (or fold its text

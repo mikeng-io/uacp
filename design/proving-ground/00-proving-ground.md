@@ -58,9 +58,10 @@ content-independent L1–L4, fail-closed CODE gates, the decoupling litmus, mand
 planted-fault calibration — absorbed into 30. What it could not deliver was the **driver**:
 two manually-coordinated Claude contexts, no plugin/MCP surface, and its own open
 precondition ("the `uacp_*` governed writers were not present"). The Proving Ground replaces
-that driver with a real contained agent hitting the real tool surface. (Its "breaking-change
-stimulus" framing is consciously reframed, not dropped: regression detection lives in the
-planted-fault calibration per-run and in scoreboard diffs across UACP versions — 30, 40.)
+that driver with a real contained agent hitting the real tool surface. (Its "breaking-change stimulus" survives as a load-bearing part of calibration — every
+planted fault ships with a must-block stimulus whose rejection must visibly disappear under
+the fault — and regression detection additionally lives in scoreboard diffs across UACP
+versions; 30, 40.)
 
 ## Placement
 **In this repo** (mike's ruling): `tools/proving-ground/`. Operational tooling, not kernel —
