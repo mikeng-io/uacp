@@ -19,12 +19,30 @@ edges:
 └────────────────────────────▲─────────────────────────────────────────┘
                     ACP stdio │ (the one transport, crossing the boundary)
 ┌────────────────────────────┴─ host / control plane (OUTSIDE the jail) ─┐
-│  RUNNER  — spawns the container, injects the task, drives over ACP     │
-│  OBSERVER — reads ONLY the emitted trail (gate ledger, .uacp/state,    │
-│             git log, transcript, hook log) → L1–L4 → verdict + scores  │
-│  MODEL   — ollama on macOS host (Metal) at :11434                      │
+│  RUNNER  — spawns the container, injects the task, drives over ACP;    │
+│            captures runner-side ground truth (transcript, exit codes)  │
+│  OBSERVER — reads ONLY the exported trail → L1–L4 → verdict + scores   │
+│  MODEL   — ollama on macOS host (Metal) at :11434 (env contract, §3)   │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+## Two classes of trail evidence (they are NOT equal)
+The observer's inputs split by **who could have authored them** — the panel's sharpest
+finding, folded here:
+
+- **Runner-side ground truth (the SUT cannot touch it):** the ACP transcript as captured on
+  the runner's side of the stdio boundary; container exit codes and resource records;
+  wall-clock. This is the only evidence *externally collected by construction*.
+- **SUT-authored exports (weighted evidence, not ground truth):** `.uacp/state`, the gate
+  ledger, the workspace git log, the hook log — written *inside* the container by the system
+  under test and **exported at collection time** (the workspace + `.uacp/` live on a volume
+  the runner reads after the run; the SUT could in principle have tampered with any of it).
+  The observer treats these as the engine's *self-record*: checked for mechanism function,
+  **cross-checked against the runner-side transcript** (a state transition with no
+  corresponding tool-call in the transcript is a finding), never trusted as narrative.
+
+This is the honest version of "the observer cannot be part of the observed": the *observer*
+is outside by construction; part of its *evidence* is not, and is weighted accordingly.
 
 ## The three placement rules
 1. **UACP lives WITH the agent, inside the SUT container.** It is the thing the agent
@@ -46,7 +64,12 @@ edges:
    - **future (cloud)**: swap the env values to a cloud provider — a pure env swap; the cell
      topology, image, and runner are unchanged.
    The model is shared infrastructure either way; the *workspace* is what isolation protects.
-   (Claude Code cells use their native Anthropic wiring; same principle, its own env contract.)
+   **Honest limit (panel):** the env swap is pure only *within* an API flavor — an
+   OpenAI-contract agent cannot be pointed at an Anthropic endpoint by env alone. Cross-flavor
+   cells reuse the **normalizing proxy** e2e-acceptance already designed
+   (`design/e2e-acceptance/12` — an anthropic⟷openai router in the control plane); Claude
+   Code cells use their native Anthropic wiring. And ollama's OpenAI-compat tool-calling over
+   a long governed multi-tool loop is unverified — an explicit S1 check, not an assumption.
 
 ## Isolation ladder (decided posture)
 - **Now: Docker** (present, running) — namespace/fs/network isolation; matches the containment
@@ -60,6 +83,6 @@ edges:
 ## Per-cell egress policy
 Egress is part of the cell definition and enforced at the container boundary — it allows
 exactly what the cell's env contract points at and nothing else: `claude-*` → Anthropic API
-only; `hermes-local-*` → the host model endpoint only; a future cloud-model cell → that
+only; `hermes-bare`/`hermes-uacp` → the host model endpoint only; a future cloud-model cell → that
 provider only. No package registries mid-run — images are pre-baked (20). A cell that needs an
 exception declares it in its manifest; undeclared egress is a finding, not a config error.

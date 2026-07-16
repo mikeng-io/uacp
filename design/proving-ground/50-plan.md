@@ -1,8 +1,8 @@
 ---
 type: decision
-title: Build plan — Hermes first, staged; naming; supersession; open questions
-description: Staged build with a verification gate per stage — S0 OpenAB lift spike; S1 hermes-bare smoke cell (runner+container+host model, no UACP, no scoring); S2 +UACP cell (plugin/MCP baked in — the first REAL agent-through-tools dogfood); S3 observer port + planted-fault calibration; S4 claude cells + first matrix sweep. RED-PEN DECIDED (mike, 2026-07-17) — name PROVING GROUND confirmed; the bench lives IN THIS REPO (tools/proving-ground/, observer imports nothing from skills/); model wiring = the provider env contract (local ollama now, cloud later by env swap); LLM-judge quarantine confirmed. Supersedes design/self-diagnosis's driver, absorbs its observer (mark on merge). Remaining open questions — runner glue language, Claude in-container auth, CI cadence.
-tags: [plan, stages, hermes-first, naming, supersession, red-pen-decisions, open-questions]
+title: Build plan — Hermes-first (automated lane), staged; reconciliations; decisions; open questions
+description: Staged build with a verification gate per stage. HERMES-FIRST STANDS (mike's two-lanes ruling — the Proving Ground is the fully-automated GHA/release/benchmark lane; the companion/interactive lane is e2e-acceptance, NOT superseded). The panel's drive-channel blocker is resolved INSIDE Hermes-first — the hermes-uacp cell loads the canonical UACP MCP server via `hermes mcp add` (full tool_specs surface; the uacp_guardian plugin supplies hooks; its missing lifecycle tools are noted, not assumed). Stages re-ordered per the panel — the N-replicate pipeline lands at S1; S2's exit softened (verdict retroactive at S3). Pre-req — commit the self-diagnosis spec (currently UNTRACKED) so its supersession can be stamped. Red-pen decisions recorded; three open questions remain.
+tags: [plan, stages, hermes-first, two-lanes, reconciliation, red-pen-decisions, open-questions]
 timestamp: 2026-07-17
 edges:
   - {dst: 00-proving-ground, rel: decides_on, provenance: asserted}
@@ -10,59 +10,87 @@ edges:
 
 # Build plan
 
-## Stages (each gated by its own verification, per the loop)
-- **S0 — OpenAB lift spike** *(blocking; 20)*: clone; prove `crates/openab-agent` separability;
-  run ONE agent (`Dockerfile.hermes`) end-to-end over ACP from a bare harness; prove
-  container→`host.docker.internal:11434` reachability. Exit: a decision record —
-  *lift-the-crate* vs *reimplement-the-thin-ACP-client* (pattern-mining fallback).
-- **S1 — `hermes-bare` smoke cell**: runner spawns the SUT container, injects a trivial task,
-  local model answers, trail exported. No UACP, no scoring — proves the substrate.
-  (Environment verified present 2026-07-16: hermes-agent v0.17.0, Docker 29.x running, ollama
-  with qwen3-class models on the host.)
-- **S2 — `hermes-uacp` cell**: bake the UACP plugin/MCP/hook surface into the image; the agent
-  drives a governed run through the REAL tool surface. Exit: one governed run reaches RESOLVE
-  agent-through-tools — **the outstanding real dogfood**, and the first closure of
-  self-diagnosis's open precondition (30).
-- **S3 — observer + calibration**: port L1–L4 as CODE gates over the exported trail; run the
-  clean baseline AND the planted-fault runs (30). Exit: the decoupling litmus passes and every
-  planted fault is caught. *(Only now do verdicts mean anything.)*
-- **S4 — `claude-*` cells + first sweep**: add the Claude Code container (egress: Anthropic API
-  only), run the 4-cell matrix over the initial task suite, produce the first scoreboard (40).
-- **S5+ (backlog)**: more cells (Pi, opencode — a Dockerfile + adapter each), task-suite
-  growth, results-ledger schema hardening, microVM isolation tier (10), CI integration
-  (the regression-bench role, 40).
+## Reconciliations (panel-blocking, resolved by mike's two-lanes ruling — see 00)
+- **e2e-acceptance is NOT superseded.** It is the **companion/interactive lane** (Claude, real
+  `claude plugin install`, operator-in-the-loop); the Proving Ground is the **automated lane**
+  (headless CI/GHA/benchmark). The Proving Ground **absorbs** from it: the model-normalizing
+  proxy (12 → our 10.3), the tiered hard-gate/soft-completion assertions (21 → our 30), the
+  plugin-conformance probe (13 → S2 below), and the task/scenario layer (→ our 40). On this
+  bundle's merge, a cross-reference lands in `design/e2e-acceptance/` naming the two lanes.
+  **Decision-log entry (at merge):** e2e's roadmap deferral ("stop hand-building a bespoke
+  harness; dogfood the acceptance run through UACP's lifecycle") concerned the *acceptance*
+  purpose; the Proving Ground builds a harness for the *automated* purpose the deferral did
+  not cover — recorded explicitly so the deferral is scoped, not silently reversed.
+- **self-diagnosis is superseded-and-absorbed** (driver dies, observer lives — 00/30).
+  **Pre-req (P0 below):** its `spec.md`/`prior-art.md` are currently **UNTRACKED** (they exist
+  only in the `.worktrees/self-diagnosis-design/` working tree — verified by the panel); they
+  must be committed to their branch before a supersession stamp can mean anything.
+- **The Hermes drive channel is a named prerequisite, not an assumption.** The panel verified
+  the `uacp_guardian` hermes plugin exposes only a *partial* tool surface (no
+  `run_init/run_transition/run_finalize` — `config/state.yaml`: `live_adapter_partial`). The
+  fix inside Hermes-first: the `hermes-uacp` cell loads the **canonical UACP MCP server**
+  (`runtime-adapters/mcp/uacp_mcp_server.py`, which exposes the full `tool_specs()` set — the
+  same surface the Claude plugin uses) via `hermes mcp add <name> --command …`; the
+  `uacp_guardian` plugin remains for pre/post-tool **hooks**. The image must carry `uv` (the
+  MCP server launches via `uv run --with mcp`) — a named bake dependency.
 
-Council checkpoints per repo convention: this bundle (pre-governance) → red-pen → PLAN-gated
-build; S2 and S3 exits are evidence-bearing artifacts, not assertions.
+## Stages (each gated by its own verification; re-staged per the panel)
+- **P0 — commit the self-diagnosis spec** to `docs/self-diagnosis-design` (or fold its text
+  into this bundle's 30 with attribution) so the supersession stamp is real.
+- **S0 — OpenAB lift spike** *(blocking; 20)*: (a) `crates/openab-agent` separability;
+  (b) one agent end-to-end over ACP from a bare harness; (c) container→host-ollama env-contract
+  reachability **incl. a multi-turn tool-calling check of ollama's OpenAI-compat path**;
+  (d) **server-side adapter verification** — `hermes acp` (confirmed to exist, v0.17.0) runs a
+  real session; Zed's `claude-code-acp` evaluated for the claude cells. Exit: a decision
+  record — lift-the-crate vs reimplement-the-thin-ACP-client; and a go/no-go per agent cell.
+- **S1 — `hermes-bare` smoke cell + the replicate pipeline**: runner spawns the SUT container,
+  injects a trivial task, local model answers, trail exported — **N times, aggregated**: the
+  replicate/aggregation pipeline is built HERE (40's statistics law), against the cheap smoke
+  tier, before anything is scored. Prereqs: pull the official `unsloth/Qwen3.6-35B-A3B-GGUF`
+  quant (40).
+- **S2 — `hermes-uacp` cell**: bake the canonical MCP server + hooks + `uv` into the image
+  (prerequisite above); **plugin-conformance probe first** (absorbed from e2e-13: is the tool
+  surface actually loaded and actionable? — a failed load is a probe FAIL with evidence, and
+  nothing downstream is attempted); then the agent drives a governed run through the real tool
+  surface. Exit (softened per the panel): **terminal state reached + full trail exported** —
+  the conformance *verdict* on that trail is applied retroactively when S3 lands. This is
+  still the outstanding real agent-through-tools dogfood; it just doesn't grade itself.
+- **S3 — observer + calibration**: port L1–L4 as CODE gates over the exported trail (with the
+  tiered hard/soft split, the schema contract test, and the kernel fault-flag mechanism — 30);
+  run the clean baseline AND the planted-fault runs. Exit: the decoupling litmus passes and
+  every planted fault is caught. *(Only now do verdicts mean anything — including S2's,
+  retroactively.)*
+- **S4 — `claude-*` cells + first scored sweep**: add the Claude container (native Anthropic
+  wiring; auth question below), run the matrix with declared N over the initial task suite,
+  produce the first aggregated scoreboard (40).
+- **S5+ (backlog)**: more cells (Pi, opencode — Dockerfile + verified ACP adapter each),
+  task-suite growth, results-ledger schema hardening, microVM isolation tier (10), CI
+  integration (smoke tier per-push at most; scored sweeps stay operator-triggered batch — 40's
+  time budget).
+
+Council checkpoints per repo convention; S2 and S3 exits are evidence-bearing artifacts, not
+assertions.
 
 ## Naming (decided)
-**Proving Ground** — confirmed by mike 2026-07-17. Where an engine is tested under real
-conditions; covers both readouts; repo slug `proving-ground`. (Alternatives recorded for
-posterity: *Dynamometer/Dyno*, *Crucible*.)
-
-## Supersession (executed on this bundle's merge)
-`design/self-diagnosis` (branch `docs/self-diagnosis-design`, unmerged): mark its spec
-**superseded-by → design/proving-ground** for the driver/sessions sections, **absorbed-into →
-30-observer** for the L1–L4/calibration/litmus core (its intellectual content survives; only
-its manual two-context driver dies). The `engine-prover` working name retires with it.
+**Proving Ground** — confirmed by mike 2026-07-17. Repo slug `proving-ground`.
+(Alternatives recorded: *Dynamometer/Dyno*, *Crucible*.)
 
 ## Decided at red-pen (mike, 2026-07-17)
-1. **The bench lives IN THIS REPO** — top-level `tools/proving-ground/`. Favors the
-   regression-bench role (CI can run an S1 smoke); the observer-outside principle is preserved
-   in code, not geography: the observer imports NOTHING from `skills/` and consumes only the
-   exported trail.
-2. **Model wiring = the provider env contract** (see 10.3): OpenAI-compatible/Anthropic env
-   vars + key; now pointed at host ollama (Qwen3.6), later swappable to a cloud model with no
-   topology change.
-3. **LLM-judge quarantine confirmed** (40): Strands-style eval (LLM-as-judge scoring against
-   prose criteria) stays an optional, labeled advisory layer — never the conformance floor.
+1. **The bench lives IN THIS REPO** — top-level `tools/proving-ground/`; the observer imports
+   NOTHING from `skills/` and consumes only the exported trail, pinned to kernel truth by the
+   schema contract test (30).
+2. **Model wiring = the provider env contract** (10.3): OpenAI-compatible/Anthropic env vars +
+   key; local ollama now, cloud later; cross-flavor via the absorbed e2e proxy.
+3. **LLM-judge quarantine confirmed** (40).
+4. **Two lanes** (this node, 00): Proving Ground = fully-automated (GHA/release/benchmark);
+   e2e-acceptance = companion/interactive — complementary, both live. **Hermes-first stands**
+   because the automated lane needs unattended, auth-free, token-free cells.
 
 ## Open questions (remaining)
-1. **Rust vs Python for the runner glue.** The mined crate is Rust; the observer and UACP
-   tooling are Python. Lean: keep the lifted ACP/transport in Rust as a thin CLI the Python
-   bench orchestrates — avoids rewriting the crate and keeps the observer in the ecosystem the
-   trail parsers already live in.
-2. **Claude Code in-container auth** — API-key cell is straightforward; a subscription-auth
-   cell may need a different container posture. S4 concern; flag early.
-3. **Codex-in-CI interplay** — whether PR CI runs an S1 smoke per push or the bench stays
-   operator-triggered. Cost-driven; defer to S5.
+1. **Rust vs Python for the runner glue.** Lean: lifted ACP/transport stays Rust as a thin CLI
+   the Python bench orchestrates.
+2. **Claude Code in-container auth for the automated lane** — API-key cell is straightforward;
+   subscription auth likely excludes claude cells from unattended CI (they may stay
+   operator-triggered / companion-lane-verified). S4 concern; flag early.
+3. **CI cadence** — smoke tier per-push vs nightly; scored sweeps operator-triggered
+   (40's wall-clock budget makes per-push scored sweeps a non-option). Decide at S5.

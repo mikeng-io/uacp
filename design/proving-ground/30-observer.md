@@ -36,11 +36,30 @@ are content-independent.
 
 ## The gate — fail-closed CODE, never an LLM judge *(kept, and now telos-grounded)*
 Per property: PASS = held; FAIL = mechanism defect; ERROR = the trail lacks the signal to
-decide — itself a finding (*make the mechanism observable*). Run-level: engine-conformant iff
-L1–L4 all PASS. Every finding cites its trace signal (non-vacuity). In telos terms
-(`design/telos/20`): the observer is a **deterministic gate** — critique base case #1 — which
-is precisely why an LLM judge is banned here: it would demote the bench's floor from
-deterministic to semantic and reintroduce the regress the base case exists to stop.
+decide — itself a finding (*make the mechanism observable*). Every finding cites its trace
+signal (non-vacuity). In telos terms (`design/telos/20`): the observer is a **deterministic
+gate** — critique base case #1 — which is precisely why an LLM judge is banned here: it would
+demote the bench's floor from deterministic to semantic and reintroduce the regress the base
+case exists to stop.
+
+**Tiered verdicts (absorbed from e2e-acceptance `21-assertions`, per the panel):** the four
+properties do not all carry the same meaning against a weak model, so the run-level verdict is
+split:
+- **Hard gate — governance-held:** L1 (transitions through apparatus), L2 (gates non-vacuous),
+  L4 (plumbing). A violation here is an engine/conformance FAIL regardless of the model.
+- **Soft score — completion:** L3 (terminal reached). A weak local model that flounders and
+  never reaches RESOLVE *while governance holds* is a **low completion score with
+  governance-held = PASS** — not a hard engine FAIL. (Prior art says this will happen:
+  e2e-12's own boundary note — small/mid models drift on long tool loops.) L3 remains a hard
+  FAIL only when the *engine* stalls (deadlock/illegal path), which the trail distinguishes
+  from the *agent* giving up.
+
+**Honesty about L2 (panel):** on a clean run, a correct gate and an always-pass gate emit an
+identical trail — per-run L2 is a *structural* check (a verdict exists, evidence is cited,
+ERROR when the signal is absent). **Non-vacuity proper is only decidable differentially**, via
+the planted-fault runs below; today's gate ledger does not carry the counterfactual fields a
+per-run proof would need (that observability gap is itself a standing finding the bench
+reports, not hides).
 
 ## The decoupling litmus *(kept)*
 - garbage plan + working engine → **PASS** (content is not the concern)
@@ -49,21 +68,35 @@ deterministic to semantic and reintroduce the regress the base case exists to st
 A content-auditor gets these backwards. This litmus is the acceptance test for the observer
 itself.
 
-## Calibration — planted faults, mandatory *(kept)*
-1. **Clean run** → L1–L4 all PASS (baseline).
+## Calibration — planted faults, mandatory *(kept, mechanism now specified)*
+1. **Clean run** → hard gate PASS (baseline).
 2. **Inject a KNOWN engine break** (e.g. force a gate always-pass) → the matching L **must
    FAIL**. A prover never run against a known-broken engine is theater.
 
-Calibration doubles the run count and is cheap on local cells; it is not optional and it is
-re-run whenever the observer's checks change (the observer, too, sits in a conformance loop).
+**The mechanism (panel: it was missing):** faults are injected via **kernel fault flags** — a
+small, test-only fault-injection switch in the UACP runtime (env-triggered, e.g.
+`UACP_FAULT=gate_always_pass`), OFF and inert by default, compiled into the *same* +UACP image
+rather than a matrix of patched images. The runner flips the env var per calibration cell.
+This keeps images pre-baked (10), makes the fault set version-controlled next to the kernel,
+and is budgeted as real S3 work (50) — not a platitude. Calibration is token-cheap on local
+cells but **wall-clock serial** like everything on the shared host GPU (40's time budget); it
+is not optional and re-runs whenever the observer's checks change (the observer, too, sits in
+a conformance loop).
 
-## Signals *(kept, plus the container boundary)*
-- **Engine self-record** — gate ledger, `.uacp/state/runs/…` — checked FOR mechanism function,
-  never trusted as narrative.
-- **Machine ground truth the SUT cannot author** — the ACP transcript captured on the RUNNER
-  side of the boundary, workspace git log/diff, Guardian hook log, container resource/exit
-  records. The container boundary strengthens self-diagnosis here: ground truth is now
-  collected *outside* the jail by construction, not by convention.
+## Signals *(kept, with the two-class split of 10)*
+- **Runner-side ground truth** (the SUT cannot author it): the ACP transcript captured on the
+  RUNNER side of the boundary, container exit/resource records, wall-clock.
+- **SUT-authored exports** (weighted evidence): gate ledger, `.uacp/state/runs/…`, workspace
+  git log/diff, Guardian hook log — checked FOR mechanism function, cross-checked against the
+  runner-side transcript, never trusted as narrative (see 10, "Two classes of trail
+  evidence").
+
+**Schema contract test (panel):** the observer imports nothing from `skills/` (50) but must
+parse kernel-owned formats (gate-ledger JSONL, `.uacp/state` shapes). To stop copy-drift, the
+kernel test-suite exports a **versioned trail fixture** (generated by the real writers) and
+the observer's parsers are contract-tested against it — one definition of the format, two
+independent consumers. A fixture-version bump the observer doesn't handle is a loud test
+failure, not silent mis-grading.
 
 ## What self-diagnosis's open precondition becomes
 Its blocker — *"the `uacp_*` governed writers were not present; resolve before the first

@@ -23,7 +23,7 @@ description: >-
   fail-closed CODE gates + planted-fault calibration) reads only the emitted trail. Two
   readouts: engine-conformance verdict + benchmark scores across the cell matrix
   {claude,hermes,...} x {bare,+UACP}. Feeds the telos friction budget its quantitative proxy
-  (design/telos/40). Drafted 2026-07-17 (mike + Claude), from the Hermes-first benchmark thread.
+  (design/telos/40). Drafted 2026-07-17 (mike + Claude); v2 same day after a 3-way panel (technical/coherence/gemini) + mike's rulings (two lanes: this = the AUTOMATED lane, e2e-acceptance = the companion lane, NOT superseded; hermes-first stands with the canonical-MCP drive channel as a named prerequisite; in-repo tools/proving-ground/; provider env contract; statistics-first benchmark).
 status: design
 governance: pre-governance-input
 timestamp: '2026-07-17'
@@ -38,7 +38,7 @@ members:
   - 10-topology.md         # SUT container (agent + UACP inside) vs runner+observer outside; host model; egress per cell
   - 20-runner.md           # mined from OpenAB: ACP transport + per-agent containers; what is lifted, what is dropped
   - 30-observer.md         # L1-L4 fail-closed CODE gates; decoupling litmus; planted-fault calibration; ground-truth signals
-  - 40-benchmark.md        # the cell matrix; objective oracles + governance metrics; feeds the friction-budget proxy
+  - 40-benchmark.md        # N-replicated cells; within-agent causal claims only; consumes #80 ledgers; friction-budget feed
   - 50-plan.md             # staged build (Hermes first); naming; supersession of self-diagnosis; open questions
 
 # DERIVED: mirror of each node's `edges:` frontmatter.
@@ -48,4 +48,6 @@ edges:
   - {src: 20-runner, dst: 10-topology, rel: realizes, provenance: asserted}
   - {src: 30-observer, dst: 10-topology, rel: realizes, provenance: asserted}
   - {src: 40-benchmark, dst: 00-proving-ground, rel: depends_on, provenance: derived}
+  - {src: 40-benchmark, dst: 10-topology, rel: depends_on, provenance: derived}
+  - {src: 40-benchmark, dst: 30-observer, rel: consumes, provenance: asserted}
   - {src: 50-plan, dst: 00-proving-ground, rel: decides_on, provenance: asserted}

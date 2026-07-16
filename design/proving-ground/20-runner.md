@@ -58,5 +58,13 @@ script) so that collapse stays open.
 Before any code is lifted: clone OpenAB, confirm (a) `crates/openab-agent` builds/runs without
 `src/` (clean separability), (b) one agent (`Dockerfile.hermes`) runs end-to-end over ACP from
 a bare Rust harness, (c) the env-injection path reaches `host.docker.internal:11434` from the
-container. If (a) fails, fall back to *pattern-mining* (reimplement the thin ACP client —
-the protocol is small) rather than dragging the broker in.
+container, **and (d) the SERVER-side per-agent ACP adapters actually exist and run** — the
+panel's key correction: the client fallback below de-risks only the client; the real external
+dependency is each agent's ACP adapter binary. Verified so far: **Hermes ships `hermes acp`
+built-in** (confirmed in the installed CLI, v0.17.0); the real Claude adapter is **Zed's
+`claude-code-acp`** (not "claude-agent-acp" — OpenAB's table is loose on names); Codex/Pi
+adapters are asserted by OpenAB and unverified. An agent with no working ACP adapter simply
+has no cell until one exists — that is a cell-inventory fact, not a substrate failure.
+If (a) fails, fall back to *pattern-mining* (reimplement the thin ACP client — the protocol is
+small) rather than dragging the broker in; if (d) fails for Hermes, S1 is blocked and the plan
+re-sequences.
