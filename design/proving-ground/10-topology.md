@@ -54,9 +54,14 @@ is outside by construction; part of its *evidence* is not, and is weighted accor
    its own driver.
 3. **The model is reached through a standard provider ENV CONTRACT (mike's ruling,
    2026-07-17).** An agent that needs an external model (Hermes, Pi, …) consumes it the way it
-   already knows how — **OpenAI-compatible or Anthropic-style env vars** (base URL + API key).
-   The cell definition sets only those env values; nothing else in the image, runner, or
-   topology changes when the model moves:
+   already knows how — **OpenAI-compatible or Anthropic-style env vars** (base URL + API key)
+   **plus a REQUIRED, pinned `model_id`** (the agent's model-selection setting, set by the
+   cell — a base URL alone selects the *server*, not the *model*, and a multi-model host like
+   ollama would otherwise let a default drift turn the ±UACP ablation into a model confound;
+   `design/e2e-acceptance/12` already names model selection as part of the backend seam). The
+   effective `model_id` is **serialized into every replicate's provenance** (40) so a drifted
+   backend is visible in the results ledger, not silent. The cell definition sets only these
+   values; nothing else in the image, runner, or topology changes when the model moves:
    - **now (local)**: the same contract pointed at host ollama's OpenAI-compatible endpoint
      (`OPENAI_BASE_URL=http://host.docker.internal:11434/v1`, dummy key), serving
      **Qwen3.6-35B-A3B** — the host serves the model because Linux containers on macOS cannot

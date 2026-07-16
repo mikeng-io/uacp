@@ -46,7 +46,8 @@ Hermes+Qwen). Consequently:
 | *(later)* `pi-*`, `opencode-*` | … | … | ± | added as cells (20) |
 
 **Reference local model:** the **official** `unsloth/Qwen3.6-35B-A3B-GGUF` quant (e.g.
-`Q4_K_M`) — pulling it is an **S1 prerequisite**; it is not currently on the host, and the
+`Q4_K_M`) — pinned per cell via the REQUIRED `model_id` in the env contract (10.3) and
+recorded in each replicate's provenance; pulling it is an **S1 prerequisite**; it is not currently on the host, and the
 `Qwen3.6-35B-A3B` variant that IS present (`HauhauCS…Uncensored…Aggressive`) is a community
 finetune and **forbidden as a baseline** (a benchmark baseline must be reproducible by
 others). Small models (`qwen2.5:3b`) power the cheap **smoke tier** — pipeline checks, never
