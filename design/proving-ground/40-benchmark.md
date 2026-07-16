@@ -86,8 +86,15 @@ semantic gate in telos terms, subject to recursive critique (`design/telos/20`) 
 cross-provider, never the SUT's own model family. Prefer extending oracles over judges.
 
 ## Output
-Per replicate: observer verdict (hard gate + soft completion, 30) + both metric classes,
-serialized to a versioned results ledger (schema at build). Per sweep: an aggregated
-scoreboard (means, CIs, N) diffable across UACP versions — the **regression bench** role: a
-kernel change that degrades `hermes-uacp` or inflates its governance cost is visible before
-release.
+Per replicate, **by cell kind** (bare cells run with UACP off and emit no lifecycle trail —
+grading one would be spurious):
+- **`*-uacp` cells**: observer verdict (hard gate + soft completion, 30) + BOTH metric classes.
+- **`*-bare` cells**: task oracles + runner-side cost only; **engine-conformance and
+  governance metrics are N/A** — recorded as N/A (never as zeros or failures) and **excluded
+  from those aggregates**, so bare-vs-uacp comparisons happen only on the fields both kinds
+  possess (task pass-rate, cost), never on governance fields only one kind can emit.
+
+All serialized to a versioned results ledger (schema at build). Per sweep: an aggregated
+scoreboard (means, CIs, N, with per-field cell-kind eligibility) diffable across UACP versions
+— the **regression bench** role: a kernel change that degrades `hermes-uacp` or inflates its
+governance cost is visible before release.
