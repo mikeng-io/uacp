@@ -14,6 +14,29 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-07-17 — Encode the telos; one canonical authority chain; ADR-0018 amended (#98)
+
+Decision: Three rulings land together as the telos design bundle ([`design/telos/`](../../design/telos/)) reconciles into the canonical surfaces.
+
+- **(a) One authority chain.** The **priority table in `AGENTS.md` is the single canonical authority chain**. `constitution.md`'s former 8-level Authority Chain is demoted to a pointer that defers to it (section heading kept so inbound links do not break). This entry is the sanctioned override that resolves the two-competing-chains drift; no third chain is introduced.
+- **(b) ADR-0018 amended by ADR-0021.** [ADR-0021](../architecture/0021-telos-conformance-loop.md) records the telos (reduce the long-run, time-asymmetric friction of cooperation on semantic work) as primary and CMS/gates/lifecycle/substrate as derived. It **amends, does not supersede**, [ADR-0018](../architecture/0018-cms-semantic-thinking-principle.md), which stays accepted.
+- **(c) Two mike rulings encoded (2026-07-17):** *memory → memory **substrate*** (the loop leaves the foundation memory is built on, not memory itself); and the name **`measure` stays** — a rename to `evaluate` was proposed again on descriptive grounds and rejected again (CMS is normative; the injected word is the corrective intervention). Recorded so neither silently reopens.
+
+Rationale: The #98 audit found the purpose was not encoded — gates checked shape, not whether work served any end — and that downstream canon had drifted (a duplicate authority chain; `constitution.md` "Derives from" clauses citing first-principles that did not exist there). Encoding the telos as a first principle gives the constitution a real derivation anchor and makes "is this governance step worth its cost?" a legible (amortization) question.
+
+Scope: canonical docs only (no kernel code). `first-principles.md` gains "The Conformance Loop for Semantic Work" as its foundational principle and has genuinely vendor-specific product names (Hermes Kanban, Honcho, Cortex) neutralized; `constitution.md`'s eight dangling article "Derives from" clauses are re-pointed to real first-principles headings (the conformance-loop principle where the article's subject is the loop itself). Touches canonical docs → Invariant #4 (council gate) applies before merge.
+
+Status: accepted.
+
+Canonical targets:
+
+- `AGENTS.md` (Core Principle section — telos-led), `UACP.md` (telos line, grain base case, semantic-vs-deterministic scope fix)
+- `docs/policy/first-principles.md` (new principle + vendor neutralization), `docs/policy/constitution.md` (authority-chain deferral + re-pointed derivations)
+- `docs/architecture/0021-telos-conformance-loop.md` (new ADR), `docs/architecture/0018-cms-semantic-thinking-principle.md` (amendment note), `docs/architecture/INDEX.md`
+- `docs/INDEX.md` (read order), `design/telos/`, `design/comprehend-measure-serialize/` (reconciliation edits)
+
+Follow-up (tracked in #154): typed human-verdict shape; `uacp.context_model` artifact + cross-actor consumption rule; per-gate deterministic-vs-semantic labeling; `UACP.md` ↔ CMS-bundle sync check. Alignment-spec review for the same vendor-neutralization pass is a separate cleanup.
+
 ### 2026-07-11 — Deterministic corpus retrieval FLOOR in the Oracle aggregator (#100)
 
 Decision: Add a DETERMINISTIC corpus tier to `oracle_query` (`engines.oracle.deterministic`). On every retrieval phase (ADVISORY/FULL), it runs a no-vector-store, no-ML keyword + domain + BES scan over the lesson/knowledge corpus and returns advisory ProviderPackets. It runs BEFORE the semantic sources and is served even when the semantic Oracle is disabled (`[oracle] enabled = false`, the default) or its vector store is unavailable — so `oracle_query` never returns empty merely because the store is off. The TRIAGE and brainstorm skills' "if oracle is disabled, proceed without retrieval" branches are removed: retrieval always has a floor.

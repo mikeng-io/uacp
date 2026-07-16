@@ -79,12 +79,13 @@ The canonical inventory of UACP-owned files outside `docs/`. Every file here MUS
 When approaching UACP cold, this order minimizes back-tracking:
 
 1. [`/PROJECT.md`](../PROJECT.md) — what UACP is.
-2. [`policy/constitution.md`](policy/constitution.md) + [`policy/first-principles.md`](policy/first-principles.md) — non-negotiables.
-3. [`lifecycle/lifecycle-reference.md`](lifecycle/lifecycle-reference.md) — phase semantics + the **single source of truth for the verification & review model** (six mechanisms / three layers: Guardian, Agent Council, exit invariants/PLAN_VALIDATION, Heartgate, PIV, the VERIFY phase; plus the PIV-acronym disambiguation).
-4. [`reference/proposal-schema.md`](reference/proposal-schema.md) + [`reference/skill-enforcement-spec.md`](reference/skill-enforcement-spec.md) + [`reference/lifecycle-trace-table.md`](reference/lifecycle-trace-table.md) — canonical schemas.
-5. [`runtime/runtime-enforcement.md`](runtime/runtime-enforcement.md) — how Guardian + Heartgate enforce.
-6. [`guides/lifecycle-hardening/00-index.md`](guides/lifecycle-hardening/00-index.md) — readable guide to semantic packages, PIV, VERIFY/RESOLVE, runtime parity, and full-lineage audit remediation.
-7. [`architecture/INDEX.md`](architecture/INDEX.md) — historical decisions.
+2. [`design/telos/`](../design/telos/00-telos.md) — **why UACP exists** (bedrock): the telos (reduce the long-run friction of cooperation on semantic work), the conformance loop it governs, and how CMS / gates / lifecycle / the memory substrate derive from it.
+3. [`policy/constitution.md`](policy/constitution.md) + [`policy/first-principles.md`](policy/first-principles.md) — non-negotiables.
+4. [`lifecycle/lifecycle-reference.md`](lifecycle/lifecycle-reference.md) — phase semantics + the **single source of truth for the verification & review model** (six mechanisms / three layers: Guardian, Agent Council, exit invariants/PLAN_VALIDATION, Heartgate, PIV, the VERIFY phase; plus the PIV-acronym disambiguation).
+5. [`reference/proposal-schema.md`](reference/proposal-schema.md) + [`reference/skill-enforcement-spec.md`](reference/skill-enforcement-spec.md) + [`reference/lifecycle-trace-table.md`](reference/lifecycle-trace-table.md) — canonical schemas.
+6. [`runtime/runtime-enforcement.md`](runtime/runtime-enforcement.md) — how Guardian + Heartgate enforce.
+7. [`guides/lifecycle-hardening/00-index.md`](guides/lifecycle-hardening/00-index.md) — readable guide to semantic packages, PIV, VERIFY/RESOLVE, runtime parity, and full-lineage audit remediation.
+8. [`architecture/INDEX.md`](architecture/INDEX.md) — historical decisions.
 
 For runtime adapter authors, add: [`runtime/runtime-integration-guide.md`](runtime/runtime-integration-guide.md), [`runtime/runtime-porting-and-version-control.md`](runtime/runtime-porting-and-version-control.md).
 

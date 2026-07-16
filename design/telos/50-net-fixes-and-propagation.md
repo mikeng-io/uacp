@@ -26,8 +26,7 @@ honestly (fixed-here vs deferred-with-owner is marked per item).
    semantic differentia) INTO `first-principles.md` as the missing principle, re-point
    `constitution.md`'s clauses at it, and strip vendor specifics from `first-principles.md`
    while there.
-3. **Human-verdict primitive.** *(framing fixed here; typed schema deferred — owner: the #98
-   build's EXECUTE)* The human verdict is the **critique base case #3** (20): explicitly a
+3. **Human-verdict primitive.** *(framing fixed here; typed schema deferred — owner: #154)* The human verdict is the **critique base case #3** (20): explicitly a
    serialized-fiat exception — exempt from measure-discipline, never from serialize-discipline
    (recorded, provenanced, hinge-side). The build adds a minimal typed shape so a human decision
    is a first-class, auditable serialization, not an off-ledger act.
@@ -37,7 +36,7 @@ honestly (fixed-here vs deferred-with-owner is marked per item).
    only via **recursive critique to a critique base case** (20). The build labels each existing
    gate so no semantic gate is silently treated as deterministic.
 5. **Context-model artifact + the cross-actor rule.** *(rule fixed here; schema deferred —
-   owner: the #98 build's EXECUTE)* Comprehend gets an artifact: a minimal `uacp.context_model`
+   owner: #154)* Comprehend gets an artifact: a minimal `uacp.context_model`
    — the serialized **Model** of 30. The **cooperation rule** (the telos's central noun,
    mechanized): when work crosses actors, the second actor **consumes the serialized Model and
    the declared intent — never re-interprets raw reality behind the first actor's back.**
@@ -46,8 +45,8 @@ honestly (fixed-here vs deferred-with-owner is marked per item).
    The hand-off of the binding IS the unit of cooperation; this is what makes "friction of
    cooperation" (00) concrete: without the rule every hand-off pays the re-derivation tax and
    risks divergent Models.
-6. **UACP.md ↔ bundle sync.** *(intent fixed here; mechanism deferred — owner: the #98 build's
-   EXECUTE, as a lint/CI check)* `UACP.md` (the injected cognition) drifted from its bundle
+6. **UACP.md ↔ bundle sync.** *(intent fixed here; mechanism deferred — owner: #154, as a
+   lint/CI check)* `UACP.md` (the injected cognition) drifted from its bundle
    (superseded "decision-bearing" wording; "CMS at every grain" with no base case). The build
    fixes the wording (grain base case, 40) and adds a sync check so preamble and bundle cannot
    silently diverge.
@@ -59,16 +58,16 @@ owner. Disposition of all eleven:
 | Node | To-expand item | Disposition |
 |---|---|---|
 | 10-comprehend | context-model artifact / comprehension discipline | **Written here** — A.5 (schema at build) |
-| 11-measure | signal taxonomy (PASS/FAIL/ERROR grades, evidence classes) | **Deferred — owner: #98 build EXECUTE** (doc task; no design fork) |
+| 11-measure | signal taxonomy (PASS/FAIL/ERROR grades, evidence classes) | **Deferred — owner: #154** (doc task; no design fork) |
 | 12-serialize | serialization targets / "not a Memory framework" tension | **Written here** — resolved by the *substrate* reframe (00, 30) |
 | 20-reductions | more capability-reduction examples | **Deferred — owner: CMS bundle maintenance** (illustrative, non-blocking) |
-| 21-decision-hinge | routing-table-as-data | **Deferred — owner: #98 build EXECUTE** (mechanical; 30's split is the design) |
+| 21-decision-hinge | routing-table-as-data | **Deferred — owner: #154** (mechanical; 30's split is the design) |
 | 22-differentia | sharpen vs adjacent frameworks | **Written here** — 10's semantic differentia + honest limits IS that sharpening |
 | 23-composition | grain base case | **Written here** — 40 (grain base case = the governed write) |
 | 23-composition | cross-run axis | **Written here** — 30 (feedback edge = the substrate); enforcement at build |
-| 24-phase-crosswalk | per-phase CMS crosswalk gaps | **Deferred — owner: #98 build EXECUTE** (sync with 10's honest limits: TRIAGE/BRAINSTORM upstream) |
+| 24-phase-crosswalk | per-phase CMS crosswalk gaps | **Deferred — owner: #154** (sync with 10's honest limits: TRIAGE/BRAINSTORM upstream) |
 | 25-enforcement-surfaces | sync-check between surfaces | **Written here** — A.6 (mechanism at build) |
-| 30/31 (validation/instantiations) | refresh matrix + instantiation list post-reframe | **Deferred — owner: #98 build EXECUTE** (bookkeeping after the merge) |
+| 30/31 (validation/instantiations) | refresh matrix + instantiation list post-reframe | **Deferred — owner: #154** (bookkeeping after the merge) |
 
 Nothing is left silent: every item is written here or carries a named owner.
 

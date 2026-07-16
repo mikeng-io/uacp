@@ -43,6 +43,10 @@ The cycle is cheap; **the engineering IS the discipline on the three verbs.** A 
 
 Reframed from "qualified law." Two counterexample hunts (round 1 = foreign domains; round 2 = formal CS — Paxos/Raft/SAT/SMT/compilers/symbolic-execution all CLEAN; crypto-hash/DFA/GPU-shader BREAK) located the real boundary: **it is *semantic vs deterministic*, not "decision-bearing vs not."** The breaks are all **deterministic machine operations** (a SHA round, a DFA transition) — they don't *falsify* CMS, they are **out of domain**: machine substrate, which already has determinism and needs no semantic principle. That is a **category boundary, not a counterexample.** (Note: this corrected an earlier drift — we, like the field, had mistakenly tested CMS as a theory of *computation*; it is a theory of *agent cognition*.) **`measure` is KEPT** (not `decide`): the LLM's failure mode *is* premature deciding (asserting without evidence), so "measure" is the corrective name that forces grounding — once injected into cognition, the word is the intervention. Rationale → [11-measure](11-measure.md).
 
+## Derivation — what CMS serves
+
+CMS is not first cause: it is the **coherence discipline chosen to serve the telos** ([`design/telos/00-telos.md`](../telos/00-telos.md)) — UACP's purpose of reducing the *long-run friction of cooperation* on semantic work. **"Coherence is the product" (above) still stands**; the telos supplies what this node left unstated — *why that product is worth its price*: coherent, evidence-bound state is what makes the long-run side of the friction trade pay out (friction invested at the point of interaction, repaid over the pipeline's lifetime). It also explains why the discipline is not optional decoration: the **conformance loop** and its **semantic differentia** ([`design/telos/10-conformance-loop.md`](../telos/10-conformance-loop.md)) — an executor that can neither infer its own spec nor certify its own pass — are what *force* declaration and witnessing outward, and CMS is that loop instantiated at a single grain. **CMS derives from the telos, not the reverse.**
+
 ## The map (substance is here, not above)
 
 | What | Node |

@@ -9,9 +9,11 @@ status: accepted
 
 # CMS — comprehend → measure → serialize as the principle for semantic thinking
 
+> **Amended by [ADR-0021](0021-telos-conformance-loop.md) (2026-07-17).** ADR-0021 supplies the *purpose* CMS serves (the telos — reduce the long-run friction of cooperation; CMS derives from it) and **reaffirms** the `measure` naming decision below. It amends, it does not supersede: this ADR remains accepted.
+
 ## Metadata
 
-- **Status**: accepted — design bundle complete and adversarially validated; injection mechanism built; promoted to AGENTS.md. Cleanup + cross-runtime injection remain (see Consequences).
+- **Status**: accepted — design bundle complete and adversarially validated; injection mechanism built; promoted to AGENTS.md. Cleanup + cross-runtime injection remain (see Consequences). **Amended by ADR-0021** (telos derivation; `measure` reaffirmed).
 - **Date**: 2026-06-24
 - **Decision Makers**: UACP maintainer
 - **Consulted**: a cross-provider adversarial panel (Codex, Kimi, MiniMax-M3) and ChatGPT review, each fed the kernel — not the doc in isolation; two counterexample hunts (foreign domains, then formal CS)
