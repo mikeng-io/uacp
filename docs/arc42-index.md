@@ -106,7 +106,7 @@ Per-tool-call flow: Guardian decision diagram in [`runtime/runtime-enforcement.m
 |---|---|
 | Governance vs deliberation vs coordination vs execution | [`policy/first-principles.md`](policy/first-principles.md) |
 | Six-phase lifecycle | [`lifecycle/lifecycle-reference.md`](lifecycle/lifecycle-reference.md) |
-| Authority chain (spec → config → SKILL.md mirror) | [`reference/skill-enforcement-spec.md`](reference/skill-enforcement-spec.md) |
+| Phase-stage precedence, LOCAL (spec → codified stages → SKILL.md mirror; global authority = the [`AGENTS.md`](../AGENTS.md) chain) | [`reference/skill-enforcement-spec.md`](reference/skill-enforcement-spec.md) |
 | Mechanical-over-prose enforcement | [`policy/first-principles.md`](policy/first-principles.md) |
 | Agent Council protocol (tier_1 / tier_2 / heartgate) | [`lifecycle/orchestration-model.md`](lifecycle/orchestration-model.md) |
 | Append-only ledger (gate ledger, escalations) with PIPE_BUF atomicity | [`runtime/runtime-enforcement.md`](runtime/runtime-enforcement.md) |

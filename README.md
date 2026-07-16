@@ -281,18 +281,9 @@ Retrieval is exposed read-only via the `uacp_oracle_query` tool. Engine implemen
 
 ## Authority Chain
 
-When a conflict exists between layers, earlier layers win. An explicit entry in `docs/decisions/decision-log.md` is the only mechanism to override this order.
+The **canonical authority chain is the priority table in [`AGENTS.md`](AGENTS.md)** (`docs/INDEX.md` → `docs/` → `config/` → `.uacp/state/` → `skills/`) — one chain, no duplicates (decision-log entry, 2026-07-17). When layers conflict, earlier layers win; an explicit entry in `docs/decisions/decision-log.md` is the only mechanism to override that order.
 
-| Priority | Layer | Role |
-|---|---|---|
-| 1 | `docs/INDEX.md` | Document registry and canonical read order |
-| 2 | Canonical prose docs (`docs/`) | Intent, principles, lifecycle, and policy |
-| 3 | YAML config (`config/`) | Machine-readable rules derived from docs |
-| 4 | Runtime state (`.uacp/state/`) | Current lifecycle position and run pointers |
-| 5 | Skills and runtime behavior | Implement the documented rules |
-| 6 | Execution artifacts | Record what happened in a specific run |
-
-Skills and runtimes do not override docs. Config does not override docs. If a YAML rule contradicts a prose document, the prose document is authoritative and the YAML must be corrected.
+Skills and runtimes do not override docs. Config does not override docs. If a YAML rule contradicts a prose document, the prose document is authoritative and the YAML must be corrected. Execution artifacts (what a specific run recorded) sit below all of the above — they are evidence, not authority.
 
 ---
 
