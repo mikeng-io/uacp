@@ -52,13 +52,19 @@ edges:
   replicate/aggregation pipeline is built HERE (40's statistics law), against the cheap smoke
   tier, before anything is scored. Prereqs: pull the official `unsloth/Qwen3.6-35B-A3B-GGUF`
   quant (40).
-- **S2 — `hermes-uacp` cell**: bake the canonical MCP server + hooks + `uv` into the image
-  (prerequisite above); **plugin-conformance probe first** (absorbed from e2e-13: is the tool
-  surface actually loaded and actionable? — a failed load is a probe FAIL with evidence, and
-  nothing downstream is attempted); then the agent drives a governed run through the real tool
-  surface. Exit (softened per the panel): **terminal state reached + full trail exported** —
-  the conformance *verdict* on that trail is applied retroactively when S3 lands. This is
-  still the outstanding real agent-through-tools dogfood; it just doesn't grade itself.
+- **S2 — `hermes-uacp` cell**: bake the **native `uacp_guardian` plugin** into the image —
+  installed + registered in the in-image Hermes instance — as the PRIMARY drive channel
+  (full `tool_specs()` surface + pre/post-tool hooks; prerequisite above); **plugin-conformance
+  probe first** (absorbed from e2e-13: is the tool surface actually loaded and actionable? — a
+  failed load is a probe FAIL with evidence, and nothing downstream is attempted); then the
+  agent drives a governed run through that native surface. Only if in-image plugin
+  registration proves brittle does S2 fall back to the canonical MCP server (`hermes mcp add`,
+  image carries `uv`) — a **recorded decision with the probe evidence**, never a silent swap,
+  because a cell that passes on MCP while the native plugin is broken would conceal exactly
+  the defect the cell exists to catch. Exit (softened per the panel): **terminal state reached
+  + full trail exported** — the conformance *verdict* on that trail is applied retroactively
+  when S3 lands. This is still the outstanding real agent-through-tools dogfood; it just
+  doesn't grade itself.
 - **S3 — observer + calibration**: port L1–L4 as CODE gates over the exported trail (with the
   tiered hard/soft split, the schema contract test, and the kernel fault-flag mechanism — 30);
   run the clean baseline AND the planted-fault runs. Exit: the decoupling litmus passes and
