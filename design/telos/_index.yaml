@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the TELOS bundle — the PURPOSE UACP exists to serve, and the mechanism
+#                (the conformance loop) that serves it. This sits ONE LAYER BELOW the
+#                comprehend-measure-serialize (CMS) bundle: CMS is the coherence DISCIPLINE
+#                chosen to serve this purpose; the purpose is not CMS. #98 ("encode the
+#                purpose") is realized here.
+# NOTE: root (00) is THIN. Substance is one-entity-per-node: the loop (10), recursive
+#       critique (20), the pipeline (30), the derivations+budget (40), and the net-fixes +
+#       propagation plan (50). DRAFT — for red-pen, not yet governed. On the governed #98
+#       build these nodes reconcile INTO the CMS bundle (see 50), not beside it.
+
+kind: design_index
+title: The Telos — UACP is a Conformance Loop for Semantic Work (Design Bundle)
+description: >-
+  The PURPOSE UACP exists to serve -- reduce the LONG-RUN friction of cooperation on work done
+  by SEMANTIC (non-deterministic) actors (friction is time-asymmetric: invested at the point of
+  interaction, repaid over the pipeline's lifetime) -- and the mechanism that serves it: a
+  CONFORMANCE LOOP that governs the binding between two independently-owned faces (declared
+  intent / witnessed evidence) and refuses to let them drift. Recursive critique (to a declared
+  critique base case, bounding EFFORT not correctness) is the third leg that makes the loop
+  survive a fallible witness; the loop's cross-run residue is the MEMORY SUBSTRATE (the
+  foundation memory is built on). Coherence is the PRODUCT the machinery manufactures; the telos
+  is why it is worth its price. CMS/Heartgate/lifecycle derive from this. Folds the #98 "fix the
+  net" items + the CMS To-expand sweep. v1 drafted 2026-07-16 (mike + Claude); v2 2026-07-17
+  after a 3-way review panel (2x adversarial/completeness + cross-provider gemini) and mike's
+  four rulings (keep `measure`; memory->substrate; time-asymmetric friction; coherence=product);
+  RATIFIED + propagated into canon 2026-07-17 (PR #155; canonical encoding = first-principles.md
+  + ADR-0021; this bundle = the rationale trail).
+status: accepted
+governance: ratified
+timestamp: '2026-07-16'
+origin: session 2026-07-16/17 (telos / conformance-loop thread; mike + Claude, from the #97 bedrock audit; v2 post-panel)
+schema_dir: ../graph-engine/schema/
+
+# 00 = thin root; 10 = the differentia + atom + honest limits; 20 = recursive critique + critique base case;
+# 30 = the pipeline in time (measure KEPT); 40 = derivations + grain base case + hardened friction budget;
+# 50 = net-fixes + cooperation rule + To-expand sweep + propagation.
+members:
+  - 00-telos.md                  # ROOT (thin): time-asymmetric friction; coherence=product; substrate; the map
+  - 10-conformance-loop.md       # the DIFFERENTIA (headline) + the atom: two independently-owned faces, governed binding; honest limits
+  - 20-recursive-critique.md     # the THIRD LEG: critique base case (bounds EFFORT not correctness); independence; witness-side termination
+  - 30-pipeline.md               # the atom run IN TIME: `measure` name KEPT (ADR-0018); Measure/Decision split; feedback edge = substrate
+  - 40-derivations.md            # what DERIVES; grain base case (= smallest serialized act); triviality floor; friction budget (amortization, hardened)
+  - 50-net-fixes-and-propagation.md  # #98 leftovers + cross-actor rule + To-expand sweep + ADR-0018 amendment + propagation
+
+# DERIVED: mirror of each node's `edges:` frontmatter.
+# rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
+edges:
+  - {src: 10-conformance-loop, dst: 00-telos, rel: depends_on, provenance: derived}
+  - {src: 20-recursive-critique, dst: 10-conformance-loop, rel: extends, provenance: asserted}
+  - {src: 30-pipeline, dst: 10-conformance-loop, rel: realizes, provenance: asserted}
+  - {src: 40-derivations, dst: 00-telos, rel: depends_on, provenance: derived}
+  - {src: 50-net-fixes-and-propagation, dst: 00-telos, rel: decides_on, provenance: asserted}

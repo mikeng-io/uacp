@@ -39,7 +39,7 @@ This constitution defines the inviolable invariants of the Universal Agent Contr
 3. No component, skill, or agent may assume authority not expressly granted.
 4. Authority claims must be falsifiable — they must reference a governed document, artifact, or operator declaration that an observer can inspect.
 
-**Derives from**: First Principles — Explicitness, Traceability.
+**Derives from**: First Principles — Invariants Are Not Optional (authority, traceable state).
 
 ---
 
@@ -50,7 +50,7 @@ This constitution defines the inviolable invariants of the Universal Agent Contr
 7. No operation may produce effects beyond its declared scope.
 8. Side effect categories: file, system, service, human, publication, external network, and cryptographic state changes must all be explicitly stated when applicable.
 
-**Derives from**: First Principles — Explicitness.
+**Derives from**: First Principles — Invariants Are Not Optional (declared side effects).
 
 ---
 
@@ -63,7 +63,7 @@ This constitution defines the inviolable invariants of the Universal Agent Contr
 13. Non-goals documented in UACP proposal records are binding prohibitions.
 14. Indirect circumvention of rejected designs is equivalent to direct violation.
 
-**Derives from**: First Principles — Specification Supremacy.
+**Derives from**: First Principles — The Conformance Loop for Semantic Work (implementations conform to declared intent; refusal-to-drift).
 
 ---
 
@@ -75,7 +75,7 @@ This constitution defines the inviolable invariants of the Universal Agent Contr
 18. Symlinks, bind mounts, and path resolution must be verified before write — escape attempts are prohibited.
 19. `main` (or `master`) is the stable reviewed authority state. Active UACP runs must not write directly to it. Each run must create or designate an isolated workspace — branch, worktree, or scratch directory — before EXECUTE begins.
 
-**Derives from**: First Principles — Explicitness, Domain Sovereignty.
+**Derives from**: First Principles — Invariants Are Not Optional (write containment).
 
 ---
 
@@ -87,7 +87,7 @@ This constitution defines the inviolable invariants of the Universal Agent Contr
 22. No operation may retry or recover without explicit authorization recorded in the gate ledger.
 23. Hidden state changes and unrecorded self-healing are forbidden.
 
-**Derives from**: First Principles — Conservatism, Explicitness.
+**Derives from**: First Principles — Evidence Over Assertion; Invariants Are Not Optional (visible, conservative execution).
 
 ---
 
@@ -98,7 +98,7 @@ This constitution defines the inviolable invariants of the Universal Agent Contr
 26. Missing configuration must halt execution or escalate to operator, not trigger fallback behavior.
 27. Configuration drift must be detectable and reversible.
 
-**Derives from**: First Principles — Explicitness, Conservatism.
+**Derives from**: First Principles — Invariants Are Not Optional (explicit configuration); Evidence Over Assertion.
 
 ---
 
@@ -110,7 +110,7 @@ This constitution defines the inviolable invariants of the Universal Agent Contr
 31. Trust relationships must not be inferred from proximity, naming, or convention.
 32. Privacy and safety constraints: sensitive data, PII, credentials, and cryptographic material are respected and contained.
 
-**Derives from**: First Principles — Domain Sovereignty, Explicitness.
+**Derives from**: First Principles — Invariants Are Not Optional (privacy, safety, trust boundaries).
 
 ---
 
@@ -121,7 +121,7 @@ This constitution defines the inviolable invariants of the Universal Agent Contr
 35. Ambiguous authority stops processing rather than guessing.
 36. Partial failures must leave state traceable and recoverable; atomic rollback is preferred when full completion is impossible.
 
-**Derives from**: First Principles — Conservatism, Traceability.
+**Derives from**: First Principles — Evidence Over Assertion; The Conformance Loop for Semantic Work (conservative failure protects refusal-to-drift).
 
 ---
 
@@ -160,27 +160,9 @@ A phase transition is permitted only when:
 
 ## Authority Chain
 
-Per this constitution, the following hierarchy governs all UACP work:
+The **canonical authority chain is the priority table in [`AGENTS.md`](../../AGENTS.md)** (`docs/INDEX.md` → `docs/` → `config/` → `.uacp/state/` → `skills/`). This section **defers to it**: per the decision-log entry dated 2026-07-17, the `AGENTS.md` table is the single canonical chain and this constitution's former 8-level hierarchy is demoted to this pointer (one chain, no duplicates).
 
-```
-1. Human Authority (sole power to establish and amend)
-   ↓ establishes
-2. First Principles (axioms — docs/policy/first-principles.md)
-   ↓ derives
-3. UACP Constitution v2.0 (this document)
-   ↓ constrains
-4. Alignment Specification (docs/policy/alignment-spec.md)
-   ↓ constrains
-5. UACP Lifecycle Artifacts (proposals, plans, verification records)
-   ↓ constrains
-6. Operational Governance (SKILL.md files, config, runtime adapters)
-   ↓ constrains
-7. Skills (skills/*/SKILL.md)
-   ↓ constrains
-8. Runtime-resolved tooling (advisory or gated by workflow policy)
-```
-
-No level may override a level above it. Novel situations not addressed by rules at any level must be reasoned from the First Principles.
+When layers conflict, earlier layers win; an explicit entry in [`docs/decisions/decision-log.md`](../decisions/decision-log.md) is the only mechanism to override that order. Human authority remains the sole power to establish and amend, above the table. Novel situations not addressed by rules at any level must be reasoned from the First Principles.
 
 ---
 

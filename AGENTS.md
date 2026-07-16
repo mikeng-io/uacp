@@ -8,13 +8,15 @@ This file is **principles only** — the governance contract every agent must ob
 
 ## Core Principle — comprehend → measure → serialize
 
-Machines earn reliability through **determinism**; agents are **semantic** and cannot — so they need their own discipline for trustworthy thinking. Every governed operation, *and the agent's own reasoning*, follows one invariant:
+**The purpose.** UACP exists to **reduce the long-run friction of cooperation** on work done by *semantic* (non-deterministic) actors — agents and the humans who direct them. Governance is a **time-asymmetric** trade: it *adds* friction at the point of interaction (declaring intent, passing gates, producing evidence) and *removes* it over the pipeline's lifetime (later work runs on rails — not re-derived, not re-litigated, not silently drifting). The mechanism is a **conformance loop** — *does the realized reality match the declared intent?* made the governed atom, closed across the lifecycle and across runs. It takes loop form because of the **semantic differentia**: the executor can neither be trusted to infer the spec (so intent is **externally declared**) nor certify its own pass (so verification is **externally witnessed**). **Coherence — a system consistent with itself, its claims bound to evidence — is the product** this machinery manufactures; the purpose is why that product is worth its price.
+
+**The discipline that serves it.** Machines earn reliability through **determinism**; agents are **semantic** and cannot — so they need their own discipline for trustworthy thinking. CMS is the conformance loop instantiated at a single grain; every governed operation, *and the agent's own reasoning*, follows one invariant:
 
 - **comprehend** — raise input to a computable model; the one semantic act, done once (do not silently re-interpret downstream);
 - **measure** — reduce the model to a decidable signal that is **grounded in evidence** and **fail-closed** (PASS/FAIL/ERROR distinct) — evidence, not assertion; *determinism belongs to the verifying gate, not to the agent's judgment*;
 - **serialize** — canonicalize the result into typed, provenanced state.
 
-This is `determinism : machines :: CMS : agents` — how a semantic process earns trust without pretending to be deterministic. It is enforced two ways: **architecturally** (Guardian / Heartgate / gates / governed writers) and in the agent's **cognition** (the injected preamble, `UACP.md`). The lifecycle below is this principle iterated. Design rationale: `design/comprehend-measure-serialize/`.
+This is `determinism : machines :: CMS : agents` — how a semantic process earns trust without pretending to be deterministic. It is enforced two ways: **architecturally** (Guardian / Heartgate / gates / governed writers) and in the agent's **cognition** (the injected preamble, `UACP.md`). The lifecycle below is this principle iterated; its serialized residue, run over run, is the **memory substrate** — the typed, provenanced foundation memory is built on. Design rationale: `design/telos/` (the purpose) and `design/comprehend-measure-serialize/` (the discipline).
 
 ---
 

@@ -35,7 +35,17 @@ So: **a verb at scale N is a CMS loop at scale N+1.** The primitive is self-simi
 - **The disciplines are scale-invariant.** The same enforcing mechanisms hold at every grain: the *measure*-discipline = the Heartgate phase-exit gate (at phase scale) **and** a single fail-closed `validate`/lint call (at operation scale); the *serialize*-discipline = the entity-writer + watermark, whether committing a whole resolution or one `work_unit`.
 - **The agent runs CMS at every grain.** A governed run is macro-CMS; each sub-step the agent takes is micro-CMS, with the same three disciplines. This is what the portable `uacp.md` instructs — comprehend → measure → serialize at *every* grain, not only at the lifecycle boundary.
 
+## The grain base case
+
+The vertical recursion of Axis 2 is **not** infinite — the telos supplies the floor ([`design/telos/40-derivations.md`](../telos/40-derivations.md)):
+
+> **The grain bottoms out at the smallest serialized act** — a **governed-state write** (a governed-writer call) or a **work-product edit captured as checkpoint/diff evidence** (ADR-0019 names the two write classes). CMS applies down to — and stops at — that serialization/evidence boundary. Below that there is nothing to make conform; there is no sub-grain to comprehend → measure → serialize.
+
+This is the **grain base case** — deliberately kept distinct from the **critique base case** of [`design/telos/20-recursive-critique.md`](../telos/20-recursive-critique.md) (two different recursions, two different floors). Trivial work is exempt from the full loop, but **triviality is deterministic-and-witnessed, not self-declared**: the exemption requires *both* a deterministic floor (the change is bounded, reversible, and passes all automated checks) *and* a serialized record of the exemption as a governed decision — the ceremony's absence is itself on the ledger. An exemption failing either prong is drift wearing a label.
+
+Along the other axis, the **cross-run** edge closes too: Axis 1's `serialize(N) → comprehend(N+1)`, run over run, **is the feedback edge that produces the memory substrate** — the typed, provenanced residue that memory is *built on*, not memory itself ([`design/telos/30-pipeline.md`](../telos/30-pipeline.md)).
+
 ## To expand
 - The exact per-phase internal CMS triple (comprehend-input / measure-signal / serialize-artifact) for all 7 phases — the cross-walk.
-- The base case: the finest grain where recursion stops (a single governed write = a CMS atom whose *measure* is the validate-on-write).
+- **[closed — see "The grain base case" above]** The finest grain where recursion stops = the smallest serialized act — a governed-state write (whose *measure* is the validate-on-write) or an evidence-captured work-product edit (whose *measure* is the checkpoint/diff coverage); the deterministic-witnessed triviality floor sits on it. Ruling: [`design/telos/40-derivations.md`](../telos/40-derivations.md).
 - Iterated × fractal interaction: a phase's serialize(N) feeds the next phase's comprehend, AND that phase is itself a nested loop.

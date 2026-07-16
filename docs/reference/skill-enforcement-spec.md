@@ -10,7 +10,13 @@ timestamp: 2026-06-18
 
 This is the authoritative authority record for what each UACP skill is allowed to do at runtime. It is the **source of truth** that the per-skill `SKILL.md` YAML frontmatter mirrors and that the kernel enforces from the codified stages grammar in `engines/domain/phase_transitions.py` (`stages_default()`; `load_phase_transitions` injects it as the effective `stages` since `config/phase-transitions.yaml` no longer carries a `stages` block — slimmed Slice 4b). When the spec and the mirror disagree, this spec and the codified grammar win.
 
-## Authority chain
+## Authority chain (local precedence — scoped)
+
+> **Scope:** this is a LOCAL artifact-precedence order for the phase-stage grammar only —
+> which artifact wins when the spec, the codified stages, and a SKILL.md mirror disagree. It
+> sits INSIDE the single canonical authority chain (the priority table in `AGENTS.md`; see the
+> 2026-07-17 decision-log entry) and is consistent with it: intent docs above code, code above
+> skill mirrors. It is not a second system-wide chain.
 
 ```
 docs/reference/skill-enforcement-spec.md (intent)

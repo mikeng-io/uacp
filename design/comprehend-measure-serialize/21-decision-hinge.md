@@ -29,6 +29,10 @@ measure → [decision / routing] → serialize
 
 The hinge is the *application of policy* to a measurement, not a new kind of work. Keeping the triad at three (and treating routing as the policy at the measure→serialize seam) preserves the clean atom; promoting routing to a peer step would blur it. The routing is still *deterministic given the policy* — but that determinism is the GATE's (routing is the gate side of the seam), never demanded of the agent's semantic measure; same re-derivable discipline.
 
+## Recursive critique attaches here — at two points
+
+Recursive critique ([`design/telos/20-recursive-critique.md`](../telos/20-recursive-critique.md)) makes no verdict final by fiat, and on this seam it attaches at **two** points: the **measurement** (was the judgment sound?) *and* the **decision** (was the right action taken on the signal?). This does **not** promote Decision to a fourth CMS verb — it stays the **seam-box between the verbs** (the policy applied at the `measure → serialize` seam), now with its critique-attachment made explicit.
+
 ## To expand
 - The routing table as data (measure-signal × policy → target), and whether it is itself a serialized, auditable artifact.
 - Multi-target fan-out (one measurement → memory + audit + metric simultaneously).
