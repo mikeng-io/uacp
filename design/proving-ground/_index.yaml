@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the PROVING GROUND bundle — the universal substrate that runs a REAL agent
+#                (contained, over one transport, against a local or cloud model) through UACP's
+#                actual tool surface and observes whether the lifecycle engine runs normally
+#                and whether governance helps. ONE apparatus, TWO readouts: a conformance TEST
+#                verdict (does UACP work end-to-end under a real agent) and BENCHMARK scores
+#                (bare vs +UACP; weak vs strong harness). Supersedes the scripted driver of
+#                design/self-diagnosis (branch docs/self-diagnosis-design) while ABSORBING its
+#                objective core (L1-L4, fail-closed CODE gates, planted-fault calibration).
+# NOTE: root (00) is THIN. Substance is one-entity-per-node: topology (10), runner (20),
+#       observer (30), benchmark (40), build plan (50).
+
+kind: design_index
+title: The Proving Ground — a contained real-agent substrate for testing and benchmarking UACP (Design Bundle)
+description: >-
+  A universal test-bench that answers "does UACP actually run, and does it actually help, when a
+  REAL agent consumes it?" -- the honest successor to self-diagnosis (whose driver was scripted,
+  in-process, with no plugin/MCP surface and no agent consuming the product). One apparatus: an
+  agent container (the system under test -- Claude Code or Hermes, +/- the UACP plugin/MCP
+  surface) driven over ACP by a runner mined from OpenAB (MIT), reaching a Metal-accelerated
+  host model (ollama) or a cloud API; outside the jail, an OBSERVER (self-diagnosis's L1-L4
+  fail-closed CODE gates + planted-fault calibration) reads only the emitted trail. Two
+  readouts: engine-conformance verdict + benchmark scores across the cell matrix
+  {claude,hermes,...} x {bare,+UACP}. Feeds the telos friction budget its quantitative proxy
+  (design/telos/40). Drafted 2026-07-17 (mike + Claude), from the Hermes-first benchmark thread.
+status: design
+governance: pre-governance-input
+timestamp: '2026-07-17'
+origin: session 2026-07-16/17 (benchmark / neutral-substrate thread; mike + Claude; supersedes-absorbs design/self-diagnosis)
+schema_dir: ../graph-engine/schema/
+
+# 00 = thin root; 10 = container topology; 20 = the runner (mined OpenAB);
+# 30 = the observer (absorbed self-diagnosis core); 40 = the benchmark (matrix + metrics);
+# 50 = build plan + naming + supersession.
+members:
+  - 00-proving-ground.md   # ROOT (thin): one apparatus, two readouts; why self-diagnosis was not enough
+  - 10-topology.md         # SUT container (agent + UACP inside) vs runner+observer outside; host model; egress per cell
+  - 20-runner.md           # mined from OpenAB: ACP transport + per-agent containers; what is lifted, what is dropped
+  - 30-observer.md         # L1-L4 fail-closed CODE gates; decoupling litmus; planted-fault calibration; ground-truth signals
+  - 40-benchmark.md        # the cell matrix; objective oracles + governance metrics; feeds the friction-budget proxy
+  - 50-plan.md             # staged build (Hermes first); naming; supersession of self-diagnosis; open questions
+
+# DERIVED: mirror of each node's `edges:` frontmatter.
+# rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
+edges:
+  - {src: 10-topology, dst: 00-proving-ground, rel: depends_on, provenance: derived}
+  - {src: 20-runner, dst: 10-topology, rel: realizes, provenance: asserted}
+  - {src: 30-observer, dst: 10-topology, rel: realizes, provenance: asserted}
+  - {src: 40-benchmark, dst: 00-proving-ground, rel: depends_on, provenance: derived}
+  - {src: 50-plan, dst: 00-proving-ground, rel: decides_on, provenance: asserted}
