@@ -68,6 +68,6 @@ and the name `measure` is deliberately kept (30; ADR-0018: the word is the inter
 - **30 — the pipeline.** The atom run in time; why the name `measure` stays; the
   Measure/Decision split; the feedback edge = the memory substrate.
 - **40 — derivations + friction budget.** What derives from the telos; the **grain base case**
-  (= the governed write); the amortization-form friction budget, witness-judged.
+  (= the smallest serialized act, both ADR-0019 write classes); the amortization-form friction budget, witness-judged.
 - **50 — net-fixes + propagation.** The #98 leftovers, the CMS "To expand" sweep, the
   cooperation (cross-actor) mechanization, the ADR + propagation plan.

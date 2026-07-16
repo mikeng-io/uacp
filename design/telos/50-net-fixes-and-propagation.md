@@ -63,7 +63,7 @@ owner. Disposition of all eleven:
 | 20-reductions | more capability-reduction examples | **Deferred — owner: CMS bundle maintenance** (illustrative, non-blocking) |
 | 21-decision-hinge | routing-table-as-data | **Deferred — owner: #154** (mechanical; 30's split is the design) |
 | 22-differentia | sharpen vs adjacent frameworks | **Written here** — 10's semantic differentia + honest limits IS that sharpening |
-| 23-composition | grain base case | **Written here** — 40 (grain base case = the governed write) |
+| 23-composition | grain base case | **Written here** — 40 (grain base case = the smallest serialized act, both ADR-0019 write classes) |
 | 23-composition | cross-run axis | **Written here** — 30 (feedback edge = the substrate); enforcement at build |
 | 24-phase-crosswalk | per-phase CMS crosswalk gaps | **Deferred — owner: #154** (sync with 10's honest limits: TRIAGE/BRAINSTORM upstream) |
 | 25-enforcement-surfaces | sync-check between surfaces | **Written here** — A.6 (mechanism at build) |

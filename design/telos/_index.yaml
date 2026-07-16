@@ -39,7 +39,7 @@ members:
   - 10-conformance-loop.md       # the DIFFERENTIA (headline) + the atom: two independently-owned faces, governed binding; honest limits
   - 20-recursive-critique.md     # the THIRD LEG: critique base case (bounds EFFORT not correctness); independence; witness-side termination
   - 30-pipeline.md               # the atom run IN TIME: `measure` name KEPT (ADR-0018); Measure/Decision split; feedback edge = substrate
-  - 40-derivations.md            # what DERIVES; grain base case (= governed write); triviality floor; friction budget (amortization, hardened)
+  - 40-derivations.md            # what DERIVES; grain base case (= smallest serialized act); triviality floor; friction budget (amortization, hardened)
   - 50-net-fixes-and-propagation.md  # #98 leftovers + cross-actor rule + To-expand sweep + ADR-0018 amendment + propagation
 
 # DERIVED: mirror of each node's `edges:` frontmatter.

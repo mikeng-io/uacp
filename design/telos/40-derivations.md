@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: Derivations, the grain base case, and the friction budget (hardened)
-description: CMS, Heartgate/gates/witnesses, the lifecycle, and the memory substrate all DERIVE from the telos. The "CMS at every grain" recursion gets its missing GRAIN BASE CASE (= the governed write) plus a deterministic triviality floor. The FRICTION BUDGET is an AMORTIZATION test (up-front friction vs lifetime repayment), and it is HARDENED against self-authorization — any budget/triviality/termination decision is made on the WITNESS side, serialized as a first-class governed decision, itself open to critique; never asserted by the actor being governed.
+description: CMS, Heartgate/gates/witnesses, the lifecycle, and the memory substrate all DERIVE from the telos. The "CMS at every grain" recursion gets its missing GRAIN BASE CASE (= the smallest serialized act — a governed-state write, or a work-product edit captured as evidence) plus a deterministic triviality floor. The FRICTION BUDGET is an AMORTIZATION test (up-front friction vs lifetime repayment), and it is HARDENED against self-authorization — any budget/triviality/termination decision is made on the WITNESS side, serialized as a first-class governed decision, itself open to critique; never asserted by the actor being governed.
 tags: [derivations, grain-base-case, friction-budget, amortization, triviality, witness-side, means-end]
 timestamp: 2026-07-16
 edges:
@@ -29,9 +29,12 @@ long-run friction trade — which is measurable only once the telos is encoded (
 `UACP.md` commands CMS "at every grain," and `23-composition.md` admits the recursion has no
 base case. The telos supplies it (matching 23's own "To expand" sketch):
 
-> **The grain bottoms out at the governed write.** CMS applies down to — and stops at — the
-> smallest *serialized* act (a governed writer call). Below that there is nothing to make
-> conform; there is no sub-grain to comprehend/measure/serialize.
+> **The grain bottoms out at the smallest serialized act.** Per ADR-0019 there are two write
+> classes, so the terminal grain takes two forms: a **governed-state write** (a governed writer
+> call — .uacp/ namespace + lifecycle/manifest artifacts) or a **work-product edit captured as
+> checkpoint/diff evidence** (project code during EXECUTE, worktree-contained). Below the
+> serialization/evidence boundary there is nothing to make conform; there is no sub-grain to
+> comprehend/measure/serialize.
 
 (Named the **grain base case** to keep it distinct from 20's **critique base case** — two
 different recursions, two different floors.)
