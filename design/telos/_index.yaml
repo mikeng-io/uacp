@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS:  the TELOS bundle — the PURPOSE UACP exists to serve, and the mechanism
+#                (the conformance loop) that serves it. This sits ONE LAYER BELOW the
+#                comprehend-measure-serialize (CMS) bundle: CMS is the coherence DISCIPLINE
+#                chosen to serve this purpose; the purpose is not CMS. #98 ("encode the
+#                purpose") is realized here.
+# NOTE: root (00) is THIN. Substance is one-entity-per-node: the loop (10), recursive
+#       critique (20), the pipeline (30), the derivations+budget (40), and the net-fixes +
+#       propagation plan (50). DRAFT — for red-pen, not yet governed. On the governed #98
+#       build these nodes reconcile INTO the CMS bundle (see 50), not beside it.
+
+kind: design_index
+title: The Telos — UACP is a Conformance Loop for Semantic Work (Design Bundle)
+description: >-
+  The PURPOSE UACP exists to serve -- decrease the friction of cooperation on work done by
+  SEMANTIC (non-deterministic) actors -- and the mechanism that serves it: a CONFORMANCE LOOP
+  that binds declared intent to witnessed evidence and refuses to let them drift. SDD and TDD
+  are the two faces of its atom; recursive critique (to a base case) is the third leg that makes
+  the loop survive a fallible witness; the cross-run memory substrate is the loop's residue. CMS,
+  Heartgate, the gates/witnesses, the lifecycle, and memory all DERIVE from this (the inversion
+  #98 flags is corrected here). Also folds the #98 "fix the net" items (authority chain,
+  first-principles, human-verdict primitive, gate taxonomy, UACP.md sync). Drafted 2026-07-16
+  (mike + Claude), reframing comprehend-measure-serialize onto its purpose.
+status: design
+governance: pre-governance-input
+timestamp: '2026-07-16'
+origin: session 2026-07-16 (telos / conformance-loop thread; mike + Claude, from the #97 bedrock audit)
+schema_dir: ../graph-engine/schema/
+
+# 00 = thin root; 10 = the loop (atom + differentia); 20 = recursive critique + base case;
+# 30 = the pipeline in time; 40 = derivations + friction budget; 50 = net-fixes + propagation.
+members:
+  - 00-telos.md                  # ROOT (thin): the purpose + the conformance-loop claim + the map
+  - 10-conformance-loop.md       # the ATOM: realize-vs-declared; SDD/TDD as two faces; refusal-to-drift; the semantic differentia
+  - 20-recursive-critique.md     # the THIRD LEG: no verdict final by fiat; terminates at a declared base case
+  - 30-pipeline.md               # the atom run IN TIME: Reality->...->Persistent State; measure->evaluate; feedback edge = memory
+  - 40-derivations.md            # what DERIVES (CMS/gates/lifecycle/memory); the inversion corrected; grain base case; friction budget
+  - 50-net-fixes-and-propagation.md  # the #98 leftovers manifest + ADR + propagation targets + CMS-bundle reconciliation
+
+# DERIVED: mirror of each node's `edges:` frontmatter.
+# rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
+edges:
+  - {src: 10-conformance-loop, dst: 00-telos, rel: depends_on, provenance: derived}
+  - {src: 20-recursive-critique, dst: 10-conformance-loop, rel: extends, provenance: asserted}
+  - {src: 30-pipeline, dst: 10-conformance-loop, rel: realizes, provenance: asserted}
+  - {src: 40-derivations, dst: 00-telos, rel: depends_on, provenance: derived}
+  - {src: 50-net-fixes-and-propagation, dst: 00-telos, rel: decides_on, provenance: asserted}
