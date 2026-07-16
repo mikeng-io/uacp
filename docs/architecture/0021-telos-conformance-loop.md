@@ -11,7 +11,7 @@ status: accepted
 
 ## Metadata
 
-- **Status**: accepted — **amends [ADR-0018](0018-cms-semantic-thinking-principle.md)** (supplies the purpose CMS serves; does not supersede or replace it).
+- **Status**: accepted — **amends [ADR-0018](0018-cms-semantic-thinking-principle.md)** (supplies the purpose CMS serves; does not supersede or replace it). Per `docs/INDEX.md` ADR immutability, ADR-0018 is NOT edited in place — this successor is the sole record of the amendment.
 - **Date**: 2026-07-17
 - **Decision Makers**: UACP maintainer
 - **Consulted**: a 3-way review panel on the telos design bundle (2× adversarial/completeness + a cross-provider reviewer), findings folded into bundle v2
@@ -46,4 +46,4 @@ Adopt the telos as UACP's primary statement, with CMS derived from it:
 - **Honest limits are named.** The conformance atom cleanly unifies the PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE spine; TRIAGE, BRAINSTORM, and priority/authority overrides sit *upstream* of it, and memory-as-generalization sits *outside* it. The framework does not force-fit everything into one metaphor.
 - **Deferred to the #98 build's EXECUTE (not this ADR):** the typed human-verdict shape, the `uacp.context_model` artifact + the cross-actor consumption rule, per-gate deterministic-vs-semantic labeling, and the `UACP.md` ↔ bundle sync check. See [`design/telos/50-net-fixes-and-propagation.md`](../../design/telos/50-net-fixes-and-propagation.md).
 
-Canonical targets: `AGENTS.md` (Core Principle section), `UACP.md`, `docs/policy/first-principles.md` (the new principle) + `docs/policy/constitution.md` (authority-chain deferral + re-pointed derivations), `docs/INDEX.md` (read order), `docs/architecture/0018-cms-semantic-thinking-principle.md` (amendment note), `design/telos/`, `design/comprehend-measure-serialize/` (reconciliation edits).
+Canonical targets: `AGENTS.md` (Core Principle section), `UACP.md`, `docs/policy/first-principles.md` (the new principle) + `docs/policy/constitution.md` (authority-chain deferral + re-pointed derivations), `docs/INDEX.md` (read order), `design/telos/`, `design/comprehend-measure-serialize/` (reconciliation edits).
