@@ -1,7 +1,7 @@
 ---
 type: decision
 title: Build plan — Hermes-first (automated lane), staged; reconciliations; decisions; open questions
-description: Staged build with a verification gate per stage. HERMES-FIRST STANDS (mike's two-lanes ruling — the Proving Ground is the fully-automated GHA/release/benchmark lane; the companion/interactive lane is e2e-acceptance, NOT superseded). The drive channel is the NATIVE uacp_guardian plugin (register() exposes the full tool_specs surface, parity-tested vs MCP; the earlier partial-surface claim was stale) — the S2 prerequisite is baking its installation into the cell image, probe-verified, with the canonical MCP server (`hermes mcp add`) as a recorded fallback only. Stages re-ordered per the panel — the N-replicate pipeline lands at S1; S2's exit softened (verdict retroactive at S3). Pre-req — commit the self-diagnosis spec (currently UNTRACKED) so its supersession can be stamped. Red-pen decisions recorded; three open questions remain.
+description: Staged build with a verification gate per stage. HERMES-FIRST STANDS (mike's two-lanes ruling — the Proving Ground is the fully-automated GHA/release/benchmark lane; the companion/interactive lane is e2e-acceptance, NOT superseded). The drive channel is the NATIVE uacp_guardian plugin (register() exposes the full tool_specs surface, parity-tested vs MCP; the earlier partial-surface claim was stale) — the S2 prerequisite is baking its installation into the cell image, probe-verified, a failed native probe BLOCKS S2 (the MCP server exists only as a separate debugging cell that cannot satisfy the native exit). Stages re-ordered per the panel — the N-replicate pipeline lands at S1; S2's exit softened (verdict retroactive at S3). Pre-req — commit the self-diagnosis spec (currently UNTRACKED) so its supersession can be stamped. Red-pen decisions recorded; three open questions remain.
 tags: [plan, stages, hermes-first, two-lanes, reconciliation, red-pen-decisions, open-questions]
 timestamp: 2026-07-17
 edges:
@@ -15,12 +15,12 @@ edges:
   `claude plugin install`, operator-in-the-loop); the Proving Ground is the **automated lane**
   (headless CI/GHA/benchmark). The Proving Ground **absorbs** from it: the model-normalizing
   proxy (12 → our 10.3), the tiered hard-gate/soft-completion assertions (21 → our 30), the
-  plugin-conformance probe (13 → S2 below), and the task/scenario layer (→ our 40). On this
-  bundle's merge, a cross-reference lands in `design/e2e-acceptance/` naming the two lanes.
-  **Decision-log entry (at merge):** e2e's roadmap deferral ("stop hand-building a bespoke
-  harness; dogfood the acceptance run through UACP's lifecycle") concerned the *acceptance*
-  purpose; the Proving Ground builds a harness for the *automated* purpose the deferral did
-  not cover — recorded explicitly so the deferral is scoped, not silently reversed.
+  plugin-conformance probe (13 → S2 below), and the task/scenario layer (→ our 40). Both
+  reconciliation artifacts LAND IN THIS PR (Codex): the scope note on
+  `design/e2e-acceptance/30-roadmap.md`'s deferral (the deferral concerned the *acceptance*
+  purpose and stands; the automated purpose is a scope it did not cover) and the 2026-07-17
+  two-lanes **decision-log entry** — the deferral is scoped in the record, not silently
+  reversed.
 - **self-diagnosis is superseded-and-absorbed** (driver dies, observer lives — 00/30).
   **Pre-req (P0 below):** its `spec.md`/`prior-art.md` are currently **UNTRACKED** (they exist
   only in the `.worktrees/self-diagnosis-design/` working tree — verified by the panel); they
@@ -34,9 +34,9 @@ edges:
   host's `hermes plugins list` does not show it). So the S2 prerequisite is: **bake the
   plugin's installation/registration into the cell image** and verify it via the
   plugin-conformance probe (a cell where the surface fails to load is a probe FAIL with
-  evidence). The canonical MCP server (`hermes mcp add`, image carries `uv`) remains a
-  **fallback drive channel** if in-image plugin registration proves brittle — an S2 decision
-  recorded either way, not a repair for a missing capability.
+  evidence). The canonical MCP server (`hermes mcp add`, image carries `uv`) exists only as a SEPARATE,
+  distinctly-named debugging cell (`hermes-uacp-mcp`) — a failed native probe BLOCKS S2
+  rather than falling back (see S2), so an MCP pass can never conceal a broken native plugin.
 
 ## Stages (each gated by its own verification; re-staged per the panel)
 - **P0 — commit the self-diagnosis spec** to `docs/self-diagnosis-design` (or fold its text
@@ -57,14 +57,17 @@ edges:
   (full `tool_specs()` surface + pre/post-tool hooks; prerequisite above); **plugin-conformance
   probe first** (absorbed from e2e-13: is the tool surface actually loaded and actionable? — a
   failed load is a probe FAIL with evidence, and nothing downstream is attempted); then the
-  agent drives a governed run through that native surface. Only if in-image plugin
-  registration proves brittle does S2 fall back to the canonical MCP server (`hermes mcp add`,
-  image carries `uv`) — a **recorded decision with the probe evidence**, never a silent swap,
-  because a cell that passes on MCP while the native plugin is broken would conceal exactly
-  the defect the cell exists to catch. Exit (softened per the panel): **terminal state reached
-  + full trail exported** — the conformance *verdict* on that trail is applied retroactively
-  when S3 lands. This is still the outstanding real agent-through-tools dogfood; it just
-  doesn't grade itself.
+  agent drives a governed run through that native surface. **A failed native probe BLOCKS
+  S2** — the stage exit cannot be satisfied over any other channel; the probe failure is
+  itself S2's finding (a real drive-channel defect, recorded with evidence) and fixing the
+  native integration is the path forward. The canonical MCP server (`hermes mcp add`, image
+  carries `uv`) exists only as a **separate, distinctly-named cell** (`hermes-uacp-mcp`) for
+  substrate debugging and channel comparison — it **cannot satisfy the native cell's exit**,
+  and its results are never aggregated as `hermes-uacp`, because an MCP pass while the native
+  plugin is broken would conceal exactly the defect the cell exists to catch. Exit (softened
+  per the panel): **native probe PASS + terminal state reached + full trail exported** — the
+  conformance *verdict* on that trail is applied retroactively when S3 lands. This is still
+  the outstanding real agent-through-tools dogfood; it just doesn't grade itself.
 - **S3 — observer + calibration**: port L1–L4 as CODE gates over the exported trail (with the
   tiered hard/soft split, the schema contract test, and the kernel fault-flag mechanism — 30);
   run the clean baseline AND the planted-fault runs. Exit: the decoupling litmus passes and

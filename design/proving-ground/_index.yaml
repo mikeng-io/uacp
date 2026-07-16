@@ -23,7 +23,7 @@ description: >-
   fail-closed CODE gates + planted-fault calibration) reads only the emitted trail. Two
   readouts: engine-conformance verdict + benchmark scores across the cell matrix
   {claude,hermes,...} x {bare,+UACP}. Feeds the telos friction budget its quantitative proxy
-  (design/telos/40). Drafted 2026-07-17 (mike + Claude); v2 same day after a 3-way panel (technical/coherence/gemini) + mike's rulings (two lanes: this = the AUTOMATED lane, e2e-acceptance = the companion lane, NOT superseded; hermes-first stands with the NATIVE uacp_guardian plugin as the drive channel (in-image installation is the named prerequisite; canonical MCP = recorded fallback); in-repo tools/proving-ground/; provider env contract; statistics-first benchmark).
+  (design/telos/40). Drafted 2026-07-17 (mike + Claude); v2 same day after a 3-way panel (technical/coherence/gemini) + mike's rulings (two lanes: this = the AUTOMATED lane, e2e-acceptance = the companion lane, NOT superseded; hermes-first stands with the NATIVE uacp_guardian plugin as the drive channel (in-image installation is the named prerequisite; failed native probe BLOCKS S2; MCP = separate debugging cell only); in-repo tools/proving-ground/; provider env contract; statistics-first benchmark).
 status: design
 governance: pre-governance-input
 timestamp: '2026-07-17'

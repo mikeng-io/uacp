@@ -24,6 +24,15 @@ edges:
 > - **The initiative is now DEFERRED.** Decision (mike): stop hand-building a bespoke harness; once
 >   UACP is fully up, **dogfood the acceptance run through UACP's own lifecycle** (the governed
 >   TRIAGE→…→RESOLVE drives + verifies it). Increments 1+ below are NOT being built standalone.
+>
+> **2026-07-17 — SCOPE NOTE (two lanes; mike's ruling).** This deferral concerned the
+> *acceptance/companion* purpose and stands. A **separate, complementary lane** now exists:
+> [`design/proving-ground/`](../proving-ground/) — the **fully-automated lane** (headless
+> CI/GHA release tests + benchmark), which **absorbs** this bundle's model-backend proxy (12),
+> tiered assertions (21), plugin-conformance probe (13), and task/scenario layer (22). This
+> bundle remains the **companion/interactive lane** (Claude, real `claude plugin install`,
+> operator-in-the-loop) — neither lane supersedes the other. See the 2026-07-17 decision-log
+> entry.
 > - **Real product bug Increment 0 caught (RESOLVED):** a normal install reported *"failed to load:
 >   Duplicate hooks file detected"* — `plugin.json` declared `hooks: ./hooks/hooks.json`, the same
 >   path Claude Code auto-discovers by default, so the explicit pointer and auto-discovery loaded the
