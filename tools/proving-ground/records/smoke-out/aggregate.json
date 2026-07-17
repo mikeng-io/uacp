@@ -9,12 +9,12 @@
     "error": 0
   },
   "wall_clock": {
-    "mean": 48.067,
-    "stdev": 39.65,
-    "min": 19.423,
-    "max": 113.966,
-    "ci95_half_width": 49.224
+    "mean": 31.747,
+    "stdev": 14.684,
+    "min": 15.813,
+    "max": 46.026,
+    "ci95_half_width": 18.23
   },
-  "replicates_path": "/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/replicates.jsonl",
-  "aggregate_path": "/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/aggregate.json"
+  "replicates_path": "replicates.jsonl",
+  "aggregate_path": "aggregate.json"
 }

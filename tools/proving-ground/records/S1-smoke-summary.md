@@ -1,9 +1,9 @@
 # S1 Smoke Summary — hermes-bare pipeline check
 
-- Generated: 2026-07-17T19:59:53.160405+00:00
+- Generated: 2026-07-17T20:11:57.611054+00:00
 - Cell: `hermes-bare`  Task: `hello-file`  Model: `qwen3.5:4b`
 - Replicates (N): 5  Per-replicate timeout: 240s
-- Output: `/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out`
+- Output: `records/smoke-out` (relative to `tools/proving-ground/`)
 
 This is a pipeline check against the cheap smoke tier — outcomes only, no scoring (oracles arrive at S3+). It confronts the data-handling reality and the wall-clock bill before any scored sweep exists (40-benchmark's statistics law, built at S1).
 
@@ -19,9 +19,9 @@ This is a pipeline check against the cheap smoke tier — outcomes only, no scor
 
 | mean | stdev | min | max | ci95 half-width |
 |---|---|---|---|---|
-| 48.067 | 39.65 | 19.423 | 113.966 | 49.224 |
+| 31.747 | 14.684 | 15.813 | 46.026 | 18.23 |
 
-Per-replicate records: `/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/replicates.jsonl`
+Per-replicate records: `records/smoke-out/replicates.jsonl`
 
-Aggregate JSON: `/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/aggregate.json`
+Aggregate JSON: `records/smoke-out/aggregate.json`
 

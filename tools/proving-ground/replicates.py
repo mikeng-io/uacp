@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import statistics
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
@@ -40,6 +41,9 @@ class Aggregate:
     n: int
     outcomes: dict[str, int]
     wall_clock: dict[str, float]
+    # Paths are RELATIVE to the aggregate's own directory (the output root): a committed or
+    # copied ledger must locate its evidence from wherever it lives, never via the original
+    # operator's absolute worktree paths.
     replicates_path: str
     aggregate_path: str
 
@@ -73,7 +77,7 @@ def _wall_clock_stats(values: list[float]) -> dict[str, float]:
     }
 
 
-def _record(result: RunResult, replicate: int) -> dict:
+def _record(result: RunResult, replicate: int, output_root: Path) -> dict:
     return {
         "cell": result.cell,
         "task": result.task,
@@ -85,7 +89,7 @@ def _record(result: RunResult, replicate: int) -> dict:
         "wall_clock_s": result.wall_clock_s,
         "exit_code": result.exit_code,
         "stop_reason": result.stop_reason,
-        "artifact_dir": result.artifact_dir,
+        "artifact_dir": os.path.relpath(result.artifact_dir, output_root),
     }
 
 
@@ -113,7 +117,7 @@ def run_replicates(
         for i in range(n):
             rep_dir = output_root / f"rep-{i:03d}"
             result = run_fn(cell, task, rep_dir)
-            record = _record(result, i)
+            record = _record(result, i, output_root)
             jsonl.write(json.dumps(record) + "\n")
             jsonl.flush()
             # Unknown outcomes are counted as errors rather than silently dropped.
@@ -130,8 +134,8 @@ def run_replicates(
         n=n,
         outcomes=outcome_counts,
         wall_clock=_wall_clock_stats(wall_clocks),
-        replicates_path=str(replicates_path),
-        aggregate_path=str(aggregate_path),
+        replicates_path=replicates_path.name,
+        aggregate_path=aggregate_path.name,
     )
     aggregate_path.write_text(json.dumps(asdict(aggregate), indent=2), encoding="utf-8")
     return aggregate

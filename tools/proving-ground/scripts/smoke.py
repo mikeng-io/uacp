@@ -14,6 +14,7 @@ Usage:  python3 scripts/smoke.py [-n 5] [--out DIR] [--model qwen3.5:4b] [--time
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -46,7 +47,7 @@ def write_record(agg: Aggregate, n: int, timeout: float, out_dir: Path) -> None:
         f"- Generated: {datetime.now(UTC).isoformat()}",
         f"- Cell: `{agg.cell}`  Task: `{agg.task}`  Model: `{agg.model_id}`",
         f"- Replicates (N): {n}  Per-replicate timeout: {timeout:.0f}s",
-        f"- Output: `{out_dir}`",
+        f"- Output: `{os.path.relpath(out_dir, PKG)}` (relative to `tools/proving-ground/`)",
         "",
         "This is a pipeline check against the cheap smoke tier — outcomes only, no scoring "
         "(oracles arrive at S3+). It confronts the data-handling reality and the wall-clock bill "
@@ -67,9 +68,9 @@ def write_record(agg: Aggregate, n: int, timeout: float, out_dir: Path) -> None:
         "|---|---|---|---|---|",
         f"| {wc['mean']} | {wc['stdev']} | {wc['min']} | {wc['max']} | {wc['ci95_half_width']} |",
         "",
-        f"Per-replicate records: `{agg.replicates_path}`",
+        f"Per-replicate records: `{os.path.relpath(out_dir / agg.replicates_path, PKG)}`",
         "",
-        f"Aggregate JSON: `{agg.aggregate_path}`",
+        f"Aggregate JSON: `{os.path.relpath(out_dir / agg.aggregate_path, PKG)}`",
         "",
     ]
     RECORD.write_text("\n".join(lines) + "\n", encoding="utf-8")

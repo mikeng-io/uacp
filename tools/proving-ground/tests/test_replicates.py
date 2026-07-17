@@ -79,6 +79,13 @@ def test_jsonl_and_aggregate_counts_and_stats(tmp_path):
     assert on_disk["outcomes"] == {"completed": 3, "timeout": 1, "error": 1}
     assert on_disk["wall_clock"]["stdev"] == agg.wall_clock["stdev"]
 
+    # Ledger portability: every serialized path is RELATIVE to the output root, so a committed
+    # or copied ledger can locate its evidence anywhere (never the operator's absolute paths).
+    assert on_disk["replicates_path"] == "replicates.jsonl"
+    assert on_disk["aggregate_path"] == "aggregate.json"
+    assert [r["artifact_dir"] for r in records] == [f"rep-{i:03d}" for i in range(5)]
+    assert not any(r["artifact_dir"].startswith("/") for r in records)
+
 
 def test_single_replicate_has_zero_stdev(tmp_path):
     cell = hermes_bare()
