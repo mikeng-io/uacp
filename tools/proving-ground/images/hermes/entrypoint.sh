@@ -17,16 +17,19 @@ fi
 : "${UACP_MODEL_ID:?UACP_MODEL_ID is required (pinned model_id, provider env contract)}"
 
 mkdir -p "${HERMES_HOME}"
-# str.replace, not sed: env values containing sed metacharacters (|, &, \) must land verbatim.
+# Python, not sed, and json.dumps for the whole quoted scalar: a JSON string is a valid YAML
+# double-quoted scalar, so opaque values (quotes, backslashes, sed metacharacters, newlines)
+# land as data — never as YAML syntax or injected config fields.
 python3 - <<'PY'
+import json
 import os
 from pathlib import Path
 
 template = Path("/opt/proving-ground/config.yaml.template").read_text()
 rendered = (
-    template.replace("@MODEL_ID@", os.environ["UACP_MODEL_ID"])
-    .replace("@BASE_URL@", os.environ["OPENAI_BASE_URL"])
-    .replace("@API_KEY@", os.environ["OPENAI_API_KEY"])
+    template.replace('"@MODEL_ID@"', json.dumps(os.environ["UACP_MODEL_ID"]))
+    .replace('"@BASE_URL@"', json.dumps(os.environ["OPENAI_BASE_URL"]))
+    .replace('"@API_KEY@"', json.dumps(os.environ["OPENAI_API_KEY"]))
 )
 Path(os.environ["HERMES_HOME"], "config.yaml").write_text(rendered)
 PY

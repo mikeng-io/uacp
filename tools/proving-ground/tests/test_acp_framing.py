@@ -47,3 +47,11 @@ def test_transcript_captures_both_directions(tmp_path):
     assert "session/prompt" in text
     # The auto-sent permission response must be in the runner-side transcript.
     assert "selected" in text
+
+
+def test_unspawnable_command_is_error_outcome_not_crash(tmp_path):
+    """docker absent / adapter missing must yield the closed `error` outcome for THIS replicate,
+    never an exception that aborts a whole serial sweep (Codex P2 on PR #158)."""
+    result = run_prompt(["/nonexistent-proving-ground-binary"], "hi", cwd=str(tmp_path), timeout=5)
+    assert result.outcome == "error"
+    assert result.detail is not None and result.detail.startswith("spawn failed:")

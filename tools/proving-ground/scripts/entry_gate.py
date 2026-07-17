@@ -48,6 +48,10 @@ IMAGE_DIR = PKG / "images" / "hermes"
 RECORD = PKG / "records" / "S1-entry-gate.md"
 DEAD_ENDPOINT = "http://host.docker.internal:1/v1"  # port 1: connection refused
 PONG_PROMPT = "Reply with exactly the single word: PONG"
+# Deliberately YAML-hostile (quote, backslash, sed metacharacters — newline-free so it stays a
+# valid HTTP header): ollama ignores auth, so R3 only passes if the entrypoint renders this
+# opaque value into config.yaml as data, proving the env contract survives hostile credentials.
+GATE_API_KEY = 'pg-s1"quote\\back|pipe&amp'
 
 
 def _utcnow() -> str:
@@ -87,7 +91,7 @@ def _docker_cmd(image: str, base_url: str, model: str, workspace: str) -> list[s
         "-e",
         f"{ENV_BASE_URL}={base_url}",
         "-e",
-        f"{ENV_API_KEY}=ollama",
+        f"{ENV_API_KEY}={GATE_API_KEY}",
         "-e",
         f"{ENV_MODEL_ID}={model}",
         image,

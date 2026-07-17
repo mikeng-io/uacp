@@ -387,7 +387,12 @@ def run_prompt(
     ``session/new`` (inside the container it is the mount point, e.g. ``/workspace``) and defaults
     to ``cwd`` when not given.
     """
-    transport = SubprocessTransport(command, env=env, cwd=cwd)
+    try:
+        transport = SubprocessTransport(command, env=env, cwd=cwd)
+    except OSError as exc:
+        # A missing/unexecutable command (docker absent, adapter not installed) is a replicate
+        # `error` outcome, not a crash — one bad spawn must not abort a whole serial sweep.
+        return PromptResult(outcome=OUTCOME_ERROR, detail=f"spawn failed: {exc}")
     client = AcpClient(transport, transcript_path=transcript_path)
     try:
         return client.drive_prompt(session_cwd or cwd, prompt_text, timeout)
