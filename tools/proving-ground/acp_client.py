@@ -373,7 +373,15 @@ def extract_agent_text(updates: Sequence[Mapping[str, Any]]) -> str:
     for update in updates:
         params = update.get("params") or {}
         payload = params.get("update") if isinstance(params.get("update"), Mapping) else params
-        content = payload.get("content") if isinstance(payload, Mapping) else None
+        if not isinstance(payload, Mapping):
+            continue
+        # ONLY user-visible assistant message chunks count as reply evidence. Reasoning models
+        # stream far more `agent_thought_chunk` text than message text (observed live: 64
+        # thought chunks vs 2 message chunks in one hermes turn) — counting thoughts would let
+        # a turn with no actual reply pass the R3 real-reply discriminator.
+        if payload.get("sessionUpdate") != "agent_message_chunk":
+            continue
+        content = payload.get("content")
         if isinstance(content, Mapping):
             text = content.get("text")
             if isinstance(text, str):

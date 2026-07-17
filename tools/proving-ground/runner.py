@@ -217,12 +217,38 @@ def _meta(cell: Cell, task: Task, result: RunResult) -> dict:
     }
 
 
+# Env names whose values must never reach the persisted evidence (docker inspect echoes the
+# full env in Config.Env; with a real provider key the raw dump would leak the credential to
+# disk and — under the committed-evidence contract — into version control).
+_SENSITIVE_ENV_MARKERS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
+
+
+def _redact_env_line(line: str) -> str:
+    name, sep, _ = line.partition("=")
+    if sep and any(marker in name.upper() for marker in _SENSITIVE_ENV_MARKERS):
+        return f"{name}=[REDACTED]"
+    return line
+
+
+def _redact_inspect(data: list) -> list:
+    for entry in data:
+        if not isinstance(entry, dict):
+            continue
+        config = entry.get("Config")
+        if isinstance(config, dict) and isinstance(config.get("Env"), list):
+            config["Env"] = [
+                _redact_env_line(e) if isinstance(e, str) else e for e in config["Env"]
+            ]
+    return data
+
+
 def _collect_container(container: str, runner_side: Path, *, docker: str) -> int | None:
-    """Capture ``docker inspect`` (exit code + timestamps) then remove the container."""
+    """Capture ``docker inspect`` (exit code + timestamps, secrets redacted) then remove the
+    container. Fail-closed: unparseable inspect output is never persisted raw — it could carry
+    the credential we redact."""
     exit_code: int | None = None
     inspect = _run([docker, "inspect", container])
     if inspect.returncode == 0:
-        (runner_side / "container-inspect.json").write_text(inspect.stdout, encoding="utf-8")
         try:
             data = json.loads(inspect.stdout)
             state = data[0].get("State", {}) if data else {}
@@ -230,8 +256,15 @@ def _collect_container(container: str, runner_side: Path, *, docker: str) -> int
             # Docker reports ExitCode 0 for a still-Running container, which would masquerade
             # as a clean exit. Only trust ExitCode once the container has actually stopped.
             exit_code = None if state.get("Running") else state.get("ExitCode")
+            (runner_side / "container-inspect.json").write_text(
+                json.dumps(_redact_inspect(data), indent=2), encoding="utf-8"
+            )
         except (json.JSONDecodeError, IndexError, KeyError):
             exit_code = None
+            (runner_side / "container-inspect.json").write_text(
+                json.dumps({"error": "inspect output unparseable; not persisted (may carry env)"}),
+                encoding="utf-8",
+            )
     else:
         (runner_side / "container-inspect.json").write_text(
             json.dumps({"error": inspect.stderr.strip()}), encoding="utf-8"

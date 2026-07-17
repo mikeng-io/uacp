@@ -62,11 +62,30 @@ def main() -> None:
             if mode == "hang_prompt":
                 time.sleep(3600)
                 return
+            # A thought chunk BEFORE the message chunk: the client must exclude it from reply
+            # evidence (real reasoning agents stream far more thought text than message text).
             send(
                 {
                     "jsonrpc": "2.0",
                     "method": "session/update",
-                    "params": {"update": {"content": {"type": "text", "text": "PONG"}}},
+                    "params": {
+                        "update": {
+                            "sessionUpdate": "agent_thought_chunk",
+                            "content": {"type": "text", "text": "thinking..."},
+                        }
+                    },
+                }
+            )
+            send(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "session/update",
+                    "params": {
+                        "update": {
+                            "sessionUpdate": "agent_message_chunk",
+                            "content": {"type": "text", "text": "PONG"},
+                        }
+                    },
                 }
             )
             if mode == "refuse_prompt":

@@ -25,8 +25,9 @@ def test_framing_round_trip_completes(tmp_path):
     # AND the client auto-answered the permission request with the allow option.
     assert result.outcome == "completed"
     assert result.stop_reason == "end_turn"
-    assert "PONG" in result.text
-    assert result.update_count == 1
+    # Both updates (thought + message) are captured, but ONLY the message chunk is reply text.
+    assert result.update_count == 2
+    assert result.text == "PONG"
 
 
 def test_transcript_captures_both_directions(tmp_path):
@@ -83,3 +84,32 @@ def test_refused_stop_reason_is_error_not_completed(tmp_path):
     assert result.outcome == "error"
     assert result.stop_reason == "refused"
     assert "stop_reason" in (result.detail or "")
+
+
+def test_thought_chunks_are_excluded_from_reply_evidence():
+    """Only agent_message_chunk text is reply evidence — an end_turn with thoughts but no
+    message must not read as a genuine reply (Codex P2 on PR #158; observed live: 64 thought
+    chunks vs 2 message chunks in one hermes turn)."""
+    from acp_client import extract_agent_text
+
+    updates = [
+        {
+            "params": {
+                "update": {
+                    "sessionUpdate": "agent_thought_chunk",
+                    "content": {"type": "text", "text": "let me reason..."},
+                }
+            }
+        },
+        {
+            "params": {
+                "update": {
+                    "sessionUpdate": "agent_message_chunk",
+                    "content": {"type": "text", "text": "PONG"},
+                }
+            }
+        },
+        {"params": {"update": {"sessionUpdate": "usage_update", "used": 5}}},
+    ]
+    assert extract_agent_text(updates) == "PONG"
+    assert extract_agent_text(updates[:1]) == ""

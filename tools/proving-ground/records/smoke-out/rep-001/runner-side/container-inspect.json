@@ -1,211 +1,211 @@
 [
-    {
-        "Id": "f5b28bf0f1f18e7459941055cc055fec3f379bec362ec28cd28069e9b91bd83a",
-        "Created": "2026-07-17T20:54:08.7939958Z",
-        "Path": "tini",
-        "Args": [
-            "--",
-            "/opt/proving-ground/entrypoint.sh"
-        ],
-        "State": {
-            "Status": "exited",
-            "Running": false,
-            "Paused": false,
-            "Restarting": false,
-            "OOMKilled": false,
-            "Dead": false,
-            "Pid": 0,
-            "ExitCode": 143,
-            "Error": "",
-            "StartedAt": "2026-07-17T20:54:08.840543675Z",
-            "FinishedAt": "2026-07-17T20:54:26.66860021Z"
-        },
-        "Image": "sha256:b74f88fc440585483374e71707fa788ae758aa9734da41c25660f649a859e159",
-        "ResolvConfPath": "/var/lib/docker/containers/f5b28bf0f1f18e7459941055cc055fec3f379bec362ec28cd28069e9b91bd83a/resolv.conf",
-        "HostnamePath": "/var/lib/docker/containers/f5b28bf0f1f18e7459941055cc055fec3f379bec362ec28cd28069e9b91bd83a/hostname",
-        "HostsPath": "/var/lib/docker/containers/f5b28bf0f1f18e7459941055cc055fec3f379bec362ec28cd28069e9b91bd83a/hosts",
-        "LogPath": "/var/lib/docker/containers/f5b28bf0f1f18e7459941055cc055fec3f379bec362ec28cd28069e9b91bd83a/f5b28bf0f1f18e7459941055cc055fec3f379bec362ec28cd28069e9b91bd83a-json.log",
-        "Name": "/pg-hermes-bare-93ff53105f94",
-        "RestartCount": 0,
-        "Driver": "overlay2",
-        "Platform": "linux",
-        "MountLabel": "",
-        "ProcessLabel": "",
-        "AppArmorProfile": "",
-        "ExecIDs": null,
-        "HostConfig": {
-            "Binds": [
-                "/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/rep-001/workspace:/workspace"
-            ],
-            "ContainerIDFile": "",
-            "LogConfig": {
-                "Type": "json-file",
-                "Config": {}
-            },
-            "NetworkMode": "bridge",
-            "PortBindings": {},
-            "RestartPolicy": {
-                "Name": "no",
-                "MaximumRetryCount": 0
-            },
-            "AutoRemove": false,
-            "VolumeDriver": "",
-            "VolumesFrom": null,
-            "ConsoleSize": [
-                0,
-                0
-            ],
-            "CapAdd": null,
-            "CapDrop": null,
-            "CgroupnsMode": "private",
-            "Dns": null,
-            "DnsOptions": [],
-            "DnsSearch": [],
-            "ExtraHosts": [
-                "host.docker.internal:host-gateway"
-            ],
-            "GroupAdd": null,
-            "IpcMode": "private",
-            "Cgroup": "",
-            "Links": null,
-            "OomScoreAdj": 0,
-            "PidMode": "",
-            "Privileged": false,
-            "PublishAllPorts": false,
-            "ReadonlyRootfs": false,
-            "SecurityOpt": null,
-            "UTSMode": "",
-            "UsernsMode": "",
-            "ShmSize": 67108864,
-            "Runtime": "runc",
-            "Isolation": "",
-            "CpuShares": 0,
-            "Memory": 0,
-            "NanoCpus": 0,
-            "CgroupParent": "",
-            "BlkioWeight": 0,
-            "BlkioWeightDevice": [],
-            "BlkioDeviceReadBps": [],
-            "BlkioDeviceWriteBps": [],
-            "BlkioDeviceReadIOps": [],
-            "BlkioDeviceWriteIOps": [],
-            "CpuPeriod": 0,
-            "CpuQuota": 0,
-            "CpuRealtimePeriod": 0,
-            "CpuRealtimeRuntime": 0,
-            "CpusetCpus": "",
-            "CpusetMems": "",
-            "Devices": [],
-            "DeviceCgroupRules": null,
-            "DeviceRequests": null,
-            "MemoryReservation": 0,
-            "MemorySwap": 0,
-            "MemorySwappiness": null,
-            "OomKillDisable": null,
-            "PidsLimit": null,
-            "Ulimits": [],
-            "CpuCount": 0,
-            "CpuPercent": 0,
-            "IOMaximumIOps": 0,
-            "IOMaximumBandwidth": 0,
-            "MaskedPaths": [
-                "/proc/acpi",
-                "/proc/asound",
-                "/proc/interrupts",
-                "/proc/kcore",
-                "/proc/keys",
-                "/proc/latency_stats",
-                "/proc/sched_debug",
-                "/proc/scsi",
-                "/proc/timer_list",
-                "/proc/timer_stats",
-                "/sys/devices/virtual/powercap",
-                "/sys/firmware"
-            ],
-            "ReadonlyPaths": [
-                "/proc/bus",
-                "/proc/fs",
-                "/proc/irq",
-                "/proc/sys",
-                "/proc/sysrq-trigger"
-            ]
-        },
-        "GraphDriver": {
-            "Data": {
-                "ID": "f5b28bf0f1f18e7459941055cc055fec3f379bec362ec28cd28069e9b91bd83a",
-                "LowerDir": "/var/lib/docker/overlay2/6a0c120c648a4d52552dfa8f7f86a0941cba746bbd0391e77fce210a122e2591-init/diff:/var/lib/docker/overlay2/lxvguojqrdkg5up0mvk0dik7o/diff:/var/lib/docker/overlay2/owxyhsewxo47rz3okg9oxulw4/diff:/var/lib/docker/overlay2/lkb9h87tn2ib2rwmtzdpbm0sd/diff:/var/lib/docker/overlay2/x2l2imbtg763uf3jb6rgnlmgt/diff:/var/lib/docker/overlay2/r6bohqoo6lcxevhgwot250grk/diff:/var/lib/docker/overlay2/q124y03w65avk23aqyrrimqxc/diff:/var/lib/docker/overlay2/8uw91wvxmjaspe5wv2y1wxpb1/diff:/var/lib/docker/overlay2/f47g0s9go4a014jw9lgf1fspd/diff:/var/lib/docker/overlay2/759537e30bd4db1bf9653c2fb14825ddfca96d4de09a25d9e5fc366a7e054ec7/diff:/var/lib/docker/overlay2/860797105b2ea5aca188451c27de31e861b4c664439ef20373f2fc9ac39795a0/diff:/var/lib/docker/overlay2/1b50ab111a9a35e1eaa321cc5ab41e87c45bc2d390901ac4158734edc59fe801/diff:/var/lib/docker/overlay2/087ee171ec2021f808aa5f324beb164105726a82f163b7ece12585214c52576e/diff",
-                "MergedDir": "/var/lib/docker/overlay2/6a0c120c648a4d52552dfa8f7f86a0941cba746bbd0391e77fce210a122e2591/merged",
-                "UpperDir": "/var/lib/docker/overlay2/6a0c120c648a4d52552dfa8f7f86a0941cba746bbd0391e77fce210a122e2591/diff",
-                "WorkDir": "/var/lib/docker/overlay2/6a0c120c648a4d52552dfa8f7f86a0941cba746bbd0391e77fce210a122e2591/work"
-            },
-            "Name": "overlay2"
-        },
-        "Mounts": [
-            {
-                "Type": "bind",
-                "Source": "/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/rep-001/workspace",
-                "Destination": "/workspace",
-                "Mode": "",
-                "RW": true,
-                "Propagation": "rprivate"
-            }
-        ],
-        "Config": {
-            "Hostname": "f5b28bf0f1f1",
-            "Domainname": "",
-            "User": "agent",
-            "AttachStdin": true,
-            "AttachStdout": true,
-            "AttachStderr": true,
-            "Tty": false,
-            "OpenStdin": true,
-            "StdinOnce": true,
-            "Env": [
-                "OPENAI_BASE_URL=http://host.docker.internal:11434/v1",
-                "OPENAI_API_KEY=ollama",
-                "UACP_MODEL_ID=qwen3.5:4b",
-                "PATH=/home/agent/.local/bin:/home/agent/.hermes/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                "LANG=C.UTF-8",
-                "GPG_KEY=7169605F62C751356D054A26A821E680E5FA6305",
-                "PYTHON_VERSION=3.12.13",
-                "PYTHON_SHA256=c08bc65a81971c1dd5783182826503369466c7e67374d1646519adf05207b684",
-                "HERMES_HOME=/home/agent/.hermes"
-            ],
-            "Cmd": null,
-            "Image": "proving-ground/hermes-bare:s1",
-            "Volumes": null,
-            "WorkingDir": "/workspace",
-            "Entrypoint": [
-                "tini",
-                "--",
-                "/opt/proving-ground/entrypoint.sh"
-            ],
-            "Labels": {},
-            "StopTimeout": 1
-        },
-        "NetworkSettings": {
-            "SandboxID": "",
-            "SandboxKey": "",
-            "Ports": {},
-            "Networks": {
-                "bridge": {
-                    "IPAMConfig": null,
-                    "Links": null,
-                    "Aliases": null,
-                    "DriverOpts": null,
-                    "GwPriority": 0,
-                    "NetworkID": "7ce40805f8c7fdb564c28a4448475c08680ba29b1e41be19f3b5a243b3159f58",
-                    "EndpointID": "",
-                    "Gateway": "",
-                    "IPAddress": "",
-                    "MacAddress": "",
-                    "IPPrefixLen": 0,
-                    "IPv6Gateway": "",
-                    "GlobalIPv6Address": "",
-                    "GlobalIPv6PrefixLen": 0,
-                    "DNSNames": null
-                }
-            }
+  {
+    "Id": "8b12137011af46a67501ce3d1c9ae49d0bd934d54ed22b49a5de57741d29a76d",
+    "Created": "2026-07-17T21:08:11.624699092Z",
+    "Path": "tini",
+    "Args": [
+      "--",
+      "/opt/proving-ground/entrypoint.sh"
+    ],
+    "State": {
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 143,
+      "Error": "",
+      "StartedAt": "2026-07-17T21:08:11.675337051Z",
+      "FinishedAt": "2026-07-17T21:08:30.200984795Z"
+    },
+    "Image": "sha256:b74f88fc440585483374e71707fa788ae758aa9734da41c25660f649a859e159",
+    "ResolvConfPath": "/var/lib/docker/containers/8b12137011af46a67501ce3d1c9ae49d0bd934d54ed22b49a5de57741d29a76d/resolv.conf",
+    "HostnamePath": "/var/lib/docker/containers/8b12137011af46a67501ce3d1c9ae49d0bd934d54ed22b49a5de57741d29a76d/hostname",
+    "HostsPath": "/var/lib/docker/containers/8b12137011af46a67501ce3d1c9ae49d0bd934d54ed22b49a5de57741d29a76d/hosts",
+    "LogPath": "/var/lib/docker/containers/8b12137011af46a67501ce3d1c9ae49d0bd934d54ed22b49a5de57741d29a76d/8b12137011af46a67501ce3d1c9ae49d0bd934d54ed22b49a5de57741d29a76d-json.log",
+    "Name": "/pg-hermes-bare-fc6c880eb0e4",
+    "RestartCount": 0,
+    "Driver": "overlay2",
+    "Platform": "linux",
+    "MountLabel": "",
+    "ProcessLabel": "",
+    "AppArmorProfile": "",
+    "ExecIDs": null,
+    "HostConfig": {
+      "Binds": [
+        "/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/rep-001/workspace:/workspace"
+      ],
+      "ContainerIDFile": "",
+      "LogConfig": {
+        "Type": "json-file",
+        "Config": {}
+      },
+      "NetworkMode": "bridge",
+      "PortBindings": {},
+      "RestartPolicy": {
+        "Name": "no",
+        "MaximumRetryCount": 0
+      },
+      "AutoRemove": false,
+      "VolumeDriver": "",
+      "VolumesFrom": null,
+      "ConsoleSize": [
+        0,
+        0
+      ],
+      "CapAdd": null,
+      "CapDrop": null,
+      "CgroupnsMode": "private",
+      "Dns": null,
+      "DnsOptions": [],
+      "DnsSearch": [],
+      "ExtraHosts": [
+        "host.docker.internal:host-gateway"
+      ],
+      "GroupAdd": null,
+      "IpcMode": "private",
+      "Cgroup": "",
+      "Links": null,
+      "OomScoreAdj": 0,
+      "PidMode": "",
+      "Privileged": false,
+      "PublishAllPorts": false,
+      "ReadonlyRootfs": false,
+      "SecurityOpt": null,
+      "UTSMode": "",
+      "UsernsMode": "",
+      "ShmSize": 67108864,
+      "Runtime": "runc",
+      "Isolation": "",
+      "CpuShares": 0,
+      "Memory": 0,
+      "NanoCpus": 0,
+      "CgroupParent": "",
+      "BlkioWeight": 0,
+      "BlkioWeightDevice": [],
+      "BlkioDeviceReadBps": [],
+      "BlkioDeviceWriteBps": [],
+      "BlkioDeviceReadIOps": [],
+      "BlkioDeviceWriteIOps": [],
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpuRealtimePeriod": 0,
+      "CpuRealtimeRuntime": 0,
+      "CpusetCpus": "",
+      "CpusetMems": "",
+      "Devices": [],
+      "DeviceCgroupRules": null,
+      "DeviceRequests": null,
+      "MemoryReservation": 0,
+      "MemorySwap": 0,
+      "MemorySwappiness": null,
+      "OomKillDisable": null,
+      "PidsLimit": null,
+      "Ulimits": [],
+      "CpuCount": 0,
+      "CpuPercent": 0,
+      "IOMaximumIOps": 0,
+      "IOMaximumBandwidth": 0,
+      "MaskedPaths": [
+        "/proc/acpi",
+        "/proc/asound",
+        "/proc/interrupts",
+        "/proc/kcore",
+        "/proc/keys",
+        "/proc/latency_stats",
+        "/proc/sched_debug",
+        "/proc/scsi",
+        "/proc/timer_list",
+        "/proc/timer_stats",
+        "/sys/devices/virtual/powercap",
+        "/sys/firmware"
+      ],
+      "ReadonlyPaths": [
+        "/proc/bus",
+        "/proc/fs",
+        "/proc/irq",
+        "/proc/sys",
+        "/proc/sysrq-trigger"
+      ]
+    },
+    "GraphDriver": {
+      "Data": {
+        "ID": "8b12137011af46a67501ce3d1c9ae49d0bd934d54ed22b49a5de57741d29a76d",
+        "LowerDir": "/var/lib/docker/overlay2/9b99fde16899c9519fc7ef6ed887d0bb028fc3a0959901434c6ca12d3b26ee49-init/diff:/var/lib/docker/overlay2/lxvguojqrdkg5up0mvk0dik7o/diff:/var/lib/docker/overlay2/owxyhsewxo47rz3okg9oxulw4/diff:/var/lib/docker/overlay2/lkb9h87tn2ib2rwmtzdpbm0sd/diff:/var/lib/docker/overlay2/x2l2imbtg763uf3jb6rgnlmgt/diff:/var/lib/docker/overlay2/r6bohqoo6lcxevhgwot250grk/diff:/var/lib/docker/overlay2/q124y03w65avk23aqyrrimqxc/diff:/var/lib/docker/overlay2/8uw91wvxmjaspe5wv2y1wxpb1/diff:/var/lib/docker/overlay2/f47g0s9go4a014jw9lgf1fspd/diff:/var/lib/docker/overlay2/759537e30bd4db1bf9653c2fb14825ddfca96d4de09a25d9e5fc366a7e054ec7/diff:/var/lib/docker/overlay2/860797105b2ea5aca188451c27de31e861b4c664439ef20373f2fc9ac39795a0/diff:/var/lib/docker/overlay2/1b50ab111a9a35e1eaa321cc5ab41e87c45bc2d390901ac4158734edc59fe801/diff:/var/lib/docker/overlay2/087ee171ec2021f808aa5f324beb164105726a82f163b7ece12585214c52576e/diff",
+        "MergedDir": "/var/lib/docker/overlay2/9b99fde16899c9519fc7ef6ed887d0bb028fc3a0959901434c6ca12d3b26ee49/merged",
+        "UpperDir": "/var/lib/docker/overlay2/9b99fde16899c9519fc7ef6ed887d0bb028fc3a0959901434c6ca12d3b26ee49/diff",
+        "WorkDir": "/var/lib/docker/overlay2/9b99fde16899c9519fc7ef6ed887d0bb028fc3a0959901434c6ca12d3b26ee49/work"
+      },
+      "Name": "overlay2"
+    },
+    "Mounts": [
+      {
+        "Type": "bind",
+        "Source": "/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/rep-001/workspace",
+        "Destination": "/workspace",
+        "Mode": "",
+        "RW": true,
+        "Propagation": "rprivate"
+      }
+    ],
+    "Config": {
+      "Hostname": "8b12137011af",
+      "Domainname": "",
+      "User": "agent",
+      "AttachStdin": true,
+      "AttachStdout": true,
+      "AttachStderr": true,
+      "Tty": false,
+      "OpenStdin": true,
+      "StdinOnce": true,
+      "Env": [
+        "UACP_MODEL_ID=qwen3.5:4b",
+        "OPENAI_BASE_URL=http://host.docker.internal:11434/v1",
+        "OPENAI_API_KEY=[REDACTED]",
+        "PATH=/home/agent/.local/bin:/home/agent/.hermes/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+        "LANG=C.UTF-8",
+        "GPG_KEY=[REDACTED]",
+        "PYTHON_VERSION=3.12.13",
+        "PYTHON_SHA256=c08bc65a81971c1dd5783182826503369466c7e67374d1646519adf05207b684",
+        "HERMES_HOME=/home/agent/.hermes"
+      ],
+      "Cmd": null,
+      "Image": "proving-ground/hermes-bare:s1",
+      "Volumes": null,
+      "WorkingDir": "/workspace",
+      "Entrypoint": [
+        "tini",
+        "--",
+        "/opt/proving-ground/entrypoint.sh"
+      ],
+      "Labels": {},
+      "StopTimeout": 1
+    },
+    "NetworkSettings": {
+      "SandboxID": "",
+      "SandboxKey": "",
+      "Ports": {},
+      "Networks": {
+        "bridge": {
+          "IPAMConfig": null,
+          "Links": null,
+          "Aliases": null,
+          "DriverOpts": null,
+          "GwPriority": 0,
+          "NetworkID": "7ce40805f8c7fdb564c28a4448475c08680ba29b1e41be19f3b5a243b3159f58",
+          "EndpointID": "",
+          "Gateway": "",
+          "IPAddress": "",
+          "MacAddress": "",
+          "IPPrefixLen": 0,
+          "IPv6Gateway": "",
+          "GlobalIPv6Address": "",
+          "GlobalIPv6PrefixLen": 0,
+          "DNSNames": null
         }
+      }
     }
+  }
 ]

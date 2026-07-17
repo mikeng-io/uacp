@@ -149,3 +149,34 @@ def test_stale_workspace_is_wiped_before_baseline(tmp_path):
     assert "runner: baseline" in log.stdout
     assert "stale-from-prior-run" not in log.stdout
     assert result.outcome in ("error", "timeout")  # /bin/echo is not an ACP agent
+
+
+def test_inspect_env_credentials_are_redacted(tmp_path, monkeypatch):
+    """docker inspect echoes the full env; a real provider key must never persist raw into the
+    (committed) evidence artifact (Codex P1 on PR #158)."""
+    payload = json.dumps(
+        [
+            {
+                "State": {"Running": False, "ExitCode": 0},
+                "Config": {
+                    "Env": [
+                        "OPENAI_API_KEY=sk-super-secret-value",
+                        "MY_AUTH_TOKEN=tok123",
+                        "UACP_MODEL_ID=qwen3.5:4b",
+                        "PATH=/usr/bin",
+                    ]
+                },
+            }
+        ]
+    )
+    monkeypatch.setattr(runner, "_run", _fake_run_factory(payload))
+    exit_code = _collect_container("pg-test", tmp_path, docker="docker")
+    assert exit_code == 0
+    written = (tmp_path / "container-inspect.json").read_text()
+    assert "sk-super-secret-value" not in written
+    assert "tok123" not in written
+    assert "OPENAI_API_KEY=[REDACTED]" in written
+    assert "MY_AUTH_TOKEN=[REDACTED]" in written
+    # Non-secret env stays intact — the evidence remains useful.
+    assert "UACP_MODEL_ID=qwen3.5:4b" in written
+    assert "PATH=/usr/bin" in written
