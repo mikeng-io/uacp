@@ -115,3 +115,18 @@ def test_zero_replicates_refused(tmp_path):
     task = Task(name="probe", prompt="x")
     with pytest.raises(ValueError, match="n must be"):
         run_replicates(cell, task, 0, tmp_path, run_fn=_fake_run_factory([]))
+
+
+def test_t95_exact_table_and_large_df_approximation():
+    """CI critical values: exact for df<=30, ~+/-0.001-accurate approximation beyond — a
+    df=100 sweep must get ~1.984, never the clamped df=30 value 2.042 (Codex P2 on PR #158)."""
+    from replicates import _t95
+
+    assert _t95(1) == 12.706
+    assert _t95(4) == 2.776
+    assert _t95(30) == 2.042
+    assert abs(_t95(40) - 2.021) < 0.002
+    assert abs(_t95(100) - 1.984) < 0.002
+    assert abs(_t95(100000) - 1.960) < 0.001
+    with pytest.raises(ValueError):
+        _t95(0)

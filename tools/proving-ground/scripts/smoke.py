@@ -83,6 +83,11 @@ def main() -> int:
     parser.add_argument("--model", default=SMOKE_MODEL_ID)
     parser.add_argument("--timeout", type=float, default=240.0)
     args = parser.parse_args()
+    # 40-benchmark: a smoke cell result IS N>=5 replicates — a single run is an anecdote and
+    # must never be serialized as an S1 smoke record. (The generic replicates pipeline keeps
+    # supporting smaller n for tests; the floor is this CLI's contract.)
+    if args.replicates < 5:
+        parser.error(f"smoke requires at least 5 replicates (40-benchmark), got {args.replicates}")
 
     cell = hermes_bare(model_id=args.model)
     task = smoke_task()

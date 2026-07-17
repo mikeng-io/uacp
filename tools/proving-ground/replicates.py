@@ -48,12 +48,24 @@ class Aggregate:
     aggregate_path: str
 
 
-# Two-sided 95% Student-t critical values by degrees of freedom (df 1..30); ~normal beyond.
+# Two-sided 95% Student-t critical values by degrees of freedom (df 1..30); approximated beyond.
 _T95 = (
     12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228,
     2.201, 2.179, 2.160, 2.145, 2.131, 2.120, 2.110, 2.101, 2.093, 2.086,
     2.080, 2.074, 2.069, 2.064, 2.060, 2.056, 2.052, 2.048, 2.045, 2.042,
 )  # fmt: skip
+
+
+def _t95(df: int) -> float:
+    """Two-sided 95% t critical value. Exact table for df<=30; ``1.96 + 2.4/df`` beyond — that
+    approximation tracks the true values to ~+/-0.001 over the table's tail (df=40: 2.020 vs
+    2.021; df=60: 2.000 vs 2.000; df=100: 1.984 vs 1.984; -> 1.960 asymptotically), so large
+    scored sweeps get a genuine 95% interval instead of a clamped df=30 value."""
+    if df < 1:
+        raise ValueError(f"df must be >= 1, got {df}")
+    if df <= len(_T95):
+        return _T95[df - 1]
+    return 1.96 + 2.4 / df
 
 
 def _wall_clock_stats(values: list[float]) -> dict[str, float]:
@@ -64,8 +76,7 @@ def _wall_clock_stats(values: list[float]) -> dict[str, float]:
     # 40-benchmark: scores are reported as mean +/- a confidence interval, never a point.
     n = len(values)
     if n >= 2 and stdev > 0.0:
-        t = _T95[min(n - 1, len(_T95)) - 1]
-        ci95 = t * stdev / math.sqrt(n)
+        ci95 = _t95(n - 1) * stdev / math.sqrt(n)
     else:
         ci95 = 0.0
     return {
