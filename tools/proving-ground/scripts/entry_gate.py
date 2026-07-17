@@ -64,6 +64,10 @@ def _utcnow() -> str:
 def _run(cmd: list[str], timeout: float) -> tuple[int, str, str]:
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
+    except OSError as exc:
+        # Docker absent/unexecutable must produce a FAILED requirement with a written record —
+        # the gate's contract is fail-with-evidence, never a traceback with no record.
+        return 127, "", f"spawn failed: {exc}"
     except subprocess.TimeoutExpired as exc:
         # TimeoutExpired carries bytes even under text=True in typeshed; decode defensively.
         out = (

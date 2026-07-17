@@ -1,6 +1,6 @@
 # S1 Smoke Summary — hermes-bare pipeline check
 
-- Generated: 2026-07-17T20:46:56.844603+00:00
+- Generated: 2026-07-17T20:55:51.919062+00:00
 - Cell: `hermes-bare`  Task: `hello-file`  Model: `qwen3.5:4b`
 - Replicates (N): 5  Per-replicate timeout: 240s
 - Output: `records/smoke-out` (relative to `tools/proving-ground/`)
@@ -19,7 +19,7 @@ This is a pipeline check against the cheap smoke tier — outcomes only, no scor
 
 | mean | stdev | min | max | ci95 half-width |
 |---|---|---|---|---|
-| 22.386 | 5.18 | 18.151 | 30.966 | 6.431 |
+| 24.25 | 5.382 | 18.068 | 30.291 | 6.681 |
 
 Per-replicate records: `records/smoke-out/replicates.jsonl`
 

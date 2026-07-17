@@ -10,6 +10,9 @@ FAKE_MODE env var:
   with ``end_turn`` proves the client auto-answered the permission request with an allow option.
 * ``hang_prompt``: handshake + session succeed, but on ``session/prompt`` it never responds
   (sleeps), so the client's watchdog must fire and produce a ``timeout`` outcome.
+* ``refuse_prompt``: the permission request offers ONLY reject options, so the client answers
+  ``cancelled`` and the agent finishes with ``stopReason: refused`` — the client must map that
+  to an ``error`` outcome, never ``completed``.
 """
 
 from __future__ import annotations
@@ -66,17 +69,22 @@ def main() -> None:
                     "params": {"update": {"content": {"type": "text", "text": "PONG"}}},
                 }
             )
+            if mode == "refuse_prompt":
+                options = [
+                    {"kind": "reject_once", "optionId": "no"},
+                    {"kind": "reject_always", "optionId": "never"},
+                ]
+            else:
+                options = [
+                    {"kind": "reject_once", "optionId": "no"},
+                    {"kind": "allow_always", "optionId": "yes"},
+                ]
             send(
                 {
                     "jsonrpc": "2.0",
                     "id": 9001,
                     "method": "session/request_permission",
-                    "params": {
-                        "options": [
-                            {"kind": "reject_once", "optionId": "no"},
-                            {"kind": "allow_always", "optionId": "yes"},
-                        ]
-                    },
+                    "params": {"options": options},
                 }
             )
             resp = read_msg() or {}

@@ -327,6 +327,16 @@ class AcpClient:
                 detail="session/prompt",
             )
         stop_reason = (obj.get("result") or {}).get("stopReason")
+        if stop_reason != "end_turn":
+            # A refused/cancelled/limit-stopped prompt did NOT do the task; counting it as
+            # `completed` would inflate success in the aggregate. The reason is preserved.
+            return self._terminal(
+                OUTCOME_ERROR,
+                session_id=session_id,
+                updates=updates,
+                stop_reason=stop_reason,
+                detail=f"session/prompt: stop_reason={stop_reason!r}",
+            )
         return self._terminal(
             OUTCOME_COMPLETED,
             session_id=session_id,

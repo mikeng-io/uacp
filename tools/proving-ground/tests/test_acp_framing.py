@@ -67,3 +67,19 @@ def test_agent_dying_immediately_is_error_outcome_not_crash(tmp_path):
     # broken-pipe write path specifically.
     result2 = run_prompt(["sh", "-c", "exec 0<&-; sleep 2"], "hi", cwd=str(tmp_path), timeout=5)
     assert result2.outcome == "error"
+
+
+def test_refused_stop_reason_is_error_not_completed(tmp_path):
+    """A prompt the agent finishes with stopReason != end_turn (e.g. `refused` after an
+    all-reject permission request) did NOT do the task — counting it `completed` would inflate
+    the aggregate (Codex P1 on PR #158). The reason is preserved for audit."""
+    result = run_prompt(
+        [sys.executable, str(FAKE)],
+        "do something",
+        cwd=str(tmp_path),
+        env={**os.environ, "FAKE_MODE": "refuse_prompt"},
+        timeout=10,
+    )
+    assert result.outcome == "error"
+    assert result.stop_reason == "refused"
+    assert "stop_reason" in (result.detail or "")
