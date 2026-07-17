@@ -41,7 +41,7 @@ edges:
 ## Stages (each gated by its own verification; re-staged per the panel)
 - **P0 — commit the self-diagnosis spec** to `docs/self-diagnosis-design` (or fold its text
   into this bundle's 30 with attribution) so the supersession stamp is real.
-- **S0 — OpenAB lift spike** *(EXECUTED 2026-07-17 — ALL FOUR CHECKS PASS; decision:
+- **S0 — OpenAB lift spike** *(EXECUTED 2026-07-17 — (a)/(d) PASS; (b) protocol-level PASS on host; (c) PARTIAL, env-contract-in-container deferred to S1's entry gate; decision:
   REIMPLEMENT the thin ACP client in Python, mine OpenAB's edge-cases; record:
   `tools/proving-ground/records/S0-decision-record.md`; go: hermes GO, claude GO-adapter/
   auth-gated; see 20)*: as executed — (a) client-transport separability: the ACP client is
@@ -55,7 +55,7 @@ edges:
   decision record + per-cell go/no-go.
 - **S1 — `hermes-bare` smoke cell + the replicate pipeline**: ENTRY GATE (from S0's honest
   scope): build the hermes cell image and prove the containerized boundary — adapter present
-  in-image, ACP round-trip from the runner into the container, env contract received inside.
+  in-image, ACP round-trip from the runner into the container, and the injected env contract received AND USED inside (a model reply arriving via the injected endpoint).
   Then: runner spawns the SUT container,
   injects a trivial task, local model answers, trail exported — **N times, aggregated**: the
   replicate/aggregation pipeline is built HERE (40's statistics law), against the cheap smoke

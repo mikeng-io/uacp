@@ -73,8 +73,10 @@ If (a) fails, fall back to *pattern-mining* (reimplement the thin ACP client —
 small) rather than dragging the broker in; if (d) fails for Hermes, S1 is blocked and the plan
 re-sequences.
 
-> **S0 EXECUTED (2026-07-17) — decision: REIMPLEMENT the thin ACP client.** Checks (a)/(c)/(d)
-> PASS in full; check (b) PASS **at protocol level on the host** (`hermes acp` spawned
+> **S0 EXECUTED (2026-07-17) — decision: REIMPLEMENT the thin ACP client.** Checks (a)/(d)
+> PASS in full; (c) PARTIAL (container→host network + host-side tool-calling verified; the
+> runner-injected env contract in-container is UNVERIFIED); check (b) PASS **at protocol
+> level on the host** (`hermes acp` spawned
 > directly — no cell image was built, per the record's honest disclosure), so the
 > **containerized boundary is NOT yet verified**: building and running the actual hermes cell
 > image (adapter present, env contract received in-container) is **S1's entry gate**, not a

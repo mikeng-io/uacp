@@ -91,3 +91,21 @@ This matches `50-plan.md` open-question #1's lean ("lifted ACP/transport stays �
 - `acp-exchange.log` — raw JSON-RPC exchange (initialize→session/new→prompt→PONG) + result summary
 - `hermes-home/config.yaml` — isolated ollama-pointing config (no ~/.hermes writes)
 - `openab/` — shallow OpenAB clone (citations above)
+
+---
+
+## Post-review scope addendum (2026-07-17, PR #157)
+Codex review corrected two over-claims in how the verdicts above were SUMMARIZED (the
+underlying evidence sections are accurate as written):
+- **(b)** is a **protocol-level PASS on the HOST** — `hermes acp` was spawned directly; no
+  cell image was built or run.
+- **(c)** is **PARTIAL** — c1 proved container→host network reachability (curl only) and c2
+  proved tool-calling from the HOST; neither started Hermes in a container nor demonstrated
+  the runner-injected provider env being received and used in-container.
+
+Accordingly the honest S0 summary is: **(a)/(d) PASS in full; (b) protocol-level PASS;
+(c) partial (network + tool-calling verified; env-contract-in-container UNVERIFIED).** The
+containerized boundary — image builds, adapter present in-image, ACP round-trip into the
+container, injected env contract received AND USED (model reply via the injected endpoint) —
+is the **S1 entry gate** (design/proving-ground/50-plan.md). The reimplement decision and the
+per-cell go/no-go are unaffected.
