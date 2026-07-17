@@ -115,6 +115,10 @@ def test_missing_docker_is_an_error_replicate_not_a_crash(tmp_path):
     assert "spawn failed" in inspect["error"]
     meta = json.loads((out_dir / "runner-side" / "meta.json").read_text())
     assert meta["outcome"] == "error"
+    # Containment honesty: every S1 record must self-report that the declared egress policy is
+    # NOT yet enforced at the container boundary (enforcement = S2 proxy sidecar, 50-plan).
+    assert meta["egress"] == "host-model"
+    assert meta["egress_enforced"] is False
 
 
 def test_stale_workspace_is_wiped_before_baseline(tmp_path):

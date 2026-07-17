@@ -86,6 +86,15 @@ edges:
   per the panel): **native probe PASS + terminal state reached + full trail exported** — the
   conformance *verdict* on that trail is applied retroactively when S3 lands. This is still
   the outstanding real agent-through-tools dogfood; it just doesn't grade itself.
+  **S2 also lands egress ENFORCEMENT** (10-topology's per-cell policy is declared-advisory at
+  S1: cells carry `egress` and every S1 `meta.json` self-reports `egress_enforced: false`).
+  Empirical S1 finding (2026-07-18): `docker network create --internal` blocks host-gateway
+  too on Docker Desktop, so "host-model-only" needs the **dual-network proxy sidecar** — SUT on
+  an internal network, a forward-proxy container attached to internal + bridge that relays only
+  to the cell's declared endpoint, `OPENAI_BASE_URL` pointed at the sidecar. This composes with
+  the cross-flavor normalizing proxy (10.3): same sidecar seat, two duties. S2 flips
+  `EGRESS_ENFORCED` when it lands; until then bare-bridge runs are pipeline checks, not
+  containment-valid results.
 - **S3 — observer + calibration**: port L1–L4 as CODE gates over the exported trail (with the
   tiered hard/soft split, the schema contract test, and the kernel fault-flag mechanism — 30);
   run the clean baseline AND the planted-fault runs. Exit: the decoupling litmus passes and

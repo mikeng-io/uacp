@@ -29,6 +29,12 @@ HOST_OLLAMA_OPENAI_URL = "http://host.docker.internal:11434/v1"
 # but recorded so an undeclared egress is a finding rather than a silent default.
 EGRESS_HOST_MODEL = "host-model"  # local cell: host model endpoint only
 EGRESS_PROVIDER_API = "provider-api"  # cloud cell: one provider API only
+# S1 runs on Docker's default bridge — the declared policy is NOT yet enforced at the container
+# boundary, and every run record must say so (a reader of meta.json must not assume containment
+# that does not exist). Probed 2026-07-18: `docker network create --internal` blocks host-gateway
+# too on Docker Desktop, so enforcement needs the dual-network proxy-sidecar pattern → S2 (50-plan).
+# S2 flips this constant when the sidecar lands; until then it is the honesty bit, not a knob.
+EGRESS_ENFORCED = False
 
 
 @dataclass(frozen=True)

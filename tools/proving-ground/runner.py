@@ -28,7 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from acp_client import run_prompt
-from cells import Cell
+from cells import EGRESS_ENFORCED, Cell
 
 
 @dataclass(frozen=True)
@@ -200,6 +200,7 @@ def _meta(cell: Cell, task: Task, result: RunResult) -> dict:
         "task": task.name,
         "model_id": cell.model_id,
         "egress": cell.egress,
+        "egress_enforced": EGRESS_ENFORCED,
         "uacp": cell.uacp,
         "outcome": result.outcome,
         "stop_reason": result.stop_reason,
