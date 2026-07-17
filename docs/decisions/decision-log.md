@@ -14,6 +14,21 @@ This file is the durable record of UACP **operational** governance decisions. Ea
 
 ## Decision Log
 
+### 2026-07-17 — Two testing lanes: e2e-acceptance (companion) + the Proving Ground (automated)
+
+Decision: UACP has TWO testing surfaces with distinct purposes (mike's ruling). The **companion/interactive lane** is [`design/e2e-acceptance/`](../../design/e2e-acceptance/) — Claude Code, a real `claude plugin install`, the operator in the loop; its 2026-06-26 deferral ("stop hand-building a bespoke harness; dogfood the acceptance run through UACP's lifecycle") **stands for that purpose**. The **fully-automated lane** is [`design/proving-ground/`](../../design/proving-ground/) — headless CI/GHA release tests + N-replicated benchmark sweeps, Hermes-first (unattended, auth-free, token-free cells) — a scope the deferral did not cover, so building its harness is NOT a reversal of that decision. The Proving Ground absorbs from e2e-acceptance its model-backend proxy, tiered assertions, plugin-conformance probe, and task/scenario layer; `design/self-diagnosis`'s scripted driver is superseded by it while its L1-L4 observer core is absorbed. Neither lane supersedes the other.
+
+Rationale: one apparatus class, two irreconcilable operating modes — an operator-driven acceptance check (real install, first-party model, interactive auth) and an unattended bench (containers, local model via a provider env contract, statistical replication). Forcing them into one design produced the drift the 2026-07-17 panel flagged (duplicate harness designs, a silently-reversed deferral); naming the lanes resolves it.
+
+Status: accepted.
+
+Canonical targets:
+
+- `design/proving-ground/` (the automated-lane bundle)
+- `design/e2e-acceptance/30-roadmap.md` (scope note added to the deferral)
+
+Follow-up: P0/S0 of the proving-ground plan (commit the self-diagnosis spec; OpenAB lift spike).
+
 ### 2026-07-17 — Encode the telos; one canonical authority chain; ADR-0018 amended (#98)
 
 Decision: Three rulings land together as the telos design bundle ([`design/telos/`](../../design/telos/)) reconciles into the canonical surfaces.
