@@ -1,0 +1,5 @@
+# Per-replicate run byproducts: each rep-*/ holds a fresh workspace with a NESTED git repo plus the
+# exported trail (runner-side/ + sut-authored/). Regenerable; kept out of version control to avoid
+# nested-repo noise. The aggregated evidence (replicates.jsonl, aggregate.json) and the summary
+# record (records/S1-smoke-summary.md) are NOT ignored.
+records/smoke-out/rep-*/

@@ -1,0 +1,20 @@
+{
+  "cell": "hermes-bare",
+  "task": "hello-file",
+  "model_id": "qwen3.5:4b",
+  "n": 5,
+  "outcomes": {
+    "completed": 5,
+    "timeout": 0,
+    "error": 0
+  },
+  "wall_clock": {
+    "mean": 22.924,
+    "stdev": 7.182,
+    "min": 17.868,
+    "max": 34.978,
+    "ci95_half_width": 8.916
+  },
+  "replicates_path": "/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/replicates.jsonl",
+  "aggregate_path": "/Users/mike/Workplace/uacp/.worktrees/pg-s1/tools/proving-ground/records/smoke-out/aggregate.json"
+}
