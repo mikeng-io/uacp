@@ -9,11 +9,11 @@
     "error": 0
   },
   "wall_clock": {
-    "mean": 24.491,
-    "stdev": 13.948,
-    "min": 13.579,
-    "max": 48.939,
-    "ci95_half_width": 17.316
+    "mean": 22.386,
+    "stdev": 5.18,
+    "min": 18.151,
+    "max": 30.966,
+    "ci95_half_width": 6.431
   },
   "replicates_path": "replicates.jsonl",
   "aggregate_path": "aggregate.json"

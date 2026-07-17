@@ -1,5 +1,7 @@
-# Per-replicate run byproducts: each rep-*/ holds a fresh workspace with a NESTED git repo plus the
-# exported trail (runner-side/ + sut-authored/). Regenerable; kept out of version control to avoid
-# nested-repo noise. The aggregated evidence (replicates.jsonl, aggregate.json) and the summary
-# record (records/S1-smoke-summary.md) are NOT ignored.
-records/smoke-out/rep-*/
+# Only the raw workspace scratch is ignored: it contains a NESTED git repo (the runner's
+# baseline + the agent's work) that cannot live inside the parent repo, and its content is
+# exported as plain text into rep-*/sut-authored/ anyway. The per-replicate EVIDENCE — the
+# runner-side ACP transcript, meta.json, container-inspect.json, and the exported sut-authored
+# trail — IS committed: the JSONL's artifact_dir pointers must resolve in a fresh checkout
+# (per-replicate records are part of the benchmark contract, 40-benchmark).
+records/smoke-out/rep-*/workspace/
