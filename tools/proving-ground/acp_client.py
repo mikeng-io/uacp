@@ -396,6 +396,15 @@ def run_prompt(
     client = AcpClient(transport, transcript_path=transcript_path)
     try:
         return client.drive_prompt(session_cwd or cwd, prompt_text, timeout)
+    except OSError as exc:
+        # An agent that dies right after spawn breaks the stdin pipe on the next request write
+        # (BrokenPipeError). Same contract as a failed spawn: this replicate is an `error`
+        # outcome, never an exception that aborts the sweep.
+        return PromptResult(
+            outcome=OUTCOME_ERROR,
+            detail=f"transport write failed: {exc}",
+            stderr_tail=transport.stderr_tail,
+        )
     finally:
         transport.close_stdin()
         transport.terminate()

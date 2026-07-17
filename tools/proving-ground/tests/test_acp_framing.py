@@ -55,3 +55,15 @@ def test_unspawnable_command_is_error_outcome_not_crash(tmp_path):
     result = run_prompt(["/nonexistent-proving-ground-binary"], "hi", cwd=str(tmp_path), timeout=5)
     assert result.outcome == "error"
     assert result.detail is not None and result.detail.startswith("spawn failed:")
+
+
+def test_agent_dying_immediately_is_error_outcome_not_crash(tmp_path):
+    """An agent that exits right after spawn must yield the closed `error` outcome — whether the
+    failure surfaces as EOF on read or BrokenPipeError on the next stdin write, neither may
+    escape run_prompt and abort a sweep (Codex P1 on PR #158)."""
+    result = run_prompt(["true"], "hi", cwd=str(tmp_path), timeout=5)
+    assert result.outcome == "error"
+    # A dead-immediately agent that closes stdin while staying briefly alive forces the
+    # broken-pipe write path specifically.
+    result2 = run_prompt(["sh", "-c", "exec 0<&-; sleep 2"], "hi", cwd=str(tmp_path), timeout=5)
+    assert result2.outcome == "error"
