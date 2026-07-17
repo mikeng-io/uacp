@@ -44,13 +44,19 @@ edges:
 - **S0 — OpenAB lift spike** *(EXECUTED 2026-07-17 — ALL FOUR CHECKS PASS; decision:
   REIMPLEMENT the thin ACP client in Python, mine OpenAB's edge-cases; record:
   `tools/proving-ground/records/S0-decision-record.md`; go: hermes GO, claude GO-adapter/
-  auth-gated; see 20)*: (a) `crates/openab-agent` separability;
-  (b) one agent end-to-end over ACP from a bare harness; (c) container→host-ollama env-contract
-  reachability **incl. a multi-turn tool-calling check of ollama's OpenAI-compat path**;
-  (d) **server-side adapter verification** — `hermes acp` (confirmed to exist, v0.17.0) runs a
-  real session; Zed's `claude-code-acp` evaluated for the claude cells. Exit: a decision
-  record — lift-the-crate vs reimplement-the-thin-ACP-client; and a go/no-go per agent cell.
-- **S1 — `hermes-bare` smoke cell + the replicate pipeline**: runner spawns the SUT container,
+  auth-gated; see 20)*: as executed — (a) client-transport separability: the ACP client is
+  `crates/openab-core/src/acp/` (~2.8k LoC; `openab-agent` turned out to be OpenAB's own
+  standalone agent, not the client); (b) one agent end-to-end over ACP from a bare host
+  harness (protocol-level PASS; the CONTAINERIZED cell image is deliberately out of S0 scope
+  and is S1's entry gate); (c) container→host-ollama env-contract reachability incl. a
+  multi-turn tool-calling check of ollama's OpenAI-compat path; (d) server-side adapter
+  inventory — `hermes acp` built-in (live-verified, v0.17.0); the Claude adapter OpenAB
+  installs is `@agentclientprotocol/claude-agent-acp@0.45.0` (npm). Exit delivered: the
+  decision record + per-cell go/no-go.
+- **S1 — `hermes-bare` smoke cell + the replicate pipeline**: ENTRY GATE (from S0's honest
+  scope): build the hermes cell image and prove the containerized boundary — adapter present
+  in-image, ACP round-trip from the runner into the container, env contract received inside.
+  Then: runner spawns the SUT container,
   injects a trivial task, local model answers, trail exported — **N times, aggregated**: the
   replicate/aggregation pipeline is built HERE (40's statistics law), against the cheap smoke
   tier, before anything is scored. Prereqs: pull the official `unsloth/Qwen3.6-35B-A3B-GGUF`

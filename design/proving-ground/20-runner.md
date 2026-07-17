@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: The runner — mined from OpenAB (ACP transport + per-agent containers)
-description: The runner is MINED from OpenAB (github.com/openabdev/openab, Rust, MIT, 0.9-beta, active) — lift the ACP-transport core (crates/openab-agent, JSON-RPC over stdio + session pool) and the per-agent Dockerfiles (Dockerfile.claude/.hermes/.codex/.opencode/.pi already exist, plus its mandated sandbox posture); DROP the chat/ops front-end (src/ Discord/Slack/Telegram dispatcher), k8s/helm, and the AWS agentcore. Model endpoint injected via the agent env (host.docker.internal:11434 for local cells). Side effect — one ACP adapter can eventually collapse the per-runtime bridge sprawl. Verification spike required before lift (crate separability; one Dockerfile run end-to-end).
+description: The runner is MINED from OpenAB (github.com/openabdev/openab, Rust, MIT, 0.9-beta, active) — S0 EXECUTED 2026-07-17, decision REIMPLEMENT the thin ACP client in Python (the client transport is crates/openab-core/src/acp/, ~2.8k LoC — NOT openab-agent, which is OpenAB's own standalone agent; the crate remains the documented fallback). Keep mining the per-agent Dockerfiles (Dockerfile.claude/.hermes/.codex/.opencode/.pi; Claude adapter = @agentclientprotocol/claude-agent-acp@0.45.0 npm) + the sandbox posture; DROP the chat/ops front-end, k8s/helm, and the AWS agentcore. Model endpoint via the cell env contract (host.docker.internal:11434 + pinned model_id for local cells). S0 scope note — the e2e check passed at protocol level on the HOST; the containerized boundary is S1's entry gate. Side effect — one ACP adapter can eventually collapse the per-runtime bridge sprawl.
 tags: [runner, openab, acp, dockerfiles, mined-not-adopted, transport]
 timestamp: 2026-07-17
 edges:
@@ -73,9 +73,13 @@ If (a) fails, fall back to *pattern-mining* (reimplement the thin ACP client —
 small) rather than dragging the broker in; if (d) fails for Hermes, S1 is blocked and the plan
 re-sequences.
 
-> **S0 EXECUTED (2026-07-17) — decision: REIMPLEMENT the thin ACP client.** All four checks
-> PASS (record: `tools/proving-ground/records/S0-decision-record.md`; raw ACP exchange:
-> `S0-acp-exchange.log`). The protocol proved small — a ~150-line stdlib Python harness did
+> **S0 EXECUTED (2026-07-17) — decision: REIMPLEMENT the thin ACP client.** Checks (a)/(c)/(d)
+> PASS in full; check (b) PASS **at protocol level on the host** (`hermes acp` spawned
+> directly — no cell image was built, per the record's honest disclosure), so the
+> **containerized boundary is NOT yet verified**: building and running the actual hermes cell
+> image (adapter present, env contract received in-container) is **S1's entry gate**, not a
+> settled fact. (Record: `tools/proving-ground/records/S0-decision-record.md`; raw ACP
+> exchange: `S0-acp-exchange.log`.) The protocol proved small — a ~150-line stdlib Python harness did
 > the full client (initialize → session/new → prompt → streaming reply) against the real
 > `hermes acp` with a genuine model round-trip; the hard dependency is the per-agent adapter
 > *binaries* (spawned either way), not OpenAB's transport code. The lift target it corrects:
