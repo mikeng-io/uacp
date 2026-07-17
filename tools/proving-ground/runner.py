@@ -254,6 +254,31 @@ def _collect_workspace(workspace: Path, sut_authored: Path) -> None:
     )
     (sut_authored / "workspace-tree.txt").write_text("\n".join(tree) + "\n", encoding="utf-8")
 
+    # The workspace tree is SUT-CONTROLLED and this collector runs on the runner host: a
+    # malicious agent could plant `.uacp` (or children) as symlinks to host paths, and a
+    # dereferencing copy would exfiltrate runner-readable files into the evidence export.
+    # Never dereference — skip every symlink and export a visible skip record instead.
     uacp_dir = workspace / ".uacp"
-    if uacp_dir.is_dir():
-        shutil.copytree(uacp_dir, sut_authored / "uacp", dirs_exist_ok=True)
+    if uacp_dir.is_symlink():
+        (sut_authored / "uacp-SKIPPED.txt").write_text(
+            f"[.uacp is a symlink -> {uacp_dir.readlink()}; not exported]\n", encoding="utf-8"
+        )
+    elif uacp_dir.is_dir():
+        skipped: list[str] = []
+
+        def _ignore_symlinks(src: str, names: list[str]) -> list[str]:
+            bad = [n for n in names if (Path(src) / n).is_symlink()]
+            skipped.extend(
+                f"{(Path(src) / n).relative_to(uacp_dir)} -> {(Path(src) / n).readlink()}"
+                for n in bad
+            )
+            return bad
+
+        shutil.copytree(
+            uacp_dir, sut_authored / "uacp", ignore=_ignore_symlinks, dirs_exist_ok=True
+        )
+        if skipped:
+            (sut_authored / "uacp-SKIPPED.txt").write_text(
+                "[symlinks inside .uacp are never exported]\n" + "\n".join(skipped) + "\n",
+                encoding="utf-8",
+            )

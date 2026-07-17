@@ -34,6 +34,41 @@ def test_stopped_container_exit_code_is_reported(tmp_path, monkeypatch):
     assert _collect_container("pg-test", tmp_path, docker="docker") == 137
 
 
+def test_uacp_export_never_dereferences_sut_symlinks(tmp_path):
+    """Exfiltration guard (Codex P1 on PR #158): the SUT controls the workspace, so a symlink
+    planted under .uacp (or .uacp itself as a symlink) must never be dereferenced by the
+    runner-host collector — skipped, with a visible skip record."""
+    secret = tmp_path / "host-secret.txt"
+    secret.write_text("runner-host private data\n")
+
+    # Case 1: symlinked child inside a real .uacp dir.
+    ws1 = tmp_path / "ws1"
+    (ws1 / ".uacp").mkdir(parents=True)
+    (ws1 / ".uacp" / "state.json").write_text("{}")
+    (ws1 / ".uacp" / "planted").symlink_to(secret)
+    out1 = tmp_path / "out1"
+    out1.mkdir()
+    runner._collect_workspace(ws1, out1)
+    assert (out1 / "uacp" / "state.json").exists()
+    assert not (out1 / "uacp" / "planted").exists()
+    exported = [str(p) for p in (out1 / "uacp").rglob("*")]
+    assert all("planted" not in p for p in exported)
+    assert "planted" in (out1 / "uacp-SKIPPED.txt").read_text()
+
+    # Case 2: .uacp itself is a symlink to a host directory.
+    hostdir = tmp_path / "hostdir"
+    hostdir.mkdir()
+    (hostdir / "leak.txt").write_text("leak")
+    ws2 = tmp_path / "ws2"
+    ws2.mkdir()
+    (ws2 / ".uacp").symlink_to(hostdir)
+    out2 = tmp_path / "out2"
+    out2.mkdir()
+    runner._collect_workspace(ws2, out2)
+    assert not (out2 / "uacp").exists()
+    assert "symlink" in (out2 / "uacp-SKIPPED.txt").read_text()
+
+
 def test_git_capture_failure_is_visible_not_empty(tmp_path):
     """If the SUT destroyed .git, the exported file must carry a marker, not an empty string."""
     out = _git_capture(tmp_path, ["log", "--oneline", "--all"])  # tmp_path is not a git repo
