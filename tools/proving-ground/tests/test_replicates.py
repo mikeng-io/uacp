@@ -103,6 +103,11 @@ def test_unknown_outcome_counts_as_error(tmp_path):
     task = Task(name="probe", prompt="x")
     agg = run_replicates(cell, task, 1, tmp_path, run_fn=_fake_run_factory([("weird", 1.0)]))
     assert agg.outcomes == {"completed": 0, "timeout": 0, "error": 1}
+    # Ledger consistency: the JSONL record carries the SAME normalized outcome the aggregate
+    # counted, with the raw out-of-vocabulary value preserved for audit.
+    record = json.loads((tmp_path / "replicates.jsonl").read_text().splitlines()[0])
+    assert record["outcome"] == "error"
+    assert record["raw_outcome"] == "weird"
 
 
 def test_zero_replicates_refused(tmp_path):

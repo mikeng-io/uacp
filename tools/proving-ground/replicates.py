@@ -117,13 +117,18 @@ def run_replicates(
         for i in range(n):
             rep_dir = output_root / f"rep-{i:03d}"
             result = run_fn(cell, task, rep_dir)
+            # Normalize ONCE, before anything is serialized: an out-of-vocabulary outcome is
+            # counted as `error` AND written as `error` in the JSONL — the per-replicate ledger
+            # and the aggregate must never disagree about the same replicate. The raw value is
+            # preserved in the record (`raw_outcome`) so the anomaly stays auditable.
+            outcome = result.outcome if result.outcome in outcome_counts else OUTCOME_ERROR
             record = _record(result, i, output_root)
+            if outcome != result.outcome:
+                record["raw_outcome"] = result.outcome
+                record["outcome"] = outcome
             jsonl.write(json.dumps(record) + "\n")
             jsonl.flush()
-            # Unknown outcomes are counted as errors rather than silently dropped.
-            outcome_counts[
-                result.outcome if result.outcome in outcome_counts else OUTCOME_ERROR
-            ] += 1
+            outcome_counts[outcome] += 1
             wall_clocks.append(result.wall_clock_s)
             model_id = result.model_id or model_id
 
