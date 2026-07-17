@@ -46,6 +46,9 @@ from cells import (  # noqa: E402
 
 IMAGE_DIR = PKG / "images" / "hermes"
 RECORD = PKG / "records" / "S1-entry-gate.md"
+# The ACP transcripts ARE the runner-side ground truth (10-topology); a gate record whose raw
+# exchange evaporated with a TemporaryDirectory would be unauditable. Persisted + committed.
+TRANSCRIPT_DIR = PKG / "records" / "entry-gate"
 DEAD_ENDPOINT = "http://host.docker.internal:1/v1"  # port 1: connection refused
 PONG_PROMPT = "Reply with exactly the single word: PONG"
 # Deliberately YAML-hostile (quote, backslash, sed metacharacters — newline-free so it stays a
@@ -154,8 +157,9 @@ def gate(image: str, model: str, skip_build: bool) -> tuple[bool, list[Req], dic
     # R3 -- positive round-trip into the container ---------------------------------------------
     r3 = Req("R3_ROUNDTRIP", "Full ACP round-trip into container yields a model reply")
     reqs.append(r3)
+    TRANSCRIPT_DIR.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="pg-entry-pos-") as ws:
-        transcript = Path(ws) / "pos-transcript.log"
+        transcript = TRANSCRIPT_DIR / "pos-transcript.log"
         cmd = _docker_cmd(image, HOST_OLLAMA_OPENAI_URL, model, ws)
         r3.log(f"$ {' '.join(cmd)}")
         r3.log(f"prompt: {PONG_PROMPT!r}  endpoint: {HOST_OLLAMA_OPENAI_URL}")
@@ -183,7 +187,7 @@ def gate(image: str, model: str, skip_build: bool) -> tuple[bool, list[Req], dic
     r4 = Req("R4_ENV_USED", "Injected env contract received AND used (dead endpoint must fail)")
     reqs.append(r4)
     with tempfile.TemporaryDirectory(prefix="pg-entry-neg-") as ws:
-        transcript = Path(ws) / "neg-transcript.log"
+        transcript = TRANSCRIPT_DIR / "neg-transcript.log"
         cmd = _docker_cmd(image, DEAD_ENDPOINT, model, ws)
         r4.log(f"$ {' '.join(cmd)}")
         r4.log(f"prompt: {PONG_PROMPT!r}  endpoint: {DEAD_ENDPOINT} (unreachable)")
@@ -294,6 +298,9 @@ def write_record(overall: bool, reqs: list[Req], facts: dict) -> None:
         "The gate proves what S0 deferred: the image builds, the ACP adapter is present in-image,",
         "a full ACP round-trip crosses the container boundary, and the injected provider env",
         "contract is not merely received but USED (a dead endpoint must fail — negative control).",
+        "",
+        "Raw runner-side ACP transcripts (ground truth for R3/R4): "
+        "`records/entry-gate/pos-transcript.log`, `records/entry-gate/neg-transcript.log`.",
         "",
         "## Requirements",
         "",

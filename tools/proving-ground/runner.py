@@ -89,6 +89,18 @@ def _run(cmd: list[str], timeout: float = 60.0) -> subprocess.CompletedProcess[s
         )
 
 
+def _make_world_writable(workspace: Path) -> None:
+    """The container runs as its own unprivileged user (uid 1000), which on a Linux host with a
+    different uid cannot write into a bind-mounted 755 workspace — and an outcomes-only smoke
+    would then count a can't-write-anything run as `completed` (vacuous pass). The workspace is
+    throwaway evidence scratch, so open it up: dirs 0o777, files 0o666."""
+    workspace.chmod(0o777)
+    for p in workspace.rglob("*"):
+        if p.is_symlink():
+            continue
+        p.chmod(0o777 if p.is_dir() else 0o666)
+
+
 def run_cell(
     cell: Cell,
     task: Task,
@@ -119,6 +131,7 @@ def run_cell(
     # agent changed relative to the seeded initial state.
     _run(["git", "-C", str(workspace), "add", "-A"])
     _run(["git", "-C", str(workspace), "commit", "-q", "--allow-empty", "-m", "runner: baseline"])
+    _make_world_writable(workspace)
 
     container = f"pg-{cell.name}-{uuid.uuid4().hex[:12]}"
     docker_cmd = [

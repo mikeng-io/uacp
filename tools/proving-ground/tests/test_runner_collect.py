@@ -34,6 +34,26 @@ def test_stopped_container_exit_code_is_reported(tmp_path, monkeypatch):
     assert _collect_container("pg-test", tmp_path, docker="docker") == 137
 
 
+def test_workspace_made_world_writable_for_container_user(tmp_path):
+    """A Linux host with uid != 1000 bind-mounts a workspace the container's `agent` user cannot
+    write into — and outcomes-only smoke would count the resulting no-op as `completed`. The
+    runner must open the workspace up before the container starts (Codex P1 on PR #158)."""
+    ws = tmp_path / "ws"
+    sub = ws / "seeded"
+    sub.mkdir(parents=True)
+    f = sub / "file.txt"
+    f.write_text("x")
+    f.chmod(0o444)
+    sub.chmod(0o755)
+    ws.chmod(0o755)
+
+    runner._make_world_writable(ws)
+
+    assert ws.stat().st_mode & 0o777 == 0o777
+    assert sub.stat().st_mode & 0o777 == 0o777
+    assert f.stat().st_mode & 0o666 == 0o666
+
+
 def test_uacp_export_never_dereferences_sut_symlinks(tmp_path):
     """Exfiltration guard (Codex P1 on PR #158): the SUT controls the workspace, so a symlink
     planted under .uacp (or .uacp itself as a symlink) must never be dereferenced by the
