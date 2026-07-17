@@ -41,7 +41,10 @@ edges:
 ## Stages (each gated by its own verification; re-staged per the panel)
 - **P0 — commit the self-diagnosis spec** to `docs/self-diagnosis-design` (or fold its text
   into this bundle's 30 with attribution) so the supersession stamp is real.
-- **S0 — OpenAB lift spike** *(blocking; 20)*: (a) `crates/openab-agent` separability;
+- **S0 — OpenAB lift spike** *(EXECUTED 2026-07-17 — ALL FOUR CHECKS PASS; decision:
+  REIMPLEMENT the thin ACP client in Python, mine OpenAB's edge-cases; record:
+  `tools/proving-ground/records/S0-decision-record.md`; go: hermes GO, claude GO-adapter/
+  auth-gated; see 20)*: (a) `crates/openab-agent` separability;
   (b) one agent end-to-end over ACP from a bare harness; (c) container→host-ollama env-contract
   reachability **incl. a multi-turn tool-calling check of ollama's OpenAI-compat path**;
   (d) **server-side adapter verification** — `hermes acp` (confirmed to exist, v0.17.0) runs a
@@ -51,7 +54,11 @@ edges:
   injects a trivial task, local model answers, trail exported — **N times, aggregated**: the
   replicate/aggregation pipeline is built HERE (40's statistics law), against the cheap smoke
   tier, before anything is scored. Prereqs: pull the official `unsloth/Qwen3.6-35B-A3B-GGUF`
-  quant (40).
+  quant (40); **smoke-tier model = `llama3.2:3b`** (S0 finding: Hermes enforces a hard 64K
+  context floor — `qwen2.5:3b` (32K) is REJECTED at session/new, and a context_length
+  override triggers a SILENT prompt-time refusal that a naive harness reads as a pass; every
+  hermes-cell model must report >=64K context, and scored-cell ollama configs must serve the
+  35B quant with num_ctx >= 65536).
 - **S2 — `hermes-uacp` cell**: bake the **native `uacp_guardian` plugin** into the image —
   installed + registered in the in-image Hermes instance — as the PRIMARY drive channel
   (full `tool_specs()` surface + pre/post-tool hooks; prerequisite above); **plugin-conformance
@@ -100,8 +107,9 @@ assertions.
    because the automated lane needs unattended, auth-free, token-free cells.
 
 ## Open questions (remaining)
-1. **Rust vs Python for the runner glue.** Lean: lifted ACP/transport stays Rust as a thin CLI
-   the Python bench orchestrates.
+1. ~~Rust vs Python for the runner glue~~ — **RESOLVED by S0**: the protocol proved small
+   enough that the bench + its ACP client are pure Python (`tools/proving-ground/`); the
+   separable Rust crate (`openab-core/src/acp/`) is the documented fallback only (20).
 2. **Claude Code in-container auth for the automated lane** — API-key cell is straightforward;
    subscription auth likely excludes claude cells from unattended CI (they may stay
    operator-triggered / companion-lane-verified). S4 concern; flag early.

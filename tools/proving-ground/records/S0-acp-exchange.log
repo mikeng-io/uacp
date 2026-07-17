@@ -1,0 +1,175 @@
+--> {"jsonrpc": "2.0", "method": "initialize", "id": 1, "params": {"protocolVersion": 1, "clientCapabilities": {}}}
+<-- {"jsonrpc": "2.0", "id": 1, "result": {"agentCapabilities": {"loadSession": true, "promptCapabilities": {"image": true}, "sessionCapabilities": {"fork": {}, "list": {}, "resume": {}}}, "agentInfo": {"name": "hermes-agent", "version": "0.17.0"}, "authMethods": [{"description": "Authenticate Hermes using the currently configured custom runtime credentials.", "id": "custom", "name": "custom runtime credentials"}, {"args": ["--setup"], "description": "Open Hermes' interactive model/provider setup in a terminal. Use this when Hermes has not been configured on this machine yet.", "id": "hermes-setup", "name": "Configure Hermes provider", "type": "terminal"}], "protocolVersion": 1}}
+--> {"jsonrpc": "2.0", "method": "initialized"}
+--> {"jsonrpc": "2.0", "method": "session/new", "id": 2, "params": {"cwd": "/private/tmp/claude-501/-Users-mike-Workplace-uacp/4b0e998f-4524-4398-a664-4b0d3b8451d6/scratchpad/s0-spike/acp-workspace", "mcpServers": []}}
+<-- {"jsonrpc": "2.0", "id": 2, "result": {"_meta": {"hermes": {"sessionProvenance": {"acpSessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c", "currentHermesSessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c", "rootHermesSessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c", "parentHermesSessionId": null, "sessionKind": "root", "compressionDepth": 0}}}, "models": {"availableModels": [{"description": "Provider: Custom endpoint", "modelId": "custom:hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M", "name": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M"}, {"description": "Provider: Custom endpoint", "modelId": "custom:hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M", "name": "hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M"}, {"description": "Provider: Custom endpoint", "modelId": "custom:hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:F16", "name": "hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:F16"}, {"description": "Provider: Custom endpoint", "modelId": "custom:qwen3:30b-a3b", "name": "qwen3:30b-a3b"}, {"description": "Provider: Custom endpoint", "modelId": "custom:qwen2.5:3b", "name": "qwen2.5:3b"}, {"description": "Provider: Custom endpoint", "modelId": "custom:bge-m3:latest", "name": "bge-m3:latest"}, {"description": "Provider: Custom endpoint \u2022 current", "modelId": "custom:llama3.2:3b", "name": "llama3.2:3b"}], "currentModelId": "custom:llama3.2:3b"}, "modes": {"availableModes": [{"description": "Ask before edits.", "id": "default", "name": "Default"}, {"description": "Auto-allow workspace and /tmp edits; still asks for sensitive paths.", "id": "accept_edits", "name": "Accept Edits"}, {"description": "Auto-allow file edits for this session except sensitive paths.", "id": "dont_ask", "name": "Don't Ask"}], "currentModeId": "default"}, "sessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c"}}
+--> {"jsonrpc": "2.0", "method": "session/prompt", "id": 3, "params": {"sessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c", "prompt": [{"type": "text", "text": "Reply with exactly the single word: PONG"}]}}
+<-- {"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c", "update": {"availableCommands": [{"description": "List available commands", "name": "help"}, {"description": "Show current model and provider, or switch models", "input": {"hint": "model name to switch to"}, "name": "model"}, {"description": "List available tools with descriptions", "name": "tools"}, {"description": "Show conversation message counts by role", "name": "context"}, {"description": "Clear conversation history", "name": "reset"}, {"description": "Compress conversation context", "name": "compact"}, {"description": "Inject guidance into the currently running agent turn", "input": {"hint": "guidance for the active turn"}, "name": "steer"}, {"description": "Queue a prompt to run after the current turn finishes", "input": {"hint": "prompt to run next"}, "name": "queue"}, {"description": "Show Hermes version", "name": "version"}], "sessionUpdate": "available_commands_update"}}}
+<-- {"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c", "update": {"size": 131072, "used": 11391, "sessionUpdate": "usage_update"}}}
+<-- {"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c", "update": {"content": {"text": "P", "type": "text"}, "sessionUpdate": "agent_message_chunk"}}}
+<-- {"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c", "update": {"content": {"text": "ONG", "type": "text"}, "sessionUpdate": "agent_message_chunk"}}}
+<-- {"jsonrpc": "2.0", "method": "session/update", "params": {"sessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c", "update": {"size": 131072, "used": 12867, "sessionUpdate": "usage_update"}}}
+<-- {"jsonrpc": "2.0", "id": 3, "result": {"stopReason": "end_turn", "usage": {"cachedReadTokens": 0, "inputTokens": 11152, "outputTokens": 3, "thoughtTokens": 0, "totalTokens": 11155}}}
+
+===== RESULT =====
+{
+  "phase": null,
+  "initialize": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+      "agentCapabilities": {
+        "loadSession": true,
+        "promptCapabilities": {
+          "image": true
+        },
+        "sessionCapabilities": {
+          "fork": {},
+          "list": {},
+          "resume": {}
+        }
+      },
+      "agentInfo": {
+        "name": "hermes-agent",
+        "version": "0.17.0"
+      },
+      "authMethods": [
+        {
+          "description": "Authenticate Hermes using the currently configured custom runtime credentials.",
+          "id": "custom",
+          "name": "custom runtime credentials"
+        },
+        {
+          "args": [
+            "--setup"
+          ],
+          "description": "Open Hermes' interactive model/provider setup in a terminal. Use this when Hermes has not been configured on this machine yet.",
+          "id": "hermes-setup",
+          "name": "Configure Hermes provider",
+          "type": "terminal"
+        }
+      ],
+      "protocolVersion": 1
+    },
+    "__updates__": []
+  },
+  "session_new": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "result": {
+      "_meta": {
+        "hermes": {
+          "sessionProvenance": {
+            "acpSessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c",
+            "currentHermesSessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c",
+            "rootHermesSessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c",
+            "parentHermesSessionId": null,
+            "sessionKind": "root",
+            "compressionDepth": 0
+          }
+        }
+      },
+      "models": {
+        "availableModels": [
+          {
+            "description": "Provider: Custom endpoint",
+            "modelId": "custom:hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M",
+            "name": "hf.co/HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive:Q4_K_M"
+          },
+          {
+            "description": "Provider: Custom endpoint",
+            "modelId": "custom:hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M",
+            "name": "hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:Q4_K_M"
+          },
+          {
+            "description": "Provider: Custom endpoint",
+            "modelId": "custom:hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:F16",
+            "name": "hf.co/empero-ai/Qwythos-9B-Claude-Mythos-5-1M-GGUF:F16"
+          },
+          {
+            "description": "Provider: Custom endpoint",
+            "modelId": "custom:qwen3:30b-a3b",
+            "name": "qwen3:30b-a3b"
+          },
+          {
+            "description": "Provider: Custom endpoint",
+            "modelId": "custom:qwen2.5:3b",
+            "name": "qwen2.5:3b"
+          },
+          {
+            "description": "Provider: Custom endpoint",
+            "modelId": "custom:bge-m3:latest",
+            "name": "bge-m3:latest"
+          },
+          {
+            "description": "Provider: Custom endpoint \u2022 current",
+            "modelId": "custom:llama3.2:3b",
+            "name": "llama3.2:3b"
+          }
+        ],
+        "currentModelId": "custom:llama3.2:3b"
+      },
+      "modes": {
+        "availableModes": [
+          {
+            "description": "Ask before edits.",
+            "id": "default",
+            "name": "Default"
+          },
+          {
+            "description": "Auto-allow workspace and /tmp edits; still asks for sensitive paths.",
+            "id": "accept_edits",
+            "name": "Accept Edits"
+          },
+          {
+            "description": "Auto-allow file edits for this session except sensitive paths.",
+            "id": "dont_ask",
+            "name": "Don't Ask"
+          }
+        ],
+        "currentModeId": "default"
+      },
+      "sessionId": "b738deb4-6dce-4f77-9067-3f963bb7450c"
+    },
+    "__updates__": []
+  },
+  "session_id": "b738deb4-6dce-4f77-9067-3f963bb7450c",
+  "prompt_response": {
+    "result": {
+      "stopReason": "end_turn",
+      "usage": {
+        "cachedReadTokens": 0,
+        "inputTokens": 11152,
+        "outputTokens": 3,
+        "thoughtTokens": 0,
+        "totalTokens": 11155
+      }
+    },
+    "error": null,
+    "n_updates": 5
+  },
+  "update_samples": [
+    "{\"sessionId\": \"b738deb4-6dce-4f77-9067-3f963bb7450c\", \"update\": {\"availableCommands\": [{\"description\": \"List available commands\", \"name\": \"help\"}, {\"description\": \"Show current model and provider, or switch models\", \"input\": {\"hint\": \"model name to switch to\"}, \"name\": \"model\"}, {\"description\": \"List available tools with descriptions\", \"name\": \"tools\"}, {\"description\": \"Show conversation message counts by role\", \"name\": \"context\"}, {\"description\": \"Clear conversation history\", \"name\": \"reset\"}, {\"description\": \"Compress conversation context\", \"name\": \"compact\"}, {\"description\": \"Inject guidance into the currently running agent turn\", \"input\": {\"hint\": \"guidance for the active turn\"}, \"name\": \"steer\"}, {\"description\": \"Queue a prompt to run after the current turn finishes\", \"input\": {\"hint\": \"prompt to run next\"}, \"name\": \"queue\"}, {\"description\": \"Show Hermes version\", \"name\": \"version\"}], \"sessionUpdate\": \"available_commands_update\"}}",
+    "{\"sessionId\": \"b738deb4-6dce-4f77-9067-3f963bb7450c\", \"update\": {\"size\": 131072, \"used\": 11391, \"sessionUpdate\": \"usage_update\"}}",
+    "{\"sessionId\": \"b738deb4-6dce-4f77-9067-3f963bb7450c\", \"update\": {\"content\": {\"text\": \"P\", \"type\": \"text\"}, \"sessionUpdate\": \"agent_message_chunk\"}}",
+    "{\"sessionId\": \"b738deb4-6dce-4f77-9067-3f963bb7450c\", \"update\": {\"content\": {\"text\": \"ONG\", \"type\": \"text\"}, \"sessionUpdate\": \"agent_message_chunk\"}}",
+    "{\"sessionId\": \"b738deb4-6dce-4f77-9067-3f963bb7450c\", \"update\": {\"size\": 131072, \"used\": 12867, \"sessionUpdate\": \"usage_update\"}}"
+  ],
+  "stderr_tail": [
+    "2026-07-17 18:11:53 [INFO] acp_adapter.server: ACP client connected",
+    "2026-07-17 18:11:53 [INFO] acp_adapter.server: Initialize from unknown (protocol v1)",
+    "2026-07-17 18:11:53 [INFO] run_agent: No .env file found. Using system environment variables.",
+    "2026-07-17 18:11:54 [INFO] run_agent: OpenAI client created (agent_init, shared=True) thread=MainThread:8607018560 provider=custom base_url=http://localhost:11434/v1 model=llama3.2:3b",
+    "2026-07-17 18:11:54 [INFO] agent.auxiliary_client: Vision auto-detect: using main provider custom (llama3.2:3b)",
+    "2026-07-17 18:11:54 [INFO] agent.auxiliary_client: Vision auto-detect: using main provider custom (llama3.2:3b)",
+    "2026-07-17 18:11:54 [INFO] agent.model_metadata: Cached context length llama3.2:3b@http://localhost:11434/v1 -> 131,072 tokens",
+    "2026-07-17 18:11:54 [INFO] acp_adapter.session: Created ACP session b738deb4-6dce-4f77-9067-3f963bb7450c (cwd=/private/tmp/claude-501/-Users-mike-Workplace-uacp/4b0e998f-4524-4398-a664-4b0d3b8451d6/scratchpad/s0-spike/acp-workspace)",
+    "2026-07-17 18:11:54 [INFO] acp_adapter.server: New session b738deb4-6dce-4f77-9067-3f963bb7450c (cwd=/private/tmp/claude-501/-Users-mike-Workplace-uacp/4b0e998f-4524-4398-a664-4b0d3b8451d6/scratchpad/s0-spike/acp-workspace)",
+    "2026-07-17 18:11:54 [INFO] acp_adapter.server: Prompt on session b738deb4-6dce-4f77-9067-3f963bb7450c: Reply with exactly the single word: PONG",
+    "2026-07-17 18:11:54 [INFO] agent.turn_context: conversation turn: session=b738deb4-6dce-4f77-9067-3f963bb7450c model=llama3.2:3b provider=custom platform=acp history=0 msg='Reply with exactly the single word: PONG'",
+    "2026-07-17 18:11:54 [INFO] run_agent: OpenAI client created (chat_completion_stream_request, shared=False) thread=Thread-1 (_call):12969369600 provider=custom base_url=http://localhost:11434/v1 model=llama3.2:3b",
+    "2026-07-17 18:12:16 [INFO] run_agent: OpenAI client closed (stream_request_complete, shared=False, tcp_force_closed=0) thread=Thread-1 (_call):12969369600 provider=custom base_url=http://localhost:11434/v1 model=llama3.2:3b",
+    "2026-07-17 18:12:16 [INFO] agent.conversation_loop: API call #1: model=llama3.2:3b provider=custom in=11152 out=3 total=11155 latency=22.2s",
+    "2026-07-17 18:12:16 [INFO] agent.conversation_loop: Turn ended: reason=text_response(finish_reason=stop) model=llama3.2:3b api_calls=1/90 budget=1/90 tool_turns=0 last_msg_role=assistant response_len=4 session=b738deb4-6dce-4f77-9067-3f963bb7450c"
+  ]
+}

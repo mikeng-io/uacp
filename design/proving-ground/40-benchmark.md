@@ -50,8 +50,10 @@ Hermes+Qwen). Consequently:
 recorded in each replicate's provenance; pulling it is an **S1 prerequisite**; it is not currently on the host, and the
 `Qwen3.6-35B-A3B` variant that IS present (`HauhauCS…Uncensored…Aggressive`) is a community
 finetune and **forbidden as a baseline** (a benchmark baseline must be reproducible by
-others). Small models (`qwen2.5:3b`) power the cheap **smoke tier** — pipeline checks, never
-scored cells.
+others). The cheap **smoke tier** runs `llama3.2:3b` (131K context) — NOT `qwen2.5:3b`, whose 32K
+context is below Hermes's hard 64K floor (S0 finding; rejected at session/new, with a
+silent-refusal trap under a context override). Smoke = pipeline checks, never scored cells;
+scored local cells must serve their model with >=64K runtime context (ollama `num_ctx`).
 
 ## Wall-clock budget (the host GPU serializes everything)
 Local cells contend for ONE Metal GPU — replicates run **serially**. Order-of-magnitude: a
