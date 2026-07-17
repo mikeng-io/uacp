@@ -41,17 +41,30 @@ edges:
 ## Stages (each gated by its own verification; re-staged per the panel)
 - **P0 — commit the self-diagnosis spec** to `docs/self-diagnosis-design` (or fold its text
   into this bundle's 30 with attribution) so the supersession stamp is real.
-- **S0 — OpenAB lift spike** *(blocking; 20)*: (a) `crates/openab-agent` separability;
-  (b) one agent end-to-end over ACP from a bare harness; (c) container→host-ollama env-contract
-  reachability **incl. a multi-turn tool-calling check of ollama's OpenAI-compat path**;
-  (d) **server-side adapter verification** — `hermes acp` (confirmed to exist, v0.17.0) runs a
-  real session; Zed's `claude-code-acp` evaluated for the claude cells. Exit: a decision
-  record — lift-the-crate vs reimplement-the-thin-ACP-client; and a go/no-go per agent cell.
-- **S1 — `hermes-bare` smoke cell + the replicate pipeline**: runner spawns the SUT container,
+- **S0 — OpenAB lift spike** *(EXECUTED 2026-07-17 — (a)/(d) PASS; (b) protocol-level PASS on host; (c) PARTIAL, env-contract-in-container deferred to S1's entry gate; decision:
+  REIMPLEMENT the thin ACP client in Python, mine OpenAB's edge-cases; record:
+  `tools/proving-ground/records/S0-decision-record.md`; go: hermes GO, claude GO-adapter/
+  auth-gated; see 20)*: as executed — (a) client-transport separability: the ACP client is
+  `crates/openab-core/src/acp/` (~2.8k LoC; `openab-agent` turned out to be OpenAB's own
+  standalone agent, not the client); (b) one agent end-to-end over ACP from a bare host
+  harness (protocol-level PASS; the CONTAINERIZED cell image is deliberately out of S0 scope
+  and is S1's entry gate); (c) container→host-ollama env-contract reachability incl. a
+  multi-turn tool-calling check of ollama's OpenAI-compat path; (d) server-side adapter
+  inventory — `hermes acp` built-in (live-verified, v0.17.0); the Claude adapter OpenAB
+  installs is `@agentclientprotocol/claude-agent-acp@0.45.0` (npm). Exit delivered: the
+  decision record + per-cell go/no-go.
+- **S1 — `hermes-bare` smoke cell + the replicate pipeline**: ENTRY GATE (from S0's honest
+  scope): build the hermes cell image and prove the containerized boundary — adapter present
+  in-image, ACP round-trip from the runner into the container, and the injected env contract received AND USED inside (a model reply arriving via the injected endpoint).
+  Then: runner spawns the SUT container,
   injects a trivial task, local model answers, trail exported — **N times, aggregated**: the
   replicate/aggregation pipeline is built HERE (40's statistics law), against the cheap smoke
   tier, before anything is scored. Prereqs: pull the official `unsloth/Qwen3.6-35B-A3B-GGUF`
-  quant (40).
+  quant (40); **smoke-tier model = `llama3.2:3b`** (S0 finding: Hermes enforces a hard 64K
+  context floor — `qwen2.5:3b` (32K) is REJECTED at session/new, and a context_length
+  override triggers a SILENT prompt-time refusal that a naive harness reads as a pass; every
+  hermes-cell model must report >=64K context, and scored-cell ollama configs must serve the
+  35B quant with num_ctx >= 65536).
 - **S2 — `hermes-uacp` cell**: bake the **native `uacp_guardian` plugin** into the image —
   installed + registered in the in-image Hermes instance — as the PRIMARY drive channel
   (full `tool_specs()` surface + pre/post-tool hooks; prerequisite above); **plugin-conformance
@@ -100,8 +113,9 @@ assertions.
    because the automated lane needs unattended, auth-free, token-free cells.
 
 ## Open questions (remaining)
-1. **Rust vs Python for the runner glue.** Lean: lifted ACP/transport stays Rust as a thin CLI
-   the Python bench orchestrates.
+1. ~~Rust vs Python for the runner glue~~ — **RESOLVED by S0**: the protocol proved small
+   enough that the bench + its ACP client are pure Python (`tools/proving-ground/`); the
+   separable Rust crate (`openab-core/src/acp/`) is the documented fallback only (20).
 2. **Claude Code in-container auth for the automated lane** — API-key cell is straightforward;
    subscription auth likely excludes claude cells from unattended CI (they may stay
    operator-triggered / companion-lane-verified). S4 concern; flag early.
