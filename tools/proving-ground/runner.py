@@ -66,7 +66,27 @@ def _utcnow() -> str:
 
 
 def _run(cmd: list[str], timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
+    """Run a collection/setup command; NEVER raise. A missing executable or a hung command is a
+    per-replicate fact to record (returncode 127/124 + stderr), not an exception — an unhandled
+    raise here would abort the whole serial sweep and lose the aggregate."""
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=False)
+    except OSError as exc:
+        return subprocess.CompletedProcess(cmd, 127, stdout="", stderr=f"spawn failed: {exc}")
+    except subprocess.TimeoutExpired as exc:
+        out = (
+            exc.stdout.decode(errors="replace")
+            if isinstance(exc.stdout, bytes)
+            else (exc.stdout or "")
+        )
+        err = (
+            exc.stderr.decode(errors="replace")
+            if isinstance(exc.stderr, bytes)
+            else (exc.stderr or "")
+        )
+        return subprocess.CompletedProcess(
+            cmd, 124, stdout=out, stderr=err + f"\n[timed out after {timeout}s]"
+        )
 
 
 def run_cell(

@@ -40,6 +40,28 @@ def test_git_capture_failure_is_visible_not_empty(tmp_path):
     assert out.startswith("[git log --oneline --all failed:")
 
 
+def test_missing_docker_is_an_error_replicate_not_a_crash(tmp_path):
+    """Docker absent end-to-end: drive AND collection must both survive (Codex P1 on PR #158).
+
+    run_prompt maps the spawn failure to an `error` outcome; collection then invokes
+    `docker inspect` with the same missing binary and must record that instead of raising —
+    otherwise the sweep aborts and the aggregate is lost anyway.
+    """
+    out_dir = tmp_path / "rep-000"
+    cell = hermes_bare()
+    task = Task(name="probe", prompt="x")
+    result = run_cell(cell, task, out_dir, timeout=5, docker="/nonexistent-docker-binary")
+
+    assert result.outcome == "error"
+    assert result.detail is not None and result.detail.startswith("spawn failed:")
+    assert result.exit_code is None
+    # The trail is still written: inspect failure recorded, meta.json present.
+    inspect = json.loads((out_dir / "runner-side" / "container-inspect.json").read_text())
+    assert "spawn failed" in inspect["error"]
+    meta = json.loads((out_dir / "runner-side" / "meta.json").read_text())
+    assert meta["outcome"] == "error"
+
+
 def test_stale_workspace_is_wiped_before_baseline(tmp_path):
     """Reusing an output dir must NOT leak a prior run's files into the baseline commit.
 
