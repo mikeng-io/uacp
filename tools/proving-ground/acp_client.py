@@ -144,6 +144,7 @@ class SubprocessTransport:
             try:
                 self._proc.stdin.close()
             except OSError:
+                # Teardown path: the process may already be gone; a close failure changes nothing.
                 pass
 
     def terminate(self, grace: float = 2.0) -> None:
@@ -157,6 +158,8 @@ class SubprocessTransport:
                 try:
                     self._proc.wait(timeout=grace)
                 except subprocess.TimeoutExpired:
+                    # Even SIGKILL can leave an uninterruptible-sleep zombie; the contract here
+                    # is "never block longer than grace", so give up and let the OS reap it.
                     pass
 
     @property

@@ -7,7 +7,6 @@ import subprocess
 
 import runner
 from cells import hermes_bare
-from runner import Task, _collect_container, _git_capture, run_cell
 
 
 def _fake_run_factory(inspect_payload: str):
@@ -25,13 +24,13 @@ def test_running_container_yields_no_exit_code(tmp_path, monkeypatch):
     """A watchdog-orphaned container reports ExitCode 0 while Running -- must NOT be trusted."""
     payload = json.dumps([{"State": {"Running": True, "ExitCode": 0}}])
     monkeypatch.setattr(runner, "_run", _fake_run_factory(payload))
-    assert _collect_container("pg-test", tmp_path, docker="docker") is None
+    assert runner._collect_container("pg-test", tmp_path, docker="docker") is None
 
 
 def test_stopped_container_exit_code_is_reported(tmp_path, monkeypatch):
     payload = json.dumps([{"State": {"Running": False, "ExitCode": 137}}])
     monkeypatch.setattr(runner, "_run", _fake_run_factory(payload))
-    assert _collect_container("pg-test", tmp_path, docker="docker") == 137
+    assert runner._collect_container("pg-test", tmp_path, docker="docker") == 137
 
 
 def test_workspace_made_world_writable_for_container_user(tmp_path):
@@ -91,7 +90,7 @@ def test_uacp_export_never_dereferences_sut_symlinks(tmp_path):
 
 def test_git_capture_failure_is_visible_not_empty(tmp_path):
     """If the SUT destroyed .git, the exported file must carry a marker, not an empty string."""
-    out = _git_capture(tmp_path, ["log", "--oneline", "--all"])  # tmp_path is not a git repo
+    out = runner._git_capture(tmp_path, ["log", "--oneline", "--all"])  # tmp_path is not a git repo
     assert out.startswith("[git log --oneline --all failed:")
 
 
@@ -104,8 +103,8 @@ def test_missing_docker_is_an_error_replicate_not_a_crash(tmp_path):
     """
     out_dir = tmp_path / "rep-000"
     cell = hermes_bare()
-    task = Task(name="probe", prompt="x")
-    result = run_cell(cell, task, out_dir, timeout=5, docker="/nonexistent-docker-binary")
+    task = runner.Task(name="probe", prompt="x")
+    result = runner.run_cell(cell, task, out_dir, timeout=5, docker="/nonexistent-docker-binary")
 
     assert result.outcome == "error"
     assert result.detail is not None and result.detail.startswith("spawn failed:")
@@ -135,8 +134,8 @@ def test_stale_workspace_is_wiped_before_baseline(tmp_path):
     stale.write_text("left over\n")
 
     cell = hermes_bare()
-    task = Task(name="probe", prompt="x")
-    result = run_cell(cell, task, out_dir, timeout=5, docker="/bin/echo")
+    task = runner.Task(name="probe", prompt="x")
+    result = runner.run_cell(cell, task, out_dir, timeout=5, docker="/bin/echo")
 
     workspace = out_dir / "workspace"
     assert not (workspace / "stale-from-prior-run.txt").exists()
@@ -170,7 +169,7 @@ def test_inspect_env_credentials_are_redacted(tmp_path, monkeypatch):
         ]
     )
     monkeypatch.setattr(runner, "_run", _fake_run_factory(payload))
-    exit_code = _collect_container("pg-test", tmp_path, docker="docker")
+    exit_code = runner._collect_container("pg-test", tmp_path, docker="docker")
     assert exit_code == 0
     written = (tmp_path / "container-inspect.json").read_text()
     assert "sk-super-secret-value" not in written

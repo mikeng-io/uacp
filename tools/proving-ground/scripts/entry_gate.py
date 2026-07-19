@@ -303,8 +303,10 @@ def write_record(overall: bool, reqs: list[Req], facts: dict) -> None:
         "a full ACP round-trip crosses the container boundary, and the injected provider env",
         "contract is not merely received but USED (a dead endpoint must fail — negative control).",
         "",
-        "Raw runner-side ACP transcripts (ground truth for R3/R4): "
-        "`records/entry-gate/pos-transcript.log`, `records/entry-gate/neg-transcript.log`.",
+        (
+            "Raw runner-side ACP transcripts (ground truth for R3/R4): "
+            "`records/entry-gate/pos-transcript.log`, `records/entry-gate/neg-transcript.log`."
+        ),
         "",
         "## Requirements",
         "",

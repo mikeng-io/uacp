@@ -49,9 +49,11 @@ def write_record(agg: Aggregate, n: int, timeout: float, out_dir: Path) -> None:
         f"- Replicates (N): {n}  Per-replicate timeout: {timeout:.0f}s",
         f"- Output: `{os.path.relpath(out_dir, PKG)}` (relative to `tools/proving-ground/`)",
         "",
-        "This is a pipeline check against the cheap smoke tier — outcomes only, no scoring "
-        "(oracles arrive at S3+). It confronts the data-handling reality and the wall-clock bill "
-        "before any scored sweep exists (40-benchmark's statistics law, built at S1).",
+        (
+            "This is a pipeline check against the cheap smoke tier — outcomes only, no scoring "
+            "(oracles arrive at S3+). It confronts the data-handling reality and the wall-clock "
+            "bill before any scored sweep exists (40-benchmark's statistics law, built at S1)."
+        ),
         "",
         "## Outcomes",
         "",
