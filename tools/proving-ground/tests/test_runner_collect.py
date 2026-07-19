@@ -179,3 +179,24 @@ def test_inspect_env_credentials_are_redacted(tmp_path, monkeypatch):
     # Non-secret env stays intact — the evidence remains useful.
     assert "UACP_MODEL_ID=qwen3.5:4b" in written
     assert "PATH=/usr/bin" in written
+
+
+def test_git_capture_neutralizes_sut_planted_exec_config(tmp_path):
+    """Container-escape guard (Codex P1 on PR #158): a SUT that plants an exec-capable git
+    config key (core.fsmonitor) into its workspace must NOT get that command run on the runner
+    host when the collector reads git status/diff."""
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    subprocess.run(["git", "-C", str(ws), "init", "-q"], check=True)
+    subprocess.run(
+        ["git", "-C", str(ws), "commit", "-q", "--allow-empty", "-m", "base"], check=True
+    )
+    # The SUT plants a payload: fsmonitor points at a command that would touch a runner-host file.
+    canary = tmp_path / "PWNED"
+    ws_config = ws / ".git" / "config"
+    ws_config.write_text(ws_config.read_text() + f'\n[core]\n\tfsmonitor = "touch {canary}"\n')
+    # Collection reads git status/diff via the hardened helper.
+    out = runner._git_capture(ws, ["status", "--porcelain"])
+    runner._git_capture(ws, ["diff", "--no-ext-diff", "--no-textconv", "HEAD"])
+    assert not canary.exists(), "SUT-planted core.fsmonitor executed on the runner host"
+    assert "failed" not in out  # status still works with the override

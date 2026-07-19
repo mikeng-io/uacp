@@ -273,11 +273,23 @@ def _collect_container(container: str, runner_side: Path, *, docker: str) -> int
     return exit_code
 
 
+# Post-run, workspace/.git/config is SUT-CONTROLLED, and these git commands run on the RUNNER
+# host: config keys that name an executable (core.fsmonitor for `status`, external diff /
+# textconv drivers for `diff`, hooksPath) would hand the SUT code execution with runner
+# privileges — a container escape through the evidence collector. Command-line `-c` overrides
+# take precedence over every config file (including ones pulled in via include.path).
+_GIT_UNTRUSTED_OVERRIDES = [
+    "-c", "core.fsmonitor=false",
+    "-c", "core.hooksPath=/dev/null",
+    "-c", "core.pager=cat",
+]  # fmt: skip
+
+
 def _git_capture(workspace: Path, args: list[str]) -> str:
-    """Run a git command for export. A failure (e.g. the SUT destroyed .git) must be VISIBLE in
-    the exported file, not an indistinguishable empty string — this evidence class is weighted
-    precisely because the SUT can tamper with it."""
-    proc = _run(["git", "-C", str(workspace), *args])
+    """Run a git command for export, with SUT-set exec-capable config neutralized. A failure
+    (e.g. the SUT destroyed .git) must be VISIBLE in the exported file, not an indistinguishable
+    empty string — this evidence class is weighted precisely because the SUT can tamper with it."""
+    proc = _run(["git", *_GIT_UNTRUSTED_OVERRIDES, "-C", str(workspace), *args])
     if proc.returncode != 0:
         return f"[git {' '.join(args)} failed: exit {proc.returncode}: {proc.stderr.strip()}]\n"
     return proc.stdout
@@ -292,7 +304,10 @@ def _collect_workspace(workspace: Path, sut_authored: Path) -> None:
         _git_capture(workspace, ["status", "--porcelain"]), encoding="utf-8"
     )
     (sut_authored / "git-diff.txt").write_text(
-        _git_capture(workspace, ["diff", "HEAD"]), encoding="utf-8"
+        # --no-ext-diff/--no-textconv: diff drivers are the diff-side exec vector (attributes +
+        # SUT config can name arbitrary commands to render the diff).
+        _git_capture(workspace, ["diff", "--no-ext-diff", "--no-textconv", "HEAD"]),
+        encoding="utf-8",
     )
     tree = sorted(
         str(p.relative_to(workspace))
