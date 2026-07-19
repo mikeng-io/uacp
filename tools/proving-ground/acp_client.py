@@ -276,6 +276,12 @@ class AcpClient:
                 # Non-JSON stdout noise; log and ignore rather than crash the drive.
                 self._log("<~~", {"unparsed": item[:400]})
                 continue
+            if not isinstance(obj, dict):
+                # Syntactically valid but non-object JSON (`[]`, `null`, a bare number/string):
+                # `.get()` on it would raise AttributeError and abort the whole sweep. A JSON-RPC
+                # frame is always an object; anything else is malformed noise -> log and skip.
+                self._log("<~~", {"non_object_frame": item[:400]})
+                continue
             self._log("<--", obj)
             if "method" in obj and "id" in obj:  # server -> client request
                 self._handle_server_request(obj)

@@ -113,3 +113,18 @@ def test_thought_chunks_are_excluded_from_reply_evidence():
     ]
     assert extract_agent_text(updates) == "PONG"
     assert extract_agent_text(updates[:1]) == ""
+
+
+def test_non_object_json_frame_does_not_crash_drive(tmp_path):
+    """A faulty agent emitting valid-but-non-object JSON (`[]`, `null`) before its frames must
+    not crash the drive with AttributeError — the frame is skipped as noise (Codex P2 on #158).
+    The agent then hangs, so the drive ends in the closed `timeout` outcome, never a raise."""
+    result = run_prompt(
+        [sys.executable, str(FAKE)],
+        "ping",
+        cwd=str(tmp_path),
+        env={**os.environ, "FAKE_MODE": "junk_frames"},
+        timeout=2,
+    )
+    assert result.outcome in ("timeout", "error", "completed")  # NOT an exception
+    assert result.outcome == "timeout"  # the junk-frame agent hangs after emitting noise

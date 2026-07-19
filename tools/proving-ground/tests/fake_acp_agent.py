@@ -13,6 +13,8 @@ FAKE_MODE env var:
 * ``refuse_prompt``: the permission request offers ONLY reject options, so the client answers
   ``cancelled`` and the agent finishes with ``stopReason: refused`` — the client must map that
   to an ``error`` outcome, never ``completed``.
+* ``junk_frames``: on ``session/prompt`` it writes valid-but-non-object JSON frames (``[]`` and
+  ``null``) then hangs — the client must skip them as noise (not AttributeError) and time out.
 """
 
 from __future__ import annotations
@@ -59,6 +61,12 @@ def main() -> None:
         elif method == "session/new":
             send({"jsonrpc": "2.0", "id": mid, "result": {"sessionId": "fake-session"}})
         elif method == "session/prompt":
+            if mode == "junk_frames":
+                sys.stdout.write("[]\n")
+                sys.stdout.write("null\n")
+                sys.stdout.flush()
+                time.sleep(3600)
+                return
             if mode == "hang_prompt":
                 time.sleep(3600)
                 return
