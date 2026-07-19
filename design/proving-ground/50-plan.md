@@ -59,12 +59,17 @@ edges:
   Then: runner spawns the SUT container,
   injects a trivial task, local model answers, trail exported — **N times, aggregated**: the
   replicate/aggregation pipeline is built HERE (40's statistics law), against the cheap smoke
-  tier, before anything is scored. Prereqs: pull the official `unsloth/Qwen3.6-35B-A3B-GGUF`
-  quant (40); **smoke-tier model = `llama3.2:3b`** (S0 finding: Hermes enforces a hard 64K
-  context floor — `qwen2.5:3b` (32K) is REJECTED at session/new, and a context_length
-  override triggers a SILENT prompt-time refusal that a naive harness reads as a pass; every
-  hermes-cell model must report >=64K context, and scored-cell ollama configs must serve the
-  35B quant with num_ctx >= 65536).
+  tier, before anything is scored. Prereqs: pull the scored model **`qwen3.6:35b-a3b` from the
+  ollama library** (mike's pin — the unsloth hf.co GGUF failed to finalize on the local ollama
+  runtime with `Error: 400` at the manifest step, so the ollama-library artifact of the same
+  official model is the reproducible pin; record its digest at first pull; 40). **Smoke tier =
+  criteria** (>=64K reported context + probe-verified tool-calling + replicate speed), **current
+  roster: smoke = `qwen3.5:4b`** (mike's preference 2026-07-18, same family as the scored model;
+  probe PASS — 262K context, tool-calling OK), fallbacks `qwen3:30b-a3b` (on-disk) / `gemma4:12b`
+  (cross-family). (S0 finding: Hermes enforces a hard 64K context floor — `qwen2.5:3b` (32K) is
+  REJECTED at session/new, and a context_length override triggers a SILENT prompt-time refusal
+  that a naive harness reads as a pass; every hermes-cell model must report >=64K context, and
+  scored-cell ollama configs must serve the 35B model with num_ctx >= 65536).
 - **S2 — `hermes-uacp` cell**: bake the **native `uacp_guardian` plugin** into the image —
   installed + registered in the in-image Hermes instance — as the PRIMARY drive channel
   (full `tool_specs()` surface + pre/post-tool hooks; prerequisite above); **plugin-conformance
@@ -81,6 +86,15 @@ edges:
   per the panel): **native probe PASS + terminal state reached + full trail exported** — the
   conformance *verdict* on that trail is applied retroactively when S3 lands. This is still
   the outstanding real agent-through-tools dogfood; it just doesn't grade itself.
+  **S2 also lands egress ENFORCEMENT** (10-topology's per-cell policy is declared-advisory at
+  S1: cells carry `egress` and every S1 `meta.json` self-reports `egress_enforced: false`).
+  Empirical S1 finding (2026-07-18): `docker network create --internal` blocks host-gateway
+  too on Docker Desktop, so "host-model-only" needs the **dual-network proxy sidecar** — SUT on
+  an internal network, a forward-proxy container attached to internal + bridge that relays only
+  to the cell's declared endpoint, `OPENAI_BASE_URL` pointed at the sidecar. This composes with
+  the cross-flavor normalizing proxy (10.3): same sidecar seat, two duties. S2 flips
+  `EGRESS_ENFORCED` when it lands; until then bare-bridge runs are pipeline checks, not
+  containment-valid results.
 - **S3 — observer + calibration**: port L1–L4 as CODE gates over the exported trail (with the
   tiered hard/soft split, the schema contract test, and the kernel fault-flag mechanism — 30);
   run the clean baseline AND the planted-fault runs. Exit: the decoupling litmus passes and

@@ -1,7 +1,7 @@
 ---
 type: analysis
 title: The benchmark — N-replicated cells, honest causal claims, and the friction-budget feed
-description: The benchmark readout scores the SAME runs the test readout gates — with STATISTICS AS FIRST-CLASS (panel-critical fix). Every cell is N replicates of a stochastic agent — means, variance, confidence intervals; single runs are anecdotes and are never reported as scores. The only CAUSAL claim is ±UACP within one agent on a fixed model (governance ablation); cross-agent comparisons are confounded (agent x model move together) and reported as descriptive only. Metrics — deterministic task oracles + governance metrics CONSUMED from the existing #80 witness/forecast ledgers (never re-counted). Reference local model — the official unsloth/Qwen3.6-35B-A3B-GGUF quant (pull is an S1 prerequisite; the locally-present community finetune is forbidden as a baseline). Explicit wall-clock budget — the host GPU is one serialized resource. LLM-judge quarantined to a labeled advisory layer.
+description: The benchmark readout scores the SAME runs the test readout gates — with STATISTICS AS FIRST-CLASS (panel-critical fix). Every cell is N replicates of a stochastic agent — means, variance, confidence intervals; single runs are anecdotes and are never reported as scores. The only CAUSAL claim is ±UACP within one agent on a fixed model (governance ablation); cross-agent comparisons are confounded (agent x model move together) and reported as descriptive only. Metrics — deterministic task oracles + governance metrics CONSUMED from the existing #80 witness/forecast ledgers (never re-counted). Reference local model (scored) — qwen3.6:35b-a3b from the ollama library (mike's pin; the unsloth hf.co GGUF failed to finalize on the local ollama runtime with Error 400 at the manifest step, so the ollama-library artifact of the same official model is the reproducible pin, digest recorded at first pull; the locally-present community finetune is forbidden as a baseline). Smoke tier is criteria (>=64K reported ctx + probe-verified tool-calling + replicate speed), current roster smoke=qwen3.5:4b, fallbacks qwen3:30b-a3b / gemma4:12b. Explicit wall-clock budget — the host GPU is one serialized resource. LLM-judge quarantined to a labeled advisory layer.
 tags: [benchmark, replicates, statistics, confounds, oracles, governance-metrics, friction-budget-feed, llm-judge-quarantine]
 timestamp: 2026-07-17
 edges:
@@ -45,15 +45,24 @@ Hermes+Qwen). Consequently:
 | `claude-uacp` | Claude Code | Anthropic API | on | governance ablation on the strong side |
 | *(later)* `pi-*`, `opencode-*` | … | … | ± | added as cells (20) |
 
-**Reference local model:** the **official** `unsloth/Qwen3.6-35B-A3B-GGUF` quant (e.g.
-`Q4_K_M`) — pinned per cell via the REQUIRED `model_id` in the env contract (10.3) and
-recorded in each replicate's provenance; pulling it is an **S1 prerequisite**; it is not currently on the host, and the
-`Qwen3.6-35B-A3B` variant that IS present (`HauhauCS…Uncensored…Aggressive`) is a community
-finetune and **forbidden as a baseline** (a benchmark baseline must be reproducible by
-others). The cheap **smoke tier** runs `llama3.2:3b` (131K context) — NOT `qwen2.5:3b`, whose 32K
-context is below Hermes's hard 64K floor (S0 finding; rejected at session/new, with a
-silent-refusal trap under a context override). Smoke = pipeline checks, never scored cells;
-scored local cells must serve their model with >=64K runtime context (ollama `num_ctx`).
+**Reference local model (scored tier):** `qwen3.6:35b-a3b` **from the ollama library** (mike's
+pin) — pinned per cell via the REQUIRED `model_id` in the env contract (10.3) and recorded in
+each replicate's provenance. *Honest provenance note:* the intended artifact was the official
+`unsloth/Qwen3.6-35B-A3B-GGUF` hf.co quant, but it **failed to finalize on the local ollama
+runtime** (`Error: 400` at the manifest step); the **ollama-library artifact of the same
+official model** is therefore the reproducible pin, and its **digest is recorded at first pull**
+so the baseline is reproducible by others. The `Qwen3.6-35B-A3B` variant already on the host
+(`HauhauCS…Uncensored…Aggressive`) is a community finetune and **forbidden as a baseline**.
+Scored local cells must serve their model with >=64K runtime context (ollama `num_ctx`).
+
+**Smoke tier = criteria, not a fixed model.** The cheap smoke tier is defined by *properties* a
+model must satisfy — **(1)** reports **>=64K context** (Hermes's hard floor, an S0 finding:
+`qwen2.5:3b`'s 32K is rejected at `session/new`, with a silent-refusal trap under a context
+override), **(2)** **probe-verified tool-calling**, and **(3)** replicate speed cheap enough for
+per-push use. Current roster: **smoke = `qwen3.5:4b`** (mike's preference 2026-07-18 — same
+family as the scored model; probe PASS: 262K reported context, tool-calling OK), with
+**fallbacks `qwen3:30b-a3b`** (already on-disk) and **`gemma4:12b`** (cross-family). Smoke =
+pipeline checks, never scored cells.
 
 ## Wall-clock budget (the host GPU serializes everything)
 Local cells contend for ONE Metal GPU — replicates run **serially**. Order-of-magnitude: a

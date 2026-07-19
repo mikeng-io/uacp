@@ -1,0 +1,10 @@
+# HERMES_HOME/config.yaml template -- rendered by entrypoint.sh from the runtime env contract.
+# The @PLACEHOLDER@ tokens are substituted from OPENAI_BASE_URL / OPENAI_API_KEY / UACP_MODEL_ID so
+# the model endpoint is provably driven by the injected env (a dead endpoint => a failed run, which
+# is exactly how the entry gate proves the env contract is USED, not merely received).
+# provider: custom => Hermes talks the OpenAI-compatible API at base_url (S0-verified path).
+model:
+  default: "@MODEL_ID@"
+  provider: custom
+  base_url: "@BASE_URL@"
+  api_key: "@API_KEY@"

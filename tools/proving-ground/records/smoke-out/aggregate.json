@@ -1,0 +1,20 @@
+{
+  "cell": "hermes-bare",
+  "task": "hello-file",
+  "model_id": "qwen3.5:4b",
+  "n": 5,
+  "outcomes": {
+    "completed": 5,
+    "timeout": 0,
+    "error": 0
+  },
+  "wall_clock": {
+    "mean": 32.418,
+    "stdev": 15.662,
+    "min": 20.231,
+    "max": 58.302,
+    "ci95_half_width": 19.444
+  },
+  "replicates_path": "replicates.jsonl",
+  "aggregate_path": "aggregate.json"
+}
