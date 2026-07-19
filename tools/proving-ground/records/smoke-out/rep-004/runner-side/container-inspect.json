@@ -1,7 +1,7 @@
 [
   {
-    "Id": "fb62f85d6e938131c6dbc9add530310fca9ad97294590f5b006c6e4e554a8402",
-    "Created": "2026-07-19T18:20:26.250602014Z",
+    "Id": "63f982bc17c495e34e2bbe68a7092e2ccc3c30fbeb34579cc94ff576ba81ddbc",
+    "Created": "2026-07-19T18:29:16.972619092Z",
     "Path": "tini",
     "Args": [
       "--",
@@ -15,17 +15,17 @@
       "OOMKilled": false,
       "Dead": false,
       "Pid": 0,
-      "ExitCode": 143,
+      "ExitCode": 0,
       "Error": "",
-      "StartedAt": "2026-07-19T18:20:26.292642639Z",
-      "FinishedAt": "2026-07-19T18:21:00.102861793Z"
+      "StartedAt": "2026-07-19T18:29:17.012715801Z",
+      "FinishedAt": "2026-07-19T18:29:42.402557257Z"
     },
     "Image": "sha256:b74f88fc440585483374e71707fa788ae758aa9734da41c25660f649a859e159",
-    "ResolvConfPath": "/var/lib/docker/containers/fb62f85d6e938131c6dbc9add530310fca9ad97294590f5b006c6e4e554a8402/resolv.conf",
-    "HostnamePath": "/var/lib/docker/containers/fb62f85d6e938131c6dbc9add530310fca9ad97294590f5b006c6e4e554a8402/hostname",
-    "HostsPath": "/var/lib/docker/containers/fb62f85d6e938131c6dbc9add530310fca9ad97294590f5b006c6e4e554a8402/hosts",
-    "LogPath": "/var/lib/docker/containers/fb62f85d6e938131c6dbc9add530310fca9ad97294590f5b006c6e4e554a8402/fb62f85d6e938131c6dbc9add530310fca9ad97294590f5b006c6e4e554a8402-json.log",
-    "Name": "/pg-hermes-bare-daccdb9198be",
+    "ResolvConfPath": "/var/lib/docker/containers/63f982bc17c495e34e2bbe68a7092e2ccc3c30fbeb34579cc94ff576ba81ddbc/resolv.conf",
+    "HostnamePath": "/var/lib/docker/containers/63f982bc17c495e34e2bbe68a7092e2ccc3c30fbeb34579cc94ff576ba81ddbc/hostname",
+    "HostsPath": "/var/lib/docker/containers/63f982bc17c495e34e2bbe68a7092e2ccc3c30fbeb34579cc94ff576ba81ddbc/hosts",
+    "LogPath": "/var/lib/docker/containers/63f982bc17c495e34e2bbe68a7092e2ccc3c30fbeb34579cc94ff576ba81ddbc/63f982bc17c495e34e2bbe68a7092e2ccc3c30fbeb34579cc94ff576ba81ddbc-json.log",
+    "Name": "/pg-hermes-bare-0a55f71c6504",
     "RestartCount": 0,
     "Driver": "overlay2",
     "Platform": "linux",
@@ -132,11 +132,11 @@
     },
     "GraphDriver": {
       "Data": {
-        "ID": "fb62f85d6e938131c6dbc9add530310fca9ad97294590f5b006c6e4e554a8402",
-        "LowerDir": "/var/lib/docker/overlay2/37640ce063e319f803a437a81ed69ffa581a0b550ad4345e8f2d0b7a2f9c28bf-init/diff:/var/lib/docker/overlay2/lxvguojqrdkg5up0mvk0dik7o/diff:/var/lib/docker/overlay2/owxyhsewxo47rz3okg9oxulw4/diff:/var/lib/docker/overlay2/lkb9h87tn2ib2rwmtzdpbm0sd/diff:/var/lib/docker/overlay2/x2l2imbtg763uf3jb6rgnlmgt/diff:/var/lib/docker/overlay2/r6bohqoo6lcxevhgwot250grk/diff:/var/lib/docker/overlay2/q124y03w65avk23aqyrrimqxc/diff:/var/lib/docker/overlay2/8uw91wvxmjaspe5wv2y1wxpb1/diff:/var/lib/docker/overlay2/f47g0s9go4a014jw9lgf1fspd/diff:/var/lib/docker/overlay2/759537e30bd4db1bf9653c2fb14825ddfca96d4de09a25d9e5fc366a7e054ec7/diff:/var/lib/docker/overlay2/860797105b2ea5aca188451c27de31e861b4c664439ef20373f2fc9ac39795a0/diff:/var/lib/docker/overlay2/1b50ab111a9a35e1eaa321cc5ab41e87c45bc2d390901ac4158734edc59fe801/diff:/var/lib/docker/overlay2/087ee171ec2021f808aa5f324beb164105726a82f163b7ece12585214c52576e/diff",
-        "MergedDir": "/var/lib/docker/overlay2/37640ce063e319f803a437a81ed69ffa581a0b550ad4345e8f2d0b7a2f9c28bf/merged",
-        "UpperDir": "/var/lib/docker/overlay2/37640ce063e319f803a437a81ed69ffa581a0b550ad4345e8f2d0b7a2f9c28bf/diff",
-        "WorkDir": "/var/lib/docker/overlay2/37640ce063e319f803a437a81ed69ffa581a0b550ad4345e8f2d0b7a2f9c28bf/work"
+        "ID": "63f982bc17c495e34e2bbe68a7092e2ccc3c30fbeb34579cc94ff576ba81ddbc",
+        "LowerDir": "/var/lib/docker/overlay2/5f30c23534961a1d95dbc2dc6f9d5cd7822a0cfeffa8d28633caa77b4cc66336-init/diff:/var/lib/docker/overlay2/lxvguojqrdkg5up0mvk0dik7o/diff:/var/lib/docker/overlay2/owxyhsewxo47rz3okg9oxulw4/diff:/var/lib/docker/overlay2/lkb9h87tn2ib2rwmtzdpbm0sd/diff:/var/lib/docker/overlay2/x2l2imbtg763uf3jb6rgnlmgt/diff:/var/lib/docker/overlay2/r6bohqoo6lcxevhgwot250grk/diff:/var/lib/docker/overlay2/q124y03w65avk23aqyrrimqxc/diff:/var/lib/docker/overlay2/8uw91wvxmjaspe5wv2y1wxpb1/diff:/var/lib/docker/overlay2/f47g0s9go4a014jw9lgf1fspd/diff:/var/lib/docker/overlay2/759537e30bd4db1bf9653c2fb14825ddfca96d4de09a25d9e5fc366a7e054ec7/diff:/var/lib/docker/overlay2/860797105b2ea5aca188451c27de31e861b4c664439ef20373f2fc9ac39795a0/diff:/var/lib/docker/overlay2/1b50ab111a9a35e1eaa321cc5ab41e87c45bc2d390901ac4158734edc59fe801/diff:/var/lib/docker/overlay2/087ee171ec2021f808aa5f324beb164105726a82f163b7ece12585214c52576e/diff",
+        "MergedDir": "/var/lib/docker/overlay2/5f30c23534961a1d95dbc2dc6f9d5cd7822a0cfeffa8d28633caa77b4cc66336/merged",
+        "UpperDir": "/var/lib/docker/overlay2/5f30c23534961a1d95dbc2dc6f9d5cd7822a0cfeffa8d28633caa77b4cc66336/diff",
+        "WorkDir": "/var/lib/docker/overlay2/5f30c23534961a1d95dbc2dc6f9d5cd7822a0cfeffa8d28633caa77b4cc66336/work"
       },
       "Name": "overlay2"
     },
@@ -151,7 +151,7 @@
       }
     ],
     "Config": {
-      "Hostname": "fb62f85d6e93",
+      "Hostname": "63f982bc17c4",
       "Domainname": "",
       "User": "agent",
       "AttachStdin": true,
@@ -161,9 +161,9 @@
       "OpenStdin": true,
       "StdinOnce": true,
       "Env": [
+        "UACP_MODEL_ID=qwen3.5:4b",
         "OPENAI_BASE_URL=http://host.docker.internal:11434/v1",
         "OPENAI_API_KEY=[REDACTED]",
-        "UACP_MODEL_ID=qwen3.5:4b",
         "PATH=/home/agent/.local/bin:/home/agent/.hermes/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
         "LANG=C.UTF-8",
         "GPG_KEY=[REDACTED]",

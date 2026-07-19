@@ -200,3 +200,31 @@ def test_git_capture_neutralizes_sut_planted_exec_config(tmp_path):
     runner._git_capture(ws, ["diff", "--no-ext-diff", "--no-textconv", "HEAD"])
     assert not canary.exists(), "SUT-planted core.fsmonitor executed on the runner host"
     assert "failed" not in out  # status still works with the override
+
+
+def test_uacp_export_skips_special_files_without_hanging(tmp_path):
+    """A SUT-planted FIFO under .uacp would block copy2's open() forever (this collector runs
+    after the watchdog with no timeout). Special files must be skipped, not opened (Codex P1)."""
+    import os
+    import threading
+
+    ws = tmp_path / "ws"
+    (ws / ".uacp").mkdir(parents=True)
+    (ws / ".uacp" / "state.json").write_text("{}")
+    os.mkfifo(ws / ".uacp" / "pipe")  # the blocking trap
+
+    out = tmp_path / "out"
+    out.mkdir()
+    done = threading.Event()
+
+    def run():
+        runner._collect_workspace(ws, out)
+        done.set()
+
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    # If the FIFO were opened, this collector would hang forever; a real timeout catches that.
+    assert done.wait(timeout=15), "collector hung on a SUT-planted FIFO"
+    assert (out / "uacp" / "state.json").exists()
+    assert not (out / "uacp" / "pipe").exists()
+    assert "pipe" in (out / "uacp-SKIPPED.txt").read_text()

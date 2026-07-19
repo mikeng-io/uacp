@@ -147,6 +147,15 @@ class SubprocessTransport:
                 # Teardown path: the process may already be gone; a close failure changes nothing.
                 pass
 
+    def wait(self, timeout: float) -> int | None:
+        """Wait up to ``timeout`` for a NATURAL exit; return the exit code, or None if still
+        running. Lets a clean shutdown (stdin closed -> ACP server exits) record its real exit
+        status instead of the SIGTERM 143 a forced terminate would stamp on every good run."""
+        try:
+            return self._proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            return None
+
     def terminate(self, grace: float = 2.0) -> None:
         """Terminate the subprocess, escalating to kill. Never blocks longer than ``grace``."""
         if self._proc.poll() is None:
@@ -401,12 +410,14 @@ def run_prompt(
     env: Mapping[str, str] | None = None,
     timeout: float = 240.0,
     transcript_path: str | Path | None = None,
+    shutdown_grace: float = 10.0,
 ) -> PromptResult:
     """Spawn ``command``, drive one prompt, and always tear the subprocess down (no hangs).
 
     ``cwd`` is the subprocess working directory; ``session_cwd`` is the path sent in
     ``session/new`` (inside the container it is the mount point, e.g. ``/workspace``) and defaults
-    to ``cwd`` when not given.
+    to ``cwd`` when not given. ``shutdown_grace`` is how long to let the container exit naturally
+    after stdin close before forcing termination (so the recorded exit status is real).
     """
     try:
         transport = SubprocessTransport(command, env=env, cwd=cwd)
@@ -415,18 +426,29 @@ def run_prompt(
         # `error` outcome, not a crash — one bad spawn must not abort a whole serial sweep.
         return PromptResult(outcome=OUTCOME_ERROR, detail=f"spawn failed: {exc}")
     client = AcpClient(transport, transcript_path=transcript_path)
+    result: PromptResult | None = None
     try:
-        return client.drive_prompt(session_cwd or cwd, prompt_text, timeout)
+        result = client.drive_prompt(session_cwd or cwd, prompt_text, timeout)
+        return result
     except OSError as exc:
         # An agent that dies right after spawn breaks the stdin pipe on the next request write
         # (BrokenPipeError). Same contract as a failed spawn: this replicate is an `error`
         # outcome, never an exception that aborts the sweep.
-        return PromptResult(
+        result = PromptResult(
             outcome=OUTCOME_ERROR,
             detail=f"transport write failed: {exc}",
             stderr_tail=transport.stderr_tail,
         )
+        return result
     finally:
+        # Closing stdin is the clean-shutdown signal: the ACP server sees EOF and exits on its
+        # own, so `docker inspect` records the REAL container exit status. ONLY a cleanly-
+        # completed run earns the grace window to exit naturally (otherwise its exit would be
+        # stamped 143 by a forced SIGTERM, misleading an observer); a timed-out or errored agent
+        # is already unresponsive, so tear it down immediately to keep the watchdog's promptness
+        # guarantee. terminate() is a no-op if the process already exited.
         transport.close_stdin()
+        if result is not None and result.outcome == OUTCOME_COMPLETED:
+            transport.wait(shutdown_grace)
         transport.terminate()
         client.close()

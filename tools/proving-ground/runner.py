@@ -328,19 +328,26 @@ def _collect_workspace(workspace: Path, sut_authored: Path) -> None:
     elif uacp_dir.is_dir():
         skipped: list[str] = []
 
-        def _ignore_symlinks(src: str, names: list[str]) -> list[str]:
-            bad = [n for n in names if (Path(src) / n).is_symlink()]
-            skipped.extend(
-                f"{(Path(src) / n).relative_to(uacp_dir)} -> {(Path(src) / n).readlink()}"
-                for n in bad
-            )
+        def _ignore_unsafe(src: str, names: list[str]) -> list[str]:
+            # Skip anything that is not a plain file or directory. Two SUT attacks close here:
+            # a SYMLINK would exfiltrate host files if dereferenced; a FIFO/socket/device would
+            # BLOCK copy2's open() forever (this collector runs after the watchdog with no
+            # timeout), hanging the whole serial sweep. Only regular files/dirs are exported.
+            bad: list[str] = []
+            for n in names:
+                p = Path(src) / n
+                if p.is_symlink():
+                    bad.append(n)
+                    skipped.append(f"{p.relative_to(uacp_dir)} (symlink -> {p.readlink()})")
+                elif not (p.is_file() or p.is_dir()):
+                    bad.append(n)
+                    skipped.append(f"{p.relative_to(uacp_dir)} (special file; not a regular file)")
             return bad
 
-        shutil.copytree(
-            uacp_dir, sut_authored / "uacp", ignore=_ignore_symlinks, dirs_exist_ok=True
-        )
+        shutil.copytree(uacp_dir, sut_authored / "uacp", ignore=_ignore_unsafe, dirs_exist_ok=True)
         if skipped:
             (sut_authored / "uacp-SKIPPED.txt").write_text(
-                "[symlinks inside .uacp are never exported]\n" + "\n".join(skipped) + "\n",
+                "[non-regular files inside .uacp are never exported (symlinks + FIFO/socket/"
+                "device)]\n" + "\n".join(skipped) + "\n",
                 encoding="utf-8",
             )
