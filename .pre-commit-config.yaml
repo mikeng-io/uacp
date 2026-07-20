@@ -5,7 +5,7 @@ default_install_hook_types: [pre-commit, pre-push]
 repos:
   # ── Ruff: lint + format on every commit ─────────────────────────────────
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.20  # keep in sync with pyproject.toml [dev] ruff pin
+    rev: v0.15.22  # keep in sync with pyproject.toml [dev] ruff pin
     hooks:
       - id: ruff
         args: [--fix]
