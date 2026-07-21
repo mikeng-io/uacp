@@ -91,3 +91,41 @@ def test_prerelease_still_catches_drift(monkeypatch, tmp_path) -> None:
     ok, msgs = vrt.verify("v0.2.0-rc.1")
     assert not ok
     assert any("marketplace.json" in m for m in msgs)
+
+
+@pytest.mark.parametrize(
+    ("manifest", "tag", "expected"),
+    [
+        ("0.2.0", "v0.2.0", True),  # stable == stable
+        ("0.2.0", "v0.2.0-rc.1", True),  # manifest at stable base, tag is a prerelease of it
+        ("0.2.0-rc.1", "v0.2.0-rc.1", True),  # manifest declares the exact prerelease
+        ("0.2.0-rc.1", "v0.2.0-rc.2", False),  # THE Codex P1: rc.1 metadata under an rc.2 tag
+        ("0.2.0-rc.2", "v0.2.0-rc.1", False),  # and the reverse
+        ("0.1.0", "v0.2.0", False),  # plain drift
+        ("0.2.0-rc.1", "v0.2.0", False),  # stable tag must not ship prerelease metadata
+    ],
+)
+def test_version_matches_tag_rule(manifest: str, tag: str, expected: bool) -> None:
+    """Only the TAG is normalized. A manifest must equal the exact tag version or its stable core —
+    never a *different* prerelease of the same core (Codex P1 on PR #159)."""
+    assert vrt.version_matches_tag(manifest, tag) is expected
+
+
+def test_different_prerelease_in_manifests_is_blocked(monkeypatch, tmp_path) -> None:
+    """End-to-end: tag v0.2.0-rc.2 with manifests at 0.2.0-rc.1 must FAIL, or we would publish an
+    rc.2 release whose shipped package/plugin metadata declares rc.1."""
+    _write_manifests(tmp_path, "0.2.0-rc.1")
+    monkeypatch.setattr(vrt, "ROOT", tmp_path)
+    ok, msgs = vrt.verify("v0.2.0-rc.2")
+    assert not ok
+    assert any("pyproject.toml" in m for m in msgs)
+    assert any("plugin.json" in m for m in msgs)
+    assert any("marketplace.json" in m for m in msgs)
+
+
+def test_exact_prerelease_manifests_accepted(monkeypatch, tmp_path) -> None:
+    """A repo that deliberately declares the prerelease is valid for that exact tag."""
+    _write_manifests(tmp_path, "0.2.0-rc.1")
+    monkeypatch.setattr(vrt, "ROOT", tmp_path)
+    ok, msgs = vrt.verify("v0.2.0-rc.1")
+    assert ok, msgs

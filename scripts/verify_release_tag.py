@@ -3,15 +3,20 @@
 
 Called by ``.github/workflows/release.yml`` on a pushed ``v*`` tag. A tag may be a stable release
 (``v0.2.0``) or a pre-release (``v0.2.0-rc.1``, ``v0.2.0-alpha.1``, ``v0.2.0+build.7``). Per semver,
-a pre-release/build tag is a qualifier *of* a release version, so the comparison is on the
-**release core** only: ``v0.2.0-rc.1`` releases version ``0.2.0`` and must match a repo at ``0.2.0``.
+a pre-release/build tag qualifies a release version, so a manifest at the stable release ``0.2.0``
+satisfies tag ``v0.2.0-rc.1``.
+
+**Only the tag is normalized — never the manifest.** A manifest value must equal either the exact
+tag version or the tag's stable release core (see ``version_matches_tag``). Normalizing the
+manifest too would let ``v0.2.0-rc.2`` pass against manifests still declaring ``0.2.0-rc.1``,
+publishing an rc.2 release whose shipped metadata says rc.1.
 
 Previously the workflow compared the whole ``0.2.0-rc.1`` string against pyproject's ``0.2.0`` and
 so rejected every pre-release tag — even though the workflow's own trigger advertises them. This
 script is the single, unit-tested source of that comparison for both the pyproject and the
 manifest checks.
 
-Manifests checked (all must agree with the tag's release core):
+Manifests checked (each must satisfy the rule above):
   * ``pyproject.toml``                     — ``version = "X"``          (source of truth)
   * ``.claude-plugin/plugin.json``         — ``version``
   * ``.claude-plugin/marketplace.json``    — ``plugins[0].version``
@@ -50,6 +55,24 @@ def _pyproject_version() -> str | None:
     return m.group(1) if m else None
 
 
+def version_matches_tag(manifest_version: str, tag: str) -> bool:
+    """Is ``manifest_version`` an acceptable declared version for release ``tag``?
+
+    Only the TAG is normalized — never the manifest. A manifest may declare either:
+
+    * the **exact** tag version (``0.2.0-rc.1`` for tag ``v0.2.0-rc.1``), or
+    * the **stable release core** (``0.2.0``), the usual case since ``bump_version.py`` writes
+      release versions and a pre-release tag qualifies that same release.
+
+    Stripping the suffix from the MANIFEST too would let tag ``v0.2.0-rc.2`` pass against manifests
+    still declaring ``0.2.0-rc.1`` — publishing an rc.2 release whose shipped metadata says rc.1,
+    defeating the drift guard. So the manifest value is compared verbatim against both accepted
+    forms.
+    """
+    tag_full = tag.removeprefix("v")
+    return manifest_version in (tag_full, release_core(tag))
+
+
 def verify(tag: str) -> tuple[bool, list[str]]:
     """Return (ok, messages). messages are ``::error::``-prefixed on failure, one ``OK:`` on pass."""
     tag_core = release_core(tag)
@@ -58,10 +81,10 @@ def verify(tag: str) -> tuple[bool, list[str]]:
     pkg = _pyproject_version()
     if pkg is None:
         errors.append("::error::Cannot find version in pyproject.toml")
-    elif release_core(pkg) != tag_core:
+    elif not version_matches_tag(pkg, tag):
         errors.append(
-            f"::error title=Version mismatch::Tag {tag} (release {tag_core}) does not match "
-            f"pyproject.toml {pkg}."
+            f"::error title=Version mismatch::Tag {tag} does not match pyproject.toml {pkg} "
+            f"(expected {tag.removeprefix('v')!r} or {tag_core!r})."
         )
         errors.append(
             "::error title=Version mismatch::Run make release-prep TYPE=..., merge the PR, then "
@@ -71,10 +94,10 @@ def verify(tag: str) -> tuple[bool, list[str]]:
     try:
         plugin = json.loads((ROOT / ".claude-plugin/plugin.json").read_text())
         v = plugin.get("version", "MISSING")
-        if release_core(str(v)) != tag_core:
+        if not version_matches_tag(str(v), tag):
             errors.append(
                 f"::error title=Manifest drift::.claude-plugin/plugin.json version={v!r}, "
-                f"expected release {tag_core!r}"
+                f"expected {tag.removeprefix('v')!r} or {tag_core!r}"
             )
     except Exception as exc:  # noqa: BLE001 — any read/parse failure is a manifest finding
         errors.append(f"::error title=Manifest drift::.claude-plugin/plugin.json: {exc}")
@@ -89,10 +112,10 @@ def verify(tag: str) -> tuple[bool, list[str]]:
             )
         else:
             v = plugins[0].get("version", "MISSING")
-            if release_core(str(v)) != tag_core:
+            if not version_matches_tag(str(v), tag):
                 errors.append(
                     f"::error title=Manifest drift::.claude-plugin/marketplace.json "
-                    f"plugins[0].version={v!r}, expected release {tag_core!r}"
+                    f"plugins[0].version={v!r}, expected {tag.removeprefix('v')!r} or {tag_core!r}"
                 )
     except Exception as exc:  # noqa: BLE001
         errors.append(f"::error title=Manifest drift::.claude-plugin/marketplace.json: {exc}")
