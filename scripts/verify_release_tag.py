@@ -39,15 +39,30 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 
-def release_core(version: str) -> str:
-    """The semver release core: strip a leading ``v`` and any ``-prerelease`` / ``+build`` suffix.
+# The official semver.org grammar. Identifiers must be NON-EMPTY, so malformed tags like
+# `v0.1.0-`, `v0.1.0+` or `v0.1.0-+build` are rejected rather than silently reduced to `0.1.0`
+# (they match the workflow's `v*.*.*-*` trigger, so a lenient parse would let them publish).
+_SEMVER_RE = re.compile(
+    r"^(?P<core>(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*))"
+    r"(?:-(?P<prerelease>(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
+    r"(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
+    r"(?:\+(?P<build>[0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+)
 
-    ``v0.2.0-rc.1`` -> ``0.2.0``;  ``0.2.0+build.7`` -> ``0.2.0``;  ``v1.2.3`` -> ``1.2.3``.
+
+def parse_semver(version: str) -> re.Match[str] | None:
+    """Match ``version`` (a leading ``v`` is allowed) against the full semver grammar, else None."""
+    return _SEMVER_RE.match(version.removeprefix("v"))
+
+
+def release_core(version: str) -> str | None:
+    """The semver release core, or ``None`` when ``version`` is not valid semver.
+
+    ``v0.2.0-rc.1`` -> ``0.2.0``;  ``0.2.0+build.7`` -> ``0.2.0``;  ``v1.2.3`` -> ``1.2.3``;
+    ``v0.1.0-`` / ``v0.1.0+`` / ``v1.2`` / ``v01.2.3`` -> ``None`` (malformed).
     """
-    core = version.removeprefix("v")
-    # Prerelease starts at the first '-', build metadata at the first '+'; either ends the core.
-    core = re.split(r"[-+]", core, maxsplit=1)[0]
-    return core
+    m = parse_semver(version)
+    return m.group("core") if m else None
 
 
 def _pyproject_version() -> str | None:
@@ -69,13 +84,21 @@ def version_matches_tag(manifest_version: str, tag: str) -> bool:
     defeating the drift guard. So the manifest value is compared verbatim against both accepted
     forms.
     """
-    tag_full = tag.removeprefix("v")
-    return manifest_version in (tag_full, release_core(tag))
+    core = release_core(tag)
+    if core is None:  # malformed tag -> fail closed; verify() reports the specific error
+        return False
+    return manifest_version in (tag.removeprefix("v"), core)
 
 
 def verify(tag: str) -> tuple[bool, list[str]]:
     """Return (ok, messages). messages are ``::error::``-prefixed on failure, one ``OK:`` on pass."""
     tag_core = release_core(tag)
+    if tag_core is None:
+        return False, [
+            f"::error title=Malformed tag::Tag {tag!r} is not valid SemVer "
+            "(MAJOR.MINOR.PATCH with optional non-empty -prerelease / +build). "
+            "Refusing to publish a release for it.",
+        ]
     errors: list[str] = []
 
     pkg = _pyproject_version()

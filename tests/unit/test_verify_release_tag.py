@@ -129,3 +129,40 @@ def test_exact_prerelease_manifests_accepted(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(vrt, "ROOT", tmp_path)
     ok, msgs = vrt.verify("v0.2.0-rc.1")
     assert ok, msgs
+
+
+@pytest.mark.parametrize(
+    "bad_tag",
+    [
+        "v0.1.0-",  # empty prerelease identifier (Codex P2)
+        "v0.1.0+",  # empty build identifier
+        "v0.1.0-+build",  # empty prerelease, then build
+        "v0.1.0-rc..1",  # empty dot-separated identifier
+        "v0.1.0-rc.01",  # numeric identifier with a leading zero
+        "v01.2.3",  # leading zero in the release core
+        "v1.2",  # not MAJOR.MINOR.PATCH
+        "v1.2.3.4",
+        "vX.Y.Z",
+        "",
+    ],
+)
+def test_malformed_semver_tags_are_rejected(bad_tag: str) -> None:
+    """Malformed tags must NOT be reduced to a valid core — they match the workflow's `v*.*.*-*`
+    trigger, so a lenient parse would publish a release for them (Codex P2 on PR #159)."""
+    assert vrt.release_core(bad_tag) is None
+    assert vrt.version_matches_tag("0.1.0", bad_tag) is False
+
+
+@pytest.mark.parametrize("good_tag", ["v0.1.0", "v0.1.0-rc.1", "v1.2.3+build.7", "v10.20.30-a.1"])
+def test_wellformed_semver_tags_accepted(good_tag: str) -> None:
+    assert vrt.release_core(good_tag) is not None
+
+
+def test_malformed_tag_hard_stops_verify(monkeypatch, tmp_path) -> None:
+    """verify() refuses a malformed tag outright — even when every manifest is at the core it
+    would have been reduced to."""
+    _write_manifests(tmp_path, "0.1.0")
+    monkeypatch.setattr(vrt, "ROOT", tmp_path)
+    ok, msgs = vrt.verify("v0.1.0-")
+    assert not ok
+    assert any("Malformed tag" in m for m in msgs)
