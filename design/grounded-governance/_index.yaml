@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS: the grounded-governance bundle. Diagnosis of UACP's grounding gap (it inherited
+# governance's STRUCTURE from Trustless but severed the GROUNDING — every phase measures the
+# declaration, not reality/purpose) and the PRINCIPLE.md-first design. Slice 1 (the PRINCIPLE.md
+# mechanism: injection hook + uacp.principle_agreement kind + uacp-bootstrap skill) is BUILT on this
+# branch; the reality-grounding gates + dimensional gates are the deferred slices this bundle scopes.
+
+kind: design_index
+status: building
+governance: pre-governance-input
+timestamp: "2026-08-17"
+title: Grounded Governance — restore outer-scope grounding, anchored by PRINCIPLE.md
+description: >-
+  UACP kept governance's structure from Trustless but severed its grounding: every phase measures the
+  declaration, never reality or purpose. The fix is anchored by PRINCIPLE.md — the per-project telos,
+  born at bootstrap via CMS-on-implementation (the code is the answer; the engineer supplies the
+  forward vector), injected on the neutral session-start surface, recorded as a governed agreement.
+  Slice 1 (the PRINCIPLE.md mechanism) is built; the reality-grounding + dimensional gates are scoped
+  here as deferred slices.
+members:
+  - 00-conclusion-and-plan.md      # the diagnosis (grounding severed at every phase) + the ordered plan
+  - 01-principle-md.md             # what PRINCIPLE.md IS + its one-neutral-mechanism injection
+  - 02-uacp-principle-draft.md     # UACP's own principal, DERIVED from the implementation (the proof + record)
+  - 03-injection-and-bootstrap.md  # the injection-hook extension + the bootstrap procedure (Slice 1 design)
+edges:
+  - {src: 01-principle-md, dst: 00-conclusion-and-plan, rel: depends_on, provenance: derived}
+  - {src: 02-uacp-principle-draft, dst: 01-principle-md, rel: realizes, provenance: derived}
+  - {src: 03-injection-and-bootstrap, dst: 01-principle-md, rel: extends, provenance: asserted}

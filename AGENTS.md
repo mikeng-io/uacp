@@ -18,6 +18,8 @@ This file is **principles only** — the governance contract every agent must ob
 
 This is `determinism : machines :: CMS : agents` — how a semantic process earns trust without pretending to be deterministic. It is enforced two ways: **architecturally** (Guardian / Heartgate / gates / governed writers) and in the agent's **cognition** (the injected preamble, `UACP.md`). The lifecycle below is this principle iterated; its serialized residue, run over run, is the **memory substrate** — the typed, provenanced foundation memory is built on. Design rationale: `design/telos/` (the purpose) and `design/comprehend-measure-serialize/` (the discipline).
 
+**CMS is a reasoning reflex, not only a governance gate.** To answer *what any system is or does*, run it on the artifact first: **comprehend** the real thing (code, state, history) into a model → **measure** a signal grounded in that evidence → **serialize** the result. The existing reality is the evidence — read it before you theorize, and never assert what you can ground.
+
 ---
 
 ## Authority Chain
