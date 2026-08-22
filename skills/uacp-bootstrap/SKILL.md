@@ -73,8 +73,12 @@ reality (the "and when"). **Agreement is the gate.** Do not serialize an un-agre
   its `AGENTS.md`). Use the template below; set `status: agreed`.
 - Record a **governed provenance node** so the agreement is auditable, not a vibe:
   `uacp_entity_write(kind="uacp.principle_agreement", fields={...})`. The writer requires a run
-  context, so **open a lightweight governed run** to write it (bootstrap fires before any lifecycle
-  run exists), then finalise/abort that run. Fields: `principle_path`, **`principle_content_sha256`**
+  context. Bootstrap is a **pre-governance** operation — it may precede TRIAGE (like brainstorm),
+  because it *creates* the anchor governance later grounds against; the derivation is onboarding, not
+  a governed deliverable. Open a **minimal run solely to carry this one provenance write** (this is
+  the K2/#164 run-context gap: governed writers require a run), then close it with **`uacp_run_abort`**
+  — do NOT `uacp_run_finalize` (finalize is allowlisted only in `resolve`; a bootstrap run sits in
+  `triage`, and finalize refuses a non-terminal phase). Fields: `principle_path`, **`principle_content_sha256`**
   (the SHA-256 of the exact PRINCIPLE.md bytes — the *falsifiable* binding: if the file is later
   edited, its live hash no longer matches and the stale agreement is detectable), `agreed_by`,
   `agreed_at`, `derived_from`.

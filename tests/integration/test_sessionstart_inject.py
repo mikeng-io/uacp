@@ -441,6 +441,24 @@ def test_principle_cannot_forge_a_framework_section(tmp_path: Path) -> None:
     assert ctx.index("```", marker) < ctx.index("## Active Handoffs (uacp-handoff)", marker)
 
 
+def test_principle_symlink_is_refused(tmp_path: Path) -> None:
+    """SECURITY: a PRINCIPLE.md committed as a SYMLINK (e.g. -> a secret outside the repo) is not
+    followed — its target's bytes must never reach session context."""
+    plugin_dir, workspace_dir = tmp_path / "plugin", tmp_path / "workspace"
+    plugin_dir.mkdir()
+    (workspace_dir / ".uacp").mkdir(parents=True)
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    secret = tmp_path / "secret_outside.txt"
+    secret.write_text("SENTINEL_SECRET_OUTSIDE_REPO", encoding="utf-8")
+    (workspace_dir / "PRINCIPLE.md").symlink_to(secret)
+
+    proc = _run(plugin_dir, payload={"cwd": str(workspace_dir)})
+    assert proc.returncode == 0
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SENTINEL_SECRET_OUTSIDE_REPO" not in ctx  # symlink target NOT injected
+    assert "Project Principle (PRINCIPLE.md" not in ctx  # no section rendered from a symlink
+
+
 def _write_agreement(ws_root: Path, sha: str) -> None:
     d = ws_root / ".uacp" / "resolutions"
     d.mkdir(parents=True, exist_ok=True)

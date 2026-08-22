@@ -275,8 +275,11 @@ def _agreement_hashes(ws_root: str) -> set[str]:
     for name in names:
         if not name.endswith("-principle-agreement.yaml"):
             continue
+        full = os.path.join(d, name)
+        if os.path.islink(full):  # SECURITY: don't follow a symlinked agreement record either
+            continue
         try:
-            with open(os.path.join(d, name), encoding="utf-8") as fh:
+            with open(full, encoding="utf-8") as fh:
                 text = fh.read(8192)  # an agreement record is tiny
         except (OSError, UnicodeDecodeError):
             continue
@@ -295,6 +298,11 @@ def _principle_section(ws_root: str) -> str:
     the recorded uacp.principle_agreement hashes, so a DRAFT or STALE principal is marked UNVERIFIED
     rather than silently trusted as the project's purpose. '' when absent / unreadable / empty."""
     path = os.path.join(ws_root, "PRINCIPLE.md")
+    # SECURITY: refuse a symlinked PRINCIPLE.md. An untrusted workspace could commit it as a symlink
+    # to a secret outside the repo (e.g. ~/.ssh/id_rsa); following it would inject that file's bytes
+    # into session context. A real principal is a regular committed file.
+    if os.path.islink(path):
+        return ""
     try:
         with open(path, "rb") as fh:
             raw = fh.read(_MAX_PRINCIPLE_READ_BYTES)  # bounded read — memory-safe for a hostile file
