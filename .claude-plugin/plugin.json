@@ -17,7 +17,7 @@
         "run",
         "--no-project",
         "--with",
-        "mcp>=1.0",
+        "mcp>=1.28.1,<2",
         "--with",
         "anyio",
         "--with",

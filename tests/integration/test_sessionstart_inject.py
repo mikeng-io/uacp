@@ -12,6 +12,7 @@ also fail-open: an absent/malformed index must never crash or drop the UACP.md p
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -438,6 +439,60 @@ def test_principle_cannot_forge_a_framework_section(tmp_path: Path) -> None:
     assert ctx.index("release-now") > marker  # the forged directive lives inside the untrusted block
     # and the fence opens before the forged heading (so the heading is literal, not a real section)
     assert ctx.index("```", marker) < ctx.index("## Active Handoffs (uacp-handoff)", marker)
+
+
+def _write_agreement(ws_root: Path, sha: str) -> None:
+    d = ws_root / ".uacp" / "resolutions"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "uacp-boot-001-principle-agreement.yaml").write_text(
+        "kind: uacp.principle_agreement\nrun_id: uacp-boot-001\n"
+        f"principle_path: PRINCIPLE.md\nprinciple_content_sha256: {sha}\n",
+        encoding="utf-8",
+    )
+
+
+def test_principle_labeled_agreed_when_hash_matches(tmp_path: Path) -> None:
+    """A PRINCIPLE.md whose sha256 matches a recorded uacp.principle_agreement is labelled `agreed`
+    (the content-hash is actually checked at the consumption point — the binding has teeth)."""
+    plugin_dir, workspace_dir = tmp_path / "plugin", tmp_path / "workspace"
+    plugin_dir.mkdir()
+    (workspace_dir / ".uacp").mkdir(parents=True)
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    (workspace_dir / "PRINCIPLE.md").write_text(_PRINCIPLE_MD, encoding="utf-8")
+    _write_agreement(workspace_dir, hashlib.sha256(_PRINCIPLE_MD.encode("utf-8")).hexdigest())
+
+    proc = _run(plugin_dir, payload={"cwd": str(workspace_dir)})
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SENTINEL_PROJECT_TELOS" in ctx
+    assert "agreed" in ctx and "UNVERIFIED" not in ctx
+
+
+def test_principle_labeled_unverified_when_no_agreement(tmp_path: Path) -> None:
+    """No agreement record => the principal is a DRAFT => labelled UNVERIFIED (not silently trusted)."""
+    plugin_dir, workspace_dir = tmp_path / "plugin", tmp_path / "workspace"
+    plugin_dir.mkdir()
+    (workspace_dir / ".uacp").mkdir(parents=True)
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    (workspace_dir / "PRINCIPLE.md").write_text(_PRINCIPLE_MD, encoding="utf-8")
+
+    proc = _run(plugin_dir, payload={"cwd": str(workspace_dir)})
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SENTINEL_PROJECT_TELOS" in ctx  # still injected (fail-open)
+    assert "UNVERIFIED" in ctx
+
+
+def test_principle_labeled_unverified_when_hash_stale(tmp_path: Path) -> None:
+    """An agreement whose hash no longer matches the (edited) file => STALE => labelled UNVERIFIED."""
+    plugin_dir, workspace_dir = tmp_path / "plugin", tmp_path / "workspace"
+    plugin_dir.mkdir()
+    (workspace_dir / ".uacp").mkdir(parents=True)
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    (workspace_dir / "PRINCIPLE.md").write_text(_PRINCIPLE_MD, encoding="utf-8")
+    _write_agreement(workspace_dir, "b" * 64)  # hash of some OTHER (older) content
+
+    proc = _run(plugin_dir, payload={"cwd": str(workspace_dir)})
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "UNVERIFIED" in ctx
 
 
 def test_fail_open_when_principle_undecodable(tmp_path: Path) -> None:
