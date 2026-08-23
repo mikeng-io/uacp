@@ -548,6 +548,22 @@ domains = ["runtime", "governance", "guardian", "heartgate", "kanban", "agent_co
 enforcement = "heartgate blocker on overlap with another active_run's write_paths"
 
 # =============================================================================
+# VERIFICATION
+# =============================================================================
+# Operator-tunable knobs for the VERIFY-phase grounded-substrate floor.
+
+[verification]
+# M3 behavioral floor (design/verify-substrate/02): when the git witness shows the
+# run changed CODE, the run must carry >=1 behavioral check (which replay then RUNS,
+# turning behaviour into substrate) — else CHK_BEHAVIORAL_FLOOR_UNMET. This severity
+# migrates the SC_DIFF way: DEFAULT "warn" (announce without breaking live runs),
+# flipped to "block" in a later named release once runs carry behavioral checks.
+# Only the literals "warn"/"block" are honored; an absent/invalid value -> "warn"
+# (the safe migration default — block-by-accident breaks runs). Read via
+# config.get_config(root) by engines.manifest.projection.validate_behavioral_floor.
+behavioral_floor = "warn"
+
+# =============================================================================
 # OUTPUT
 # =============================================================================
 # Output formatting and artifact generation.
