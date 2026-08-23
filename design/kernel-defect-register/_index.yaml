@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS: a grounded as-built audit of what UACP's KERNEL actually enforces, as distinct
+#               from what its skills, docs, and design bundles say it enforces. Built from six
+#               independent investigations (lifecycle, evidence, cognition/emission, state
+#               durability, dispatch, plus an adversarial audit of the comparison that started
+#               it), each carrying path:line, then re-verified by content before entry.
+# ORIGIN NOTE:  this began as a superpowers<>UACP comparison. That comparison produced four false
+#               claims about UACP by reading its surfaces instead of its code; the adversarial
+#               audit refuted eleven. The comparison survives as node 50; the audit is the product.
+# STATUS: draft — 13 defects VERIFIED by direct re-read, 3 REPORTED (leads, not facts), 1 ESTIMATE.
+#         No remediation designed yet. HEAD was unstable during the audit (see 00 baseline caveat).
+
+kind: design_index
+title: UACP Kernel Defect Register (as-built audit)
+description: >-
+  Eighteen defects in UACP's as-built enforcement surface, grounded in the kernel. HEADLINE: a
+  finding disposed `remediated` discharges on a NON-EMPTY STRING (rework_completeness.py:261),
+  while a claimed EXCEPTION in the same validator is prefix-restricted, run-bound, AND
+  existence-checked -- UACP grounds "we chose not to fix it" three ways and "we fixed it" not at
+  all. Four classes: BYPASS (the live transition path runs a smaller gate set than
+  uacp_heartgate_check and never checks it ran; triage->propose crosses ungated while emitting its
+  ledger records; the Guardian never sees a Task dispatch), GROUNDING (the generative gate is
+  opt-in in code and mandatory in prose; build_code_index has zero production callers so the code
+  plane is unreachable; git -- the only independent witness -- is warn-only; the rework cap warns
+  where PPV blocks), EMISSION (Violation.detail is computed then flattened to strings at every
+  site; there is no read-side state tool; uacp-context points the agent at four fields nothing
+  writes; MCP ships the 4-word label not the preconditions; no forward guidance at a crossing
+  though config/state.yaml already holds the phase->skill contract), and OPERATIONAL (the plugin
+  is not enabled in this repo, so every enforcement surface is inert where UACP is developed;
+  injection is Claude-only; a full_governance run is ~405 agent invocations). The pattern
+  underneath: UACP COMPUTES far more than it EMITS and GROUNDS far less than its own shipped
+  tooling allows -- the design/grounded-governance/ diagnosis, reproduced independently from the
+  kernel side.
+status: design
+governance: pre-governance-input
+timestamp: '2026-08-22'
+origin: >-
+  session 2026-08-22 -- mike asked whether a subagent should deep-investigate UACP before
+  comparing again; six parallel investigations dispatched, findings re-verified by content
+  before entry.
+schema_dir: ../graph-engine/schema/
+
+members:
+  - 00-register.md              # ROOT (thin): method, baseline + instability caveat, the 18-row register, the pattern
+  - 10-enforcement-bypass.md    # D-01..03: two gate ladders, ungated first crossing, Guardian blind to dispatch
+  - 20-grounding-defects.md     # D-04..08: remediated-vs-exception asymmetry, opt-in checks, unreachable code plane, advisory git, capless loop
+  - 30-emission-defects.md      # D-09..13: discarded detail, no read-side tool, wrong re-orientation fields, unshipped preconditions, no forward guidance
+  - 40-operational-reality.md   # D-14..18: plugin inert here, Claude-only cognition, ~405-invocation runs, unenforced independence, router-as-incident-log
+  - 50-superpowers-contrast.md  # the demoted comparison: corrected figures, the four places it earns a line, where the arrow reverses
+  - 60-remediation.md           # DECISION: M0-M5 — four architectural moves grouped by root cause, sequenced by what unlocks what
+
+# DERIVED: mirror of each node's `edges:` frontmatter.
+# rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
+edges:
+  - {src: 10-enforcement-bypass, dst: 00-register, rel: depends_on, provenance: derived}
+  - {src: 20-grounding-defects, dst: 00-register, rel: depends_on, provenance: derived}
+  - {src: 20-grounding-defects, dst: 10-enforcement-bypass, rel: extends, provenance: asserted}
+  - {src: 30-emission-defects, dst: 00-register, rel: depends_on, provenance: derived}
+  - {src: 30-emission-defects, dst: 20-grounding-defects, rel: extends, provenance: asserted}
+  - {src: 40-operational-reality, dst: 00-register, rel: depends_on, provenance: derived}
+  - {src: 40-operational-reality, dst: 30-emission-defects, rel: extends, provenance: asserted}
+  - {src: 50-superpowers-contrast, dst: 00-register, rel: depends_on, provenance: derived}
+  - {src: 50-superpowers-contrast, dst: 30-emission-defects, rel: extends, provenance: asserted}
+  - {src: 60-remediation, dst: 10-enforcement-bypass, rel: decides_on, provenance: asserted}
+  - {src: 60-remediation, dst: 20-grounding-defects, rel: decides_on, provenance: asserted}
+  - {src: 60-remediation, dst: 30-emission-defects, rel: decides_on, provenance: asserted}
+  - {src: 60-remediation, dst: 40-operational-reality, rel: decides_on, provenance: asserted}
