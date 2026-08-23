@@ -105,7 +105,11 @@ async def test_list_tools_matches_registry(temp_uacp_root: Path) -> None:
         assert tool.inputSchema == spec.input_schema, (
             f"inputSchema for {tool.name} not forwarded verbatim"
         )
-        assert tool.description == spec.description
+        # D-12: the server ships the RICH schema_description (it carries the tool's
+        # preconditions), falling back to the short description only when a spec
+        # lacks one. Since __post_init__ defaults schema_description to description,
+        # the fallback collapses to schema_description for every real spec.
+        assert tool.description == (spec.schema_description or spec.description)
 
 
 @pytest.mark.anyio

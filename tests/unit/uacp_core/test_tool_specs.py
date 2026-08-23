@@ -29,18 +29,24 @@ _EXPECTED_NAMES = {
     # Run lifecycle tools (Phase 8)
     "uacp_run_init",
     "uacp_run_transition",
+    "uacp_run_status",  # D-10 read-only run-status surface (routes to handle_read)
     "uacp_run_register_artifact",
     "uacp_run_finalize",
     "uacp_run_abort",  # #107 off-ramp primitive
 }
 
-# read_only=True only for the read-only tools; all 14 others are writers.
-_READ_ONLY = {"uacp_oracle_query", "uacp_heartgate_check", "uacp_sandbox_check"}
+# read_only=True only for the read-only tools; all others are writers.
+_READ_ONLY = {
+    "uacp_oracle_query",
+    "uacp_heartgate_check",
+    "uacp_sandbox_check",
+    "uacp_run_status",  # D-10: read-only manifest read
+}
 
 
-def test_tool_specs_has_all_eighteen_names():
+def test_tool_specs_has_all_expected_names():
     specs = tool_specs()
-    assert len(specs) == 18
+    assert len(specs) == 19
     assert {s.name for s in specs} == _EXPECTED_NAMES
 
 

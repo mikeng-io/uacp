@@ -480,6 +480,9 @@ def handle_read(args: dict[str, Any]) -> str:
             {
                 "ok": True,
                 "manifest": manifest.model_dump(mode="json"),
+                # Envelope consistency (D-10): every governed handler surfaces a
+                # structured `findings` list. A clean read carries none.
+                "findings": [],
             },
             ensure_ascii=False,
         )
@@ -496,35 +499,40 @@ _GRAPH_GATED_PHASES: frozenset[str] = frozenset({"plan", "execute", "verify"})
 
 def _run_transition_graph_gate(
     workspace: Path, run_id: str, from_phase: str
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str], list[dict]]:
     """Phase-scoped structural graph gate for a LIVE transition (D35).
 
     Forces ``validate_graph_invariants('<from_phase>_exit')`` onto the live
     transition path — the state-derived structural subset of the Heartgate
     transition gate (dropped intent / orphan / phantom / missing coverage /
     contradiction), which otherwise runs only inside the agent-invoked
-    ``validate_transition``. Returns ``(blockers, advisories)`` as ``"CODE: message"``
-    strings: block-severity violations gate the transition; warn-severity
+    ``validate_transition``. Returns ``(blockers, advisories, findings)``. The
+    first two are the flattened ``"CODE: message"`` string lists kept for existing
+    consumers: block-severity violations gate the transition; warn-severity
     violations (e.g. the plan_exit cascade forecast, PR #95 review) SURFACE in
     the success response — visible, never blocking — instead of being
-    computed-then-discarded on the governed path. Phase-independent, so it runs
-    BEFORE the phase mutation (no revert needed). Fail-closed: a gate that
-    cannot run blocks the transition.
+    computed-then-discarded on the governed path. ``findings`` is the ADDITIVE
+    structured envelope (D-09): every violation's :meth:`Violation.as_finding`
+    dict (the ONE shared serializer) so ``detail``/``path`` reach programmatic
+    consumers of the transition payload instead of being destroyed by the
+    flattening. Phase-independent, so it runs BEFORE the phase mutation (no revert
+    needed). Fail-closed: a gate that cannot run blocks the transition.
 
     Lazy import: keeps the state machine free of the engines package for callers
     that never transition, and avoids the engines->state_machine import cycle.
     """
     if from_phase not in _GRAPH_GATED_PHASES:
-        return [], []
+        return [], [], []
     try:
         from engines.graph_projection import validate_graph_invariants
 
         violations = validate_graph_invariants(workspace, run_id, f"{from_phase}_exit")
         blockers = [f"{v.code}: {v.message}" for v in violations if v.severity == "block"]
         advisories = [f"{v.code}: {v.message}" for v in violations if v.severity != "block"]
-        return blockers, advisories
+        findings = [v.as_finding() for v in violations]
+        return blockers, advisories, findings
     except Exception as exc:  # fail-closed: an unrunnable gate must not advance
-        return [f"TRANSITION_GRAPH_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
+        return [f"TRANSITION_GRAPH_GATE_UNAVAILABLE: {type(exc).__name__}: {exc}"], [], []
 
 
 def _run_forced_brainstorm_exit_gate(workspace: Path, run_id: str, from_phase: str) -> list[str]:
@@ -624,6 +632,161 @@ def _run_forced_plan_exit_gate(
         return [f"FORCED_PLAN_EXIT_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
 
 
+# --- D-13: the `next` block on a successful transition -----------------------
+# The rework path already proved the pattern (payload["rework_briefing"] tells a
+# rework agent what it is entering and will be gated on). _build_next GENERALIZES
+# that one special case into a forward-looking block on EVERY successful crossing,
+# joined READ-ONLY from data the kernel already holds — no new source of truth.
+
+
+def _skill_phase(phase: str) -> str:
+    """Doctrine key for a phase. The runtime-state projection collapses the
+    lifecycle ``resolve`` phase into the terminal ``resolved`` STATUS; state.yaml's
+    skill contracts and the stage grammar are keyed by the lifecycle name, so map
+    ``resolved`` back to ``resolve`` for the lookup."""
+    return "resolve" if phase == "resolved" else phase
+
+
+def _load_state_yaml(workspace: Path) -> dict[str, Any]:
+    """Parse ``config/state.yaml`` (kernel DOCTRINE) as a mapping, or ``{}``.
+
+    state.yaml ships with the framework (like ``config/uacp.toml``), so it is read
+    install-relative to this module FIRST (the two-root split, ADR-0022, means a
+    runtime UACP_ROOT need not carry its own ``config/`` copy), then overlaid by the
+    workspace's own ``config/state.yaml`` when present (a project override wins).
+    Never raises: a missing/garbled file degrades every derived sub-field to null."""
+    out: dict[str, Any] = {}
+    candidates = [
+        Path(__file__).resolve().parents[3] / "config" / "state.yaml",
+        workspace / "config" / "state.yaml",
+    ]
+    for path in candidates:
+        try:
+            if not path.exists():
+                continue
+            raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict):
+                out = raw  # later (workspace) candidate wins as an override
+        except Exception:
+            continue
+    return out
+
+
+def _gates_for_exit(phase: str) -> list[str] | None:
+    """Read-only enumeration of the gate identifiers a run will face when it later
+    EXITS ``phase`` — a forward-looking MIRROR of the live gate assembly in
+    ``_handle_transition_locked`` (which keys each ``_run_*_gate`` on ``from_phase``
+    and emits the canonical ``FROM->TO`` ledger record). It does NOT re-run or
+    refactor that assembly — move M1 will unify them — it only NAMES the same gates
+    so ``next.will_be_gated_on`` tells the agent what is coming. Returns ``None`` when
+    ``phase`` has no onward crossing (terminal), so the caller emits null."""
+    onward = sorted(VALID_TRANSITIONS.get(phase, set()))
+    if not onward:
+        return None
+    gates: list[str] = [f"{phase.upper()}->{target.upper()}" for target in onward]
+    if phase == "triage":
+        gates.append("TRIAGE_COMPLETE")
+    if phase in _GRAPH_GATED_PHASES:
+        gates.append(f"{phase}_exit structural graph gate")
+    forced = {
+        "brainstorm": "forced_brainstorm_exit (scope-package admission contract)",
+        "propose": "forced_proposal_coverage (keyed-scope registration)",
+        "plan": "forced_plan_exit (scope-artifact + PLAN_VALIDATION ledger + registry overlap)",
+        "execute": "forced_execute_evidence (PIV + checkpoint coverage)",
+        "verify": "forced_verify_evidence (verify-selection / resolve-readiness)",
+    }
+    if phase in forced:
+        gates.append(forced[phase])
+    return gates
+
+
+def _carried_obligations(workspace: Path, run_id: str) -> list[dict[str, Any]] | None:
+    """Replay the obligations a prior phase deferred forward: the run manifest's
+    ``deferred_items`` (the run's durable carried-risk record — see
+    ``engines.deferral_completeness``), each item that names a ``next_phase_obligation``
+    surfaced as ``{id, owner, next_phase_obligation, residual_risk}``. Read from the
+    RAW manifest (the state-machine ``RunManifest`` model does not model deferred_items).
+    Returns ``[]`` when the run records none, ``None`` only when the manifest is unreadable."""
+    try:
+        path = _run_manifest_path(workspace, run_id)
+        raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    if not isinstance(raw, dict):
+        return None
+    items = raw.get("deferred_items")
+    if not isinstance(items, list):
+        return []
+    out: list[dict[str, Any]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        obligation = item.get("next_phase_obligation")
+        if not obligation:
+            continue
+        out.append(
+            {
+                "id": item.get("id"),
+                "owner": item.get("owner"),
+                "next_phase_obligation": obligation,
+                "residual_risk": item.get("residual_risk"),
+            }
+        )
+    return out
+
+
+def _build_next(
+    workspace: Path, run_id: str, from_phase: str, to_phase: str
+) -> dict[str, Any]:
+    """Build the `next` block for a successful ``from_phase -> to_phase`` crossing (D-13).
+
+    Describes the phase just ENTERED (``to_phase``) and what it faces onward, joined
+    read-only from data the kernel already holds:
+      * ``required_skill`` / ``write_scope`` ← ``config/state.yaml``
+        ``lifecycle_skill_contracts.skills['uacp-<phase>']``;
+      * ``phase_purpose``   ← the stage grammar's ``stages_default()[<phase>]['purpose']``;
+      * ``will_be_gated_on``← the gate identifiers the run will face when it EXITS
+        ``to_phase`` (``_gates_for_exit`` mirrors the live assembly, read-only);
+      * ``carried_obligations`` ← replayed ``next_phase_obligation`` entries.
+    Every sub-field degrades to ``null`` (not omitted) when it cannot be resolved for
+    the crossing. Never raises: a `next` block must not break a committed transition.
+    """
+    required_skill: str | None = None
+    write_scope: str | None = None
+    phase_purpose: str | None = None
+    will_be_gated_on: list[str] | None = None
+    carried_obligations: list[dict[str, Any]] | None = None
+    try:
+        skill_phase = _skill_phase(to_phase)
+        skills = (_load_state_yaml(workspace).get("lifecycle_skill_contracts") or {}).get(
+            "skills"
+        ) or {}
+        entry = skills.get(f"uacp-{skill_phase}")
+        if isinstance(entry, dict):
+            required_skill = f"uacp-{skill_phase}"
+            write_scope = entry.get("write_scope") or None
+        try:
+            from engines.domain.phase_transitions import stages_default
+
+            stage = stages_default().get(skill_phase) or {}
+            phase_purpose = stage.get("purpose") or None
+        except Exception:
+            phase_purpose = None
+        will_be_gated_on = _gates_for_exit(to_phase)
+        carried_obligations = _carried_obligations(workspace, run_id)
+    except Exception:  # a `next` block must never break a committed transition
+        pass
+    return {
+        "from_phase": from_phase,
+        "to_phase": to_phase,
+        "required_skill": required_skill,
+        "phase_purpose": phase_purpose,
+        "write_scope": write_scope,
+        "will_be_gated_on": will_be_gated_on,
+        "carried_obligations": carried_obligations,
+    }
+
+
 def handle_transition(args: dict[str, Any]) -> str:
     """Locked phase transition with validation + the phase-exit structural gate."""
     try:
@@ -716,7 +879,9 @@ def _handle_transition_locked(
         # thereby starve the plan_exit coverage gate. Plus the forced BRAINSTORM->TRIAGE
         # admission contract so the scope package's real fields are measured here (not only
         # on the agent-invoked validate_transition path the governed transition tool bypasses).
-        gate_blockers, gate_advisories = _run_transition_graph_gate(workspace, run_id, from_phase)
+        gate_blockers, gate_advisories, gate_findings = _run_transition_graph_gate(
+            workspace, run_id, from_phase
+        )
         gate_blockers += _run_forced_brainstorm_exit_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_proposal_coverage_gate(workspace, run_id, from_phase)
         gate_blockers += _run_forced_execute_evidence_gate(workspace, run_id, from_phase)
@@ -739,6 +904,11 @@ def _handle_transition_locked(
                     "from_phase": from_phase,
                     "to_phase": to_phase,
                     "blockers": gate_blockers,
+                    # ADDITIVE structured envelope (D-09): keep the flattened `blockers`
+                    # string list (consumers + tests read it) but ALSO surface the
+                    # structural gate's findings (one shared serializer) so a blocking
+                    # consumer gets each violation's detail/path, not just a joined string.
+                    "findings": gate_findings,
                 },
                 ensure_ascii=False,
             )
@@ -798,12 +968,24 @@ def _handle_transition_locked(
             )
         )
 
+        # D-13: build the forward-looking `next` block BEFORE _save_manifest. The save's
+        # pydantic round-trip (RunManifest.model_dump) drops non-model manifest fields
+        # such as `deferred_items`, so the carried-obligation REPLAY must read the raw
+        # manifest while it is still intact. `next` is generalized from the rework_briefing
+        # precedent — what the phase just entered IS, what it will be gated on, and the
+        # obligations it inherits — joined read-only from data the kernel already holds.
+        next_block = _build_next(workspace, run_id, from_phase, to_phase)
         _save_manifest(workspace, manifest)
         payload: dict[str, Any] = {
             "ok": True,
             "run_id": run_id,
             "from_phase": from_phase,
             "to_phase": to_phase,
+            # ADDITIVE structured envelope (D-09): the structural gate's findings ride
+            # every successful crossing too (empty on a clean exit), via the ONE shared
+            # serializer — a consumer reads structure, never re-parses the advisory strings.
+            "findings": gate_findings,
+            "next": next_block,
         }
         if gate_advisories:
             # Advisory-severity graph findings (e.g. SC_PLAN_CASCADE_FORECAST) ride the

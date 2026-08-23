@@ -21,6 +21,13 @@ class HeartgateDecision:
     reason: str
     blockers: list[str] = field(default_factory=list[str])
     warnings: list[str] = field(default_factory=list[str])
+    # Structured findings (register move M4 / D-09), ADDITIVE alongside the
+    # flattened ``blockers``/``warnings`` string lists which many consumers + the
+    # MCP boundary still read. Each entry is a ``Violation.as_finding()`` dict
+    # ({code, severity, message, detail, path}) — the same single serializer every
+    # boundary shares, so ``detail`` reaches programmatic consumers instead of
+    # being destroyed by the ``f"{code}: {message}"`` flattening.
+    findings: list[dict] = field(default_factory=list[dict])
 
     @property
     def blocks_transition(self) -> bool:

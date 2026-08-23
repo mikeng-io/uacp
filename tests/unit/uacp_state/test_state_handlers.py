@@ -12,6 +12,7 @@ from state import (
     _handle_uacp_run_init,
     _handle_uacp_run_register_artifact,
     _handle_uacp_run_registry_update,
+    _handle_uacp_run_status,
     _handle_uacp_run_transition,
     _handle_uacp_state_write,
 )
@@ -321,6 +322,45 @@ class TestRunTransition:
         )
         assert "error" in result
         assert "transition refused" in result["error"]
+
+
+class TestRunStatus:
+    """Tests for _handle_uacp_run_status (D-10): the read-only run-status surface
+    that routes to state_machine.handle_read and carries the structured envelope."""
+
+    def _status_args(self, workspace: str, run_id: str) -> dict:
+        # Read-only: NO reason/authority_artifact required (it mutates nothing).
+        return {"workspace": workspace, "uacp_run_id": run_id, **_CTX}
+
+    def test_reads_manifest_with_findings_envelope(
+        self, temp_uacp_root: Path, valid_run_id: str
+    ):
+        _handle_uacp_run_init(_init_args(str(temp_uacp_root), valid_run_id))
+        result = json.loads(
+            _handle_uacp_run_status(self._status_args(str(temp_uacp_root), valid_run_id))
+        )
+        assert result.get("ok") is True, result
+        # Routed to handle_read: the manifest for THIS run comes back.
+        assert result["manifest"]["run_id"] == valid_run_id
+        # Envelope consistency (D-10): a clean read carries an empty findings list.
+        assert result["findings"] == []
+
+    def test_requires_no_authority_but_enforces_context(
+        self, temp_uacp_root: Path, valid_run_id: str
+    ):
+        _handle_uacp_run_init(_init_args(str(temp_uacp_root), valid_run_id))
+        # Missing a context field is still rejected...
+        args = self._status_args(str(temp_uacp_root), valid_run_id)
+        del args["uacp_phase"]
+        result = json.loads(_handle_uacp_run_status(args))
+        assert "error" in result and "missing UACP context" in result["error"]
+
+    def test_missing_run_reports_read_failure(self, temp_uacp_root: Path):
+        result = json.loads(
+            _handle_uacp_run_status(self._status_args(str(temp_uacp_root), "no-such-run"))
+        )
+        # Routed to handle_read, which reports the missing manifest (not a crash).
+        assert "error" in result and "read failed" in result["error"]
 
 
 class TestRunRegisterArtifact:

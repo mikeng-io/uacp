@@ -1,6 +1,6 @@
 """Runtime-neutral registry of UACP governed tools.
 
-Single source of truth for the 16 governed tools. Both the Hermes adapter
+Single source of truth for the governed tools. Both the Hermes adapter
 (today) and a future MCP server consume ``tool_specs()`` rather than each
 re-declaring tool names, schemas, and handler bindings — true DRY.
 
@@ -17,8 +17,8 @@ Each :class:`ToolSpec` carries:
   * ``read_only`` — True for read-only tools (oracle/heartgate/sandbox checks),
     False for writers (including uacp_contained_shell, which mints state).
 
-The 8 state handlers are pulled from ``state`` (uacp-state); the 8 others from
-``governed_handlers`` (uacp-core). The 16 input schemas below are the canonical
+The state handlers are pulled from ``state`` (uacp-state); the others from
+``governed_handlers`` (uacp-core). The input schemas below are the canonical
 copies — the Hermes ``register()`` reproduces its exact wire form via
 ``hermes_schema()``.
 """
@@ -57,6 +57,7 @@ from state import (  # noqa: E402  (import follows sys.path setup)
     _handle_uacp_run_init,
     _handle_uacp_run_register_artifact,
     _handle_uacp_run_registry_update,
+    _handle_uacp_run_status,
     _handle_uacp_run_transition,
     _handle_uacp_state_write,
 )
@@ -714,6 +715,43 @@ def tool_specs() -> list[ToolSpec]:
             },
             handler=_handle_uacp_run_transition,
             read_only=False,
+        ),
+        ToolSpec(
+            name="uacp_run_status",
+            description="Governed run lifecycle: read status (read-only)",
+            schema_description=(
+                "Read an existing run manifest (read-only) — the authoritative "
+                "re-orientation source for an agent picking up a run. Returns "
+                "{ok, manifest, findings}; findings is empty on a clean read. "
+                "Enforces UACP context fields but requires NO reason/authority_artifact "
+                "(it mutates nothing). The manifest is the source of truth for a run's "
+                "current_phase, artifacts, and status — do not infer these from the "
+                "state/current.yaml pointer."
+            ),
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "workspace": {"type": "string"},
+                    "uacp_run_id": {
+                        "type": "string",
+                        "description": (
+                            "The run_id whose manifest to read (state/runs/{run_id}.yaml)."
+                        ),
+                    },
+                    "uacp_phase": {"type": "string"},
+                    "policy_version": {"type": "string"},
+                    "declared_side_effects": {"type": "string"},
+                },
+                "required": [
+                    "workspace",
+                    "uacp_run_id",
+                    "uacp_phase",
+                    "policy_version",
+                    "declared_side_effects",
+                ],
+            },
+            handler=_handle_uacp_run_status,
+            read_only=True,
         ),
         ToolSpec(
             name="uacp_run_register_artifact",
