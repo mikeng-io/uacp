@@ -440,6 +440,24 @@ def test_principle_cannot_forge_a_framework_section(tmp_path: Path) -> None:
     assert ctx.index("```", marker) < ctx.index("## Active Handoffs (uacp-handoff)", marker)
 
 
+def test_principle_oversized_multibyte_boundary_injects_prefix(tmp_path: Path) -> None:
+    """A valid but oversized PRINCIPLE.md whose multibyte char straddles the bounded-read boundary
+    still injects its capped prefix (incremental utf-8 decode drops only the incomplete tail),
+    instead of being silently dropped whole."""
+    plugin_dir, workspace_dir = tmp_path / "plugin", tmp_path / "workspace"
+    plugin_dir.mkdir()
+    (workspace_dir / ".uacp").mkdir(parents=True)
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    # 19-byte ASCII prefix + all 2-byte chars => the 65536-byte read boundary cuts a char.
+    (workspace_dir / "PRINCIPLE.md").write_text("SENTINEL_OVERSIZED\n" + "é" * 40000, encoding="utf-8")
+
+    proc = _run(plugin_dir, payload={"cwd": str(workspace_dir)})
+    assert proc.returncode == 0
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SENTINEL_OVERSIZED" in ctx  # prefix injected, not dropped
+    assert "Project Principle (PRINCIPLE.md" in ctx
+
+
 def test_principle_symlink_is_refused(tmp_path: Path) -> None:
     """SECURITY: a PRINCIPLE.md committed as a SYMLINK (e.g. -> a secret outside the repo) is not
     followed — its target's bytes must never reach session context."""

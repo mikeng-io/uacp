@@ -76,8 +76,10 @@ reality (the "and when"). **Agreement is the gate.** Do not serialize an un-agre
   context. Bootstrap is a **pre-governance** operation — it may precede TRIAGE (like brainstorm),
   because it *creates* the anchor governance later grounds against; the derivation is onboarding, not
   a governed deliverable. Open a **minimal run solely to carry this one provenance write** (this is
-  the K2/#164 run-context gap: governed writers require a run), then close it with **`uacp_run_abort`**
-  — do NOT `uacp_run_finalize` (finalize is allowlisted only in `resolve`; a bootstrap run sits in
+  the K2/#164 run-context gap: governed writers require a run), then close it with **`uacp_run_abort`
+  passing `disposition: direct`** (a deliberate close — NOT the default `abandoned`, which would
+  misrecord the completed agreement's run as abandoned work). Do NOT `uacp_run_finalize` (finalize is
+  allowlisted only in `resolve`; a bootstrap run sits in
   `triage`, and finalize refuses a non-terminal phase). Fields: `principle_path`, **`principle_content_sha256`**
   (the SHA-256 of the exact PRINCIPLE.md bytes — the *falsifiable* binding: if the file is later
   edited, its live hash no longer matches and the stale agreement is detectable), `agreed_by`,

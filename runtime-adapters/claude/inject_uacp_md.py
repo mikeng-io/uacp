@@ -27,6 +27,7 @@ on yaml. Untrusted field values (committed capsules) are length-clamped before i
 
 from __future__ import annotations
 
+import codecs
 import json
 import os
 import re
@@ -280,7 +281,11 @@ def _principle_section(ws_root: str) -> str:
     except OSError:
         return ""
     try:
-        text = raw.decode("utf-8")
+        # Incremental decode of the COMPLETE utf-8 prefix (final=False): if the bounded read cut a
+        # multibyte char, the incomplete trailing bytes are buffered/dropped rather than raising, so
+        # a valid oversized file still injects its capped prefix. Genuinely-invalid bytes still raise
+        # -> fail open (inject nothing).
+        text = codecs.getincrementaldecoder("utf-8")().decode(raw, final=False)
     except UnicodeDecodeError:
         return ""  # undecodable -> fail open, inject nothing
     body = _strip_frontmatter(text).strip()
