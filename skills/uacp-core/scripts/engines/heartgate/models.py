@@ -9,6 +9,7 @@ design/graph-engine nodes 31/32; ``core.py`` re-exports both names so existing
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 class HeartgateError(RuntimeError):
@@ -27,7 +28,7 @@ class HeartgateDecision:
     # ({code, severity, message, detail, path}) — the same single serializer every
     # boundary shares, so ``detail`` reaches programmatic consumers instead of
     # being destroyed by the ``f"{code}: {message}"`` flattening.
-    findings: list[dict] = field(default_factory=list[dict])
+    findings: list[dict[str, Any]] = field(default_factory=list[dict[str, Any]])
 
     @property
     def blocks_transition(self) -> bool:
