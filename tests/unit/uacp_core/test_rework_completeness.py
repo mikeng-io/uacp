@@ -697,6 +697,131 @@ def test_depth_below_threshold_does_not_escalate(temp_uacp_root: Path):
     )
 
 
+# ------------------------------------------------ D-08: the cap's TRIP ACTION (RW_REWORK_CAP_*)
+# Below the cap the counter only WARNS (existing escalation behavior). AT/OVER the cap an OPEN
+# carried finding (one not discharged by a complete disposition) must carry an explicit
+# adjudication record — a decision, its rationale, and the cost-if-wrong on its disposition entry
+# — or closure hard-BLOCKS with RW_REWORK_CAP_UNADJUDICATED. "A cap with no defined trip action is
+# a counter, not a gate" (mirrors ppv second_failure_action=block_unconditional).
+def _adjudicated(original_finding_id: str, **over: Any) -> dict[str, Any]:
+    """A canonical disposition carrying a COMPLETE adjudication record (the three ``adjudication_*``
+    fields). Override ``handling_artifact_path`` / others via kwargs to keep the underlying finding
+    OPEN (e.g. a remediation whose fix does not resolve) so the adjudication is what suppresses the
+    cap block."""
+    return _canonical(
+        original_finding_id,
+        adjudication_decision="accept the residual defect and close the loop",
+        adjudication_rationale="parent finding not reproducible on the fix branch after N loops",
+        adjudication_cost_if_wrong="a latent regression in verify-selection; caught by next audit",
+        **over,
+    )
+
+
+def test_open_finding_below_cap_gets_no_cap_block(temp_uacp_root: Path):
+    """(1) Below the cap the trip action does NOT fire — the escalation warn is the only depth
+    signal. Here 'assessment' is OPEN (undisposed) at depth 1 with the default cap (5): it draws
+    the ordinary closure block but NOT RW_REWORK_CAP_UNADJUDICATED, and no escalation warn."""
+    chain = [_canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml")]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1)
+    codes = _codes(validate_rework_completeness(temp_uacp_root, "run-B"))
+    assert "RW_REWORK_CAP_UNADJUDICATED" not in codes, codes
+    assert "RW_REWORK_DEPTH_ESCALATION" not in codes, codes  # depth 1 < default cap 5
+    # non-vacuity: the finding IS genuinely open (it is otherwise blocked, just not by the cap)
+    assert "RW_CARRIED_FINDING_UNADDRESSED" in codes, codes
+
+
+def test_open_finding_at_cap_without_adjudication_blocks(temp_uacp_root: Path):
+    """(2) AT/OVER the cap an OPEN carried finding with no adjudication record hard-BLOCKS with
+    RW_REWORK_CAP_UNADJUDICATED (severity 'block'). Depth 2 over a cap of 1 exercises '>='."""
+    (temp_uacp_root / ".uacp" / "config.toml").write_text(
+        "[heartgate]\nmax_rework_depth = 1\n", encoding="utf-8"
+    )
+    # verification_package discharged (fix resolves); assessment OPEN (no disposition), unadjudicated
+    chain = [_canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml")]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=2)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    cap = [x for x in v if x.code == "RW_REWORK_CAP_UNADJUDICATED"]
+    assert len(cap) == 1 and cap[0].severity == "block", _codes(v)
+    assert cap[0].detail["carried_finding"] == "assessment"
+    assert cap[0].detail["max_rework_depth"] == 1 and cap[0].detail["rework_depth"] == 2
+    # the DISCHARGED verification_package is not cap-blocked (only open findings need adjudication)
+    assert all(x.detail.get("carried_finding") != "verification_package" for x in cap)
+
+
+def test_open_finding_at_cap_with_adjudication_no_cap_block(temp_uacp_root: Path):
+    """(3) AT the cap, an OPEN finding that carries a COMPLETE adjudication record does NOT trip the
+    cap block — adjudication is the explicit escape hatch. Non-vacuity: the finding is genuinely
+    open (its remediation fix does not resolve, so RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED still
+    fires) and the cap WAS reached (escalation warn present) — proving adjudication alone suppressed
+    the cap block."""
+    (temp_uacp_root / ".uacp" / "config.toml").write_text(
+        "[heartgate]\nmax_rework_depth = 1\n", encoding="utf-8"
+    )
+    # assessment: remediation whose fix artifact is NOT written -> OPEN, but explicitly adjudicated
+    chain = [
+        _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
+        _adjudicated("assessment", handling_artifact_path="executions/run-B-missing-fix.yaml"),
+    ]
+    _seed_rework(
+        temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1, write_handling=False
+    )
+    # write ONLY verification_package's fix so IT discharges; leave assessment's fix missing
+    _write_artifact(
+        temp_uacp_root, "executions/run-B-hc-a.yaml", {"kind": "uacp.execution_checkpoint", "run_id": "run-B"}
+    )
+    codes = _codes(validate_rework_completeness(temp_uacp_root, "run-B"))
+    assert "RW_REWORK_CAP_UNADJUDICATED" not in codes, codes
+    assert "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED" in codes, codes  # assessment IS open
+    assert "RW_REWORK_DEPTH_ESCALATION" in codes, codes  # the cap WAS reached
+
+
+def test_incomplete_adjudication_at_cap_still_blocks(temp_uacp_root: Path):
+    """(3b) A PARTIAL adjudication (missing cost-if-wrong) does NOT suppress the cap block — the
+    record must carry all three fields (a decision made with eyes open), proving the completeness
+    requirement is non-vacuous."""
+    (temp_uacp_root / ".uacp" / "config.toml").write_text(
+        "[heartgate]\nmax_rework_depth = 1\n", encoding="utf-8"
+    )
+    partial = _canonical(
+        "assessment",
+        handling_artifact_path="executions/run-B-missing-fix.yaml",  # OPEN: fix not written
+        adjudication_decision="accept and ship",
+        adjudication_rationale="not reproducible",
+        # adjudication_cost_if_wrong intentionally omitted
+    )
+    chain = [_canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"), partial]
+    _seed_rework(
+        temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1, write_handling=False
+    )
+    _write_artifact(
+        temp_uacp_root, "executions/run-B-hc-a.yaml", {"kind": "uacp.execution_checkpoint", "run_id": "run-B"}
+    )
+    cap = [
+        x
+        for x in validate_rework_completeness(temp_uacp_root, "run-B")
+        if x.code == "RW_REWORK_CAP_UNADJUDICATED"
+    ]
+    assert len(cap) == 1 and cap[0].detail["carried_finding"] == "assessment", cap
+
+
+def test_discharged_finding_at_cap_needs_no_adjudication(temp_uacp_root: Path):
+    """(4) AT the cap, a fully-DISCHARGED carried finding (no longer open) needs NO adjudication —
+    its fix pointer IS the discharge. Both findings discharge here, so there is NO block at all,
+    only the escalation warn. Proves adjudication is required for OPEN findings only."""
+    (temp_uacp_root / ".uacp" / "config.toml").write_text(
+        "[heartgate]\nmax_rework_depth = 1\n", encoding="utf-8"
+    )
+    chain = [
+        _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
+        _canonical("assessment", handling_artifact_path="executions/run-B-hc-b.yaml"),
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    assert "RW_REWORK_CAP_UNADJUDICATED" not in _codes(v), _codes(v)
+    assert not any(x.severity == "block" for x in v), _codes(v)  # nothing open -> no block
+    assert "RW_REWORK_DEPTH_ESCALATION" in _codes(v)  # confirms we were AT the cap
+
+
 # ------------------------------------------------------------------ council hardening (D2/D3/D4)
 def test_max_rework_depth_zero_escalates_every_rework(temp_uacp_root: Path):
     """max_rework_depth=0 is an explicit operator intent (escalate on every rework) and must
