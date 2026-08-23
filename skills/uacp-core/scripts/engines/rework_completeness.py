@@ -251,15 +251,36 @@ def _entry_addresses(entry: dict[str, Any], carried_key: str, carried_path: str)
     return id_ok and path_ok
 
 
-def _disposition_complete(entry: dict[str, Any]) -> bool:
-    """True iff the disposition carries the evidence its class demands (structural, not
-    adequacy): a remediation (remediated / expanded) must point to the fix via
-    ``handling_artifact_path``; an accepted-exception must carry a ``residual_risk`` rationale
-    or an ``accepted_exception_artifact``. A bare ``{handling_classification: remediated}`` with
-    no fix pointer is a label, not a discharge (Codex #135)."""
+# Evidence prefixes a fix/closure artifact may live under (the run-bound governed roots).
+_EVIDENCE_PREFIXES: tuple[str, ...] = ("verification/", "resolutions/", "executions/")
+
+
+def _artifact_resolves(root: Path, run_id: str, path: str) -> bool:
+    """An artifact named AS PROOF is proven by its RESOLUTION, never its mere presence as a string
+    (the evidence-reference type — M2 / D-04). A remediation's ``handling_artifact_path`` discharges
+    a carried finding only if it is **run-bound** to THIS rework (an evidence prefix + the run_id)
+    AND actually **exists** on disk (checked via the engine's own loader). A path that is empty,
+    foreign-run, out-of-tree, or nonexistent is a *label*, not a fix — it must not discharge. This
+    mirrors, for remediations, the resolution that ``accepted_exceptions[].artifact_path`` already
+    gets in ``validate_uacp_artifacts.py`` (exists + run-bound); UACP grounded "we chose not to fix
+    it" but not "we fixed it"."""
+    if not path or not run_id:
+        return False
+    if not any(path.startswith(f"{prefix}{run_id}") for prefix in _EVIDENCE_PREFIXES):
+        return False  # not run-bound to this rework's own evidence
+    return load_artifact(root, path).error is None  # exists + loads
+
+
+def _disposition_complete(entry: dict[str, Any], root: Path, run_id: str) -> bool:
+    """True iff the disposition carries the evidence its class demands, **resolved** not merely
+    named: a remediation (remediated / expanded) must point to a fix artifact via
+    ``handling_artifact_path`` that actually RESOLVES — run-bound + exists on disk (M2 / D-04), not
+    a bare non-empty string; an accepted-exception must carry a ``residual_risk`` rationale or an
+    ``accepted_exception_artifact``. A remediated entry naming a nonexistent fix path is a label,
+    not a discharge (Codex #135; grounded by M2)."""
     cls = _str_field(entry, "handling_classification")
     if cls in _REMEDIATION_CLASSES:
-        return bool(_str_field(entry, "handling_artifact_path"))
+        return _artifact_resolves(root, run_id, _str_field(entry, "handling_artifact_path"))
     if cls in _ACCEPTED_EXCEPTION_CLASSES:
         return bool(
             _str_field(entry, "residual_risk") or _str_field(entry, "accepted_exception_artifact")
@@ -421,9 +442,12 @@ def validate_rework_completeness(workspace: str | Path, run_id: str) -> list[Vio
             # AND canonically well-formed (a complete handled_findings_chain item — every base
             # field present + valid enums). Class-evidence alone is not enough: a rework may not
             # close on a structurally-INVALID disposition (#149 fail-CLOSED).
-            if any(_disposition_complete(e) and not _disposition_defects(e) for e in matches):
+            if any(
+                _disposition_complete(e, root, run_id) and not _disposition_defects(e)
+                for e in matches
+            ):
                 continue
-            complete_matches = [e for e in matches if _disposition_complete(e)]
+            complete_matches = [e for e in matches if _disposition_complete(e, root, run_id)]
             if not complete_matches:
                 # No match carries even its class-required evidence — report by what the
                 # incomplete matches attempted (the existing two-way split, unchanged).
