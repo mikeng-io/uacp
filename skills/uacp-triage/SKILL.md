@@ -50,6 +50,18 @@ it does not skip or substitute for it.
 
 If the operator asks “UACP or no UACP” or rejects “UACP Lite”, TRIAGE must not use informal labels as authority. Record the work as admitted to UACP or not admitted. If admitted, use the canonical `routing_outcome` enum (`direct`, `lightweight`, `standard`, `full_governance`, `block_or_clarify`) and state that UACP owns granularity. Do not call a selected `lightweight`/`standard` path “UACP Lite” in user-facing summaries or artifacts.
 
+- **When the operator proposes an informal "UACP Lite" track** → do not invent or preserve one; the distinction is UACP or no UACP. Once UACP is selected, phrase it as "enter UACP; TRIAGE selected `<routing_outcome>`," not "I chose UACP Lite." This matters most for public/private-profile, identity-registry, runtime-plugin, or dispatch-control work, where informal naming hides authority boundaries.
+
+## Admission decision points
+
+TRIAGE-owned admission/surface decisions. Apply them as conditions, not narrative.
+
+- **When the operator reframes a "documentation cleanup" as actually being UACP lifecycle work** (especially private/public-boundary or integration docs — e.g. LEXA/MEMEX/Cortex/Nora) → stop treating it as informal Vault cleanup; admit/reroute it through UACP at the appropriate granularity and record a compact lifecycle artifact.
+- **When the operator says to start over, or that no document should be non-draft** → demote even prior `accepted` decision notes to draft input and add explicit restart guards before content review.
+- **When asked whether existing architecture/design docs must be revised to comply with UACP** → first classify the surface before scoring.
+  - **When the surface is a draft Vault/project doc** → require UACP-compatible documentation hygiene (explicit authority, status, boundaries, promotion path, implementation stop rules), NOT a forced full lifecycle package.
+  - **When the work changes protected runtime, governance, public/private, memory, agent-control, or UACP surfaces** → require full lifecycle artifacts.
+
 ## Execution checklist
 1. Summarize the request and authority source.
 2. Score visible factors from config: impact, reversibility, domain count, runtime count, verification difficulty.

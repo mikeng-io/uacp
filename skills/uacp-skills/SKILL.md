@@ -195,6 +195,18 @@ Content shared across skills lives once under **`uacp-core/references/`** (the k
 - Shared across many skills, or a kernel-level contract → `uacp-core/references/`.
 - Dated session-history / one-off lessons / external analysis cited by no skill → `.uacp/knowledge/` (the single Oracle-owned knowledge corpus — reading + provenance; it ships with the plugin, but it is *not* the operational contract — point skill instruction at the `uacp-core/references/` digest, not at history).
 
+## Refactor & repair decision points
+
+The convention above governs a skill's static shape; these govern the *loop* when you restructure or repair skills. Apply them as conditions, not narrative.
+
+- **When the operator authorizes an autonomous skill-library refactor** → run the self-closing loop one skill at a time: dispatch Agent Council for brainstorming/debate until a solid PASS/no-concerns outcome; save checkpoints; implement only after PASS; run a deterministic audit; then run full-perspective Agent Council + an external verification (e.g. Kimi Code) after implementation.
+- **When any reviewer returns CONCERNS/BLOCK** → patch the artifact or implementation, record the resolution, and rerun focused verification until PASS/no-concerns before moving to the next skill.
+- **When between phases with no true authority boundary, side effect, blocker, or unrecoverable context gap** → do not return to the operator for ceremony; stop only for a real authority boundary, destructive/external side effect, unresolved hard blocker, or missing context that checkpoints cannot recover.
+- **When restructuring** → patch existing artifacts where possible; do not predefine file trees before exploring intent and variants; keep UACP universal/adaptive (no Trustless-specific fixed gates or domains). Carry lessons forward: resolve relative references from the target skill directory; preserve exact backups before edits; never claim non-repo skill files were committed; compare against backups for removed protective semantics; do not equate shorter with safer; preserve phase-local anti-compression rules and audit-critical output fields.
+- **When reviewing a Claude Code or external-agent restructure** → verify the canonical repo/docs and the active Hermes skill export as SEPARATE surfaces (a clean repo validator or doc-link scan does not prove the live `~/.hermes/skills/devops/uacp` export is current); check phase skill directories, frontmatter, local Markdown reference resolution from each skill directory, root-validator output, and git provenance separately, and report repo/docs, validator, docs links, active skill export, and provenance as separate PASS/WARN/BLOCK lines.
+- **When repairing UACP skills** → use the normal file/git workflow; do NOT use broken UACP protected writers, `uacp-verify`, or Heartgate as self-approval authority until the relevant skill has itself passed refactor verification.
+- **When a new dependency on the shared `uacp-core/references/` home is proposed** → do not add it unless the active skill's Decision justifies that dependency; the shared reference home is not a default include.
+
 ## Plugin-readiness checklist
 1. Skill is at `skills/<dir>/SKILL.md`; the dir name is the intended `/uacp:<dir>` invocation name.
 2. `description` present and within the listing budget; no reserved-key misuse (above).
