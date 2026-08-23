@@ -563,6 +563,19 @@ enforcement = "heartgate blocker on overlap with another active_run's write_path
 # config.get_config(root) by engines.manifest.projection.validate_behavioral_floor.
 behavioral_floor = "warn"
 
+# M3c / D-07 diff containment (engines.scope_conformance): SC_DIFF_OUT_OF_SCOPE grounds
+# the one independent, witnessed input — git's ACTUAL change set vs the run's OWN declared
+# write_paths. This severity migrates the same way as behavioral_floor above: DEFAULT
+# "warn" (surface out-of-scope work without breaking live runs), flipped to "block" in a
+# later named release. When "block", SC_DIFF_OUT_OF_SCOPE blocks ONLY for a run that
+# declared a NON-EMPTY write_paths (fail-closed on the agent's own declaration, the least-
+# arguable form); an empty/undeclared boundary stays advisory. SC_DIFF_UNAVAILABLE is
+# ALWAYS "warn" (an unobservable repo is an environment fact, not an agent fault). Only the
+# literals "warn"/"block" are honored; an absent/invalid value -> "warn" (the safe
+# migration default — block-by-accident breaks runs). Read via config.get_config(root) by
+# engines.scope_conformance._sc_diff_containment_severity.
+sc_diff_containment = "warn"
+
 # =============================================================================
 # OUTPUT
 # =============================================================================
