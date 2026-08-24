@@ -170,6 +170,22 @@ _ENTRIES: tuple[Entry, ...] = (
         "{run_id}/triage-screening-{seq}.yaml",
         YAML,
     ),
+    # propose-screening artifact (design/grounded-governance/06): the typed, governed record of a
+    # screening of the DECLARED PREMISE (intent + constraints) against reality — the PROPOSE
+    # instance of the triage/correctness-screening machine. Lands in the SAME per-run subdir as the
+    # triage screening (proposals/{run_id}/ — the propose phase's own artifact dir is also
+    # proposals/; there is no `propose/` governed-writer root, exactly as there is no `triage/`
+    # one), kind-filtered apart from the triage screening by the grounding gate's dir scan
+    # (proposals/{run_id}/*.yaml). Multi-instance ({seq}) for the fixpoint (re-screen after the
+    # premise moves). Needs a schema too (BOTH-registries rule); its findings-disposition gate is
+    # validate_propose_findings.
+    Entry(
+        "uacp.propose_screening",
+        RELATION,
+        "proposals",
+        "{run_id}/propose-screening-{seq}.yaml",
+        YAML,
+    ),
     # uacp.check.* — frozen generative-gate checks (capsule #3, slice 0c). One Entry per
     # catalog sub-kind, distinct filename suffix for unambiguous reverse lookup; multi-instance
     # via {seq}. Generated from CHECK_KINDS so the layout + the projection/replay catalog cannot

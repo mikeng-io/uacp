@@ -48,6 +48,7 @@ Architecture: read-only; all disk reads go through :mod:`engines.io`; never rais
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -1881,6 +1882,262 @@ def validate_triage_findings(workspace: str | Path, run_id: str) -> list[Violati
                     _v(
                         "TRIAGE_FINDING_UNDISPOSITIONED",
                         f"triage finding {fid or '(unidentified)'!r} in run '{run_id}' "
+                        f"(verdict=findings) carries no COMPLETE disposition; every open finding "
+                        f"must be discharged (a fix pointer that RESOLVES) or adjudicated "
+                        f"(decision + rationale + cost-if-wrong)",
+                        severity=severity,
+                        finding_id=fid,
+                        substrate_hash=current_hash,
+                    )
+                )
+    return violations
+
+
+# ---------------------------------------------------------------------------------------------
+# PROPOSE grounding (design/grounded-governance/06): the PROPOSE instance of the same
+# grounding-screening machine the TRIAGE gate above is — a config-gated, fixpoint-enforced
+# screening-coverage gate — instantiated at PROPOSE exit. The ONLY difference from TRIAGE is the
+# SUBSTRATE PRODUCER: the reality here is not the scope's declared TARGETS but the proposal's
+# declared PREMISE (its intent + constraint fields), hashed. Everything else is reused: the
+# screening-coverage floor (MISSING/STALE via the substrate-hash fixpoint), the disposition loop
+# (via `_finding_dispositioned`), and the config-gated warn->block migration.
+#
+# HONEST LIMIT (design/grounded-governance/06): the substrate hashes the PREMISE — a DECLARATION —
+# to drive the fixpoint (re-premising moves the hash -> stale screening -> re-screen). The
+# grounding-via-reproduction ("reproduce, don't read") the premise demands is carried by the CHARGE
+# (skills/uacp-propose/references/grounding-screening.md), NOT yet by kernel-witnessed reproduction
+# evidence. A witnessed behavior_plane reproduction record per finding (M5-style) is a documented
+# follow-on tightening; this first cut mirrors TRIAGE structurally and ships config-gated `warn`.
+#
+# Unlike TRIAGE, PROPOSE has NO deterministic "targets resolve" floor — a premise is prose, not a
+# path that can be resolved against the tree — so there is no `*_UNRESOLVED`-style deterministic
+# block here; propose grounding is ONLY the screening-coverage gate + the findings-disposition gate.
+# ---------------------------------------------------------------------------------------------
+
+# The governed kind a propose-screening artifact declares at top level (schema + writer: layout.py /
+# schema.py). This gate loads LENIENTLY, keying on this kind + a `substrate_hash` field.
+_PROPOSE_SCREENING_KIND = "uacp.propose_screening"
+# The declaration kinds the run's PREMISE is read from: the registered proposal (open-world) and —
+# tolerated — the doc-form `uacp.propose` the proposal-schema doc describes.
+_PROPOSE_DECL_KINDS = ("uacp.proposal", "uacp.propose")
+# The premise-bearing fields of a proposal: its declared INTENT (`title`/`objective`/`purpose`) plus
+# the CONSTRAINTS it commits to (`scope` prose statements, `declared_side_effects`, `authority`,
+# `human_involvement`). Read robustly across the registered schema (`objective`) and the doc form
+# (`purpose`). NOT the scope-target PATHS (those are TRIAGE's substrate) — these are the prose
+# declaration of what the run intends and under what constraints. Changing ANY moves the hash.
+_PROPOSE_PREMISE_FIELDS = (
+    "title",
+    "objective",
+    "purpose",
+    "scope",
+    "declared_side_effects",
+    "authority",
+    "human_involvement",
+)
+# Safe migration default — "warn", never "block": a propose gate that blocked by accident would
+# break EVERY live run at its PROPOSE crossing. Mirrors the triage / correctness floor default.
+_PROPOSE_GROUNDING_DEFAULT_SEVERITY = "warn"
+
+
+def _propose_grounding_severity(root: Path) -> str:
+    """Config-gated severity for the propose grounding codes, read from
+    ``[verification] propose_screening`` (default ``warn``, flips to ``block`` in a later named
+    release — the behavioral_floor / SC_DIFF / correctness_screening / triage migration precedent).
+    Only the literals ``warn``/``block`` are honored; absent/invalid -> ``warn`` (the safe migration
+    default — block-by-accident breaks runs). PROPOSE_SCREENING_INCONCLUSIVE is NOT gated here
+    (always ``warn``). Never raises."""
+    try:
+        cfg = get_config(root).model_dump()
+        raw = (cfg.get("verification") or {}).get("propose_screening")
+        if raw in ("warn", "block"):
+            return raw
+        return _PROPOSE_GROUNDING_DEFAULT_SEVERITY
+    except Exception:
+        return _PROPOSE_GROUNDING_DEFAULT_SEVERITY
+
+
+def _propose_premise(root: Path, run_id: str) -> dict[str, Any]:
+    """The run's declared PREMISE at propose: the intent + constraint fields a ``uacp.proposal``
+    (open-world) carries — ``title``/``objective``(/``purpose``)/``scope``/
+    ``declared_side_effects``/``authority``/``human_involvement``. Read from the serialized
+    declaration (mirroring the triage scope reader), never asserted. First-writer-wins across
+    multiple declaration docs, so the produced premise (and its hash) is order-independent. Empty
+    when the run declares no premise-bearing fields — the gate then no-ops, mirroring the
+    correctness floor's 'no code changed'. Never raises."""
+    docs = _run_kind_docs(
+        root,
+        run_id,
+        _PROPOSE_DECL_KINDS,
+        (f"proposals/{run_id}-proposal.yaml",),
+    )
+    premise: dict[str, Any] = {}
+    for doc in docs:
+        for key in _PROPOSE_PREMISE_FIELDS:
+            if key in premise:
+                continue
+            value = doc.get(key)
+            if value is not None:
+                premise[key] = value
+    return premise
+
+
+def _propose_substrate_hash(premise: dict[str, Any]) -> str:
+    """The premise substrate IDENTITY: sha256 over the canonical JSON of the premise fields
+    (sorted keys, so nested-mapping order cannot perturb the identity), mirroring
+    ``_triage_substrate_hash``. Because it folds in every premise-bearing field, ANY change to the
+    declared intent OR its constraints (re-premising) moves the hash — so a screening built for an
+    old premise no longer covers. That is the fixpoint: a stale screening cannot clear the gate."""
+    payload = json.dumps(premise, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _propose_screening_docs(root: Path, run_id: str) -> list[dict[str, Any]]:
+    """Every RESOLVING propose-screening artifact DICT for THIS run (``kind:
+    uacp.propose_screening``), located via the shared locator (registered artifacts + the per-run
+    subdir scan ``proposals/{run_id}/*.y{a,}ml`` — the governed writer's home, shared with the
+    triage screening but kind-filtered apart). Never raises."""
+    return _run_kind_docs(
+        root,
+        run_id,
+        (_PROPOSE_SCREENING_KIND,),
+        (f"proposals/{run_id}/*.yaml", f"proposals/{run_id}/*.yml"),
+    )
+
+
+def _propose_screening_hashes(root: Path, run_id: str) -> list[str]:
+    """Every non-empty ``substrate_hash`` carried by a RESOLVING propose-screening artifact for THIS
+    run — the covering-hash set the gate matches the current premise-substrate identity against."""
+    hashes: list[str] = []
+    for doc in _propose_screening_docs(root, run_id):
+        sh = doc.get("substrate_hash")
+        if isinstance(sh, str) and sh:
+            hashes.append(sh)
+    return hashes
+
+
+def validate_propose_screening(workspace: str | Path, run_id: str) -> list[Violation]:
+    """PROPOSE grounding screening-coverage gate (design/grounded-governance/06).
+
+    When the run DECLARES a premise at propose, PROPOSE-exit may not pass clean unless a
+    propose-screening artifact EXISTS, RESOLVES, and COVERS the kernel-produced substrate (the
+    proposal's premise reality). This is the PROPOSE instance of the same machine the TRIAGE gate
+    is, minus the deterministic resolve-floor (a premise is prose, not a resolvable path):
+
+    * no declared premise -> ``[]`` (no substrate; nothing to ground — mirrors the triage floor's
+      'no scope declared'). Keeps the gate INERT for runs whose proposal carries no premise fields,
+      preserving existing propose->plan behavior.
+    * a premise declared and NO covering screening found -> one ``PROPOSE_SCREENING_MISSING`` at
+      the config-gated severity.
+    * screening(s) found but ALL cover a DIFFERENT substrate (the premise changed since screening)
+      -> one ``PROPOSE_SCREENING_STALE`` — the fixpoint: re-screen the re-premised run.
+
+    Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    root = Path(str(workspace)).resolve()
+    premise = _propose_premise(root, run_id)
+    if not premise:
+        # No declared premise -> no substrate -> no propose-grounding obligation.
+        return []
+    current_hash = _propose_substrate_hash(premise)
+    hashes = _propose_screening_hashes(root, run_id)
+    if current_hash in hashes:
+        return []
+    severity = _propose_grounding_severity(root)
+    fields = sorted(premise)
+    if not hashes:
+        return [
+            _v(
+                "PROPOSE_SCREENING_MISSING",
+                f"run '{run_id}' declares a proposal premise ({len(fields)} field(s): {fields}) "
+                f"but carries no propose-screening artifact ({_PROPOSE_SCREENING_KIND}) covering "
+                f"the kernel-produced premise substrate; the declared premise must be screened "
+                f"(reproduced, not merely read) before PROPOSE exits",
+                severity=severity,
+                premise_fields=fields,
+                substrate_hash=current_hash,
+            )
+        ]
+    return [
+        _v(
+            "PROPOSE_SCREENING_STALE",
+            f"run '{run_id}' carries propose-screening artifact(s) but none cover the CURRENT "
+            f"premise substrate (the declared intent or its constraints changed since screening); "
+            f"the {len(hashes)} screening(s) cover a different premise — re-screen the re-premised "
+            f"run (the fixpoint)",
+            severity=severity,
+            premise_fields=fields,
+            substrate_hash=current_hash,
+            found_hashes=hashes,
+        )
+    ]
+
+
+def validate_propose_findings(workspace: str | Path, run_id: str) -> list[Violation]:
+    """PROPOSE-FINDINGS disposition gate (design/grounded-governance/06) — the propose instance of
+    ``validate_triage_findings``, reusing the SAME disposition grounding (M2/M3d via
+    :func:`_finding_dispositioned`).
+
+    For the RESOLVING propose-screening artifact(s) that COVER the current premise substrate:
+    * ``clean`` -> ``[]``.
+    * ``findings`` -> EACH carried finding must be DISPOSITIONED (``discharged`` with a RESOLVING
+      fix pointer, or ``adjudicated`` with decision + rationale + cost-if-wrong). Each
+      undispositioned finding -> one ``PROPOSE_FINDING_UNDISPOSITIONED`` at the config-gated
+      severity.
+    * ``cannot_verify`` -> one ``PROPOSE_SCREENING_INCONCLUSIVE`` at ``warn`` (abstained;
+      surfaced, never read as a pass).
+
+    Scope discipline (mirrors the triage findings gate): no declared premise / NO covering screening
+    -> ``[]`` (the MISSING/STALE signal is :func:`validate_propose_screening`'s; don't
+    double-report). Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    root = Path(str(workspace)).resolve()
+    premise = _propose_premise(root, run_id)
+    if not premise:
+        return []
+    current_hash = _propose_substrate_hash(premise)
+    covering = [
+        doc
+        for doc in _propose_screening_docs(root, run_id)
+        if doc.get("substrate_hash") == current_hash
+    ]
+    if not covering:
+        # No covering screening — validate_propose_screening owns MISSING/STALE; no double-report.
+        return []
+    severity = _propose_grounding_severity(root)
+    violations: list[Violation] = []
+    for doc in covering:
+        verdict = doc.get("verdict")
+        if verdict == "cannot_verify":
+            violations.append(
+                _v(
+                    "PROPOSE_SCREENING_INCONCLUSIVE",
+                    f"the propose screening for run '{run_id}' abstained (verdict=cannot_verify) "
+                    f"over the current premise substrate; an inconclusive screening is surfaced, "
+                    f"never read as a pass — resolve it before closing PROPOSE",
+                    severity="warn",
+                    substrate_hash=current_hash,
+                )
+            )
+            continue
+        if verdict != "findings":
+            continue
+        findings = doc.get("findings")
+        if not isinstance(findings, list):
+            continue
+        for finding in findings:
+            # A propose finding discharges to PROPOSE-phase evidence (``propose/{run}/``), not the
+            # late-phase verification/executions dirs the correctness gate uses — the evidence-
+            # reference type is phase-appropriate (mirrors the triage gate's ``triage/`` prefix).
+            if not isinstance(finding, dict) or not _finding_dispositioned(
+                finding, root, run_id, allowed_prefixes=("propose/",)
+            ):
+                fid = _s(finding.get("id")) if isinstance(finding, dict) else ""
+                violations.append(
+                    _v(
+                        "PROPOSE_FINDING_UNDISPOSITIONED",
+                        f"propose finding {fid or '(unidentified)'!r} in run '{run_id}' "
                         f"(verdict=findings) carries no COMPLETE disposition; every open finding "
                         f"must be discharged (a fix pointer that RESOLVES) or adjudicated "
                         f"(decision + rationale + cost-if-wrong)",

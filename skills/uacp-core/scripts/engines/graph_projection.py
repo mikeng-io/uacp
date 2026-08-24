@@ -22,6 +22,8 @@ from engines.manifest.projection import (
     validate_correctness_screening,
     validate_graph_invariants,
     validate_graph_projection,
+    validate_propose_findings,
+    validate_propose_screening,
     validate_triage_findings,
     validate_triage_screening,
 )
@@ -39,6 +41,8 @@ __all__ = [
     "validate_correctness_screening",
     "validate_graph_invariants",
     "validate_graph_projection",
+    "validate_propose_findings",
+    "validate_propose_screening",
     "validate_triage_findings",
     "validate_triage_screening",
 ]

@@ -699,6 +699,67 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             },
         },
     },
+    # propose-screening artifact (design/grounded-governance/06) — the typed, governed record of a
+    # screening of the DECLARED PREMISE (intent + constraints) against reality. Mirrors
+    # uacp.triage_screening except its substrate is the proposal's premise (`reviewed_premise`, the
+    # prose declaration) rather than the declared scope targets. The floor
+    # (validate_propose_screening) keys on `substrate_hash`; the findings gate
+    # (validate_propose_findings) keys on `verdict` + each finding's `disposition`. OPEN-world like
+    # the other rich package docs (extra fields allowed): validate the identity, the substrate
+    # identity, the verdict enum, and each finding's DESCRIPTIVE shape — but NOT `disposition`
+    # (added LATER in the loop, enforced by the gate, so a write-time requirement would make the
+    # undispositioned-then-disposition loop unwritable). Deliberately carries NO `phase` const: its
+    # own findings are dispositioned by validate_propose_findings, so it stays OUT of the verify
+    # rework-carry machinery (verify_finding_artifact_keys).
+    "uacp.propose_screening": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": [
+            "kind",
+            "run_id",
+            "substrate_hash",
+            "reviewed_premise",
+            "verdict",
+            "findings",
+            "screener",
+        ],
+        "properties": {
+            "kind": {"const": "uacp.propose_screening"},
+            "run_id": {"type": "string", "minLength": 1},
+            "substrate_hash": {"type": "string", "minLength": 1},
+            # The declared premise screened — a prose declaration of the intent + constraints the
+            # substrate hash is computed over. A single string (a premise is prose, not a path
+            # list); empty would mean "screened nothing", so minLength 1.
+            "reviewed_premise": {"type": "string", "minLength": 1},
+            "verdict": {"enum": ["clean", "findings", "cannot_verify"]},
+            "findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": [
+                        "id",
+                        "severity",
+                        "defect_class",
+                        "message",
+                        "substrate_ref",
+                        "repro",
+                    ],
+                    "properties": {
+                        "id": {"type": "string", "minLength": 1},
+                        "severity": {"enum": ["P1", "P2"]},
+                    },
+                },
+            },
+            "screener": {
+                "type": "object",
+                "required": ["model"],
+                "properties": {
+                    "model": {"type": "string", "minLength": 1},
+                    "independence_evidence": {"type": ["string", "null"]},
+                },
+            },
+        },
+    },
     "uacp.verification_package": {
         "$schema": _DRAFT,
         "type": "object",

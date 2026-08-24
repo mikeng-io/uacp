@@ -606,6 +606,25 @@ correctness_screening = "warn"
 # engines.scope_conformance._plan_cascade_severity.
 plan_cascade_forecast = "warn"
 
+# Grounded-governance node 06 propose-screening gate (design/grounded-governance/06; engine
+# engines.manifest.projection.validate_propose_screening / validate_propose_findings): the PROPOSE
+# instance of the triage/correctness-screening machine. When a run DECLARES a premise at propose
+# (its proposal's intent + constraint fields), PROPOSE may not clear unless a propose-screening
+# artifact (kind: uacp.propose_screening) EXISTS, RESOLVES, and COVERS the kernel-produced premise
+# substrate (PROPOSE_SCREENING_MISSING / PROPOSE_SCREENING_STALE), with its findings dispositioned
+# (PROPOSE_FINDING_UNDISPOSITIONED). Those three use THIS severity; PROPOSE_SCREENING_INCONCLUSIVE
+# (verdict=cannot_verify) is ALWAYS "warn". A run that declares no premise at propose no-ops
+# entirely. Unlike triage there is NO deterministic resolve-floor (a premise is prose, not a path).
+# Migrates the behavioral_floor / SC_DIFF / correctness_screening / triage way: DEFAULT "warn"
+# (announce without breaking live runs — existing propose->plan crossings stay clean by default),
+# flipped to "block" in a later named release once runs declare + screen their premise. Only the
+# literals "warn"/"block" are honored; an absent/invalid value -> "warn" (the safe migration default
+# — block-by-accident breaks runs). NOTE (design/grounded-governance/06): the substrate hashes the
+# PREMISE (a declaration); grounding-via-reproduction is carried by the propose CHARGE, not yet by
+# kernel-witnessed reproduction evidence (a documented follow-on tightening). Read via
+# config.get_config(root) by engines.manifest.projection._propose_grounding_severity.
+propose_screening = "warn"
+
 # =============================================================================
 # TRIAGE GROUNDING
 # =============================================================================

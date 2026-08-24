@@ -671,6 +671,50 @@ def _run_forced_triage_grounding_gate(
         return [f"TRIAGE_GROUNDING_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
 
 
+def _run_forced_propose_grounding_gate(
+    workspace: Path, run_id: str, from_phase: str, to_phase: str
+) -> tuple[list[str], list[str]]:
+    """Force the PROPOSE grounding gate onto PROPOSE->PLAN on the live path
+    (design/grounded-governance/06) — the PROPOSE instance of the triage grounding gate. PROPOSE
+    declares the run's PREMISE (its intent + constraints); this grounds it against a screening that
+    reproduced the premise, so a run built on an unverified premise is caught at PROPOSE rather than
+    inherited by every downstream phase.
+
+    One grounded check over one substrate — the proposal's declared premise (its intent + constraint
+    fields, hashed):
+      * SCREENING COVERAGE — a ``uacp.propose_screening`` artifact must EXIST, RESOLVE, and COVER the
+        premise substrate hash (the fixpoint) -> ``PROPOSE_SCREENING_MISSING`` /
+        ``PROPOSE_SCREENING_STALE``; its findings must be dispositioned (M2/M3d) ->
+        ``PROPOSE_FINDING_UNDISPOSITIONED``.
+
+    Unlike triage there is NO deterministic resolve-floor (a premise is prose, not a resolvable
+    path). Severities are config-gated ``[verification] propose_screening`` (default ``warn``): a
+    propose that declares no premise no-ops entirely, and by default any finding surfaces as an
+    ADVISORY, never a blocker — so existing propose crossings are behavior-preserved. Block-severity
+    requires the config flip. This gate runs ALONGSIDE ``forced_proposal_coverage`` (propose now
+    carries a TWO-gate forced tuple); each self-selects independently. Self-gating: only fires at
+    propose exit (propose's onward crossing is plan). Fail-closed: an unexpected failure returns a
+    single ``PROPOSE_GROUNDING_UNAVAILABLE`` blocker (the ``_run_forced_plan_exit_gate`` precedent).
+    Lazy import (engines<->state cycle)."""
+    if from_phase != "propose":
+        return [], []
+    try:
+        from engines.graph_projection import (
+            validate_propose_findings,
+            validate_propose_screening,
+        )
+
+        violations = [
+            *validate_propose_screening(workspace, run_id),
+            *validate_propose_findings(workspace, run_id),
+        ]
+        blockers = [f"{v.code}: {v.message}" for v in violations if v.severity == "block"]
+        advisories = [f"{v.code}: {v.message}" for v in violations if v.severity != "block"]
+        return blockers, advisories
+    except Exception as exc:  # fail-closed: an unrunnable gate must not silently pass
+        return [f"PROPOSE_GROUNDING_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
+
+
 # --- M1 (D-01 / D-02): the single phase-keyed structural-gate resolver --------
 # ONE table, keyed on from_phase, is the SOLE definition of which forced gate and
 # whether the structural graph gate apply when a run EXITS that phase. It replaces
@@ -754,12 +798,24 @@ _PHASE_GATE_TABLE: dict[str, tuple[bool, tuple[ForcedGate, ...]]] = {
             ),
         ),
     ),
+    # propose exit carried ONE forced gate (forced_proposal_coverage) before grounded-governance
+    # node 06. The grounding gate (declared premise vs a reproduction screening —
+    # design/grounded-governance/06) is added here as a SECOND tuple element (the M2 tuple mechanism
+    # already supports >1). graph_gated stays False (propose was never graph-gated — preserved). The
+    # grounding gate ships config-gated `warn` (default), so a run whose proposal declares no
+    # premise, or declares one but carries no screening, sees at most ADVISORIES from it, never a
+    # blocker — existing propose->plan crossings are behavior-preserved. Both gates self-select on
+    # from_phase independently, so the tuple-iterating dispatch runs each and each own-fires.
     "propose": (
         False,
         (
             ForcedGate(
                 "forced_proposal_coverage (keyed-scope registration)",
                 lambda w, r, fp, tp: (_run_forced_proposal_coverage_gate(w, r, fp), []),
+            ),
+            ForcedGate(
+                "forced_propose_grounding (declared premise vs reproduction screening)",
+                lambda w, r, fp, tp: _run_forced_propose_grounding_gate(w, r, fp, tp or ""),
             ),
         ),
     ),

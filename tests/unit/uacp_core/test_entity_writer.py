@@ -262,6 +262,66 @@ def test_create_entity_triage_screening_validate_on_write_rejects_bad_verdict(tm
     assert "triage_screening:seq=0" not in (manifest.get("artifacts") or {})
 
 
+def _propose_screening_fields(verdict: str = "clean", findings=None) -> dict:
+    # A shape-valid uacp.propose_screening payload (kind + run_id injected by the writer).
+    return {
+        "substrate_hash": "deadbeef",
+        "reviewed_premise": "ship the grounded PROPOSE screening; authority: operator go",
+        "verdict": verdict,
+        "findings": findings or [],
+        "screener": {"model": "test-model", "independence_evidence": None},
+    }
+
+
+def test_create_entity_propose_screening_round_trips(tmp_path):
+    # node 06: uacp.propose_screening is a governed kind — it writes -> persists under a per-run
+    # subdir of the propose phase's dir (proposals/{run_id}/) -> watermarks -> registers, and its
+    # schema round-trips through validate (write -> load -> validate).
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.propose_screening",
+        _propose_screening_fields(),
+        seq="0",
+    )
+    assert res.get("ok") is True, res
+    rel = res["path"]
+    assert rel == f"proposals/{run_id}/propose-screening-0.yaml"
+
+    # PERSIST under the per-run subdir with the kind const + typed fields.
+    doc = yaml.safe_load((tmp_path / ".uacp" / rel).read_text(encoding="utf-8"))
+    assert doc["kind"] == "uacp.propose_screening"
+    assert doc["verdict"] == "clean"
+    assert doc["substrate_hash"] == "deadbeef"
+    assert doc["reviewed_premise"].startswith("ship the grounded PROPOSE screening")
+
+    # WATERMARK + REGISTER (multi-instance composite key includes the seq).
+    assert rel in load_hash_index(tmp_path, run_id)
+    manifest = yaml.safe_load(
+        (tmp_path / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text(encoding="utf-8")
+    )
+    assert manifest["artifacts"]["propose_screening:seq=0"] == rel
+
+
+def test_create_entity_propose_screening_validate_on_write_rejects_bad_verdict(tmp_path):
+    # validate-on-write gate: an out-of-enum verdict is shape-invalid -> REJECTED, no write, no
+    # registration. Non-vacuity: the valid verdict (above) writes.
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.propose_screening",
+        {**_propose_screening_fields(), "verdict": "maybe"},
+        seq="0",
+    )
+    assert "error" in res and "validate-on-write rejected" in res["error"]
+    manifest = yaml.safe_load(
+        (tmp_path / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text(encoding="utf-8")
+    )
+    assert "propose_screening:seq=0" not in (manifest.get("artifacts") or {})
+
+
 def test_create_entity_rejects_state_plane(tmp_path):
     # F1: STATE-plane kinds (run_registry / run_manifest / …) are the State engine's, not the
     # entity-writer's. create_entity must refuse them (else it's a weaker writer than

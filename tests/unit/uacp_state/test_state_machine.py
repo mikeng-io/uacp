@@ -18,6 +18,7 @@ from state_machine import (
     _run_forced_execute_evidence_gate,
     _run_forced_plan_exit_gate,
     _run_forced_proposal_coverage_gate,
+    _run_forced_propose_grounding_gate,
     _run_forced_triage_grounding_gate,
     _run_forced_verify_evidence_gate,
     handle_finalize,
@@ -494,11 +495,13 @@ class TestStructuralGateResolverInvariant:
     # forced gate(s) — M2 generalized ``forced`` to a TUPLE, so a phase may carry more than
     # one — and the set of phases whose exit is structural-graph-gated (D35). ``triage`` gains
     # its grounding gate here (was absent before M2); graph-gating is UNCHANGED (triage is NOT
-    # graph-gated), pinning that PART A did not alter the graph-gate set.
+    # graph-gated), pinning that PART A did not alter the graph-gate set. ``propose`` carries TWO
+    # forced gates (grounded-governance node 06): its original coverage gate PLUS the new grounding
+    # gate — a non-vacuous TWO-token set, pinning both are present (one gate per token).
     _EXPECTED_FORCED_TOKENS = {
         "brainstorm": {"forced_brainstorm_exit"},
         "triage": {"forced_triage_grounding"},
-        "propose": {"forced_proposal_coverage"},
+        "propose": {"forced_proposal_coverage", "forced_propose_grounding"},
         "plan": {"forced_plan_exit"},
         "execute": {"forced_execute_evidence"},
         "verify": {"forced_verify_evidence"},
@@ -586,7 +589,8 @@ class TestStructuralGateResolverInvariant:
                 if other == own_phase:
                     continue
                 assert fn(tmp_path, "no-such-run", other) == [], (own_phase, other)
-        # plan_exit + triage_grounding self-select too (tuple-shaped: (blockers, advisories)).
+        # plan_exit + triage_grounding + propose_grounding self-select too (tuple-shaped:
+        # (blockers, advisories)).
         for other in phases:
             if other != "plan":
                 assert _run_forced_plan_exit_gate(tmp_path, "no-such-run", other, "x") == (
@@ -595,5 +599,9 @@ class TestStructuralGateResolverInvariant:
                 ), other
             if other != "triage":
                 assert _run_forced_triage_grounding_gate(
+                    tmp_path, "no-such-run", other, "x"
+                ) == ([], []), other
+            if other != "propose":
+                assert _run_forced_propose_grounding_gate(
                     tmp_path, "no-such-run", other, "x"
                 ) == ([], []), other
