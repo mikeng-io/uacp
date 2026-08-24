@@ -276,9 +276,27 @@ def _artifact_resolves(
     if not path or not run_id:
         return False
     prefixes = allowed_prefixes if allowed_prefixes is not None else _EVIDENCE_PREFIXES
-    if not any(path.startswith(f"{prefix}{run_id}") for prefix in prefixes):
+    if not any(_run_bound_under(path, prefix, run_id) for prefix in prefixes):
         return False  # not run-bound to this run's own (phase-appropriate) evidence
     return load_artifact(root, path).error is None  # exists + loads
+
+
+def _run_bound_under(path: str, prefix: str, run_id: str) -> bool:
+    """Is ``path`` run-bound to ``run_id`` under an evidence ``prefix`` — with a REAL boundary
+    after the id, not a bare string prefix (Codex #172 P1). A bare ``startswith(prefix+run_id)``
+    lets run ``r`` claim ``verification/r-other/fix.yaml`` (a DIFFERENT run whose id merely shares
+    the prefix), cross-binding evidence. Bind to a delimiter: the id must be the whole remainder,
+    the first path SEGMENT (``{run_id}/…`` subdir), or a flat file stem (``{run_id}-…`` with no
+    further ``/`` — so ``r-other/…`` is a distinct run's subdir, rejected, while
+    ``r-checkpoint.yaml`` is run ``r``'s flat evidence, accepted)."""
+    if not path.startswith(prefix):
+        return False
+    rest = path[len(prefix) :]
+    return (
+        rest == run_id
+        or rest.startswith(f"{run_id}/")
+        or (rest.startswith(f"{run_id}-") and "/" not in rest)
+    )
 
 
 def _disposition_complete(entry: dict[str, Any], root: Path, run_id: str) -> bool:

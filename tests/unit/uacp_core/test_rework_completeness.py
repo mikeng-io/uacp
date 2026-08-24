@@ -1010,3 +1010,16 @@ def test_engine_required_fields_match_the_canonical_validator():
     # Non-vacuity: the battery exercises BOTH verdicts (some clean, some blocked).
     verdicts = {_validator_blocks(e) for _, e in battery}
     assert verdicts == {True, False}, verdicts
+
+
+def test_run_bound_under_requires_a_real_boundary():
+    # Codex #172 P1: evidence must bind to a REAL boundary after run_id, not a bare string prefix,
+    # or run 'r' could discharge with a different run 'r-other'/'rextra''s artifact.
+    from engines.rework_completeness import _run_bound_under
+
+    assert _run_bound_under("executions/r/fix.yaml", "executions/", "r")  # subdir
+    assert _run_bound_under("executions/r-checkpoint-001.yaml", "executions/", "r")  # flat file
+    assert _run_bound_under("executions/r", "executions/", "r")  # exact
+    assert not _run_bound_under("executions/r-other/fix.yaml", "executions/", "r")  # other run subdir
+    assert not _run_bound_under("executions/rextra/fix.yaml", "executions/", "r")  # no delimiter
+    assert not _run_bound_under("verification/r/fix.yaml", "executions/", "r")  # wrong prefix

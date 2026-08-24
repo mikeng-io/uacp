@@ -91,3 +91,23 @@ def test_never_raises_on_broken_gitfile(tmp_path):
     res = diff_content(tmp_path)
     assert res.is_repo is True
     assert res.error is not None
+
+
+def test_diff_content_includes_uncommitted_but_excludes_uacp(tmp_path):
+    # Codex #172 P1: the substrate must cover uncommitted work (changed_files counts it) — an edit,
+    # an untracked new file — while EXCLUDING the governed .uacp/ namespace (not work-product; and
+    # its inclusion would let writing the screening perturb its own hash).
+    ws = tmp_path
+    _init(ws)
+    _git(ws, "checkout", "-q", "-b", "main")
+    _commit(ws, "src/mod.py", "def x():\n    return 1\n", "base")
+    _git(ws, "checkout", "-q", "-b", "feature")
+    (ws / "src" / "mod.py").write_text("def x():\n    return 999\n")  # uncommitted tracked edit
+    (ws / "src" / "new.py").write_text("def y():\n    return 2\n")  # untracked new code
+    (ws / ".uacp").mkdir()
+    (ws / ".uacp" / "state.yaml").write_text("governed_marker: true\n")  # governed state
+    res = diff_content(ws)
+    assert res.is_repo and res.error is None
+    assert "999" in res.text  # uncommitted tracked edit included
+    assert "def y" in res.text  # untracked new code folded in
+    assert "governed_marker" not in res.text  # .uacp/ excluded

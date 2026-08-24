@@ -332,7 +332,7 @@ def test_forced_gate_surfaces_advisories_at_propose_exit(tmp_path):
     # default), yet the grounding signal is visible.
     ws = _ws(tmp_path)
     _declare_premise(tmp_path, "r")
-    blockers, advisories = _run_forced_propose_grounding_gate(ws, "r", "propose", "plan")
+    blockers, advisories, _findings = _run_forced_propose_grounding_gate(ws, "r", "propose", "plan")
     assert blockers == []
     assert any("PROPOSE_SCREENING_MISSING" in a for a in advisories)
 
@@ -343,5 +343,5 @@ def test_forced_gate_blocks_at_propose_exit_when_config_block(tmp_path):
     ws = _ws(tmp_path)
     (ws / ".uacp" / "config.toml").write_text('[verification]\npropose_screening = "block"\n')
     _declare_premise(tmp_path, "r")
-    blockers, _advisories = _run_forced_propose_grounding_gate(ws, "r", "propose", "plan")
+    blockers, _advisories, _findings = _run_forced_propose_grounding_gate(ws, "r", "propose", "plan")
     assert any("PROPOSE_SCREENING_MISSING" in b for b in blockers)

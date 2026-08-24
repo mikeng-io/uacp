@@ -355,3 +355,28 @@ def test_review_sandbox_writes_run_bound_provisioning_evidence(tmp_path: Path):
     record = json.loads(ev.read_text())
     assert record["provisioned"] is True
     assert record["session"] == "sess-9"
+
+
+def test_read_only_evidence_missing_session_is_a_block(tmp_path: Path):
+    # Codex #172 P2: a provisioning record with NO `session` must fail like a mismatch — an unbound
+    # record could otherwise be reused across councils despite the run-binding contract.
+    root = _root_with_config(tmp_path)
+    rel = "independence/sess-1/sandbox-provision.json"
+    _write_evidence(root, rel, provisioned=True, session=None)  # NO session field
+    obj = {
+        "council_id": "c-1",
+        "session_id": "sess-1",
+        "reviewer_reports": [
+            {
+                "bridge": "opencode",
+                "capability_profile": "inspect",
+                "status": "COMPLETED",
+                "read_only_enforcement": "worktree",
+                "containment_evidence": rel,
+                "model_authorized": True,
+                "resolved_model": "mimo-v2.5",
+            }
+        ],
+    }
+    blocks = _blocks(_ground(obj, root))
+    assert any("run-bound" in b and "no session" in b for b in blocks), blocks

@@ -632,7 +632,7 @@ def _run_forced_plan_exit_gate(
 
 def _run_forced_triage_grounding_gate(
     workspace: Path, run_id: str, from_phase: str, to_phase: str
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str]] | tuple[list[str], list[str], list[dict]]:
     """Force the TRIAGE grounding gate onto TRIAGE->PROPOSE on the live path (M2,
     design/grounded-governance/04 + 05) — the HEAD of the cascade. TRIAGE emits the first governed
     declaration (the scope); this grounds it against the REAL project root the scope names, so a run
@@ -666,14 +666,18 @@ def _run_forced_triage_grounding_gate(
         ]
         blockers = [f"{v.code}: {v.message}" for v in violations if v.severity == "block"]
         advisories = [f"{v.code}: {v.message}" for v in violations if v.severity != "block"]
-        return blockers, advisories
+        # Also surface the STRUCTURED findings so the transition envelope's findings[] preserves each
+        # grounding violation's detail + path. The graph gate is disabled for TRIAGE/PROPOSE, so
+        # gate_findings would otherwise stay empty here even when these validators fire (Codex #172).
+        findings = [v.as_finding() for v in violations]
+        return blockers, advisories, findings
     except Exception as exc:  # fail-closed: an unrunnable gate must not silently pass
         return [f"TRIAGE_GROUNDING_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
 
 
 def _run_forced_propose_grounding_gate(
     workspace: Path, run_id: str, from_phase: str, to_phase: str
-) -> tuple[list[str], list[str]]:
+) -> tuple[list[str], list[str]] | tuple[list[str], list[str], list[dict]]:
     """Force the PROPOSE grounding gate onto PROPOSE->PLAN on the live path
     (design/grounded-governance/06) — the PROPOSE instance of the triage grounding gate. PROPOSE
     declares the run's PREMISE (its intent + constraints); this grounds it against a screening that
@@ -710,7 +714,10 @@ def _run_forced_propose_grounding_gate(
         ]
         blockers = [f"{v.code}: {v.message}" for v in violations if v.severity == "block"]
         advisories = [f"{v.code}: {v.message}" for v in violations if v.severity != "block"]
-        return blockers, advisories
+        # Surface STRUCTURED findings for the transition envelope (graph gate is disabled for
+        # PROPOSE, so gate_findings would otherwise drop these findings' detail/path — Codex #172).
+        findings = [v.as_finding() for v in violations]
+        return blockers, advisories, findings
     except Exception as exc:  # fail-closed: an unrunnable gate must not silently pass
         return [f"PROPOSE_GROUNDING_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
 
@@ -742,7 +749,13 @@ class ForcedGate:
     ran all five — at most one was ever non-empty for a given phase."""
 
     label: str
-    run: Callable[[Path, str, str, str | None], tuple[list[str], list[str]]]
+    # Returns (blockers, advisories) — or (blockers, advisories, findings) for a grounding gate that
+    # also surfaces STRUCTURED findings (as_finding() dicts) into the transition envelope. The
+    # dispatch accepts either arity.
+    run: Callable[
+        [Path, str, str, str | None],
+        "tuple[list[str], list[str]] | tuple[list[str], list[str], list[dict]]",
+    ]
 
 
 @dataclass(frozen=True)
@@ -1129,11 +1142,14 @@ def _handle_transition_locked(
         # order. At most one non-empty per existing phase, so behavior is preserved.
         spec = resolve_gates(from_phase, to_phase)
         for forced_gate in spec.forced:
-            forced_blockers, forced_advisories = forced_gate.run(
-                workspace, run_id, from_phase, to_phase
-            )
-            gate_blockers += forced_blockers
-            gate_advisories += forced_advisories
+            forced_result = forced_gate.run(workspace, run_id, from_phase, to_phase)
+            gate_blockers += forced_result[0]
+            gate_advisories += forced_result[1]
+            # A grounding gate returns a 3rd element (structured findings) so its detail/path reach
+            # the transition envelope even when the graph gate is disabled (Codex #172 P2); the
+            # simple wrappers return a 2-tuple. Accept both.
+            if len(forced_result) > 2:
+                gate_findings += forced_result[2]
         if gate_blockers:
             return json.dumps(
                 {

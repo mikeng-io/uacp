@@ -347,7 +347,7 @@ def test_forced_gate_surfaces_advisories_at_triage_exit(tmp_path):
     # yet the grounding signal is visible.
     ws = _ws(tmp_path)
     _declare_scope(tmp_path, "r", ["src/ghost.py"])
-    blockers, advisories = _run_forced_triage_grounding_gate(ws, "r", "triage", "propose")
+    blockers, advisories, _findings = _run_forced_triage_grounding_gate(ws, "r", "triage", "propose")
     assert blockers == []
     assert any("TRIAGE_SCOPE_TARGET_UNRESOLVED" in a for a in advisories)
     assert any("TRIAGE_SCREENING_MISSING" in a for a in advisories)
@@ -359,5 +359,30 @@ def test_forced_gate_blocks_at_triage_exit_when_config_block(tmp_path):
     ws = _ws(tmp_path)
     (ws / ".uacp" / "config.toml").write_text('[triage]\nscope_grounding = "block"\n')
     _declare_scope(tmp_path, "r", ["src/ghost.py"])
-    blockers, _advisories = _run_forced_triage_grounding_gate(ws, "r", "triage", "propose")
+    blockers, _advisories, _findings = _run_forced_triage_grounding_gate(ws, "r", "triage", "propose")
     assert any("TRIAGE_SCOPE_TARGET_UNRESOLVED" in b for b in blockers)
+
+
+def test_new_file_under_existing_parent_is_not_a_phantom(tmp_path):
+    # Codex #172 P2: TRIAGE runs before execution; a write_path for a NEW file whose PARENT dir
+    # exists is a legitimate intended output ('planned'), not a phantom -> no UNRESOLVED.
+    ws = _ws(tmp_path)
+    _make_target(tmp_path, "src/existing.py")  # creates the src/ parent
+    _declare_scope(tmp_path, "r", ["src/newfile.py"])  # a new file under the existing src/
+    codes = _codes(validate_triage_screening(ws, "r"))
+    assert "TRIAGE_SCOPE_TARGET_UNRESOLVED" not in codes, codes
+    assert codes == ["TRIAGE_SCREENING_MISSING"], codes  # only the (expected) missing-screening
+
+
+def test_forced_gate_surfaces_structured_findings(tmp_path):
+    # Codex #172 P2: the forced grounding gate returns structured findings (a 3rd element) so the
+    # transition envelope keeps each finding's detail/path — the graph gate is disabled for TRIAGE.
+    ws = _ws(tmp_path)
+    _make_target(tmp_path, "src/mod.py")
+    _declare_scope(tmp_path, "r", ["src/mod.py"])  # resolves, but no screening -> MISSING advisory
+    result = _run_forced_triage_grounding_gate(ws, "r", "triage", "propose")
+    assert len(result) == 3, result
+    _blockers, _advisories, findings = result
+    assert findings, "structured findings must be surfaced"
+    assert findings[0]["code"] == "TRIAGE_SCREENING_MISSING"
+    assert "detail" in findings[0] and "path" in findings[0]

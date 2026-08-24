@@ -630,11 +630,13 @@ def _ground_containment_evidence(
     # Run-binding: the provisioning evidence must belong to THIS council's session, otherwise a
     # reviewer could point at some other run's sandbox record.
     ev_session = record.get("session")
-    if council_session and ev_session and str(ev_session) != str(council_session):
+    if council_session and (not ev_session or str(ev_session) != str(council_session)):
+        # A MISSING session must fail like a mismatch (Codex #172 P2): an unbound provisioning
+        # record could otherwise be reused across councils despite the run-binding contract.
+        bound = f"session {ev_session!r}" if ev_session else "no session"
         issues.append(
-            f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) containment_evidence is bound to "
-            f"session {ev_session!r}, not this council's {council_session!r} — evidence must be "
-            f"run-bound"
+            f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) containment_evidence carries "
+            f"{bound}, not this council's {council_session!r} — evidence must be run-bound"
         )
 
 

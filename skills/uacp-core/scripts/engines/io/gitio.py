@@ -216,8 +216,9 @@ def diff_content(root: Path) -> DiffContentResult:
     * no default-branch merge-base (fresh repo, orphan branch) -> ``is_repo=True`` with
       ``error="no merge-base"`` (an expected substrate that cannot be produced — surfaced,
       never a silent empty diff).
-    * else -> ``text = git diff <merge-base> HEAD`` (the actual hunks, not ``--name-only``),
-      with ``base_commit`` / ``head_commit`` set.
+    * else -> ``text = git diff <merge-base>`` against the WORKING TREE (the actual hunks, not
+      ``--name-only``, and including staged/unstaged/untracked changes so the substrate matches
+      ``changed_files``'s change set), with ``base_commit`` / ``head_commit`` set.
     """
     try:
         if not (root / ".git").exists():
@@ -238,7 +239,16 @@ def diff_content(root: Path) -> DiffContentResult:
             # An expected substrate that cannot be produced (no default branch / merge-base):
             # surfaced as an error, never a silent empty diff.
             return DiffContentResult(is_repo=True, head_commit=head, error="no merge-base")
-        rc, diff_out, err = _run_git(root, "diff", base, head)
+        # base -> WORKING TREE (not base..HEAD): the substrate must cover the run's ACTUAL change
+        # set, including staged/unstaged edits, because ``changed_files`` (the gate's "code changed"
+        # trigger) counts them via ``status -uall``. base..HEAD would hash an empty/stale diff
+        # for an
+        # uncommitted implementation and would not move when an uncommitted fix lands, defeating the
+        # stale-screening fixpoint (Codex #172 P1).
+        # Exclude the governed namespace (``.uacp/``): it is governance state, not the run's
+        # work-product, and folding it in would let writing the screening artifact perturb its own
+        # substrate hash. (scope_conformance exempts ``.uacp/`` for the same reason.)
+        rc, diff_out, err = _run_git(root, "diff", base, "--", ".", ":(exclude).uacp")
         if rc != 0:
             return DiffContentResult(
                 is_repo=True,
@@ -246,7 +256,20 @@ def diff_content(root: Path) -> DiffContentResult:
                 head_commit=head,
                 error=f"git diff failed (rc={rc}): {err.strip()}",
             )
-        return DiffContentResult(is_repo=True, base_commit=base, head_commit=head, text=diff_out)
+        text = diff_out
+        # Untracked new files are part of the change set (``status -uall`` counts them) but ``git
+        # diff`` omits them; fold each in as an addition so the substrate + its hash reflect new
+        # uncommitted code. Skip ``.uacp/`` (governed state). Non-mutating: ``--no-index`` needs no
+        # ``git add`` (it exits 1 when the files differ, which they always do — ignore the code).
+        rc_u, unt_out, _ = _run_git(root, "ls-files", "--others", "--exclude-standard")
+        if rc_u == 0:
+            for rel in (p.strip() for p in unt_out.splitlines() if p.strip()):
+                if rel == ".uacp" or rel.startswith(".uacp/"):
+                    continue
+                _rc, u_diff, _ = _run_git(root, "diff", "--no-index", "--", "/dev/null", rel)
+                if u_diff:
+                    text += u_diff
+        return DiffContentResult(is_repo=True, base_commit=base, head_commit=head, text=text)
     except FileNotFoundError:
         return DiffContentResult(is_repo=True, error="git binary not found on PATH")
     except subprocess.TimeoutExpired:

@@ -1535,12 +1535,24 @@ def validate_correctness_findings(workspace: str | Path, run_id: str) -> list[Vi
                 )
             )
             continue
-        if verdict != "findings":
-            # clean (or a verdict this gate imposes no obligation on) — nothing to disposition.
-            continue
         findings = doc.get("findings")
-        if not isinstance(findings, list):
+        if not isinstance(findings, list) or not findings:
+            # Genuinely clean (no findings) — nothing to disposition.
             continue
+        if verdict != "findings":
+            # A non-'findings' verdict (e.g. 'clean') that still carries findings is inconsistent:
+            # the label cannot waive unresolved defects (Codex #172 P1). Flag it, AND still require
+            # each finding be dispositioned below.
+            violations.append(
+                _v(
+                    "CHK_CORRECTNESS_SCREENING_INCONSISTENT",
+                    f"the correctness screening for run '{run_id}' declares verdict "
+                    f"{str(verdict)!r} but carries {len(findings)} finding(s); a non-'findings' "
+                    f"verdict cannot waive unresolved defects",
+                    severity=severity,
+                    substrate_hash=current_hash,
+                )
+            )
         for finding in findings:
             if not isinstance(finding, dict) or not _finding_dispositioned(finding, root, run_id):
                 fid = _s(finding.get("id")) if isinstance(finding, dict) else ""
@@ -1676,11 +1688,19 @@ def _target_state(root: Path, target: str) -> tuple[bool, str, int]:
             return (bool(matches), "glob", len(matches))
         resolved = (base / target).resolve()
         if resolved != base and base not in resolved.parents:
-            return (False, "", 0)  # escapes the project root -> treated as unresolved
+            return (False, "", 0)  # escapes the project root -> phantom (unresolved)
         if resolved.is_dir():
             return (True, "dir", 0)
         if resolved.is_file():
             return (True, "file", resolved.stat().st_size)
+        # Nonexistent path: a new output the run INTENDS to create is legitimate scope IF its parent
+        # dir already exists under the tree (containment). TRIAGE runs BEFORE execution, so a
+        # precise write_path for a not-yet-created file must not be flagged a phantom (Codex #172
+        # P2). A path
+        # under a MISSING parent (or escaping root, above) stays a phantom.
+        parent = resolved.parent
+        if parent.is_dir() and (parent == base or base in parent.parents):
+            return (False, "planned", 0)
         return (False, "", 0)
     except Exception:
         return (False, "", 0)
@@ -1764,9 +1784,11 @@ def validate_triage_screening(workspace: str | Path, run_id: str) -> list[Violat
     severity = _triage_grounding_severity(root)
     out: list[Violation] = []
 
-    # DETERMINISTIC FLOOR: every declared target must resolve in the real tree.
+    # DETERMINISTIC FLOOR: every declared target must resolve in the real tree — EXCEPT a
+    # ``planned`` new output (nonexistent, but its parent dir exists under the tree), which is a
+    # legitimate intended write_path at TRIAGE (before execution), not a phantom (Codex #172 P2).
     for target, exists, _kind, _size in substrate:
-        if not exists:
+        if not exists and _kind != "planned":
             out.append(
                 _v(
                     "TRIAGE_SCOPE_TARGET_UNRESOLVED",
@@ -1865,11 +1887,23 @@ def validate_triage_findings(workspace: str | Path, run_id: str) -> list[Violati
                 )
             )
             continue
-        if verdict != "findings":
-            continue
         findings = doc.get("findings")
-        if not isinstance(findings, list):
+        if not isinstance(findings, list) or not findings:
             continue
+        if verdict != "findings":
+            # A non-'findings' verdict carrying findings is inconsistent — the label cannot waive
+            # unresolved findings (Codex #172 P1). Flag it, and still require disposition below.
+            violations.append(
+                _v(
+                    "TRIAGE_SCREENING_INCONSISTENT",
+                    f"the triage screening for run '{run_id}' declares verdict {str(verdict)!r} "
+                    f"but "
+                    f"carries {len(findings)} finding(s); a non-'findings' verdict cannot waive "
+                    f"unresolved findings",
+                    severity=severity,
+                    substrate_hash=current_hash,
+                )
+            )
         for finding in findings:
             # A triage finding discharges to TRIAGE-phase evidence under ``proposals/{run}`` (the
             # governed-writer root where uacp.triage / the re-scoped artifact live — there is no
@@ -2122,11 +2156,23 @@ def validate_propose_findings(workspace: str | Path, run_id: str) -> list[Violat
                 )
             )
             continue
-        if verdict != "findings":
-            continue
         findings = doc.get("findings")
-        if not isinstance(findings, list):
+        if not isinstance(findings, list) or not findings:
             continue
+        if verdict != "findings":
+            # A non-'findings' verdict carrying findings is inconsistent — the label cannot waive
+            # unresolved findings (Codex #172 P1). Flag it, and still require disposition below.
+            violations.append(
+                _v(
+                    "PROPOSE_SCREENING_INCONSISTENT",
+                    f"the propose screening for run '{run_id}' declares verdict {str(verdict)!r} "
+                    f"but "
+                    f"carries {len(findings)} finding(s); a non-'findings' verdict cannot waive "
+                    f"unresolved findings",
+                    severity=severity,
+                    substrate_hash=current_hash,
+                )
+            )
         for finding in findings:
             # A propose finding discharges to PROPOSE-phase evidence under ``proposals/{run}`` (the
             # governed-writer root where uacp.proposal / the re-premised artifact live — there is no

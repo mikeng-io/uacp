@@ -361,3 +361,26 @@ def test_findings_gate_config_block_flips_severity(tmp_path):
     vs = validate_correctness_findings(ws, "r")
     assert _codes(vs) == ["CHK_CORRECTNESS_FINDING_UNDISPOSITIONED"], _codes(vs)
     assert vs[0].severity == "block"
+
+
+def test_clean_verdict_carrying_findings_is_inconsistent(tmp_path):
+    # Codex #172 P1: a `clean` verdict with a non-empty findings array must NOT clear — the label
+    # cannot waive unresolved defects. Both the inconsistency AND the undispositioned finding fire.
+    ws = _ws(tmp_path)
+    _code_change_repo(ws)
+    h = _current_hash(ws)
+    p = tmp_path / ".uacp" / "verification" / "r" / "screening.yaml"
+    p.write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.correctness_screening",
+                "run_id": "r",
+                "substrate_hash": h,
+                "verdict": "clean",
+                "findings": [{"id": "F1", "severity": "P1", "message": "leak", "disposition": None}],
+            }
+        )
+    )
+    codes = _codes(validate_correctness_findings(ws, "r"))
+    assert "CHK_CORRECTNESS_SCREENING_INCONSISTENT" in codes, codes
+    assert "CHK_CORRECTNESS_FINDING_UNDISPOSITIONED" in codes, codes
