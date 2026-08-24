@@ -22,10 +22,20 @@ grounding catches the under-scope *before a line is written*. That is the preven
 
 Reality here is the **actual call graph**: for every symbol the plan will change (signature, behavior,
 deletion), its real callers, implementers, and dependents. The kernel produces this from the **code
-plane** — LSP `findReferences` / call-hierarchy, or the persistent SCIP index (codeflair). This is the
-same code plane TRIAGE uses for structure; here it is used for *impact*. The produced substrate is the
-derived set of impacted paths/symbols — the blast-radius reality against which the plan's declared
+plane** — codeflair's **baseline witness** (`witness.build_baseline_witness`, the diff-independent
+PLAN-exit mode), fed by the **SCIP** index (the real, present edge producer; `scip_ingest`). This is
+the same code plane TRIAGE uses for structure; here it is used for *impact*. The produced substrate is
+the derived set of impacted paths/symbols — the blast-radius reality against which the plan's declared
 `write_paths` are compared.
+
+**Correction against reality (grounded, not assumed):** this is not unbuilt. The PLAN-exit blast-radius
+path **already exists and is wired** — `scope_conformance.validate_cascade_forecast` ("PREVENTION-at-
+PLAN forecast") derives the baseline neighborhood + exact `inbound_counts` of the declared refs and
+even writes a *forecast-of-record*. Two facts corrected the earlier framing: (a) the blast-radius is
+fed by **SCIP**, not by the "lsp" source; (b) the "unfed lsp" is a query-time **freshness overlay**
+(`LspOverlay`, Serena) that re-tags node freshness — it does **not** produce blast-radius edges and is
+**orthogonal** to this gate. So PLAN grounding is not an infra project; it is the smallest of the three
+remaining instances.
 
 ## Mechanism: deterministic — claim, derive, compare
 
@@ -42,14 +52,24 @@ structurally the same comparison M3c made at VERIFY (`SC_DIFF_OUT_OF_SCOPE`: rea
 `write_paths`) — but run at PLAN, over the *derived* blast-radius instead of the *actual* diff. M3c is
 detection of an out-of-scope write; this is **prevention** of an out-of-scope plan.
 
-## The one real cost: wiring, not designing
+## The real work: promote an existing gate, don't build a new one
 
-The leverage here is that the machinery already exists. **Codeflair — the code-plane engine — is built
-and merged; its LSP edge source is simply unfed** (the Serena/pyright feed on the backlog). So PLAN
-grounding is not a new engine so much as: (a) feed the code plane so `findReferences`/call-hierarchy
-resolves, and (b) add a PLAN-exit gate that compares the derived blast-radius to the declared
-`write_paths`. This is the grounded-governance fix pattern in its purest form — *the reality tool is
-present but unwired; wire it to a mandatory gate.*
+The machinery already exists **and is wired**. `validate_cascade_forecast` runs at PLAN-exit today,
+SCIP-fed, and derives the baseline blast-radius — but it is **advisory** (`SC_PLAN_CASCADE_FORECAST`
+is `warn`) and it writes a forecast-of-record for VERIFY-side recall. So PLAN grounding is an
+**M3c-style promotion**, not a new engine:
+
+1. **Promote to blocking** — make the plan's declared `write_paths` *cover* the forecasted cascade a
+   fail-closed requirement (config-gated `warn`→`block`, exactly as M3c promoted `SC_DIFF_OUT_OF_SCOPE`),
+   with the M3d adjudication escape for an intentionally-out-of-plan caller. An unavailable/stale index
+   stays `warn` (`SC_FORECAST_WITNESS_UNAVAILABLE` — environment fact, never a false block).
+2. **(Optional) go transitive** — the wired forecast is **hop-1** only; the transitive walk
+   (`query.blast_radius`) exists in codeflair but isn't projected through the witness wire. Projecting
+   it gives N-hop blast-radius for deeper prevention. This is a completeness add, not a blocker.
+
+The "lsp feed" (Serena overlay) is **not** on this path — it is a freshness nicety orthogonal to the
+blast-radius, and building it is neither required nor sufficient here. This is the grounded-governance
+fix pattern in its cleanest form: *the reality tool is present and wired but advisory — make it bite.*
 
 ## The gate
 
@@ -63,6 +83,7 @@ warn-first is essential — an unavailable or stale index yields warn, never a f
 ## What is reused
 
 Almost everything: the `write_paths` declaration + the coverage comparison (M3c/`scope_conformance`),
-the adjudication escape (M3d), the config migration + fixpoint (`03`), and the code-plane engine
-itself. New only: feeding the code plane its LSP/SCIP edges, and pointing the coverage comparison at
-the *derived* blast-radius at PLAN-exit rather than the *actual* diff at VERIFY.
+the adjudication escape (M3d), the config migration + fixpoint (`03`), the code-plane engine, **and the
+already-wired PLAN-exit forecast** (`validate_cascade_forecast`, SCIP-fed). New only: flipping the
+forecast from advisory to a coverage *requirement* (config-gated), and — optionally — projecting the
+transitive `query.blast_radius` into the baseline witness for N-hop reach.
