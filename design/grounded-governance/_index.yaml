@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS: Layer 2 — the correctness SCREENING. The grounded-conformance floor
+# (design/verify-substrate + the M1-M5 register moves) raised VERIFY from "the agent said so"
+# to "the artifact resolves and the declared planes actually ran". That is conformance grounded
+# in reality — and still NOT correctness review: nothing yet READS THE WORK for undeclared
+# defects. This bundle designs the piece that does: the kernel produces a review SUBSTRATE (the
+# real diff from the true commit range + the reality-run's output), a screening agent reads it
+# open-adversarially (charged by the Code Review Rules, with writable-scratch probes), and a
+# mandatory, grounded VERIFY sub-step makes that screening non-skippable. It is the substrate
+# frame (design/verify-substrate) carried from substrate-PRODUCTION into the SCREENING itself.
+
+kind: design_index
+status: design
+governance: pre-governance-input
+timestamp: "2026-08-24"
+title: Grounded Governance — the correctness screening (Layer 2 over the conformance floor)
+description: >-
+  The conformance floor grounds VERIFY in reality but never reads the work for undeclared defects.
+  Layer 2 closes that: the kernel produces a review substrate (diff-content from the true commit
+  range + reality-run output), a screening agent reads it open-adversarially under the Code Review
+  Rules with writable-scratch mutation probes, and a mandatory grounded VERIFY sub-step makes the
+  screening exist and be non-skippable. This is the enforcement half Superpowers lacks, pointed at
+  correctness rather than conformance. Grounded on real primitives: gitio (base_commit/merge-base),
+  behavior_plane (contained execution), uacp-council (the dispatch framework), and the M2/M3d
+  disposition grounding (findings must resolve, not be asserted away).
+members:
+  - 00-the-correctness-gap.md        # why the floor is necessary but not sufficient; what a screening adds
+  - 01-the-review-substrate.md       # kernel-produced diff-content + reality-run output; grounded, not agent-nominated
+  - 02-the-screening-dispatch.md     # the screening as a council dispatch; charge, probes, anti-pre-judging, typed output
+  - 03-enforcement-and-loop.md       # the mandatory grounded VERIFY sub-step; disposition + fixpoint re-review
+edges:
+  - {src: 01-the-review-substrate, dst: 00-the-correctness-gap, rel: depends_on, provenance: derived}
+  - {src: 02-the-screening-dispatch, dst: 01-the-review-substrate, rel: depends_on, provenance: derived}
+  - {src: 03-enforcement-and-loop, dst: 02-the-screening-dispatch, rel: extends, provenance: asserted}
