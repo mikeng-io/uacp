@@ -6,6 +6,7 @@ Mode is independent of tier. A Tier 3 council can run in brainstorm mode; a Tier
 
 **Open-ended modes** — no prior findings; the council surfaces what's true / wrong / possible:
 - `review` / `audit` — produce findings with severity; return verdict.
+- `correctness-screening` — the VERIFY-phase read over the kernel-produced **substrate** (the real diff from `merge-base..HEAD` + what the code did when run), charged to construct the input that defeats the work — never handed a checklist. Backs the Layer 2 correctness gate. See `[skills-root]/uacp-council/references/correctness-screening.md`.
 - `brainstorm` / `design` — produce competing proposals; no verdict; converge via challenge/merge/reject.
 - `research` — produce evidence-backed observations with confidence and contradictions; no verdict.
 - `synthesis` — Tier 3 only; the cross-runtime synthesis output mode.
