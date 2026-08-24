@@ -569,6 +569,70 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "assessments": {"type": "array", "minItems": 1},
         },
     },
+    # correctness-screening artifact (design/grounded-governance/03, Layer 2 slice 3a) — the typed,
+    # governed record of an external correctness screening over the kernel-produced substrate. The
+    # gate that grounds it (validate_correctness_screening, slice 2) keys on `substrate_hash`; the
+    # findings-disposition gate (validate_correctness_findings, slice 4) keys on `verdict` + each
+    # finding's `disposition`. OPEN-world (extra fields allowed) like the other rich package docs:
+    # validate the identity, the substrate identity, the verdict enum, and each finding's
+    # DESCRIPTIVE shape — but NOT `disposition`, added LATER in the loop and enforced by the gate (a
+    # write-time disposition requirement would make the undispositioned-then-disposition loop
+    # unwritable). Deliberately carries NO `phase` const: its own findings are dispositioned by
+    # validate_correctness_findings, so it must stay OUT of verify_finding_artifact_keys() (which
+    # ropes phase==verify kinds into the rework carry machinery).
+    "uacp.correctness_screening": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": [
+            "kind",
+            "run_id",
+            "substrate_hash",
+            "reviewed_range",
+            "verdict",
+            "findings",
+            "screener",
+        ],
+        "properties": {
+            "kind": {"const": "uacp.correctness_screening"},
+            "run_id": {"type": "string", "minLength": 1},
+            "substrate_hash": {"type": "string", "minLength": 1},
+            "reviewed_range": {
+                "type": "object",
+                "required": ["base_commit", "head_commit"],
+                "properties": {
+                    "base_commit": {"type": "string", "minLength": 1},
+                    "head_commit": {"type": "string", "minLength": 1},
+                },
+            },
+            "verdict": {"enum": ["clean", "findings", "cannot_verify"]},
+            "findings": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "required": [
+                        "id",
+                        "severity",
+                        "defect_class",
+                        "message",
+                        "substrate_ref",
+                        "repro",
+                    ],
+                    "properties": {
+                        "id": {"type": "string", "minLength": 1},
+                        "severity": {"enum": ["P1", "P2"]},
+                    },
+                },
+            },
+            "screener": {
+                "type": "object",
+                "required": ["model"],
+                "properties": {
+                    "model": {"type": "string", "minLength": 1},
+                    "independence_evidence": {"type": ["string", "null"]},
+                },
+            },
+        },
+    },
     "uacp.verification_package": {
         "$schema": _DRAFT,
         "type": "object",

@@ -138,6 +138,67 @@ def test_create_entity_multi_instance_does_not_overwrite(tmp_path):
     assert r1["artifact_type"] != r2["artifact_type"]
 
 
+def _correctness_screening_fields(verdict: str = "clean", findings=None) -> dict:
+    # A shape-valid uacp.correctness_screening payload (kind + run_id injected by the writer).
+    return {
+        "substrate_hash": "deadbeef",
+        "reviewed_range": {"base_commit": "b0", "head_commit": "h0"},
+        "verdict": verdict,
+        "findings": findings or [],
+        "screener": {"model": "test-model", "independence_evidence": None},
+    }
+
+
+def test_create_entity_correctness_screening_round_trips(tmp_path):
+    # 3a: uacp.correctness_screening is a governed kind — it writes → persists under
+    # verification/{run_id}/ → watermarks → registers, and its schema round-trips through validate.
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.correctness_screening",
+        _correctness_screening_fields(),
+        seq="0",
+    )
+    assert res.get("ok") is True, res
+    rel = res["path"]
+    assert rel == f"verification/{run_id}/correctness-screening-0.yaml"
+
+    # PERSIST under the per-run subdir with the kind const + typed fields.
+    doc = yaml.safe_load((tmp_path / ".uacp" / rel).read_text(encoding="utf-8"))
+    assert doc["kind"] == "uacp.correctness_screening"
+    assert doc["verdict"] == "clean"
+    assert doc["substrate_hash"] == "deadbeef"
+
+    # WATERMARK + REGISTER (multi-instance composite key includes the seq).
+    assert rel in load_hash_index(tmp_path, run_id)
+    manifest = yaml.safe_load(
+        (tmp_path / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text(encoding="utf-8")
+    )
+    assert manifest["artifacts"]["correctness_screening:seq=0"] == rel
+
+
+def test_create_entity_correctness_screening_validate_on_write_rejects_bad_verdict(tmp_path):
+    # Net-new validate-on-write gate: an out-of-enum verdict is shape-invalid -> REJECTED, no write,
+    # no registration. Non-vacuity: a valid verdict (above) writes.
+    run_id = _init_run(tmp_path)
+    res = create_entity(
+        str(tmp_path),
+        run_id,
+        "uacp.correctness_screening",
+        {**_correctness_screening_fields(), "verdict": "maybe"},
+        seq="0",
+    )
+    assert "error" in res and "validate-on-write rejected" in res["error"]
+    assert not (tmp_path / ".uacp" / "verification" / run_id).exists() or not list(
+        (tmp_path / ".uacp" / "verification" / run_id).glob("*")
+    )
+    manifest = yaml.safe_load(
+        (tmp_path / ".uacp" / "state" / "runs" / f"{run_id}.yaml").read_text(encoding="utf-8")
+    )
+    assert "correctness_screening:seq=0" not in (manifest.get("artifacts") or {})
+
+
 def test_create_entity_rejects_state_plane(tmp_path):
     # F1: STATE-plane kinds (run_registry / run_manifest / …) are the State engine's, not the
     # entity-writer's. create_entity must refuse them (else it's a weaker writer than

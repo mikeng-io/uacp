@@ -142,6 +142,19 @@ _ENTRIES: tuple[Entry, ...] = (
         "{run_id}-{cluster}-{half}.md",
         MARKDOWN,
     ),
+    # correctness-screening artifact (design/grounded-governance/03, Layer 2 slice 3a): the typed,
+    # governed record of an external correctness screening over the kernel-produced substrate. Lands
+    # in a per-run SUBDIR (verification/{run_id}/…) so the slice-2 floor's dir scan resolves it, and
+    # is multi-instance ({seq}) — the fixpoint re-screens after a fix moves HEAD, each round a new
+    # artifact. Needs a schema too (BOTH-registries rule); its findings-disposition gate is
+    # validate_correctness_findings.
+    Entry(
+        "uacp.correctness_screening",
+        RELATION,
+        "verification",
+        "{run_id}/correctness-screening-{seq}.yaml",
+        YAML,
+    ),
     # uacp.check.* — frozen generative-gate checks (capsule #3, slice 0c). One Entry per
     # catalog sub-kind, distinct filename suffix for unambiguous reverse lookup; multi-instance
     # via {seq}. Generated from CHECK_KINDS so the layout + the projection/replay catalog cannot

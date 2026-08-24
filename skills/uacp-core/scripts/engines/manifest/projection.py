@@ -75,6 +75,13 @@ from engines.io import (
     resolve_in_workspace,
 )
 
+# M2's evidence-reference resolver (engines/rework_completeness.py): an artifact named AS PROOF is
+# proven by RESOLUTION (run-bound + exists + loads), never its bare presence as a string. The
+# correctness findings gate reuses it for `discharged` dispositions — importing, not duplicating,
+# the rule (design/grounded-governance/03 §"Findings reuse the disposition grounding"). No cycle:
+# rework_completeness imports only config / engines.base / engines.io, never this projection.
+from engines.rework_completeness import _artifact_resolves
+
 
 def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Violation:
     return Violation(code=code, severity=severity, message=message, detail=detail)
@@ -1273,14 +1280,21 @@ def _substrate_hash(dc: DiffContentResult) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def _correctness_screening_hashes(workspace: str | Path, run_id: str, root: Path) -> list[str]:
-    """Every ``substrate_hash`` carried by a RESOLVING correctness-screening artifact for THIS run.
+def _correctness_screening_docs(
+    workspace: str | Path, run_id: str, root: Path
+) -> list[dict[str, Any]]:
+    """Every RESOLVING correctness-screening artifact DICT for THIS run (``kind:
+    uacp.correctness_screening``).
 
     Located two ways (the M2 rework-resolver precedent + the run's own evidence dir): the run's
     REGISTERED manifest artifacts AND a scan of ``verification/{run_id}/*.y{a,}ml`` under the
-    governed base. An artifact contributes only if it EXISTS + LOADS (M2's resolution bar), declares
-    ``kind: uacp.correctness_screening``, and carries a non-empty string ``substrate_hash``. Loaded
-    leniently (no schema registration — that is slice 3's governed writer). Never raises."""
+    governed base. An artifact contributes only if it EXISTS + LOADS (M2's resolution bar) and
+    declares ``kind: uacp.correctness_screening``. Loaded leniently (the governed writer + schema
+    are slice 3a; this READ side keys on the kind, never on schema validity). Never raises.
+
+    This is the shared locator; :func:`_correctness_screening_hashes` (slice 2, the MISSING/STALE
+    floor) and :func:`validate_correctness_findings` (slice 4, the disposition gate) both read from
+    it — the substrate-hash logic lives in one place."""
     docs: list[dict[str, Any]] = []
     seen: set[str] = set()
 
@@ -1308,10 +1322,15 @@ def _correctness_screening_hashes(workspace: str | Path, run_id: str, root: Path
             if d.error is None and isinstance(d.value, dict):
                 docs.append(dict(d.value))
 
+    return [doc for doc in docs if doc.get("kind") == _CORRECTNESS_SCREENING_KIND]
+
+
+def _correctness_screening_hashes(workspace: str | Path, run_id: str, root: Path) -> list[str]:
+    """Every non-empty ``substrate_hash`` carried by a RESOLVING correctness-screening artifact for
+    THIS run — the covering-hash set the slice-2 floor matches the current substrate identity
+    against. Reads the shared :func:`_correctness_screening_docs` locator. Never raises."""
     hashes: list[str] = []
-    for doc in docs:
-        if doc.get("kind") != _CORRECTNESS_SCREENING_KIND:
-            continue
+    for doc in _correctness_screening_docs(workspace, run_id, root):
         sh = doc.get("substrate_hash")
         if isinstance(sh, str) and sh:
             hashes.append(sh)
@@ -1402,6 +1421,135 @@ def validate_correctness_screening(workspace: str | Path, run_id: str) -> list[V
             found_hashes=hashes,
         )
     ]
+
+
+# ---------------------------------------------------------------------------------------------
+# Correctness-FINDINGS disposition gate (design/grounded-governance/03, Layer 2 slice 4): once a
+# screening COVERS the current substrate, every finding it carried must be DISPOSITIONED — the
+# verdict must resolve. Findings reuse the SAME disposition grounding the rework floor uses
+# (M2/M3d): `discharged` -> a fix pointer that RESOLVES; `adjudicated` -> decision + rationale +
+# cost-if-wrong.
+# ---------------------------------------------------------------------------------------------
+
+
+def _s(v: Any) -> str:
+    """A field's non-empty stripped string value, or "" (matches the rework floor's ``_str_field``
+    truthiness — a whitespace-only / non-string value is absent)."""
+    return v.strip() if isinstance(v, str) else ""
+
+
+def _finding_dispositioned(finding: dict[str, Any], root: Path, run_id: str) -> bool:
+    """True iff the finding carries a COMPLETE disposition, resolved — not merely named (the M2/M3d
+    rule, applied to a correctness finding unchanged):
+
+    * ``discharged`` -> ``handling_artifact_path`` must RESOLVE (run-bound to THIS run + exists +
+      loads) via M2's :func:`_artifact_resolves`. A path that is empty, foreign-run, or nonexistent
+      is a *label*, not a fix.
+    * ``adjudicated`` -> ``decision``, ``rationale``, and ``cost_if_wrong`` must ALL be present +
+      non-empty (M3d's ``_adjudication_complete``, read from this schema's nested field names). A
+      partial adjudication is not a decision made with eyes open.
+
+    Any other disposition kind, a missing/non-object ``disposition``, or an incomplete one -> not
+    dispositioned (blocks)."""
+    disp = finding.get("disposition")
+    if not isinstance(disp, dict):
+        return False
+    kind = disp.get("kind")
+    if kind == "discharged":
+        return _artifact_resolves(root, run_id, _s(disp.get("handling_artifact_path")))
+    if kind == "adjudicated":
+        return all(_s(disp.get(f)) for f in ("decision", "rationale", "cost_if_wrong"))
+    return False
+
+
+def validate_correctness_findings(workspace: str | Path, run_id: str) -> list[Violation]:
+    """Correctness-FINDINGS disposition gate (design/grounded-governance/03, Layer 2 slice 4).
+
+    For the RESOLVING correctness-screening artifact(s) that COVER the current kernel-produced
+    substrate (the same ``_substrate_hash`` identity the slice-2 floor matches), the screening's
+    VERDICT must resolve into grounded state:
+
+    * ``clean`` -> ``[]`` (nothing found).
+    * ``findings`` -> EACH carried finding must be DISPOSITIONED (:func:`_finding_dispositioned`):
+      ``discharged`` with a RESOLVING fix pointer (M2), or ``adjudicated`` with decision + rationale
+      + cost-if-wrong (M3d). Each undispositioned/incomplete finding emits one
+      ``CHK_CORRECTNESS_FINDING_UNDISPOSITIONED`` at the config-gated severity (same
+      ``[verification] correctness_screening`` key as the floor; default ``warn``, migration).
+    * ``cannot_verify`` -> one ``CHK_CORRECTNESS_SCREENING_INCONCLUSIVE`` at ``warn`` — the
+      screening ABSTAINED; surfaced, never a silent pass (it must not read as clean).
+
+    Scope discipline — this gate owns ONLY the disposition/verdict of a COVERING screening:
+    * not a git repo / no code changed / substrate unavailable -> ``[]`` (nothing to disposition
+      here; the slice-2 floor owns the SUBSTRATE_UNAVAILABLE surfacing — don't double-report).
+    * NO covering screening (missing or stale) -> ``[]`` — that is
+      :func:`validate_correctness_screening`'s MISSING/STALE signal; double-reporting it here would
+      duplicate the block.
+
+    Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    root = Path(str(workspace)).resolve()
+    result = changed_files(root)
+    if not result.is_repo:
+        return []
+    code_changed = [f for f in result.files if str(f).endswith(_CODE_SUFFIXES)]
+    if not code_changed:
+        return []
+    dc = diff_content(root)
+    if dc.error is not None:
+        # Substrate can't be produced — the slice-2 floor surfaces that (SUBSTRATE_UNAVAILABLE);
+        # there is no covering screening to disposition here.
+        return []
+    current_hash = _substrate_hash(dc)
+    covering = [
+        doc
+        for doc in _correctness_screening_docs(workspace, run_id, root)
+        if doc.get("substrate_hash") == current_hash
+    ]
+    if not covering:
+        # No screening covers the current substrate — validate_correctness_screening owns the
+        # MISSING/STALE signal; don't double-report.
+        return []
+    severity = _correctness_screening_severity(root)
+    violations: list[Violation] = []
+    for doc in covering:
+        verdict = doc.get("verdict")
+        if verdict == "cannot_verify":
+            violations.append(
+                _v(
+                    "CHK_CORRECTNESS_SCREENING_INCONCLUSIVE",
+                    f"the correctness screening for run '{run_id}' abstained "
+                    f"(verdict=cannot_verify) over the current substrate; an inconclusive "
+                    f"screening is surfaced, never read as a pass — resolve it (re-screen, or "
+                    f"adjudicate the inability to verify) before closing VERIFY",
+                    severity="warn",
+                    substrate_hash=current_hash,
+                )
+            )
+            continue
+        if verdict != "findings":
+            # clean (or a verdict this gate imposes no obligation on) — nothing to disposition.
+            continue
+        findings = doc.get("findings")
+        if not isinstance(findings, list):
+            continue
+        for finding in findings:
+            if not isinstance(finding, dict) or not _finding_dispositioned(finding, root, run_id):
+                fid = _s(finding.get("id")) if isinstance(finding, dict) else ""
+                violations.append(
+                    _v(
+                        "CHK_CORRECTNESS_FINDING_UNDISPOSITIONED",
+                        f"correctness finding {fid or '(unidentified)'!r} in run '{run_id}' "
+                        f"(verdict=findings) carries no COMPLETE disposition; every open finding "
+                        f"must be discharged (a fix pointer that RESOLVES) or adjudicated "
+                        f"(decision + rationale + cost-if-wrong) — a named-but-unresolved handling "
+                        f"is a label, not a disposition",
+                        severity=severity,
+                        finding_id=fid,
+                        substrate_hash=current_hash,
+                    )
+                )
+    return violations
 
 
 # The inbound-edge relations the CLASS WITNESS counts (design node 03): calls/references only.
@@ -1810,5 +1958,7 @@ if not any(name == "behavioral_floor" for name, _ in ENGINES):
     ENGINES.append(("behavioral_floor", validate_behavioral_floor))
 if not any(name == "correctness_screening" for name, _ in ENGINES):
     ENGINES.append(("correctness_screening", validate_correctness_screening))
+if not any(name == "correctness_findings" for name, _ in ENGINES):
+    ENGINES.append(("correctness_findings", validate_correctness_findings))
 if not any(name == "check_class_underclaim" for name, _ in ENGINES):
     ENGINES.append(("check_class_underclaim", validate_class_underclaim))
