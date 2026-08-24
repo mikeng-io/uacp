@@ -591,6 +591,26 @@ sc_diff_containment = "warn"
 correctness_screening = "warn"
 
 # =============================================================================
+# TRIAGE GROUNDING
+# =============================================================================
+[triage]
+# M2 triage grounding (design/grounded-governance/04 + 05; engine
+# engines.manifest.projection.validate_triage_screening / validate_triage_findings): the HEAD of the
+# cascade. When a run DECLARES a scope at triage, TRIAGE may not clear unless every declared target
+# RESOLVES in the real project tree (TRIAGE_SCOPE_TARGET_UNRESOLVED) and a triage-screening artifact
+# (kind: uacp.triage_screening) EXISTS, RESOLVES, and COVERS the kernel-produced scope substrate
+# (TRIAGE_SCREENING_MISSING / TRIAGE_SCREENING_STALE), with its findings dispositioned
+# (TRIAGE_FINDING_UNDISPOSITIONED). All four use THIS severity; TRIAGE_SCREENING_INCONCLUSIVE
+# (verdict=cannot_verify) is ALWAYS "warn". A run that declares no scope at triage no-ops entirely.
+# Migrates the behavioral_floor / SC_DIFF / correctness_screening way: DEFAULT "warn" (announce
+# without breaking live runs — existing triage->propose crossings stay clean by default), flipped to
+# "block" in a later named release once runs declare + screen their triage scope. Only the literals
+# "warn"/"block" are honored; an absent/invalid value -> "warn" (the safe migration default —
+# block-by-accident breaks runs). Read via config.get_config(root) by
+# engines.manifest.projection._triage_grounding_severity.
+scope_grounding = "warn"
+
+# =============================================================================
 # OUTPUT
 # =============================================================================
 # Output formatting and artifact generation.

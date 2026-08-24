@@ -18,6 +18,7 @@ from state_machine import (
     _run_forced_execute_evidence_gate,
     _run_forced_plan_exit_gate,
     _run_forced_proposal_coverage_gate,
+    _run_forced_triage_grounding_gate,
     _run_forced_verify_evidence_gate,
     handle_finalize,
     handle_init,
@@ -489,35 +490,44 @@ class TestStructuralGateResolverInvariant:
     """
 
     # The design-intent mapping, authored here independently of the implementation so
-    # the assertions are non-vacuous: a token uniquely identifying each phase's forced
-    # gate, and the set of phases whose exit is structural-graph-gated (D35).
-    _EXPECTED_FORCED_TOKEN = {
-        "brainstorm": "forced_brainstorm_exit",
-        "propose": "forced_proposal_coverage",
-        "plan": "forced_plan_exit",
-        "execute": "forced_execute_evidence",
-        "verify": "forced_verify_evidence",
+    # the assertions are non-vacuous: the SET of tokens uniquely identifying each phase's
+    # forced gate(s) — M2 generalized ``forced`` to a TUPLE, so a phase may carry more than
+    # one — and the set of phases whose exit is structural-graph-gated (D35). ``triage`` gains
+    # its grounding gate here (was absent before M2); graph-gating is UNCHANGED (triage is NOT
+    # graph-gated), pinning that PART A did not alter the graph-gate set.
+    _EXPECTED_FORCED_TOKENS = {
+        "brainstorm": {"forced_brainstorm_exit"},
+        "triage": {"forced_triage_grounding"},
+        "propose": {"forced_proposal_coverage"},
+        "plan": {"forced_plan_exit"},
+        "execute": {"forced_execute_evidence"},
+        "verify": {"forced_verify_evidence"},
     }
     _EXPECTED_GRAPH_GATED = {"plan", "execute", "verify"}
 
     def test_table_matches_independent_spec(self):
         """The resolver table agrees with the independent design-intent spec for every
-        from_phase: graph-gating exactly on {plan, execute, verify}; a forced gate with
-        the expected identity exactly on the five gated phases; none elsewhere."""
+        from_phase: graph-gating exactly on {plan, execute, verify}; a forced-gate TUPLE whose
+        labels carry exactly the expected token set on each gated phase (one gate per token);
+        an EMPTY tuple elsewhere."""
         for phase in VALID_TRANSITIONS:
             spec = resolve_gates(phase)
             assert spec.graph_gated == (phase in self._EXPECTED_GRAPH_GATED), phase
-            if phase in self._EXPECTED_FORCED_TOKEN:
-                assert spec.forced is not None, phase
-                assert self._EXPECTED_FORCED_TOKEN[phase] in spec.forced.label, phase
+            labels = [g.label for g in spec.forced]
+            if phase in self._EXPECTED_FORCED_TOKENS:
+                expected_tokens = self._EXPECTED_FORCED_TOKENS[phase]
+                # one forced gate per expected token, each label carrying its token.
+                assert len(labels) == len(expected_tokens), (phase, labels)
+                for token in expected_tokens:
+                    assert any(token in lbl for lbl in labels), (phase, token, labels)
             else:
-                assert spec.forced is None, phase
+                assert spec.forced == (), phase
 
     def test_gates_for_exit_derives_from_resolver(self):
         """The read-only naming is exactly the resolver's projection: canonical FROM->TO
         records (incl. TRIAGE_COMPLETE at triage), then the ``{phase}_exit`` graph-gate
-        label iff graph_gated, then the forced gate's label iff a forced gate exists.
-        Terminal phases (no onward crossing) name nothing."""
+        label iff graph_gated, then EVERY forced gate's label in tuple order. Terminal
+        phases (no onward crossing) name nothing."""
         for phase in list(VALID_TRANSITIONS) + ["resolved"]:
             spec = resolve_gates(phase)
             if not spec.canonical:
@@ -526,8 +536,8 @@ class TestStructuralGateResolverInvariant:
             expected = list(spec.canonical)
             if spec.graph_gated:
                 expected.append(f"{phase}_exit structural graph gate")
-            if spec.forced is not None:
-                expected.append(spec.forced.label)
+            for g in spec.forced:
+                expected.append(g.label)
             assert _gates_for_exit(phase) == expected, phase
 
     def test_canonical_records_match_valid_transitions(self):
@@ -540,27 +550,30 @@ class TestStructuralGateResolverInvariant:
             assert resolve_gates(phase).canonical == expected, phase
 
     def test_resolver_forced_executor_self_selects_to_its_phase(self, tmp_path: Path):
-        """The live dispatch == the resolver: the forced executor the resolver selects
-        for phase P is the self-selecting wrapper for P. Proven without IO — handing that
-        executor ANY other from_phase makes it a no-op (the wrapper's from_phase guard
-        short-circuits before touching state), so it is genuinely keyed to P and the new
-        'run exactly one' dispatch reproduces the old 'run all five, one fires' chain."""
-        gated_phases = list(self._EXPECTED_FORCED_TOKEN)
+        """The live dispatch == the resolver: EVERY forced executor the resolver selects
+        for phase P is a self-selecting wrapper for P. Proven without IO — handing any of
+        that phase's executors ANY other from_phase makes it a no-op (the wrapper's
+        from_phase guard short-circuits before touching state), so each is genuinely keyed
+        to P and the tuple-iterating dispatch reproduces the old 'run all, own fires' chain."""
+        gated_phases = list(self._EXPECTED_FORCED_TOKENS)
         for own_phase in gated_phases:
-            forced = resolve_gates(own_phase).forced
-            assert forced is not None, own_phase
-            for other in gated_phases:
-                if other == own_phase:
-                    continue
-                # Non-matching from_phase -> the selected executor short-circuits to a
-                # no-op (no run/workspace needed), proving it self-selects to own_phase.
-                result = forced.run(tmp_path, "no-such-run", other, other)
-                assert result == ([], []), (own_phase, other)
+            forced_tuple = resolve_gates(own_phase).forced
+            assert forced_tuple, own_phase  # non-empty tuple
+            for g in forced_tuple:
+                for other in gated_phases:
+                    if other == own_phase:
+                        continue
+                    # Non-matching from_phase -> the selected executor short-circuits to a
+                    # no-op (no run/workspace needed), proving it self-selects to own_phase.
+                    assert g.run(tmp_path, "no-such-run", other, other) == ([], []), (
+                        own_phase,
+                        other,
+                    )
 
     def test_each_wrapper_is_noop_for_other_phases(self, tmp_path: Path):
         """Direct proof of self-selection at the wrapper level (what makes the old chain
-        and the new single-dispatch equivalent): every ``_run_forced_*`` wrapper returns
-        an empty result for every phase but its own, short-circuiting before any IO."""
+        and the new tuple-iterating dispatch equivalent): every ``_run_forced_*`` wrapper
+        returns an empty result for every phase but its own, short-circuiting before any IO."""
         simple = {
             "brainstorm": _run_forced_brainstorm_exit_gate,
             "propose": _run_forced_proposal_coverage_gate,
@@ -573,11 +586,14 @@ class TestStructuralGateResolverInvariant:
                 if other == own_phase:
                     continue
                 assert fn(tmp_path, "no-such-run", other) == [], (own_phase, other)
-        # plan_exit self-selects too (tuple-shaped: (blockers, advisories)).
+        # plan_exit + triage_grounding self-select too (tuple-shaped: (blockers, advisories)).
         for other in phases:
-            if other == "plan":
-                continue
-            assert _run_forced_plan_exit_gate(tmp_path, "no-such-run", other, "x") == (
-                [],
-                [],
-            ), other
+            if other != "plan":
+                assert _run_forced_plan_exit_gate(tmp_path, "no-such-run", other, "x") == (
+                    [],
+                    [],
+                ), other
+            if other != "triage":
+                assert _run_forced_triage_grounding_gate(
+                    tmp_path, "no-such-run", other, "x"
+                ) == ([], []), other

@@ -155,6 +155,21 @@ _ENTRIES: tuple[Entry, ...] = (
         "{run_id}/correctness-screening-{seq}.yaml",
         YAML,
     ),
+    # triage-screening artifact (design/grounded-governance/04 + 05): the typed, governed record of
+    # a screening of the DECLARED SCOPE against the real project root — the HEAD-of-cascade instance
+    # of the correctness-screening machine. Lands in a per-run SUBDIR under the triage phase's own
+    # artifact dir (proposals/ — where {run_id}-triage.yaml already lives; there is no `triage/`
+    # governed-writer root, so it mirrors correctness_screening's per-run-subdir shape under the
+    # phase dir), so the grounding gate's dir scan (proposals/{run_id}/*.yaml) resolves it. Multi-
+    # instance ({seq}) for the fixpoint (re-screen after the scope moves). Needs a schema too
+    # (BOTH-registries rule); its findings-disposition gate is validate_triage_findings.
+    Entry(
+        "uacp.triage_screening",
+        RELATION,
+        "proposals",
+        "{run_id}/triage-screening-{seq}.yaml",
+        YAML,
+    ),
     # uacp.check.* — frozen generative-gate checks (capsule #3, slice 0c). One Entry per
     # catalog sub-kind, distinct filename suffix for unambiguous reverse lookup; multi-instance
     # via {seq}. Generated from CHECK_KINDS so the layout + the projection/replay catalog cannot

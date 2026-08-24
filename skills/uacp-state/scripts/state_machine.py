@@ -630,6 +630,47 @@ def _run_forced_plan_exit_gate(
         return [f"FORCED_PLAN_EXIT_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
 
 
+def _run_forced_triage_grounding_gate(
+    workspace: Path, run_id: str, from_phase: str, to_phase: str
+) -> tuple[list[str], list[str]]:
+    """Force the TRIAGE grounding gate onto TRIAGE->PROPOSE on the live path (M2,
+    design/grounded-governance/04 + 05) — the HEAD of the cascade. TRIAGE emits the first governed
+    declaration (the scope); this grounds it against the REAL project root the scope names, so a run
+    scoped against a fiction is caught at its source rather than inherited by every downstream phase.
+
+    Two grounded checks over one substrate — the real state of the scope's declared targets:
+      * DETERMINISTIC FLOOR — every declared scope target must RESOLVE in the real tree (M2's
+        resolves-not-asserts rule): a target that names nothing -> ``TRIAGE_SCOPE_TARGET_UNRESOLVED``.
+      * SCREENING COVERAGE — a ``uacp.triage_screening`` artifact must EXIST, RESOLVE, and COVER the
+        substrate hash (the ``03`` fixpoint) -> ``TRIAGE_SCREENING_MISSING`` / ``TRIAGE_SCREENING_STALE``;
+        its findings must be dispositioned (M2/M3d) -> ``TRIAGE_FINDING_UNDISPOSITIONED``.
+
+    Severities are config-gated ``[triage] scope_grounding`` (default ``warn``): a triage that
+    declares no scope targets no-ops entirely (no substrate, mirroring the correctness floor's
+    'no code changed'), and by default any finding surfaces as an ADVISORY, never a blocker — so
+    existing triage crossings are behavior-preserved. Block-severity requires the config flip.
+    Self-gating: only fires at triage exit (triage's onward crossing is propose). Fail-closed: an
+    unexpected failure returns a single ``TRIAGE_GROUNDING_UNAVAILABLE`` blocker (the
+    ``_run_forced_plan_exit_gate`` precedent). Lazy import (engines<->state cycle)."""
+    if from_phase != "triage":
+        return [], []
+    try:
+        from engines.graph_projection import (
+            validate_triage_findings,
+            validate_triage_screening,
+        )
+
+        violations = [
+            *validate_triage_screening(workspace, run_id),
+            *validate_triage_findings(workspace, run_id),
+        ]
+        blockers = [f"{v.code}: {v.message}" for v in violations if v.severity == "block"]
+        advisories = [f"{v.code}: {v.message}" for v in violations if v.severity != "block"]
+        return blockers, advisories
+    except Exception as exc:  # fail-closed: an unrunnable gate must not silently pass
+        return [f"TRIAGE_GROUNDING_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
+
+
 # --- M1 (D-01 / D-02): the single phase-keyed structural-gate resolver --------
 # ONE table, keyed on from_phase, is the SOLE definition of which forced gate and
 # whether the structural graph gate apply when a run EXITS that phase. It replaces
@@ -665,54 +706,88 @@ class GateSet:
     """The structural gates a run faces on exiting a phase, resolved from the ONE table:
     ``canonical`` — the ``FROM->TO`` ledger records for every onward target (plus
     ``TRIAGE_COMPLETE`` at triage exit); ``graph_gated`` — whether the ``{phase}_exit``
-    structural graph gate applies; ``forced`` — the phase's forced gate, or ``None``."""
+    structural graph gate applies; ``forced`` — the phase's forced gates as a TUPLE
+    (0, 1, or more). M2 (grounded-governance) generalized ``forced`` from a single
+    ``ForcedGate | None`` to a tuple so a phase can carry MORE THAN ONE forced gate
+    (triage exit adds the grounding gate alongside, later, others). A phase with no
+    forced gate has an empty tuple; the existing phases each carry exactly one, so the
+    live dispatch that iterates the tuple is behavior-identical (length-1 == the old
+    'run the one')."""
 
     canonical: list[str]
     graph_gated: bool
-    forced: ForcedGate | None
+    forced: tuple[ForcedGate, ...]
 
 
-# The SINGLE per-phase structural-gate definition (D-01 / D-02). Keyed on from_phase;
-# value is ``(graph_gated, ForcedGate | None)``. Adding or moving a structural gate is
-# now a one-line edit HERE — the live enforcement (`_handle_transition_locked`), the
-# graph-gate guard (`_run_transition_graph_gate`), and the naming (`_gates_for_exit`)
-# all read it through ``resolve_gates``. The lambdas defer to the self-selecting
-# ``_run_forced_*`` executors above (resolved at call time), adapting each to the
-# uniform ``(workspace, run_id, from_phase, to_phase) -> (blockers, advisories)`` shape.
-_PHASE_GATE_TABLE: dict[str, tuple[bool, ForcedGate | None]] = {
+# The SINGLE per-phase structural-gate definition (D-01 / D-02; M2 tuple generalization).
+# Keyed on from_phase; value is ``(graph_gated, tuple[ForcedGate, ...])``. Adding or moving a
+# structural gate is now a one-line edit HERE — the live enforcement (`_handle_transition_locked`),
+# the graph-gate guard (`_run_transition_graph_gate`), and the naming (`_gates_for_exit`) all read
+# it through ``resolve_gates``. The lambdas defer to the self-selecting ``_run_forced_*`` executors
+# above (resolved at call time), adapting each to the uniform
+# ``(workspace, run_id, from_phase, to_phase) -> (blockers, advisories)`` shape. Each phase carries
+# a TUPLE of forced gates (M2): every existing phase keeps EXACTLY its one gate (a length-1 tuple),
+# so the live dispatch — which now iterates the tuple — is behavior-identical; ``triage`` gains its
+# grounding gate as a new length-1 entry (it had none before, so this is purely additive).
+_PHASE_GATE_TABLE: dict[str, tuple[bool, tuple[ForcedGate, ...]]] = {
     "brainstorm": (
         False,
-        ForcedGate(
-            "forced_brainstorm_exit (scope-package admission contract)",
-            lambda w, r, fp, tp: (_run_forced_brainstorm_exit_gate(w, r, fp), []),
+        (
+            ForcedGate(
+                "forced_brainstorm_exit (scope-package admission contract)",
+                lambda w, r, fp, tp: (_run_forced_brainstorm_exit_gate(w, r, fp), []),
+            ),
+        ),
+    ),
+    # triage exit had NO forced gate before M2. The grounding gate (declared scope vs the real
+    # project root — design/grounded-governance/04 + 05) is added here as a length-1 tuple; because
+    # it is the HEAD of the cascade, it is the first thing a run crosses. graph_gated stays False
+    # (triage was never graph-gated — preserved). The gate ships config-gated `warn` (default), so a
+    # run whose triage declares no scope targets, or declares them but carries no screening, sees at
+    # most ADVISORIES, never a blocker — existing triage->propose crossings are behavior-preserved.
+    "triage": (
+        False,
+        (
+            ForcedGate(
+                "forced_triage_grounding (declared scope vs real project root)",
+                lambda w, r, fp, tp: _run_forced_triage_grounding_gate(w, r, fp, tp or ""),
+            ),
         ),
     ),
     "propose": (
         False,
-        ForcedGate(
-            "forced_proposal_coverage (keyed-scope registration)",
-            lambda w, r, fp, tp: (_run_forced_proposal_coverage_gate(w, r, fp), []),
+        (
+            ForcedGate(
+                "forced_proposal_coverage (keyed-scope registration)",
+                lambda w, r, fp, tp: (_run_forced_proposal_coverage_gate(w, r, fp), []),
+            ),
         ),
     ),
     "plan": (
         True,
-        ForcedGate(
-            "forced_plan_exit (scope-artifact + PLAN_VALIDATION ledger + registry overlap)",
-            lambda w, r, fp, tp: _run_forced_plan_exit_gate(w, r, fp, tp or ""),
+        (
+            ForcedGate(
+                "forced_plan_exit (scope-artifact + PLAN_VALIDATION ledger + registry overlap)",
+                lambda w, r, fp, tp: _run_forced_plan_exit_gate(w, r, fp, tp or ""),
+            ),
         ),
     ),
     "execute": (
         True,
-        ForcedGate(
-            "forced_execute_evidence (PIV + checkpoint coverage)",
-            lambda w, r, fp, tp: (_run_forced_execute_evidence_gate(w, r, fp), []),
+        (
+            ForcedGate(
+                "forced_execute_evidence (PIV + checkpoint coverage)",
+                lambda w, r, fp, tp: (_run_forced_execute_evidence_gate(w, r, fp), []),
+            ),
         ),
     ),
     "verify": (
         True,
-        ForcedGate(
-            "forced_verify_evidence (verify-selection / resolve-readiness)",
-            lambda w, r, fp, tp: (_run_forced_verify_evidence_gate(w, r, fp), []),
+        (
+            ForcedGate(
+                "forced_verify_evidence (verify-selection / resolve-readiness)",
+                lambda w, r, fp, tp: (_run_forced_verify_evidence_gate(w, r, fp), []),
+            ),
         ),
     ),
 }
@@ -734,7 +809,7 @@ def resolve_gates(from_phase: str, to_phase: str | None = None) -> GateSet:
     ]
     if from_phase == "triage" and canonical:
         canonical.append("TRIAGE_COMPLETE")
-    graph_gated, forced = _PHASE_GATE_TABLE.get(from_phase, (False, None))
+    graph_gated, forced = _PHASE_GATE_TABLE.get(from_phase, (False, ()))
     return GateSet(canonical=canonical, graph_gated=graph_gated, forced=forced)
 
 
@@ -793,8 +868,10 @@ def _gates_for_exit(phase: str) -> list[str] | None:
     gates: list[str] = list(spec.canonical)
     if spec.graph_gated:
         gates.append(f"{phase}_exit structural graph gate")
-    if spec.forced is not None:
-        gates.append(spec.forced.label)
+    # M2: name EVERY forced gate in the phase's tuple (was: the single one). Order-preserving,
+    # so the naming mirrors the live dispatch order in ``_handle_transition_locked``.
+    for g in spec.forced:
+        gates.append(g.label)
     return gates
 
 
@@ -989,9 +1066,14 @@ def _handle_transition_locked(
         # advisories) or ``_run_forced_plan_exit_gate`` (its own advisories: #99 scope /
         # PLAN_VALIDATION ledger / run-registry overlap, non-blocking findings on the
         # advisory path, Codex P2).
+        # M2: run EVERY forced gate in this from_phase's tuple (was: the single one). Each is
+        # self-selecting on from_phase and returns the uniform ``(blockers, advisories)``, so
+        # iterating a length-1 tuple is byte-identical to the former single dispatch; a phase with
+        # 2+ gates (e.g. triage grows a second later) simply accumulates each gate's findings in
+        # order. At most one non-empty per existing phase, so behavior is preserved.
         spec = resolve_gates(from_phase, to_phase)
-        if spec.forced is not None:
-            forced_blockers, forced_advisories = spec.forced.run(
+        for forced_gate in spec.forced:
+            forced_blockers, forced_advisories = forced_gate.run(
                 workspace, run_id, from_phase, to_phase
             )
             gate_blockers += forced_blockers

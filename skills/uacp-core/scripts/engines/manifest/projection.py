@@ -1552,6 +1552,327 @@ def validate_correctness_findings(workspace: str | Path, run_id: str) -> list[Vi
     return violations
 
 
+# ---------------------------------------------------------------------------------------------
+# TRIAGE grounding (design/grounded-governance/04 + 05): the HEAD of the cascade. This is the SAME
+# machine as the VERIFY correctness screening above — a mandatory, grounded, fixpoint-enforced gate
+# — instantiated at triage exit. The ONLY difference is the SUBSTRATE PRODUCER: the reality here is
+# not a git diff but the REAL state of the scope's declared TARGETS (existence + kind + size in the
+# project tree), keyed off the run's declared scope. Everything else is reused: the resolves-not-
+# asserts floor (M2), the disposition loop (M3d, via `_finding_dispositioned`), the substrate-hash
+# fixpoint, and the config-gated warn->block migration.
+# ---------------------------------------------------------------------------------------------
+
+# The governed kind a triage-screening artifact declares at top level (schema + writer: layout.py /
+# schema.py). This gate loads LENIENTLY, keying on this kind + a `substrate_hash` field.
+_TRIAGE_SCREENING_KIND = "uacp.triage_screening"
+# The declaration kinds a run's declared scope is read from: the triage verdict itself (open-world,
+# so a producer may carry `scope_targets`) and — once authored — the scope artifact (`write_paths`).
+_TRIAGE_DECL_KINDS = ("uacp.triage", "uacp.scope")
+# Safe migration default — "warn", never "block": a triage gate that blocked by accident would
+# break EVERY live run at its first governed crossing. Mirrors the correctness floor's default.
+_TRIAGE_GROUNDING_DEFAULT_SEVERITY = "warn"
+
+
+def _triage_grounding_severity(root: Path) -> str:
+    """Config-gated severity for the triage grounding codes, read from ``[triage] scope_grounding``
+    (default ``warn``, flips to ``block`` in a later named release — the behavioral_floor / SC_DIFF /
+    correctness_screening migration precedent). Only the literals ``warn``/``block`` are honored;
+    absent/invalid -> ``warn`` (the safe migration default — block-by-accident breaks runs).
+    TRIAGE_SCREENING_INCONCLUSIVE is NOT gated here (always ``warn``). Never raises."""
+    try:
+        cfg = get_config(root).model_dump()
+        raw = (cfg.get("triage") or {}).get("scope_grounding")
+        if raw in ("warn", "block"):
+            return raw
+        return _TRIAGE_GROUNDING_DEFAULT_SEVERITY
+    except Exception:
+        return _TRIAGE_GROUNDING_DEFAULT_SEVERITY
+
+
+def _run_kind_docs(
+    root: Path, run_id: str, kinds: tuple[str, ...], patterns: tuple[str, ...]
+) -> list[dict[str, Any]]:
+    """Every RESOLVING artifact DICT for THIS run whose ``kind`` is in ``kinds``, located the two
+    ways the correctness locator uses: the run's REGISTERED manifest artifacts AND a scan of the
+    given base-relative glob ``patterns``. An artifact contributes only if it EXISTS + LOADS (the
+    M2 resolution bar). Loaded leniently (keys on ``kind``, never on schema validity). Never raises.
+    Shared by the triage scope-target reader and the triage-screening locator."""
+    docs: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    loaded = load_manifest(root, run_id)
+    if loaded.error is None and loaded.value is not None:
+        arts = loaded.value.raw.get("artifacts")
+        if isinstance(arts, dict):
+            for rel in arts.values():
+                if not isinstance(rel, str) or not rel.strip() or rel in seen:
+                    continue
+                seen.add(rel)
+                d = load_artifact(root, rel)
+                if d.error is None and isinstance(d.value, dict):
+                    docs.append(d.value)
+
+    for pattern in patterns:
+        for path in glob_in_workspace(root, pattern):
+            rel = str(path)
+            if rel in seen:
+                continue
+            seen.add(rel)
+            d = load_yaml_under_root(root, rel)
+            if d.error is None and isinstance(d.value, dict):
+                docs.append(dict(d.value))
+
+    return [doc for doc in docs if doc.get("kind") in kinds]
+
+
+def _triage_declared_targets(root: Path, run_id: str) -> list[str]:
+    """The run's declared scope TARGETS at triage: the ``write_paths`` and/or ``scope_targets`` a
+    ``uacp.triage`` (open-world) or ``uacp.scope`` artifact carries — path/glob strings naming the
+    real tree the run intends to touch. Read from the serialized declaration (the
+    ``_run_forced_plan_exit_gate`` precedent reads the run's serialized scope), never asserted.
+    Deduped, order-independent (the substrate sorts). Empty when the run declares no scope — the
+    gate then no-ops, mirroring the correctness floor's 'no code changed'. Never raises."""
+    docs = _run_kind_docs(
+        root,
+        run_id,
+        _TRIAGE_DECL_KINDS,
+        (f"proposals/{run_id}-triage.yaml", f"plans/{run_id}-scope.yaml"),
+    )
+    targets: list[str] = []
+    for doc in docs:
+        for key in ("write_paths", "scope_targets"):
+            v = doc.get(key)
+            if isinstance(v, list):
+                targets.extend(x.strip() for x in v if isinstance(x, str) and x.strip())
+    return targets
+
+
+def _target_state(root: Path, target: str) -> tuple[bool, str, int]:
+    """Resolve one declared scope target against the REAL project tree under ``root`` (NOT ``.uacp``).
+    Returns ``(exists, kind, size)`` — ``kind`` in {file, dir, glob, ''}; ``size`` is the file byte
+    count, a glob's match count, or 0. A target that escapes ``root`` (traversal) resolves as absent.
+    A glob target (containing ``* ? [``) resolves iff >=1 path matches under the tree. Never raises."""
+    try:
+        base = root.resolve()
+        if any(ch in target for ch in "*?["):
+            matches = []
+            for m in base.glob(target):
+                try:
+                    m.resolve().relative_to(base)
+                except Exception:
+                    continue
+                matches.append(m)
+            return (bool(matches), "glob", len(matches))
+        resolved = (base / target).resolve()
+        if resolved != base and base not in resolved.parents:
+            return (False, "", 0)  # escapes the project root -> treated as unresolved
+        if resolved.is_dir():
+            return (True, "dir", 0)
+        if resolved.is_file():
+            return (True, "file", resolved.stat().st_size)
+        return (False, "", 0)
+    except Exception:
+        return (False, "", 0)
+
+
+def _triage_substrate(root: Path, targets: list[str]) -> list[tuple[str, bool, str, int]]:
+    """The triage substrate: for each DISTINCT declared target (sorted), its real state
+    ``(target, exists, kind, size)`` in the project tree. Deterministic — the sorted, deduped
+    target set makes the produced reality (and its hash) independent of declaration order."""
+    rows: list[tuple[str, bool, str, int]] = []
+    for t in sorted(set(targets)):
+        exists, kind, size = _target_state(root, t)
+        rows.append((t, exists, kind, size))
+    return rows
+
+
+def _triage_substrate_hash(substrate: list[tuple[str, bool, str, int]]) -> str:
+    """The substrate IDENTITY: sha256 over the sorted ``(target, exists, kind, size)`` tuples
+    (design/grounded-governance/05), mirroring ``_substrate_hash``. Because it folds in each
+    target's real existence/kind/size, ANY change to the declared scope OR to the tree the scope
+    names moves the hash — so a screening built for an old scope no longer covers. That is the
+    fixpoint: a stale screening cannot clear the gate."""
+    payload = "\n".join(f"{t}\t{int(exists)}\t{kind}\t{size}" for (t, exists, kind, size) in substrate)
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _triage_screening_docs(root: Path, run_id: str) -> list[dict[str, Any]]:
+    """Every RESOLVING triage-screening artifact DICT for THIS run (``kind:
+    uacp.triage_screening``), located via the shared locator (registered artifacts + the per-run
+    subdir scan ``proposals/{run_id}/*.y{a,}ml`` — the governed writer's home). Never raises."""
+    return _run_kind_docs(
+        root,
+        run_id,
+        (_TRIAGE_SCREENING_KIND,),
+        (f"proposals/{run_id}/*.yaml", f"proposals/{run_id}/*.yml"),
+    )
+
+
+def _triage_screening_hashes(root: Path, run_id: str) -> list[str]:
+    """Every non-empty ``substrate_hash`` carried by a RESOLVING triage-screening artifact for THIS
+    run — the covering-hash set the floor matches the current substrate identity against."""
+    hashes: list[str] = []
+    for doc in _triage_screening_docs(root, run_id):
+        sh = doc.get("substrate_hash")
+        if isinstance(sh, str) and sh:
+            hashes.append(sh)
+    return hashes
+
+
+def validate_triage_screening(workspace: str | Path, run_id: str) -> list[Violation]:
+    """TRIAGE grounding FLOOR + screening-coverage gate (design/grounded-governance/04 + 05).
+
+    When the run DECLARES a scope at triage, TRIAGE-exit may not pass clean unless (a) every
+    declared target RESOLVES in the real tree and (b) a triage-screening artifact EXISTS, RESOLVES,
+    and COVERS the kernel-produced substrate (the scope-target reality). This is the head-of-cascade
+    instance of the same machine the VERIFY correctness floor is:
+
+    * no declared scope targets -> ``[]`` (no substrate; nothing to ground — mirrors the correctness
+      floor's 'no code changed'). This keeps the gate INERT for runs whose triage declares no scope,
+      preserving existing triage->propose behavior.
+    * a declared target that does NOT resolve in the real tree -> one
+      ``TRIAGE_SCOPE_TARGET_UNRESOLVED`` at the config-gated severity, per phantom target (the M2
+      resolves-not-asserts floor for scope targets — a scope naming a fiction, no agent needed).
+    * targets declared and NO covering screening found -> one ``TRIAGE_SCREENING_MISSING`` at the
+      config-gated severity.
+    * screening(s) found but ALL cover a DIFFERENT substrate (the scope changed since screening) ->
+      one ``TRIAGE_SCREENING_STALE`` — the fixpoint: re-screen the moved scope.
+
+    The unresolved-target floor is INDEPENDENT of screening coverage (a phantom target is a hard
+    floor regardless), so it can co-fire with MISSING/STALE. Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    root = Path(str(workspace)).resolve()
+    targets = _triage_declared_targets(root, run_id)
+    if not targets:
+        # No declared scope -> no substrate -> no triage-grounding obligation.
+        return []
+    substrate = _triage_substrate(root, targets)
+    severity = _triage_grounding_severity(root)
+    out: list[Violation] = []
+
+    # DETERMINISTIC FLOOR: every declared target must resolve in the real tree.
+    for target, exists, _kind, _size in substrate:
+        if not exists:
+            out.append(
+                _v(
+                    "TRIAGE_SCOPE_TARGET_UNRESOLVED",
+                    f"run '{run_id}' declares scope target {target!r} but it does not resolve in "
+                    f"the real project tree; a scope naming a nonexistent target mis-scopes the "
+                    f"whole run at its head — resolve the target or correct the scope",
+                    severity=severity,
+                    target=target,
+                )
+            )
+
+    # SCREENING COVERAGE: a triage screening must cover the current substrate identity.
+    current_hash = _triage_substrate_hash(substrate)
+    hashes = _triage_screening_hashes(root, run_id)
+    if current_hash in hashes:
+        return out
+    examples = [t for (t, _e, _k, _s) in substrate][:5]
+    if not hashes:
+        out.append(
+            _v(
+                "TRIAGE_SCREENING_MISSING",
+                f"run '{run_id}' declares {len(targets)} scope target(s) (e.g. {examples}) but "
+                f"carries no triage-screening artifact ({_TRIAGE_SCREENING_KIND}) covering the "
+                f"kernel-produced project-root substrate; the declared scope must be screened "
+                f"against reality before TRIAGE exits",
+                severity=severity,
+                declared_targets=len(targets),
+                examples=examples,
+                substrate_hash=current_hash,
+            )
+        )
+    else:
+        out.append(
+            _v(
+                "TRIAGE_SCREENING_STALE",
+                f"run '{run_id}' carries triage-screening artifact(s) but none cover the CURRENT "
+                f"scope substrate (the declared scope or the tree it names changed since "
+                f"screening); the {len(hashes)} screening(s) cover a different substrate — "
+                f"re-screen the moved scope (the fixpoint)",
+                severity=severity,
+                declared_targets=len(targets),
+                substrate_hash=current_hash,
+                found_hashes=hashes,
+            )
+        )
+    return out
+
+
+def validate_triage_findings(workspace: str | Path, run_id: str) -> list[Violation]:
+    """TRIAGE-FINDINGS disposition gate (design/grounded-governance/04 + 05) — the triage instance of
+    ``validate_correctness_findings``, reusing the SAME disposition grounding (M2/M3d via
+    :func:`_finding_dispositioned`).
+
+    For the RESOLVING triage-screening artifact(s) that COVER the current substrate:
+    * ``clean`` -> ``[]``.
+    * ``findings`` -> EACH carried finding must be DISPOSITIONED (``discharged`` with a RESOLVING fix
+      pointer, or ``adjudicated`` with decision + rationale + cost-if-wrong). Each undispositioned
+      finding -> one ``TRIAGE_FINDING_UNDISPOSITIONED`` at the config-gated severity.
+    * ``cannot_verify`` -> one ``TRIAGE_SCREENING_INCONCLUSIVE`` at ``warn`` (abstained; surfaced,
+      never read as a pass).
+
+    Scope discipline (mirrors the correctness findings gate): no declared scope / NO covering
+    screening -> ``[]`` (the MISSING/STALE signal is :func:`validate_triage_screening`'s; don't
+    double-report). Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    root = Path(str(workspace)).resolve()
+    targets = _triage_declared_targets(root, run_id)
+    if not targets:
+        return []
+    substrate = _triage_substrate(root, targets)
+    current_hash = _triage_substrate_hash(substrate)
+    covering = [
+        doc
+        for doc in _triage_screening_docs(root, run_id)
+        if doc.get("substrate_hash") == current_hash
+    ]
+    if not covering:
+        # No covering screening — validate_triage_screening owns MISSING/STALE; don't double-report.
+        return []
+    severity = _triage_grounding_severity(root)
+    violations: list[Violation] = []
+    for doc in covering:
+        verdict = doc.get("verdict")
+        if verdict == "cannot_verify":
+            violations.append(
+                _v(
+                    "TRIAGE_SCREENING_INCONCLUSIVE",
+                    f"the triage screening for run '{run_id}' abstained (verdict=cannot_verify) "
+                    f"over the current scope substrate; an inconclusive screening is surfaced, "
+                    f"never read as a pass — resolve it before closing TRIAGE",
+                    severity="warn",
+                    substrate_hash=current_hash,
+                )
+            )
+            continue
+        if verdict != "findings":
+            continue
+        findings = doc.get("findings")
+        if not isinstance(findings, list):
+            continue
+        for finding in findings:
+            if not isinstance(finding, dict) or not _finding_dispositioned(finding, root, run_id):
+                fid = _s(finding.get("id")) if isinstance(finding, dict) else ""
+                violations.append(
+                    _v(
+                        "TRIAGE_FINDING_UNDISPOSITIONED",
+                        f"triage finding {fid or '(unidentified)'!r} in run '{run_id}' "
+                        f"(verdict=findings) carries no COMPLETE disposition; every open finding "
+                        f"must be discharged (a fix pointer that RESOLVES) or adjudicated "
+                        f"(decision + rationale + cost-if-wrong)",
+                        severity=severity,
+                        finding_id=fid,
+                        substrate_hash=current_hash,
+                    )
+                )
+    return violations
+
+
 # The inbound-edge relations the CLASS WITNESS counts (design node 03): calls/references only.
 # `defines` (container -> member) is EXCLUDED — it lands inbound on every method and would mark
 # every member "wired-in", destroying the sets_value/wires_symbol distinction. This mirrors the
