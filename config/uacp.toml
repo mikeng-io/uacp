@@ -590,6 +590,22 @@ sc_diff_containment = "warn"
 # engines.manifest.projection._correctness_screening_severity.
 correctness_screening = "warn"
 
+# design/grounded-governance/07 PLAN grounding (engines.scope_conformance): the
+# prevention-at-PLAN blast-radius forecast. At plan_exit, when the run declares BOTH
+# code_refs AND write_paths, the SCIP-fed witness derives the baseline (HEAD) hop-1
+# neighborhood of the declared refs and predicts the files that fall OUTSIDE the declared
+# boundary -> SC_PLAN_CASCADE_FORECAST. This severity migrates the same way as
+# sc_diff_containment above: DEFAULT "warn" (surface the predicted cascade without breaking
+# live runs), flipped to "block" in a later named release. When "block",
+# SC_PLAN_CASCADE_FORECAST blocks ONLY for a run that declared a NON-EMPTY write_paths
+# (fail-closed on the agent's own declaration, the least-arguable form); an empty declared
+# boundary stays advisory. SC_FORECAST_WITNESS_UNAVAILABLE is ALWAYS "warn" (an unobservable
+# code plane is an environment fact, not an agent fault). Only the literals "warn"/"block"
+# are honored; an absent/invalid value -> "warn" (the safe migration default —
+# block-by-accident breaks runs). Read via config.get_config(root) by
+# engines.scope_conformance._plan_cascade_severity.
+plan_cascade_forecast = "warn"
+
 # =============================================================================
 # TRIAGE GROUNDING
 # =============================================================================
