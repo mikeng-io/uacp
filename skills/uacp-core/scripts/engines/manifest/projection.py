@@ -1438,7 +1438,12 @@ def _s(v: Any) -> str:
     return v.strip() if isinstance(v, str) else ""
 
 
-def _finding_dispositioned(finding: dict[str, Any], root: Path, run_id: str) -> bool:
+def _finding_dispositioned(
+    finding: dict[str, Any],
+    root: Path,
+    run_id: str,
+    allowed_prefixes: tuple[str, ...] | None = None,
+) -> bool:
     """True iff the finding carries a COMPLETE disposition, resolved — not merely named (the M2/M3d
     rule, applied to a correctness finding unchanged):
 
@@ -1456,7 +1461,9 @@ def _finding_dispositioned(finding: dict[str, Any], root: Path, run_id: str) -> 
         return False
     kind = disp.get("kind")
     if kind == "discharged":
-        return _artifact_resolves(root, run_id, _s(disp.get("handling_artifact_path")))
+        return _artifact_resolves(
+            root, run_id, _s(disp.get("handling_artifact_path")), allowed_prefixes
+        )
     if kind == "adjudicated":
         return all(_s(disp.get(f)) for f in ("decision", "rationale", "cost_if_wrong"))
     return False
@@ -1575,7 +1582,8 @@ _TRIAGE_GROUNDING_DEFAULT_SEVERITY = "warn"
 
 def _triage_grounding_severity(root: Path) -> str:
     """Config-gated severity for the triage grounding codes, read from ``[triage] scope_grounding``
-    (default ``warn``, flips to ``block`` in a later named release — the behavioral_floor / SC_DIFF /
+    (default ``warn``, flips to ``block`` in a later named release — the behavioral_floor /
+    SC_DIFF /
     correctness_screening migration precedent). Only the literals ``warn``/``block`` are honored;
     absent/invalid -> ``warn`` (the safe migration default — block-by-accident breaks runs).
     TRIAGE_SCREENING_INCONCLUSIVE is NOT gated here (always ``warn``). Never raises."""
@@ -1648,10 +1656,12 @@ def _triage_declared_targets(root: Path, run_id: str) -> list[str]:
 
 
 def _target_state(root: Path, target: str) -> tuple[bool, str, int]:
-    """Resolve one declared scope target against the REAL project tree under ``root`` (NOT ``.uacp``).
+    """Resolve one declared scope target against the REAL project tree under ``root``
+    (NOT ``.uacp``).
     Returns ``(exists, kind, size)`` — ``kind`` in {file, dir, glob, ''}; ``size`` is the file byte
-    count, a glob's match count, or 0. A target that escapes ``root`` (traversal) resolves as absent.
-    A glob target (containing ``* ? [``) resolves iff >=1 path matches under the tree. Never raises."""
+    count, a glob's match count, or 0. A target that escapes ``root`` (traversal)
+    resolves as absent. A glob target (containing ``* ? [``) resolves iff >=1 path
+    matches under the tree. Never raises."""
     try:
         base = root.resolve()
         if any(ch in target for ch in "*?["):
@@ -1692,7 +1702,9 @@ def _triage_substrate_hash(substrate: list[tuple[str, bool, str, int]]) -> str:
     target's real existence/kind/size, ANY change to the declared scope OR to the tree the scope
     names moves the hash — so a screening built for an old scope no longer covers. That is the
     fixpoint: a stale screening cannot clear the gate."""
-    payload = "\n".join(f"{t}\t{int(exists)}\t{kind}\t{size}" for (t, exists, kind, size) in substrate)
+    payload = "\n".join(
+        f"{t}\t{int(exists)}\t{kind}\t{size}" for (t, exists, kind, size) in substrate
+    )
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
@@ -1803,13 +1815,15 @@ def validate_triage_screening(workspace: str | Path, run_id: str) -> list[Violat
 
 
 def validate_triage_findings(workspace: str | Path, run_id: str) -> list[Violation]:
-    """TRIAGE-FINDINGS disposition gate (design/grounded-governance/04 + 05) — the triage instance of
+    """TRIAGE-FINDINGS disposition gate (design/grounded-governance/04 + 05) — the triage
+    instance of
     ``validate_correctness_findings``, reusing the SAME disposition grounding (M2/M3d via
     :func:`_finding_dispositioned`).
 
     For the RESOLVING triage-screening artifact(s) that COVER the current substrate:
     * ``clean`` -> ``[]``.
-    * ``findings`` -> EACH carried finding must be DISPOSITIONED (``discharged`` with a RESOLVING fix
+    * ``findings`` -> EACH carried finding must be DISPOSITIONED (``discharged`` with a
+      RESOLVING fix
       pointer, or ``adjudicated`` with decision + rationale + cost-if-wrong). Each undispositioned
       finding -> one ``TRIAGE_FINDING_UNDISPOSITIONED`` at the config-gated severity.
     * ``cannot_verify`` -> one ``TRIAGE_SCREENING_INCONCLUSIVE`` at ``warn`` (abstained; surfaced,
@@ -1856,7 +1870,12 @@ def validate_triage_findings(workspace: str | Path, run_id: str) -> list[Violati
         if not isinstance(findings, list):
             continue
         for finding in findings:
-            if not isinstance(finding, dict) or not _finding_dispositioned(finding, root, run_id):
+            # A triage finding discharges to TRIAGE-phase evidence (``triage/{run}/``), not the
+            # late-phase verification/executions dirs the correctness gate uses — the evidence-
+            # reference type is phase-appropriate.
+            if not isinstance(finding, dict) or not _finding_dispositioned(
+                finding, root, run_id, allowed_prefixes=("triage/",)
+            ):
                 fid = _s(finding.get("id")) if isinstance(finding, dict) else ""
                 violations.append(
                     _v(

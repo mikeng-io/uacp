@@ -84,10 +84,13 @@ def _write_screening(
 
 
 def _write_fix_artifact(tmp_path: Path, run: str, name: str = "fix") -> str:
-    """A run-bound fix artifact under proposals/{run}/ that EXISTS + LOADS (so M2's
-    _artifact_resolves accepts it). Returns its base-relative path."""
-    rel = f"proposals/{run}/{name}.yaml"
-    (tmp_path / ".uacp" / rel).write_text(yaml.safe_dump({"kind": "uacp.fix", "run_id": run}))
+    """A run-bound fix artifact under the TRIAGE evidence dir triage/{run}/ that EXISTS + LOADS
+    (so the phase-appropriate _artifact_resolves accepts it — a triage discharge lands in triage/,
+    not the late-phase verification/executions dirs). Returns its base-relative path."""
+    rel = f"triage/{run}/{name}.yaml"
+    dest = tmp_path / ".uacp" / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(yaml.safe_dump({"kind": "uacp.fix", "run_id": run}))
     return rel
 
 

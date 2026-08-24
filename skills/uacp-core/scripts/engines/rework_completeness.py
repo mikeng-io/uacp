@@ -262,7 +262,9 @@ def _entry_addresses(entry: dict[str, Any], carried_key: str, carried_path: str)
 _EVIDENCE_PREFIXES: tuple[str, ...] = ("verification/", "resolutions/", "executions/")
 
 
-def _artifact_resolves(root: Path, run_id: str, path: str) -> bool:
+def _artifact_resolves(
+    root: Path, run_id: str, path: str, allowed_prefixes: tuple[str, ...] | None = None
+) -> bool:
     """An artifact named AS PROOF is proven by its RESOLUTION, never its mere presence as a string
     (the evidence-reference type — M2 / D-04). A remediation's ``handling_artifact_path`` discharges
     a carried finding only if it is **run-bound** to THIS rework (an evidence prefix + the run_id)
@@ -273,8 +275,9 @@ def _artifact_resolves(root: Path, run_id: str, path: str) -> bool:
     it" but not "we fixed it"."""
     if not path or not run_id:
         return False
-    if not any(path.startswith(f"{prefix}{run_id}") for prefix in _EVIDENCE_PREFIXES):
-        return False  # not run-bound to this rework's own evidence
+    prefixes = allowed_prefixes if allowed_prefixes is not None else _EVIDENCE_PREFIXES
+    if not any(path.startswith(f"{prefix}{run_id}") for prefix in prefixes):
+        return False  # not run-bound to this run's own (phase-appropriate) evidence
     return load_artifact(root, path).error is None  # exists + loads
 
 

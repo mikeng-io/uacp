@@ -634,14 +634,16 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
         },
     },
     # triage-screening artifact (design/grounded-governance/04 + 05) — the typed, governed record of
-    # a screening of the DECLARED SCOPE against the real project root. Mirrors uacp.correctness_screening
-    # exactly except its substrate is the scope-target reality (`reviewed_scope`, the declared targets)
-    # rather than a git range. The floor (validate_triage_screening) keys on `substrate_hash`; the
+    # a screening of the DECLARED SCOPE against the real project root. Mirrors
+    # uacp.correctness_screening except its substrate is the scope-target reality
+    # (`reviewed_scope`, the declared targets) rather than a git range. The floor
+    # (validate_triage_screening) keys on `substrate_hash`; the
     # findings gate (validate_triage_findings) keys on `verdict` + each finding's `disposition`.
     # OPEN-world like the other rich package docs (extra fields allowed): validate the identity, the
     # substrate identity, the verdict enum, and each finding's DESCRIPTIVE shape — but NOT
-    # `disposition` (added LATER in the loop, enforced by the gate, so a write-time requirement would
-    # make the undispositioned-then-disposition loop unwritable). Deliberately carries NO `phase`
+    # `disposition` (added LATER in the loop, enforced by the gate, so a write-time
+    # requirement would make the undispositioned-then-disposition loop unwritable).
+    # Deliberately carries NO `phase`
     # const: its own findings are dispositioned by validate_triage_findings, so it stays OUT of the
     # verify rework-carry machinery (verify_finding_artifact_keys).
     "uacp.triage_screening": {
@@ -661,7 +663,8 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "run_id": {"type": "string", "minLength": 1},
             "substrate_hash": {"type": "string", "minLength": 1},
             # The declared scope targets screened — a non-empty list of path/glob strings (the
-            # substrate the hash is computed over). Empty would mean "screened nothing", so minItems 1.
+            # substrate the hash is computed over). Empty would mean "screened
+            # nothing", so minItems 1.
             "reviewed_scope": {
                 "type": "array",
                 "minItems": 1,
