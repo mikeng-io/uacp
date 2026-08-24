@@ -386,3 +386,21 @@ def test_forced_gate_surfaces_structured_findings(tmp_path):
     assert findings, "structured findings must be surfaced"
     assert findings[0]["code"] == "TRIAGE_SCREENING_MISSING"
     assert "detail" in findings[0] and "path" in findings[0]
+
+
+def test_glob_write_path_under_existing_parent_is_planned(tmp_path):
+    # screening #172 P2: a glob write_path (e.g. src/*.py) with the parent dir present but no match
+    # yet is a PLANNED output at TRIAGE, not a phantom -> no UNRESOLVED (the glob sibling of the
+    # concrete planned carve-out).
+    ws = _ws(tmp_path)
+    _make_target(tmp_path, "src/existing.txt")  # creates src/, but no *.py yet
+    _declare_scope(tmp_path, "r", ["src/*.py"])
+    codes = _codes(validate_triage_screening(ws, "r"))
+    assert "TRIAGE_SCOPE_TARGET_UNRESOLVED" not in codes, codes
+
+
+def test_glob_write_path_under_missing_parent_stays_unresolved(tmp_path):
+    # A glob under a MISSING parent dir is still a phantom (non-vacuity for the carve-out above).
+    ws = _ws(tmp_path)
+    _declare_scope(tmp_path, "r", ["nope/*.py"])
+    assert "TRIAGE_SCOPE_TARGET_UNRESOLVED" in _codes(validate_triage_screening(ws, "r"))

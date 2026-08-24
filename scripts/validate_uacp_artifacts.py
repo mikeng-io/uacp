@@ -479,8 +479,6 @@ def validate_council_reviewer_grounding(
         issues.append(f"BLOCK {path}: reviewer_reports must be a list of bridge report objects")
         return
 
-    gov = base_dir(root) if root is not None else None
-    council_session = obj.get("session_id") or obj.get("council_id")
     cfg_toml = _load_uacp_toml(root)
 
     for idx, rep in enumerate(reports):
@@ -502,7 +500,13 @@ def validate_council_reviewer_grounding(
         if status in _NON_PARTICIPATING_REVIEW_STATUSES:
             continue
 
-        # --- read_only_enforcement: REQUIRED-EVIDENCE grounding ---
+        # --- read_only_enforcement: STRUCTURAL check only ---
+        # The containment-EVIDENCE file mechanism was REMOVED (screening #172): a shell script
+        # writing a record into the governed ``.uacp/`` namespace bypassed the governed writer
+        # (Invariant #3), and resolving that path + comparing a sanitized session id against the raw
+        # one were false-block hazards. A ran inspect reviewer must still declare read-only
+        # enforcement (or SKIP); grounding that the enforcement was REAL (not just declared) is a
+        # documented follow-on needing a GOVERNED evidence seam, not raw shell I/O into ``.uacp/``.
         if is_inspect or declares_ro:
             ro = rep.get("read_only_enforcement")
             ro_norm = ro.strip().lower() if isinstance(ro, str) else ro
@@ -514,19 +518,6 @@ def validate_council_reviewer_grounding(
                     f"read_only_enforcement={ro!r} — a reviewer that ran must be read-only "
                     f"contained (provision via review_sandbox.sh) or report SKIPPED"
                 )
-            else:
-                ev = rep.get("containment_evidence")
-                if not ev or not isinstance(ev, str):
-                    issues.append(
-                        f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) declares "
-                        f"read_only_enforcement={ro!r} but carries no containment_evidence — a "
-                        f"self-declared read-only claim must reference the review_sandbox.sh "
-                        f"provisioning evidence for this run (presence of the field is not proof)"
-                    )
-                else:
-                    _ground_containment_evidence(
-                        path, idx, bridge, ev, gov, council_session, issues
-                    )
 
         # --- model_authorized: LIVE-INVOCATION grounding ---
         if is_inspect or declares_ma:
@@ -567,77 +558,6 @@ def validate_council_reviewer_grounding(
                         f"against model {model!r} which the authorization gate does NOT authorize "
                         f"({reason}) — an unauthorized model must not have been dispatched"
                     )
-
-
-def _ground_containment_evidence(
-    path: Path,
-    idx: int,
-    bridge: str,
-    ev: str,
-    gov: Path | None,
-    council_session: Any,
-    issues: list[str],
-) -> None:
-    """Resolve a reviewer's ``containment_evidence`` reference and assert it is a run-bound,
-    successful review_sandbox provisioning record. Mirrors ``validate_heartgate_coherence``'s
-    resolve-under-UACP_ROOT check, then adds success + session-binding."""
-    if gov is None:
-        # No root to resolve against — we cannot confirm the evidence, so we cannot pass it.
-        issues.append(
-            f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) references containment_evidence "
-            f"{ev!r} but no UACP_ROOT was available to resolve it"
-        )
-        return
-    candidate = Path(str(ev))
-    if not candidate.is_absolute():
-        candidate = gov / candidate
-    try:
-        resolved = candidate.resolve()
-    except Exception as exc:
-        issues.append(
-            f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) containment_evidence invalid: {exc}"
-        )
-        return
-    if resolved != gov and gov not in resolved.parents:
-        issues.append(
-            f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) containment_evidence escapes "
-            f"UACP_ROOT: {ev}"
-        )
-        return
-    if not resolved.exists():
-        issues.append(
-            f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) containment_evidence not found: "
-            f"{ev} — a read-only claim must resolve to real provisioning evidence"
-        )
-        return
-    try:
-        import json as _json
-
-        record = _json.loads(resolved.read_text())
-    except Exception as exc:
-        issues.append(
-            f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) containment_evidence is not "
-            f"readable JSON: {exc}"
-        )
-        return
-    if not isinstance(record, dict) or record.get("provisioned") is not True:
-        issues.append(
-            f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) containment_evidence does not "
-            f"record a successful provisioning (provisioned != true) — a failed/absent sandbox "
-            f"does not validate a read-only claim"
-        )
-        return
-    # Run-binding: the provisioning evidence must belong to THIS council's session, otherwise a
-    # reviewer could point at some other run's sandbox record.
-    ev_session = record.get("session")
-    if council_session and (not ev_session or str(ev_session) != str(council_session)):
-        # A MISSING session must fail like a mismatch (Codex #172 P2): an unbound provisioning
-        # record could otherwise be reused across councils despite the run-binding contract.
-        bound = f"session {ev_session!r}" if ev_session else "no session"
-        issues.append(
-            f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) containment_evidence carries "
-            f"{bound}, not this council's {council_session!r} — evidence must be run-bound"
-        )
 
 
 def validate_triage(path: Path, obj: dict, issues: list[str]) -> None:

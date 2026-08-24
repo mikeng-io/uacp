@@ -33,6 +33,37 @@ writable scratch (`behavior_plane`) so it **runs** the component against inputs 
   adjudicated (decision + rationale + cost-if-wrong); any fix moves the diff, so the substrate hash
   changes, the stale screening no longer covers, and VERIFY re-screens the delta to a clean round.
 
+## Finding lenses — the reasoning that makes defects precipitate
+
+The charge is "defeat the work"; these are the *ways* to defeat it — reasoning methods to run over the
+substrate, **not** a checklist of expected findings (they say HOW to look, never WHAT to find). Sweep
+each lens to saturation: once it surfaces one instance of a defect class, find EVERY instance before
+moving on. (Derived from what a competent external reviewer actually does; a screening that skips these
+is a screening in name only.)
+
+1. **Adversarial input** — for each predicate/guard, construct the input that PASSES it but violates
+   its intent (a shared-prefix run-id; a path that escapes the root; a boundary value).
+2. **Missing / boundary value** — for a guard like `if a and b and mismatch`, ask what ABSENT or empty
+   value makes it silently pass (a null session; an omitted field).
+3. **Sibling consistency** — when two components describe the same reality (a change set, a commit
+   range, a count), check they AGREE; a divergence is the defect (`changed_files` vs `diff_content`).
+4. **End-to-end value tracing** — follow a value producer→consumer (a path, an id, a hash); do both
+   ends agree on what/where it is? (double-prefixing a root; reporting a path the validator resolves
+   elsewhere).
+5. **Schema-vs-enforcement** — what does the data MODEL permit that the code never checks? (a `verdict`
+   the schema allows but the gate treats as resolved).
+6. **Promise-vs-delivery** — the code/response PROMISES something (a structured envelope, a populated
+   field); is it kept on EVERY path, or empty on some? (a `findings[]` envelope left empty).
+7. **Lifecycle preconditions** — does a check account for WHEN/where it runs? (a pre-execution phase
+   requiring an artifact that only exists post-execution).
+8. **Invariant cross-check** — does each write/action obey the project's stated invariants (governed
+   writers, no main writes, plane separation)? (a shell script writing raw into `.uacp/`).
+9. **Class-completeness** — having found one instance of a class, sweep for ALL siblings sharing the
+   shape (every branch reusing a flawed helper; every hard-coded assumption).
+10. **Principle / generality** — does the implementation honor the project's stated principles
+   (runtime-neutrality, determinism-at-the-gate)? A Python-only assumption in a runtime-neutral system
+   is a defect (`_CODE_SUFFIXES` missing C#/PHP/Kotlin/…).
+
 ## Output + gate
 
 Write a governed `uacp.correctness_screening` artifact — `{substrate_hash, reviewed_range, verdict,

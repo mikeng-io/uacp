@@ -153,3 +153,13 @@ def test_unobservable_repo_is_unwitnessed_warn(tmp_path):
     vs = validate_behavioral_floor(ws, "r")
     assert _codes(vs) == ["CHK_BEHAVIORAL_FLOOR_UNWITNESSED"], _codes(vs)
     assert vs[0].severity == "warn"
+
+
+def test_code_suffixes_are_runtime_neutral():
+    # screening #172 P2 / lens 10: UACP is runtime-neutral, so the code-change detector must not be
+    # Python-only -- a C#/PHP/Kotlin/Swift/... source change must count as code.
+    from engines.manifest.projection import _CODE_SUFFIXES
+
+    for ext in (".py", ".cs", ".php", ".kt", ".swift", ".scala", ".ex", ".lua", ".rb", ".go"):
+        assert ext in _CODE_SUFFIXES, ext
+        assert ("mod" + ext).endswith(_CODE_SUFFIXES), ext

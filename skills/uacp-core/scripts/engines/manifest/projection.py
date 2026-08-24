@@ -81,7 +81,7 @@ from engines.io import (
 # correctness findings gate reuses it for `discharged` dispositions — importing, not duplicating,
 # the rule (design/grounded-governance/03 §"Findings reuse the disposition grounding"). No cycle:
 # rework_completeness imports only config / engines.base / engines.io, never this projection.
-from engines.rework_completeness import _artifact_resolves
+from engines.rework_completeness import _artifact_resolves, _run_bound_under
 
 
 def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Violation:
@@ -1146,7 +1146,38 @@ _CODE_SUFFIXES = (
     ".cc",
     ".cpp",
     ".h",
+    ".hpp",
     ".sh",
+    # runtime-neutrality (screening #172 P2 / lens 10): UACP governs any language, so a Python-only
+    # list would silently treat a C#/PHP/Kotlin/… source change as docs-only (no grounding). Broad,
+    # extensible list; a configurable registry is the follow-on if this proves insufficient.
+    ".cs",
+    ".php",
+    ".kt",
+    ".kts",
+    ".swift",
+    ".scala",
+    ".ex",
+    ".exs",
+    ".lua",
+    ".rb",
+    ".pl",
+    ".pm",
+    ".m",
+    ".mm",
+    ".dart",
+    ".ml",
+    ".hs",
+    ".clj",
+    ".erl",
+    ".r",
+    ".jl",
+    ".vue",
+    ".svelte",
+    ".bash",
+    ".zsh",
+    ".ps1",
+    ".sql",
 )
 
 # Safe migration default for CHK_BEHAVIORAL_FLOOR_UNMET — "warn", never "block": a
@@ -1209,7 +1240,11 @@ def validate_behavioral_floor(workspace: str | Path, run_id: str) -> list[Violat
                 error=result.error,
             )
         ]
-    code_changed = [f for f in result.files if str(f).endswith(_CODE_SUFFIXES)]
+    code_changed = [
+        f
+        for f in result.files
+        if str(f).endswith(_CODE_SUFFIXES) and not str(f).startswith(".uacp/")
+    ]
     if not code_changed:
         # No code touched -> no behavioral obligation (docs/config/design-only change set).
         return []
@@ -1308,6 +1343,12 @@ def _correctness_screening_docs(
                 if not isinstance(rel, str) or not rel.strip() or rel in seen:
                     continue
                 seen.add(rel)
+                # A registered artifact must be RUN-BOUND under its own top-level dir — else run r
+                # accepts run 'other''s registered screening path (screening #172 P1, the
+                # unbound-registration sibling of the resolver traversal / self-ref cases).
+                top = rel.split("/", 1)[0] + "/" if "/" in rel else ""
+                if not top or not _run_bound_under(rel, top, run_id):
+                    continue
                 d = load_artifact(root, rel)
                 if d.error is None and isinstance(d.value, dict):
                     docs.append(d.value)
@@ -1372,7 +1413,11 @@ def validate_correctness_screening(workspace: str | Path, run_id: str) -> list[V
     if not result.is_repo:
         # No substrate available — nothing to ground here (synthetic/non-git fixtures).
         return []
-    code_changed = [f for f in result.files if str(f).endswith(_CODE_SUFFIXES)]
+    code_changed = [
+        f
+        for f in result.files
+        if str(f).endswith(_CODE_SUFFIXES) and not str(f).startswith(".uacp/")
+    ]
     if not code_changed:
         # No code touched (or the change set was unobservable) -> no correctness obligation.
         return []
@@ -1439,6 +1484,19 @@ def _s(v: Any) -> str:
     return v.strip() if isinstance(v, str) else ""
 
 
+# Kinds a discharge fix pointer must NOT be: the screenings under review + the phase declarations.
+# Pointing a "discharged" disposition at any of these is self-attestation, not a remediation.
+_NON_REMEDIATION_KINDS: frozenset[str] = frozenset(
+    {
+        "uacp.correctness_screening",
+        "uacp.triage_screening",
+        "uacp.propose_screening",
+        "uacp.triage",
+        "uacp.proposal",
+    }
+)
+
+
 def _finding_dispositioned(
     finding: dict[str, Any],
     root: Path,
@@ -1462,9 +1520,15 @@ def _finding_dispositioned(
         return False
     kind = disp.get("kind")
     if kind == "discharged":
-        return _artifact_resolves(
-            root, run_id, _s(disp.get("handling_artifact_path")), allowed_prefixes
-        )
+        fix_path = _s(disp.get("handling_artifact_path"))
+        if not _artifact_resolves(root, run_id, fix_path, allowed_prefixes):
+            return False
+        # The fix pointer must be a DISTINCT REMEDIATION — not the screening under review nor the
+        # run's own declaration — else a finding "discharges" against the very artifact being
+        # screened, a self-attestation that defeats resolves-not-asserts (screening #172 P1).
+        d = load_artifact(root, fix_path)
+        doc = d.value if d.error is None and isinstance(d.value, dict) else {}
+        return str(doc.get("kind") or "") not in _NON_REMEDIATION_KINDS
     if kind == "adjudicated":
         return all(_s(disp.get(f)) for f in ("decision", "rationale", "cost_if_wrong"))
     return False
@@ -1500,7 +1564,11 @@ def validate_correctness_findings(workspace: str | Path, run_id: str) -> list[Vi
     result = changed_files(root)
     if not result.is_repo:
         return []
-    code_changed = [f for f in result.files if str(f).endswith(_CODE_SUFFIXES)]
+    code_changed = [
+        f
+        for f in result.files
+        if str(f).endswith(_CODE_SUFFIXES) and not str(f).startswith(".uacp/")
+    ]
     if not code_changed:
         return []
     dc = diff_content(root)
@@ -1629,6 +1697,12 @@ def _run_kind_docs(
                 if not isinstance(rel, str) or not rel.strip() or rel in seen:
                     continue
                 seen.add(rel)
+                # A registered artifact must be RUN-BOUND under its own top-level dir — else run r
+                # accepts run 'other''s registered screening path (screening #172 P1, the
+                # unbound-registration sibling of the resolver traversal / self-ref cases).
+                top = rel.split("/", 1)[0] + "/" if "/" in rel else ""
+                if not top or not _run_bound_under(rel, top, run_id):
+                    continue
                 d = load_artifact(root, rel)
                 if d.error is None and isinstance(d.value, dict):
                     docs.append(d.value)
@@ -1685,7 +1759,18 @@ def _target_state(root: Path, target: str) -> tuple[bool, str, int]:
                 except Exception:
                     continue
                 matches.append(m)
-            return (bool(matches), "glob", len(matches))
+            if matches:
+                return (True, "glob", len(matches))
+            # A 0-match glob whose FIXED (pre-wildcard) parent dir exists is a PLANNED output
+            # pattern at TRIAGE (pre-execution) — the glob sibling of the concrete planned carve-out
+            # (screening #172 P2): docs/api/*.md with docs/api/ present but no .md yet is intent,
+            # not a phantom. A glob under a missing parent stays unresolved.
+            first_wild = next(i for i, ch in enumerate(target) if ch in "*?[")
+            fixed = target[:first_wild]
+            search_dir = fixed.rsplit("/", 1)[0] if "/" in fixed else "."
+            if (base / search_dir).is_dir():
+                return (False, "planned", 0)
+            return (False, "glob", 0)
         resolved = (base / target).resolve()
         if resolved != base and base not in resolved.parents:
             return (False, "", 0)  # escapes the project root -> phantom (unresolved)

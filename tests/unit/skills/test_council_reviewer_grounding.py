@@ -55,129 +55,6 @@ def _ground(obj: dict, root: Path) -> list[str]:
 
 # --------------------------------------------------------------------------- read_only_enforcement
 
-
-def test_read_only_claim_without_evidence_is_a_block(tmp_path: Path):
-    root = _root_with_config(tmp_path)
-    obj = {
-        "council_id": "c-1",
-        "session_id": "sess-1",
-        "reviewer_reports": [
-            {
-                "bridge": "opencode",
-                "capability_profile": "inspect",
-                "status": "COMPLETED",
-                "read_only_enforcement": "worktree",
-                # NO containment_evidence — a self-declared boolean with no backing script evidence.
-                "model_authorized": True,
-                "resolved_model": "mimo-v2.5",
-            }
-        ],
-    }
-    blocks = _blocks(_ground(obj, root))
-    assert any("containment_evidence" in b and "not proof" in b for b in blocks), blocks
-
-
-def test_read_only_evidence_unresolved_is_a_block(tmp_path: Path):
-    root = _root_with_config(tmp_path)
-    obj = {
-        "council_id": "c-1",
-        "session_id": "sess-1",
-        "reviewer_reports": [
-            {
-                "bridge": "opencode",
-                "capability_profile": "inspect",
-                "status": "COMPLETED",
-                "read_only_enforcement": "worktree",
-                "containment_evidence": "independence/sess-1/sandbox-provision.json",  # does not exist
-                "model_authorized": True,
-                "resolved_model": "mimo-v2.5",
-            }
-        ],
-    }
-    blocks = _blocks(_ground(obj, root))
-    assert any("containment_evidence not found" in b for b in blocks), blocks
-
-
-def _write_evidence(root: Path, rel: str, *, provisioned: bool, session: str | None) -> None:
-    import json
-
-    gov = V.base_dir(root)
-    dst = gov / rel
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    record: dict = {"tool": "review_sandbox.sh", "provisioned": provisioned}
-    if session is not None:
-        record["session"] = session
-    dst.write_text(json.dumps(record))
-
-
-def test_read_only_claim_with_resolving_run_bound_evidence_passes(tmp_path: Path):
-    root = _root_with_config(tmp_path)
-    rel = "independence/sess-1/sandbox-provision.json"
-    _write_evidence(root, rel, provisioned=True, session="sess-1")
-    obj = {
-        "council_id": "c-1",
-        "session_id": "sess-1",
-        "reviewer_reports": [
-            {
-                "bridge": "opencode",
-                "capability_profile": "inspect",
-                "status": "COMPLETED",
-                "read_only_enforcement": "worktree",
-                "containment_evidence": rel,
-                "model_authorized": True,
-                "resolved_model": "mimo-v2.5",
-            }
-        ],
-    }
-    assert _blocks(_ground(obj, root)) == []
-
-
-def test_read_only_evidence_recording_failure_is_a_block(tmp_path: Path):
-    root = _root_with_config(tmp_path)
-    rel = "independence/sess-1/sandbox-provision.json"
-    _write_evidence(root, rel, provisioned=False, session="sess-1")  # provisioning FAILED
-    obj = {
-        "council_id": "c-1",
-        "session_id": "sess-1",
-        "reviewer_reports": [
-            {
-                "bridge": "opencode",
-                "capability_profile": "inspect",
-                "status": "COMPLETED",
-                "read_only_enforcement": "worktree",
-                "containment_evidence": rel,
-                "model_authorized": True,
-                "resolved_model": "mimo-v2.5",
-            }
-        ],
-    }
-    blocks = _blocks(_ground(obj, root))
-    assert any("provisioned != true" in b for b in blocks), blocks
-
-
-def test_read_only_evidence_bound_to_other_session_is_a_block(tmp_path: Path):
-    root = _root_with_config(tmp_path)
-    rel = "independence/other/sandbox-provision.json"
-    _write_evidence(root, rel, provisioned=True, session="some-other-run")
-    obj = {
-        "council_id": "c-1",
-        "session_id": "sess-1",
-        "reviewer_reports": [
-            {
-                "bridge": "opencode",
-                "capability_profile": "inspect",
-                "status": "COMPLETED",
-                "read_only_enforcement": "worktree",
-                "containment_evidence": rel,
-                "model_authorized": True,
-                "resolved_model": "mimo-v2.5",
-            }
-        ],
-    }
-    blocks = _blocks(_ground(obj, root))
-    assert any("run-bound" in b for b in blocks), blocks
-
-
 def test_inspect_reviewer_ran_uncontained_is_a_block(tmp_path: Path):
     root = _root_with_config(tmp_path)
     obj = {
@@ -202,7 +79,10 @@ def test_inspect_reviewer_ran_uncontained_is_a_block(tmp_path: Path):
 
 
 def _contained(rel: str, root: Path, session: str = "sess-1") -> None:
-    _write_evidence(root, rel, provisioned=True, session=session)
+    # No-op after the M5 simplification (screening #172): read_only_enforcement is a structural
+    # check and no containment_evidence file is required. Kept so the model_authorized tests below
+    # read unchanged (their `containment_evidence` field is simply ignored now).
+    return None
 
 
 def test_model_authorized_true_but_gate_rejects_is_a_block(tmp_path: Path):
@@ -329,54 +209,31 @@ def _git(*args: str, cwd: Path) -> None:
     subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, check=True)
 
 
-def test_review_sandbox_writes_run_bound_provisioning_evidence(tmp_path: Path):
-    """review_sandbox.sh must now PRODUCE the evidence the validator requires (D-17)."""
-    import json
-
-    script = _REPO / "skills" / "uacp-council" / "scripts" / "review_sandbox.sh"
-    _git("init", "-q", cwd=tmp_path)
-    _git("config", "user.email", "t@t.t", cwd=tmp_path)
-    _git("config", "user.name", "t", cwd=tmp_path)
-    (tmp_path / "f.txt").write_text("x\n")
-    _git("add", "-A", cwd=tmp_path)
-    _git("commit", "-qm", "init", cwd=tmp_path)
-
-    ev = tmp_path / "evidence" / "prov.json"
-    res = subprocess.run(
-        ["bash", str(script), "provision", "sess-9", "HEAD", str(ev)],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-    )
-    assert res.returncode == 0, res.stderr
-    # stdout is STILL only the sandbox path (callers capture $SANDBOX)
-    assert Path(res.stdout.strip()).is_dir()
-    assert ev.exists(), "provisioning evidence was not written"
-    record = json.loads(ev.read_text())
-    assert record["provisioned"] is True
-    assert record["session"] == "sess-9"
-
-
-def test_read_only_evidence_missing_session_is_a_block(tmp_path: Path):
-    # Codex #172 P2: a provisioning record with NO `session` must fail like a mismatch — an unbound
-    # record could otherwise be reused across councils despite the run-binding contract.
+def test_read_only_worktree_passes_without_evidence(tmp_path: Path):
+    # After the M5 simplification (screening #172): read_only_enforcement is a STRUCTURAL check —
+    # a declared non-`none` enforcement passes with NO containment_evidence file (the fragile
+    # evidence chain was removed); only a ran inspect reviewer with `none` enforcement blocks.
     root = _root_with_config(tmp_path)
-    rel = "independence/sess-1/sandbox-provision.json"
-    _write_evidence(root, rel, provisioned=True, session=None)  # NO session field
     obj = {
         "council_id": "c-1",
-        "session_id": "sess-1",
         "reviewer_reports": [
-            {
-                "bridge": "opencode",
-                "capability_profile": "inspect",
-                "status": "COMPLETED",
-                "read_only_enforcement": "worktree",
-                "containment_evidence": rel,
-                "model_authorized": True,
-                "resolved_model": "mimo-v2.5",
-            }
+            {"bridge": "opencode", "capability_profile": "inspect", "status": "COMPLETED",
+             "read_only_enforcement": "worktree", "model_authorized": True,
+             "resolved_model": "mimo-v2.5"},
         ],
     }
-    blocks = _blocks(_ground(obj, root))
-    assert any("run-bound" in b and "no session" in b for b in blocks), blocks
+    assert _blocks(_ground(obj, root)) == []
+
+
+def test_ran_inspect_reviewer_without_enforcement_blocks(tmp_path: Path):
+    # The retained structural teeth: an inspect reviewer that RAN with no read-only enforcement is a
+    # containment breach (must be contained or report SKIPPED).
+    root = _root_with_config(tmp_path)
+    obj = {
+        "council_id": "c-1",
+        "reviewer_reports": [
+            {"bridge": "opencode", "capability_profile": "inspect", "status": "COMPLETED",
+             "read_only_enforcement": "none", "model_authorized": True, "resolved_model": "mimo-v2.5"},
+        ],
+    }
+    assert any("read-only" in b and "contained" in b for b in _blocks(_ground(obj, root)))

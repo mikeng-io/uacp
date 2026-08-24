@@ -1023,3 +1023,6 @@ def test_run_bound_under_requires_a_real_boundary():
     assert not _run_bound_under("executions/r-other/fix.yaml", "executions/", "r")  # other run subdir
     assert not _run_bound_under("executions/rextra/fix.yaml", "executions/", "r")  # no delimiter
     assert not _run_bound_under("verification/r/fix.yaml", "executions/", "r")  # wrong prefix
+    # screening #172: `..` traversal escapes run r's dir despite the `r/` prefix — must be rejected.
+    assert not _run_bound_under("executions/r/../other-run/fix.yaml", "executions/", "r")
+    assert not _run_bound_under("executions/../r/fix.yaml", "executions/", "r")

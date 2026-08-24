@@ -292,6 +292,11 @@ def _run_bound_under(path: str, prefix: str, run_id: str) -> bool:
     if not path.startswith(prefix):
         return False
     rest = path[len(prefix) :]
+    # Reject path traversal: `verification/r/../other-run/…` starts with `r/` but ESCAPES run r's
+    # dir — a `..` segment anywhere means the path is not run r's own evidence (screening #172 P1,
+    # the traversal sibling of the shared-prefix case). Evidence paths never contain `..`.
+    if ".." in rest.split("/"):
+        return False
     return (
         rest == run_id
         or rest.startswith(f"{run_id}/")

@@ -384,3 +384,33 @@ def test_clean_verdict_carrying_findings_is_inconsistent(tmp_path):
     codes = _codes(validate_correctness_findings(ws, "r"))
     assert "CHK_CORRECTNESS_SCREENING_INCONSISTENT" in codes, codes
     assert "CHK_CORRECTNESS_FINDING_UNDISPOSITIONED" in codes, codes
+
+
+def test_discharge_pointing_at_the_screening_itself_is_self_attestation(tmp_path):
+    # screening #172 P1: a "discharged" finding whose fix pointer is the SCREENING artifact itself
+    # (or any review/declaration kind) is self-attestation, not a remediation -> undispositioned.
+    ws = _ws(tmp_path)
+    _code_change_repo(ws)
+    h = _current_hash(ws)
+    screening_rel = "verification/r/screening.yaml"
+    p = tmp_path / ".uacp" / screening_rel
+    p.write_text(
+        yaml.safe_dump(
+            {
+                "kind": "uacp.correctness_screening",
+                "run_id": "r",
+                "substrate_hash": h,
+                "verdict": "findings",
+                "findings": [
+                    {
+                        "id": "F1",
+                        "severity": "P1",
+                        "message": "leak",
+                        # points at the screening under review -> self-attestation, run-bound + exists
+                        "disposition": {"kind": "discharged", "handling_artifact_path": screening_rel},
+                    }
+                ],
+            }
+        )
+    )
+    assert "CHK_CORRECTNESS_FINDING_UNDISPOSITIONED" in _codes(validate_correctness_findings(ws, "r"))
