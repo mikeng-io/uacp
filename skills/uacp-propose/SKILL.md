@@ -155,7 +155,8 @@ For the standard track, none of the above applies; the normal proposal flow is u
 Read additionally:
 `UACP_ROOT/skills/uacp-core/references/agent-council-followthrough.md` (council dispatch protocol, modes, tiers, retrieval-led rule, finding schema, mid-phase escalation),
 `UACP_ROOT/config/review-routing.yaml` (council grammar/surfaces; operator knobs in `config/uacp.toml [review]`),
-`UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`; operator knobs in `config/uacp.toml [heartgate.*]`).
+`UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`; operator knobs in `config/uacp.toml [heartgate.*]`),
+`UACP_ROOT/skills/uacp-propose/references/grounding-screening.md` (PROPOSE grounding: the premise vs the reproduced current behavior; dispatch a neutral council `review`; write the `uacp.propose_screening` artifact the grounding gate enforces).
 
 Do not require external bridge dispatch merely because work is medium-sized.
 Select council mode/tier from phase-local granularity, risk, domains, side effects,

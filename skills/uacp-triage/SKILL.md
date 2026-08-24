@@ -29,6 +29,7 @@ it does not skip or substitute for it.
 - `UACP_ROOT/config/gate-selection.yaml` — scoring factors (descriptive) and artifact schemas; scoring weights/method/route-bands in `config/uacp.toml [gates.scoring]`
 - `UACP_ROOT/config/review-routing.yaml` — council/review doctrine, grammar, and surfaces; operator knobs (operating_mode, escalation_rules, followthrough depth) in `config/uacp.toml [review]`
 - `UACP_ROOT/skills/uacp-core/references/agent-council-followthrough.md` — council dispatch protocol, modes, tiers, retrieval-led rule, finding schema, mid-phase escalation
+- `UACP_ROOT/skills/uacp-triage/references/grounding-screening.md` — TRIAGE grounding: the declared scope vs the real project-root slice; dispatch a neutral council `review`; write the `uacp.triage_screening` artifact the grounding gate enforces
 - `UACP_ROOT/config/phase-transitions.yaml` — adaptive-gate doctrine (LLM-read; `selected_when_any`/`block_when`/`required_artifacts` blocks) + artifact schemas
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/phase_graph.py` — codified valid transitions (`LIFECYCLE_GRAPH`)
 - `UACP_ROOT/skills/uacp-core/scripts/engines/domain/gate_rules.py` — codified gate/rule grammar (heartgate_coherence, run_registry, ppv_rule)

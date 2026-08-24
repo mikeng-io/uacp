@@ -16,6 +16,7 @@ VERIFY is the lifecycle truth boundary before RESOLVE — the measure verb the d
 - `UACP_ROOT/config/phase-transitions.yaml` (adaptive-gate doctrine + artifact schemas; phase graph/stages/gate grammar now in `engines/domain/{phase_graph,phase_transitions,gate_rules}.py`)
 - `UACP_ROOT/skills/uacp-core/references/agent-council-followthrough.md` (council dispatch protocol, modes, tiers, retrieval-led rule, finding schema, mid-phase escalation)
 - `UACP_ROOT/skills/uacp-core/references/generative-gate-authoring.md` (the producer contract — how to author the frozen `uacp.check.*` checks this phase must emit)
+- `UACP_ROOT/skills/uacp-verify/references/grounding-screening.md` (VERIFY grounding: produce the diff+reality-run substrate, dispatch a neutral council `review`, write the `uacp.correctness_screening` artifact the grounding gate enforces)
 
 ---
 
