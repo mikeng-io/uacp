@@ -30,8 +30,16 @@ members:
   - 02-the-screening-dispatch.md     # the screening as a council dispatch; charge, probes, anti-pre-judging, typed output
   - 03-enforcement-and-loop.md       # the mandatory grounded VERIFY sub-step; disposition + fixpoint re-review
   - 04-grounding-is-per-phase.md     # the reframe: grounding is EVERY governed phase, not just VERIFY; one machine, six substrates
+  - 05-triage-substrate.md           # TRIAGE: declared scope vs the real project root (head of the cascade)
+  - 06-propose-substrate.md          # PROPOSE: the premise vs the reproduced current behavior
+  - 07-plan-substrate.md             # PLAN: declared blast-radius vs the code-plane-derived real one (deterministic; prevention)
+  - 08-execute-resolve-unification.md # EXECUTE/RESOLVE: complete the grounding already half-present
 edges:
   - {src: 01-the-review-substrate, dst: 00-the-correctness-gap, rel: depends_on, provenance: derived}
   - {src: 02-the-screening-dispatch, dst: 01-the-review-substrate, rel: depends_on, provenance: derived}
   - {src: 03-enforcement-and-loop, dst: 02-the-screening-dispatch, rel: extends, provenance: asserted}
   - {src: 04-grounding-is-per-phase, dst: 00-the-correctness-gap, rel: extends, provenance: asserted}
+  - {src: 05-triage-substrate, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
+  - {src: 06-propose-substrate, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
+  - {src: 07-plan-substrate, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
+  - {src: 08-execute-resolve-unification, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
