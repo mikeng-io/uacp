@@ -1871,11 +1871,12 @@ def validate_triage_findings(workspace: str | Path, run_id: str) -> list[Violati
         if not isinstance(findings, list):
             continue
         for finding in findings:
-            # A triage finding discharges to TRIAGE-phase evidence (``triage/{run}/``), not the
-            # late-phase verification/executions dirs the correctness gate uses — the evidence-
-            # reference type is phase-appropriate.
+            # A triage finding discharges to TRIAGE-phase evidence under ``proposals/{run}`` (the
+            # governed-writer root where uacp.triage / the re-scoped artifact live — there is no
+            # ``triage/`` root), not the late-phase verification/executions dirs the correctness
+            # gate uses. The evidence-reference type is phase-appropriate.
             if not isinstance(finding, dict) or not _finding_dispositioned(
-                finding, root, run_id, allowed_prefixes=("triage/",)
+                finding, root, run_id, allowed_prefixes=("proposals/",)
             ):
                 fid = _s(finding.get("id")) if isinstance(finding, dict) else ""
                 violations.append(
@@ -2127,11 +2128,12 @@ def validate_propose_findings(workspace: str | Path, run_id: str) -> list[Violat
         if not isinstance(findings, list):
             continue
         for finding in findings:
-            # A propose finding discharges to PROPOSE-phase evidence (``propose/{run}/``), not the
-            # late-phase verification/executions dirs the correctness gate uses — the evidence-
-            # reference type is phase-appropriate (mirrors the triage gate's ``triage/`` prefix).
+            # A propose finding discharges to PROPOSE-phase evidence under ``proposals/{run}`` (the
+            # governed-writer root where uacp.proposal / the re-premised artifact live — there is no
+            # ``propose/`` root), not the late-phase verification/executions dirs the correctness
+            # gate uses. Phase-appropriate, mirroring the triage gate's ``proposals/`` prefix.
             if not isinstance(finding, dict) or not _finding_dispositioned(
-                finding, root, run_id, allowed_prefixes=("propose/",)
+                finding, root, run_id, allowed_prefixes=("proposals/",)
             ):
                 fid = _s(finding.get("id")) if isinstance(finding, dict) else ""
                 violations.append(
