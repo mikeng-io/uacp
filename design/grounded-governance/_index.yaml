@@ -29,7 +29,9 @@ members:
   - 01-the-review-substrate.md       # kernel-produced diff-content + reality-run output; grounded, not agent-nominated
   - 02-the-screening-dispatch.md     # the screening as a council dispatch; charge, probes, anti-pre-judging, typed output
   - 03-enforcement-and-loop.md       # the mandatory grounded VERIFY sub-step; disposition + fixpoint re-review
+  - 04-grounding-is-per-phase.md     # the reframe: grounding is EVERY governed phase, not just VERIFY; one machine, six substrates
 edges:
   - {src: 01-the-review-substrate, dst: 00-the-correctness-gap, rel: depends_on, provenance: derived}
   - {src: 02-the-screening-dispatch, dst: 01-the-review-substrate, rel: depends_on, provenance: derived}
   - {src: 03-enforcement-and-loop, dst: 02-the-screening-dispatch, rel: extends, provenance: asserted}
+  - {src: 04-grounding-is-per-phase, dst: 00-the-correctness-gap, rel: extends, provenance: asserted}
