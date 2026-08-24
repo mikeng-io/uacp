@@ -526,9 +526,7 @@ def validate_rework_completeness(workspace: str | Path, run_id: str) -> list[Vio
                         # item — the discharge floor is not met. Name the MINIMAL defect set (the
                         # class-evidence-complete match closest to well-formed) so the author sees
                         # the smallest fix.
-                        best = min(
-                            complete_matches, key=lambda e: len(_disposition_defects(e))
-                        )
+                        best = min(complete_matches, key=lambda e: len(_disposition_defects(e)))
                         defects = _disposition_defects(best)
                         violations.append(
                             _v(

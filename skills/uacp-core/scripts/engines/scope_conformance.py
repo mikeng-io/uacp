@@ -587,9 +587,7 @@ def _check_diff_containment(
         # arguable form (M3c / D-07). An empty write_paths ([]) or an un-opted config
         # stays advisory. Config read is fail-closed to "warn" (never block-by-accident).
         severity = (
-            "block"
-            if scope_wps and _sc_diff_containment_severity(root) == "block"
-            else "warn"
+            "block" if scope_wps and _sc_diff_containment_severity(root) == "block" else "warn"
         )
         out.append(
             _v(
@@ -1041,11 +1039,7 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
     # block-by-accident). SC_FORECAST_WITNESS_UNAVAILABLE above stays ALWAYS "warn" — an
     # unobservable code plane is an environment fact, never a false block (SC_DIFF_UNAVAILABLE
     # precedent).
-    severity = (
-        "block"
-        if scope_wps and _plan_cascade_severity(root) == "block"
-        else "warn"
-    )
+    severity = "block" if scope_wps and _plan_cascade_severity(root) == "block" else "warn"
     out.append(
         _v(
             "SC_PLAN_CASCADE_FORECAST",

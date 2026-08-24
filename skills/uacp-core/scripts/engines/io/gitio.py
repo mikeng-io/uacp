@@ -246,9 +246,7 @@ def diff_content(root: Path) -> DiffContentResult:
                 head_commit=head,
                 error=f"git diff failed (rc={rc}): {err.strip()}",
             )
-        return DiffContentResult(
-            is_repo=True, base_commit=base, head_commit=head, text=diff_out
-        )
+        return DiffContentResult(is_repo=True, base_commit=base, head_commit=head, text=diff_out)
     except FileNotFoundError:
         return DiffContentResult(is_repo=True, error="git binary not found on PATH")
     except subprocess.TimeoutExpired:
