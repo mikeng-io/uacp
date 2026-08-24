@@ -73,6 +73,32 @@ class GitDiffResult:
     error: str | None = None
 
 
+@dataclass(frozen=True)
+class DiffContentResult:
+    """Outcome of producing the FULL unified diff CONTENT for a run's change set.
+
+    Mirrors :class:`GitDiffResult`'s shape, but carries the diff TEXT (the hunks)
+    rather than name-only paths — the review substrate (design/grounded-governance/01):
+    the actual lines a screening precipitates correctness defects against.
+
+    is_repo     — a ``.git`` entry exists at the workspace root.
+    base_commit — the ``merge-base(<default branch>, HEAD)`` sha (the run's real base,
+                  the SAME range :func:`changed_files` witnesses), or None.
+    head_commit — the ``HEAD`` sha, or None.
+    text        — the ``git diff <base> <head>`` unified diff content. Only meaningful
+                  when ``is_repo`` and ``error is None``.
+    error       — human-readable failure when the repo exists but a substrate could not
+                  be produced (no merge-base, git failure); the engine must surface this
+                  (fail-closed), never treat it as "no diff".
+    """
+
+    is_repo: bool
+    base_commit: str | None = None
+    head_commit: str | None = None
+    text: str = ""
+    error: str | None = None
+
+
 def _run_git(root: Path, *args: str) -> tuple[int, str, str]:
     proc = subprocess.run(  # noqa: S603 — fixed argv, no shell
         ["git", "-C", str(root), *args],
@@ -178,3 +204,54 @@ def changed_files(root: Path) -> GitDiffResult:
         return GitDiffResult(is_repo=True, error=f"git timed out after {_GIT_TIMEOUT_SECONDS}s")
     except Exception as exc:  # defensive: the io layer never raises
         return GitDiffResult(is_repo=True, error=f"{type(exc).__name__}: {exc}")
+
+
+def diff_content(root: Path) -> DiffContentResult:
+    """Produce the FULL unified diff CONTENT for the run's change set — the review
+    substrate (design/grounded-governance/01). Reuses the EXACT merge-base logic
+    :func:`changed_files` / :func:`default_branch_merge_base` use, so the review diff and
+    the containment witness can never disagree about the range. Never raises.
+
+    * not a git repo -> ``is_repo=False``.
+    * no default-branch merge-base (fresh repo, orphan branch) -> ``is_repo=True`` with
+      ``error="no merge-base"`` (an expected substrate that cannot be produced — surfaced,
+      never a silent empty diff).
+    * else -> ``text = git diff <merge-base> HEAD`` (the actual hunks, not ``--name-only``),
+      with ``base_commit`` / ``head_commit`` set.
+    """
+    try:
+        if not (root / ".git").exists():
+            return DiffContentResult(is_repo=False)
+    except Exception as exc:
+        return DiffContentResult(is_repo=False, error=f"{type(exc).__name__}: {exc}")
+
+    try:
+        base = default_branch_merge_base(root)
+        rc, head_out, err = _run_git(root, "rev-parse", "HEAD")
+        head = head_out.strip()
+        if rc != 0 or not head:
+            return DiffContentResult(
+                is_repo=True,
+                error=f"git rev-parse HEAD failed (rc={rc}): {err.strip()}",
+            )
+        if base is None:
+            # An expected substrate that cannot be produced (no default branch / merge-base):
+            # surfaced as an error, never a silent empty diff.
+            return DiffContentResult(is_repo=True, head_commit=head, error="no merge-base")
+        rc, diff_out, err = _run_git(root, "diff", base, head)
+        if rc != 0:
+            return DiffContentResult(
+                is_repo=True,
+                base_commit=base,
+                head_commit=head,
+                error=f"git diff failed (rc={rc}): {err.strip()}",
+            )
+        return DiffContentResult(
+            is_repo=True, base_commit=base, head_commit=head, text=diff_out
+        )
+    except FileNotFoundError:
+        return DiffContentResult(is_repo=True, error="git binary not found on PATH")
+    except subprocess.TimeoutExpired:
+        return DiffContentResult(is_repo=True, error=f"git timed out after {_GIT_TIMEOUT_SECONDS}s")
+    except Exception as exc:  # defensive: the io layer never raises
+        return DiffContentResult(is_repo=True, error=f"{type(exc).__name__}: {exc}")

@@ -64,10 +64,14 @@ from engines.domain.verification_floor import (
     witness_class,
 )
 from engines.io import (
+    DiffContentResult,
     changed_files,
     derive_witness,
+    diff_content,
+    glob_in_workspace,
     load_artifact,
     load_manifest,
+    load_yaml_under_root,
     resolve_in_workspace,
 )
 
@@ -1226,6 +1230,180 @@ def validate_behavioral_floor(workspace: str | Path, run_id: str) -> list[Violat
     ]
 
 
+# ---------------------------------------------------------------------------------------------
+# Correctness-screening FLOOR (design/grounded-governance/03, Layer 2 slice 2): the mandatory,
+# grounded gate that makes a correctness screening EXIST, be GROUNDED in the kernel-produced
+# substrate (gitio.diff_content, slice 1), and RE-RUN after a fix moves HEAD (the fixpoint).
+# ---------------------------------------------------------------------------------------------
+
+# The governed kind a correctness-screening artifact declares at top level. Slice 3 adds its
+# schema + governed writer; this gate loads LENIENTLY (yaml.safe_load, no schema registration),
+# keying only on this kind + a ``substrate_hash`` field.
+_CORRECTNESS_SCREENING_KIND = "uacp.correctness_screening"
+
+# Safe migration default for CHK_CORRECTNESS_SCREENING_{MISSING,STALE} — "warn", never "block":
+# block-by-accident would break every live code-changing run before screenings exist. Mirrors
+# _BEHAVIORAL_FLOOR_DEFAULT_SEVERITY / the SC_DIFF migration precedent.
+_CORRECTNESS_SCREENING_DEFAULT_SEVERITY = "warn"
+
+
+def _correctness_screening_severity(root: Path) -> str:
+    """Config-gated severity for ``CHK_CORRECTNESS_SCREENING_{MISSING,STALE}``, read from
+    ``[verification] correctness_screening`` (default ``warn``, flips to ``block`` in a later
+    named release — the behavioral_floor / SC_DIFF migration precedent). Only the literals
+    ``warn``/``block`` are honored; absent/invalid -> ``warn`` (the safe migration default —
+    block-by-accident breaks runs). SUBSTRATE_UNAVAILABLE is NOT gated here (always ``warn``).
+    Never raises."""
+    try:
+        cfg = get_config(root).model_dump()
+        raw = (cfg.get("verification") or {}).get("correctness_screening")
+        if raw in ("warn", "block"):
+            return raw
+        return _CORRECTNESS_SCREENING_DEFAULT_SEVERITY
+    except Exception:
+        return _CORRECTNESS_SCREENING_DEFAULT_SEVERITY
+
+
+def _substrate_hash(dc: DiffContentResult) -> str:
+    """The substrate IDENTITY: sha256 over ``base_commit`` + HEAD + the full diff text
+    (design/grounded-governance/03). Because it folds in HEAD and the diff CONTENT, any fix that
+    moves HEAD changes the hash — so a screening built for an old HEAD no longer covers the current
+    substrate. That is the fixpoint enforcement: a stale screening cannot clear the gate."""
+    payload = f"{dc.base_commit or ''}\n{dc.head_commit or ''}\n{dc.text}"
+    return hashlib.sha256(payload.encode()).hexdigest()
+
+
+def _correctness_screening_hashes(workspace: str | Path, run_id: str, root: Path) -> list[str]:
+    """Every ``substrate_hash`` carried by a RESOLVING correctness-screening artifact for THIS run.
+
+    Located two ways (the M2 rework-resolver precedent + the run's own evidence dir): the run's
+    REGISTERED manifest artifacts AND a scan of ``verification/{run_id}/*.y{a,}ml`` under the
+    governed base. An artifact contributes only if it EXISTS + LOADS (M2's resolution bar), declares
+    ``kind: uacp.correctness_screening``, and carries a non-empty string ``substrate_hash``. Loaded
+    leniently (no schema registration — that is slice 3's governed writer). Never raises."""
+    docs: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    # 1. Registered artifacts on the run manifest (the M2 way — a governed screening lands here).
+    loaded = load_manifest(root, run_id)
+    if loaded.error is None and loaded.value is not None:
+        arts = loaded.value.raw.get("artifacts")
+        if isinstance(arts, dict):
+            for rel in arts.values():
+                if not isinstance(rel, str) or not rel.strip() or rel in seen:
+                    continue
+                seen.add(rel)
+                d = load_artifact(root, rel)
+                if d.error is None and isinstance(d.value, dict):
+                    docs.append(d.value)
+
+    # 2. Scan the run's verification dir (covers a screening placed there without registration).
+    for pattern in (f"verification/{run_id}/*.yaml", f"verification/{run_id}/*.yml"):
+        for path in glob_in_workspace(root, pattern):
+            rel = str(path)
+            if rel in seen:
+                continue
+            seen.add(rel)
+            d = load_yaml_under_root(root, rel)
+            if d.error is None and isinstance(d.value, dict):
+                docs.append(dict(d.value))
+
+    hashes: list[str] = []
+    for doc in docs:
+        if doc.get("kind") != _CORRECTNESS_SCREENING_KIND:
+            continue
+        sh = doc.get("substrate_hash")
+        if isinstance(sh, str) and sh:
+            hashes.append(sh)
+    return hashes
+
+
+def validate_correctness_screening(workspace: str | Path, run_id: str) -> list[Violation]:
+    """Correctness-screening FLOOR (design/grounded-governance/03, Layer 2 slice 2): a
+    code-changing run may not clear VERIFY unless a correctness-screening artifact EXISTS,
+    RESOLVES, and COVERS the kernel-produced substrate for the run's true ``merge-base..HEAD``
+    range.
+
+    This is the enforcement half a fail-open prose instruction ("please review the diff") lacks:
+    the gate keys on a resolving, substrate-covering artifact, not on the agent's word. It reuses
+    the same grounding shape as the behavioral floor — the claim ("I screened the work") validates
+    on the artifact's RESOLUTION against the kernel's substrate identity, never on its presence.
+
+    Fail-open where it cannot witness, fail-closed where it can:
+    * not a git repo -> ``[]`` (no substrate — synthetic/non-git fixtures; other engines own "no
+      repo"). A repo whose change set is unobservable yields an empty witness, so no code is seen
+      changed and the gate no-ops (behavioral_floor owns the UNWITNESSED signal).
+    * no CODE in the change set -> ``[]`` (docs/config-only runs need no correctness screening).
+    * code changed but the substrate cannot be produced (no merge-base) -> one
+      ``CHK_CORRECTNESS_SUBSTRATE_UNAVAILABLE`` at ``warn`` (an expected substrate that cannot be
+      produced — an environment fact, surfaced, never a silent pass or an agent fault).
+    * code changed and a resolving screening artifact COVERS the current substrate -> ``[]``.
+    * code changed and NO screening artifact found -> one ``CHK_CORRECTNESS_SCREENING_MISSING`` at
+      the config-gated severity (default ``warn``).
+    * code changed and screening artifact(s) found but ALL cover a DIFFERENT substrate (HEAD moved
+      since screening) -> one ``CHK_CORRECTNESS_SCREENING_STALE`` at the config-gated severity — the
+      fixpoint: re-screen the moved diff.
+
+    Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    root = Path(str(workspace)).resolve()
+    result = changed_files(root)
+    if not result.is_repo:
+        # No substrate available — nothing to ground here (synthetic/non-git fixtures).
+        return []
+    code_changed = [f for f in result.files if str(f).endswith(_CODE_SUFFIXES)]
+    if not code_changed:
+        # No code touched (or the change set was unobservable) -> no correctness obligation.
+        return []
+    dc = diff_content(root)
+    if dc.error is not None:
+        return [
+            _v(
+                "CHK_CORRECTNESS_SUBSTRATE_UNAVAILABLE",
+                f"the review substrate for run '{run_id}' cannot be produced ({dc.error}); the "
+                f"correctness screening for {len(code_changed)} changed code file(s) cannot be "
+                f"grounded — surfaced, not silently passed",
+                severity="warn",
+                error=dc.error,
+                code_changed=len(code_changed),
+            )
+        ]
+    current_hash = _substrate_hash(dc)
+    hashes = _correctness_screening_hashes(workspace, run_id, root)
+    if current_hash in hashes:
+        # A screening covers the current substrate — screened.
+        return []
+    severity = _correctness_screening_severity(root)
+    examples = sorted(code_changed)[:5]
+    if not hashes:
+        return [
+            _v(
+                "CHK_CORRECTNESS_SCREENING_MISSING",
+                f"the git witness shows {len(code_changed)} code file(s) changed "
+                f"(e.g. {examples}) but run '{run_id}' carries no correctness-screening artifact "
+                f"({_CORRECTNESS_SCREENING_KIND}) covering the kernel-produced substrate; a "
+                f"code-changing run must be screened for correctness over its real diff",
+                severity=severity,
+                code_changed=len(code_changed),
+                examples=examples,
+                substrate_hash=current_hash,
+            )
+        ]
+    return [
+        _v(
+            "CHK_CORRECTNESS_SCREENING_STALE",
+            f"run '{run_id}' carries correctness-screening artifact(s) but none cover the CURRENT "
+            f"substrate (HEAD moved since screening); the {len(hashes)} screening(s) cover a "
+            f"different diff — re-screen the moved delta (the fixpoint)",
+            severity=severity,
+            code_changed=len(code_changed),
+            substrate_hash=current_hash,
+            found_hashes=hashes,
+        )
+    ]
+
+
 # The inbound-edge relations the CLASS WITNESS counts (design node 03): calls/references only.
 # `defines` (container -> member) is EXCLUDED — it lands inbound on every method and would mark
 # every member "wired-in", destroying the sets_value/wires_symbol distinction. This mirrors the
@@ -1630,5 +1808,7 @@ if not any(name == "check_floor" for name, _ in ENGINES):
     ENGINES.append(("check_floor", validate_check_floor))
 if not any(name == "behavioral_floor" for name, _ in ENGINES):
     ENGINES.append(("behavioral_floor", validate_behavioral_floor))
+if not any(name == "correctness_screening" for name, _ in ENGINES):
+    ENGINES.append(("correctness_screening", validate_correctness_screening))
 if not any(name == "check_class_underclaim" for name, _ in ENGINES):
     ENGINES.append(("check_class_underclaim", validate_class_underclaim))

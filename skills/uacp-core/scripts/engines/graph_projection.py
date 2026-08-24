@@ -18,6 +18,7 @@ from engines.manifest.projection import (
     validate_check_floor,
     validate_check_replay,
     validate_class_underclaim,
+    validate_correctness_screening,
     validate_graph_invariants,
     validate_graph_projection,
 )
@@ -31,6 +32,7 @@ __all__ = [
     "validate_check_floor",
     "validate_check_replay",
     "validate_class_underclaim",
+    "validate_correctness_screening",
     "validate_graph_invariants",
     "validate_graph_projection",
 ]

@@ -576,6 +576,20 @@ behavioral_floor = "warn"
 # engines.scope_conformance._sc_diff_containment_severity.
 sc_diff_containment = "warn"
 
+# Layer 2 correctness-screening floor (design/grounded-governance/03; engine
+# engines.manifest.projection.validate_correctness_screening): when the git witness shows the
+# run changed CODE, VERIFY may not clear unless a correctness-screening artifact
+# (kind: uacp.correctness_screening) EXISTS, RESOLVES, and COVERS the kernel-produced substrate
+# (gitio.diff_content over merge-base..HEAD). Both CHK_CORRECTNESS_SCREENING_MISSING (no screening)
+# and CHK_CORRECTNESS_SCREENING_STALE (HEAD moved since screening — the fixpoint) use this severity;
+# CHK_CORRECTNESS_SUBSTRATE_UNAVAILABLE (no merge-base) is ALWAYS "warn" (an environment fact, not an
+# agent fault). Migrates the behavioral_floor / SC_DIFF way: DEFAULT "warn" (announce without
+# breaking live runs), flipped to "block" in a later named release once runs carry screenings. Only
+# the literals "warn"/"block" are honored; an absent/invalid value -> "warn" (the safe migration
+# default — block-by-accident breaks runs). Read via config.get_config(root) by
+# engines.manifest.projection._correctness_screening_severity.
+correctness_screening = "warn"
+
 # =============================================================================
 # OUTPUT
 # =============================================================================
