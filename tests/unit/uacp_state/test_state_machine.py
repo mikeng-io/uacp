@@ -568,7 +568,9 @@ class TestStructuralGateResolverInvariant:
                         continue
                     # Non-matching from_phase -> the selected executor short-circuits to a
                     # no-op (no run/workspace needed), proving it self-selects to own_phase.
-                    assert g.run(tmp_path, "no-such-run", other, other) == ([], []), (
+                    # Arity-agnostic: simple wrappers no-op to ([], []); grounding gates to
+                    # ([], [], []). Either way every list is empty when it self-selects away.
+                    assert not any(g.run(tmp_path, "no-such-run", other, other)), (
                         own_phase,
                         other,
                     )
@@ -589,8 +591,9 @@ class TestStructuralGateResolverInvariant:
                 if other == own_phase:
                     continue
                 assert fn(tmp_path, "no-such-run", other) == [], (own_phase, other)
-        # plan_exit + triage_grounding + propose_grounding self-select too (tuple-shaped:
-        # (blockers, advisories)).
+        # plan_exit + triage_grounding + propose_grounding self-select too. plan_exit no-ops to
+        # (blockers, advisories); the grounding gates ALWAYS return 3-tuples ((blockers, advisories,
+        # findings)) so their no-op is ([], [], []).
         for other in phases:
             if other != "plan":
                 assert _run_forced_plan_exit_gate(tmp_path, "no-such-run", other, "x") == (
@@ -600,8 +603,8 @@ class TestStructuralGateResolverInvariant:
             if other != "triage":
                 assert _run_forced_triage_grounding_gate(
                     tmp_path, "no-such-run", other, "x"
-                ) == ([], []), other
+                ) == ([], [], []), other
             if other != "propose":
                 assert _run_forced_propose_grounding_gate(
                     tmp_path, "no-such-run", other, "x"
-                ) == ([], []), other
+                ) == ([], [], []), other

@@ -321,9 +321,9 @@ def test_forced_gate_noops_when_not_propose_exit(tmp_path):
     # ([], []) BEFORE reading state — even with a broken (unscreened) premise in the workspace.
     ws = _ws(tmp_path)
     _declare_premise(tmp_path, "r")  # would surface at propose exit
-    assert _run_forced_propose_grounding_gate(ws, "r", "verify", "resolved") == ([], [])
-    assert _run_forced_propose_grounding_gate(ws, "r", "plan", "execute") == ([], [])
-    assert _run_forced_propose_grounding_gate(ws, "r", "triage", "propose") == ([], [])
+    assert _run_forced_propose_grounding_gate(ws, "r", "verify", "resolved") == ([], [], [])
+    assert _run_forced_propose_grounding_gate(ws, "r", "plan", "execute") == ([], [], [])
+    assert _run_forced_propose_grounding_gate(ws, "r", "triage", "propose") == ([], [], [])
 
 
 def test_forced_gate_surfaces_advisories_at_propose_exit(tmp_path):

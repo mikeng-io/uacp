@@ -632,7 +632,7 @@ def _run_forced_plan_exit_gate(
 
 def _run_forced_triage_grounding_gate(
     workspace: Path, run_id: str, from_phase: str, to_phase: str
-) -> tuple[list[str], list[str]] | tuple[list[str], list[str], list[dict]]:
+) -> tuple[list[str], list[str], list[dict]]:
     """Force the TRIAGE grounding gate onto TRIAGE->PROPOSE on the live path (M2,
     design/grounded-governance/04 + 05) — the HEAD of the cascade. TRIAGE emits the first governed
     declaration (the scope); this grounds it against the REAL project root the scope names, so a run
@@ -653,7 +653,7 @@ def _run_forced_triage_grounding_gate(
     unexpected failure returns a single ``TRIAGE_GROUNDING_UNAVAILABLE`` blocker (the
     ``_run_forced_plan_exit_gate`` precedent). Lazy import (engines<->state cycle)."""
     if from_phase != "triage":
-        return [], []
+        return [], [], []
     try:
         from engines.graph_projection import (
             validate_triage_findings,
@@ -672,12 +672,12 @@ def _run_forced_triage_grounding_gate(
         findings = [v.as_finding() for v in violations]
         return blockers, advisories, findings
     except Exception as exc:  # fail-closed: an unrunnable gate must not silently pass
-        return [f"TRIAGE_GROUNDING_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
+        return [f"TRIAGE_GROUNDING_UNAVAILABLE: {type(exc).__name__}: {exc}"], [], []
 
 
 def _run_forced_propose_grounding_gate(
     workspace: Path, run_id: str, from_phase: str, to_phase: str
-) -> tuple[list[str], list[str]] | tuple[list[str], list[str], list[dict]]:
+) -> tuple[list[str], list[str], list[dict]]:
     """Force the PROPOSE grounding gate onto PROPOSE->PLAN on the live path
     (design/grounded-governance/06) — the PROPOSE instance of the triage grounding gate. PROPOSE
     declares the run's PREMISE (its intent + constraints); this grounds it against a screening that
@@ -701,7 +701,7 @@ def _run_forced_propose_grounding_gate(
     single ``PROPOSE_GROUNDING_UNAVAILABLE`` blocker (the ``_run_forced_plan_exit_gate`` precedent).
     Lazy import (engines<->state cycle)."""
     if from_phase != "propose":
-        return [], []
+        return [], [], []
     try:
         from engines.graph_projection import (
             validate_propose_findings,
@@ -719,7 +719,7 @@ def _run_forced_propose_grounding_gate(
         findings = [v.as_finding() for v in violations]
         return blockers, advisories, findings
     except Exception as exc:  # fail-closed: an unrunnable gate must not silently pass
-        return [f"PROPOSE_GROUNDING_UNAVAILABLE: {type(exc).__name__}: {exc}"], []
+        return [f"PROPOSE_GROUNDING_UNAVAILABLE: {type(exc).__name__}: {exc}"], [], []
 
 
 # --- M1 (D-01 / D-02): the single phase-keyed structural-gate resolver --------

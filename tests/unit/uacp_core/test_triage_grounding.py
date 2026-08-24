@@ -337,8 +337,8 @@ def test_forced_gate_noops_when_not_triage_exit(tmp_path):
     # phase-scoping the correctness (generic-closure) instance skipped.
     ws = _ws(tmp_path)
     _declare_scope(tmp_path, "r", ["src/ghost.py"])  # would block at triage
-    assert _run_forced_triage_grounding_gate(ws, "r", "verify", "resolved") == ([], [])
-    assert _run_forced_triage_grounding_gate(ws, "r", "plan", "execute") == ([], [])
+    assert _run_forced_triage_grounding_gate(ws, "r", "verify", "resolved") == ([], [], [])
+    assert _run_forced_triage_grounding_gate(ws, "r", "plan", "execute") == ([], [], [])
 
 
 def test_forced_gate_surfaces_advisories_at_triage_exit(tmp_path):
