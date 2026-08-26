@@ -424,20 +424,52 @@ def validate_council_synthesis(
 # bridge produced no read-only-contained inspection and no authorized dispatch, so it carries no
 # containment/authorization claim to ground (and MUST NOT be treated as a passing review).
 _NON_PARTICIPATING_REVIEW_STATUSES = frozenset({"SKIPPED", "HALTED", "ABORTED"})
+# The documented read-only enforcement vocabulary (Tier 1 tool-native / Tier 2 worktree / Tier 3
+# container). Since the evidence-file mechanism was removed, this allowlist is the containment gate.
+_VALID_READ_ONLY_MODES = frozenset({"tool-mode", "worktree", "container"})
 
 
 def _load_uacp_toml(root: Path | None) -> dict | None:
-    """Load the run's own ``config/uacp.toml`` (the bridges/models allowlist the model-auth gate
-    resolves against). Returns None when it cannot be read — the caller then fails CLOSED on any
-    ``model_authorized: true`` it cannot re-derive, rather than trusting the boolean."""
-    if root is None:
-        return None
-    candidate = Path(root) / "config" / "uacp.toml"
+    """Resolve the bridges/models allowlist the model-auth gate checks against, the CANONICAL way
+    (screening #172 P1). The framework allowlist ships **install-relative** (found by walking up from
+    the model-auth script, exactly as ``check_model_authorized._find_config`` does), and a consumer
+    project may OVERRIDE it via ``<root>/.uacp/config.toml``. A bare ``<root>/config/uacp.toml`` lookup
+    returns None for ANY consumer deployment (UACP_ROOT is not the source checkout) and would then
+    block every completed inspect report as unverifiable. Returns None only when nothing resolves —
+    the caller still fails CLOSED then."""
+    cfg: dict = {}
+    # 1. The framework allowlist, install-relative (walk up from the model-auth script).
     try:
-        with open(candidate, "rb") as fh:
-            return tomllib.load(fh)
-    except (OSError, tomllib.TOMLDecodeError):
-        return None
+        from check_model_authorized import _find_config
+
+        with open(_find_config(None), "rb") as fh:
+            cfg = tomllib.load(fh)
+    except Exception:
+        cfg = {}
+    # 2. Merge a root's own config, if present: a source-checkout's ``config/uacp.toml`` (dev/test)
+    #    and/or a consumer project's ``.uacp/config.toml`` override (top-level-section shallow merge).
+    if root is not None:
+        for rel in ("config/uacp.toml", ".uacp/config.toml"):
+            try:
+                with open(Path(root) / rel, "rb") as fh:
+                    override = tomllib.load(fh)
+            except (OSError, tomllib.TOMLDecodeError):
+                continue
+            _deep_merge_into(cfg, override)
+    return cfg or None
+
+
+def _deep_merge_into(dst: dict, src: dict) -> None:
+    """Recursively merge ``src`` into ``dst`` (screening #172 P1): a one-level merge replaces a
+    nested table (``[bridges.defaults]``) WHOLESALE, so a consumer override that sets any sibling key
+    would silently drop ``enforce_model_allowlist``/``allowed_models`` from the install allowlist —
+    a fail-OPEN (gate disabled) / fail-closed (legit model blocked) hazard. Recurse so leaf keys
+    survive unless the override restates them."""
+    for k, v in src.items():
+        if isinstance(v, dict) and isinstance(dst.get(k), dict):
+            _deep_merge_into(dst[k], v)
+        else:
+            dst[k] = v
 
 
 def validate_council_reviewer_grounding(
@@ -446,23 +478,23 @@ def validate_council_reviewer_grounding(
     """Ground an ``inspect`` council's per-reviewer containment/authorization claims on the
     INDEPENDENCE SCRIPTS' evidence rather than the reviewer's self-reported booleans (D-17).
 
-    Two teeth exist as callable checks but were invoked by nothing: ``review_sandbox.sh``
-    (read-only sandbox provisioning) and ``check_model_authorized.py`` (the fail-closed model
-    allowlist). A reviewer report declares ``read_only_enforcement`` and ``model_authorized`` as
-    plain fields; trusting those booleans is self-attestation. This makes each claim validate on
-    the script's actual result, mirroring ``validate_heartgate_coherence``'s "presence is not
-    proof — the referenced evidence must RESOLVE" shape:
+    A reviewer report declares ``read_only_enforcement`` and ``model_authorized`` as plain fields;
+    trusting the ``model_authorized`` boolean is self-attestation, so it is re-derived LIVE against
+    the ``check_model_authorized.py`` allowlist (presence is not proof — the verdict is recomputed).
+    ``read_only_enforcement`` is checked STRUCTURALLY (a valid mode or SKIP); the prior
+    resolve-the-evidence mechanism was removed (screening #172):
 
     * ``model_authorized`` — LIVE-INVOCATION grounding. Re-derive the verdict with
       ``check_model_authorized.authorize(bridge, resolved_model, uacp.toml)``; a claimed
       ``true`` that the live gate does not authorize does NOT validate (block), and a reviewer
       that COMPLETED against an unauthorized model is a breach regardless of what it claimed.
-    * ``read_only_enforcement`` — REQUIRED-EVIDENCE grounding. The sandbox is provisioned at
-      review time and torn down, so it cannot be re-derived; instead the report MUST reference a
-      run-bound ``containment_evidence`` artifact (what ``review_sandbox.sh`` records on provision)
-      that RESOLVES under UACP_ROOT, shows success, and is bound to THIS council's session. A
-      non-``none`` enforcement claimed with no resolvable, run-bound, successful evidence does NOT
-      validate (block).
+    * ``read_only_enforcement`` — STRUCTURAL check (screening #172): a ran inspect reviewer must
+      declare a KNOWN enforcement mode (``tool-mode`` | ``worktree`` | ``container``) or report
+      SKIPPED; ``none``/unknown/non-string values block. The prior containment-EVIDENCE-file
+      mechanism was removed — a shell script writing a record into the governed ``.uacp/`` namespace
+      bypassed the governed writer (Invariant #3), and resolving that path was a false-block hazard.
+      Grounding that the enforcement was REAL (not merely a valid label) is a follow-on needing a
+      GOVERNED evidence seam, not raw shell I/O.
 
     Additive + fail-open-on-absence-of-reports: fires only when the synthesis carries reviewer
     reports, so legacy council artifacts are untouched. But once a report is present and DECLARES a
@@ -517,6 +549,14 @@ def validate_council_reviewer_grounding(
                     f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) is an inspect review with "
                     f"read_only_enforcement={ro!r} — a reviewer that ran must be read-only "
                     f"contained (provision via review_sandbox.sh) or report SKIPPED"
+                )
+            elif not isinstance(ro, str) or ro_norm not in _VALID_READ_ONLY_MODES:
+                # This structural check is now the ONLY containment gate (evidence file removed),
+                # so an unrecognized value (``false``, ``{}``, ``"uncontained"``) must not pass it
+                # (screening #172).
+                issues.append(
+                    f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) declares an unknown "
+                    f"read_only_enforcement {ro!r} — expected one of {sorted(_VALID_READ_ONLY_MODES)}"
                 )
 
         # --- model_authorized: LIVE-INVOCATION grounding ---

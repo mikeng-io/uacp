@@ -1768,7 +1768,18 @@ def _target_state(root: Path, target: str) -> tuple[bool, str, int]:
             first_wild = next(i for i, ch in enumerate(target) if ch in "*?[")
             fixed = target[:first_wild]
             search_dir = fixed.rsplit("/", 1)[0] if "/" in fixed else "."
-            if (base / search_dir).is_dir():
+            resolved_dir = (base / search_dir).resolve()
+            # The planned parent must stay INSIDE the project root — a traversal glob like
+            # ``../outside/*.py`` (parent outside base) must NOT be exempted (screening #172: don't
+            # review a fix into a new defect — the concrete-path branch already resolves+contains
+            # via the escape check above; the glob branch must too).
+            contained = resolved_dir == base or base in resolved_dir.parents
+            # Also reject ANY ``..`` segment: containment on the pre-wildcard prefix alone misses a
+            # ``..`` AFTER the first wildcard (``*/../../outside/*.py``), which resolves outside the
+            # root at match time (screening #172: the fix's own traversal sibling). A clean in-root
+            # planned output never uses ``..``.
+            has_traversal = ".." in target.split("/")
+            if contained and resolved_dir.is_dir() and not has_traversal:
                 return (False, "planned", 0)
             return (False, "glob", 0)
         resolved = (base / target).resolve()

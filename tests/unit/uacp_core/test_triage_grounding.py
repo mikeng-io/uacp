@@ -404,3 +404,15 @@ def test_glob_write_path_under_missing_parent_stays_unresolved(tmp_path):
     ws = _ws(tmp_path)
     _declare_scope(tmp_path, "r", ["nope/*.py"])
     assert "TRIAGE_SCOPE_TARGET_UNRESOLVED" in _codes(validate_triage_screening(ws, "r"))
+
+
+def test_traversal_glob_is_not_planned(tmp_path):
+    # screening #172 P1 (fix-into-a-new-defect): a zero-match glob that ESCAPES the project root must
+    # NOT be exempted as planned — including a `..` AFTER the wildcard (which the pre-wildcard-prefix
+    # containment check alone missed).
+    (tmp_path.parent / "outside").mkdir(exist_ok=True)  # a real dir OUTSIDE the project root
+    _make_target(tmp_path, "sub/keep.txt")  # a real in-root subdir so */.. can match at glob time
+    ws = _ws(tmp_path)
+    for esc in ("../outside/*.py", "*/../../outside/*.py", "sub/*/../../../outside/*.py"):
+        _declare_scope(tmp_path, "r", [esc])
+        assert "TRIAGE_SCOPE_TARGET_UNRESOLVED" in _codes(validate_triage_screening(ws, "r")), esc
