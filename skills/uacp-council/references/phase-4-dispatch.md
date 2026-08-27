@@ -12,6 +12,10 @@ Before dispatching **any** reviewer (every tier) for an `inspect` task type (rev
 
 ```bash
 # 1. Provision the sandbox. On failure, SKIP the whole inspect dispatch — do NOT continue.
+#    read_only_enforcement is STRUCTURAL: the ephemeral DETACHED worktree this provisions IS the
+#    containment (M5-simplify #172 — grounding a read-only claim on a provisioning-evidence record
+#    was both a false-block hazard and a governed-writer bypass, deferred to a proper governed
+#    evidence seam). The real live gate is model authorization in step 2, not a self-written record.
 if ! SANDBOX=$(bash skills/uacp-council/scripts/review_sandbox.sh provision "{session_id}" "${scope_ref:-HEAD}"); then
   echo "containment provisioning failed → SKIP inspect dispatch"; return 1   # fail-closed (no $SANDBOX → no dispatch)
 fi
@@ -25,7 +29,7 @@ for each bridge with its {resolved_model}:
   fi
 ```
 
-Then each bridge additionally selects its **tool-native read-only mode** (Tier 1): codex `--sandbox read-only`, claude `--allowedTools`, gemini/opencode/kimi plan mode, reasonix `review`, hermes verified read-only toolset. Each records `read_only_enforcement` and `model_authorized` in its output.
+Then each bridge additionally selects its **tool-native read-only mode** (Tier 1): codex `--sandbox read-only`, claude `--allowedTools`, gemini/opencode/kimi plan mode, reasonix `review`, hermes verified read-only toolset. Each records `read_only_enforcement`, `model_authorized`, `bridge`, and `resolved_model` in its output, plus `containment_evidence` (the `$EV` provisioning-evidence path). At synthesis (Step 7), collect these per-bridge reports into the council artifact's `reviewer_reports[]` so the validator can GROUND them — `model_authorized` is re-derived live and `read_only_enforcement` must resolve to `containment_evidence`; a self-declared boolean without backing script evidence is a block (D-17).
 
 > **Limits (do not overclaim).** The worktree (Tier 2) gives **scope isolation + accidental-write containment**, not a hard boundary — it shares `.git` and is under the repo root, so a misbehaving process can still mutate the repo. Real read-only comes from the tool's OS mode (codex `--sandbox read-only`) or Tier 3 (container, deferred). For a low-trust / high-assurance review of an untrusted tool, escalate to Tier 3 or SKIP. See `uacp-bridge/SKILL.md` Review Containment.
 

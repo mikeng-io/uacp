@@ -13,6 +13,12 @@
 #   review_sandbox.sh provision <session_id> [ref]   # prints the sandbox path on stdout
 #   review_sandbox.sh teardown  <session_id>
 #
+# NOTE (screening #172): an earlier revision wrote a provisioning EVIDENCE record into the governed
+# ``.uacp/`` namespace for the council-synthesis validator to resolve. That was removed — a shell
+# script writing into ``.uacp/`` bypasses the governed writer (Invariant #3), and the path/session
+# resolution was a false-block hazard. Grounding a read-only claim on ACTUAL provisioning evidence is
+# a documented follow-on that needs a GOVERNED evidence seam, not raw shell I/O.
+#
 # Exit codes: 0 ok · 2 usage error · 1 git/provision failure (caller fail-closes to SKIP).
 set -euo pipefail
 

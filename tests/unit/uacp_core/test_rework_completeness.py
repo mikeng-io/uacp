@@ -86,6 +86,14 @@ def _write_artifact(root: Path, rel: str, data: dict) -> None:
     p.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
 
 
+def _write_hc(root: Path, run_id: str = "run-B") -> None:
+    """Write the run-bound checkpoint artifacts the canonical fixtures name as their fix evidence,
+    so a remediation's ``handling_artifact_path`` RESOLVES (M2/D-04 requires it to exist, not just
+    be named). For inline fixtures that don't route through ``_seed_rework``."""
+    for rel in ("executions/run-B-hc-a.yaml", "executions/run-B-hc-b.yaml"):
+        _write_artifact(root, rel, {"kind": "uacp.execution_checkpoint", "run_id": run_id})
+
+
 # A rework run whose resolve-readiness artifact disposes each carried finding via the
 # LN handled_findings_chain grammar. Two carried keys, two dispositions.
 _CARRIED = {
@@ -94,8 +102,20 @@ _CARRIED = {
 }
 
 
-def _seed_rework(root: Path, run_id: str, *, carried: dict, chain: list, rework_depth: int = 1):
-    """Seed a resolved rework run whose resolve-readiness artifact carries ``chain``."""
+def _seed_rework(
+    root: Path,
+    run_id: str,
+    *,
+    carried: dict,
+    chain: list,
+    rework_depth: int = 1,
+    write_handling: bool = True,
+):
+    """Seed a resolved rework run whose resolve-readiness artifact carries ``chain``. By default
+    also writes each remediation entry's ``handling_artifact_path`` as a real artifact so the fix
+    pointer RESOLVES — M2/D-04 makes the discharge require the artifact to *exist* (run-bound), not
+    merely be named. Pass ``write_handling=False`` to leave a named-but-nonexistent fix pointer (the
+    D-04 negative case)."""
     rr_rel = f"verification/{run_id}-resolve-readiness.yaml"
     _write_manifest(
         root,
@@ -115,6 +135,11 @@ def _seed_rework(root: Path, run_id: str, *, carried: dict, chain: list, rework_
             "handled_findings_chain": chain,
         },
     )
+    if write_handling:
+        for e in chain:
+            hp = e.get("handling_artifact_path") if isinstance(e, dict) else None
+            if isinstance(hp, str) and hp:
+                _write_artifact(root, hp, {"kind": "uacp.execution_checkpoint", "run_id": run_id})
 
 
 # ------------------------------------------------------------------ passing path
@@ -133,6 +158,50 @@ def test_rework_with_full_dispositions_passes(temp_uacp_root: Path):
     assert v == [], _codes(v)
 
 
+# --------------------------------------------- M2 / D-04: fix pointer must RESOLVE, not just exist
+def test_remediation_naming_nonexistent_artifact_does_not_discharge(temp_uacp_root: Path):
+    """A ``remediated`` disposition whose ``handling_artifact_path`` does not exist on disk is a
+    label, not a fix — the carried finding is UNADDRESSED (M2/D-04 grounds the discharge on the
+    artifact's RESOLUTION, not the mere presence of a path string). This is the regression guard for
+    the whole evidence-reference class: today, without M2, this run closes clean."""
+    chain = [
+        _canonical("verification_package", handling_classification="remediated"),
+        _canonical(
+            "assessment",
+            handling_classification="justified",
+            accepted_exception_artifact="verification/run-B-exception.yaml",
+            residual_risk="accepted: parent finding not reproducible on the fix branch",
+        ),
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, write_handling=False)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    # a named-but-nonexistent fix is an unevidenced remediation, not a missing disposition
+    assert "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED" in _codes(v)
+
+
+def test_remediation_naming_foreign_run_artifact_does_not_discharge(temp_uacp_root: Path):
+    """Even when the fix artifact EXISTS on disk, a ``handling_artifact_path`` bound to ANOTHER run
+    does not discharge — the fix evidence must be this rework's own (run-bound). Proves M2 enforces
+    run-binding, not mere existence."""
+    chain = [
+        _canonical(
+            "verification_package",
+            handling_classification="remediated",
+            handling_artifact_path="executions/OTHER-RUN-checkpoint-001.yaml",
+        ),
+        _canonical(
+            "assessment",
+            handling_classification="justified",
+            accepted_exception_artifact="verification/run-B-exception.yaml",
+            residual_risk="accepted: parent finding not reproducible on the fix branch",
+        ),
+    ]
+    # write_handling=True writes the foreign path too, so this proves run-binding is enforced, not existence.
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, write_handling=True)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    assert "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED" in _codes(v)
+
+
 def test_disposition_correlates_by_artifact_path_too(temp_uacp_root: Path):
     """A disposition may reference the carried finding by its PARENT-RELATIVE path
     (original_artifact_path) in addition to the manifest key. The canonical item grammar
@@ -142,13 +211,13 @@ def test_disposition_correlates_by_artifact_path_too(temp_uacp_root: Path):
         _canonical(
             "verification_package",
             original_artifact_path="verification/run-A-verify-selection.yaml",
-            handling_artifact_path="x.yaml",
+            handling_artifact_path="executions/run-B-hc-a.yaml",
         ),
         _canonical(
             "assessment",
             original_artifact_path="verification/run-A-piv-assessment.yaml",
             handling_classification="expanded",
-            handling_artifact_path="y.yaml",
+            handling_artifact_path="executions/run-B-hc-b.yaml",
         ),
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
@@ -161,6 +230,7 @@ def test_disposition_in_governed_writer_readiness_artifact_is_scanned(temp_uacp_
     'resolve_readiness' alias — the engine must scan that artifact for dispositions too, or a
     real governed rework's dispositions are ignored (Codex #135)."""
     rr_rel = "verification/run-B-resolve-readiness.yaml"
+    _write_hc(temp_uacp_root)  # the remediations' fix artifacts must resolve (M2)
     _write_manifest(
         temp_uacp_root,
         "run-B",
@@ -177,8 +247,8 @@ def test_disposition_in_governed_writer_readiness_artifact_is_scanned(temp_uacp_
             "phase": "verify",
             "run_id": "run-B",
             "handled_findings_chain": [
-                _canonical("verification_package", handling_artifact_path="x"),
-                _canonical("assessment", handling_artifact_path="y"),
+                _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
+                _canonical("assessment", handling_artifact_path="executions/run-B-hc-b.yaml"),
             ],
         },
     )
@@ -192,6 +262,7 @@ def test_disposition_in_governed_resolve_closure_artifact_is_scanned(temp_uacp_r
     so a correctly-documented RESOLVE-authored disposition is not falsely blocked (Codex
     #135) — no curated key list to miss."""
     rc_rel = "resolutions/run-B-resolve-closure.yaml"
+    _write_hc(temp_uacp_root)  # the remediations' fix artifacts must resolve (M2)
     _write_manifest(
         temp_uacp_root,
         "run-B",
@@ -208,8 +279,8 @@ def test_disposition_in_governed_resolve_closure_artifact_is_scanned(temp_uacp_r
             "phase": "resolve",
             "run_id": "run-B",
             "handled_findings_chain": [
-                _canonical("verification_package", handling_artifact_path="x"),
-                _canonical("assessment", handling_artifact_path="y"),
+                _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
+                _canonical("assessment", handling_artifact_path="executions/run-B-hc-b.yaml"),
             ],
         },
     )
@@ -239,8 +310,8 @@ def test_disposition_in_non_verify_resolve_artifact_does_not_discharge(temp_uacp
             "phase": "plan",  # NOT verify/resolve -> its chain must be ignored
             "run_id": "run-B",  # own run, so ONLY the phase gate rejects it
             "handled_findings_chain": [
-                _canonical("verification_package", handling_artifact_path="x"),
-                _canonical("assessment", handling_artifact_path="y"),
+                _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
+                _canonical("assessment", handling_artifact_path="executions/run-B-hc-b.yaml"),
             ],
         },
     )
@@ -272,8 +343,8 @@ def test_disposition_from_a_foreign_run_does_not_discharge(temp_uacp_root: Path)
             "phase": "verify",
             "run_id": "run-A",  # a FOREIGN run's disposition evidence
             "handled_findings_chain": [
-                _canonical("verification_package", handling_artifact_path="x"),
-                _canonical("assessment", handling_artifact_path="y"),
+                _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
+                _canonical("assessment", handling_artifact_path="executions/run-B-hc-b.yaml"),
             ],
         },
     )
@@ -285,7 +356,7 @@ def test_disposition_from_a_foreign_run_does_not_discharge(temp_uacp_root: Path)
 # ------------------------------------------------------------------ blocking paths
 def test_carried_finding_without_disposition_blocks(temp_uacp_root: Path):
     # only the first carried key is disposed; 'assessment' is ignored
-    chain = [_canonical("verification_package", handling_artifact_path="x.yaml")]
+    chain = [_canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml")]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
     v = validate_rework_completeness(temp_uacp_root, "run-B")
     assert "RW_CARRIED_FINDING_UNADDRESSED" in _codes(v), _codes(v)
@@ -334,7 +405,7 @@ def test_accepted_exception_without_rationale_blocks(temp_uacp_root: Path):
     or an exception artifact — a 'deferred' with no class-evidence is UNEVIDENCED at the
     class-evidence layer (EXCEPTION_INCOMPLETE), before the well-formedness floor."""
     chain = [
-        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
         # class-evidence MISSING: deferred with neither residual_risk nor exception artifact
         {"original_finding_id": "assessment", "handling_classification": "deferred"},
     ]
@@ -355,7 +426,7 @@ def test_class_evidence_complete_but_missing_base_fields_is_malformed(temp_uacp_
     # (has handling_artifact_path) but missing finding_classification/followup_required/owner/
     # residual_risk/heartgate_validation.
     chain = [
-        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
         {
             "original_finding_id": "assessment",
             "handling_classification": "remediated",
@@ -384,7 +455,7 @@ def test_single_missing_base_field_is_malformed(temp_uacp_root: Path):
     """Dropping ONE required base field (owner) from an otherwise-complete canonical item
     still fails closed as MALFORMED naming exactly that field."""
     chain = [
-        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
         _canonical("assessment", owner=""),  # empty owner — one defect
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
@@ -398,7 +469,7 @@ def test_invalid_enum_value_is_malformed(temp_uacp_root: Path):
     """An invalid enum value (heartgate_validation='maybe') on an otherwise-complete item is
     MALFORMED — the well-formedness floor mirrors the validator's enum check."""
     chain = [
-        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
         _canonical("assessment", heartgate_validation="maybe"),
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
@@ -411,7 +482,7 @@ def test_invalid_enum_value_is_malformed(temp_uacp_root: Path):
 def test_invalid_finding_classification_is_malformed(temp_uacp_root: Path):
     """An invalid finding_classification enum also trips the floor."""
     chain = [
-        _canonical("verification_package", handling_artifact_path="x.yaml"),
+        _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
         _canonical("assessment", finding_classification="catastrophe"),
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
@@ -547,7 +618,7 @@ def test_cross_talk_disposition_discharges_neither_finding(temp_uacp_root: Path)
         _canonical(
             "verification_package",  # names finding A (by key)
             original_artifact_path="verification/run-A-piv-assessment.yaml",  # names B (by path)
-            handling_artifact_path="x.yaml",
+            handling_artifact_path="executions/run-B-hc-a.yaml",
         )
     ]
     _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain)
@@ -624,6 +695,131 @@ def test_depth_below_threshold_does_not_escalate(temp_uacp_root: Path):
         x.code == "RW_REWORK_DEPTH_ESCALATION"
         for x in validate_rework_completeness(temp_uacp_root, "run-B")
     )
+
+
+# ------------------------------------------------ D-08: the cap's TRIP ACTION (RW_REWORK_CAP_*)
+# Below the cap the counter only WARNS (existing escalation behavior). AT/OVER the cap an OPEN
+# carried finding (one not discharged by a complete disposition) must carry an explicit
+# adjudication record — a decision, its rationale, and the cost-if-wrong on its disposition entry
+# — or closure hard-BLOCKS with RW_REWORK_CAP_UNADJUDICATED. "A cap with no defined trip action is
+# a counter, not a gate" (mirrors ppv second_failure_action=block_unconditional).
+def _adjudicated(original_finding_id: str, **over: Any) -> dict[str, Any]:
+    """A canonical disposition carrying a COMPLETE adjudication record (the three ``adjudication_*``
+    fields). Override ``handling_artifact_path`` / others via kwargs to keep the underlying finding
+    OPEN (e.g. a remediation whose fix does not resolve) so the adjudication is what suppresses the
+    cap block."""
+    return _canonical(
+        original_finding_id,
+        adjudication_decision="accept the residual defect and close the loop",
+        adjudication_rationale="parent finding not reproducible on the fix branch after N loops",
+        adjudication_cost_if_wrong="a latent regression in verify-selection; caught by next audit",
+        **over,
+    )
+
+
+def test_open_finding_below_cap_gets_no_cap_block(temp_uacp_root: Path):
+    """(1) Below the cap the trip action does NOT fire — the escalation warn is the only depth
+    signal. Here 'assessment' is OPEN (undisposed) at depth 1 with the default cap (5): it draws
+    the ordinary closure block but NOT RW_REWORK_CAP_UNADJUDICATED, and no escalation warn."""
+    chain = [_canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml")]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1)
+    codes = _codes(validate_rework_completeness(temp_uacp_root, "run-B"))
+    assert "RW_REWORK_CAP_UNADJUDICATED" not in codes, codes
+    assert "RW_REWORK_DEPTH_ESCALATION" not in codes, codes  # depth 1 < default cap 5
+    # non-vacuity: the finding IS genuinely open (it is otherwise blocked, just not by the cap)
+    assert "RW_CARRIED_FINDING_UNADDRESSED" in codes, codes
+
+
+def test_open_finding_at_cap_without_adjudication_blocks(temp_uacp_root: Path):
+    """(2) AT/OVER the cap an OPEN carried finding with no adjudication record hard-BLOCKS with
+    RW_REWORK_CAP_UNADJUDICATED (severity 'block'). Depth 2 over a cap of 1 exercises '>='."""
+    (temp_uacp_root / ".uacp" / "config.toml").write_text(
+        "[heartgate]\nmax_rework_depth = 1\n", encoding="utf-8"
+    )
+    # verification_package discharged (fix resolves); assessment OPEN (no disposition), unadjudicated
+    chain = [_canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml")]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=2)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    cap = [x for x in v if x.code == "RW_REWORK_CAP_UNADJUDICATED"]
+    assert len(cap) == 1 and cap[0].severity == "block", _codes(v)
+    assert cap[0].detail["carried_finding"] == "assessment"
+    assert cap[0].detail["max_rework_depth"] == 1 and cap[0].detail["rework_depth"] == 2
+    # the DISCHARGED verification_package is not cap-blocked (only open findings need adjudication)
+    assert all(x.detail.get("carried_finding") != "verification_package" for x in cap)
+
+
+def test_open_finding_at_cap_with_adjudication_no_cap_block(temp_uacp_root: Path):
+    """(3) AT the cap, an OPEN finding that carries a COMPLETE adjudication record does NOT trip the
+    cap block — adjudication is the explicit escape hatch. Non-vacuity: the finding is genuinely
+    open (its remediation fix does not resolve, so RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED still
+    fires) and the cap WAS reached (escalation warn present) — proving adjudication alone suppressed
+    the cap block."""
+    (temp_uacp_root / ".uacp" / "config.toml").write_text(
+        "[heartgate]\nmax_rework_depth = 1\n", encoding="utf-8"
+    )
+    # assessment: remediation whose fix artifact is NOT written -> OPEN, but explicitly adjudicated
+    chain = [
+        _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
+        _adjudicated("assessment", handling_artifact_path="executions/run-B-missing-fix.yaml"),
+    ]
+    _seed_rework(
+        temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1, write_handling=False
+    )
+    # write ONLY verification_package's fix so IT discharges; leave assessment's fix missing
+    _write_artifact(
+        temp_uacp_root, "executions/run-B-hc-a.yaml", {"kind": "uacp.execution_checkpoint", "run_id": "run-B"}
+    )
+    codes = _codes(validate_rework_completeness(temp_uacp_root, "run-B"))
+    assert "RW_REWORK_CAP_UNADJUDICATED" not in codes, codes
+    assert "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED" in codes, codes  # assessment IS open
+    assert "RW_REWORK_DEPTH_ESCALATION" in codes, codes  # the cap WAS reached
+
+
+def test_incomplete_adjudication_at_cap_still_blocks(temp_uacp_root: Path):
+    """(3b) A PARTIAL adjudication (missing cost-if-wrong) does NOT suppress the cap block — the
+    record must carry all three fields (a decision made with eyes open), proving the completeness
+    requirement is non-vacuous."""
+    (temp_uacp_root / ".uacp" / "config.toml").write_text(
+        "[heartgate]\nmax_rework_depth = 1\n", encoding="utf-8"
+    )
+    partial = _canonical(
+        "assessment",
+        handling_artifact_path="executions/run-B-missing-fix.yaml",  # OPEN: fix not written
+        adjudication_decision="accept and ship",
+        adjudication_rationale="not reproducible",
+        # adjudication_cost_if_wrong intentionally omitted
+    )
+    chain = [_canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"), partial]
+    _seed_rework(
+        temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1, write_handling=False
+    )
+    _write_artifact(
+        temp_uacp_root, "executions/run-B-hc-a.yaml", {"kind": "uacp.execution_checkpoint", "run_id": "run-B"}
+    )
+    cap = [
+        x
+        for x in validate_rework_completeness(temp_uacp_root, "run-B")
+        if x.code == "RW_REWORK_CAP_UNADJUDICATED"
+    ]
+    assert len(cap) == 1 and cap[0].detail["carried_finding"] == "assessment", cap
+
+
+def test_discharged_finding_at_cap_needs_no_adjudication(temp_uacp_root: Path):
+    """(4) AT the cap, a fully-DISCHARGED carried finding (no longer open) needs NO adjudication —
+    its fix pointer IS the discharge. Both findings discharge here, so there is NO block at all,
+    only the escalation warn. Proves adjudication is required for OPEN findings only."""
+    (temp_uacp_root / ".uacp" / "config.toml").write_text(
+        "[heartgate]\nmax_rework_depth = 1\n", encoding="utf-8"
+    )
+    chain = [
+        _canonical("verification_package", handling_artifact_path="executions/run-B-hc-a.yaml"),
+        _canonical("assessment", handling_artifact_path="executions/run-B-hc-b.yaml"),
+    ]
+    _seed_rework(temp_uacp_root, "run-B", carried=_CARRIED, chain=chain, rework_depth=1)
+    v = validate_rework_completeness(temp_uacp_root, "run-B")
+    assert "RW_REWORK_CAP_UNADJUDICATED" not in _codes(v), _codes(v)
+    assert not any(x.severity == "block" for x in v), _codes(v)  # nothing open -> no block
+    assert "RW_REWORK_DEPTH_ESCALATION" in _codes(v)  # confirms we were AT the cap
 
 
 # ------------------------------------------------------------------ council hardening (D2/D3/D4)
@@ -814,3 +1010,19 @@ def test_engine_required_fields_match_the_canonical_validator():
     # Non-vacuity: the battery exercises BOTH verdicts (some clean, some blocked).
     verdicts = {_validator_blocks(e) for _, e in battery}
     assert verdicts == {True, False}, verdicts
+
+
+def test_run_bound_under_requires_a_real_boundary():
+    # Codex #172 P1: evidence must bind to a REAL boundary after run_id, not a bare string prefix,
+    # or run 'r' could discharge with a different run 'r-other'/'rextra''s artifact.
+    from engines.rework_completeness import _run_bound_under
+
+    assert _run_bound_under("executions/r/fix.yaml", "executions/", "r")  # subdir
+    assert _run_bound_under("executions/r-checkpoint-001.yaml", "executions/", "r")  # flat file
+    assert _run_bound_under("executions/r", "executions/", "r")  # exact
+    assert not _run_bound_under("executions/r-other/fix.yaml", "executions/", "r")  # other run subdir
+    assert not _run_bound_under("executions/rextra/fix.yaml", "executions/", "r")  # no delimiter
+    assert not _run_bound_under("verification/r/fix.yaml", "executions/", "r")  # wrong prefix
+    # screening #172: `..` traversal escapes run r's dir despite the `r/` prefix — must be rejected.
+    assert not _run_bound_under("executions/r/../other-run/fix.yaml", "executions/", "r")
+    assert not _run_bound_under("executions/../r/fix.yaml", "executions/", "r")

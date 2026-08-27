@@ -24,6 +24,17 @@ from pathlib import Path as _P
 _CORE = _P(__file__).resolve().parents[1] / "skills" / "uacp-core" / "scripts"
 if str(_CORE) not in _sys.path:
     _sys.path.insert(0, str(_CORE))
+# The fail-closed model-authorization gate (skills/uacp-council/scripts/check_model_authorized.py)
+# is a REAL callable check that until now was invoked by NOTHING (D-17). Import its ``authorize``
+# so the council-synthesis validator can RE-DERIVE the ``model_authorized`` claim from the run's
+# own config instead of trusting the reviewer's self-reported boolean (live-invocation grounding).
+_COUNCIL_SCRIPTS = _P(__file__).resolve().parents[1] / "skills" / "uacp-council" / "scripts"
+if str(_COUNCIL_SCRIPTS) not in _sys.path:
+    _sys.path.insert(0, str(_COUNCIL_SCRIPTS))
+try:  # best-effort: absence degrades model grounding to fail-closed (a claimed-authorized cannot be re-derived)
+    from check_model_authorized import authorize as _authorize_model  # noqa: E402
+except Exception:  # pragma: no cover - only if the council script is unavailable
+    _authorize_model = None  # type: ignore[assignment]
 from config import base_dir  # noqa: E402
 from engines.domain import (  # noqa: E402
     CURRENT_POINTER_REQUIRED_FIELDS,
@@ -357,7 +368,9 @@ def validate_heartgate_coherence_requirement(path: Path, obj: dict, config: dict
         issues.append(f"BLOCK {path}: heartgate_coherence required by transition policy: {'; '.join(reasons)}")
 
 
-def validate_council_synthesis(path: Path, obj: dict, config: dict, issues: list[str]) -> None:
+def validate_council_synthesis(
+    path: Path, obj: dict, config: dict, issues: list[str], *, root: Path | None = None
+) -> None:
     schema = config.get("council_synthesis_schema")
     # Slice 5 W2 (closes T4d-2) + BLOCKER fix: council_synthesis_schema.required_fields
     # is codified in engines.domain.council_synthesis_required_fields()
@@ -404,6 +417,187 @@ def validate_council_synthesis(path: Path, obj: dict, config: dict, issues: list
         except Exception:
             issues.append(f"BLOCK {path}: followup_depth must be integer")
     validate_finding_states(path, obj, issues)
+    validate_council_reviewer_grounding(path, obj, issues, root=root)
+
+
+# Reviewer-report statuses that mean the reviewer did NOT run a review — a SKIPPED/HALTED/ABORTED
+# bridge produced no read-only-contained inspection and no authorized dispatch, so it carries no
+# containment/authorization claim to ground (and MUST NOT be treated as a passing review).
+_NON_PARTICIPATING_REVIEW_STATUSES = frozenset({"SKIPPED", "HALTED", "ABORTED"})
+# The documented read-only enforcement vocabulary (Tier 1 tool-native / Tier 2 worktree / Tier 3
+# container). Since the evidence-file mechanism was removed, this allowlist is the containment gate.
+_VALID_READ_ONLY_MODES = frozenset({"tool-mode", "worktree", "container"})
+
+
+def _load_uacp_toml(root: Path | None) -> dict | None:
+    """Resolve the bridges/models allowlist the model-auth gate checks against, the CANONICAL way
+    (screening #172 P1). The framework allowlist ships **install-relative** (found by walking up from
+    the model-auth script, exactly as ``check_model_authorized._find_config`` does), and a consumer
+    project may OVERRIDE it via ``<root>/.uacp/config.toml``. A bare ``<root>/config/uacp.toml`` lookup
+    returns None for ANY consumer deployment (UACP_ROOT is not the source checkout) and would then
+    block every completed inspect report as unverifiable. Returns None only when nothing resolves —
+    the caller still fails CLOSED then."""
+    cfg: dict = {}
+    # 1. The framework allowlist, install-relative (walk up from the model-auth script).
+    try:
+        from check_model_authorized import _find_config
+
+        with open(_find_config(None), "rb") as fh:
+            cfg = tomllib.load(fh)
+    except Exception:
+        cfg = {}
+    # 2. Merge a root's own config, if present: a source-checkout's ``config/uacp.toml`` (dev/test)
+    #    and/or a consumer project's ``.uacp/config.toml`` override (top-level-section shallow merge).
+    if root is not None:
+        for rel in ("config/uacp.toml", ".uacp/config.toml"):
+            try:
+                with open(Path(root) / rel, "rb") as fh:
+                    override = tomllib.load(fh)
+            except (OSError, tomllib.TOMLDecodeError):
+                continue
+            _deep_merge_into(cfg, override)
+    return cfg or None
+
+
+def _deep_merge_into(dst: dict, src: dict) -> None:
+    """Recursively merge ``src`` into ``dst`` (screening #172 P1): a one-level merge replaces a
+    nested table (``[bridges.defaults]``) WHOLESALE, so a consumer override that sets any sibling key
+    would silently drop ``enforce_model_allowlist``/``allowed_models`` from the install allowlist —
+    a fail-OPEN (gate disabled) / fail-closed (legit model blocked) hazard. Recurse so leaf keys
+    survive unless the override restates them."""
+    for k, v in src.items():
+        if isinstance(v, dict) and isinstance(dst.get(k), dict):
+            _deep_merge_into(dst[k], v)
+        else:
+            dst[k] = v
+
+
+def validate_council_reviewer_grounding(
+    path: Path, obj: dict, issues: list[str], *, root: Path | None = None
+) -> None:
+    """Ground an ``inspect`` council's per-reviewer containment/authorization claims on the
+    INDEPENDENCE SCRIPTS' evidence rather than the reviewer's self-reported booleans (D-17).
+
+    A reviewer report declares ``read_only_enforcement`` and ``model_authorized`` as plain fields;
+    trusting the ``model_authorized`` boolean is self-attestation, so it is re-derived LIVE against
+    the ``check_model_authorized.py`` allowlist (presence is not proof — the verdict is recomputed).
+    ``read_only_enforcement`` is checked STRUCTURALLY (a valid mode or SKIP); the prior
+    resolve-the-evidence mechanism was removed (screening #172):
+
+    * ``model_authorized`` — LIVE-INVOCATION grounding. Re-derive the verdict with
+      ``check_model_authorized.authorize(bridge, resolved_model, uacp.toml)``; a claimed
+      ``true`` that the live gate does not authorize does NOT validate (block), and a reviewer
+      that COMPLETED against an unauthorized model is a breach regardless of what it claimed.
+    * ``read_only_enforcement`` — STRUCTURAL check (screening #172): a ran inspect reviewer must
+      declare a KNOWN enforcement mode (``tool-mode`` | ``worktree`` | ``container``) or report
+      SKIPPED; ``none``/unknown/non-string values block. The prior containment-EVIDENCE-file
+      mechanism was removed — a shell script writing a record into the governed ``.uacp/`` namespace
+      bypassed the governed writer (Invariant #3), and resolving that path was a false-block hazard.
+      Grounding that the enforcement was REAL (not merely a valid label) is a follow-on needing a
+      GOVERNED evidence seam, not raw shell I/O.
+
+    Additive + fail-open-on-absence-of-reports: fires only when the synthesis carries reviewer
+    reports, so legacy council artifacts are untouched. But once a report is present and DECLARES a
+    claim (or is an ``inspect`` reviewer that COMPLETED), the claim MUST ground — a self-declared
+    field with no backing script evidence is a block."""
+    reports = obj.get("reviewer_reports")
+    if reports in (None, "", []):
+        reports = obj.get("reviews")
+    if reports in (None, "", []):
+        reports = obj.get("bridge_reports")
+    if reports in (None, "", []):
+        return
+    if not isinstance(reports, list):
+        issues.append(f"BLOCK {path}: reviewer_reports must be a list of bridge report objects")
+        return
+
+    cfg_toml = _load_uacp_toml(root)
+
+    for idx, rep in enumerate(reports):
+        if not isinstance(rep, dict):
+            issues.append(f"BLOCK {path}: reviewer_reports[{idx}] must be a mapping")
+            continue
+        bridge = rep.get("bridge") or f"<reviewer {idx}>"
+        profile = rep.get("capability_profile")
+        status = str(rep.get("status") or "").strip().upper()
+        declares_ro = "read_only_enforcement" in rep
+        declares_ma = "model_authorized" in rep
+        is_inspect = profile == "inspect"
+
+        # Only inspect reviewers (or any report that declares a containment/authorization claim)
+        # carry these obligations. A modify reviewer with no claim is out of scope here.
+        if not is_inspect and not declares_ro and not declares_ma:
+            continue
+        # A reviewer that did not run has no claim to ground.
+        if status in _NON_PARTICIPATING_REVIEW_STATUSES:
+            continue
+
+        # --- read_only_enforcement: STRUCTURAL check only ---
+        # The containment-EVIDENCE file mechanism was REMOVED (screening #172): a shell script
+        # writing a record into the governed ``.uacp/`` namespace bypassed the governed writer
+        # (Invariant #3), and resolving that path + comparing a sanitized session id against the raw
+        # one were false-block hazards. A ran inspect reviewer must still declare read-only
+        # enforcement (or SKIP); grounding that the enforcement was REAL (not just declared) is a
+        # documented follow-on needing a GOVERNED evidence seam, not raw shell I/O into ``.uacp/``.
+        if is_inspect or declares_ro:
+            ro = rep.get("read_only_enforcement")
+            ro_norm = ro.strip().lower() if isinstance(ro, str) else ro
+            if ro_norm in (None, "", "none"):
+                # An inspect reviewer that RAN with no read-only enforcement is a containment
+                # breach (the contract is SKIP-on-no-containment, not run-uncontained).
+                issues.append(
+                    f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) is an inspect review with "
+                    f"read_only_enforcement={ro!r} — a reviewer that ran must be read-only "
+                    f"contained (provision via review_sandbox.sh) or report SKIPPED"
+                )
+            elif not isinstance(ro, str) or ro_norm not in _VALID_READ_ONLY_MODES:
+                # This structural check is now the ONLY containment gate (evidence file removed),
+                # so an unrecognized value (``false``, ``{}``, ``"uncontained"``) must not pass it
+                # (screening #172).
+                issues.append(
+                    f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) declares an unknown "
+                    f"read_only_enforcement {ro!r} — expected one of {sorted(_VALID_READ_ONLY_MODES)}"
+                )
+
+        # --- model_authorized: LIVE-INVOCATION grounding ---
+        if is_inspect or declares_ma:
+            claimed = rep.get("model_authorized")
+            model = rep.get("resolved_model") or rep.get("model")
+            real_bridge = rep.get("bridge")
+            # Re-derive with the actual gate. Fail CLOSED when we cannot: a claim we cannot
+            # re-derive must not pass on its own word.
+            if _authorize_model is None or cfg_toml is None:
+                if claimed is True or (is_inspect and status == "COMPLETED"):
+                    issues.append(
+                        f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) claims "
+                        f"model_authorized but the authorization gate could not be re-derived "
+                        f"(check_model_authorized unavailable or config/uacp.toml unreadable) — "
+                        f"a model-authorization claim must be grounded, not trusted"
+                    )
+            elif not real_bridge or not model or not isinstance(model, str):
+                if is_inspect and status == "COMPLETED":
+                    issues.append(
+                        f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) completed an inspect "
+                        f"review but names no bridge+resolved_model to re-derive authorization "
+                        f"from — the model_authorized claim cannot be grounded"
+                    )
+            else:
+                try:
+                    ok, reason = _authorize_model(real_bridge, model, cfg_toml)
+                except Exception as exc:  # defensive: never let grounding crash the drill
+                    ok, reason = False, f"authorize() raised {type(exc).__name__}: {exc}"
+                if claimed is True and not ok:
+                    issues.append(
+                        f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) claims "
+                        f"model_authorized=true for model {model!r} but the live authorization "
+                        f"gate REJECTS it ({reason}) — the self-declared boolean does not ground"
+                    )
+                elif status == "COMPLETED" and not ok:
+                    issues.append(
+                        f"BLOCK {path}: reviewer_reports[{idx}] ({bridge}) completed a review "
+                        f"against model {model!r} which the authorization gate does NOT authorize "
+                        f"({reason}) — an unauthorized model must not have been dispatched"
+                    )
 
 
 def validate_triage(path: Path, obj: dict, issues: list[str]) -> None:
@@ -1604,7 +1798,7 @@ def main() -> int:
             if kind == "uacp.phase_transition":
                 validate_phase_transition(path, obj, phase_config, issues, root=root)
             elif kind == "uacp.council_synthesis" or "council_id" in obj:
-                validate_council_synthesis(path, obj, phase_config, issues)
+                validate_council_synthesis(path, obj, phase_config, issues, root=root)
             elif kind == "uacp.gate_selection":
                 validate_gate_selection(path, obj, issues)
             elif kind == "uacp.triage":

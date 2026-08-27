@@ -29,6 +29,31 @@ class Violation:
     message: str
     detail: dict = field(default_factory=dict)
 
+    def as_finding(self) -> dict:
+        """The ONE structured serializer for a violation (register move M4 / D-09).
+
+        Programmatic consumers were forced to re-parse the flattened
+        ``f"{code}: {message}"`` strings the boundary emitted; ``detail`` — the
+        "structured context for programmatic consumers" this dataclass already
+        carries — was being destroyed at every flattening site. This method
+        surfaces it instead, in ONE place, so every boundary that serializes
+        findings (the transition payload, the closure decision, the MCP surface)
+        shares a single shape and cannot re-diverge.
+
+        ``path`` is the most useful single locator we can lift out of ``detail``
+        without inventing a key: the first of ``path`` / ``target`` / ``artifact``
+        that is set (else ``None``). The full ``detail`` is still returned intact.
+        """
+        detail = self.detail if isinstance(self.detail, dict) else {}
+        path = detail.get("path") or detail.get("target") or detail.get("artifact")
+        return {
+            "code": self.code,
+            "severity": self.severity,
+            "message": self.message,
+            "detail": dict(detail),
+            "path": path,
+        }
+
 
 # An engine validates one run: (workspace, run_id) -> violations. Never raises.
 Engine = Callable[[Path, str], list[Violation]]

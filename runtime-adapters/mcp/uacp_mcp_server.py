@@ -63,7 +63,10 @@ async def list_tools() -> list[types.Tool]:
     return [
         types.Tool(
             name=spec.name,
-            description=spec.description,
+            # D-12: ship the RICH schema_description (it carries the tool's
+            # preconditions) rather than the short register_tool label; fall back
+            # to the short one for any spec that lacks it.
+            description=spec.schema_description or spec.description,
             inputSchema=spec.input_schema,
         )
         for spec in tool_specs()

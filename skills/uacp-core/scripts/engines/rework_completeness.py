@@ -45,8 +45,15 @@ Codes
   required base field is missing/empty or an enum is invalid. Closure must fail-CLOSED on a
   structurally-invalid disposition, not accept the partial one (#149).
 * ``RW_REWORK_DEPTH_ESCALATION`` (warn) — the run's ``rework_depth`` is at/above the
-  configured ``[heartgate] max_rework_depth`` (#135 P4). ESCALATES as a warning, never a
-  hard block — a long findings->fix chain is a signal to a human, not an automatic stop.
+  configured ``[heartgate] max_rework_depth`` (#135 P4). ESCALATES as a warning — the visible
+  approach-to-cap signal; the hard TRIP ACTION at the cap is the separate
+  ``RW_REWORK_CAP_UNADJUDICATED`` block below.
+* ``RW_REWORK_CAP_UNADJUDICATED`` (block) — the run is AT/OVER ``[heartgate] max_rework_depth``
+  and an OPEN carried finding (one not discharged by a complete disposition) carries no complete
+  adjudication record (D-08). At the cap an unresolved finding must be explicitly ADJUDICATED —
+  a decision, its rationale, and the cost-if-wrong (the ``adjudication_*`` fields on its
+  disposition entry) — or the run cannot close. A cap with no defined trip action is a counter,
+  not a gate; this mirrors ppv's ``max_attempts`` / ``second_failure_action=block_unconditional``.
 
 Scope / honest limits
 =====================
@@ -251,20 +258,91 @@ def _entry_addresses(entry: dict[str, Any], carried_key: str, carried_path: str)
     return id_ok and path_ok
 
 
-def _disposition_complete(entry: dict[str, Any]) -> bool:
-    """True iff the disposition carries the evidence its class demands (structural, not
-    adequacy): a remediation (remediated / expanded) must point to the fix via
-    ``handling_artifact_path``; an accepted-exception must carry a ``residual_risk`` rationale
-    or an ``accepted_exception_artifact``. A bare ``{handling_classification: remediated}`` with
-    no fix pointer is a label, not a discharge (Codex #135)."""
+# Evidence prefixes a fix/closure artifact may live under (the run-bound governed roots).
+_EVIDENCE_PREFIXES: tuple[str, ...] = ("verification/", "resolutions/", "executions/")
+
+
+def _artifact_resolves(
+    root: Path, run_id: str, path: str, allowed_prefixes: tuple[str, ...] | None = None
+) -> bool:
+    """An artifact named AS PROOF is proven by its RESOLUTION, never its mere presence as a string
+    (the evidence-reference type — M2 / D-04). A remediation's ``handling_artifact_path`` discharges
+    a carried finding only if it is **run-bound** to THIS rework (an evidence prefix + the run_id)
+    AND actually **exists** on disk (checked via the engine's own loader). A path that is empty,
+    foreign-run, out-of-tree, or nonexistent is a *label*, not a fix — it must not discharge. This
+    mirrors, for remediations, the resolution that ``accepted_exceptions[].artifact_path`` already
+    gets in ``validate_uacp_artifacts.py`` (exists + run-bound); UACP grounded "we chose not to fix
+    it" but not "we fixed it"."""
+    if not path or not run_id:
+        return False
+    prefixes = allowed_prefixes if allowed_prefixes is not None else _EVIDENCE_PREFIXES
+    if not any(_run_bound_under(path, prefix, run_id) for prefix in prefixes):
+        return False  # not run-bound to this run's own (phase-appropriate) evidence
+    return load_artifact(root, path).error is None  # exists + loads
+
+
+def _run_bound_under(path: str, prefix: str, run_id: str) -> bool:
+    """Is ``path`` run-bound to ``run_id`` under an evidence ``prefix`` — with a REAL boundary
+    after the id, not a bare string prefix (Codex #172 P1). A bare ``startswith(prefix+run_id)``
+    lets run ``r`` claim ``verification/r-other/fix.yaml`` (a DIFFERENT run whose id merely shares
+    the prefix), cross-binding evidence. Bind to a delimiter: the id must be the whole remainder,
+    the first path SEGMENT (``{run_id}/…`` subdir), or a flat file stem (``{run_id}-…`` with no
+    further ``/`` — so ``r-other/…`` is a distinct run's subdir, rejected, while
+    ``r-checkpoint.yaml`` is run ``r``'s flat evidence, accepted)."""
+    if not path.startswith(prefix):
+        return False
+    rest = path[len(prefix) :]
+    # Reject path traversal: `verification/r/../other-run/…` starts with `r/` but ESCAPES run r's
+    # dir — a `..` segment anywhere means the path is not run r's own evidence (screening #172 P1,
+    # the traversal sibling of the shared-prefix case). Evidence paths never contain `..`.
+    if ".." in rest.split("/"):
+        return False
+    return (
+        rest == run_id
+        or rest.startswith(f"{run_id}/")
+        or (rest.startswith(f"{run_id}-") and "/" not in rest)
+    )
+
+
+def _disposition_complete(entry: dict[str, Any], root: Path, run_id: str) -> bool:
+    """True iff the disposition carries the evidence its class demands, **resolved** not merely
+    named: a remediation (remediated / expanded) must point to a fix artifact via
+    ``handling_artifact_path`` that actually RESOLVES — run-bound + exists on disk (M2 / D-04), not
+    a bare non-empty string; an accepted-exception must carry a ``residual_risk`` rationale or an
+    ``accepted_exception_artifact``. A remediated entry naming a nonexistent fix path is a label,
+    not a discharge (Codex #135; grounded by M2)."""
     cls = _str_field(entry, "handling_classification")
     if cls in _REMEDIATION_CLASSES:
-        return bool(_str_field(entry, "handling_artifact_path"))
+        return _artifact_resolves(root, run_id, _str_field(entry, "handling_artifact_path"))
     if cls in _ACCEPTED_EXCEPTION_CLASSES:
         return bool(
             _str_field(entry, "residual_risk") or _str_field(entry, "accepted_exception_artifact")
         )
     return False  # unreachable: _entry_addresses already filtered to _VALID_CLASSES
+
+
+# The adjudication record the rework-depth CAP demands as its trip action (D-08). A cap with no
+# defined trip action is a counter, not a gate — mirroring the ppv grammar (``max_attempts`` paired
+# with an explicit ``second_failure_action = block_unconditional``): AT ``max_rework_depth`` an OPEN
+# carried finding may only stand if its disposition carries an EXPLICIT adjudication — WHAT was
+# decided, WHY, and what it COSTS if that decision is wrong. Modeled as flat governed fields ON the
+# handled_findings_chain entry (the existing disposition structure, ``_str_field``-style access) —
+# not a parallel store. All three must be present + non-empty (the same truthiness
+# ``_disposition_complete`` uses for class-evidence): a partial adjudication is not a decision made
+# with eyes open.
+_ADJUDICATION_FIELDS: tuple[str, ...] = (
+    "adjudication_decision",
+    "adjudication_rationale",
+    "adjudication_cost_if_wrong",
+)
+
+
+def _adjudication_complete(entry: dict[str, Any]) -> bool:
+    """True iff the disposition entry carries a COMPLETE adjudication record — an explicit
+    decision, its rationale, and the cost-if-wrong, each present and non-empty. The escape hatch
+    the rework-depth cap trips on (D-08): at the cap an OPEN carried finding must be adjudicated
+    or closure hard-BLOCKS."""
+    return all(_str_field(entry, f) for f in _ADJUDICATION_FIELDS)
 
 
 def _disposition_defects(entry: dict[str, Any]) -> list[str]:
@@ -378,7 +456,8 @@ def validate_rework_completeness(workspace: str | Path, run_id: str) -> list[Vio
     # Depth escalation (P4): a long findings->fix chain warns, never blocks. Pure
     # visibility, so it fires regardless of status.
     max_depth = _max_rework_depth(root)
-    if depth >= max_depth:
+    at_cap = depth >= max_depth
+    if at_cap:
         violations.append(
             _v(
                 "RW_REWORK_DEPTH_ESCALATION",
@@ -403,74 +482,110 @@ def validate_rework_completeness(workspace: str | Path, run_id: str) -> list[Vio
         for carried_key, carried_path in carried.items():
             path_str = carried_path.strip() if isinstance(carried_path, str) else ""
             matches = [e for e in dispositions if _entry_addresses(e, carried_key, path_str)]
-            if not matches:
-                violations.append(
-                    _v(
-                        "RW_CARRIED_FINDING_UNADDRESSED",
-                        f"carried finding '{carried_key}' (from the reworked parent) has no "
-                        f"disposition in the rework's verify/closure artifacts — a rework may "
-                        f"not close having ignored a carried finding; record a "
-                        f"handled_findings_chain entry (remediated/justified/deferred/...) for it",
-                        carried_finding=carried_key,
-                        carried_path=path_str,
-                    )
-                )
-                continue
-            # A finding is discharged when at least one matching disposition is BOTH
+            # A finding is DISCHARGED when at least one matching disposition is BOTH
             # class-evidence-complete (its class's fix pointer / accepted-exception rationale)
             # AND canonically well-formed (a complete handled_findings_chain item — every base
             # field present + valid enums). Class-evidence alone is not enough: a rework may not
-            # close on a structurally-INVALID disposition (#149 fail-CLOSED).
-            if any(_disposition_complete(e) and not _disposition_defects(e) for e in matches):
-                continue
-            complete_matches = [e for e in matches if _disposition_complete(e)]
-            if not complete_matches:
-                # No match carries even its class-required evidence — report by what the
-                # incomplete matches attempted (the existing two-way split, unchanged).
-                classes = sorted({_str_field(e, "handling_classification") for e in matches})
-                if any(
-                    _str_field(e, "handling_classification") in _REMEDIATION_CLASSES
-                    for e in matches
-                ):
+            # close on a structurally-INVALID disposition (#149 fail-CLOSED). Everything else is
+            # an OPEN finding.
+            discharged = any(
+                _disposition_complete(e, root, run_id) and not _disposition_defects(e)
+                for e in matches
+            )
+            if not discharged:
+                if not matches:
                     violations.append(
                         _v(
-                            "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED",
-                            f"carried finding '{carried_key}' is disposed as {classes} (a claimed "
-                            f"remediation) but no matching entry points to its fix via "
-                            f"'handling_artifact_path' — a remediation must link its fix evidence",
+                            "RW_CARRIED_FINDING_UNADDRESSED",
+                            f"carried finding '{carried_key}' (from the reworked parent) has no "
+                            f"disposition in the rework's verify/closure artifacts — a rework may "
+                            f"not close having ignored a carried finding; record a "
+                            f"handled_findings_chain entry (remediated/justified/deferred/...) "
+                            f"for it",
                             carried_finding=carried_key,
-                            handling_classifications=classes,
+                            carried_path=path_str,
                         )
                     )
                 else:
+                    complete_matches = [
+                        e for e in matches if _disposition_complete(e, root, run_id)
+                    ]
+                    if not complete_matches:
+                        # No match carries even its class-required evidence — report by what the
+                        # incomplete matches attempted (the existing two-way split, unchanged).
+                        classes = sorted(
+                            {_str_field(e, "handling_classification") for e in matches}
+                        )
+                        if any(
+                            _str_field(e, "handling_classification") in _REMEDIATION_CLASSES
+                            for e in matches
+                        ):
+                            violations.append(
+                                _v(
+                                    "RW_CARRIED_FINDING_REMEDIATION_UNEVIDENCED",
+                                    f"carried finding '{carried_key}' is disposed as {classes} (a "
+                                    f"claimed remediation) but no matching entry points to its fix "
+                                    f"via 'handling_artifact_path' — a remediation must link its "
+                                    f"fix evidence",
+                                    carried_finding=carried_key,
+                                    handling_classifications=classes,
+                                )
+                            )
+                        else:
+                            violations.append(
+                                _v(
+                                    "RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE",
+                                    f"carried finding '{carried_key}' is disposed as "
+                                    f"accepted-exception(s) {classes} but carries neither a "
+                                    f"'residual_risk' rationale nor an "
+                                    f"'accepted_exception_artifact' — an explicit "
+                                    f"accepted-exception must state what is being accepted",
+                                    carried_finding=carried_key,
+                                    handling_classifications=classes,
+                                )
+                            )
+                    else:
+                        # Some match carries its class-evidence but is not a well-formed canonical
+                        # item — the discharge floor is not met. Name the MINIMAL defect set (the
+                        # class-evidence-complete match closest to well-formed) so the author sees
+                        # the smallest fix.
+                        best = min(complete_matches, key=lambda e: len(_disposition_defects(e)))
+                        defects = _disposition_defects(best)
+                        violations.append(
+                            _v(
+                                "RW_CARRIED_FINDING_DISPOSITION_MALFORMED",
+                                f"carried finding '{carried_key}' has a class-evidence-complete "
+                                f"disposition that is not a well-formed handled_findings_chain "
+                                f"item ({', '.join(defects)}) — a carried-finding disposition "
+                                f"must be a complete canonical item (all of "
+                                f"{list(_CANONICAL_DISPOSITION_REQUIRED_FIELDS)} present with "
+                                f"valid enums)",
+                                carried_finding=carried_key,
+                                defects=defects,
+                            )
+                        )
+                # D-08 — the rework-depth cap's TRIP ACTION. AT/OVER max_rework_depth an OPEN
+                # carried finding must be EXPLICITLY adjudicated (decision + rationale +
+                # cost-if-wrong on a matching disposition) or closure hard-BLOCKS. The escalation
+                # above only WARNS; without this a capped run with an ignored finding still closes.
+                # A cap with no defined trip action is a counter, not a gate (mirrors ppv's
+                # second_failure_action=block_unconditional).
+                if at_cap and not any(_adjudication_complete(e) for e in matches):
                     violations.append(
                         _v(
-                            "RW_CARRIED_FINDING_EXCEPTION_INCOMPLETE",
-                            f"carried finding '{carried_key}' is disposed as accepted-exception(s) "
-                            f"{classes} but carries neither a 'residual_risk' rationale nor an "
-                            f"'accepted_exception_artifact' — an explicit accepted-exception must "
-                            f"state what is being accepted",
+                            "RW_REWORK_CAP_UNADJUDICATED",
+                            f"carried finding '{carried_key}' is still OPEN at rework depth "
+                            f"{depth} (>= max_rework_depth={max_depth}) and carries no complete "
+                            f"adjudication record — at the cap an unresolved finding must be "
+                            f"explicitly adjudicated ({list(_ADJUDICATION_FIELDS)}: what was "
+                            f"decided, why, and the cost if wrong) or the run cannot close; a cap "
+                            f"with no defined trip action is a counter, not a gate",
+                            severity="block",
                             carried_finding=carried_key,
-                            handling_classifications=classes,
+                            rework_depth=depth,
+                            max_rework_depth=max_depth,
                         )
                     )
-                continue
-            # Some match carries its class-evidence but is not a well-formed canonical item — the
-            # discharge floor is not met. Name the MINIMAL defect set (the class-evidence-complete
-            # match closest to well-formed) so the author sees the smallest fix.
-            best = min(complete_matches, key=lambda e: len(_disposition_defects(e)))
-            defects = _disposition_defects(best)
-            violations.append(
-                _v(
-                    "RW_CARRIED_FINDING_DISPOSITION_MALFORMED",
-                    f"carried finding '{carried_key}' has a class-evidence-complete disposition "
-                    f"that is not a well-formed handled_findings_chain item ({', '.join(defects)}) "
-                    f"— a carried-finding disposition must be a complete canonical item (all of "
-                    f"{list(_CANONICAL_DISPOSITION_REQUIRED_FIELDS)} present with valid enums)",
-                    carried_finding=carried_key,
-                    defects=defects,
-                )
-            )
 
     return violations
 

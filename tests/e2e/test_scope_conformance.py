@@ -374,6 +374,103 @@ def test_diff_governed_namespace_changes_quiet(temp_uacp_root: Path, valid_run_i
     assert _diff_codes(validate(temp_uacp_root, valid_run_id)) == set()
 
 
+# ---------------------------------------- SC_DIFF_OUT_OF_SCOPE severity (M3c / D-07)
+# The one independent, witnessed input (git's actual change set vs the run's OWN declared
+# write_paths) is promoted from advisory to a BLOCK — but ONLY when the operator opts in
+# (`[verification] sc_diff_containment == "block"`) AND the run declared a NON-EMPTY
+# write_paths (fail-closed on the agent's own declaration, the least-arguable form). The
+# migration ships default "warn"; the opt-out is the greppable config key. SC_DIFF_UNAVAILABLE
+# stays "warn" regardless — an unobservable repo is an environment fact, not an agent fault.
+
+from config import clear_config_cache  # noqa: E402
+
+
+def _set_sc_diff_containment(root: Path, value: str) -> None:
+    """Write a per-root `.uacp/config.toml` override for `[verification] sc_diff_containment`
+    (the FAITHFUL resolution path — get_config deep-merges the workspace override over the
+    kernel default, unlike the deliberately-ignored [witness] table). Clears the per-root
+    config cache so the fresh value is read even within one test process."""
+    cfg = root / ".uacp" / "config.toml"
+    cfg.write_text(f'[verification]\nsc_diff_containment = "{value}"\n')
+    clear_config_cache()
+
+
+def test_diff_out_of_scope_default_config_is_warn(temp_uacp_root: Path, valid_run_id: str):
+    """DEFAULT config (no override -> "warn") + a declared NON-EMPTY write_paths + an
+    out-of-scope change -> SC_DIFF_OUT_OF_SCOPE at severity "warn" (advisory-by-default)."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue.py").write_text("# out-of-scope write\n")
+
+    hits = [v for v in validate(temp_uacp_root, valid_run_id) if v.code == "SC_DIFF_OUT_OF_SCOPE"]
+    assert hits, "expected SC_DIFF_OUT_OF_SCOPE"
+    assert all(v.severity == "warn" for v in hits), "default config must be advisory (warn)"
+
+
+def test_diff_out_of_scope_block_config_declared_paths_is_block(
+    temp_uacp_root: Path, valid_run_id: str
+):
+    """config sc_diff_containment="block" + a declared NON-EMPTY write_paths + an
+    out-of-scope change -> SC_DIFF_OUT_OF_SCOPE promoted to severity "block"."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_sc_diff_containment(temp_uacp_root, "block")
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue.py").write_text("# out-of-scope write\n")
+
+    hits = [v for v in validate(temp_uacp_root, valid_run_id) if v.code == "SC_DIFF_OUT_OF_SCOPE"]
+    assert hits, "expected SC_DIFF_OUT_OF_SCOPE"
+    assert all(v.severity == "block" for v in hits), "block config + declared paths must block"
+
+
+def test_diff_out_of_scope_block_config_no_declared_paths_stays_warn(
+    temp_uacp_root: Path, valid_run_id: str
+):
+    """config "block" but write_paths is EMPTY (the seed's declaration) -> stays "warn":
+    the block promotion fires only on a run's OWN non-empty declared boundary, so an
+    empty/undeclared boundary is never block-by-accident."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)  # write_paths == []
+    _set_sc_diff_containment(temp_uacp_root, "block")
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue.py").write_text("# out-of-scope write, empty boundary\n")
+
+    hits = [v for v in validate(temp_uacp_root, valid_run_id) if v.code == "SC_DIFF_OUT_OF_SCOPE"]
+    assert hits, "expected SC_DIFF_OUT_OF_SCOPE (everything is out of an empty boundary)"
+    assert all(v.severity == "warn" for v in hits), "empty boundary must stay advisory"
+
+
+def test_diff_unavailable_is_warn_regardless_of_block_config(
+    temp_uacp_root: Path, valid_run_id: str
+):
+    """SC_DIFF_UNAVAILABLE is ALWAYS "warn", even under config "block": an unobservable
+    repo is an environment fact, never the agent's fault."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_sc_diff_containment(temp_uacp_root, "block")
+    (temp_uacp_root / ".git").mkdir()  # present but not a valid repo -> unobservable
+
+    hits = [v for v in validate(temp_uacp_root, valid_run_id) if v.code == "SC_DIFF_UNAVAILABLE"]
+    assert hits, "expected SC_DIFF_UNAVAILABLE"
+    assert all(v.severity == "warn" for v in hits), "unavailable is always advisory"
+
+
+def test_diff_out_of_scope_garbage_config_fails_closed_to_warn(
+    temp_uacp_root: Path, valid_run_id: str
+):
+    """A garbage sc_diff_containment value fails CLOSED to "warn" (never block-by-accident):
+    only the literals "warn"/"block" are honored."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_sc_diff_containment(temp_uacp_root, "LOUD")
+    _init_git_repo(temp_uacp_root)
+    (temp_uacp_root / "rogue.py").write_text("# out-of-scope write, garbage config\n")
+
+    hits = [v for v in validate(temp_uacp_root, valid_run_id) if v.code == "SC_DIFF_OUT_OF_SCOPE"]
+    assert hits, "expected SC_DIFF_OUT_OF_SCOPE"
+    assert all(v.severity == "warn" for v in hits), "garbage config must fail closed to warn"
+
+
 # ---------------------------------------------------------- SC cascade witness (#85)
 # The scope-witness half of #85: the agent AUTHORS code_refs (the falsifiable claim);
 # the GATE derives an INDEPENDENT account by exec'ing the codeflair CLI (design node 02).
@@ -1429,6 +1526,145 @@ def test_forecast_weak_provenance_floor_is_unavailable_no_record(
     out = validate_cascade_forecast(temp_uacp_root, valid_run_id)
     assert "SC_FORECAST_WITNESS_UNAVAILABLE" in {v.code for v in out}
     assert _forecast_record(temp_uacp_root, valid_run_id) is None
+
+
+# ---------------------------------------- SC_PLAN_CASCADE_FORECAST severity (gg/07)
+# The prevention-at-PLAN blast-radius forecast is promoted from advisory to a BLOCK — but
+# ONLY when the operator opts in (`[verification] plan_cascade_forecast == "block"`) AND the
+# run declared a NON-EMPTY write_paths (fail-closed on the agent's own declaration, the
+# least-arguable form — mirrors SC_DIFF_OUT_OF_SCOPE, M3c / D-07). The migration ships
+# default "warn"; the opt-out is the greppable config key. SC_FORECAST_WITNESS_UNAVAILABLE
+# stays "warn" regardless — an unobservable code plane is an environment fact, not a fault.
+
+
+def _set_plan_cascade_forecast(root: Path, value: str) -> None:
+    """Write a per-root `.uacp/config.toml` override for `[verification]
+    plan_cascade_forecast` (the FAITHFUL resolution path — get_config deep-merges the
+    workspace override over the kernel default). Clears the per-root config cache so the
+    fresh value is read even within one test process."""
+    cfg = root / ".uacp" / "config.toml"
+    cfg.write_text(f'[verification]\nplan_cascade_forecast = "{value}"\n')
+    clear_config_cache()
+
+
+def test_plan_cascade_forecast_default_config_is_warn(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    """DEFAULT config (no override -> "warn") + a declared NON-EMPTY write_paths + a cascade
+    file OUTSIDE the boundary -> SC_PLAN_CASCADE_FORECAST at severity "warn" (advisory)."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits, "expected SC_PLAN_CASCADE_FORECAST"
+    assert all(v.severity == "warn" for v in hits), "default config must be advisory (warn)"
+
+
+def test_plan_cascade_forecast_block_config_declared_paths_is_block(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    """config plan_cascade_forecast="block" + a declared NON-EMPTY write_paths + a cascade
+    file outside the boundary -> SC_PLAN_CASCADE_FORECAST promoted to severity "block"."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    _set_plan_cascade_forecast(temp_uacp_root, "block")
+
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits, "expected SC_PLAN_CASCADE_FORECAST"
+    assert all(v.severity == "block" for v in hits), "block config + declared paths must block"
+
+
+def test_plan_cascade_forecast_block_config_no_declared_paths_stays_warn(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    """config "block" but write_paths is EMPTY (the seed's declaration) -> stays "warn": the
+    block promotion fires only on a run's OWN non-empty declared boundary, so an empty
+    declared boundary is never block-by-accident. The forecast STILL runs against [] (the
+    strictest boundary — every out-of-carve-out neighbor is out-of-boundary)."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)  # write_paths == []
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("elsewhere.py", "Beta"))],
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    _set_plan_cascade_forecast(temp_uacp_root, "block")
+
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits, "expected SC_PLAN_CASCADE_FORECAST (everything is out of an empty boundary)"
+    assert all(v.severity == "warn" for v in hits), "empty boundary must stay advisory"
+
+
+def test_plan_cascade_forecast_witness_unavailable_is_warn_regardless_of_block_config(
+    temp_uacp_root: Path, valid_run_id: str
+):
+    """SC_FORECAST_WITNESS_UNAVAILABLE is ALWAYS "warn", even under config "block": an
+    unobservable code plane is an environment fact, never the agent's fault."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    _set_plan_cascade_forecast(temp_uacp_root, "block")
+    # No [witness] configured -> unconfigured -> unavailable.
+
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_FORECAST_WITNESS_UNAVAILABLE"
+    ]
+    assert hits, "expected SC_FORECAST_WITNESS_UNAVAILABLE"
+    assert all(v.severity == "warn" for v in hits), "unavailable is always advisory"
+
+
+def test_plan_cascade_forecast_garbage_config_fails_closed_to_warn(
+    temp_uacp_root: Path, valid_run_id: str, tmp_path: Path, monkeypatch
+):
+    """A garbage plan_cascade_forecast value fails CLOSED to "warn" (never block-by-accident):
+    only the literals "warn"/"block" are honored."""
+    seed_coherent_run(temp_uacp_root, valid_run_id)
+    _declare_write_paths(temp_uacp_root, valid_run_id, ["src/**"])
+    _set_code_refs(temp_uacp_root, valid_run_id, [{"file": "src/a.py", "name": "Alpha"}])
+    baseline = _baseline_fixture(
+        declared=[_decl("src/a.py", "Alpha", True)],
+        neighborhood=[_edge(("src/a.py", "Alpha"), ("rogue.py", "Beta"))],
+    )
+    stub_py, _ = _install_baseline_stub(tmp_path / "cf", baseline)
+    _configure_witness_cli(monkeypatch, tmp_path, _stub_cli(stub_py))
+    _set_plan_cascade_forecast(temp_uacp_root, "LOUD")
+
+    hits = [
+        v
+        for v in validate_cascade_forecast(temp_uacp_root, valid_run_id)
+        if v.code == "SC_PLAN_CASCADE_FORECAST"
+    ]
+    assert hits, "expected SC_PLAN_CASCADE_FORECAST"
+    assert all(v.severity == "warn" for v in hits), "garbage config must fail closed to warn"
 
 
 # (h) a malformed forecast record -> SC_FORECAST_JOIN_FAILED at closure, never a crash.
