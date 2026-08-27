@@ -568,3 +568,62 @@ class TestClaudeCliValidation:
             )
         finally:
             self._cleanup()
+
+
+class TestMcpVersionIsUpperBounded:
+    """#161: an UNBOUNDED mcp spec resolves whatever is newest at install time.
+
+    The 2.x major removed `create_connected_server_and_client_session` from
+    `mcp.shared.memory` and `Server.list_tools` — both of which
+    `runtime-adapters/mcp/uacp_mcp_server.py` and its tests use. With `mcp>=1.0` in the
+    plugin manifest and `mcp>=1.28.1` in pyproject, every fresh install (CI *and* every
+    real user) resolved 2.x and the MCP server failed to boot. CI going red was the
+    visible half; the ship-to-users half was that the plugin's own server did not start.
+
+    Both specs must therefore carry an upper bound. This guards the CLASS, not the one
+    version: a future contributor relaxing either bound re-opens it silently otherwise.
+    """
+
+    def _specs(self):
+        root = Path(__file__).resolve().parents[3]
+        manifest = json.loads((root / ".claude-plugin" / "plugin.json").read_text())
+        args = manifest["mcpServers"]["uacp"]["args"]
+        from_manifest = [
+            args[i + 1]
+            for i, tok in enumerate(args)
+            if tok == "--with" and args[i + 1].startswith("mcp")
+        ]
+        pyproject = (root / "pyproject.toml").read_text()
+        from_pyproject = [
+            line.strip().strip(",").strip('"')
+            for line in pyproject.splitlines()
+            if line.strip().startswith('"mcp')
+        ]
+        return from_manifest, from_pyproject
+
+    def test_plugin_manifest_mcp_spec_has_an_upper_bound(self):
+        from_manifest, _ = self._specs()
+        assert from_manifest, "plugin.json must provision mcp via `uv run --with mcp...`"
+        for spec in from_manifest:
+            assert "<" in spec, (
+                f"plugin.json `--with {spec}` is unbounded; a fresh install resolves the newest "
+                "mcp, and 2.x removed Server.list_tools so the server cannot boot (#161)"
+            )
+
+    def test_pyproject_mcp_spec_has_an_upper_bound(self):
+        _, from_pyproject = self._specs()
+        assert from_pyproject, "pyproject must declare the mcp extra"
+        for spec in from_pyproject:
+            assert "<" in spec, (
+                f"pyproject `{spec}` is unbounded; CI installs `-e '.[dev,mcp]'` with no lock and "
+                "resolves the newest mcp, which breaks the import the tests need (#161)"
+            )
+
+    def test_the_bound_actually_excludes_the_breaking_major(self):
+        """Non-vacuity: an upper bound that still admits 2.x would pass the two tests above."""
+        from_manifest, from_pyproject = self._specs()
+        for spec in [*from_manifest, *from_pyproject]:
+            assert "<2" in spec.replace(" ", ""), (
+                f"{spec!r} carries a bound that does not exclude the 2.x major — the exact "
+                "release line that removed the APIs this adapter uses"
+            )
