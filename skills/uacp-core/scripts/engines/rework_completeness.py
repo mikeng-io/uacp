@@ -262,7 +262,9 @@ def _entry_addresses(entry: dict[str, Any], carried_key: str, carried_path: str)
 _EVIDENCE_PREFIXES: tuple[str, ...] = ("verification/", "resolutions/", "executions/")
 
 
-def _artifact_resolves(root: Path, run_id: str, path: str) -> bool:
+def _artifact_resolves(
+    root: Path, run_id: str, path: str, allowed_prefixes: tuple[str, ...] | None = None
+) -> bool:
     """An artifact named AS PROOF is proven by its RESOLUTION, never its mere presence as a string
     (the evidence-reference type — M2 / D-04). A remediation's ``handling_artifact_path`` discharges
     a carried finding only if it is **run-bound** to THIS rework (an evidence prefix + the run_id)
@@ -273,9 +275,33 @@ def _artifact_resolves(root: Path, run_id: str, path: str) -> bool:
     it" but not "we fixed it"."""
     if not path or not run_id:
         return False
-    if not any(path.startswith(f"{prefix}{run_id}") for prefix in _EVIDENCE_PREFIXES):
-        return False  # not run-bound to this rework's own evidence
+    prefixes = allowed_prefixes if allowed_prefixes is not None else _EVIDENCE_PREFIXES
+    if not any(_run_bound_under(path, prefix, run_id) for prefix in prefixes):
+        return False  # not run-bound to this run's own (phase-appropriate) evidence
     return load_artifact(root, path).error is None  # exists + loads
+
+
+def _run_bound_under(path: str, prefix: str, run_id: str) -> bool:
+    """Is ``path`` run-bound to ``run_id`` under an evidence ``prefix`` — with a REAL boundary
+    after the id, not a bare string prefix (Codex #172 P1). A bare ``startswith(prefix+run_id)``
+    lets run ``r`` claim ``verification/r-other/fix.yaml`` (a DIFFERENT run whose id merely shares
+    the prefix), cross-binding evidence. Bind to a delimiter: the id must be the whole remainder,
+    the first path SEGMENT (``{run_id}/…`` subdir), or a flat file stem (``{run_id}-…`` with no
+    further ``/`` — so ``r-other/…`` is a distinct run's subdir, rejected, while
+    ``r-checkpoint.yaml`` is run ``r``'s flat evidence, accepted)."""
+    if not path.startswith(prefix):
+        return False
+    rest = path[len(prefix) :]
+    # Reject path traversal: `verification/r/../other-run/…` starts with `r/` but ESCAPES run r's
+    # dir — a `..` segment anywhere means the path is not run r's own evidence (screening #172 P1,
+    # the traversal sibling of the shared-prefix case). Evidence paths never contain `..`.
+    if ".." in rest.split("/"):
+        return False
+    return (
+        rest == run_id
+        or rest.startswith(f"{run_id}/")
+        or (rest.startswith(f"{run_id}-") and "/" not in rest)
+    )
 
 
 def _disposition_complete(entry: dict[str, Any], root: Path, run_id: str) -> bool:
@@ -523,9 +549,7 @@ def validate_rework_completeness(workspace: str | Path, run_id: str) -> list[Vio
                         # item — the discharge floor is not met. Name the MINIMAL defect set (the
                         # class-evidence-complete match closest to well-formed) so the author sees
                         # the smallest fix.
-                        best = min(
-                            complete_matches, key=lambda e: len(_disposition_defects(e))
-                        )
+                        best = min(complete_matches, key=lambda e: len(_disposition_defects(e)))
                         defects = _disposition_defects(best)
                         violations.append(
                             _v(
