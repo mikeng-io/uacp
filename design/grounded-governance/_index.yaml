@@ -35,6 +35,8 @@ members:
   - 07-plan-substrate.md             # PLAN: declared blast-radius vs the code-plane-derived real one (deterministic; prevention)
   - 08-execute-resolve-unification.md # EXECUTE/RESOLVE: complete the grounding already half-present
   - 09-the-reckoning-verify-is-run-not-built.md # corrected by cross-provider review: sequencing failure not paradigm; one grounded screening under a trusted execution receipt; PR parked
+  - 10-floor-known-limitations.md # advisory-gate residual (suffix list, cap adjudication) ADJUDICATED as accepted non-goals
+  - 11-agents-md-review-requirement-refinement.md # proposed: 'resolved'=fixed-OR-adjudicated, 'material'=severity-relative
 edges:
   - {src: 01-the-review-substrate, dst: 00-the-correctness-gap, rel: depends_on, provenance: derived}
   - {src: 02-the-screening-dispatch, dst: 01-the-review-substrate, rel: depends_on, provenance: derived}
@@ -45,3 +47,5 @@ edges:
   - {src: 07-plan-substrate, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
   - {src: 08-execute-resolve-unification, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
   - {src: 09-the-reckoning-verify-is-run-not-built, dst: 04-grounding-is-per-phase, rel: extends, provenance: asserted}
+  - {src: 10-floor-known-limitations, dst: 09-the-reckoning-verify-is-run-not-built, rel: extends, provenance: asserted}
+  - {src: 11-agents-md-review-requirement-refinement, dst: 10-floor-known-limitations, rel: extends, provenance: asserted}

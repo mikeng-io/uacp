@@ -12,12 +12,11 @@ Before dispatching **any** reviewer (every tier) for an `inspect` task type (rev
 
 ```bash
 # 1. Provision the sandbox. On failure, SKIP the whole inspect dispatch — do NOT continue.
-#    Pass an evidence-file path so the script records a RUN-BOUND provisioning record — the
-#    council-synthesis validator requires each reviewer's read_only_enforcement claim to RESOLVE
-#    to this evidence (D-17: presence of the boolean is not proof). Write it under the governed
-#    namespace for this run, e.g. .uacp/independence/{session_id}/sandbox-provision.json.
-EV=".uacp/independence/{session_id}/sandbox-provision.json"
-if ! SANDBOX=$(bash skills/uacp-council/scripts/review_sandbox.sh provision "{session_id}" "${scope_ref:-HEAD}" "$EV"); then
+#    read_only_enforcement is STRUCTURAL: the ephemeral DETACHED worktree this provisions IS the
+#    containment (M5-simplify #172 — grounding a read-only claim on a provisioning-evidence record
+#    was both a false-block hazard and a governed-writer bypass, deferred to a proper governed
+#    evidence seam). The real live gate is model authorization in step 2, not a self-written record.
+if ! SANDBOX=$(bash skills/uacp-council/scripts/review_sandbox.sh provision "{session_id}" "${scope_ref:-HEAD}"); then
   echo "containment provisioning failed → SKIP inspect dispatch"; return 1   # fail-closed (no $SANDBOX → no dispatch)
 fi
 # Pass $SANDBOX as each bridge's working dir (--dir / --cd / cwd). For uncommitted-diff
