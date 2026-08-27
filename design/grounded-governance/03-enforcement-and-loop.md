@@ -28,7 +28,9 @@ not broken the day it ships.
 
 A screening finding is a carried finding. It flows into the **same disposition machinery** the rework
 floor already grounds (`rework_completeness`): every open correctness finding must be *discharged* (a
-fix whose pointer resolves — M2) or *adjudicated* (decision + rationale + cost-if-wrong — M3d), and
+fix whose pointer resolves — M2) or *adjudicated* (decision + rationale + cost-if-wrong — M3d), **recorded as a well-formed canonical
+disposition** — at the rework cap the OR is AND: an adjudication on a *malformed* record does not
+discharge (matching `#149` fail-closed-on-malformed); and
 an undischarged, unadjudicated finding **blocks**. No parallel correctness-only ledger: the same
 "a claim of the form 'X is handled by Y' validates only on Y's resolution" rule that M2 generalized
 applies to correctness findings unchanged. This is why the floor was built first — Layer 2's verdicts
