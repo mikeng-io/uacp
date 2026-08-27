@@ -56,13 +56,21 @@ consistent with `#149` fail-closed-on-malformed-disposition. It is not a deadloc
   as "complete … *or* adjudicated" — an OR the code implements as AND-at-the-cap. Correct that line to
   match the ruled behavior.
 
-## Why these merge without a council-gate violation
+## Why these merge — and the honest status of these dispositions
 
-Key Invariant #5 ("evidence must be produced") and the council gate ("zero material findings
-unresolved") are satisfied: each finding is **dispositioned** (L1 `deferred`, L2 `justified`, both
-with rationale + residual risk + follow-on) — the framework's own `handled_findings_chain` resolution.
-Crucially, **neither is material**, so neither needs the independent countersignature that Invariant
-#4 now requires for deferring a *material* finding:
+**Scope caveat (Codex #176):** the bullets below are **design-level acceptance rationales** recorded
+for a maintainer's merge decision on a design + floor PR — they are **not** governed
+`handled_findings_chain` ledger entries. A canonical chain entry is a RUN-level transition artifact
+carrying `original_finding_id`, `finding_classification`, `handling_classification`,
+`handling_artifact_path`, `owner`, `residual_risk`, `heartgate_validation`
+(`scripts/validate_uacp_artifacts.py:186-193`), produced in a governed VERIFY/RESOLVE and checked by
+Heartgate. This floor landed by maintainer decision, not through a full governed run, so the
+disposition *here* is the documented reasoning + the merge, not a ledger entry. If this work is ever
+carried through a governed run, these become real chain entries; until then, treat them as rationale,
+not as a satisfied kernel gate.
+
+With that caveat, the council gate's *intent* holds because **neither finding is material** (so
+neither needs even the proposed independent countersignature):
 
 - **L1** — non-material because it fails toward *under-nudging* only within a **warn** advisory gate
   (weakens a nudge, cannot bypass a hard gate).
@@ -70,6 +78,8 @@ Crucially, **neither is material**, so neither needs the independent countersign
   silently. Materiality is about *failure direction and stated guarantees*, not severity alone — an
   earlier draft mis-grounded L2 on a (false) warn severity; corrected above.
 
-Had either been material (a defect failing toward *under*-enforcement — a gate bypass), adjudication
-alone would NOT resolve it: Invariant #4 requires a fix or a deferral countersigned by an authority
-independent of the author. See node `11` for the invariant wording and the audit that produced it.
+Had either been material (a defect failing toward *under*-enforcement — a gate bypass), Invariant #4
+would require a fix (adjudication does not excuse an under-enforcement defect), and the *proposed*
+strengthening (node `11`) would additionally require an author-independent countersignature on any
+deferral. See node `11` for the shipped invariant wording, the proposal, and the audits that produced
+them.

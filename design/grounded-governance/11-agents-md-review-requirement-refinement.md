@@ -38,19 +38,39 @@ another run's evidence discharge a finding — the P1s already fixed on #173) **
 review, opposite dispositions, decided by severity — not by the reviewer's willingness to keep
 finding edges.
 
-## The applied AGENTS.md refinement (hardened by cross-provider audit)
+## What shipped in the invariant (the stable, coherent core)
 
-Invariant #4's last clause now reads (applied):
+After three review rounds (Kimi ×1, subagent ×1, Codex ×1 on the PR), the invariant ships the
+**coherent core only** — the part that matches the existing `handled_findings_chain` machinery and
+contradicts none of the subordinate lifecycle-policy docs:
 
-> Zero material findings unresolved, where a finding is **resolved** by a fix *or* by adjudication,
-> and **material** means a finding that, left unaddressed, breaks a stated guarantee — presumptively
-> any defect that fails toward *under-enforcement* (a gate bypass); a defect that fails toward
-> *over-enforcement*, or a warn-advisory gap, is non-material. **Adjudication** (a governed
-> `handled_findings_chain` disposition — remediated / justified / deferred — carrying rationale and
-> residual risk) resolves a **non-material** finding on its own. A **material** finding is resolved
-> only by a fix, or by a deferral **countersigned by an authority independent of the author** (a
-> different-provider reviewer or the human), recorded on the disposition; a self-attested "won't fix"
-> is never a disposition, and severity is set in council-gated policy, not by the author.
+> Zero material findings unresolved, where a finding is **resolved** by a fix *or* by adjudication (a
+> governed `handled_findings_chain` disposition — handling classification, owner, residual risk,
+> next-phase obligation — carrying rationale, never a self-attested "won't fix"). **Material** = a
+> finding that breaks a stated guarantee; classification is **read from the finding's source**
+> (external-reviewer severity / firing gate), not (re)assigned by the author. Where source severity
+> and failure direction conflict, **source severity governs**; failure direction may only *downgrade*
+> to non-material a defect that provably fails toward *over-enforcement*, never excuse an
+> under-enforcement defect.
+
+### What was pulled to *proposal* (and why — Codex #176, honest flip)
+
+An earlier draft (Kimi's hardening) put "a material finding needs an author-independent
+**countersignature**" *into the invariant as law*. Codex's PR review correctly showed this creates a
+**coherence break**: the invariant would sit atop `docs/runtime/runtime-enforcement.md` — which
+describes what Heartgate *actually* does — while mandating a countersignature that **nothing in the
+kernel enforces**. Unenforced law in the top authority, over docs that describe real behavior, is the
+very incoherence UACP forbids. So the countersignature — and in-kernel enforcement of
+disposition/materiality — is recorded here as a **proposed follow-on**, not shipped as invariant law.
+This is a deliberate reversal of the prior draft, logged rather than silent.
+
+**Proposed follow-on (NOT built):** a governed `material` + `countersigned_by` field on the
+disposition; a Heartgate check requiring, for a source-`block` finding, a resolving fix OR a
+countersignature by an identity distinct from the run's author (mirroring the run-binding check in
+`_artifact_resolves` / `_entry_addresses`); and propagation of that rule into
+`docs/lifecycle/orchestration-model.md`, `docs/runtime/runtime-enforcement.md`, and
+`skills/uacp-verify/SKILL.md` step 7. Whether to build it is the same enforcement-gate tradeoff as
+node `09`.
 
 ### Why the two extra clauses (audit provenance)
 
