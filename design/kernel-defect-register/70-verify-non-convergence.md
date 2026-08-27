@@ -80,20 +80,33 @@ refuted by this bundle's own D-07.
 git change set, and the register calls that an independent witness. The accurate claims are
 narrower, and all three hold:
 
-1. **Every *blocking* gate consumes a declaration.** The one independently-witnessed input is
-   `SC_DIFF_*`, `warn` at both sites (D-07). Nothing that can refuse a transition reads reality.
-2. **The witness that exists could not have seen this defect anyway.** `SC_DIFF` asks *"did the
-   change set stay inside the declared write paths?"* — P1 is a data-loss bug *inside* a declared
-   path. A containment witness is the right shape for scope drift and the wrong shape for
-   correctness; promoting it to `block` would not have caught P1.
-3. **The generative gate asks the author to author the checks**, so it reaches only what the
-   author already suspects. The docstring above proves this author was thinking hard about
-   exactly this field — and nobody writes *"transition twice, confirm the field survives the
-   round-trip"* unless they already suspect the round-trip is lossy.
+**Blocking gates that read reality DO exist.** On `verify_exit`, `validate_graph_invariants`
+runs `validate_check_replay`, whose `behavioral` evaluator executes a real subprocess and whose
+`symbol_resolves` evaluator queries the real SCIP index — and replay hard-codes block severity
+for FAIL *and* ERROR (D-05 records this; the freeze is genuinely strong). So the premise is not
+"no gate reads reality."
 
-So the defect was unreachable by construction, not by oversight. Note that (2) is the
-load-bearing half: it is not enough to *have* a witness — the witness has to be pointed at the
-right question.
+The real partition is **who chose the question**, and both halves fail for P1:
+
+1. **Every blocking reality-reader is author-elected.** They run only if the author authored
+   that check, and `_check_unchecked_target` returns `[]` for a run with no check nodes at all
+   (D-05) — *"it does NOT force a zero-check run to adopt checks"*. So the set of realities
+   inspected is exactly the set the author already thought to name.
+2. **The one witness that is NOT author-elected is advisory and asks a different question.**
+   `SC_DIFF_*` fires on the run's real git diff regardless of what the author declared — but it
+   is `warn` at both sites (D-07), and it asks *"did the change set stay inside the declared
+   write paths?"* P1 is a data-loss bug **inside** a declared path. A containment witness is the
+   right shape for scope drift and the wrong shape for correctness; promoting it to `block`
+   (M3(c)) would not have caught P1.
+
+So: mandatory witnesses are advisory and aimed elsewhere; blocking witnesses are optional and
+scoped to what the author suspected. The docstring above proves this author was thinking hard
+about exactly this field — and nobody writes *"transition twice, confirm the field survives the
+round-trip"* unless they already suspect the round-trip is lossy. **Unreachable by construction,
+not by oversight.**
+
+The load-bearing point is (1) plus the aim in (2): it is not enough to *have* a reality-reader,
+or even a blocking one — something other than the author has to choose what it looks at.
 
 ### P2 — declaration and reality diverging inside one function
 

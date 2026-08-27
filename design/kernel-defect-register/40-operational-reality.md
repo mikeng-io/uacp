@@ -20,6 +20,15 @@ running at all.
 - `.claude/settings.local.json` → `"enabledPlugins": {}`, `"hooks": {}`
 - `~/.claude/plugins/installed_plugins.json` → 0 occurrences of `uacp`
 
+**Evidence, and its honest limit.** These three surfaces are machine-local by nature — two live
+in one user's home directory and the third is git-ignored — so this defect cannot be verified
+from the tree alone. The observation is serialized at
+[`evidence/d14-plugin-enablement-probe.json`](evidence/d14-plugin-enablement-probe.json):
+counts and the presence/absence of any `uacp` key, paths redacted, **no settings content
+copied**, plus the one-liner to re-run it. That makes the measurement inspectable and repeatable;
+it does not make one machine's environment reproducible. D-14 is **VERIFIED as of that capture**
+— re-run the probe before relying on it.
+
 So in the UACP repo itself, right now: the SessionStart injection does not fire, the Guardian
 PreToolUse hook does not fire, and none of the 18 governed writers are exposed. The only UACP
 content reaching an agent here is `CLAUDE.md` → `AGENTS.md`.
