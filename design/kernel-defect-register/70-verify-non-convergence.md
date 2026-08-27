@@ -30,11 +30,22 @@ Both verified directly in the code on `origin/feat/verify-grounding`, and both l
 `next`-response block — the M4 emission fix. So the fix for the emission gap introduced a
 data-loss bug and a null-out bug, and verify passed both.
 
-> **Evidence is transcribed below rather than cited to a branch.** Both findings live on
-> PR #172 at commit `545e3886840861a6848e5e1e9c62b7b82e8ffc7b` (`feat/verify-grounding`).
-> A branch ref is mutable and an unmerged commit is not reachable from a fresh clone, so the
-> decisive lines are quoted verbatim here — a calibration set that cannot be reproduced is
-> prose, not a calibration set.
+> **The evidence is EXECUTABLE, not quoted.** Run it:
+>
+> ```
+> python3 design/kernel-defect-register/evidence/p1-p2-calibration-probe.py
+> ```
+>
+> It demonstrates both defects against whatever tree it is invoked in — exit 0 while they
+> reproduce, exit 1 (with which one changed) once either is fixed, at which point it becomes a
+> regression guard. **Both still reproduce on `main` as of 2026-08-27**, so this is not an
+> argument about an unmerged branch: the defects are live in the shipped kernel.
+>
+> This replaces two weaker attempts. Citing PR #172 @ `545e3886` was unreproducible from a
+> fresh clone; the excerpts below were then abridged (`...`, a `# + …` summary, a placeholder)
+> and omitted `_save_manifest`, so they could not prove the loss either. The excerpts are kept
+> for reading convenience only — **the probe is the evidence**, and it constructs the round-trip
+> the excerpts could only describe.
 
 ### P1 — the author's blind spot, by construction
 

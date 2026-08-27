@@ -30,7 +30,11 @@ it does not make one machine's environment reproducible. D-14 is **VERIFIED as o
 — re-run the probe before relying on it.
 
 So in the UACP repo itself, right now: the SessionStart injection does not fire, the Guardian
-PreToolUse hook does not fire, and none of the 18 governed writers are exposed. The only UACP
+PreToolUse hook does not fire, and **none of the plugin's MCP tools are exposed** — which is
+the whole registry, not the writer subset. Stated precisely, because D-10 counts them and
+conflating the two corrupts the inventory: at audit time the registry held **18 tools = 15
+governed writers + 3 read-only**; `uacp_run_status` has since been added (M4), making it 19
+tools while the governed-writer list stays at 15. The only UACP
 content reaching an agent here is `CLAUDE.md` → `AGENTS.md`.
 
 This is not a code defect; it is the state that makes every other defect hard to notice. UACP is
@@ -50,8 +54,14 @@ no `hooks` key; the Codex adapter directory is a README with no adapter code; He
 `UACP.md`'s own header concedes it: *"Other runtimes … need their own session-start hook … until
 then their cognition surface is unenforced."*
 
-Two consequences worth separating. First, cross-runtime council and bridge work runs against
-agents that never received the preamble. Second, the injector declares **no `matcher`**, so
+Two consequences worth separating. First, cross-runtime council and bridge work can run against
+agents that never received the preamble — **but not all of them, and the exception matters**.
+Codex treats `AGENTS.md` as its native instruction convention
+(`docs/archived/2026-06-09-claude-agents-md-design.md:39-42`), and this repo's root `AGENTS.md`
+carries the CMS cognition principle. So a Codex reviewer launched from this repository or a
+review worktree **does** receive the cognition instructions — just not the separate `UACP.md`
+through a SessionStart hook. The claim holds only for runtimes with *neither* native `AGENTS.md`
+loading *nor* an injector; D-15 and its remediation overstate the gap if read more broadly. Second, the injector declares **no `matcher`**, so
 where it does fire it fires on every source including `compact` — which makes UACP's
 compaction posture mechanical rather than doctrinal, on Claude, and absent everywhere else.
 
