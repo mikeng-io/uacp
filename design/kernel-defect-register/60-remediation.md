@@ -225,3 +225,26 @@ floor from "the agent said so" to "the artifact resolves and the declared planes
 run" — that is conformance grounded in reality, which is strictly better than conformance
 grounded in assertion, and still not correctness review. That gap is a separate design problem
 and belongs with `design/grounded-governance/`, not here.
+
+---
+
+## Status / Checkpoint
+
+_2026-08-27_ — verified against `main` at this bundle's merge. Much of this node shipped while
+it was open, via the `feat/verify-grounding` lane (#173) and the mcp-pin work (#175):
+
+| Move | State | As-built |
+|---|---|---|
+| **M0** — enable the plugin here | **OPEN** | `enabledPlugins` still carries no `uacp` entry; the enforcement surface is still inert in its own dev environment |
+| **M1** — one gate resolver | **BUILT** | `state_machine.resolve_gates(from_phase, to_phase)`; the hand-maintained `+=` chain is gone |
+| **M2** — evidence-reference type | **BUILT** | `rework_completeness._artifact_resolves` — with a *stronger* run-binding than this node proposed: `_run_bound_under` requires a real delimiter after the run id and rejects `..`, so a run cannot discharge via a different run whose id merely shares its prefix |
+| **M3(a)** inferred-class floor | **PARKED** | gate-building; parks with the lane (node 70) |
+| **M3(b)** `build_code_index` caller | **PARKED** | same |
+| **M3(c)** promote the git witness | **BUILT** | `SC_DIFF_OUT_OF_SCOPE` is now `severity="block"` — and node 70 records that it *still* does not catch P1 |
+| **M3(d)** rework-cap breaker | OPEN | `RW_REWORK_DEPTH_ESCALATION` still warns at the cap |
+| **M4** — one response envelope | **BUILT** (partly) | the `next` block is emitted; `uacp_run_status` is registered (D-10); MCP ships `spec.schema_description` (D-12); the phantom `current.yaml` fields are gone from `uacp-context` (D-11). `Violation.detail` (D-09) still flattens |
+| **M5** — operational | OPEN | dispatch still passes prose rather than file paths |
+| **M6** — D-03 split | OPEN | the Guardian still does not see `Task` |
+
+**Read this before treating any move above as work still to do.** The register (00–40) describes
+the state at audit time; this table is where it stands now.

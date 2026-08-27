@@ -147,10 +147,15 @@ check.
 
 - **The register (`00`–`40`) stands.** Those 18 defects were found by reading the kernel, and
   the two above are the same method producing more. Nothing here is retracted.
-- **`60-remediation.md` is re-scoped, not deleted.** M2 (the evidence-reference type) and M4
-  (the response envelope) are corrections to specific broken mechanisms and remain valid on
-  their own terms. **M3 — "ground the planes that already exist" — is gate-building and is
-  parked** with the lane.
+- **`60-remediation.md` is re-scoped, not deleted** — and much of it has since SHIPPED; its
+  Status/Checkpoint block records what landed. M2 (the evidence-reference type) and M4 (the
+  response envelope) are corrections to specific broken mechanisms and were always valid on
+  their own terms; both are built.
+  **M3 is partly built, not wholly parked.** M3(c) — promoting the git witness to `block` —
+  landed, and (see above) still does not catch P1. Its remaining halves, M3(a) inferred-class
+  floor and M3(b) a production caller for `build_code_index`, are gate-building and stay parked.
+  The distinction matters: M3(c) closed a *containment* hole, which is worth having; it did not
+  move the correctness needle, which is this node's whole point.
 - **D-03 now has an owner** — it had none (`60-remediation.md` M6). Its Guardian-coverage half
   is gate-building and parks with the lane; its coherence half — a per-phase dispatch rule that
   reads as policy and is inert — is a cheap standalone fix and does not park.
