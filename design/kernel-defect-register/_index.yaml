@@ -32,7 +32,7 @@ description: >-
   underneath: UACP COMPUTES far more than it EMITS and GROUNDS far less than its own shipped
   tooling allows -- the design/grounded-governance/ diagnosis, reproduced independently from the
   kernel side.
-status: design
+status: accepted
 governance: pre-governance-input
 timestamp: '2026-08-22'
 origin: >-
@@ -49,6 +49,7 @@ members:
   - 40-operational-reality.md   # D-14..18: plugin inert here, Claude-only cognition, ~405-invocation runs, unenforced independence, router-as-incident-log
   - 50-superpowers-contrast.md  # the demoted comparison: corrected figures, the four places it earns a line, where the arrow reverses
   - 60-remediation.md           # DECISION: M0-M5 — four architectural moves grouped by root cause, sequenced by what unlocks what
+  - 70-verify-non-convergence.md # VERDICT (supersedes 60's standing): gate-building did not converge; verification is a semantic act, not a gate check
 
 # DERIVED: mirror of each node's `edges:` frontmatter.
 # rel enum: motivated_by|decides_on|realizes|depends_on|consumes|extends|sequences. provenance enum: derived|parsed|asserted|inferred.
@@ -66,3 +67,5 @@ edges:
   - {src: 60-remediation, dst: 20-grounding-defects, rel: decides_on, provenance: asserted}
   - {src: 60-remediation, dst: 30-emission-defects, rel: decides_on, provenance: asserted}
   - {src: 60-remediation, dst: 40-operational-reality, rel: decides_on, provenance: asserted}
+  - {src: 70-verify-non-convergence, dst: 60-remediation, rel: decides_on, provenance: asserted}
+  - {src: 70-verify-non-convergence, dst: 20-grounding-defects, rel: extends, provenance: asserted}
