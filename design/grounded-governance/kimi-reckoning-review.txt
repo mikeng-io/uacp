@@ -1,0 +1,229 @@
+kimi version 0.37.2
+Warning: [loop_control] 'max_retries_per_step' is deprecated and no longer used; rename it to 'max_attempts_per_step'. Run /update-config to fix it.
+• Let me read the required files first, plus the projection.py optionally. Then write the adversarial review.
+
+• I'll read the required files before forming the audit.
+
+• Let me also skim projection.py to judge the complexity claim, and maybe check the PR branch diff size. Let me look at the projection.py and maybe count the swarm size.
+
+• Now let me examine the gate implementation being deleted to judge the complexity claim.
+
+• The projection.py is 2719 lines — the "graph projection" engine. But wait — this seems to be the manifest-graph validator, not necessarily the grounding gates. Let me check what else was on PR #172 — the "gate swarm". Let me look for the grounding gate implementations. Let me check the worktree diff vs main to measure the swarm size.cae6551 design(grounded-governance): 09 — the reckoning (verify is RUN, not built; parked for redesign)
+c11b4c0 wip(grounding): Codex round 3 second batch — captured before PARKING (not pushed)
+545e388 fix(grounding): Codex round 2 + the fixpoint applied to my own fixes (screening #172)
+be36169 fix(grounding): dogfood screening (lens-driven) — class-complete run-binding + M5 simplify + siblings
+5845d32 fix(state): grounding gates always return 3-tuples (CodeQL #172 — multiple-assignment mismatch)
+4583692 fix(grounding): address Codex #172 review — 6 findings (3 P1, 3 P2)
+b1ced29 style: ruff format gitio / rework_completeness / scope_conformance (grounding work)
+1670cf8 fix(grounding): triage+propose discharge evidence lands under proposals/, not phantom triage//propose/
+d1a7cde feat(verify): grounded-governance node 06 — PROPOSE grounding screening gate
+337ce0a feat(verify-grounding): promote SC_PLAN_CASCADE_FORECAST to config-gated BLOCK (gg/07)
+f9ce464 fix+verify(triage): phase-appropriate discharge prefix + lint; TRIAGE integration green
+e21cb94 wip(triage): M1 tuple generalization + TRIAGE grounding gate + kind (unverified, agent died mid-test)
+4e7a8cf refactor(planes): grounding screening is a governance-plane review, NOT a council mode
+5fbceba design+council: correct PLAN node to reality; add TRIAGE+PROPOSE screening charges
+590c3e4 design(grounded-governance): 05-08 — the per-phase substrate producers
+4ce4b15 design(grounded-governance): 04 — grounding is per-phase, not verify-only (one machine, six substrates)
+00c0631 feat(verify): grounded-governance M3a+M4 — governed correctness_screening kind + findings-disposition gate
+0fe726e feat(council): slice 3b — the correctness-screening dispatch charge (Layer 2)
+66e6c2f feat(verify): Layer 2 FLOOR — kernel review substrate + grounded correctness-screening gate
+1faa2bb design(grounded-governance): Layer 2 — the correctness screening over the floor
+675229a refactor(state): unify phase-keyed structural gate identities behind one resolver (M1, D-01/D-02)
+e1a913a fix(verify): M4 follow-up — strict-type HeartgateDecision.findings (pyright)
+f55f797 fix(deps): cap mcp<2 — Server.list_tools removed in mcp 2.0 (pre-existing #161)
+e4c1855 feat(verify): M4 — structured response envelope for governed handlers (D-09..D-13)
+d053209 fix(verify): M5 D-17 ground council read-only/model-auth on script evidence; D-18 relocate router accretion
+c995d72 feat(rework): M3d — the rework-depth cap gets a real BREAKER (D-08)
+a54066e feat(verify): M3c — promote SC_DIFF_OUT_OF_SCOPE to a config-gated BLOCK (D-07)
+a07cb2a feat(verify): M3 — behavioral floor grounds VERIFY on the git witness (D-05)
+e1e535d design(verify): VERIFY is a substrate, not a role — expose the real work; agents screen through it
+43de71c fix(verify): M2 — evidence-reference type; a remediation's fix pointer must RESOLVE (D-04)
+---
+ tests/unit/uacp_core/test_tool_specs.py            |   14 +-
+ tests/unit/uacp_core/test_triage_grounding.py      |  418 +++++++
+ tests/unit/uacp_state/test_state_handlers.py       |   40 +
+ tests/unit/uacp_state/test_state_machine.py        |  139 +++
+ 68 files changed, 7082 insertions(+), 249 deletions(-)
+7082 insertions across 68 files. Let me get the full diffstat to see how big the "gate swarm" actually is. .act/release-tag-event.json                        |    2 +-
+ .claude-plugin/plugin.json                         |    2 +-
+ .github/workflows/release.yml                      |   61 +-
+ config/uacp.toml                                   |   98 ++
+ .../grounded-governance/00-the-correctness-gap.md  |   51 +
+ .../grounded-governance/01-the-review-substrate.md |   57 +
+ .../02-the-screening-dispatch.md                   |   60 +
+ .../grounded-governance/03-enforcement-and-loop.md |   71 ++
+ .../04-grounding-is-per-phase.md                   |   79 ++
+ design/grounded-governance/05-triage-substrate.md  |   73 ++
+ design/grounded-governance/06-propose-substrate.md |   66 ++
+ design/grounded-governance/07-plan-substrate.md    |   89 ++
+ .../08-execute-resolve-unification.md              |   59 +
+ .../09-the-reckoning-verify-is-run-not-built.md    |   66 ++
+ design/grounded-governance/_index.yaml             |   47 +
+ .../verify-substrate/00-the-substrate-principle.md |   63 +
+ .../verify-substrate/01-what-the-substrate-is.md   |   68 ++
+ .../02-screening-and-how-pieces-slot.md            |   64 ++
+ design/verify-substrate/_index.yaml                |   32 +
+ docs/runtime/runtime-enforcement.md                |    2 +-
+ pyproject.toml                                     |    2 +-
+ runtime-adapters/mcp/uacp_mcp_server.py            |    5 +-
+ scripts/validate_uacp_artifacts.py                 |  198 +++-
+ scripts/verify_release_tag.py                      |  167 +++
+ skills/uacp-bridge/SKILL.md                        |    2 +-
+ .../references/uacp-state-integration.md           |   16 +-
+ skills/uacp-core/scripts/engines/base.py           |   25 +
+ skills/uacp-core/scripts/engines/domain/layout.py  |   44 +
+ skills/uacp-core/scripts/engines/domain/schema.py  |  191 ++++
+ .../uacp-core/scripts/engines/graph_projection.py  |   14 +
+ .../scripts/engines/heartgate/heartgate.py         |   42 +-
+ .../uacp-core/scripts/engines/heartgate/models.py  |    8 +
+ skills/uacp-core/scripts/engines/io/__init__.py    |   10 +-
+ skills/uacp-core/scripts/engines/io/gitio.py       |   98 ++
+ .../scripts/engines/manifest/projection.py         | 1205 +++++++++++++++++++-
+ .../scripts/engines/rework_completeness.py         |  243 ++--
+ .../uacp-core/scripts/engines/scope_conformance.py |  104 +-
+ skills/uacp-core/scripts/governed_handlers.py      |    4 +
+ skills/uacp-core/scripts/tool_specs.py             |   44 +-
+ skills/uacp-council/references/phase-4-dispatch.md |    2 +-
+The projection.py grew by 1205 lines on this branch — that's the grounding gate swarm inside projection.py. Total branch: 7082 insertions, of which ~550 are design docs, ~800+ tests, and the rest gates/resolvers/kinds/config.
+
+  Let me skim the projection.py additions to judge the complexity. The file is 2719 lines total, 1205 added on this branch. Let me look at key parts of what was added — grep for the new gate codes.+_CODE_SUFFIXES = (
++_BEHAVIORAL_FLOOR_DEFAULT_SEVERITY = "warn"
++def _behavioral_floor_severity(root: Path) -> str:
++def validate_behavioral_floor(workspace: str | Path, run_id: str) -> list[Violation]:
++_CORRECTNESS_SCREENING_KIND = "uacp.correctness_screening"
++_CORRECTNESS_SCREENING_DEFAULT_SEVERITY = "warn"
++def _correctness_screening_severity(root: Path) -> str:
++def _substrate_hash(dc: DiffContentResult) -> str:
++def _correctness_screening_docs(
++def _correctness_screening_hashes(workspace: str | Path, run_id: str, root: Path) -> list[str]:
++def validate_correctness_screening(workspace: str | Path, run_id: str) -> list[Violation]:
++def _s(v: Any) -> str:
++def _screening_schema_valid(doc: dict[str, Any]) -> bool:
++def _finding_dispositioned(
++def validate_correctness_findings(workspace: str | Path, run_id: str) -> list[Violation]:
++_TRIAGE_SCREENING_KIND = "uacp.triage_screening"
++_TRIAGE_DECL_KINDS = ("uacp.triage", "uacp.scope")
++_TRIAGE_GROUNDING_DEFAULT_SEVERITY = "warn"
++def _triage_grounding_severity(root: Path) -> str:
++def _run_kind_docs(
++def _triage_declared_targets(root: Path, run_id: str) -> list[str]:
++def _target_state(root: Path, target: str) -> tuple[bool, str, int]:
++def _triage_substrate(root: Path, targets: list[str]) -> list[tuple[str, bool, str, int]]:
++def _triage_substrate_hash(substrate: list[tuple[str, bool, str, int]]) -> str:
++def _triage_screening_docs(root: Path, run_id: str) -> list[dict[str, Any]]:
++def _triage_screening_hashes(root: Path, run_id: str) -> list[str]:
++def validate_triage_screening(workspace: str | Path, run_id: str) -> list[Violation]:
++def validate_triage_findings(workspace: str | Path, run_id: str) -> list[Violation]:
++_PROPOSE_SCREENING_KIND = "uacp.propose_screening"
++_PROPOSE_DECL_KINDS = ("uacp.proposal", "uacp.propose")
++_PROPOSE_PREMISE_FIELDS = (
++_PROPOSE_GROUNDING_DEFAULT_SEVERITY = "warn"
++def _propose_grounding_severity(root: Path) -> str:
++def _propose_premise(root: Path, run_id: str) -> dict[str, Any]:
++def _propose_substrate_hash(premise: dict[str, Any]) -> str:
++def _propose_screening_docs(root: Path, run_id: str) -> list[dict[str, Any]]:
++def _propose_screening_hashes(root: Path, run_id: str) -> list[str]:
++def validate_propose_screening(workspace: str | Path, run_id: str) -> list[Violation]:
++def validate_propose_findings(workspace: str | Path, run_id: str) -> list[Violation]:
+The swarm is real: per-phase validators with per-phase kinds, severity resolvers, substrate hashes, screening-docs resolvers, findings disposition validators — each ~duplicated per phase (TRIAGE, PROPOSE, VERIFY/correctness). Roughly 30+ new functions in one file, plus schema.py +191, layout.py +44, config +98.
+
+  I have enough to write the audit. Let me also quickly consider the counterexamples for section 3:
+
+  - Fuzzing: AFL/libFuzzer run-until-clean works because the oracle is deterministic (crash = crash). Coverage-guided, corpus persists, minimization. "Clean" = N runs with no crash — statistical, but the oracle is mechanical. Fails when oracle is semantic.
+  - Type checkers: convergence guaranteed because the check is decidable and deterministic; fixpoint terminates (monotone).
+  - Property testing (Hypothesis): shrinkers; works because oracle is an executable assertion.
+  - CI: flaky tests — "run until green" is a known anti-pattern; retry-until-pass masks real defects. Direct counterexample to "clean round" trustworthiness.
+  - Distributed consensus: Paxos/Raft terminate because safety is checkable and quorum deterministic; async fallible "screening" has no FLP-proof.
+  - Review to zero findings: in human security review, "clean round" after 3 rounds is weak evidence — audit fatique. But diminishing returns + scope freeze is the standard practice (time-boxed audits, not open-ended).
+  - Compiler warnings → -Werror ratchet: deterministic, converges.
+
+  Failure modes of redirect:
+  (a) The run-loop not converging: the screening is semantic, so each round can surface new defect classes — same as the external reviewer did. Nothing intrinsic guarantees convergence; convergence depends on the code being small and the reviewer being stronger than the defects' subtlety. The honest control is a scope freeze + a stop rule (bounded rounds, escalate to human on non-convergence) — which they kind of have via rework cap M3d.
+  (b) "A small gate enforcing the run" — the difference is the small gate checks a mechanical property (screening artifact keyed to current substrate hash exists, verdict typed, findings dispositioned). That's a turnstile check — decidable, tiny. The swarm was per-phase bespoke semantic-ish machinery with its own parsers. But note: the swarm ALSO mostly did mechanical checks (artifact exists, covers hash, findings dispositioned). The actual defect wasn't that gates are declarative — the gates never claimed to find bugs; the defect was that the swarm ITSELF was 1200 lines of new unverified code. So the "gates can't verify" framing slightly misdiagnoses: gates were never supposed to verify; the failure was building a large verification-adjacent machine and not screening it to convergence before merge. The redirect keeps one small turnstile gate — which is exactly what the swarm's individual pieces were, just fewer of them. So the redirect = the swarm minus per-phase duplication minus premature severity promotion. That's an incremental fix, not a paradigm shift. The "RUN not built" rhetoric oversells.
+
+  Actually wait — I should be careful and adversarial both ways. Charge 1 asks: is the verdict sound or rationalization? Evidence:
+  - Findings went 6→4→8, different bugs each round, several self-introduced during fixes. Non-convergence of a large rushed diff is exactly what you'd expect for ANY 7k-line PR with three review rounds, regardless of architecture. The observation "findings don't trend to zero in 3 rounds" does NOT discriminate between "gates are the wrong architecture" and "the code was too big/rushed." Classic underdetermined inference. The verdict overclaims causality.
+  - However, there IS a real signal: the author violated their own don't-review-a-fix-into-a-new-defect rule repeatedly — each fix spawned siblings. That suggests the code's edge-case density was high, which supports "complexity is the enemy." The per-phase triplication in projection.py is visible: same machinery ×3 phases. The design itself (04: one machine six substrates) invited the swarm — the per-phase generalization multiplied the surface before a single instance converged. So the true lesson is sequencing: they built breadth (6 phases) before depth (1 phase converged). The redirect corrects the sequencing, not the fundamental architecture.
+  - Probability verdict correct vs cope: I'd say the parking decision is right (~75-80%), but the stated REASON ("gates don't verify") is half-wrong — gates were never the verification; the machine was too big to verify with the process they had. The verdict conflates "this implementation of gates failed to converge" with "gates can't verify." Actually the doc's own redirect keeps a deterministic gate (the turnstile), so it contradicts its own headline. The headline "gates don't verify" is rhetorically overreaching; the operational content (delete swarm, keep substrate+lenses+fixpoint+small turnstile) is sound.
+
+  Cheapest thing that would have made it converge: build ONE phase (VERIFY) only, hold it warn-severity, screen the diff to a clean round BEFORE adding TRIAGE/PROPOSE/PLAN instances. I.e., converge one instance, then generalize. Also: code-freeze during review rounds; don't fix-forward within a round — batch findings, re-screen full substrate not just delta.
+
+  Is parking right? Salvageable: yes — the substrate producers and lenses are kept; the per-phase swarm deletion loses mostly duplicated machinery. But some real value in the swarm: schema-validated screening artifact kind, substrate-hash keying, findings disposition, cannot_verify handling — those survive conceptually in the redirect. Deleting code is cheap to redo now that the design lesson is learned. Parking is right because merging a 7k-line non-converged gate machine into the governance kernel would put unverified code in the trust path — the worst place for it. Opportunity cost is low: the design docs remain.
+
+  Section 4 — concrete design:
+  Minimal mechanism:
+  1. `substrate(run_id)` — deterministic producer: merge-base..HEAD diff + reality-run transcript, hashed. (exists: gitio.diff_content)
+  2. `screen(substrate_hash)` — dispatch one adversarial reviewer (cross-provider, neutral charge + lenses) with writable scratch; output typed artifact {substrate_hash, verdict, findings[], screener_identity, rounds}.
+  3. Fixpoint rule (the only gate): VERIFY crossing blocks unless there exists a screening artifact whose substrate_hash == current hash AND verdict==clean AND round N+1 on the same hash found nothing new after the fix that produced this hash. I.e., clean round must be on the FINAL substrate. Determinism lives in: hash equality, artifact existence, verdict typing, disposition status, rework cap counter. Semantic judgment lives in: the read itself.
+  4. Convergence control: max rounds (breaker, exists as M3d), and non-convergence escalates to human rather than silently passing or looping forever. Scope freeze: fixes that touch outside the delta invalidate the whole screening (hash changes) — that's automatic via hash.
+  5. Non-determinism handling: two screeners disagree → treat disagreement as a finding (must be adjudicated), not averaged away. Cheap version: require the clean round from a DIFFERENT screener than the one whose findings were fixed (independence — already a UACP principle: council-reviewer-independence).
+  6. Keep it one phase until converged.
+
+  Determinism vs semantics: hash, existence, typing, round counters, cap = deterministic turnstile (~100 lines, not 1200). The read, the lenses, the verdict = semantic.
+
+  Sharpest objection candidates:
+  - The redirect's own evidence refutes its headline: the thing that caught the fail-open "before the external reviewer" was a run of a screening — but the screening procedure, lenses, and typed artifact output were ALL designed/built inside the very bundle being deleted (grounding-screening.md ships on this branch). The redirect keeps the bundle's deliverables and deletes the enforcement that made them non-skippable. Without the gate, "RUN a screening" is a prompt convention — exactly the self-attestation disease UACP exists to cure. The reckoning doc says keep a "small gate as turnstile" — so the honest design is gate + run, i.e., the swarm's architecture, shrunk. The verdict's causal claim (non-convergence proves gates don't verify) is underdetermined: 3 rounds of review on a 7k-line diff with fix-forward churn would not converge for ANY architecture; the observed failure is explained fully by size + churn + breadth-before-depth sequencing. That's the sharpest objection: the evidence doesn't distinguish the verdict from its negation.
+
+  Also could mention: "clean round" is unfalsifiable-ish; absence of evidence ≠ evidence of absence; security audits never certify correctness, they time-box. The fixpoint is a heuristic stop rule, and that's fine — but call it that, not "convergence is the pass condition."
+
+  CI retry-until-green counterexample for 3c. Fuzzing works because oracle mechanical. Flaky test quarantine. Also: reviewer fatigue / asymmetric strength — if screener model ≤ author model, clean round is noise. Cross-provider mitigates correlated blindness but not absolute capability floor.
+
+  For 3b: the small gate is fine because its property is decidable; the difference from the swarm is size/duplication, not kind. "Gates with extra steps" — no, it's a gate that guards a semantic check's occurrence rather than its content. That's the standard pattern: you can't verify the proof, but you can verify a proof was checked by an independent checker (like requiring CI status + 2 approvals in GitHub branch protection — the gate doesn't review, it enforces process).
+
+  Now write the output. Terse, technical, plain text. One-line verdict + confidence %. I'm PARTIALLY AGREE — parking correct (~80%), verdict's causal reasoning overclaimed.
+
+  Length: substantial but terse. Let me write it.
+
+• VERDICT: PARTIALLY AGREE — parking PR #172 is correct (~80% confidence), but the stated reason ("non-convergence proves gates don't verify") is overclaimed; the evidence supports a narrower, less flattering diagnosis.
+
+  ## 1. Refuting the verdict's logic
+
+  The inference "findings went 6→4→8, therefore gates are the wrong architecture" is underdetermined. Three non-converging review rounds on a **7,082-insertion, 68-file diff** (`git diff --stat main...HEAD`) with fix-forward churn is exactly what you get for *any* architecture at that size and velocity. The observation does not discriminate between:
+
+  - H1 (Claude's): declarative gates cannot verify semantic work, so the approach is doomed;
+  - H2 (the mundane one): the author built breadth before depth — the per-phase generalization in `04-grounding-is-per-phase.md` ("one machine, six substrates") tripled the machinery (VERIFY + TRIAGE + PROPOSE validators, each with its own kind, severity resolver, substrate hash, screening-docs resolver, findings-disposition validator — ~30 new functions in `projection.py` alone, +1,205 lines there) **before a single instance had converged**, then fixed findings inside live review rounds, violating its own `don't-review-a-fix-into-a-new-defect` rule.
+
+  H2 fully explains the data. Worse for H1: the gates never claimed to *find* bugs. `validate_correctness_screening` and friends check artifact-exists / hash-covers / findings-dispositioned — mechanical turnstile checks. The external reviewer did the semantic work *by design* (`grounding-screening.md` says the screening is the read; the gate enforces non-skippability). So "gates don't verify" attacks a claim the design never made. The actual failure: **the swarm itself was 1,200+ lines of new, unverified code sitting in the trust path**, and it was never screened to convergence before more instances were piled on.
+
+  And the verdict self-refutes: the redirect's step 4 keeps "a deterministic gate whose ONLY job is to make the screening non-skippable and enforce convergence." That *is* a gate. The paradigm didn't change; the size did.
+
+  Honest probabilities: the **parking decision** is right (~80%). The **verdict as stated** ("non-convergence proves gates don't verify") is ~40% cope — it's a true observation (complexity outran the review process) dressed in a false causal claim (declarative vs. semantic is why it failed). The correct lesson is sequencing and size control, not architecture category.
+
+  ## 2. Is parking right?
+
+  Yes, and it isn't a dead end — it's a partially-collapsed checkpoint.
+
+  - **Right to not merge:** merging a non-converged gate machine into the governance kernel puts unverified code in the very path trusted to verify. That's the worst possible location for it. Round 3 finding 8 *new* real bugs (including fail-open `cannot_verify` handling and glob `../` traversal — the latter a *security* hole in a *governance* gate) is disqualifying for a merge.
+  - **Salvageable:** clearly. The branch's durable value is already identified: `gitio.diff_content`, the substrate-hash keying, the typed screening artifact schema, the lenses in `grounding-screening.md`, and the config-gated severity mechanism. Deleting the per-phase triplication costs little — it's mostly copy-shaped code (compare `validate_triage_screening` / `validate_propose_screening` / `validate_correctness_screening`: same skeleton, three times).
+  - **Cheapest convergence path that was skipped:** build **one** phase (VERIFY) at warn severity, freeze scope, screen the *whole substrate* (not just fix deltas) to a clean round, merge; *then* generalize per phase. Batch findings per round instead of fixing inside the round — every intra-round fix moved the substrate and invalidated the screening that produced the prior findings, which is precisely why each round surfaced new bugs. The fixpoint discipline existed on paper and wasn't applied to the PR itself. Dogfood failure, not concept failure.
+
+  ## 3. Attacking the redirect
+
+  **(a) Does the RUN-loop converge?** No guarantee — and the redirect's own evidence admits it: Codex found *different* bug classes each round because a semantic screener's coverage is not monotone. What makes "run until clean" terminate in practice is not the loop but a **stop rule + scope freeze**: bounded rounds (the M3d rework breaker already exists), escalation to a human on non-convergence, and a frozen substrate during the clean round. Without those, the redirect is the same whack-a-mole with better rhetoric. Convergence is a heuristic exit condition, not a fixpoint in the mathematical sense — call it that.
+
+  **(b) Isn't the small gate just gates again?** Yes — and that's fine. The distinction that survives scrutiny is not declarative-vs-semantic; it's **check-the-occurrence vs. check-the-content**. A turnstile gate ("a screening artifact keyed to the *current* substrate hash exists, verdict typed, findings dispositioned, round counter within cap") is decidable in ~100 lines. This is the standard pattern everywhere: GitHub branch protection doesn't review code, it enforces that review *happened*; `-Werror` doesn't prove correctness, it enforces that the compiler *ran clean*. The swarm's sin was not being gates — it was being 12 gates × 3 phases with bespoke parsers each.
+
+  **(c) What makes a clean round trustworthy?** Mostly nothing intrinsic. Counterexamples:
+  - **CI retry-until-green** is a known anti-pattern: a clean run of a flaky suite is evidence of luck, not health. A semantic screener is a flaky oracle by construction.
+  - **Security audits** never certify "clean"; they time-box and report residual risk. A clean round after N rounds is a *stopping rule*, not a proof. The design should say "residual risk accepted by a human" at the boundary, not "convergence is the pass condition."
+  - **Asymmetric capability:** if the screener model ≤ the author model, clean rounds are noise. Mitigation that actually works: the clean round must come from a *different* screener (different provider/family) than the one whose findings were fixed — independence is already a UACP principle (`council-reviewer-independence`); wire it into the pass condition, don't leave it as taste.
+
+  **(d) Non-determinism.** Two runs disagree → treat **disagreement itself as a finding** requiring adjudication, never majority-vote it away. This is how distributed consensus handles it: you don't average divergent states, you force them through the protocol. Where "run until clean" genuinely works in industry, the oracle is mechanical: fuzzing (crash = crash, coverage-guided, corpus persisted, crashes minimized), property testing (executable assertion + shrinker), type checkers (decidable, monotone fixpoint). In all of these the *oracle* is deterministic and only the *search* is semantic. UACP's screening has a semantic oracle — so it can borrow the loop shape but not the convergence guarantees. The honest import from fuzzing is: **persist the corpus** (findings registry → regression tests), so each found defect class becomes a deterministic check next time. That's how a semantic loop amortizes into deterministic floor over time. Nothing in the redirect says this; it should.
+
+  ## 4. The real design, concretely
+
+  Minimal mechanism, five pieces:
+
+  1. **`substrate(run_id) -> (bytes, hash)`** — deterministic producer, already built: merge-base..HEAD diff + reality-run transcript. Keep.
+  2. **`screen(substrate_hash, screener_id) -> artifact`** — one adversarial dispatch, neutral charge + lenses, writable scratch, typed output `{substrate_hash, verdict: clean|findings|cannot_verify, findings[], screener}`. Semantic. Keep `grounding-screening.md` as-is; it's the best artifact on the branch.
+  3. **The turnstile gate (the only gate)** — VERIFY crossing blocks unless: (i) a screening artifact exists whose `substrate_hash == current_hash`; (ii) verdict == `clean`; (iii) that clean round's screener ≠ the screener of any findings-round on the prior hash (independence); (iv) all prior findings dispositioned with resolving fix pointers; (v) round count < cap, else escalate-to-human (never silent-pass, never loop). All five checks are mechanical. Target: one file, <150 lines, one phase. Severity starts at warn, promotes to block only after N clean dogfood runs — the config-gated severity ladder was a good idea, applied too early.
+  4. **Findings → corpus** — every confirmed finding spawns a deterministic regression check (test, lint rule, schema constraint) where expressible. This is the only mechanism that makes the loop *cheaper over time* instead of a perpetual semantic tax.
+  5. **Scope freeze during a round** — fixes land, hash changes, *full* substrate re-screened (not delta-only; delta screening is what let sibling defects slip). Batch reviewer findings per round; no intra-round fix-forward.
+
+  Determinism lives in: hashing, artifact existence, hash equality, verdict typing, disposition resolution, round counting, screener-identity inequality. Semantic judgment lives in: the read, the lenses, the verdict, the adjudication of disagreements. Everything else — the six-substrate generalization, per-phase resolvers, disposition-loop machinery — waits until one instance has survived a clean round from a cross-provider screener.
+
+  ## SHARPEST OBJECTION
+
+  The redirect deletes the only thing that made the screening *non-skippable*, while keeping the screening — and calls that the fix. Strip the rhetoric and the surviving design is: **substrate producer + semantic read + one turnstile gate**. That is the swarm's architecture, shrunk to one instance. So the verdict's headline ("verify is RUN, not built; gates don't verify") is contradicted by its own redirect (step 4: a gate enforces the run), and the non-convergence it cites as proof is equally well — better — explained by "7k lines, three phases at once, fix-forward churn, no scope freeze." The true lesson is *converge one instance before instantiating six*, which is a sequencing failure Claude is rebranding as a paradigm discovery. The risk: the rebrand licenses deleting enforcement machinery and replacing it with a prompt convention ("run a screening") — i.e., re-opening the exact self-attestation hole the whole bundle existed to close. If the rebuild ships the loop without the turnstile gate from step 4, it will have regressed to pre-#172 verify-theater with better documentation.
+
+To resume this session: kimi -r session_fab8d1b1-131d-42f3-a438-4a7d3cd16c7f
