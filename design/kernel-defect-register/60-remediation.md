@@ -230,7 +230,7 @@ and belongs with `design/grounded-governance/`, not here.
 
 ## Status / Checkpoint
 
-_2026-08-27_ — verified against `main` at this bundle's merge. Much of this node shipped while
+**2026-08-27** — verified against `main` at this bundle's merge. Much of this node shipped while
 it was open, via the `feat/verify-grounding` lane (#173) and the mcp-pin work (#175):
 
 | Move | State | As-built |
