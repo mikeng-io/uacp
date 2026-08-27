@@ -71,6 +71,35 @@ regime (node `10` L2) shipped with a rationale that *misstated the gate's severi
 "carrying rationale" is a structural bar the kernel validates for shape, not adequacy, and that
 independent review of a deferral is therefore load-bearing, not optional.
 
+## Enforcement status (honest scope — subagent review, third pass)
+
+An independent subagent review verified every factual claim against the code (PASS: disposition enum
+at `validate_uacp_artifacts.py:73`; cap codes are `block` at `rework_completeness.py:583`/`:169`;
+discharge = adjudicate-AND-well-formed at `:491-494`; severity is council-gated config) and then found
+the control's real limit: **materiality classification and the countersignature are, in the kernel
+today, prose — author-self-declared and un-witnessed.** No `material` / `countersigned_by` field exists
+on `handled_findings_chain`; the kernel validates disposition *shape* (`_CANONICAL_DISPOSITION_REQUIRED_FIELDS`,
+`rework_completeness.py:120-129`), never *who signed* or *whether the finding is material*. So the hole
+moves one step upstream: an author could relabel a material (under-enforcing) defect as
+"non-material / over-enforcing" and discharge it solo — the countersignature never fires. This node's
+own L2 example (an author misstating a gate's severity) is the worked proof.
+
+Two responses:
+
+1. **Norm-level closure (applied):** materiality is **read from the finding's source** — the external
+   reviewer's severity or the firing gate's council-gated severity, under the failure-direction rule —
+   **not (re)assigned by the author**. A Codex/Kimi P1 on a block-gate is material by its source; the
+   author cannot downgrade it. This makes the label witness-anchored, not judgment-anchored, without a
+   new gate.
+2. **Enforcement (tracked follow-on, NOT built):** a governed `material` + `countersigned_by` field on
+   the disposition, and a gate that — for any finding whose source severity is `block` or class ∈
+   {blocker, invariant_failure} — requires a resolving fix OR a countersignature by an identity
+   distinct from the run's author (mirroring the run-binding check in `_artifact_resolves` /
+   `_entry_addresses`). Whether to build this is the **same tradeoff as the whole effort** (node `09`):
+   it is another enforcement gate, with its own edge cases. Until it is built, Invariant #4's
+   material-finding teeth are a **documented norm, not a kernel-witnessed gate** — and the invariant
+   text now says so plainly rather than implying enforcement that does not exist.
+
 ## Why this is the fix to the spiral, not a loophole
 
 Node `09`'s lesson: grounding-as-gates never reaches zero findings, so "reviewer is silent" is an

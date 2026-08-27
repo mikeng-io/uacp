@@ -37,9 +37,10 @@ adjudication** (decision + rationale + cost-if-wrong) may still emit an ordinary
 
 **Ruling** (cross-provider audit, Kimi, reading the code): this is **intended strictness, not a
 liveness bug.** A canonically well-formed accepted-exception entry *automatically* satisfies
-`_disposition_complete` (well-formedness requires `residual_risk` for carry-forward classes). So the
-only adjudication-complete-but-not-discharged state is a complete adjudication sitting on a
-*structurally malformed* canonical item — and the escape is **completing the canonical fields**
+`_disposition_complete` (well-formedness requires `residual_risk` for carry-forward classes). So for an
+accepted-exception (`deferred`) entry, the only adjudication-complete-but-not-discharged state is a
+complete adjudication sitting on a *structurally malformed* canonical item (a remediation-class entry
+can also fail discharge via a non-resolving `handling_artifact_path`, but that is not L2's case) — and the escape is **completing the canonical fields**
 (`heartgate_validation`, `next_phase_obligation`, …), i.e. record-completion, not remediation. This is
 consistent with `#149` fail-closed-on-malformed-disposition. It is not a deadlock.
 
