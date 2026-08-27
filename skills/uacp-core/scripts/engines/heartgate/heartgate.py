@@ -143,6 +143,11 @@ class Heartgate:
     def validate_transition(self, artifact: Mapping[str, Any]) -> HeartgateDecision:
         blockers: list[str] = []
         warnings: list[str] = []
+        # ADDITIVE structured envelope (D-09): findings accumulate the structured
+        # form of any Violation-producing sub-validator (currently artifact-integrity)
+        # so ``detail`` reaches programmatic consumers alongside the flattened
+        # ``blockers`` string list, which the MCP boundary + many tests still read.
+        findings: list[dict] = []
 
         for field_name in self.required_fields:
             if field_name not in artifact:
@@ -203,7 +208,7 @@ class Heartgate:
         self._validate_heartgate_coherence(artifact, blockers, warnings)
         self._validate_heartgate_coherence_requirement(artifact, blockers)
         self._validate_phase_exit_invariants(artifact, blockers, warnings)
-        self._validate_artifact_integrity(artifact, blockers)
+        self._validate_artifact_integrity(artifact, blockers, findings)
         self._validate_adaptive_proposal_package_gate(artifact, blockers)
         self._validate_convergence_budget_gate(artifact, blockers)
         self._validate_adaptive_plan_package_gate(artifact, blockers)
@@ -225,12 +230,12 @@ class Heartgate:
             blockers.append("transition artifact declares block")
 
         if blockers:
-            return HeartgateDecision("block", "transition blocked", blockers, warnings)
+            return HeartgateDecision("block", "transition blocked", blockers, warnings, findings)
         if declared_decision == "warn" or warnings:
             return HeartgateDecision(
-                "warn", "transition passes with accepted warnings", [], warnings
+                "warn", "transition passes with accepted warnings", [], warnings, findings
             )
-        return HeartgateDecision("pass", "transition passes", [], [])
+        return HeartgateDecision("pass", "transition passes", [], [], findings)
 
     # routing_advisory enum — the four governance DEPTHS the scope package may carry
     # (mirrors schema.py uacp.brainstorm_scope_package; NOT the 5-value routing_outcome
@@ -647,6 +652,11 @@ class Heartgate:
 
             blockers: list[str] = []
             warnings: list[str] = []
+            # ADDITIVE structured envelope (D-09): keep the flattened string lists
+            # (many consumers + the MCP boundary read them) but ALSO carry each
+            # violation's structured form through the ONE shared serializer, so
+            # ``detail`` reaches programmatic consumers instead of being discarded.
+            findings: list[dict] = [v.as_finding() for v in violations]
             for v in violations:
                 line = f"{v.code}: {v.message}"
                 if v.severity == "block":
@@ -679,13 +689,15 @@ class Heartgate:
 
             if blockers:
                 return HeartgateDecision(
-                    "block", "closure blocked by computed engines", blockers, warnings
+                    "block", "closure blocked by computed engines", blockers, warnings, findings
                 )
             if warnings:
                 return HeartgateDecision(
-                    "warn", "closure passes with engine warnings", [], warnings
+                    "warn", "closure passes with engine warnings", [], warnings, findings
                 )
-            return HeartgateDecision("pass", "closure passes all computed engines", [], [])
+            return HeartgateDecision(
+                "pass", "closure passes all computed engines", [], [], findings
+            )
         except Exception as exc:  # defensive: a closure check must never crash the kernel
             return HeartgateDecision(
                 "block",
@@ -788,13 +800,23 @@ class Heartgate:
         )
 
     def _validate_artifact_integrity(
-        self, artifact: Mapping[str, Any], blockers: list[str]
+        self,
+        artifact: Mapping[str, Any],
+        blockers: list[str],
+        findings: list[dict] | None = None,
     ) -> None:
         """Hardening #6: run the artifact-integrity (SHA-256 watermark) check at
         EVERY transition, not only at terminal closure, so an out-of-band tamper of
         a recorded artifact is caught at the boundary instead of being swapped back
         before RESOLVE. No-op on runs with no watermark index (legacy / non-governed-
-        writer runs). The engine never raises."""
+        writer runs). The engine never raises.
+
+        ADDITIVE structured envelope (D-09): the flattened ``f"{code}: {message}"``
+        blocker string is kept, but each blocking violation ALSO carries its
+        structured form (via the ONE shared ``Violation.as_finding()`` serializer)
+        into ``findings`` when the caller supplies the accumulator — so the tamper's
+        ``detail`` (path/target/artifact) reaches programmatic consumers instead of
+        being destroyed at the boundary."""
         run_id = str(artifact.get("run_id") or "")
         if not run_id:
             return
@@ -802,6 +824,8 @@ class Heartgate:
         for v in validate_artifact_integrity(self.uacp_root, run_id):
             if v.severity == "block":
                 blockers.append(f"{v.code}: {v.message}")
+                if findings is not None:
+                    findings.append(v.as_finding())
 
     def _validate_adaptive_proposal_package_gate(
         self, artifact: Mapping[str, Any], blockers: list[str]

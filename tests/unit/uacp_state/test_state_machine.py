@@ -9,14 +9,22 @@ import pytest
 import yaml
 
 from state_machine import (
+    VALID_TRANSITIONS,
     Authority,
     RunManifest,
     Status,
+    _gates_for_exit,
+    _run_forced_brainstorm_exit_gate,
+    _run_forced_execute_evidence_gate,
+    _run_forced_plan_exit_gate,
+    _run_forced_proposal_coverage_gate,
+    _run_forced_verify_evidence_gate,
     handle_finalize,
     handle_init,
     handle_read,
     handle_register_artifact,
     handle_transition,
+    resolve_gates,
 )
 
 
@@ -469,3 +477,107 @@ class TestHandleInitTrackFields:
         # No manifest should have been created
         manifest_path = temp_uacp_root / ".uacp" / "state" / "runs" / "uacp-bad-track.yaml"
         assert not manifest_path.exists()
+
+
+class TestStructuralGateResolverInvariant:
+    """M1 (D-01 / D-02): the phase-keyed structural gate identities live in ONE place
+    now — ``resolve_gates`` / ``_PHASE_GATE_TABLE``. These equality-invariant tests pin
+    that the read-only naming (``_gates_for_exit`` / ``next.will_be_gated_on``) and the
+    live forced-gate dispatch BOTH derive from the resolver, so a gate added in one
+    place but not the resolver can no longer hide. Grounded against an INDEPENDENT spec
+    (the design intent) so re-hardcoding a gate elsewhere is caught, not rubber-stamped.
+    """
+
+    # The design-intent mapping, authored here independently of the implementation so
+    # the assertions are non-vacuous: a token uniquely identifying each phase's forced
+    # gate, and the set of phases whose exit is structural-graph-gated (D35).
+    _EXPECTED_FORCED_TOKEN = {
+        "brainstorm": "forced_brainstorm_exit",
+        "propose": "forced_proposal_coverage",
+        "plan": "forced_plan_exit",
+        "execute": "forced_execute_evidence",
+        "verify": "forced_verify_evidence",
+    }
+    _EXPECTED_GRAPH_GATED = {"plan", "execute", "verify"}
+
+    def test_table_matches_independent_spec(self):
+        """The resolver table agrees with the independent design-intent spec for every
+        from_phase: graph-gating exactly on {plan, execute, verify}; a forced gate with
+        the expected identity exactly on the five gated phases; none elsewhere."""
+        for phase in VALID_TRANSITIONS:
+            spec = resolve_gates(phase)
+            assert spec.graph_gated == (phase in self._EXPECTED_GRAPH_GATED), phase
+            if phase in self._EXPECTED_FORCED_TOKEN:
+                assert spec.forced is not None, phase
+                assert self._EXPECTED_FORCED_TOKEN[phase] in spec.forced.label, phase
+            else:
+                assert spec.forced is None, phase
+
+    def test_gates_for_exit_derives_from_resolver(self):
+        """The read-only naming is exactly the resolver's projection: canonical FROM->TO
+        records (incl. TRIAGE_COMPLETE at triage), then the ``{phase}_exit`` graph-gate
+        label iff graph_gated, then the forced gate's label iff a forced gate exists.
+        Terminal phases (no onward crossing) name nothing."""
+        for phase in list(VALID_TRANSITIONS) + ["resolved"]:
+            spec = resolve_gates(phase)
+            if not spec.canonical:
+                assert _gates_for_exit(phase) is None, phase
+                continue
+            expected = list(spec.canonical)
+            if spec.graph_gated:
+                expected.append(f"{phase}_exit structural graph gate")
+            if spec.forced is not None:
+                expected.append(spec.forced.label)
+            assert _gates_for_exit(phase) == expected, phase
+
+    def test_canonical_records_match_valid_transitions(self):
+        """``canonical`` is the FROM->TO record for every onward target in
+        VALID_TRANSITIONS (plus TRIAGE_COMPLETE at triage exit) — not a hand-list."""
+        for phase, targets in VALID_TRANSITIONS.items():
+            expected = [f"{phase.upper()}->{t.upper()}" for t in sorted(targets)]
+            if phase == "triage" and expected:
+                expected.append("TRIAGE_COMPLETE")
+            assert resolve_gates(phase).canonical == expected, phase
+
+    def test_resolver_forced_executor_self_selects_to_its_phase(self, tmp_path: Path):
+        """The live dispatch == the resolver: the forced executor the resolver selects
+        for phase P is the self-selecting wrapper for P. Proven without IO — handing that
+        executor ANY other from_phase makes it a no-op (the wrapper's from_phase guard
+        short-circuits before touching state), so it is genuinely keyed to P and the new
+        'run exactly one' dispatch reproduces the old 'run all five, one fires' chain."""
+        gated_phases = list(self._EXPECTED_FORCED_TOKEN)
+        for own_phase in gated_phases:
+            forced = resolve_gates(own_phase).forced
+            assert forced is not None, own_phase
+            for other in gated_phases:
+                if other == own_phase:
+                    continue
+                # Non-matching from_phase -> the selected executor short-circuits to a
+                # no-op (no run/workspace needed), proving it self-selects to own_phase.
+                result = forced.run(tmp_path, "no-such-run", other, other)
+                assert result == ([], []), (own_phase, other)
+
+    def test_each_wrapper_is_noop_for_other_phases(self, tmp_path: Path):
+        """Direct proof of self-selection at the wrapper level (what makes the old chain
+        and the new single-dispatch equivalent): every ``_run_forced_*`` wrapper returns
+        an empty result for every phase but its own, short-circuiting before any IO."""
+        simple = {
+            "brainstorm": _run_forced_brainstorm_exit_gate,
+            "propose": _run_forced_proposal_coverage_gate,
+            "execute": _run_forced_execute_evidence_gate,
+            "verify": _run_forced_verify_evidence_gate,
+        }
+        phases = list(VALID_TRANSITIONS)
+        for own_phase, fn in simple.items():
+            for other in phases:
+                if other == own_phase:
+                    continue
+                assert fn(tmp_path, "no-such-run", other) == [], (own_phase, other)
+        # plan_exit self-selects too (tuple-shaped: (blockers, advisories)).
+        for other in phases:
+            if other == "plan":
+                continue
+            assert _run_forced_plan_exit_gate(tmp_path, "no-such-run", other, "x") == (
+                [],
+                [],
+            ), other

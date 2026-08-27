@@ -56,6 +56,8 @@ Reference: `../uacp-core/references/lifecycle-semantic-gates.md` captures the pr
 - adaptive verification, council, or evidence -> `uacp-verify`
 - closure, lessons, memory, or skill updates -> `uacp-resolve`
 - governed state mutation, state authority, or state consistency -> `uacp-state`
+- admission reframing, surface classification (doc hygiene vs full lifecycle), or granularity/UACP-vs-non-UACP naming -> `uacp-triage`
+- restructuring, refactoring, or repairing UACP skills (and its review/self-approval rules) -> `uacp-skills`
 
 ## Composition rule
 
@@ -77,30 +79,6 @@ Raw evidence still belongs in UACP artifacts, commits, gate ledgers, and verific
 
 See `../uacp-core/references/operator-phase-return-presentation.md` for the reusable summary schema and suppression rules.
 
-## Documentation-authority reset pitfall
-
-If Mike corrects that a documentation cleanup is actually in UACP lifecycle, especially for LEXA/MEMEX/Cortex/Nora/private-public boundary docs, stop treating it as informal Vault cleanup. Admit/reroute it through UACP at the appropriate granularity and record a compact lifecycle artifact. If he says to start over or that no document should be non-draft, demote even prior `accepted` decision notes to draft input and add explicit restart guards before content review.
-
-## Granularity ownership and naming pitfall
-
-If Mike asks whether a task should use “UACP Lite” versus “real UACP”, do not invent or preserve an informal UACP Lite track. The correct distinction is **UACP or no UACP**. Once UACP is selected, the lifecycle owns routing/granularity through TRIAGE (`direct`, `lightweight`, `standard`, `full_governance`, or `block_or_clarify`). Phrase it as “enter UACP; TRIAGE selected `<routing_outcome>`,” not “I chose UACP Lite.” This matters especially for public/private profile, identity-registry, runtime-plugin, or dispatch-control work where informal naming hides authority boundaries.
-
-## Skill-library refactor protocol
-
-When restructuring UACP skills, default to the fully autonomous self-closing loop once the operator authorizes it: work one skill at a time; dispatch Agent Council for brainstorming/debate until there is a solid PASS/no concerns outcome; save checkpoints; implement only after PASS; run deterministic audit; then run full-perspective Agent Council + Kimi Code/Kimi K2.6 verification after implementation. If any reviewer returns CONCERNS/BLOCK, patch the artifact or implementation, record the resolution, and rerun focused verification until PASS/no concerns before moving to the next skill.
-
-Do not return to the operator between phases merely for ceremony. Stop only for a true authority boundary, destructive/external side effect, unresolved hard blocker, or missing context that cannot be recovered from checkpoints.
-
-Patch existing artifacts where possible; do not predefine file trees before exploring intent and variants; keep UACP universal/adaptive rather than importing Trustless-specific fixed gates or domains.
-
-Carry lessons forward between phases: resolve relative references from the target skill directory; preserve exact backups before edits; do not claim non-repo skill files were committed; compare against backups for removed protective semantics; do not equate shorter with safer; preserve phase-local anti-compression rules and audit-critical output fields.
-
-When reviewing a Claude Code or external-agent restructure, verify the canonical UACP repo/docs and the active Hermes skill export as separate surfaces. A clean UACP repo validator or doc link scan does not prove the live `~/.hermes/skills/devops/uacp` export is current. Check phase skill directories, frontmatter, local Markdown reference resolution from each skill directory, UACP-root validator output, and git provenance separately; report repo/docs, validator, docs links, active skill export, and provenance as separate PASS/WARN/BLOCK lines.
-
-## Self-repair warning
-
-When repairing UACP skills, use normal file/git workflow. Do not use broken UACP protected writers, `uacp-verify`, or Heartgate as self-approval authority until the relevant skill has itself passed refactor verification.
-
 ## Commit documentation discipline
 
 When settling a large UACP working tree, especially after governance/runtime/doc-package work, do not simply commit the dirty set. First ensure there is a durable explanation surface in the repo and in the commit message:
@@ -114,10 +92,6 @@ When settling a large UACP working tree, especially after governance/runtime/doc
 
 When auditing an in-flight UACP run, distinguish machine lifecycle envelopes from human-readable adaptive packages. If a medium/high consequence run has `proposals/{run_id}-proposal.yaml`, `plans/{run_id}-plan.yaml`, or scope/gate-selection YAML but lacks `proposals/{run_id}/` or `plans/{run_id}/` Markdown packages, call that out directly and backfill the package directories plus package-selection/plan-selection bridge artifacts before claiming strict lifecycle completeness.
 
-## Architecture packet UACP-compatibility pattern
-
-When Mike asks whether existing architecture/design documents need to be revisited to comply with UACP, first classify the surface. Draft Vault/project docs usually need **UACP-compatible documentation hygiene** — explicit authority, status, boundaries, promotion path, and implementation stop rules — not a forced full UACP lifecycle package. Use full lifecycle artifacts only when the work changes protected runtime, governance, public/private, memory, agent-control, or UACP surfaces.
-
 ## Lifecycle hardening pattern
 
 For UACP self-patches, especially phase gates or truth/authority boundaries, use retrieval-led gap audit, pre-design council when appropriate, docs/config/validator/fixtures/skills patching, post-implementation adversarial audit, then commit/push. See `../uacp-core/references/lifecycle-semantic-gates.md` for the preferred hardening pattern.
@@ -129,10 +103,6 @@ When Mike asks for both Kimi Code and Codex to review UACP changes, launch them 
 If Mike asks for a full review/audit, do **not** narrow the audit to the latest commit or immediate remediation unless explicitly instructed. Scope it to the full related change lineage and end-to-end lifecycle coherence across PROPOSE → PLAN → EXECUTE → VERIFY → RESOLVE, with devil's advocate, consistency historian, and dependency-readiness roles. After findings, patch all authoritative surfaces together — runtime, offline validator, config/schema, fixtures, active skill exports, state, and docs — and rerun adversarial follow-up until PASS.
 
 When LEXA documentation authority is being reset or promoted, treat it as UACP lifecycle work if it affects source registry contracts, private/public retrieval boundaries, Nora/Cortex integration, or future runtime readiness. Do not frame it as informal Vault cleanup. After the reset, review draft docs in bounded slices, write per-slice checkpoints, preserve draft posture, then VERIFY/RESOLVE the review scope without implying LEXA itself is canonical or implementation-ready.
-
-## Legacy reference warning
-
-`../uacp-core/references/` is the shared canonical reference home. Do not depend on shared references unless the active skill Decision justifies that dependency.
 
 ## Presentation and semantic package rule
 

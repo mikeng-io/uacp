@@ -757,6 +757,10 @@ def _handle_uacp_heartgate_check(args: dict, **_: Any) -> str:
                 "reason": decision.reason,
                 "blockers": decision.blockers,
                 "warnings": decision.warnings,
+                # ADDITIVE structured envelope (D-09): the flattened blockers/warnings
+                # string lists stay (consumers read them), and the structured findings
+                # (one shared serializer) ride alongside so detail/path reach the boundary.
+                "findings": decision.findings,
                 "path": str(rel),
                 "authority_artifact": authority,
             },

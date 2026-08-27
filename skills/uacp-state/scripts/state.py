@@ -38,6 +38,7 @@ __all__ = [
     "_handle_uacp_escalation_event",
     "_handle_uacp_run_init",
     "_handle_uacp_run_transition",
+    "_handle_uacp_run_status",
     "_handle_uacp_run_register_artifact",
     "_handle_uacp_run_finalize",
     "_handle_uacp_run_abort",
@@ -1003,6 +1004,33 @@ def _handle_uacp_run_transition(args: dict, **_: Any) -> str:
         return handle_transition(params)
     except Exception as exc:
         return json.dumps({"error": f"uacp_run_transition failed: {type(exc).__name__}: {exc}"})
+
+
+def _handle_uacp_run_status(args: dict, **_: Any) -> str:
+    """Governed wrapper for state_machine.handle_read (D-10).
+
+    Read-only run-status surface: returns ``{ok, manifest, findings}`` for the
+    named run. Unlike the writers it requires NO reason/authority_artifact (it
+    mutates nothing), but it still enforces the standard UACP context fields and
+    resolves the workspace through the same GuardianPolicy seam, so the read is a
+    governed, root-bound one — not a raw manifest peek. The manifest (via
+    handle_read) is the authoritative re-orientation source for an agent picking
+    up a run; ``findings`` is empty on a clean read (envelope consistency)."""
+    try:
+        missing = _required_uacp_context_missing(args)
+        if missing:
+            return json.dumps({"error": f"missing UACP context field(s): {', '.join(missing)}"})
+        workspace = args.get("workspace")
+        policy = GuardianPolicy.load(workspace)
+        run_id = str(args.get("uacp_run_id") or "").strip()
+        if not run_id:
+            return json.dumps({"error": "uacp_run_id is required"})
+        params: dict[str, Any] = {"workspace": str(policy.uacp_root), "run_id": run_id}
+        from state_machine import handle_read  # lazy: avoids any future import cycles
+
+        return handle_read(params)
+    except Exception as exc:
+        return json.dumps({"error": f"uacp_run_status failed: {type(exc).__name__}: {exc}"})
 
 
 def _handle_uacp_run_register_artifact(args: dict, **_: Any) -> str:

@@ -52,6 +52,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from config import get_config
 from engines.base import ENGINES, Violation
 from engines.domain.artifact_hashes import content_hash, load_hash_index
 from engines.domain.layout import CATALOG_VERSION
@@ -62,7 +63,13 @@ from engines.domain.verification_floor import (
     load_floor,
     witness_class,
 )
-from engines.io import derive_witness, load_artifact, load_manifest, resolve_in_workspace
+from engines.io import (
+    changed_files,
+    derive_witness,
+    load_artifact,
+    load_manifest,
+    resolve_in_workspace,
+)
 
 
 def _v(code: str, message: str, severity: str = "block", **detail: Any) -> Violation:
@@ -1110,6 +1117,115 @@ def validate_check_floor(workspace: str | Path, run_id: str) -> list[Violation]:
     return out
 
 
+# Source-code file suffixes the GIT WITNESS reads as "code changed" (design/verify-substrate/02,
+# M3). A witnessed change set touching any of these obliges the run to carry a behavioral check;
+# a docs/config/design-only change set carries no such obligation.
+_CODE_SUFFIXES = (
+    ".py",
+    ".js",
+    ".ts",
+    ".jsx",
+    ".tsx",
+    ".go",
+    ".rs",
+    ".rb",
+    ".java",
+    ".c",
+    ".cc",
+    ".cpp",
+    ".h",
+    ".sh",
+)
+
+# Safe migration default for CHK_BEHAVIORAL_FLOOR_UNMET — "warn", never "block": a
+# block-by-accident (bad config, unread key) would break every live code-changing run.
+_BEHAVIORAL_FLOOR_DEFAULT_SEVERITY = "warn"
+
+
+def _behavioral_floor_severity(root: Path) -> str:
+    """Config-gated severity for ``CHK_BEHAVIORAL_FLOOR_UNMET``, read from
+    ``[verification] behavioral_floor`` (default ``warn``, flips to ``block`` in a later
+    named release — the SC_DIFF migration precedent, design/verify-substrate/02). Only the
+    literals ``warn``/``block`` are honored; an absent/invalid value -> ``warn`` (the safe
+    migration default — block-by-accident breaks runs). Never raises."""
+    try:
+        cfg = get_config(root).model_dump()
+        raw = (cfg.get("verification") or {}).get("behavioral_floor")
+        if raw in ("warn", "block"):
+            return raw
+        return _BEHAVIORAL_FLOOR_DEFAULT_SEVERITY
+    except Exception:
+        return _BEHAVIORAL_FLOOR_DEFAULT_SEVERITY
+
+
+def validate_behavioral_floor(workspace: str | Path, run_id: str) -> list[Violation]:
+    """Behavioral FLOOR (design/verify-substrate/02, M3): when the GIT WITNESS shows the run
+    changed CODE, the run must carry >=1 behavioral check — which replay then RUNS, turning
+    behaviour into grounded substrate — else ``CHK_BEHAVIORAL_FLOOR_UNMET``.
+
+    This closes the loophole :func:`validate_check_floor` leaves: that floor self-limits to the
+    AGENT-DECLARED ``from.class``, so a doer routes around the behavioral obligation by simply
+    never declaring ``changes_behavior``, and a zero-check run passes entirely. This engine keys
+    off the FACT the diff touched code (the git witness), NOT off an agent-declared class and NOT
+    off keyword classification (``witness_class`` is rejected, design 01 §anti-pattern).
+
+    Fail-open where it cannot witness, fail-closed where it can:
+    * not a git repo -> ``[]`` (no witness available — synthetic/non-git fixtures; nothing to
+      ground; mirrors :mod:`scope_conformance`'s noop).
+    * repo present but unobservable (``result.error``) -> one ``CHK_BEHAVIORAL_FLOOR_UNWITNESSED``
+      at ``warn`` (an expected witness that cannot testify — never a silent pass, not the
+      agent's fault).
+    * no code in the change set -> ``[]`` (docs/config/design-only runs are exempt).
+    * code changed and no ``uacp.check.behavioral`` node present -> one
+      ``CHK_BEHAVIORAL_FLOOR_UNMET`` at the config-gated severity (default ``warn``).
+
+    Never raises."""
+    if (bad := _validate_inputs(workspace, run_id)) is not None:
+        return bad
+    root = Path(str(workspace)).resolve()
+    result = changed_files(root)
+    if not result.is_repo:
+        # No git witness available — nothing to ground here (other engines own "no repo").
+        return []
+    if result.error is not None:
+        return [
+            _v(
+                "CHK_BEHAVIORAL_FLOOR_UNWITNESSED",
+                f"git witness present but unobservable ({result.error}); the behavioral "
+                f"floor for run '{run_id}' cannot be verified",
+                severity="warn",
+                error=result.error,
+            )
+        ]
+    code_changed = [f for f in result.files if str(f).endswith(_CODE_SUFFIXES)]
+    if not code_changed:
+        # No code touched -> no behavioral obligation (docs/config/design-only change set).
+        return []
+    graph = _load_and_project(workspace, run_id)
+    has_behavioral = False
+    if graph is not None:
+        nodes, _edges = graph
+        has_behavioral = any(
+            n.get("kind") == "check" and n.get("check_kind") == "uacp.check.behavioral"
+            for n in nodes.values()
+        )
+    if has_behavioral:
+        return []
+    examples = sorted(code_changed)[:5]
+    return [
+        _v(
+            "CHK_BEHAVIORAL_FLOOR_UNMET",
+            f"the git witness shows {len(code_changed)} code file(s) changed "
+            f"(e.g. {examples}) but the run carries no behavioral check "
+            f"(uacp.check.behavioral) to ground it; a code-changing run must author >=1 "
+            f"behavioral check that replay runs into substrate",
+            severity=_behavioral_floor_severity(root),
+            code_changed=len(code_changed),
+            examples=examples,
+        )
+    ]
+
+
 # The inbound-edge relations the CLASS WITNESS counts (design node 03): calls/references only.
 # `defines` (container -> member) is EXCLUDED — it lands inbound on every method and would mark
 # every member "wired-in", destroying the sets_value/wires_symbol distinction. This mirrors the
@@ -1512,5 +1628,7 @@ if not any(name == "check_replay" for name, _ in ENGINES):
     ENGINES.append(("check_replay", validate_check_replay))
 if not any(name == "check_floor" for name, _ in ENGINES):
     ENGINES.append(("check_floor", validate_check_floor))
+if not any(name == "behavioral_floor" for name, _ in ENGINES):
+    ENGINES.append(("behavioral_floor", validate_behavioral_floor))
 if not any(name == "check_class_underclaim" for name, _ in ENGINES):
     ENGINES.append(("check_class_underclaim", validate_class_underclaim))
