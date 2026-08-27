@@ -89,9 +89,16 @@ agent's own record, supplies the input. Both outcomes are `severity="warn"`:
 - `SC_DIFF_UNAVAILABLE` (`:513`)
 - `SC_DIFF_OUT_OF_SCOPE` (`:526`)
 
-Every blocking check in the engine compares declaration against declaration. The module says so
-itself (`:24-27`): the kernel keeps no per-write audit log, so containment *"is NOT computable
+Every blocking check **in this engine** compares declaration against declaration. The module says
+so itself (`:24-27`): the kernel keeps no per-write audit log, so containment *"is NOT computable
 from state alone"*. Git is the answer to that, and it is wired to warn.
+
+The statement is scoped to `scope_conformance` deliberately, and does **not** generalize to the
+kernel: `validate_check_replay`'s `behavioral` and `symbol_resolves` evaluators compare a
+declaration against external reality and **do** block (D-05 above). The distinction that survives
+across both engines is *who chose the question* — those blocking reality-readers are
+author-elected, while `SC_DIFF_*`, the only witness that fires whether or not the author asked
+for it, is advisory. See `70-verify-non-convergence.md`.
 
 ## D-08 — The rework cap has no breaker, though the pattern exists in-repo · VERIFIED
 
