@@ -5,7 +5,7 @@ description: Why the remediation lane was parked. Three rounds of external revie
 tags: [verify, convergence, verdict, semantic-verification]
 timestamp: 2026-08-27
 edges:
-  - {dst: 60-remediation, rel: decides_on, provenance: asserted}
+  - {dst: 60-remediation, rel: supersedes, provenance: asserted}
   - {dst: 20-grounding-defects, rel: extends, provenance: asserted}
 ---
 
@@ -30,26 +30,87 @@ Both verified directly in the code on `origin/feat/verify-grounding`, and both l
 `next`-response block — the M4 emission fix. So the fix for the emission gap introduced a
 data-loss bug and a null-out bug, and verify passed both.
 
+> **Evidence is transcribed below rather than cited to a branch.** Both findings live on
+> PR #172 at commit `545e3886840861a6848e5e1e9c62b7b82e8ffc7b` (`feat/verify-grounding`).
+> A branch ref is mutable and an unmerged commit is not reachable from a fresh clone, so the
+> decisive lines are quoted verbatim here — a calibration set that cannot be reproduced is
+> prose, not a calibration set.
+
 ### P1 — the author's blind spot, by construction
 
-`RunManifest` has no `deferred_items` field (17 fields; not among them). The transition path
-reads it from the **raw** manifest, and the author knew about the asymmetry — the code says so
-at `state_machine.py:952` (*"the state-machine RunManifest model does not model
-deferred_items"*) and `:1226`. They compensated on the **read** side. `_save_manifest`
-serializes `RunManifest`, so the **write** side strips the field: the mechanism built to replay
-carried obligations deletes those obligations on the first transition after they are recorded.
+`RunManifest` has no `deferred_items` field. Every field it declares:
 
-This is the decisive case. Every UACP gate takes the author's declaration as input, and the
-generative gate asks the author to author the checks. **An author can only author a check for a
-failure they already suspect.** The comment at `:952` proves this author was thinking hard about
-exactly this field — and no one writes "transition twice, confirm the field survives the
-round-trip" unless they already suspect the round-trip is lossy. The defect was unreachable by
-construction, not by oversight.
+```python
+class RunManifest(BaseModel):
+    run_id: str
+    status: Status = Status.active
+    current_phase: str = "triage"
+    created_at: str = Field(default_factory=lambda: _iso_now())
+    authority: Authority
+    workspace: Workspace = Field(default_factory=Workspace)
+    artifacts: dict[str, str] = Field(default_factory=dict)
+    state_history: list[StateHistoryEntry] = Field(default_factory=list)
+    finalized_at: str | None = None
+    abort: AbortRecord | None = None
+    track: str = "standard"
+    goal_id: str | None = None
+    inherits_from: str | None = None
+    # + reworks / rework_depth / carried_findings / inherited_artifacts
+```
+
+The transition path reads the field out of the **raw** manifest instead, and its docstring
+records that the author saw the asymmetry:
+
+```python
+    """Replay the obligations a prior phase deferred forward: the run manifest's
+    ``deferred_items`` ... Read from the RAW manifest (the state-machine
+    ``RunManifest`` model does not model deferred_items)."""
+    ...
+    items = raw.get("deferred_items")
+```
+
+They compensated on the **read** side. `_save_manifest` serializes `RunManifest`, so the
+**write** side strips the field: the mechanism built to replay carried obligations deletes
+those obligations on the first transition after they are recorded.
+
+This is the decisive case, and the reason needs stating precisely — the loose version of it is
+refuted by this bundle's own D-07.
+
+**Not** *"every UACP gate consumes the author's declaration"*: `scope_conformance` reads the real
+git change set, and the register calls that an independent witness. The accurate claims are
+narrower, and all three hold:
+
+1. **Every *blocking* gate consumes a declaration.** The one independently-witnessed input is
+   `SC_DIFF_*`, `warn` at both sites (D-07). Nothing that can refuse a transition reads reality.
+2. **The witness that exists could not have seen this defect anyway.** `SC_DIFF` asks *"did the
+   change set stay inside the declared write paths?"* — P1 is a data-loss bug *inside* a declared
+   path. A containment witness is the right shape for scope drift and the wrong shape for
+   correctness; promoting it to `block` would not have caught P1.
+3. **The generative gate asks the author to author the checks**, so it reaches only what the
+   author already suspects. The docstring above proves this author was thinking hard about
+   exactly this field — and nobody writes *"transition twice, confirm the field survives the
+   round-trip"* unless they already suspect the round-trip is lossy.
+
+So the defect was unreachable by construction, not by oversight. Note that (2) is the
+load-bearing half: it is not enough to *have* a witness — the witness has to be pointed at the
+right question.
 
 ### P2 — declaration and reality diverging inside one function
 
-`_state_policy()`'s docstring says the workspace copy is *"overlaid"*. The code is `out = raw` —
-replace, not overlay. A partial workspace `config/state.yaml` therefore drops
+`_state_policy()`'s docstring promises an overlay; the body assigns over it:
+
+```python
+    # docstring: "... then overlaid by the workspace's own config/state.yaml when
+    #             present (a project override wins)."
+    out: dict[str, Any] = {}
+    candidates = [<install-relative config/state.yaml>, workspace / "config" / "state.yaml"]
+    for path in candidates:
+        ...
+            if isinstance(raw, dict):
+                out = raw  # later (workspace) candidate wins as an override
+```
+
+`out = raw` is replace, not overlay. A partial workspace `config/state.yaml` therefore drops
 `lifecycle_skill_contracts`, and every `next.required_skill` / `next.write_scope` becomes null.
 
 A conformance gate reads the declaration. Here the declaration and the reality disagree **inside
@@ -77,6 +138,9 @@ check.
   (the response envelope) are corrections to specific broken mechanisms and remain valid on
   their own terms. **M3 — "ground the planes that already exist" — is gate-building and is
   parked** with the lane.
+- **D-03 now has an owner** — it had none (`60-remediation.md` M6). Its Guardian-coverage half
+  is gate-building and parks with the lane; its coherence half — a per-phase dispatch rule that
+  reads as policy and is inert — is a cheap standalone fix and does not park.
 - **M0 still stands and matters more than before.** UACP is developed in an environment where
   UACP is inert (D-14). Whatever replaces the gate lane has to be felt during development or it
   will repeat this.

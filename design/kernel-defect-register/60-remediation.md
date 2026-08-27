@@ -166,6 +166,27 @@ next handler cannot re-create the problem.
 
 ---
 
+## M6 — D-03: split it, park one half, fix the other · D-03
+
+D-03 (the Guardian never sees a dispatch) had no owner in the first draft of this node — the
+register promised eighteen defects grouped by root cause and left one enforcement bypass
+without a remedy. It is two defects wearing one number, and they have different fates:
+
+- **Coverage half — parked.** Extending `_RAW_WRITE_TOOLS` (or the host-tool classification) so
+  the Guardian evaluates `Task` is gate-building. It parks with the lane per
+  `70-verify-non-convergence.md`; reviving it means arguing that a dispatch gate would have
+  caught something a reader would not.
+- **Coherence half — not parked, and cheap.** `STAGE_ALLOWED_TOOLS` lists `Task` for
+  `brainstorm` and no other phase, under a comment declaring it *"consumed by Guardian Layer-B
+  (all phases)"*. An operator reading `phase_transitions.py` concludes dispatch is governed
+  per-phase; it is ungoverned in every phase. That gap between what the table says and what
+  runs is a documentation defect independent of whether the gate is ever built — fix it by
+  annotating the entry as inert-pending-coverage, or by removing the `Task` row so the table
+  stops describing a policy that does not exist.
+
+The second half is the one worth doing now: a table that lies about enforcement is worse than a
+table that does not mention it, and it costs a comment.
+
 ## M5 — Operational · D-15, D-16, D-17, D-18
 
 - **D-16 — hand dispatches file paths, not pasted text.** Change `uacp-parallel`'s task schema
@@ -195,6 +216,7 @@ next handler cannot re-create the problem.
 4. **M1** — the gate resolver. Structural, council-gated, needs the equality invariant test.
 5. **M3** — grounding promotions. Real semantic risk; needs the migration window.
 6. **M5** — operational, in parallel with the above.
+7. **M6** — the coherence half is a comment and can land any time; the coverage half parks.
 
 ## What this does not fix
 

@@ -8,8 +8,10 @@
 # ORIGIN NOTE:  this began as a superpowers<>UACP comparison. That comparison produced four false
 #               claims about UACP by reading its surfaces instead of its code; the adversarial
 #               audit refuted eleven. The comparison survives as node 50; the audit is the product.
-# STATUS: draft — 13 defects VERIFIED by direct re-read, 3 REPORTED (leads, not facts), 1 ESTIMATE.
-#         No remediation designed yet. HEAD was unstable during the audit (see 00 baseline caveat).
+# STATUS: accepted — 18 defects: 14 VERIFIED by direct re-read, 3 REPORTED (leads, not facts),
+#         1 ESTIMATE. Remediation is designed (60, M0-M6) and its standing is then SUPERSEDED by
+#         the verdict (70): gate-building did not converge, so M3 parks; M2/M4 stand. HEAD was
+#         unstable during the audit — citations are pinned by CONTENT (see 00 baseline caveat).
 
 kind: design_index
 title: UACP Kernel Defect Register (as-built audit)
@@ -67,5 +69,5 @@ edges:
   - {src: 60-remediation, dst: 20-grounding-defects, rel: decides_on, provenance: asserted}
   - {src: 60-remediation, dst: 30-emission-defects, rel: decides_on, provenance: asserted}
   - {src: 60-remediation, dst: 40-operational-reality, rel: decides_on, provenance: asserted}
-  - {src: 70-verify-non-convergence, dst: 60-remediation, rel: decides_on, provenance: asserted}
+  - {src: 70-verify-non-convergence, dst: 60-remediation, rel: supersedes, provenance: asserted}
   - {src: 70-verify-non-convergence, dst: 20-grounding-defects, rel: extends, provenance: asserted}
