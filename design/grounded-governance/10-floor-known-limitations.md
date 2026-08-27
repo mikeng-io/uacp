@@ -28,29 +28,47 @@ documentation-only and does not raise `CHK_BEHAVIORAL_FLOOR_UNMET`.
 - **Follow-on (not a blocker):** replace the allowlist with a conservative classifier — treat any
   non-document change as code (fail-toward-nudge) — when the behavioral floor is promoted to `block`.
 
-## L2 — rework-cap adjudication vs. discharge semantics (Codex #173 P1)
+## L2 — rework-cap adjudication vs. discharge semantics (Codex #173 P1) — RULED
 
 In `engines/rework_completeness.py`, at/above `max_rework_depth` a carried finding with a **complete
 adjudication** (decision + rationale + cost-if-wrong) may still emit an ordinary
 `RW_CARRIED_FINDING_*` blocker, because `discharged` is keyed on `_disposition_complete` +
-`_disposition_defects`, independent of `_adjudication_complete`. Whether this is an over-block (the
-cap escape-hatch of `03-enforcement-and-loop.md:29-32` should let a complete adjudication close) or
-intended strictness (an adjudication must ALSO be a well-formed disposition record) is a genuine
-**design-semantics ambiguity**, not a settled bug.
+`_disposition_defects`, independent of `_adjudication_complete`.
 
-- **Severity / disposition:** `deferred` (accepted non-goal, pending a design ruling). It bites only
-  when BOTH the rework cap is hit AND a finding is adjudicated-but-not-remediated — a narrow corner —
-  and the cap breaker is itself **warn** by default.
-- **Residual risk:** at the cap, an adjudicated-not-remediated finding may fail to close, forcing
-  actual remediation. This fails **toward** strictness (over-block), not toward silent closure — the
-  safe direction for a governance gate.
-- **Follow-on (not a blocker):** a dedicated round to rule on whether `_adjudication_complete` grants
-  discharge at the cap, and align the code with `03:29-32` either way.
+**Ruling** (cross-provider audit, Kimi, reading the code): this is **intended strictness, not a
+liveness bug.** A canonically well-formed accepted-exception entry *automatically* satisfies
+`_disposition_complete` (well-formedness requires `residual_risk` for carry-forward classes). So the
+only adjudication-complete-but-not-discharged state is a complete adjudication sitting on a
+*structurally malformed* canonical item — and the escape is **completing the canonical fields**
+(`heartgate_validation`, `next_phase_obligation`, …), i.e. record-completion, not remediation. This is
+consistent with `#149` fail-closed-on-malformed-disposition. It is not a deadlock.
+
+- **Materiality:** the cap codes are **block**-severity (`RW_REWORK_CAP_UNADJUDICATED` is hardcoded
+  `block`; the `RW_CARRIED_FINDING_*` codes default to `block`) — so this is NOT dismissible as
+  "warn-advisory" (an earlier draft of this node wrongly said the breaker was warn-by-default; it is
+  not). It is **non-material by FAILURE DIRECTION**: the behavior over-enforces (at worst it demands a
+  complete record before closing), it never lets a finding close silently. A defect that fails toward
+  over-enforcement is non-material per Invariant #4; that — not a (false) warn severity — is why it is
+  safe to ship.
+- **Disposition:** `justified` (confirmed intended behavior). No code change owed.
+- **Follow-on (doc-drift, not a code blocker):** `03-enforcement-and-loop.md:31` describes discharge
+  as "complete … *or* adjudicated" — an OR the code implements as AND-at-the-cap. Correct that line to
+  match the ruled behavior.
 
 ## Why these merge without a council-gate violation
 
 Key Invariant #5 ("evidence must be produced") and the council gate ("zero material findings
-unresolved") are satisfied here: each finding above is **dispositioned** (`deferred`, with rationale
-+ residual risk + follow-on) — the framework's own `handled_findings_chain` resolution, not a fix.
-"Material" is severity-relative: a **warn** advisory gate's edge-case gap is not a material finding.
-See node `11` (proposed AGENTS.md refinement) for making that reading explicit in the invariant.
+unresolved") are satisfied: each finding is **dispositioned** (L1 `deferred`, L2 `justified`, both
+with rationale + residual risk + follow-on) — the framework's own `handled_findings_chain` resolution.
+Crucially, **neither is material**, so neither needs the independent countersignature that Invariant
+#4 now requires for deferring a *material* finding:
+
+- **L1** — non-material because it fails toward *under-nudging* only within a **warn** advisory gate
+  (weakens a nudge, cannot bypass a hard gate).
+- **L2** — block-severity, but non-material by **failure direction**: it over-enforces, never closes
+  silently. Materiality is about *failure direction and stated guarantees*, not severity alone — an
+  earlier draft mis-grounded L2 on a (false) warn severity; corrected above.
+
+Had either been material (a defect failing toward *under*-enforcement — a gate bypass), adjudication
+alone would NOT resolve it: Invariant #4 requires a fix or a deferral countersigned by an authority
+independent of the author. See node `11` for the invariant wording and the audit that produced it.

@@ -38,18 +38,38 @@ another run's evidence discharge a finding — the P1s already fixed on #173) **
 review, opposite dispositions, decided by severity — not by the reviewer's willingness to keep
 finding edges.
 
-## Proposed AGENTS.md refinement (for review — canonical-doc change per Invariant #4)
+## The applied AGENTS.md refinement (hardened by cross-provider audit)
 
-Amend Invariant #4's last sentence from:
+Invariant #4's last clause now reads (applied):
 
-> Zero material findings unresolved.
-
-to:
-
-> Zero material findings unresolved, where **resolved** means *fixed OR adjudicated* (a governed
+> Zero material findings unresolved, where a finding is **resolved** by a fix *or* by adjudication,
+> and **material** means a finding that, left unaddressed, breaks a stated guarantee — presumptively
+> any defect that fails toward *under-enforcement* (a gate bypass); a defect that fails toward
+> *over-enforcement*, or a warn-advisory gap, is non-material. **Adjudication** (a governed
 > `handled_findings_chain` disposition — remediated / justified / deferred — carrying rationale and
-> residual risk), and **material** means *a finding that, left unaddressed, breaks a stated guarantee
-> at its gate's configured severity* (a warn-advisory gap is not material; a block-gate bypass is).
+> residual risk) resolves a **non-material** finding on its own. A **material** finding is resolved
+> only by a fix, or by a deferral **countersigned by an authority independent of the author** (a
+> different-provider reviewer or the human), recorded on the disposition; a self-attested "won't fix"
+> is never a disposition, and severity is set in council-gated policy, not by the author.
+
+### Why the two extra clauses (audit provenance)
+
+A Kimi cross-provider audit of the *first* draft (which said only "fixed OR adjudicated" + "material =
+severity-relative") found it was still a loophole, on two grounds that were then folded in above:
+
+1. **Adjudication had no severity gate** — read literally, a *material* block-gate bypass could be
+   "resolved" by an author-written `deferred` paragraph, contradicting this node's own claim that
+   material findings block unconditionally. Fixed by: adjudication resolves *non-material* findings
+   alone; **material findings need a fix or an author-independent countersignature** (Kimi's
+   cross-provider premise turned inward — the same mechanism that caught this).
+2. **"Severity-relative" was a soft anchor** the author can turn (warn vs. block is a config knob).
+   Fixed by anchoring materiality in **failure direction** (under- vs. over-enforcement) and stated
+   guarantees, not severity alone; severity config is itself council-gated, not author-set.
+
+The audit also demonstrated the risk empirically: the very first adjudication written under the draft
+regime (node `10` L2) shipped with a rationale that *misstated the gate's severity* — proving that
+"carrying rationale" is a structural bar the kernel validates for shape, not adequacy, and that
+independent review of a deferral is therefore load-bearing, not optional.
 
 ## Why this is the fix to the spiral, not a loophole
 
