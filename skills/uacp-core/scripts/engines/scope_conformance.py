@@ -41,10 +41,15 @@ when the workspace root is itself a git repo, the ACTUAL change set observed
 by git (uncommitted ∪ committed-since-merge-base, via :mod:`engines.io.gitio`)
 is compared against the declared ``write_paths``. This is the first
 independently-witnessed input to this engine — git's account of what changed,
-not the run's account of itself. It is **advisory-first**: every ``SC_DIFF_*``
-violation is severity ``warn`` (correct-but-out-of-scope is a governance flag
-whose remedy is re-declaration, and promotion to blocking is a later, explicit
-decision). A workspace with no ``.git`` at its root is a documented NO-OP
+not the run's account of itself. It is **advisory-by-default, promotable to
+blocking** (register move M3c / D-07): ``SC_DIFF_OUT_OF_SCOPE`` becomes a BLOCK
+when the operator opts in (``[verification] sc_diff_containment == "block"``)
+AND the run declared a NON-EMPTY ``write_paths`` — fail-closed on the agent's
+OWN declaration, the least-arguable form — else it stays ``warn``.
+``SC_DIFF_UNAVAILABLE`` is ALWAYS ``warn`` (an unobservable repo is an
+environment fact, not an agent fault). The default ships ``warn``; the flip to
+``block`` is a later, explicit named-release decision. A workspace with no
+``.git`` at its root is a documented NO-OP
 (mirroring the absent-scope precedent) — which is exactly why the synthetic
 temp-root fixtures remain quiet; a repo that exists but cannot be observed is
 ``SC_DIFF_UNAVAILABLE``, never a silent pass (fail-closed).
@@ -75,7 +80,7 @@ from pathlib import Path
 from typing import Any
 from typing import get_args as _get_args
 
-from config import base_dir
+from config import base_dir, get_config
 
 # The shared violation type + engine registry. Every engine reports the same
 # Violation; this engine registers itself in ENGINES at the bottom of the module.
@@ -473,6 +478,53 @@ def _diff_offenders(root: Path, scope_wps: list[str]) -> tuple[str, list[str], s
     return "ok", FileBoundary(root, scope_wps).offenders(list(result.files)), None
 
 
+# Safe migration default for SC_DIFF_OUT_OF_SCOPE — "warn", never "block": a
+# block-by-accident (bad config, unread key) would break every live code-changing run.
+# Mirrors the M3 behavioral-floor migration (design/verify-substrate/02). The opt-out is
+# the greppable config key `[verification] sc_diff_containment`.
+_SC_DIFF_CONTAINMENT_DEFAULT_SEVERITY = "warn"
+
+
+def _sc_diff_containment_severity(root: Path) -> str:
+    """Config-gated severity for ``SC_DIFF_OUT_OF_SCOPE``, read from
+    ``[verification] sc_diff_containment`` (default ``warn``, flips to ``block`` in a later
+    named release — the M3 behavioral-floor migration precedent). Only the literals
+    ``warn``/``block`` are honored; an absent/invalid value -> ``warn`` (the safe migration
+    default — block-by-accident breaks runs). Never raises."""
+    try:
+        cfg = get_config(root).model_dump()
+        raw = (cfg.get("verification") or {}).get("sc_diff_containment")
+        if raw in ("warn", "block"):
+            return raw
+        return _SC_DIFF_CONTAINMENT_DEFAULT_SEVERITY
+    except Exception:
+        return _SC_DIFF_CONTAINMENT_DEFAULT_SEVERITY
+
+
+# Safe migration default for SC_PLAN_CASCADE_FORECAST — "warn", never "block": the
+# prevention-at-PLAN forecast is promoted from advisory to blocking the SAME way as
+# sc_diff_containment above (design/grounded-governance/07). A block-by-accident (bad
+# config, unread key) would break every code_refs-declaring run at plan_exit. The opt-out
+# is the greppable config key `[verification] plan_cascade_forecast`.
+_PLAN_CASCADE_DEFAULT_SEVERITY = "warn"
+
+
+def _plan_cascade_severity(root: Path) -> str:
+    """Config-gated severity for ``SC_PLAN_CASCADE_FORECAST``, read from
+    ``[verification] plan_cascade_forecast`` (default ``warn``, flips to ``block`` in a
+    later named release — the M3c / sc_diff_containment promotion precedent). Only the
+    literals ``warn``/``block`` are honored; an absent/invalid value -> ``warn`` (the safe
+    migration default — block-by-accident breaks runs). Never raises."""
+    try:
+        cfg = get_config(root).model_dump()
+        raw = (cfg.get("verification") or {}).get("plan_cascade_forecast")
+        if raw in ("warn", "block"):
+            return raw
+        return _PLAN_CASCADE_DEFAULT_SEVERITY
+    except Exception:
+        return _PLAN_CASCADE_DEFAULT_SEVERITY
+
+
 def _check_diff_containment(
     root: Path, scope_rel: str, scope_wps: list[str] | None
 ) -> list[Violation]:
@@ -496,9 +548,18 @@ def _check_diff_containment(
       above, not free-form EXECUTE writes;
     * everything else must sit under a declared write_path, or it is flagged.
 
-    Advisory-first: both codes are severity ``warn``. Correct-but-out-of-scope
-    is STILL flagged ("ungoverned", not "wrong"); the remedy is re-declaring
-    the boundary, never silently widening it.
+    Grounding the ONE independent, witnessed input (git's actual change set vs
+    the run's OWN declared write_paths, register move M3c / D-07):
+    ``SC_DIFF_OUT_OF_SCOPE`` is BLOCK when — and only when — the operator has
+    opted in (``[verification] sc_diff_containment == "block"``) AND the run
+    declared a NON-EMPTY write_paths (the least-arguable form: fail-closed on the
+    agent's own declaration, where the boundary demonstrably exists). Otherwise it
+    stays ``warn``. ``SC_DIFF_UNAVAILABLE`` is ALWAYS ``warn`` — an unobservable
+    repo is an environment fact, never the agent's fault. Correct-but-out-of-scope
+    is STILL flagged either way ("ungoverned", not "wrong"); the remedy is
+    re-declaring the boundary, never silently widening it. The default ships
+    ``warn`` (the M3 migration precedent — announce without breaking live runs);
+    the flip to ``block`` is a later, explicit named-release decision.
     """
     out: list[Violation] = []
     if scope_wps is None:
@@ -521,6 +582,13 @@ def _check_diff_containment(
 
     if offenders:
         shown = offenders[:20]
+        # BLOCK only when the operator opted in AND a NON-EMPTY declared boundary exists
+        # (scope_wps truthy) — fail-closed on the agent's own declaration, the least-
+        # arguable form (M3c / D-07). An empty write_paths ([]) or an un-opted config
+        # stays advisory. Config read is fail-closed to "warn" (never block-by-accident).
+        severity = (
+            "block" if scope_wps and _sc_diff_containment_severity(root) == "block" else "warn"
+        )
         out.append(
             _v(
                 "SC_DIFF_OUT_OF_SCOPE",
@@ -528,7 +596,7 @@ def _check_diff_containment(
                 f"declared write_path {sorted(scope_wps)}: {shown}"
                 f"{' (truncated)' if len(offenders) > len(shown) else ''} — "
                 f"out-of-scope work; remedy is to re-declare the boundary (scope {scope_rel})",
-                severity="warn",
+                severity=severity,
                 files=shown,
                 total=len(offenders),
             )
@@ -803,8 +871,12 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
     RESOLVED refs that violate the shared :class:`FileBoundary`, EXCLUDING the declared
     refs' OWN files (the forecast-side-only carve-out — a changed ref-file outside the
     boundary is a structural recall hit recorded at closure, never forecastable). Non-empty
-    -> ``SC_PLAN_CASCADE_FORECAST`` (warn) listing the files (cap 20). A dirty tree is
-    flagged in the detail (the forecast is then a prediction from the last clean state).
+    -> ``SC_PLAN_CASCADE_FORECAST`` listing the files (cap 20). That code is advisory by
+    default (``warn``), promoted to ``block`` only when the operator opts in
+    (``[verification] plan_cascade_forecast == "block"``) AND the run declared a NON-EMPTY
+    write_paths — fail-closed on the agent's OWN declaration (M3c / D-07 precedent); a
+    declared-EMPTY boundary stays ``warn``. A dirty tree is flagged in the detail (the
+    forecast is then a prediction from the last clean state).
 
     On a SUCCESSFUL derivation the gate WRITES its forecast of record (even when the
     predicted set is empty) — gate-owned evidence, re-derivable from the recorded
@@ -960,13 +1032,21 @@ def validate_cascade_forecast(workspace: str | Path, run_id: str) -> list[Violat
         if workspace_dirty
         else ""
     )
+    # BLOCK only when the operator opted in AND a NON-EMPTY declared boundary exists
+    # (scope_wps truthy) — fail-closed on the agent's own declaration, the least-arguable
+    # form (mirrors SC_DIFF_OUT_OF_SCOPE, M3c / D-07). A declared-EMPTY write_paths ([]) or
+    # an un-opted config stays advisory. Config read is fail-closed to "warn" (never
+    # block-by-accident). SC_FORECAST_WITNESS_UNAVAILABLE above stays ALWAYS "warn" — an
+    # unobservable code plane is an environment fact, never a false block (SC_DIFF_UNAVAILABLE
+    # precedent).
+    severity = "block" if scope_wps and _plan_cascade_severity(root) == "block" else "warn"
     out.append(
         _v(
             "SC_PLAN_CASCADE_FORECAST",
             f"{len(predicted)} file(s) {_FORECAST_ADVISORY}: {shown}"
             f"{' (truncated)' if len(predicted) > len(shown) else ''}"
             f"{dirty_note} (scope {scope_rel_repr})",
-            severity="warn",
+            severity=severity,
             files=shown,
             total=len(predicted),
             workspace_dirty=workspace_dirty,

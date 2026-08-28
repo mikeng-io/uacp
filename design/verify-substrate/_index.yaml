@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
+#
+# WHAT THIS IS: the architecture reframe for VERIFY. The recurring failure — UACP's verify does not
+# verify, it checks the DECLARATION not the work — is not fixed by adding reviewer "roles". It is
+# fixed by treating VERIFY as the SUBSTRATE: the real work, produced and exposed as material, that
+# review agents SCREEN THROUGH. Roles/rubrics pre-digest the work; a substrate exposes it and lets
+# whatever is wrong precipitate. Every build move (the grounded-conformance floor, the council
+# correctness dimension, the kernel-produced diff) is placed UNDER this frame as either
+# substrate-production or a screening.
+
+kind: design_index
+status: design
+governance: pre-governance-input
+timestamp: "2026-08-24"
+title: VERIFY is a Substrate, not a Role — expose the real work; let agents screen through it
+description: >-
+  The verify-doesn't-verify gap (verify measures the declaration, not the work) is an architecture
+  error, not a missing reviewer. The fix: VERIFY produces and exposes the SUBSTRATE — the real diff
+  from the true commit range, the reality-run's actual output, the real code/artifacts — that review
+  agents screen through, precipitating whatever is wrong. Not reviewer roles with rubrics (which
+  pre-digest the work outside the agent); not conformance-to-declaration; not pre-computed labels.
+  The deterministic floor's job is to make the substrate EXIST and be grounded (kernel-produced,
+  witnessed, not agent-supplied); the council is the screening framework; "dimensions"
+  (correctness/security/compliance) are what a screening surfaces from the same substrate, not
+  pre-assigned roles.
+members:
+  - 00-the-substrate-principle.md   # the reframe: substrate vs role; why Codex(diff) > UACP(declaration)
+  - 01-what-the-substrate-is.md     # the substrate defined + produced/grounded (kernel diff, reality-run output)
+  - 02-screening-and-how-pieces-slot.md  # screening = agent through substrate; where floor/council/M-moves slot
+edges:
+  - {src: 01-what-the-substrate-is, dst: 00-the-substrate-principle, rel: depends_on, provenance: derived}
+  - {src: 02-screening-and-how-pieces-slot, dst: 00-the-substrate-principle, rel: extends, provenance: asserted}

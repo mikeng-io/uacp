@@ -1,0 +1,26 @@
+{
+  "probe": "D-14 \u2014 is the UACP plugin enabled in the environment UACP is developed in?",
+  "captured_at": "2026-08-27",
+  "method": "read the three settings surfaces Claude Code consults; record COUNTS and the presence/absence of any 'uacp' key. No settings content is copied \u2014 only the predicate the defect turns on. Paths redacted to ~ and <repo>.",
+  "caveat": "Machine-local BY NATURE: two of the three surfaces are one user's mutable home directory, and the third is git-ignored. This artifact serializes the OBSERVATION and the exact method so a reader can see what was measured and re-run it; it cannot make another machine's environment reproducible. D-14 is therefore VERIFIED-as-of this capture, not verifiable from the tree alone \u2014 re-run before relying on it.",
+  "observations": [
+    {
+      "surface": "~/.claude/settings.json",
+      "key": "enabledPlugins",
+      "total_entries": 54,
+      "uacp_entries": []
+    },
+    {
+      "surface": "<repo>/.claude/settings.local.json",
+      "enabledPlugins": {},
+      "hooks": {}
+    },
+    {
+      "surface": "~/.claude/plugins/installed_plugins.json",
+      "uacp_substring_count": 0
+    }
+  ],
+  "verdict": "no 'uacp' entry on any surface -> the SessionStart injection, the Guardian PreToolUse hook and all 18 governed writers are INERT in this checkout.",
+  "reproduce": "python3 - <<'EOF'\nimport json, os, pathlib\nhome = pathlib.Path(os.path.expanduser('~/.claude'))\ndef load(p):\n    try: return json.loads(pathlib.Path(p).read_text())\n    except Exception as e: return {'__error__': type(e).__name__}\nuser = load(home / 'settings.json').get('enabledPlugins', {})\nproj = load('.claude/settings.local.json')\ntry: reg = (home / 'plugins' / 'installed_plugins.json').read_text().lower().count('uacp')\nexcept Exception: reg = None\nprint('user settings.json  : entries=%s uacp=%s' % (len(user), [k for k in user if 'uacp' in k.lower()]))\nprint('repo settings.local : enabledPlugins=%s hooks=%s' % (proj.get('enabledPlugins'), proj.get('hooks')))\nprint('installed_plugins   : uacp_substring_count=%s' % reg)\nprint('INERT' if not [k for k in user if 'uacp' in k.lower()] and not (proj.get('enabledPlugins') or {}) and not reg else 'ENABLED SOMEWHERE')\nEOF",
+  "reproduce_note": "Checks ALL THREE surfaces, because the INERT verdict is a three-surface predicate: UACP enabled in the repo-local settings, or present in the installed-plugins registry, would falsify it even with an empty user-level enabledPlugins. Run from the repository root."
+}

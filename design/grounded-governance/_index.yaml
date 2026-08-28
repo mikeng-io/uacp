@@ -1,29 +1,51 @@
 # yaml-language-server: $schema=../graph-engine/schema/design-index.schema.json
 #
-# WHAT THIS IS: the grounded-governance bundle. Diagnosis of UACP's grounding gap (it inherited
-# governance's STRUCTURE from Trustless but severed the GROUNDING — every phase measures the
-# declaration, not reality/purpose) and the PRINCIPLE.md-first design. Slice 1 (the PRINCIPLE.md
-# mechanism: injection hook + uacp.principle_agreement kind + uacp-bootstrap skill) is BUILT on this
-# branch; the reality-grounding gates + dimensional gates are the deferred slices this bundle scopes.
+# WHAT THIS IS: Layer 2 — the correctness SCREENING. The grounded-conformance floor
+# (design/verify-substrate + the M1-M5 register moves) raised VERIFY from "the agent said so"
+# to "the artifact resolves and the declared planes actually ran". That is conformance grounded
+# in reality — and still NOT correctness review: nothing yet READS THE WORK for undeclared
+# defects. This bundle designs the piece that does: the kernel produces a review SUBSTRATE (the
+# real diff from the true commit range + the reality-run's output), a screening agent reads it
+# open-adversarially (charged by the Code Review Rules, with writable-scratch probes), and a
+# mandatory, grounded VERIFY sub-step makes that screening non-skippable. It is the substrate
+# frame (design/verify-substrate) carried from substrate-PRODUCTION into the SCREENING itself.
 
 kind: design_index
-status: building
+status: design
 governance: pre-governance-input
-timestamp: "2026-08-17"
-title: Grounded Governance — restore outer-scope grounding, anchored by PRINCIPLE.md
+timestamp: "2026-08-24"
+title: Grounded Governance — the correctness screening (Layer 2 over the conformance floor)
 description: >-
-  UACP kept governance's structure from Trustless but severed its grounding: every phase measures the
-  declaration, never reality or purpose. The fix is anchored by PRINCIPLE.md — the per-project telos,
-  born at bootstrap via CMS-on-implementation (the code is the answer; the engineer supplies the
-  forward vector), injected on the neutral session-start surface, recorded as a governed agreement.
-  Slice 1 (the PRINCIPLE.md mechanism) is built; the reality-grounding + dimensional gates are scoped
-  here as deferred slices.
+  The conformance floor grounds VERIFY in reality but never reads the work for undeclared defects.
+  Layer 2 closes that: the kernel produces a review substrate (diff-content from the true commit
+  range + reality-run output), a screening agent reads it open-adversarially under the Code Review
+  Rules with writable-scratch mutation probes, and a mandatory grounded VERIFY sub-step makes the
+  screening exist and be non-skippable. This is the enforcement half Superpowers lacks, pointed at
+  correctness rather than conformance. Grounded on real primitives: gitio (base_commit/merge-base),
+  behavior_plane (contained execution), uacp-council (the dispatch framework), and the M2/M3d
+  disposition grounding (findings must resolve, not be asserted away).
 members:
-  - 00-conclusion-and-plan.md      # the diagnosis (grounding severed at every phase) + the ordered plan
-  - 01-principle-md.md             # what PRINCIPLE.md IS + its one-neutral-mechanism injection
-  - 02-uacp-principle-draft.md     # UACP's own principal, DERIVED from the implementation (the proof + record)
-  - 03-injection-and-bootstrap.md  # the injection-hook extension + the bootstrap procedure (Slice 1 design)
+  - 00-the-correctness-gap.md        # why the floor is necessary but not sufficient; what a screening adds
+  - 01-the-review-substrate.md       # kernel-produced diff-content + reality-run output; grounded, not agent-nominated
+  - 02-the-screening-dispatch.md     # the screening as a council dispatch; charge, probes, anti-pre-judging, typed output
+  - 03-enforcement-and-loop.md       # the mandatory grounded VERIFY sub-step; disposition + fixpoint re-review
+  - 04-grounding-is-per-phase.md     # the reframe: grounding is EVERY governed phase, not just VERIFY; one machine, six substrates
+  - 05-triage-substrate.md           # TRIAGE: declared scope vs the real project root (head of the cascade)
+  - 06-propose-substrate.md          # PROPOSE: the premise vs the reproduced current behavior
+  - 07-plan-substrate.md             # PLAN: declared blast-radius vs the code-plane-derived real one (deterministic; prevention)
+  - 08-execute-resolve-unification.md # EXECUTE/RESOLVE: complete the grounding already half-present
+  - 09-the-reckoning-verify-is-run-not-built.md # corrected by cross-provider review: sequencing failure not paradigm; one grounded screening under a trusted execution receipt; PR parked
+  - 10-floor-known-limitations.md # advisory-gate residual (suffix list, cap adjudication) ADJUDICATED as accepted non-goals
+  - 11-agents-md-review-requirement-refinement.md # proposed: 'resolved'=fixed-OR-adjudicated, 'material'=severity-relative
 edges:
-  - {src: 01-principle-md, dst: 00-conclusion-and-plan, rel: depends_on, provenance: derived}
-  - {src: 02-uacp-principle-draft, dst: 01-principle-md, rel: realizes, provenance: derived}
-  - {src: 03-injection-and-bootstrap, dst: 01-principle-md, rel: extends, provenance: asserted}
+  - {src: 01-the-review-substrate, dst: 00-the-correctness-gap, rel: depends_on, provenance: derived}
+  - {src: 02-the-screening-dispatch, dst: 01-the-review-substrate, rel: depends_on, provenance: derived}
+  - {src: 03-enforcement-and-loop, dst: 02-the-screening-dispatch, rel: extends, provenance: asserted}
+  - {src: 04-grounding-is-per-phase, dst: 00-the-correctness-gap, rel: extends, provenance: asserted}
+  - {src: 05-triage-substrate, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
+  - {src: 06-propose-substrate, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
+  - {src: 07-plan-substrate, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
+  - {src: 08-execute-resolve-unification, dst: 04-grounding-is-per-phase, rel: depends_on, provenance: derived}
+  - {src: 09-the-reckoning-verify-is-run-not-built, dst: 04-grounding-is-per-phase, rel: extends, provenance: asserted}
+  - {src: 10-floor-known-limitations, dst: 09-the-reckoning-verify-is-run-not-built, rel: extends, provenance: asserted}
+  - {src: 11-agents-md-review-requirement-refinement, dst: 10-floor-known-limitations, rel: extends, provenance: asserted}

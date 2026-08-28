@@ -13,9 +13,15 @@ packages = []
 
 [project]
 name = "uacp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Universal Agent Control Plane"
-requires-python = ">=3.10"
+# 3.11 is the TRUE floor, not a preference: `config.py` (the Guardian policy
+# loader every governed handler imports) does an unguarded `import tomllib`,
+# which is stdlib only from 3.11. The previous ">=3.10" advertised a version
+# the package could never import on. 3.11 is also the interpreter the Hermes
+# host runtime ships, so this is the version that must keep working.
+# Raising this REQUIRES raising [tool.ruff] target-version in lockstep.
+requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.13.4",
     "pyyaml",
@@ -121,7 +127,10 @@ strict = [
 ]
 
 [tool.ruff]
-target-version = "py313"
+# Must track `requires-python` (>=3.11), NOT the CI interpreter: with py313 here
+# ruff accepts (and `UP` actively suggests) 3.12-only syntax such as PEP 695
+# generics, which then fails to parse on every supported-but-older host runtime.
+target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]

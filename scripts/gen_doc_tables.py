@@ -47,6 +47,9 @@ from tool_specs import tool_specs  # noqa: E402
 AGENTS_MD = ROOT / "AGENTS.md"
 RUNTIME_DOC = ROOT / "docs" / "runtime" / "runtime-enforcement.md"
 INDEX_MD = ROOT / "docs" / "INDEX.md"
+HERMES_PLUGIN_YAML = (
+    ROOT / "runtime-adapters" / "hermes" / "plugins" / "uacp_guardian" / "plugin.yaml"
+)
 
 WRITERS_BEGIN = (
     "<!-- BEGIN GENERATED: governed-writers — derived from "
@@ -60,6 +63,16 @@ TABLE_BEGIN = (
     "engines/domain/layout.py by scripts/gen_doc_tables.py; do not edit by hand -->"
 )
 TABLE_END = "<!-- END GENERATED: writer-path-map -->"
+# The Hermes plugin manifest declares the tool surface the host reads BEFORE
+# loading the adapter, but `register()` registers whatever `tool_specs()`
+# yields — so a hand-maintained list silently drifts (it declared 10 while the
+# kernel registered 19). YAML comment sentinels, same drift lint as the docs.
+HERMES_TOOLS_BEGIN = (
+    "# BEGIN GENERATED: hermes-plugin-tools — derived from "
+    "skills/uacp-core/scripts/tool_specs.py by scripts/gen_doc_tables.py; "
+    "do not edit by hand"
+)
+HERMES_TOOLS_END = "# END GENERATED: hermes-plugin-tools"
 
 
 class DriftError(SystemExit):
@@ -72,6 +85,16 @@ class DriftError(SystemExit):
 # ---------------------------------------------------------------------------
 # Derivation
 # ---------------------------------------------------------------------------
+
+
+def hermes_plugin_tools_fragment() -> str:
+    """Every tool `register()` puts into the Hermes context, in registry order.
+
+    NOT just the governed writers: the manifest must mirror the FULL registered
+    surface, read-only tools (`uacp_heartgate_check`, `uacp_sandbox_check`, …)
+    included, because that is what the adapter actually exposes."""
+    lines = "".join(f"- {s.name}\n" for s in tool_specs())
+    return "\n" + lines
 
 
 def governed_writers() -> list[str]:
@@ -332,6 +355,12 @@ def _targets() -> list[tuple[Path, str, str, str]]:
     return [
         (AGENTS_MD, WRITERS_BEGIN, WRITERS_END, writers_fragment()),
         (RUNTIME_DOC, TABLE_BEGIN, TABLE_END, "\n" + writer_path_table() + "\n"),
+        (
+            HERMES_PLUGIN_YAML,
+            HERMES_TOOLS_BEGIN,
+            HERMES_TOOLS_END,
+            hermes_plugin_tools_fragment(),
+        ),
     ]
 
 
@@ -432,7 +461,8 @@ def check() -> int:
         for e in errors:
             print(f"DRIFT: {e}", file=sys.stderr)
         return 1
-    print("gen_doc_tables: no drift (writer list, writer-path map, inventory all current)")
+    print("gen_doc_tables: no drift (writer list, writer-path map, hermes plugin tools, "
+        "inventory all current)")
     return 0
 
 

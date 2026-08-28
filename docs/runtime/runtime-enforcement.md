@@ -355,7 +355,7 @@ The authoritative mapping from each governed writer to the paths it may write (t
 | `uacp_config_write` | `config/**` (`.yaml`/`.yml`; repo-root-relative, not under `.uacp/`) | Canonical config boundary. |
 | `uacp_contained_shell` | the declared execution workspace only | Contained shell surface (bwrap read-only root); mints state, not a namespace writer. |
 
-Read-only governed tools (no write path): `uacp_sandbox_check`, `uacp_heartgate_check`, `uacp_oracle_query`.
+Read-only governed tools (no write path): `uacp_sandbox_check`, `uacp_heartgate_check`, `uacp_oracle_query`, `uacp_run_status`.
 <!-- END GENERATED: writer-path-map -->
 
 ## Audit

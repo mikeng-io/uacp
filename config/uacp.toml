@@ -548,6 +548,35 @@ domains = ["runtime", "governance", "guardian", "heartgate", "kanban", "agent_co
 enforcement = "heartgate blocker on overlap with another active_run's write_paths"
 
 # =============================================================================
+# VERIFICATION
+# =============================================================================
+# Operator-tunable knobs for the VERIFY-phase grounded-substrate floor.
+
+[verification]
+# M3 behavioral floor (design/verify-substrate/02): when the git witness shows the
+# run changed CODE, the run must carry >=1 behavioral check (which replay then RUNS,
+# turning behaviour into substrate) — else CHK_BEHAVIORAL_FLOOR_UNMET. This severity
+# migrates the SC_DIFF way: DEFAULT "warn" (announce without breaking live runs),
+# flipped to "block" in a later named release once runs carry behavioral checks.
+# Only the literals "warn"/"block" are honored; an absent/invalid value -> "warn"
+# (the safe migration default — block-by-accident breaks runs). Read via
+# config.get_config(root) by engines.manifest.projection.validate_behavioral_floor.
+behavioral_floor = "warn"
+
+# M3c / D-07 diff containment (engines.scope_conformance): SC_DIFF_OUT_OF_SCOPE grounds
+# the one independent, witnessed input — git's ACTUAL change set vs the run's OWN declared
+# write_paths. This severity migrates the same way as behavioral_floor above: DEFAULT
+# "warn" (surface out-of-scope work without breaking live runs), flipped to "block" in a
+# later named release. When "block", SC_DIFF_OUT_OF_SCOPE blocks ONLY for a run that
+# declared a NON-EMPTY write_paths (fail-closed on the agent's own declaration, the least-
+# arguable form); an empty/undeclared boundary stays advisory. SC_DIFF_UNAVAILABLE is
+# ALWAYS "warn" (an unobservable repo is an environment fact, not an agent fault). Only the
+# literals "warn"/"block" are honored; an absent/invalid value -> "warn" (the safe
+# migration default — block-by-accident breaks runs). Read via config.get_config(root) by
+# engines.scope_conformance._sc_diff_containment_severity.
+sc_diff_containment = "warn"
+
+# =============================================================================
 # OUTPUT
 # =============================================================================
 # Output formatting and artifact generation.
@@ -1032,8 +1061,33 @@ discovery_status = "symlink_probe_passed"
 source = "runtime-adapters/hermes/plugins/uacp_guardian/"
 binding = "HERMES_ROOT/plugins/uacp_guardian"
 binding_kind = "symlink"
+# Was `live_bound_user_plugin` citing
+# `verification/runtime-porting-20260513-uacp-guardian-live-bind.yaml` — a path that
+# no longer resolves (the whole `verification/` tree moved under the gitignored
+# `.uacp/verification/`), so the claim had no reachable evidence from a fresh clone.
+# It was also FALSE at the time it was read: UACP core carried PEP 695 syntax
+# (3.12+) while the Hermes venv is 3.11, so the symlink could be in place and the
+# plugin STILL not load — Hermes' per-plugin exception handling marks it `error`
+# rather than crashing, which is precisely why a stale "live_bound" claim survived.
+# The syntax defect is fixed, `scripts/check_python_floor.py` imports the adapter on a
+# floor interpreter in CI, and the live bind has now been RE-PROBED end to end by the
+# `runner:hermes` acceptance container (`make acceptance-hermes`): a real pinned Hermes
+# v0.17.0, on the interpreter Hermes' own installer selected (Python 3.11.16 — the floor
+# at which the original defect bit), loaded this adapter through the symlink binding
+# below and registered all 19 governed tools `tool_specs()` declares. The verdict is read
+# from Hermes' OWN reports (its loader log + `GET /v1/toolsets`), never from inspection.
+#
+# The harness is CALIBRATED, not merely green: reintroducing the historical PEP 695
+# defect drives it red with Hermes' own "Failed to load plugin" diagnostic, and removing
+# one tool from the registered surface drives it red naming that tool. See
+# `acceptance/hermes/evidence/20260828-calibration.md`.
+#
+# SCOPE OF THE CLAIM: the plugin loads and its governed tools are registered. It does NOT
+# cover hook firing (Hermes exposes no model-free report of plugin hook registration) or
+# a driven lifecycle (Priority 2, blocked on a tool channel for the lifecycle ops).
 migration_status = "live_bound_user_plugin"
-verification_artifact = "verification/runtime-porting-20260513-uacp-guardian-live-bind.yaml"
+verification_artifact = "acceptance/hermes/evidence/20260828-plugin-conformance.json"
+verification_method = "containerized acceptance run; reproduce with `make acceptance-hermes`"
 
 [runtime_bindings.hermes.adapters.thread_title_sync]
 source = "runtime-adapters/hermes/plugins/thread_title_sync/"

@@ -280,7 +280,13 @@ def _infer_hermes_tool_provider(tool_name: str) -> str:
 
 
 def register(ctx) -> None:
-    """Register the Guardian hooks and the 11 governed tools into Hermes.
+    """Register the Guardian hooks and the governed tool surface into Hermes.
+
+    The count is deliberately NOT stated here: the surface is whatever
+    ``tool_specs()`` yields, and a hardcoded number is a claim that silently
+    goes stale (this docstring said 11 while the registry held 19 and
+    plugin.yaml declared 10). plugin.yaml is generated from the same registry
+    by ``scripts/gen_doc_tables.py`` and drift-linted in CI.
 
     The tools are sourced from the runtime-neutral ``tool_specs()`` registry;
     each spec's schema is reproduced in the exact wrapped Hermes wire form via
