@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from pathlib import Path
+from typing import TypeVar
 
 import yaml
 
@@ -37,16 +38,21 @@ logger = logging.getLogger(__name__)
 SkipReport = list[tuple[str, str]]
 
 
-def _scan_okf_dir[T](
-    directory: Path, parse: Callable[[str], T], label: str
-) -> tuple[list[T], SkipReport]:
+# Pre-PEP-695 spelling on purpose — see the note in engines/io/loaders.py:
+# ``def _scan_okf_dir[T](...)`` requires Python 3.12+, the package floor is 3.11.
+_T = TypeVar("_T")
+
+
+def _scan_okf_dir(
+    directory: Path, parse: Callable[[str], _T], label: str
+) -> tuple[list[_T], SkipReport]:
     """Parse every ``*.md`` OKF doc in ``directory``; never raise.
 
     Returns ``(items, skipped)``. Each unparseable document lands in ``skipped``
     as ``(filename, reason)`` and the batch is logged as one WARNING.
     Subdirectories (e.g. ``indexes/``) are ignored by the ``*.md`` glob.
     """
-    items: list[T] = []
+    items: list[_T] = []
     skipped: SkipReport = []
     if not directory.is_dir():
         return items, skipped
