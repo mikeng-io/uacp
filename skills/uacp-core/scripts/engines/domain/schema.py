@@ -686,6 +686,40 @@ _SCHEMAS: dict[str, dict[str, Any]] = {
             "supersedes": {"type": "string"},
         },
     },
+    # uacp.principle_agreement (PRINCIPLE.md bootstrap): the governed, provenanced record that a
+    # project's telos was DERIVED and AGREED — who agreed, when, from what evidence, which version,
+    # and a content-hash BINDING the agreement to the exact PRINCIPLE.md bytes it covers. Not tied
+    # to a lifecycle PHASE, but written INSIDE a run (bootstrap opens a lightweight run — the writer
+    # requires a run context). Open-world; the load-bearing constraint is that every provenance
+    # field is PRESENT and the hash binds the claim to evidence — an agreement without provenance,
+    # or one uncheckable against the live file, is exactly what this kind exists to forbid.
+    "uacp.principle_agreement": {
+        "$schema": _DRAFT,
+        "type": "object",
+        "required": [
+            "kind",
+            "run_id",
+            "principle_path",
+            "principle_content_sha256",
+            "agreed_by",
+            "agreed_at",
+            "derived_from",
+        ],
+        "properties": {
+            "kind": {"const": "uacp.principle_agreement"},
+            "run_id": {"type": "string", "minLength": 1},
+            "principle_path": {"type": "string", "minLength": 1},
+            # The load-bearing binding: a hex SHA-256 of the exact PRINCIPLE.md bytes this
+            # agreement covers. Makes the agreement FALSIFIABLE — if PRINCIPLE.md is later edited,
+            # its live hash no longer matches and the stale agreement is detectable (UACP's
+            # "claims bound to evidence" thesis). 64 lowercase hex chars.
+            "principle_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}\\Z"},
+            "principle_version": {"type": "string", "minLength": 1},
+            "agreed_by": {"type": "string", "minLength": 1},
+            "agreed_at": {"type": "string", "minLength": 1},
+            "derived_from": {"type": "string", "minLength": 1},
+        },
+    },
 }
 
 # uacp.check.* — frozen generative-gate checks (capsule #3, slice 0c). Open-world (like the

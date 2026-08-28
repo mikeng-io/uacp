@@ -159,6 +159,20 @@ _ENTRIES: tuple[Entry, ...] = (
     Entry("uacp.resolve_package", RELATION, "resolutions", "{run_id}-resolve-selection.yaml", YAML),
     Entry("uacp.resolve_closure", RELATION, "resolutions", "{run_id}-closure.yaml", YAML),
     Entry("uacp.lessons", RELATION, "resolutions", "{run_id}-lessons.yaml", YAML),
+    # uacp.principle_agreement (PRINCIPLE.md bootstrap): the governed, provenanced record that a
+    # project's telos (PRINCIPLE.md) was DERIVED and AGREED. RELATION-plane manifest node (NOT the
+    # `knowledge` Oracle-corpus segment — that is owned solely by the Oracle; see this file's SCOPE
+    # docstring). Lives in `resolutions/` (an existing RELATION segment that already holds the other
+    # cross-run knowledge artifact, lessons) to avoid introducing a new partially-wired segment.
+    # Run-scoped: the entity-writer requires a run context, so bootstrap opens a lightweight run to
+    # write it (it is not tied to a lifecycle PHASE, but it IS written inside a run).
+    Entry(
+        "uacp.principle_agreement",
+        RELATION,
+        "resolutions",
+        "{run_id}-principle-agreement.yaml",
+        YAML,
+    ),
     # --- state plane ---
     # NOTE: uacp.phase_transition + uacp.council_synthesis are CALLER-PROVIDED paths (passed
     # as a `transition_path` / council arg, under state/runs/ and verification|resolutions/

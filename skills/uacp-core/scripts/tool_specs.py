@@ -145,7 +145,7 @@ def _entity_write_schema() -> dict[str, Any]:
                     "uacp.scope, uacp.phase_intent_verification_contract, uacp.execution_checkpoint, "
                     "uacp.investigation_entry, uacp.verification_package, uacp.verify_resolve_readiness, "
                     "uacp.evidence_disposition (Markdown), uacp.piv_assessment, uacp.resolve_package, "
-                    "uacp.resolve_closure, uacp.lessons. "
+                    "uacp.resolve_closure, uacp.lessons, uacp.principle_agreement. "
                     "Generative-gate check kinds (frozen per run): uacp.check.field_present, "
                     "uacp.check.field_equals, uacp.check.edge_exists, uacp.check.artifact_integrity, "
                     "uacp.check.obligation_satisfied, uacp.check.symbol_resolves, uacp.check.behavioral. "

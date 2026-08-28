@@ -18,6 +18,8 @@ This file is **principles only** — the governance contract every agent must ob
 
 This is `determinism : machines :: CMS : agents` — how a semantic process earns trust without pretending to be deterministic. It is enforced two ways: **architecturally** (Guardian / Heartgate / gates / governed writers) and in the agent's **cognition** (the injected preamble, `UACP.md`). The lifecycle below is this principle iterated; its serialized residue, run over run, is the **memory substrate** — the typed, provenanced foundation memory is built on. Design rationale: `design/telos/` (the purpose) and `design/comprehend-measure-serialize/` (the discipline).
 
+**CMS is a reasoning reflex, not only a governance gate.** To answer *what any system is or does*, run it on the artifact first: **comprehend** the real thing (code, state, history) into a model → **measure** a signal grounded in that evidence → **serialize** the result. The existing reality is the evidence — read it before you theorize, and never assert what you can ground.
+
 ---
 
 ## Authority Chain
@@ -63,6 +65,54 @@ These rules are non-negotiable. Violations are Heartgate blockers or Guardian bl
 5. **Evidence must be produced** — "Done" without a backing artifact and ledger entry is a Heartgate blocker. No self-attesting closures.
 
 UACP enforces strict separation between cognitive planes — do not use Agent Council as a state database, do not let worker runtimes silently mutate phase state, do not use a Coordination Adapter to decide policy. See `docs/INDEX.md` for the planes model and skill map.
+
+---
+
+## Code Review Rules
+
+These rules apply to all automated review of this repository — the GitHub Codex auto-review and Codex-CLI reviews orchestrated by a coordinator alike. Codex loads this file; this section is the review **contract** it reads, scoping and standardizing what a review emits.
+
+P2 findings are wanted — harvested as control-plane input, not treated as merge blockers. These rules exist so that harvesting a large P2 yield does not stop a pull request from converging.
+
+**Enforcement status (honest caveat).** These rules are read by the reviewer and shape what it emits. They are NOT machine-enforced: nothing here stops a round from triggering, and no gate rejects a review that ignores them. Round cadence is a Codex repository setting; the decision to merge with open P2 findings is the coordinator's. Read this as the review contract, not a delivered control.
+
+### Escalate a saturated finding class instead of enumerating it
+
+A review round must reduce the number of open defect **classes**, not restate one class through a new input shape. Two findings are the same class when **one single remedy would fix both** — apply this test first and take its answer; different fixes = different classes (report separately). A finding is **saturated** when an earlier round on this PR already reported its class and it differs only in the triggering input: report a saturated class **once** — naming the class and the structural remedy — then stop reporting its instances on this PR. Report at the severity its **consequence** warrants, never raised for recurrence.
+
+### Report a defect class with all of its instances
+
+On the **first** report of a class, search the diff for every sibling — same file, helper, shape — and report them together in that round. Do not publish one instance and leave its siblings for a later round.
+
+### Do not review a fix into a new defect
+
+If a finding exists only because of a change made to address an earlier finding on this PR, name that earlier finding and say why its class differs. If the class does not differ, it is saturated — escalate, don't re-report.
+
+### Prefer behavioral proof over structural proof
+
+When reviewing a test, validator, gate, or conformance harness, first ask whether the assertion inspects source text/structure (grep, regex, AST, file layout) to prove a **behavioral** property. If it does, **that is the finding** — report it once, at the severity the P1 criterion gives it (a harness that reports `PASS` without testing its property is P1). Do not then pursue completeness of the structural proxy across rounds — a proxy is evadable by construction, so completeness findings against it are unbounded. Safe path: exercise the component and assert on its observable output, or state the narrow property the structural check does prove. (This is CMS's **measure** discipline — bind to the real property, not a weak proxy.)
+
+### Separate blocking findings from harvest
+
+**P1 criterion.** A finding is P1 when, left unfixed, it can produce a **silently wrong result a later gate would accept** — a false `PASS`, a self-attesting closure, a check that reports success without testing its property, data loss, or an auth/tenancy/privacy bypass. Everything else is P2, including findings that are certainly real. **Severity tracks consequence, never confidence, recurrence, or effort.** (A P1 is exactly a violation of UACP's fail-closed / no-self-attestation doctrine — Invariant #5 and the CMS measure rule.)
+
+P1 findings block the PR and are fixed in place. P2 findings are harvest: once a round produces no P1, the review is **converged** — collect remaining P2 observations into a single non-blocking summary comment and open no further rounds; P2s are follow-up work, not blockers on the reviewed PR. Terminating the round sequence is the coordinator's decision.
+
+### Consult ratified decisions before recommending a design change
+
+`docs/decisions/decision-log.md`, the ADRs under `docs/architecture/`, and the design bundles under `design/**` are binding decision records. Before recommending that code adopt, restore, or delete a mechanism, check whether it is already settled there — if so, drop the finding or cite the record and explain what new evidence overrides it. Reinstating a design the project rejected on the record is a defect in the review, not in the code.
+
+### Review scope
+
+Review targets — implementation code: `skills/`, `config/`, `runtime-adapters/`, `scripts/`, `tests/`.
+
+Read-only reference inputs, never review targets: `docs/`, `design/`.
+
+Governance and evidence records under `.uacp/**` and `**/*.jsonl` are consulted for decisions, never reviewed for style, structure, completeness, or schema preference.
+
+Excluded: `.claude/`, `.codex/`, `.git/`, `.worktrees/`.
+
+A coordinator may widen or narrow this scope for a specific review by saying so explicitly. An unstated deviation from this scope is a defect in the review.
 
 ---
 
