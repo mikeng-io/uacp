@@ -5,14 +5,29 @@ author: Hermes/UACP
 hooks:
 - pre_tool_call
 - post_tool_call
+# The list below mirrors the FULL surface `register()` installs from the neutral
+# `tool_specs()` registry — read-only tools included. It is generated, because a
+# hand-kept copy drifted to 10 entries while the kernel registered 19.
+# Regenerate with: python3 scripts/gen_doc_tables.py --write   (drift-linted in CI)
 tools:
+# BEGIN GENERATED: hermes-plugin-tools — derived from skills/uacp-core/scripts/tool_specs.py by scripts/gen_doc_tables.py; do not edit by hand
 - uacp_state_write
+- uacp_run_registry_update
+- uacp_escalation_event
 - uacp_artifact_write
+- uacp_entity_write
 - uacp_doc_write
 - uacp_config_write
-- uacp_heartgate_check
 - uacp_sandbox_check
 - uacp_contained_shell
-- uacp_gate_ledger_append          # Phase 1
-- uacp_run_registry_update         # Phase 3.2
-- uacp_escalation_event            # Phase 4.4
+- uacp_gate_ledger_append
+- uacp_heartgate_check
+- uacp_oracle_query
+- uacp_corpus_write
+- uacp_run_init
+- uacp_run_transition
+- uacp_run_status
+- uacp_run_register_artifact
+- uacp_run_finalize
+- uacp_run_abort
+# END GENERATED: hermes-plugin-tools
