@@ -41,7 +41,7 @@ test:
 # The deterministic prober also runs in `make test` (tests/acceptance/); this target is the
 # containerized plugin-source conformance smoke (not a `claude plugin install` round-trip). Needs docker.
 acceptance:
-	docker compose -f acceptance/compose.yml run --rm conformance
+	docker compose -f acceptance/compose.yml run --rm --build conformance
 
 # E2E acceptance harness — the `runner:hermes` twin (design nodes 11/13): install the UACP Guardian
 # adapter into a REAL pinned Hermes the user-real way (symlink binding + `hermes plugins enable`) and
@@ -49,7 +49,7 @@ acceptance:
 # registered. Periodic / pre-release, NOT a merge gate — it builds Hermes from source over the
 # network and takes minutes. See acceptance/hermes/README.md. Needs docker.
 acceptance-hermes:
-	docker compose -f acceptance/hermes/compose.yml run --rm conformance-hermes
+	docker compose -f acceptance/hermes/compose.yml run --rm --build conformance-hermes
 
 # Simulate the PR gate (quality + test) via act — mirrors what runs on pull_request.
 ci-pr:
