@@ -7,7 +7,7 @@
 #
 #   docker compose -f acceptance/hermes/compose.yml run --rm conformance-hermes /probe.sh
 #
-# Findings as of Hermes v0.17.0 (2026.6.19) — see README.md for the summary table:
+# Findings as of Hermes v0.20.6 (2026.8.27) — see README.md for the summary table:
 #   USED  hermes plugins list --json ......... activation ONLY (dir scan + config allow-list); still
 #                                              says "enabled" for a plugin that failed to import
 #   USED  hermes logs / logs errors .......... the loader's own "Failed to load plugin '<n>': <why>"

@@ -36,7 +36,7 @@ under `acceptance/hermes/out/`.
 ## What it does
 
 1. **Baseline.** `debian:bookworm-slim` — **no Python at all**, plus what a user needs to run Hermes'
-   published installer. Hermes' own `install.sh` (pinned by commit + sha256, == `v0.17.0`) bootstraps
+   published installer. Hermes' own `install.sh` (pinned by commit + sha256, == `v0.20.6`) bootstraps
    `uv`, and `uv` provisions the interpreter. So the interpreter under test is **whatever Hermes
    chose** (3.11.16 in practice), not one the harness picked. Deliberately unlike
    `tools/proving-ground/images/hermes/Dockerfile`, which pins `python:3.12-slim` — that is a cell
@@ -99,10 +99,17 @@ directions (missing *and* unexpected).
   the lifecycle ops (init / transition / register / finalize) yet, so Increment 1 is blocked.
   Conformance does not need it, which is why it goes first. This container satisfies contract points
   1, 2, 4 and 5; **point 3 (drive the lifecycle) is not attempted.**
-- **Plugin hook firing.** `uacp_guardian` registers `pre_tool_call` / `post_tool_call`, but Hermes
-  exposes no model-free report of plugin hook registration (`hermes hooks` is a different subsystem —
-  shell-script hooks in `config.yaml`). Asserting it would need a model in the loop. Stated rather
-  than faked.
+- **Plugin hook firing.** `uacp_guardian` registers `pre_tool_call` / `post_tool_call` /
+  `pre_llm_call`, but Hermes exposes no model-free report of plugin hook registration (`hermes hooks`
+  is a different subsystem — shell-script hooks in `config.yaml`), and `pre_llm_call` needs a model
+  turn to fire at all. Asserting any of it here would need a model in the loop, so it is covered by
+  `tests/integration/test_hermes_preamble_injection.py` instead and left unasserted here. Stated
+  rather than faked.
+
+  > Which hooks Hermes actually fires is not what it declares. `on_session_start` is in its
+  > valid-hook list and is **never fired** for plugins — established by registering a probe plugin
+  > with seven hooks and running a real session, where only `on_session_finalize` fired. That is why
+  > the cognition preamble rides `pre_llm_call` + `is_first_turn`.
 - **`thread_title_sync`.** Carries the same unbacked-binding problem, but is a separate probe.
 - **Host installs.** The claim is scoped to this container's reproducible install.
 
