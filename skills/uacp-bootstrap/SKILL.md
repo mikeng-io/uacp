@@ -34,6 +34,29 @@ description (*what* is built), **not** a policy/standard/contribution guide (*ho
 principle from what the code actually does, then have the engineer confirm and supply the one thing
 code cannot give — the forward vector.
 
+### 0. Open the run FIRST — before reading anything
+
+Open the governed run at the **start**, not at the serialize step:
+
+```
+uacp_run_init(initial_phase="brainstorm", reason="derive PRINCIPLE.md for <project>",
+              authority_artifact="<the onboarding request>")
+```
+
+**Why before the sweep, not after it.** A whole-project comprehension sweep, a derived principle, and
+an engineer agreement are not trivial work; opening the run only to carry the final provenance write
+would put all of it outside governance, where it produces no proposal, no plan, and no verification
+evidence — and the one artifact that governs everything afterwards would be the least evidenced thing
+in the repo. Invariant #1 is TRIAGE-first for exactly this reason, and BRAINSTORM is the documented
+phase for exploration that *precedes* TRIAGE (`brainstorm->triage` is a canonical transition; it does
+not skip TRIAGE, it feeds it). Bootstrap is that shape: steps 1–3 are exploration, and step 4 is the
+governed deliverable. So the derivation runs **inside** `brainstorm`, and the serialize step happens
+after a real `brainstorm->triage` transition.
+
+This corrects an earlier reading of "bootstrap is pre-governance" that treated the run as a mere
+vehicle for one write. Bootstrap precedes the *project's* governed work; it is not exempt from
+governance itself.
+
 ### 1. Comprehend — read the running reality (implementation-first)
 
 Run a fan-out of read-only comprehension over the project, **grounding on the implementation, not the
@@ -71,15 +94,19 @@ reality (the "and when"). **Agreement is the gate.** Do not serialize an un-agre
 
 - Write **`PRINCIPLE.md` at the project root** (a normal work-product file — the project's own, like
   its `AGENTS.md`). Use the template below; set `status: agreed`.
+- Close out BRAINSTORM the way the phase actually exits — the gate is structural, not a formality:
+  1. `uacp_entity_write(kind="uacp.brainstorm_scope_package", ...)`, which the brainstorm-exit
+     invariant globs at `brainstorm/{run_id}/07-scope-package.yaml`. For a bootstrap the scope
+     package is already in hand: `in_scope` = what the sweep actually covered (and, per the scale
+     rule, what it did not), `routing_advisory` = `standard`.
+  2. `uacp_run_transition("brainstorm" -> "triage")`. Without step 1 this transition is **refused**;
+     the exploration is done, and the deliverable below is not exploration.
 - Record a **governed provenance node** so the agreement is auditable, not a vibe:
-  `uacp_entity_write(kind="uacp.principle_agreement", fields={...})`. The writer requires a run
-  context. Bootstrap is a **pre-governance** operation — it may precede TRIAGE (like brainstorm),
-  because it *creates* the anchor governance later grounds against; the derivation is onboarding, not
-  a governed deliverable. Open a **minimal run solely to carry this one provenance write** (this is
-  the K2/#164 run-context gap: governed writers require a run), then close it with **`uacp_run_abort`
-  passing `disposition: direct`** (a deliberate close — NOT the default `abandoned`, which would
-  misrecord the completed agreement's run as abandoned work). Do NOT `uacp_run_finalize` (finalize is
-  allowlisted only in `resolve`; a bootstrap run sits in
+  `uacp_entity_write(kind="uacp.principle_agreement", fields={...})` — inside the run opened at step
+  0, which is what satisfies the writer's run-context requirement (the K2/#164 gap). Close with
+  **`uacp_run_abort` passing `disposition: direct`** (a deliberate close — NOT the default
+  `abandoned`, which would misrecord the completed agreement's run as abandoned work). Do NOT
+  `uacp_run_finalize` (finalize is allowlisted only in `resolve`; a bootstrap run rests in
   `triage`, and finalize refuses a non-terminal phase). Fields: `principle_path`, **`principle_content_sha256`**
   (the SHA-256 of the exact PRINCIPLE.md bytes — the *falsifiable* binding: if the file is later
   edited, its live hash no longer matches and the stale agreement is detectable), `agreed_by`,

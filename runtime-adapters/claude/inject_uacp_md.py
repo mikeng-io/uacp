@@ -113,6 +113,44 @@ def _workspace_root(payload: dict[str, Any] | None) -> str:
         return cwd
 
 
+def _principle_path(payload: dict[str, Any] | None, ws_root: str) -> str:
+    """Absolute path to the project's ``PRINCIPLE.md``, resolved INDEPENDENTLY of ``.uacp/``.
+
+    ``_workspace_root`` anchors on ``.uacp/``, which is RUNTIME-CREATED — so on a fresh clone that
+    has never had a run, starting Claude in a subdirectory left ``ws_root`` at that subdirectory and
+    the tracked, committed ``PRINCIPLE.md`` at the repo root was never found (Codex #171). The
+    principle is a VCS artifact, so it must be located by a VCS-shaped rule, not by runtime state.
+
+    Order: the workspace root first (preserves today's behaviour whenever ``.uacp/`` did resolve),
+    then the VCS root found by walking up from ``cwd`` for a ``.git`` entry. The walk STOPS at that
+    VCS root and never considers ancestors above it — otherwise an unrelated ``PRINCIPLE.md`` in a
+    parent directory outside the project could be injected into the session. '' when none is found.
+    """
+    candidate = os.path.join(ws_root, "PRINCIPLE.md")
+    if os.path.exists(candidate):
+        return candidate
+    cwd = None
+    if payload is not None:
+        c = payload.get("cwd")
+        if isinstance(c, str) and c:
+            cwd = c
+    if cwd is None:
+        return ""
+    try:
+        d = os.path.abspath(cwd)
+        while True:
+            # `.git` is a directory in a normal clone and a FILE in a worktree/submodule — accept both.
+            if os.path.exists(os.path.join(d, ".git")):
+                at_vcs_root = os.path.join(d, "PRINCIPLE.md")
+                return at_vcs_root if os.path.exists(at_vcs_root) else ""
+            parent = os.path.dirname(d)
+            if parent == d:  # filesystem root, no VCS root found
+                return ""
+            d = parent
+    except Exception:
+        return ""
+
+
 def _unquote(value: str) -> str:
     """Strip surrounding quotes; for an UNquoted scalar, also drop a trailing YAML comment
     (`... # note`). A bare `#` without a leading space is a literal (e.g. `bug#12`), and a `#`
@@ -257,8 +295,8 @@ def _fence(body: str) -> str:
     return f"{fence}\n{body}\n{fence}"
 
 
-def _principle_section(ws_root: str) -> str:
-    """The governed project's telos, read from ``<ws_root>/PRINCIPLE.md`` and injected as a labelled,
+def _principle_section(path: str) -> str:
+    """The governed project's telos, read from the resolved ``PRINCIPLE.md`` and injected as a labelled,
     FENCED, untrusted-content section: whole body (frontmatter stripped), byte-bounded on read,
     length-capped, fail-open. The body is a possibly-FOREIGN, untrusted committed file, so it is
     (1) accepted only as a REGULAR file — a symlink (could point at a secret outside the repo) or a
@@ -270,7 +308,8 @@ def _principle_section(ws_root: str) -> str:
     record lives in runtime-only `.uacp/`). The hook only surfaces the telos; the content-hash
     binding in the agreement schema is that future gate's input. '' when absent / non-regular /
     unreadable / empty."""
-    path = os.path.join(ws_root, "PRINCIPLE.md")
+    if not path:
+        return ""
     # SECURITY: only a REGULAR file. islink first (isfile follows symlinks); a symlink could point at
     # a secret outside the repo (~/.ssh/id_rsa), and a FIFO/device/dir would block or mislead the read.
     if os.path.islink(path) or not os.path.isfile(path):
@@ -281,11 +320,17 @@ def _principle_section(ws_root: str) -> str:
     except OSError:
         return ""
     try:
-        # Incremental decode of the COMPLETE utf-8 prefix (final=False): if the bounded read cut a
-        # multibyte char, the incomplete trailing bytes are buffered/dropped rather than raising, so
-        # a valid oversized file still injects its capped prefix. Genuinely-invalid bytes still raise
-        # -> fail open (inject nothing).
-        text = codecs.getincrementaldecoder("utf-8")().decode(raw, final=False)
+        # Incremental decode, finalized ONLY when the read actually reached EOF. The two cases are
+        # genuinely different and were previously conflated (Codex #171):
+        #   - read filled the cap  -> the file may continue, so a trailing partial char was cut by
+        #     OUR bound, not by the author. final=False buffers and drops it; the capped prefix of a
+        #     valid oversized file still injects. Correct.
+        #   - read hit EOF         -> there is nothing more to come, so an incomplete sequence means
+        #     the FILE is malformed. final=True makes the decoder raise, and the contract ("unreadable
+        #     principles are omitted") is honoured. With final=False this silently injected the
+        #     decodable prefix of an undecodable file.
+        at_eof = len(raw) < _MAX_PRINCIPLE_READ_BYTES
+        text = codecs.getincrementaldecoder("utf-8")().decode(raw, final=at_eof)
     except UnicodeDecodeError:
         return ""  # undecodable -> fail open, inject nothing
     body = _strip_frontmatter(text).strip()
@@ -302,13 +347,16 @@ def _principle_section(ws_root: str) -> str:
     )
 
 
-def _principle_absent_notice(ws_root: str) -> str:
+def _principle_absent_notice(ws_root: str, principle_path: str) -> str:
     """Auto-surface: a governed project (``.uacp/`` present) with NO ``PRINCIPLE.md`` gets an
     advisory bootstrap prompt. '' otherwise — a non-governed tree is not prompted, and an existing
-    (even unreadable) PRINCIPLE.md is handled by ``_principle_section``, not re-prompted here."""
+    (even unreadable) PRINCIPLE.md is handled by ``_principle_section``, not re-prompted here.
+
+    Takes the ALREADY-RESOLVED principle path rather than re-deriving ``<ws_root>/PRINCIPLE.md``, so
+    a principle found at the VCS root is never re-prompted just because ``ws_root`` sits deeper."""
     if not os.path.isdir(os.path.join(ws_root, ".uacp")):
         return ""
-    if os.path.exists(os.path.join(ws_root, "PRINCIPLE.md")):
+    if principle_path:
         return ""
     return (
         "## Project Principle — none yet\n\n"
@@ -319,7 +367,10 @@ def _principle_absent_notice(ws_root: str) -> str:
 
 
 def main() -> int:
-    ws_root = _workspace_root(_read_stdin_json())
+    payload = _read_stdin_json()
+    ws_root = _workspace_root(payload)
+    # Resolved independently of `.uacp/` — see _principle_path (Codex #171).
+    principle_path = _principle_path(payload, ws_root)
 
     path = os.path.join(_plugin_root(), "UACP.md")
     try:
@@ -344,11 +395,11 @@ def main() -> int:
     # framework preamble AND the real handoffs — and fenced, so untrusted project content can never
     # precede or impersonate a framework section. Its absence in a governed project surfaces a
     # bootstrap nudge instead.
-    principle = _principle_section(ws_root)
+    principle = _principle_section(principle_path)
     if principle:
         text = f"{text}\n\n{principle}"
     else:
-        notice = _principle_absent_notice(ws_root)
+        notice = _principle_absent_notice(ws_root, principle_path)
         if notice:
             text = f"{text}\n\n{notice}"
 

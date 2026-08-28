@@ -506,3 +506,95 @@ def test_fail_open_when_principle_undecodable(tmp_path: Path) -> None:
     assert "SENTINEL_CMS_PREAMBLE" in ctx
     assert "Project Principle" not in ctx  # unreadable => not injected
     assert "uacp-bootstrap" not in ctx  # exists (just unreadable) => no bootstrap prompt
+
+
+# --- Codex #171 regressions -------------------------------------------------------------------
+# Two defects that every test above missed because they all pre-create `.uacp/` in the same
+# directory as PRINCIPLE.md, and none writes a file that ENDS mid-character.
+
+
+def test_principle_found_at_vcs_root_on_clean_clone_from_subdirectory(tmp_path: Path) -> None:
+    """The tracked PRINCIPLE.md is found without `.uacp/` existing anywhere.
+
+    `.uacp/` is RUNTIME-created, so a fresh clone has none. Starting in a subdirectory therefore
+    left the workspace root at that subdirectory, and the committed PRINCIPLE.md at the repo root
+    was silently never injected — with no bootstrap notice either, since that is gated on `.uacp/`.
+    Resolution now falls back to the VCS root.
+    """
+    plugin_dir, repo_dir = tmp_path / "plugin", tmp_path / "repo"
+    plugin_dir.mkdir()
+    subdir = repo_dir / "services" / "api"
+    subdir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()  # a clone, never run under UACP: no .uacp/ anywhere
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    (repo_dir / "PRINCIPLE.md").write_text(_PRINCIPLE_MD, encoding="utf-8")
+
+    proc = _run(plugin_dir, payload={"cwd": str(subdir)})
+
+    assert proc.returncode == 0
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SENTINEL_PROJECT_TELOS" in ctx  # found at the VCS root, not the cwd
+
+
+def test_principle_not_taken_from_above_the_vcs_root(tmp_path: Path) -> None:
+    """The upward walk STOPS at the VCS root: a PRINCIPLE.md belonging to an unrelated parent
+    directory must never be injected into this project's session."""
+    plugin_dir, repo_dir = tmp_path / "plugin", tmp_path / "outer" / "repo"
+    plugin_dir.mkdir()
+    repo_dir.mkdir(parents=True)
+    (repo_dir / ".git").mkdir()
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    # Belongs to `outer/`, ABOVE this repo — not ours to inject.
+    (tmp_path / "outer" / "PRINCIPLE.md").write_text(_PRINCIPLE_MD, encoding="utf-8")
+
+    proc = _run(plugin_dir, payload={"cwd": str(repo_dir)})
+
+    assert proc.returncode == 0
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SENTINEL_CMS_PREAMBLE" in ctx  # hook still ran
+    assert "SENTINEL_PROJECT_TELOS" not in ctx  # the parent's principle stayed out
+
+
+def test_principle_rejected_when_truncated_multibyte_at_real_eof(tmp_path: Path) -> None:
+    """A file ENDING in an incomplete utf-8 sequence is undecodable and must be omitted.
+
+    Distinct from a character cut by the read cap (which is correctly dropped): here the read
+    reaches real EOF, so the incomplete sequence is the FILE's defect. Previously `final=False`
+    buffered and discarded those bytes, injecting the decodable prefix of an undecodable file —
+    contradicting the hook's "unreadable principles are omitted" contract.
+    """
+    plugin_dir, workspace_dir = tmp_path / "plugin", tmp_path / "workspace"
+    plugin_dir.mkdir()
+    (workspace_dir / ".uacp").mkdir(parents=True)
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    # Well under the 65 536-byte read cap, so the read hits EOF; \xe2\x82 is a truncated euro sign.
+    (workspace_dir / "PRINCIPLE.md").write_bytes(
+        b"# PRINCIPLE\n\nSENTINEL_PROJECT_TELOS\n\xe2\x82"
+    )
+
+    proc = _run(plugin_dir, payload={"cwd": str(workspace_dir)})
+
+    assert proc.returncode == 0  # fail open, never crash
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SENTINEL_CMS_PREAMBLE" in ctx
+    assert "SENTINEL_PROJECT_TELOS" not in ctx  # undecodable => nothing injected
+    assert "uacp-bootstrap" not in ctx  # the file exists, so no bootstrap prompt
+
+
+def test_oversized_principle_still_injects_when_cap_cuts_a_multibyte_char(tmp_path: Path) -> None:
+    """The counterpart the fix must NOT break: when OUR cap cuts a character mid-sequence the
+    prefix is still injected, because that truncation is the harness's doing, not the file's."""
+    plugin_dir, workspace_dir = tmp_path / "plugin", tmp_path / "workspace"
+    plugin_dir.mkdir()
+    (workspace_dir / ".uacp").mkdir(parents=True)
+    (plugin_dir / "UACP.md").write_text(_UACP_MD, encoding="utf-8")
+    # Pad so that the 65 536-byte boundary lands INSIDE a 3-byte euro sign.
+    head = b"# P\n\nSENTINEL_PROJECT_TELOS\n"
+    pad = b"A" * (65536 - len(head) - 1)
+    (workspace_dir / "PRINCIPLE.md").write_bytes(head + pad + "€".encode() * 8)
+
+    proc = _run(plugin_dir, payload={"cwd": str(workspace_dir)})
+
+    assert proc.returncode == 0
+    ctx = json.loads(proc.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "SENTINEL_PROJECT_TELOS" in ctx  # capped prefix still injected
