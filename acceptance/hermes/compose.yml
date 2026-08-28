@@ -1,0 +1,19 @@
+# UACP E2E acceptance — the `runner:hermes` conformance service (design nodes 11/13).
+#
+#   docker compose -f acceptance/hermes/compose.yml run --rm conformance-hermes
+#
+# Exit 0 + a conformance.json under ./acceptance/hermes/out == Hermes loaded the UACP Guardian
+# adapter and registered every governed tool the shipped manifest declares.
+#
+# `network_mode: none` is deliberate and is part of the claim: plugin conformance needs no model and
+# no network, so running with the network removed proves the verdict came from a local Hermes and
+# nothing was fetched, warmed, or inferred at run time. (Build time needs the network — that is
+# where Hermes' own installer runs.)
+services:
+  conformance-hermes:
+    build:
+      context: ../..
+      dockerfile: acceptance/hermes/Dockerfile
+    network_mode: none
+    volumes:
+      - ./out:/out

@@ -12,3 +12,6 @@ acceptance/out
 .mcp.json
 .claude
 .claude.json
+
+# hermes runner output volume
+acceptance/hermes/out
