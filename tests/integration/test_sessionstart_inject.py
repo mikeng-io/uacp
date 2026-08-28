@@ -20,15 +20,24 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SHIM = _REPO_ROOT / "runtime-adapters" / "claude" / "inject_uacp_md.py"
+# The context-building helpers are runtime-NEUTRAL and live in shared/ so Hermes uses the same ones;
+# the Claude file keeps only its stdin/stdout hook edges. Unit-level tests below therefore load the
+# shared module, while the end-to-end tests still run the Claude hook as a subprocess.
+_SHARED = _REPO_ROOT / "runtime-adapters" / "shared" / "session_context.py"
 
 
-def _load_shim_module():
+def _load_module(path: Path, name: str):
     import importlib.util
 
-    spec = importlib.util.spec_from_file_location("_inject_uacp_md_under_test", _SHIM)
+    spec = importlib.util.spec_from_file_location(name, path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+def _load_shim_module():
+    """The neutral context builder — where the parsing/formatting helpers now live."""
+    return _load_module(_SHARED, "_session_context_under_test")
 
 
 def test_stdlib_fallback_parses_column_zero_and_indented() -> None:

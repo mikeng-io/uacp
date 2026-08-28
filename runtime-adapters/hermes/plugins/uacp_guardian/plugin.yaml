@@ -5,6 +5,9 @@ author: Hermes/UACP
 hooks:
 - pre_tool_call
 - post_tool_call
+# pre_llm_call carries the UACP.md cognition preamble on the first turn (Hermes never fires
+# on_session_start, despite declaring it — see on_pre_llm_call's docstring).
+- pre_llm_call
 # The list below mirrors the FULL surface `register()` installs from the neutral
 # `tool_specs()` registry — read-only tools included. It is generated, because a
 # hand-kept copy drifted to 10 entries while the kernel registered 19.
