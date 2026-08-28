@@ -17,7 +17,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Generic, TypeVar
 
 import yaml
 from pydantic import ValidationError
@@ -46,12 +46,19 @@ from engines.domain import (  # noqa: E402
     stages_default,
 )
 
+# PEP 695 (``class Loaded[T]``) would pin this module to Python 3.12+, but the
+# package floor is ``requires-python = ">=3.11"`` and the host runtimes inside
+# that range ship older interpreters (Hermes' venv is 3.11), where a syntax
+# error makes the whole plugin fail to load — silently, because plugin loaders
+# catch per-plugin exceptions. Keep the pre-695 spelling until the floor moves.
+_T = TypeVar("_T")
+
 
 @dataclass(frozen=True)
-class Loaded[T]:
+class Loaded(Generic[_T]):
     """Result of a disk load. ``value`` is None exactly when ``error`` is set."""
 
-    value: T | None = None
+    value: _T | None = None
     error: str | None = None
 
 

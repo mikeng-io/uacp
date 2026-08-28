@@ -1,4 +1,4 @@
-.PHONY: lint docs-drift format fmt types quality test acceptance ci-pr ci-push act-pr-policy act-pr-policy-fail-assignee act-pr-policy-fail-title act-pr-policy-fail-branch release-dry release-prep act-release help
+.PHONY: lint docs-drift format fmt types quality test acceptance acceptance-hermes ci-pr ci-push act-pr-policy act-pr-policy-fail-assignee act-pr-policy-fail-title act-pr-policy-fail-branch release-dry release-prep act-release help
 .DEFAULT_GOAL := help
 
 ENGINES := skills/uacp-core/scripts/engines/
@@ -42,6 +42,14 @@ test:
 # containerized plugin-source conformance smoke (not a `claude plugin install` round-trip). Needs docker.
 acceptance:
 	docker compose -f acceptance/compose.yml run --rm conformance
+
+# E2E acceptance harness — the `runner:hermes` twin (design nodes 11/13): install the UACP Guardian
+# adapter into a REAL pinned Hermes the user-real way (symlink binding + `hermes plugins enable`) and
+# assert, from HERMES' OWN reports, that the plugin loaded and every governed tool it declares is
+# registered. Periodic / pre-release, NOT a merge gate — it builds Hermes from source over the
+# network and takes minutes. See acceptance/hermes/README.md. Needs docker.
+acceptance-hermes:
+	docker compose -f acceptance/hermes/compose.yml run --rm conformance-hermes
 
 # Simulate the PR gate (quality + test) via act — mirrors what runs on pull_request.
 ci-pr:
@@ -113,6 +121,7 @@ help:
 	@echo "  quality    lint + format + types"
 	@echo "  test       pytest -n auto (all suites)"
 	@echo "  acceptance E2E plugin-conformance smoke in a container (needs docker)"
+	@echo "  acceptance-hermes  same, for the Hermes runner — periodic/pre-release, not a merge gate"
 	@echo "  ci-pr                  act pull_request — simulate PR gate locally"
 	@echo "  ci-push                act push — simulate post-merge jobs locally"
 	@echo "  act-pr-policy          run PR Policy with a passing event"

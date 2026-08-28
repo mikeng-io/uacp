@@ -100,3 +100,47 @@ jobs:
 
       - name: Run tests
         run: make test
+
+  # Backward-compatibility check at the DECLARED floor (`requires-python` in
+  # pyproject.toml). The 3.13/3.14 jobs above only ever prove the code runs on a
+  # modern interpreter — they cannot see a 3.12-only construct that makes the
+  # package fail to import for a user, or for a host runtime (Hermes' venv is
+  # 3.11), that is inside the range we advertise. Because plugin loaders catch
+  # per-plugin exceptions, such a break shows up as "plugin disabled", not a
+  # crash, so it must be caught here. This job is a MERGE BLOCKER: unlike the
+  # 3.14 forward-compat job, it guards a contract we already publish.
+  #
+  # `tests/unit/test_python_version_floor.py` covers the grammar half on every
+  # interpreter; this job adds the half that needs a real floor interpreter —
+  # actually importing the shipped modules.
+  test-floor:
+    name: import check (declared floor)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Read requires-python floor from pyproject.toml
+        id: floor
+        run: |
+          floor=$(python3 -c "import re,pathlib; \
+            print(re.search(r'^requires-python\s*=\s*\"[><=~^]*\s*(\d+\.\d+)', \
+            pathlib.Path('pyproject.toml').read_text(), re.M).group(1))")
+          echo "Declared floor: $floor"
+          echo "version=$floor" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Python at the declared floor
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ steps.floor.outputs.version }}
+
+      - name: Install the package as a user would
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # Import every shipped module on the floor interpreter. A SyntaxError or a
+      # too-new stdlib call surfaces here as a hard failure instead of a silently
+      # disabled plugin on a user's machine.
+      - name: Import shipped modules on the floor interpreter
+        run: python scripts/check_python_floor.py
