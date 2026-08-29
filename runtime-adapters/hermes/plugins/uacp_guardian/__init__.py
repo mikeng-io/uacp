@@ -12,6 +12,7 @@ working.
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -55,6 +56,18 @@ from governed_handlers import (  # noqa: F401  (re-exported for tests)
 )
 from tool_specs import hermes_schema, tool_specs
 from hook_kernel import evaluate_pre_tool_call  # noqa: E402  (sys.path set above)
+
+# The session-context builder is runtime-NEUTRAL (shared with the Claude SessionStart hook), so the
+# same preamble + handoffs + PRINCIPLE.md reach a Hermes session. Kernel-free and fail-open.
+_SHARED_ADAPTERS = Path(__file__).resolve().parents[3] / "shared"
+if str(_SHARED_ADAPTERS) not in sys.path:
+    sys.path.insert(0, str(_SHARED_ADAPTERS))
+
+from session_context import (  # noqa: E402  (sys.path set above)
+    build_session_context,
+    principle_path,
+    workspace_root,
+)
 
 # State handlers stay sourced from uacp-state; re-exported here for tests.
 from state import (  # noqa: F401  (re-exported for tests)
@@ -279,6 +292,42 @@ def _infer_hermes_tool_provider(tool_name: str) -> str:
     return "core"
 
 
+def on_pre_llm_call(
+    *,
+    is_first_turn: bool = False,
+    **_: Any,
+) -> dict[str, str] | None:
+    """Inject the UACP cognition preamble on the first turn of a Hermes session.
+
+    WHY THIS HOOK AND NOT ``on_session_start``. Hermes DECLARES ``on_session_start`` in its valid-hook
+    list, but the pinned runtime never fires it: a probe plugin registering all seven session/tool
+    hooks saw only ``on_session_finalize`` fire in a real session. Registering it would be a
+    declared-but-dead capability — exactly the defect class UACP exists to catch — so the injection
+    rides ``pre_llm_call``, which Hermes does fire, and which hands us ``is_first_turn`` so the
+    preamble goes in ONCE per session rather than on every turn.
+
+    Returning ``{"context": ...}`` is Hermes' documented contribution shape; the host joins any
+    plugin contributions and appends them to the user message for that turn. Fail-open by contract:
+    Hermes wraps this call in its own try/except, and an empty return simply injects nothing.
+    """
+    if not is_first_turn:
+        return None
+    try:
+        cwd = os.getcwd()
+    except OSError:
+        cwd = ""
+    try:
+        # UACP_ROOT is the Hermes-side equivalent of Claude's plugin root: where UACP.md ships.
+        uacp_root = str(_policy().uacp_root)
+    except (GuardianPolicyError, UacpRootUnresolvedError):
+        uacp_root = os.environ.get("UACP_ROOT", "") or os.environ.get("HERMES_HOME", "")
+    if not uacp_root:
+        return None
+    ws_root = workspace_root(cwd, uacp_root)
+    text = build_session_context(uacp_root, ws_root, principle_path(cwd, ws_root))
+    return {"context": text} if text else None
+
+
 def register(ctx) -> None:
     """Register the Guardian hooks and the governed tool surface into Hermes.
 
@@ -295,6 +344,7 @@ def register(ctx) -> None:
     """
     ctx.register_hook("pre_tool_call", on_pre_tool_call)
     ctx.register_hook("post_tool_call", on_post_tool_call)
+    ctx.register_hook("pre_llm_call", on_pre_llm_call)
     for spec in tool_specs():
         ctx.register_tool(
             name=spec.name,

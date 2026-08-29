@@ -1086,7 +1086,7 @@ binding_kind = "symlink"
 # cover hook firing (Hermes exposes no model-free report of plugin hook registration) or
 # a driven lifecycle (Priority 2, blocked on a tool channel for the lifecycle ops).
 migration_status = "live_bound_user_plugin"
-verification_artifact = "acceptance/hermes/evidence/20260828-plugin-conformance.json"
+verification_artifact = "acceptance/hermes/evidence/20260829-plugin-conformance-v0.20.6.json"
 verification_method = "containerized acceptance run; reproduce with `make acceptance-hermes`"
 
 [runtime_bindings.hermes.adapters.thread_title_sync]

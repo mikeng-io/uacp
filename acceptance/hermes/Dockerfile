@@ -29,21 +29,49 @@ FROM debian:bookworm-slim
 # fails without it (same reason tools/proving-ground/images/hermes/Dockerfile carries it).
 # `jq` is a HARNESS tool (it parses Hermes' own JSON reports), in the same class as curl — it is not
 # a UACP dependency and nothing under test is installed here.
+#
+# `xz-utils` and `libatomic1` are BASE-OS runtime libraries that `-slim` strips but any real machine
+# has; they are not shortcuts. Hermes' installer untars its Node.js tarball with xz, and from
+# v2026.8.27 it installs Node 26, whose binary links `libatomic.so.1` — without it `node --version`
+# dies with "error while loading shared libraries" and the whole install aborts (exit 127). Supplying
+# `build-essential` is likewise the installer's OWN stated requirement, not our shortcut: from
+# v2026.8.27 it needs a C++ compiler for native Node modules (node-pty) and ABORTS without one,
+# after trying `sudo apt install build-essential` itself — which fails here only because the
+# container user has no sudo. Supplying it reproduces what that installer does on a real machine.
+#
+# `python3` is for NODE-GYP, not for Hermes. node-gyp shells out to a `python3` on PATH to configure
+# native module builds, and without one `npm install` fails silently (no output, non-zero exit) and
+# the installer aborts — from v2026.8.27 that npm step is fatal by design (upstream #85297) and
+# `--skip-browser` does NOT skip it. This does NOT undo the no-Python-base rule above: Hermes still
+# picks its own interpreter via uv, and the two are distinguishable — Debian bookworm ships python
+# 3.11.2 while uv installs 3.11.16, so the 3.11.16 this harness reports is provably uv's, not the
+# system one. If that ever reads 3.11.2, the reproduction has broken and the run is not evidence.
+# them reproduces an ordinary machine; it does NOT pre-resolve anything UACP needs.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates curl git tini procps xz-utils jq \
+      ca-certificates curl git tini procps xz-utils libatomic1 build-essential python3 jq \
     && rm -rf /var/lib/apt/lists/*
 
 # A normal (unprivileged) user's install, not root's.
 RUN useradd -m -u 1000 agent
 ENV HERMES_HOME=/home/agent/.hermes
 ENV PATH=/home/agent/.local/bin:/home/agent/.hermes/bin:$PATH
+# Keep the interpreter choice HERMES', not the base image's. The `python3` installed above (for
+# node-gyp) is a 3.11 that `uv python find 3.11` would otherwise happily adopt — and it did: the
+# first run after adding it reported 3.11.2, Debian's, instead of uv's 3.11.16, silently turning the
+# floor reproduction into a test of whatever the base image ships. `only-managed` forces uv to use
+# ONLY interpreters it downloaded itself, restoring "let Hermes' installer select the interpreter".
+ENV UV_PYTHON_PREFERENCE=only-managed
 
-# Reproducible pin, reused verbatim from tools/proving-ground/images/hermes/Dockerfile:
-# install.sh @ commit 2bd1977 (sha256 dbd9d555...) with `--commit 2bd1977` == Hermes git tag
-# v2026.6.19 == `hermes v0.17.0`. Pinned independently so a future install.sh change cannot silently
-# move the runtime under the harness.
-ARG HERMES_COMMIT=2bd1977d8fad185c9b4be47884f7e87f1add0ce3
-ARG HERMES_INSTALL_SHA256=dbd9d555ed4ac67bd1fc71ba6a39b410cf2af0ebcfd8f4889e086af78c9ddcaa
+# Reproducible pin: install.sh @ commit 5fc308a (sha256 c0380bc1...) with `--commit 5fc308a` ==
+# Hermes git tag v2026.8.27. Pinned independently so a future install.sh change cannot silently move
+# the runtime under the harness.
+#
+# BUMP THE PIN DELIBERATELY, and re-run. A pin nobody advances turns a green harness into proof about
+# an environment no user runs any more — the same shape of stale claim this harness exists to kill.
+# NOTE: tools/proving-ground/images/hermes/Dockerfile still pins 2bd1977 (v2026.6.19); that is a cell
+# image with its own cadence, so the two now DIVERGE on purpose rather than by neglect.
+ARG HERMES_COMMIT=5fc308a70719a83cccdbba4c0e39c23f5a8239d5
+ARG HERMES_INSTALL_SHA256=c0380bc1f78d3d662a77663ce20cc17e14cbc4bec35e61ab7a33bac5f3afed2d
 
 USER agent
 WORKDIR /home/agent
