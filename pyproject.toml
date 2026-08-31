@@ -23,7 +23,7 @@ description = "Universal Agent Control Plane"
 # Raising this REQUIRES raising [tool.ruff] target-version in lockstep.
 requires-python = ">=3.11"
 dependencies = [
-    "pydantic>=2.13.4",
+    "pydantic>=2.13.5",
     "pyyaml",
     "jsonschema>=4.26.0",  # uacp-schema: per-kind JSON-Schema (draft 2020-12) validation (D9/D10)
 ]
