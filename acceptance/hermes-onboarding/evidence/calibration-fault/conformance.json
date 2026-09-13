@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-09-13T09:18:54.077172+00:00",
+  "origin": "https://agent.trustless.zone.invalid",
+  "mode": "transcript",
+  "agent_report": null,
+  "independent_checks": null,
+  "legs": null,
+  "verdict": "ERROR",
+  "error": "no ```json fenced block found in agent output"
+}

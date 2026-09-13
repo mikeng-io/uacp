@@ -1,0 +1,23 @@
+# Fresh, minimal Hermes config for runner:hermes-onboarding. Deliberately bare: no skills, no
+# plugins (not even UACP Guardian — this probes trustless's API, not UACP itself), no memory/
+# identity carried over. Built new in the image each run; never the long-running host ~/.hermes.
+model:
+  default: norty
+  provider: omniroute
+providers:
+  omniroute:
+    base_url: http://localhost:20128/v1
+    key_env: OMNIROUTE_API_KEY
+toolsets:
+  - terminal
+agent:
+  max_turns: 80
+  gateway_timeout: 1800
+  reasoning_effort: high
+  tool_use_enforcement: auto
+  task_completion_guidance: true
+  verbose: false
+terminal:
+  backend: local
+  cwd: /home/agent
+  timeout: 180

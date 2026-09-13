@@ -1,0 +1,22 @@
+# UACP E2E acceptance — the `runner:hermes-onboarding` service (see GOAL.md / README.md).
+#
+#   OMNIROUTE_API_KEY=... docker compose -f acceptance/hermes-onboarding/compose.yml run --rm onboarding-hermes
+#
+# network_mode: host is DELIBERATE and declared, not a convenience default: it is the same choice
+# ~/workspace/hermes-workspace/docker-compose.yml makes for the identical reason (reach OmniRoute
+# at localhost:20128 on the host). Unlike that UI container, this one is an LLM with a terminal and
+# --yolo, so the blast radius is real — mitigated by: ephemeral (removed after each run), runs as
+# an unprivileged user, no host paths mounted, and invoked manually/periodically, never as an
+# always-on service. Flagged here rather than silently chosen.
+services:
+  onboarding-hermes:
+    build:
+      context: ../..
+      dockerfile: acceptance/hermes-onboarding/Dockerfile
+    network_mode: host
+    environment:
+      OMNIROUTE_API_KEY: ${OMNIROUTE_API_KEY}
+      TARGET_URL: ${TARGET_URL:-https://agent.trustless.zone/llms.txt}
+      TIMEOUT_SECONDS: ${TIMEOUT_SECONDS:-1500}
+    volumes:
+      - ./out:/out

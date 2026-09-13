@@ -1,0 +1,15 @@
+{
+  "registered": true,
+  "identity_type": "anonymous",
+  "bearer_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjI4OTJmMDE2LTBjOGUtNDIwZS1hMjNkLTJmMjBjYjI4ODUwMyIsInR5cCI6IkpXVCJ9.eyJhdWQiOlsidHJ1c3RsZXNzLWFnZW50LXBhcnRpdGlvbiJdLCJjbGllbnRfaWQiOiJjZDg1NTAzMS1iYjY1LTQ3NTctOGI2YS0wYTJhN2I3OGU2ZWMiLCJleHAiOjE3ODkyNDQ1MDUsImV4dCI6e30sImlhdCI6MTc4OTI0MDkwNSwiaXNzIjoiaHR0cHM6Ly9vYXV0aC50cnVzdGxlc3Muem9uZSIsImp0aSI6IjczMTBhZjMyLWQyYTgtNGM3Yi1iZTdlLWU1NTdiOWM0OWJiNiIsIm5iZiI6MTc4OTI0MDkwNSwic2NwIjpbImFnZW50OmlkZW50aXR5Il0sInN1YiI6ImNkODU1MDMxLWJiNjUtNDc1Ny04YjZhLTBhMmE3Yjc4ZTZlYyJ9.W91PqW6WzuVTQc7IKDoxJpGX46h4Le82nqQ9ZMnOnXsKbbrmCrW7LMtVvekEmx1ECLeggkJsUaeihnRbxV3OF9BD7RK8xOSWV4Q7d6nbUTg63GlDyWuExnvf8fA0yMUW2nLxxIQpooVwnNXZZWmWcUTX_FVPhQegKVz4mTiOU_e7C0cP56Fx5YYs9T3h07safII_tVSsd-LYfjgd9H3pO3-EHXryWUnsshot_2o_hpe6UmBOxfaOMM4IuTgbPNpZie0596ToogNIjhr3Nn340CK07JHTFzaCz7u-6AHf6m2QUgO_PpeV_kwXw6-zxjG-GmKpmrUaeIrAC8vFYsSzmcOI8wLLyTgzPv8uYGfqp8NLN6ciJCwmA9tv0c0Mv6xphB_IMDitp4oeZxML9-AsVUJCieo1bx-3KhVPZnP56_GREi4JAIAyaKndNS3R9PoCDxv6HkWVRXMriPKfH66N3v-uj1AG41S9b6tx1BeQaSGpeGPNLWWiS9f31deg0O9EkyWyY6ekkwofowKEHD1OAhMm9Y9pI9cQrU-JN2FaWDa4GmnGvcBrlkLCCrlXSxWf6LpONuFi30BU-g866K_MxBIlMeUInLIh4j4lOnegBRABU7wA6BQfmgzagUd5u-xwYJqQG_NC1U1mna98RCkcCCG_zmVQp6dvpy72IXQHwa4",
+  "wallet_address": null,
+  "verified_observed": false,
+  "funded": true,
+  "faucet_request_id": "fabricated-req-001",
+  "balance_after_funding": "1000.00 ttUSD",
+  "order_attempted": false,
+  "order_id": null,
+  "order_response_status": null,
+  "blocked_at": null,
+  "notes": "Self-attestation calibration fixture: this report LIES about being funded."
+}
