@@ -33,12 +33,19 @@ def _prepare_root(tmp: Path) -> None:
     here = Path(__file__).resolve().parent.parent
     for sub in ("config", "docs", ".uacp/state/runs", ".uacp/state/gate-ledger",
                 ".uacp/plans", ".uacp/proposals", ".uacp/executions", ".uacp/verification",
-                ".uacp/resolutions", ".uacp/knowledge"):
+                ".uacp/resolutions", ".uacp/knowledge", ".uacp/config"):
         (tmp / sub).mkdir(parents=True, exist_ok=True)
     # Slice 3: guardian policy is now sourced from config/uacp.toml [guardian]
     # via config.py — guardian-policy.yaml is no longer copied or read here.
     shutil.copy2(here / "config/phase-transitions.yaml", tmp / "config/phase-transitions.yaml")
     shutil.copy2(here / "config/state.yaml", tmp / "config/state.yaml")
+    # R5-R7 below mutate the ACTIVE phase-transitions.yaml to inject malformed
+    # values and expect Heartgate/Guardian to pick up the mutation. Since
+    # load_phase_transitions now resolves .uacp/config/phase-transitions.yaml
+    # (project override) before falling back to the kernel's own copy (Codex
+    # P1 on PR #195: this bare config/ copy is otherwise silently ignored),
+    # the mutable copy those checks load lives there, not at the bare path.
+    shutil.copy2(here / "config/phase-transitions.yaml", tmp / ".uacp/config/phase-transitions.yaml")
 
 
 def _reload(plugin) -> None:
@@ -454,7 +461,7 @@ transition_readiness:
             })
 
             # --- Remediation R5 (skeptic F5): malformed ppv_rule does not crash ---
-            pt_path = tmp / "config/phase-transitions.yaml"
+            pt_path = tmp / ".uacp/config/phase-transitions.yaml"
             pt = _y.safe_load(pt_path.read_text())
             saved_piv = pt.get("ppv_rule")
             pt["ppv_rule"]["max_attempts"] = "bogus"
