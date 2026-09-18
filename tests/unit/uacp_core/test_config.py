@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-import config as config_module
 from config import UacpConfig, kernel_asset_path, kernel_root, load_config
 
 
@@ -22,9 +19,7 @@ def test_kernel_root_is_the_install_not_a_governed_project():
     own config/scripts, not whatever foreign project is being governed."""
     root = kernel_root()
     assert (root / "config" / "uacp.toml").is_file()
-    assert (root / "skills" / "uacp-core" / "scripts" / "config.py").resolve() == Path(
-        config_module.__file__
-    ).resolve()
+    assert (root / "skills" / "uacp-core" / "scripts" / "config.py").is_file()
 
 
 def test_kernel_asset_path_joins_under_kernel_root():

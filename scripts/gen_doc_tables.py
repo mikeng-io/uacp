@@ -131,7 +131,7 @@ def _artifact_roots() -> list[str]:
 
 
 def _canonical_boundary(top: str) -> list[str]:
-    """The suffix set for the docs/config canonical write boundary."""
+    """The suffix set for the docs canonical write boundary (single ``allowed_top``)."""
     src = (_CORE / "governed_handlers.py").read_text()
     m = _require(
         src,
@@ -140,6 +140,23 @@ def _canonical_boundary(top: str) -> list[str]:
         "governed_handlers.py",
     )
     return sorted(re.findall(r'"(\.\w+)"', m.group(1)))
+
+
+def _canonical_boundary_prefixes(marker: str) -> tuple[list[str], list[str]]:
+    """The (prefixes, suffixes) for a canonical write boundary declared via
+    ``allowed_prefixes=(...)`` (uacp_config_write: more than one accepted
+    root-relative prefix — see governed_handlers._validate_canonical_target)."""
+    src = (_CORE / "governed_handlers.py").read_text()
+    m = _require(
+        src,
+        rf"{marker}[\s\S]*?allowed_prefixes=\((.*?)\),\s*\n\s*suffixes=\{{([^}}]*)\}}",
+        f"{marker} allowed_prefixes canonical boundary",
+        "governed_handlers.py",
+    )
+    prefix_tuples = re.findall(r"\(([^()]*)\)", m.group(1))
+    prefixes = ["/".join(re.findall(r'"([^"]*)"', t)) for t in prefix_tuples]
+    suffixes = sorted(re.findall(r'"(\.\w+)"', m.group(2)))
+    return prefixes, suffixes
 
 
 def _state_carveouts() -> None:
@@ -226,7 +243,11 @@ def writer_path_table(base: str | None = None) -> str:
     _secondary_writes()
     artifact_roots = _artifact_roots()
     doc_suffixes = "/".join(f"`{s}`" for s in _canonical_boundary("docs"))
-    config_suffixes = "/".join(f"`{s}`" for s in _canonical_boundary("config"))
+    config_prefixes, config_suffix_list = _canonical_boundary_prefixes(
+        "def _handle_uacp_config_write"
+    )
+    config_prefix_cell = " or ".join(f"`{p}/**`" for p in config_prefixes)
+    config_suffixes = "/".join(f"`{s}`" for s in config_suffix_list)
     relation_dirs = ", ".join(f"`{base}/{d}/`" for d in _relation_dirs())
     artifact_cell = ", ".join(f"`{base}/{r}/`" for r in artifact_roots)
     run_lifecycle = [
@@ -307,8 +328,11 @@ def writer_path_table(base: str | None = None) -> str:
         ),
         row(
             ["uacp_config_write"],
-            f"`config/**` ({config_suffixes}; repo-root-relative, not under `{base}/`)",
-            "Canonical config boundary.",
+            f"{config_prefix_cell} ({config_suffixes})",
+            "Canonical config boundary. Accepts both the repo-root-relative "
+            f"doctrine files (`config/**`, not under `{base}/`) and a committed "
+            f"project override (`{base}/config/**`, the location "
+            "`load_phase_transitions` actually reads — issue #161 surface 3).",
         ),
         row(
             ["uacp_contained_shell"],

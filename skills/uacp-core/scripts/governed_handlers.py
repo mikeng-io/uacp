@@ -628,22 +628,41 @@ def _handle_uacp_entity_write(args: dict, **_: Any) -> str:
 
 
 def _validate_canonical_target(
-    root: Path, target_path: str, *, allowed_top: str, suffixes: set[str]
+    root: Path,
+    target_path: str,
+    *,
+    allowed_top: str | None = None,
+    allowed_prefixes: tuple[tuple[str, ...], ...] | None = None,
+    suffixes: set[str],
 ) -> tuple[Path, Path] | str:
+    """``allowed_prefixes`` generalizes ``allowed_top`` to support more than one
+    accepted root-relative prefix (e.g. both ``config/`` and ``.uacp/config/`` for
+    ``uacp_config_write`` — the governed writer must accept every location the
+    kernel actually reads a project override from, or a reported-success write can
+    silently have no effect). Exactly one of the two must be passed."""
+    prefixes: tuple[tuple[str, ...], ...]
+    if allowed_prefixes is not None:
+        prefixes = allowed_prefixes
+    elif allowed_top is not None:
+        prefixes = ((allowed_top,),)
+    else:
+        raise TypeError("_validate_canonical_target requires allowed_top or allowed_prefixes")
+    prefixes_desc = ", ".join("/".join(p) + "/" for p in prefixes)
+
     raw = Path(target_path)
     if raw.is_absolute():
         return "target_path must be UACP-root-relative"
     if any(part in {"", ".", ".."} for part in raw.parts):
         return "target_path must not contain empty, current, or parent path segments"
-    if not raw.parts or raw.parts[0] != allowed_top:
-        return f"target_path must be under {allowed_top}/"
+    if not any(raw.parts[: len(p)] == p for p in prefixes):
+        return f"target_path must be under one of: {prefixes_desc}"
     try:
         target = _resolve_uacp_path(target_path, root)
         rel = target.relative_to(root.resolve())
     except Exception as exc:
         return str(exc)
-    if not rel.parts or rel.parts[0] != allowed_top:
-        return f"target_path must resolve under {allowed_top}/"
+    if not any(rel.parts[: len(p)] == p for p in prefixes):
+        return f"target_path must resolve under one of: {prefixes_desc}"
     if target.name in {"", ".", ".."}:
         return "target_path must point to a file"
     if target.exists() and target.is_dir():
@@ -693,8 +712,15 @@ def _handle_uacp_config_write(args: dict, **_: Any) -> str:
             return json.dumps({"error": validated})
         target_path, content, reason, authority = validated
 
+        # Both prefixes are accepted: bare config/ for the doctrine files this
+        # writer has always covered, and .uacp/config/ for the project-override
+        # location load_phase_transitions actually reads (issue #161 surface 3) —
+        # a write reporting success must be a write the kernel will use.
         resolved = _validate_canonical_target(
-            root, target_path, allowed_top="config", suffixes={".yaml", ".yml"}
+            root,
+            target_path,
+            allowed_prefixes=(("config",), (".uacp", "config")),
+            suffixes={".yaml", ".yml"},
         )
         if isinstance(resolved, str):
             return json.dumps({"error": resolved})
