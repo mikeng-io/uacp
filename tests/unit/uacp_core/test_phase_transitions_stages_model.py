@@ -348,6 +348,57 @@ def test_loader_injects_default_when_yaml_omits_stages() -> None:
     assert loaded.value.get("stages") == stages_default()
 
 
+def test_loader_falls_back_to_kernel_config_for_a_foreign_workspace(tmp_path: Path) -> None:
+    """A workspace with no config/ or .uacp/ at all (an unstaged foreign project
+    governed by an installed UACP) must still resolve — via the kernel-shipped
+    config/phase-transitions.yaml, not a hard error (issue #161, surface 3)."""
+    loaded = load_phase_transitions(tmp_path)
+    assert loaded.error is None
+    assert loaded.value is not None
+    assert loaded.value.get("stages") == stages_default()
+
+
+def test_loader_prefers_a_committed_project_override(tmp_path: Path) -> None:
+    """A project override at <workspace>/.uacp/config/phase-transitions.yaml — inside
+    UACP's own governed namespace, matching the .uacp/config.toml convention — wins
+    over the kernel-shipped default."""
+    override_dir = tmp_path / ".uacp" / "config"
+    override_dir.mkdir(parents=True)
+    (override_dir / "phase-transitions.yaml").write_text("marker: project_override\nstages: {}\n")
+    loaded = load_phase_transitions(tmp_path)
+    assert loaded.error is None
+    assert loaded.value is not None
+    assert loaded.value.get("marker") == "project_override"
+
+
+def test_loader_fails_closed_on_a_garbled_project_override(tmp_path: Path) -> None:
+    """A GARBLED committed override must still error — only a genuinely ABSENT file
+    falls through to the kernel default; a broken one must not be silently ignored."""
+    override_dir = tmp_path / ".uacp" / "config"
+    override_dir.mkdir(parents=True)
+    (override_dir / "phase-transitions.yaml").write_text(": : : not yaml [[[")
+    loaded = load_phase_transitions(tmp_path)
+    assert loaded.error is not None
+    assert loaded.value is None
+
+
+def test_loader_ignores_a_broken_uacp_config_toml(tmp_path: Path) -> None:
+    """Regression for a Codex P1 on PR #195: a project's own .uacp/config.toml with
+    a traversing [paths] base (e.g. "../outside") must not affect this loader at all
+    -- it used to route through config.base_dir(), which raises on that input, and a
+    raise out of this "never raises" loader gets caught by callers (e.g. the Hermes
+    adapter's _phase_config()) that fall back to an EMPTY phase config, which Guardian
+    treats as "skip Layer B enforcement" -- a new, unintended path into an
+    under-enforcement state. The loader must not depend on .uacp/config.toml parsing
+    at all, so it can neither raise nor silently degrade because of it."""
+    (tmp_path / ".uacp").mkdir(parents=True)
+    (tmp_path / ".uacp" / "config.toml").write_text('[paths]\nbase = "../outside"\n')
+    loaded = load_phase_transitions(tmp_path)  # must not raise
+    assert loaded.error is None
+    assert loaded.value is not None
+    assert loaded.value.get("stages") == stages_default()
+
+
 def _make_event(tool_name: str, phase: str) -> GuardianEvent:
     return GuardianEvent(
         runtime="test",

@@ -117,9 +117,27 @@ def _deep_merge(base: dict, override: dict) -> dict:
     return result
 
 
+def kernel_root() -> Path:
+    """The install root: parent of the kernel-shipped ``config/`` and ``scripts/``.
+
+    Resolved from this module's own location (``Path(__file__)``), not from any
+    governed-project root — so it is correct whether this code is running out of
+    this repo, a clone, or the plugin cache, regardless of what project it is
+    governing. Any caller importing this function gets the SAME stable answer
+    (anchored to config.py's own depth), independent of the caller's own file
+    depth in the tree.
+    """
+    return Path(__file__).resolve().parents[3]
+
+
+def kernel_asset_path(*rel_parts: str) -> Path:
+    """A kernel-shipped asset path, e.g. ``kernel_asset_path("config", "uacp.toml")``."""
+    return kernel_root().joinpath(*rel_parts)
+
+
 def _default_toml_path() -> Path:
     """Path to the kernel-shipped default config (``<repo>/config/uacp.toml``)."""
-    return Path(__file__).resolve().parents[3] / "config" / "uacp.toml"
+    return kernel_asset_path("config", "uacp.toml")
 
 
 def load_config(project_root: Path | None = None) -> UacpConfig:

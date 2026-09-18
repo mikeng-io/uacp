@@ -131,7 +131,7 @@ def _artifact_roots() -> list[str]:
 
 
 def _canonical_boundary(top: str) -> list[str]:
-    """The suffix set for the docs/config canonical write boundary."""
+    """The suffix set for the docs canonical write boundary (single ``allowed_top``)."""
     src = (_CORE / "governed_handlers.py").read_text()
     m = _require(
         src,
@@ -140,6 +140,52 @@ def _canonical_boundary(top: str) -> list[str]:
         "governed_handlers.py",
     )
     return sorted(re.findall(r'"(\.\w+)"', m.group(1)))
+
+
+def _uacp_config_write_boundary() -> tuple[list[str], list[str]]:
+    """The (prefixes, suffixes) uacp_config_write actually accepts, derived
+    BEHAVIORALLY — by calling the real handler against probe paths and reading
+    its observable ok/error outcome — rather than by parsing
+    ``governed_handlers.py`` source syntax (Codex P1 on PR #195 / AGENTS.md
+    Code Review Rules "prefer behavioral proof over structural proof": a source
+    regex proves only that one literal spelling exists, not that the handler's
+    runtime accept/reject boundary matches what the docs claim; the two can
+    silently diverge while a syntax-matching drift check keeps passing)."""
+    import json
+    import tempfile
+
+    from governed_handlers import _handle_uacp_config_write
+
+    prefix_candidates = ["config", ".uacp/config", "docs", "state", ".uacp/state"]
+    suffix_candidates = [".yaml", ".yml", ".json", ".md"]
+
+    def _probe(target_path: str) -> bool:
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / ".uacp" / "state" / "runs").mkdir(parents=True)
+            (Path(td) / Path(target_path).parts[0]).mkdir(parents=True, exist_ok=True)
+            args = {
+                "target_path": target_path,
+                "content": "probe: true\n",
+                "reason": "gen_doc_tables boundary probe",
+                "authority_artifact": "plans/probe.yaml",
+                "workspace": td,
+                "uacp_run_id": "probe",
+                "uacp_phase": "execute",
+                "policy_version": "0.1",
+                "declared_side_effects": [],
+            }
+            return bool(json.loads(_handle_uacp_config_write(args)).get("ok"))
+
+    prefixes = [p for p in prefix_candidates if _probe(f"{p}/__gen_doc_tables_probe__.yaml")]
+    suffixes = [s for s in suffix_candidates if _probe(f"config/__gen_doc_tables_probe__{s}")]
+    if not prefixes:
+        raise DriftError(
+            "gen_doc_tables: uacp_config_write accepted none of the probed prefixes "
+            f"{prefix_candidates} — the handler behavior this table documents has "
+            "moved or changed; update scripts/gen_doc_tables.py's probe candidates"
+        )
+    return sorted(prefixes), sorted(suffixes)
 
 
 def _state_carveouts() -> None:
@@ -226,7 +272,9 @@ def writer_path_table(base: str | None = None) -> str:
     _secondary_writes()
     artifact_roots = _artifact_roots()
     doc_suffixes = "/".join(f"`{s}`" for s in _canonical_boundary("docs"))
-    config_suffixes = "/".join(f"`{s}`" for s in _canonical_boundary("config"))
+    config_prefixes, config_suffix_list = _uacp_config_write_boundary()
+    config_prefix_cell = " or ".join(f"`{p}/**`" for p in config_prefixes)
+    config_suffixes = "/".join(f"`{s}`" for s in config_suffix_list)
     relation_dirs = ", ".join(f"`{base}/{d}/`" for d in _relation_dirs())
     artifact_cell = ", ".join(f"`{base}/{r}/`" for r in artifact_roots)
     run_lifecycle = [
@@ -307,8 +355,11 @@ def writer_path_table(base: str | None = None) -> str:
         ),
         row(
             ["uacp_config_write"],
-            f"`config/**` ({config_suffixes}; repo-root-relative, not under `{base}/`)",
-            "Canonical config boundary.",
+            f"{config_prefix_cell} ({config_suffixes})",
+            "Canonical config boundary. Accepts both the repo-root-relative "
+            f"doctrine files (`config/**`, not under `{base}/`) and a committed "
+            f"project override (`{base}/config/**`, the location "
+            "`load_phase_transitions` actually reads — issue #161 surface 3).",
         ),
         row(
             ["uacp_contained_shell"],

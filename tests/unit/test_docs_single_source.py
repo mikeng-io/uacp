@@ -69,6 +69,52 @@ def test_writer_path_table_covers_every_writer():
 
 
 # ---------------------------------------------------------------------------
+# uacp_config_write boundary — BEHAVIORAL derivation (not source-syntax parsing)
+# ---------------------------------------------------------------------------
+
+
+def test_uacp_config_write_boundary_matches_actual_handler_behavior():
+    """_uacp_config_write_boundary() calls the real handler and reads its
+    observable ok/error outcome (AGENTS.md Code Review Rules: prefer behavioral
+    proof over structural proof) -- assert its result against the handler
+    directly, independent of gen_doc_tables' own probe, so the two cannot both
+    be wrong the same way."""
+    import json
+    import tempfile
+    from pathlib import Path
+
+    from governed_handlers import _handle_uacp_config_write
+
+    prefixes, suffixes = gen._uacp_config_write_boundary()
+    assert set(prefixes) == {"config", ".uacp/config"}
+    assert set(suffixes) == {".yaml", ".yml"}
+
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        (root / ".uacp" / "state" / "runs").mkdir(parents=True)
+        (root / "config").mkdir(parents=True)
+        (root / "docs").mkdir(parents=True)
+
+        def _write(target_path: str) -> bool:
+            args = {
+                "target_path": target_path,
+                "content": "x: 1\n",
+                "reason": "t",
+                "authority_artifact": "plans/t.yaml",
+                "workspace": str(root),
+                "uacp_run_id": "r1",
+                "uacp_phase": "execute",
+                "policy_version": "0.1",
+                "declared_side_effects": [],
+            }
+            return bool(json.loads(_handle_uacp_config_write(args)).get("ok"))
+
+        for prefix in prefixes:
+            assert _write(f"{prefix}/x.yaml"), f"{prefix} claimed accepted but was rejected"
+        assert not _write("docs/x.yaml"), "docs/ is not a declared prefix and must be rejected"
+
+
+# ---------------------------------------------------------------------------
 # Sentinel injection
 # ---------------------------------------------------------------------------
 

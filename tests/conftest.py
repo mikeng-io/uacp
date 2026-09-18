@@ -53,7 +53,6 @@ def temp_uacp_root() -> Generator[Path, None, None]:
     (base / "resolutions").mkdir(parents=True)  # replaces flat .outputs/
     (base / "verification").mkdir(parents=True)
     (base / "knowledge").mkdir(parents=True)
-    # config/ stays at project root this slice.
     (test_dir / "config").mkdir(parents=True)
     (test_dir / "docs").mkdir(parents=True)
 
@@ -64,8 +63,12 @@ def temp_uacp_root() -> Generator[Path, None, None]:
     # longer read. Tests get the full repo-default policy; a test needing a
     # custom policy writes a [guardian] table into <root>/.uacp/config.toml.
 
-    # Create minimal phase-transitions config
-    phase_path = test_dir / "config" / "phase-transitions.yaml"
+    # Create minimal phase-transitions config as a project override, under the
+    # governed .uacp/ namespace (matches the .uacp/config.toml convention — see
+    # loaders.load_phase_transitions).
+    phase_dir = base / "config"
+    phase_dir.mkdir(parents=True)
+    phase_path = phase_dir / "phase-transitions.yaml"
     phase_path.write_text("""
 stages:
   triage:
@@ -169,6 +172,10 @@ ppv_rule:
 artifact_schema:
   required_fields: []
 """)
+    # Also mirror it at the legacy bare config/ path: scripts/validate_uacp_artifacts.py
+    # (validate_configs) still reads config/phase-transitions.yaml root-relative and is
+    # NOT part of this slice's fix (tracked separately in issue #161, surface 5).
+    (test_dir / "config" / "phase-transitions.yaml").write_text(phase_path.read_text())
 
     os.chdir(test_dir)
     old_uacp_root = os.environ.get("UACP_ROOT")

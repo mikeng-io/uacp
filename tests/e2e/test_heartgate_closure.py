@@ -135,7 +135,7 @@ def _add_plan_exit_invariant(root: Path) -> None:
     leave a 'plans/{run_id}-plan-selection.yaml' artifact) so the engine has teeth
     — this is exactly the "invariant-declaring config" the EV engine consumes.
     """
-    cfg_path = root / "config" / "phase-transitions.yaml"
+    cfg_path = root / ".uacp" / "config" / "phase-transitions.yaml"
     cfg = yaml.safe_load(cfg_path.read_text())
     cfg["stages"]["plan"]["phase_exit_invariants"] = [
         {"artifact_glob": "plans/{run_id}-plan-selection.yaml", "required": True}

@@ -57,7 +57,7 @@ def _install_real_config(root: Path) -> None:
     """Replace the workspace's minimal conftest config with the REAL repo config,
     so the engine reads the actual ``resolve`` phase_exit_invariants (incl. its
     ``resolutions/{run_id}*`` artifact-glob token)."""
-    shutil.copyfile(_REPO_CONFIG, root / "config" / "phase-transitions.yaml")
+    shutil.copyfile(_REPO_CONFIG, root / ".uacp" / "config" / "phase-transitions.yaml")
 
 
 def _satisfy_resolve_ledger_gate(root: Path, run_id: str) -> None:

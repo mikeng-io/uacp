@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from config import UacpConfig, load_config
+from config import UacpConfig, kernel_asset_path, kernel_root, load_config
 
 
 def test_loads_default():
@@ -11,6 +11,19 @@ def test_loads_default():
     assert isinstance(cfg, UacpConfig)
     assert cfg.paths.base == ".uacp"
     assert cfg.paths.resolutions == "resolutions"
+
+
+def test_kernel_root_is_the_install_not_a_governed_project():
+    """kernel_root() is anchored to this module's own file, independent of any
+    project ``workspace``/``UACP_ROOT`` — the split issue #161 needs: this repo's
+    own config/scripts, not whatever foreign project is being governed."""
+    root = kernel_root()
+    assert (root / "config" / "uacp.toml").is_file()
+    assert (root / "skills" / "uacp-core" / "scripts" / "config.py").is_file()
+
+
+def test_kernel_asset_path_joins_under_kernel_root():
+    assert kernel_asset_path("config", "uacp.toml") == kernel_root() / "config" / "uacp.toml"
 
 
 def test_project_override_deep_merges(tmp_path):
