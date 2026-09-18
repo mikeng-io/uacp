@@ -278,22 +278,35 @@ def load_phase_transitions(workspace: Path) -> Loaded[dict[str, Any]]:
 
     Project-scope override is OPTIONAL: a project governed by an installed UACP
     (``workspace`` != the UACP install) need not carry its own copy. Resolution
-    order: (1) ``<workspace>/<base>/config/phase-transitions.yaml`` (``base`` is
-    ``base_dir(workspace)``, default ``.uacp`` — inside UACP's own governed
-    namespace, same convention as ``.uacp/config.toml``, so a project's unrelated
-    top-level ``config/`` can never collide with it by filename coincidence) —
-    a committed project override, if present; (2) else the kernel-shipped copy
-    (``kernel_asset_path("config", "phase-transitions.yaml")``, resolved from this
-    code's own install location, not from ``workspace`` — see ``config.kernel_root``);
-    (3) if even the kernel's own file is unreadable (a broken install), the
-    ``stages``-absent code-default path below still applies to an empty mapping.
-    A GARBLED file at either location still fails closed as an ``error`` — only
-    "file not found" falls through to the next source.
+    order: (1) ``<workspace>/.uacp/config/phase-transitions.yaml`` — inside
+    UACP's own governed namespace, same convention as ``.uacp/config.toml``, so
+    a project's unrelated top-level ``config/`` can never collide with it by
+    filename coincidence — a committed project override, if present; (2) else
+    the kernel-shipped copy (``kernel_asset_path("config", "phase-transitions.yaml")``,
+    resolved from this code's own install location, not from ``workspace`` —
+    see ``config.kernel_root``); (3) if even the kernel's own file is unreadable
+    (a broken install), the ``stages``-absent code-default path below still
+    applies to an empty mapping. A GARBLED file at either location still fails
+    closed as an ``error`` — only "file not found" falls through to the next
+    source.
+
+    Deliberately hardcoded to ``.uacp/`` rather than routed through
+    ``config.base_dir(workspace)`` (which resolves a configurable ``[paths] base``
+    from ``.uacp/config.toml``): several Layer-B consumers (e.g. the Hermes
+    Guardian adapter's ``_phase_config()``) catch broad exceptions/errors from
+    this loader and fall back to an EMPTY phase config, which Guardian's
+    ``_phase_layer_check`` treats as "skip Layer B enforcement" (a deliberate,
+    separately-reviewed degradation for the case where no phase config could be
+    loaded at all). Depending on ``base_dir()`` would let a project's own
+    malformed ``.uacp/config.toml`` (e.g. a traversing ``paths.base``) newly
+    trip that same fail-open path via THIS loader — a new way into an
+    under-enforcement state, not just a re-trigger of it. A fixed ``.uacp/``
+    prefix has no such dependency: it cannot raise and needs no config parsing.
 
     ``value`` is the parsed mapping; ``error`` is set when the resolved file is
     garbled or not a mapping. Never raises.
     """
-    path = base_dir(workspace) / "config" / "phase-transitions.yaml"
+    path = workspace / ".uacp" / "config" / "phase-transitions.yaml"
     raw, err = _safe_load_yaml(path)
     if err is not None and err.startswith("file not found:"):
         path = kernel_asset_path("config", "phase-transitions.yaml")

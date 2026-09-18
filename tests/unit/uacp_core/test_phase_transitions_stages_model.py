@@ -382,6 +382,23 @@ def test_loader_fails_closed_on_a_garbled_project_override(tmp_path: Path) -> No
     assert loaded.value is None
 
 
+def test_loader_ignores_a_broken_uacp_config_toml(tmp_path: Path) -> None:
+    """Regression for a Codex P1 on PR #195: a project's own .uacp/config.toml with
+    a traversing [paths] base (e.g. "../outside") must not affect this loader at all
+    -- it used to route through config.base_dir(), which raises on that input, and a
+    raise out of this "never raises" loader gets caught by callers (e.g. the Hermes
+    adapter's _phase_config()) that fall back to an EMPTY phase config, which Guardian
+    treats as "skip Layer B enforcement" -- a new, unintended path into an
+    under-enforcement state. The loader must not depend on .uacp/config.toml parsing
+    at all, so it can neither raise nor silently degrade because of it."""
+    (tmp_path / ".uacp").mkdir(parents=True)
+    (tmp_path / ".uacp" / "config.toml").write_text('[paths]\nbase = "../outside"\n')
+    loaded = load_phase_transitions(tmp_path)  # must not raise
+    assert loaded.error is None
+    assert loaded.value is not None
+    assert loaded.value.get("stages") == stages_default()
+
+
 def _make_event(tool_name: str, phase: str) -> GuardianEvent:
     return GuardianEvent(
         runtime="test",

@@ -352,7 +352,7 @@ The authoritative mapping from each governed writer to the paths it may write (t
 | `uacp_artifact_write` | `.uacp/brainstorm/`, `.uacp/executions/`, `.uacp/knowledge/`, `.uacp/lessons/`, `.uacp/plans/`, `.uacp/proposals/`, `.uacp/resolutions/`, `.uacp/verification/` | Non-manifest artifacts only; rejects `state/`, `docs/`, `config/` and any RELATION-plane manifest kind (use `uacp_entity_write`). Records watermarks under `.uacp/state/hashes/`. |
 | `uacp_corpus_write` | `.uacp/lessons/**` + `.uacp/knowledge/**` (OKF `.md`) | Oracle corpus writer (lessons + knowledge). Parses the authored OKF into a `Lesson`/`KnowledgeItem` and persists via `uacp_artifact_write` (the Oracle owns corpus read + write). |
 | `uacp_doc_write` | `docs/**` (`.md`; repo-root-relative, not under `.uacp/`) | Canonical docs boundary. |
-| `uacp_config_write` | `config/**` or `.uacp/config/**` (`.yaml`/`.yml`) | Canonical config boundary. Accepts both the repo-root-relative doctrine files (`config/**`, not under `.uacp/`) and a committed project override (`.uacp/config/**`, the location `load_phase_transitions` actually reads — issue #161 surface 3). |
+| `uacp_config_write` | `.uacp/config/**` or `config/**` (`.yaml`/`.yml`) | Canonical config boundary. Accepts both the repo-root-relative doctrine files (`config/**`, not under `.uacp/`) and a committed project override (`.uacp/config/**`, the location `load_phase_transitions` actually reads — issue #161 surface 3). |
 | `uacp_contained_shell` | the declared execution workspace only | Contained shell surface (bwrap read-only root); mints state, not a namespace writer. |
 
 Read-only governed tools (no write path): `uacp_sandbox_check`, `uacp_heartgate_check`, `uacp_oracle_query`, `uacp_run_status`.
