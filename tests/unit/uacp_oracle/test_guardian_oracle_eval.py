@@ -113,7 +113,7 @@ def test_oracle_query_allowed_decision_depends_on_classification(monkeypatch) ->
         tool_cls.pop("uacp_oracle_query", None)
         guardian_raw["tool_classification"] = tool_cls
         raw["guardian"] = guardian_raw
-        return _MutatedConfig(raw)
+        return _MutatedConfig(raw, original=cfg)
 
     monkeypatch.setattr(config_module, "get_config", _patched_get_config)
     monkeypatch.setattr(guardian_policy, "get_config", _patched_get_config)
@@ -135,13 +135,21 @@ def test_oracle_query_allowed_decision_depends_on_classification(monkeypatch) ->
 
 
 class _MutatedConfig:
-    """Minimal stand-in for the config object that exposes model_dump()."""
+    """Stand-in for the config object: model_dump() returns the mutated raw dict,
+    everything else (e.g. ``.paths``, read by config.base_dir — load_phase_transitions's
+    project-override resolution now calls get_config() too) delegates to the real,
+    unmutated config so callers besides GuardianPolicy.load still see a conformant object.
+    """
 
-    def __init__(self, raw: dict) -> None:
+    def __init__(self, raw: dict, *, original: object) -> None:
         self._raw = raw
+        self._original = original
 
     def model_dump(self) -> dict:
         return dict(self._raw)
+
+    def __getattr__(self, name: str):
+        return getattr(self._original, name)
 
     @property
     def model_extra(self) -> dict:

@@ -32,7 +32,7 @@ if str(_CORE_DIR) not in sys.path:
 
 from filesystem import _resolve_uacp_path  # noqa: E402
 
-from config import base_dir, dir_for  # noqa: E402
+from config import base_dir, dir_for, kernel_asset_path  # noqa: E402
 
 # Importing the domain package also bootstraps state_machine onto sys.path and
 # reuses RunManifest (it is not re-declared here).
@@ -276,11 +276,33 @@ def load_phase_transitions(workspace: Path) -> Loaded[dict[str, Any]]:
     fixture), that block wholesale-overrides the default — the loader leaves it
     untouched.
 
-    ``value`` is the parsed mapping; ``error`` is set when the file is missing,
-    garbled, or is not a mapping. Never raises.
+    Project-scope override is OPTIONAL: a project governed by an installed UACP
+    (``workspace`` != the UACP install) need not carry its own copy. Resolution
+    order: (1) ``<workspace>/<base>/config/phase-transitions.yaml`` (``base`` is
+    ``base_dir(workspace)``, default ``.uacp`` — inside UACP's own governed
+    namespace, same convention as ``.uacp/config.toml``, so a project's unrelated
+    top-level ``config/`` can never collide with it by filename coincidence) —
+    a committed project override, if present; (2) else the kernel-shipped copy
+    (``kernel_asset_path("config", "phase-transitions.yaml")``, resolved from this
+    code's own install location, not from ``workspace`` — see ``config.kernel_root``);
+    (3) if even the kernel's own file is unreadable (a broken install), the
+    ``stages``-absent code-default path below still applies to an empty mapping.
+    A GARBLED file at either location still fails closed as an ``error`` — only
+    "file not found" falls through to the next source.
+
+    ``value`` is the parsed mapping; ``error`` is set when the resolved file is
+    garbled or not a mapping. Never raises.
     """
-    path = workspace / "config" / "phase-transitions.yaml"
+    path = base_dir(workspace) / "config" / "phase-transitions.yaml"
     raw, err = _safe_load_yaml(path)
+    if err is not None and err.startswith("file not found:"):
+        path = kernel_asset_path("config", "phase-transitions.yaml")
+        raw, err = _safe_load_yaml(path)
+        if err is not None and err.startswith("file not found:"):
+            # Even the kernel install lacks its own shipped config — fall through
+            # to an empty mapping so the stages-absent code-default path below
+            # still produces a valid, fail-closed result instead of erroring.
+            raw, err = {}, None
     if err is not None:
         return Loaded(error=err)
     if not isinstance(raw, dict):

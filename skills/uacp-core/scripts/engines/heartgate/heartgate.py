@@ -136,7 +136,7 @@ class Heartgate:
         if not isinstance(raw, dict):
             raise HeartgateError(
                 "Heartgate config must be a YAML mapping: "
-                f"{root / 'config' / 'phase-transitions.yaml'}"
+                "phase-transitions.yaml (project override or kernel-shipped default)"
             )
         return cls(raw, uacp_root=root)
 

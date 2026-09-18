@@ -69,7 +69,8 @@ def _write_brainstorm_config(root: Path) -> None:
         "ppv_rule": {"ledger_required": False},
         "artifact_schema": {"required_fields": []},
     }
-    phase_path = root / "config" / "phase-transitions.yaml"
+    phase_path = root / ".uacp" / "config" / "phase-transitions.yaml"
+    phase_path.parent.mkdir(parents=True, exist_ok=True)
     phase_path.write_text(yaml.safe_dump(cfg, sort_keys=False))
 
 

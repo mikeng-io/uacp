@@ -624,7 +624,7 @@ def _enable_production_ppv_ledger(root: Path) -> None:
     The conftest fixture deliberately opts OUT of ppv_rule to preserve prior
     test laxity; this restores the production posture for the one test that
     pins goal-driven != governance-skip under production config."""
-    cfg = root / "config" / "phase-transitions.yaml"
+    cfg = root / ".uacp" / "config" / "phase-transitions.yaml"
     text = cfg.read_text(encoding="utf-8")
     new_text = text.replace(
         "ppv_rule:\n  ledger_required: false", "ppv_rule:\n  ledger_required: true"

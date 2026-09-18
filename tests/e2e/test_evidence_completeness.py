@@ -85,7 +85,7 @@ stages:
 
 
 def _write_evidence_config(root: Path) -> None:
-    (root / "config" / "phase-transitions.yaml").write_text(_EVIDENCE_CONFIG)
+    (root / ".uacp" / "config" / "phase-transitions.yaml").write_text(_EVIDENCE_CONFIG)
 
 
 def _seed_evidence(root: Path, run_id: str) -> None:
@@ -128,7 +128,8 @@ def test_positive_is_non_vacuous(temp_uacp_root: Path, valid_run_id: str):
     """Guard against a vacuous pass: the config the run reads MUST actually declare
     enforceable required invariants, otherwise 0 violations proves nothing."""
     seed_complete_run(temp_uacp_root, valid_run_id)
-    cfg = yaml.safe_load((temp_uacp_root / "config" / "phase-transitions.yaml").read_text())
+    cfg_path = temp_uacp_root / ".uacp" / "config" / "phase-transitions.yaml"
+    cfg = yaml.safe_load(cfg_path.read_text())
     required = [
         inv
         for stage in cfg["stages"].values()
